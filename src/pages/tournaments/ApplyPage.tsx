@@ -209,12 +209,13 @@ function Applying(props: { user: Me }) {
                   <Show
                     when={s().eligible.email}
                     fallback={
-                      // Placeholder copy until the recovery-email section in Settings exists.
+                      // Linking Google or Discord gives the account its email (see linkIdentity).
                       <p class='tm-apply-profile'>
-                        Add an email first.{' '}
+                        A store application needs an email we can reach you at. Link Google or Discord in{' '}
                         <A class='tm-link-inline' href='/settings'>
                           Settings
-                        </A>
+                        </A>{' '}
+                        to add one.
                       </p>
                     }
                   >

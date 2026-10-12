@@ -384,7 +384,10 @@ function ListRow(props: { form: DecklistState }) {
               <strong>{parsed().total}</strong> / 60
             </span>
           </p>
-          <Show when={parsed().problems.length > 0} fallback={<p class='muted tm-deck-ok'>No problems</p>}>
+          <Show
+            when={parsed().problems.length > 0}
+            fallback={<p class='muted tm-deck-ok'>Card count and copy limits check out</p>}
+          >
             <ul class='tm-problems'>
               <For each={parsed().problems}>{problem => <li>{problem}</li>}</For>
             </ul>

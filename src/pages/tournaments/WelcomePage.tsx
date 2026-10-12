@@ -36,6 +36,10 @@ export function WelcomePage() {
   return (
     <div class='tm-page tm-narrow'>
       <TournamentHero title='Birth date' trail={false} />
+      <p class='muted tm-welcome-why'>
+        Accounts are for people 16 and older, and hosting events for 18 and older. We check your date once and keep only
+        the year.
+      </p>
       <section class='tm-box'>
         <Switch>
           <Match when={stage() === 'refused' || stage() === 'expired'}>

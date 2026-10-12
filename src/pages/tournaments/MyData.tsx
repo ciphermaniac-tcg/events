@@ -34,7 +34,7 @@ const PARTS: Record<ExportPart, { name: string; what: string }> = {
   account: { name: 'Account', what: 'Email, sign-ins, sessions, Applications, stores, badges' }
 };
 
-/** What follows from wiping each part. Draft wording, awaiting Reese's copy. */
+/** What follows from wiping each part. */
 const AFTER: Record<WipePart, string[]> = {
   profile: [
     'Decklists and “find my table” stop filling themselves in',
@@ -57,7 +57,7 @@ const AFTER: Record<WipePart, string[]> = {
   ]
 };
 
-/** What deleting costs. Draft wording, awaiting Reese's copy. */
+/** What deleting costs. */
 const DELETE_AFTER = [
   'Everything above is wiped, and your sign-ins and sessions go',
   'Events you ran stay for their players, without your name',

@@ -141,7 +141,7 @@ export function ApplicantStatus(props: {
     props.stage === 'rejected'
       ? props.application?.note
       : props.stage === 'pending'
-        ? "Thank you for submitting an access request! We'll follow up with you shortly."
+        ? 'Your application is in. You’ll see the decision here once it’s reviewed.'
         : null;
   return (
     <div class='tm-box tm-applicant'>

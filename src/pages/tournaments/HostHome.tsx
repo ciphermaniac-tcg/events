@@ -24,7 +24,7 @@ const BANDS: Point[] = [
   {
     name: 'Opens any .tdf',
     art: TdfArt,
-    text: 'Import your .tdf files from other software. Our system produces identical results to other .tdf-producing software.'
+    text: 'Open the .tdf from TOM and carry on in either one. Pairings, standings and the file itself follow TOM’s rules.'
   },
   {
     name: 'Mobile reporting',
@@ -57,7 +57,7 @@ const FEATURES: Point[] = [
   {
     name: 'Decklists ahead of time',
     art: DecklistArt,
-    text: 'Players can digitally submit compatible lists ahead of time with automatic legality checks.'
+    text: 'Players submit their lists ahead of time. Card counts and copy limits are checked as they type, and you review the rest.'
   },
   { name: 'Field breakdown', art: FieldArt, text: 'See your event’s meta share and archetype performance.' }
 ];
@@ -96,7 +96,8 @@ export function HostHome(props: { offer: SignInOffer }) {
             TCG events better
           </h1>
           <p class='tm-home-lede'>
-            Organize and run your sanctioned or unsanctioned Pokémon TCG events with a slick, user-friendly interface.
+            Pair rounds, take results from players’ phones and publish standings, for sanctioned and unsanctioned
+            Pokémon TCG events alike.
           </p>
           <div class='tm-home-signin' id='sign-in'>
             {signIn()}
