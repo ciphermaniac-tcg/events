@@ -14,7 +14,7 @@ import { Badges } from './Badges';
 import { ErrorLine } from './Field';
 import { TournamentHero } from './Hero';
 import { Trail } from './Trail';
-import { HistoryList } from './HistoryList';
+import { createShownCount, HistoryList } from './HistoryList';
 import { pageTitle } from '../../lib/title';
 
 const eventCount = (n: number) => `${n} event${n === 1 ? '' : 's'}`;
@@ -24,6 +24,7 @@ const missing = (error: unknown) => error instanceof ApiError && error.status ==
 export function ProfilePage(props: { handle: string }) {
   const [profile, { refetch }] = createResource(() => props.handle, fetchProfile);
   const shown = () => resolved(profile);
+  const count = createShownCount();
   createEffect(() => {
     const name = shown()?.name;
     if (name) {
@@ -58,13 +59,13 @@ export function ProfilePage(props: { handle: string }) {
                         {' · '}
                       </span>
                     </Show>
-                    {eventCount(p().entries.length)}
+                    {eventCount(count.shown(p().entries))}
                   </p>
                   <Badges badges={p().badges ?? []} />
                 </div>
               </section>
               <Show when={p().entries.length > 0} fallback={<p class='muted tm-empty'>No events yet</p>}>
-                <HistoryList entries={p().entries} />
+                <HistoryList entries={p().entries} onGone={count.onGone} />
               </Show>
             </>
           )}

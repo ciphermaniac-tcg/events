@@ -237,9 +237,10 @@ test('a public profile shows the name and History read-only, and an unknown addr
   });
   await page.goto('/u/Mary.J');
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Mary Jackson');
-  await expect(page.locator('.tm-profile-hero .tm-status')).toHaveText('mary.j · 3 events');
   const rows = page.locator('.tm-hist tbody tr.is-link');
   await expect(rows).toHaveCount(2);
+  // The count is the rows shown: an entry whose copy has nobody under its key leaves both.
+  await expect(page.locator('.tm-profile-hero .tm-status')).toHaveText('mary.j · 2 events');
   await expect(rows.first().locator('.tm-hist-place')).toHaveText('1st');
   await expect(page.locator('main').getByRole('button', { name: /Sign in|Save|Remove/ })).toHaveCount(0);
   await page.goto('/u/nobody');

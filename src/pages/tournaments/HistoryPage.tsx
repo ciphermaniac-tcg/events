@@ -10,7 +10,7 @@ import { errorText, fetchHistory, type SignInOffer } from '../../lib/tournament/
 import { latestValue, resolved } from '../../lib/resource';
 import { ErrorLine } from './Field';
 import { TournamentHero } from './Hero';
-import { HistoryList } from './HistoryList';
+import { createShownCount, HistoryList } from './HistoryList';
 import { session } from './session';
 import { SignIn } from './SignIn';
 import { pageTitle } from '../../lib/title';
@@ -38,12 +38,13 @@ function SignedOut(props: { offer: SignInOffer }) {
 function MyHistory() {
   const [history, { refetch }] = createResource(() => fetchHistory().then(answer => answer.entries));
   const entries = () => resolved(history);
+  const count = createShownCount();
   return (
     <>
       <TournamentHero
         title='History'
         tab='playing'
-        status={<Show when={entries()}>{list => <span class='muted'>{eventCount(list().length)}</span>}</Show>}
+        status={<Show when={entries()}>{list => <span class='muted'>{eventCount(count.shown(list()))}</span>}</Show>}
       />
       <Show
         when={entries()}
@@ -58,7 +59,7 @@ function MyHistory() {
       >
         {list => (
           <Show when={list().length > 0} fallback={<p class='muted tm-empty'>No events yet</p>}>
-            <HistoryList entries={list()} />
+            <HistoryList entries={list()} onGone={count.onGone} />
           </Show>
         )}
       </Show>
