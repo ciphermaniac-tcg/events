@@ -540,6 +540,20 @@ test('store settings: the Owner hands the store over, asked first, and stays on 
   expect(sentTo(asks, 'PATCH', '/api/stores/store-1/members')).toEqual([{ user: 'acct-2', role: 'owner' }]);
 });
 
+test('store settings keep unsaved edits while another section is open', async ({ page }) => {
+  await mock(page, { user: MANAGER });
+  await page.goto('/stores/store-1/settings');
+  const nav = page.getByRole('navigation', { name: 'Store settings' });
+  await page.locator('.tm-night-time').first().fill('18:45');
+  await nav.getByRole('button', { name: 'Details' }).click();
+  await page.getByLabel('Store name').fill('Combat Power Games');
+  await nav.getByRole('button', { name: 'Staff' }).click();
+  await nav.getByRole('button', { name: 'Details' }).click();
+  await expect(page.getByLabel('Store name')).toHaveValue('Combat Power Games');
+  await nav.getByRole('button', { name: 'League nights' }).click();
+  await expect(page.locator('.tm-night-time').first()).toHaveValue('18:45');
+});
+
 test('store settings: details save with the store’s place kept', async ({ page }) => {
   const asks = await mock(page, { user: MANAGER });
   await page.goto('/stores/store-1/settings');

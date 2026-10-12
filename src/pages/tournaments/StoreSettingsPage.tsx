@@ -9,7 +9,7 @@
  */
 
 import { A, useSearchParams } from '@solidjs/router';
-import { createEffect, createResource, createSignal, For, Match, Show, Switch, untrack } from 'solid-js';
+import { createEffect, createResource, createSignal, For, type JSX, Show, untrack } from 'solid-js';
 import {
   dateIn,
   type LeagueNight,
@@ -237,11 +237,26 @@ function SectionNav(props: { current: Section; onPick: (section: Section) => voi
   );
 }
 
+/** One section of the settings, mounted once it has been opened and hidden while another shows. */
+function Pane(props: { of: Section; current: Section; opened: ReadonlySet<Section>; children: JSX.Element }) {
+  return (
+    <Show when={props.opened.has(props.of)}>
+      <div hidden={props.current !== props.of}>{props.children}</div>
+    </Show>
+  );
+}
+
 function Settings(props: { id: string }) {
   const [params, setParams] = useSearchParams<{ section?: string }>();
   const [read, { mutate }] = createResource(() => props.id, fetchStore);
   const current = () => latestValue(read);
   const section = () => readSection(params.section);
+  // A section stays mounted once opened, hidden while another shows, so its unsaved edits survive the switch.
+  const [opened, setOpened] = createSignal<ReadonlySet<Section>>(new Set([untrack(section)]));
+  createEffect(() => {
+    const now = section();
+    setOpened(prev => (prev.has(now) ? prev : new Set([...prev, now])));
+  });
   createEffect(() => {
     const name = current()?.store.name;
     document.title = pageTitle(name ? `${name} settings` : 'Store settings');
@@ -293,21 +308,19 @@ function Settings(props: { id: string }) {
           <div class='tm-store-settings'>
             <SectionNav current={section()} onPick={value => setParams({ section: value })} />
             <div class='tm-store-content'>
-              <Switch>
-                <Match when={section() === 'nights'}>
-                  <NightsSection store={answer().store} onSaved={store => saved(store)} />
-                </Match>
-                <Match when={section() === 'staff'}>
-                  <StoreStaff storeId={answer().store.id} />
-                </Match>
-                <Match when={section() === 'details'}>
-                  <DetailsSection
-                    store={answer().store}
-                    contact={answer().contact ?? { phone: '', email: '' }}
-                    onSaved={saved}
-                  />
-                </Match>
-              </Switch>
+              <Pane of='nights' current={section()} opened={opened()}>
+                <NightsSection store={answer().store} onSaved={store => saved(store)} />
+              </Pane>
+              <Pane of='staff' current={section()} opened={opened()}>
+                <StoreStaff storeId={answer().store.id} />
+              </Pane>
+              <Pane of='details' current={section()} opened={opened()}>
+                <DetailsSection
+                  store={answer().store}
+                  contact={answer().contact ?? { phone: '', email: '' }}
+                  onSaved={saved}
+                />
+              </Pane>
             </div>
           </div>
         </Show>
