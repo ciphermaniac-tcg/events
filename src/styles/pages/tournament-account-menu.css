@@ -65,6 +65,12 @@
 .tm-acct-menu a:hover {
   background: var(--bg);
 }
+@media (pointer: coarse) {
+  .tm-acct-menu a {
+    align-items: center;
+    min-height: 44px;
+  }
+}
 .tm-acct-menu .tm-acct-quiet {
   margin-top: var(--space-1);
   border-top: 1px solid var(--rule);

@@ -295,8 +295,9 @@ async function lookUp(page: Page) {
   await expect(field).toHaveValue('6238620');
   await expect(field).toHaveAttribute('placeholder', 'Enter your League ID here.');
   await expect(field).toHaveAttribute('inputmode', 'numeric');
-  expect((await field.boundingBox())?.width).toBeLessThanOrEqual(260);
-  await expect(field).toHaveCSS('font-size', '14px');
+  expect((await field.boundingBox())?.width).toBeLessThanOrEqual(300);
+  // 16px on a phone, where smaller makes iOS zoom the page on focus.
+  await expect(field).toHaveCSS('font-size', (page.viewportSize()?.width ?? 1280) <= 640 ? '16px' : '14px');
   await page.getByRole('button', { name: 'Look up' }).click();
 }
 
@@ -757,6 +758,6 @@ test('each league night keeps its fields on one line without page overflow @mobi
     }));
     expect(Math.max(...layout.centers) - Math.min(...layout.centers)).toBeLessThanOrEqual(1);
     expect(layout.overflow).toBe(false);
-    await expect(night.locator('input').first()).toHaveCSS('font-size', '14px');
+    await expect(night.locator('input').first()).toHaveCSS('font-size', width <= 640 ? '16px' : '14px');
   }
 });

@@ -187,6 +187,16 @@
   padding: 0 var(--space-3);
   font-size: 13px;
 }
+/* The bar stays slim; its two controls still take a 44px tap. */
+.site-head .tm-acct-button::before,
+.site-head-signin::before {
+  content: '';
+  position: absolute;
+  inset: -8px;
+}
+.site-head-signin {
+  position: relative;
+}
 @media (max-width: 640px) {
   .site-head-row {
     padding: 0 max(var(--space-3), env(safe-area-inset-right)) 0 max(var(--space-3), env(safe-area-inset-left));

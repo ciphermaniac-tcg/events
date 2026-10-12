@@ -184,3 +184,9 @@ body[data-mode='dark']:has(.tm-organizer-surface) {
 .tm-organizer-surface .tm-page .btn {
   font-size: var(--text-body) !important;
 }
+/* Under 16px, iOS zooms the page when a field takes focus. */
+@media (max-width: 640px) {
+  .tm-organizer-surface .tm-page :is(input, select, textarea) {
+    font-size: 16px !important;
+  }
+}
