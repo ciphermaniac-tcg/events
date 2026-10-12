@@ -43,9 +43,6 @@
   .tm-store-fields {
     grid-template-columns: minmax(0, 1fr);
   }
-  .tm-night {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
   .tm-night > .tm-input:not(.tm-night-time, .tm-night-fee) {
     grid-column: 1 / -1;
   }
@@ -79,9 +76,13 @@
   min-width: 0;
   width: 100%;
 }
+/* On a phone a night stacks: day and time, then its name, then fee and Remove. */
 @media (max-width: 640px) {
-  .tm-night-time {
+  .tm-night {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     min-width: 0;
-    width: 100%;
+  }
+  .tm-night-list {
+    overflow-x: visible;
   }
 }

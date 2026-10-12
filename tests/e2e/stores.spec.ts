@@ -742,22 +742,32 @@ test('staff options remain visible on a narrow screen and return focus on Escape
   await expect(trigger).toBeFocused();
 });
 
-test('each league night keeps its fields on one line without page overflow @mobile', async ({ page }) => {
+test('each league night keeps its fields on one line, and stacks them whole on a phone @mobile', async ({ page }) => {
   await mock(page, { user: MANAGER });
   await page.goto('/stores/store-1/settings');
-  for (const width of [1280, 820, 320]) {
+  for (const width of [1280, 820, 412, 320]) {
     await page.setViewportSize({ width, height: 900 });
     const night = page.locator('.tm-night:not(.tm-night-exception)').first();
     await expect(night).toBeVisible();
-    const layout = await night.evaluate(el => ({
-      centers: Array.from(el.children).map(child => {
-        const rect = child.getBoundingClientRect();
-        return rect.top + rect.height / 2;
-      }),
-      overflow: document.documentElement.scrollWidth > innerWidth
-    }));
-    expect(Math.max(...layout.centers) - Math.min(...layout.centers)).toBeLessThanOrEqual(1);
-    expect(layout.overflow).toBe(false);
+    const layout = await night.evaluate(el => {
+      const box = el.getBoundingClientRect();
+      const rects = Array.from(el.children).map(child => child.getBoundingClientRect());
+      return {
+        centers: rects.map(rect => rect.top + rect.height / 2),
+        inside: rects.every(rect => rect.left >= box.left - 1 && rect.right <= box.right + 1),
+        overflow:
+          document.documentElement.scrollWidth > innerWidth ||
+          el.parentElement!.scrollWidth > el.parentElement!.clientWidth + 8
+      };
+    });
+    expect(layout.overflow, `${width}`).toBe(false);
+    expect(layout.inside, `${width}`).toBe(true);
+    const spread = Math.max(...layout.centers) - Math.min(...layout.centers);
+    if (width > 640) {
+      expect(spread, `${width}`).toBeLessThanOrEqual(1);
+    } else {
+      expect(spread, `${width}`).toBeGreaterThan(40);
+    }
     await expect(night.locator('input').first()).toHaveCSS('font-size', width <= 640 ? '16px' : '14px');
   }
 });

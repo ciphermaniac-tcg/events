@@ -278,11 +278,6 @@
   }
 }
 @media (max-width: 640px) {
-  .tm-night:not(.tm-night-exception) > .tm-input {
-    grid-column: auto;
-  }
-}
-@media (max-width: 640px) {
   .tm-night-change {
     min-width: 0;
   }
