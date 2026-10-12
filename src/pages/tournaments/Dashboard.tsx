@@ -2,8 +2,8 @@
  * / signed in: the account's dashboard, one tab per part it plays.
  * Playing is every account's (its History, see PlayingTab); Organizing
  * belongs to an account that may start events or already runs or staffs one
- * (the organizer's lists, see HostIndex); Admin to an Admin (every section
- * of /admin, see AdminSections). With one tab there is no switch, only its
+ * (the organizer's lists, see HostIndex). An Admin gets a link to /admin
+ * after the tabs. With one tab and no Admin link there is no switch, only its
  * name.
  *
  * The tabs are the page's heading on a wide screen, beside the account menu;
@@ -13,14 +13,13 @@
  * events, then Playing.
  */
 
-import { useSearchParams } from '@solidjs/router';
+import { A, useNavigate, useSearchParams } from '@solidjs/router';
 import {
   createEffect,
   createResource,
   createSignal,
   For,
   type JSX,
-  lazy,
   Match,
   type Resource,
   Show,
@@ -40,13 +39,11 @@ import { PlayingTab } from './PlayingTab';
 import '../../styles/pages/tournament-dashboard.css';
 import { pageTitle } from '../../lib/title';
 
-const AdminSections = lazy(() => import('./AdminSections').then(m => ({ default: m.AdminSections })));
+export type Tab = 'playing' | 'organizing';
 
-export type Tab = 'playing' | 'organizing' | 'admin';
+const LABELS: Record<Tab, string> = { playing: 'Playing', organizing: 'Organizing' };
 
-const LABELS: Record<Tab, string> = { playing: 'Playing', organizing: 'Organizing', admin: 'Admin' };
-
-const ICONS: Record<Tab, JSX.Element> = {
+const ICONS: Record<Tab | 'admin', JSX.Element> = {
   playing: (
     <svg viewBox='0 0 24 24' aria-hidden='true'>
       <rect x='5' y='3' width='14' height='18' rx='2' />
@@ -76,8 +73,16 @@ const settled = (resource: Resource<unknown>) => resource.state === 'ready' || r
 /**
  * The tabs, as a strip under the heading (`wide`) or the phone's bottom bar;
  * only one shows at a time. The arrow keys, Home and End move between them.
+ * An Admin's way to /admin follows them as a link, with the Applications
+ * waiting (`admin`, null for anyone else).
  */
-function TabList(props: { shown: Shown[]; tab: Tab; onSelect: (tab: Tab) => void; wide: boolean }) {
+function TabList(props: {
+  shown: Shown[];
+  tab: Tab;
+  onSelect: (tab: Tab) => void;
+  wide: boolean;
+  admin: number | null;
+}) {
   let list: HTMLDivElement | undefined;
   const id = (tab: Tab) => `tm-dash-${props.wide ? 'tab' : 'bar'}-${tab}`;
   function key(event: KeyboardEvent) {
@@ -105,34 +110,41 @@ function TabList(props: { shown: Shown[]; tab: Tab; onSelect: (tab: Tab) => void
     }
   }
   return (
-    <div
-      ref={list}
-      class={props.wide ? 'tm-dash-tabs tm-dash-wide' : 'tm-dash-bar tm-dash-phone'}
-      role='tablist'
-      aria-label='Dashboard'
-      onKeyDown={key}
-    >
-      <For each={props.shown}>
-        {s => (
-          <button
-            type='button'
-            role='tab'
-            id={id(s.tab)}
-            aria-selected={s.tab === props.tab}
-            aria-controls='tm-dash-panel'
-            tabIndex={s.tab === props.tab ? 0 : -1}
-            onClick={() => props.onSelect(s.tab)}
-          >
-            <Show when={!props.wide}>{ICONS[s.tab]}</Show>
-            <span>
-              {LABELS[s.tab]}
-              <Show when={s.count > 0}>
-                <span class='tm-dash-count'>{s.count}</span>
-              </Show>
-            </span>
-          </button>
-        )}
-      </For>
+    <div class={props.wide ? 'tm-dash-tabs tm-dash-wide' : 'tm-dash-bar tm-dash-phone'}>
+      <div ref={list} class='tm-dash-tablist' role='tablist' aria-label='Dashboard' onKeyDown={key}>
+        <For each={props.shown}>
+          {s => (
+            <button
+              type='button'
+              role='tab'
+              id={id(s.tab)}
+              aria-selected={s.tab === props.tab}
+              aria-controls='tm-dash-panel'
+              tabIndex={s.tab === props.tab ? 0 : -1}
+              onClick={() => props.onSelect(s.tab)}
+            >
+              <Show when={!props.wide}>{ICONS[s.tab]}</Show>
+              <span>
+                {LABELS[s.tab]}
+                <Show when={s.count > 0}>
+                  <span class='tm-dash-count'>{s.count}</span>
+                </Show>
+              </span>
+            </button>
+          )}
+        </For>
+      </div>
+      <Show when={props.admin !== null}>
+        <A class='tm-dash-link' href='/admin'>
+          <Show when={!props.wide}>{ICONS.admin}</Show>
+          <span>
+            Admin
+            <Show when={(props.admin ?? 0) > 0}>
+              <span class='tm-dash-count'>{props.admin}</span>
+            </Show>
+          </span>
+        </A>
+      </Show>
     </div>
   );
 }
@@ -141,7 +153,7 @@ export function Dashboard(props: {
   user: Me;
   organizing: (events: readonly TournamentSummary[], application: Resource<MyApplication | null>) => JSX.Element;
 }) {
-  const [params, setParams] = useSearchParams<{ tab?: string; new?: string }>();
+  const [params, setParams] = useSearchParams<{ tab?: string; new?: string; section?: string }>();
   const [events] = createResource(() => listTournaments().then(answer => answer.tournaments));
   const [history, { refetch }] = createResource(() => fetchHistory().then(answer => answer.entries));
   const admin = () => isAdmin(props.user.role);
@@ -166,9 +178,11 @@ export function Dashboard(props: {
 
   const shown = (): Shown[] => [
     { tab: 'playing', count: playingNow() },
-    ...(organizes() ? [{ tab: 'organizing' as const, count: runningNow() }] : []),
-    ...(admin() ? [{ tab: 'admin' as const, count: pendingApplications() }] : [])
+    ...(organizes() ? [{ tab: 'organizing' as const, count: runningNow() }] : [])
   ];
+  const adminLink = () => (admin() ? pendingApplications() : null);
+  // The tab strip shows with a choice to make: two tabs, or one beside Admin.
+  const barred = () => shown().length > 1 || admin();
   /** The tab to open with none asked for: a running event's, then a match being played, then an organizer's events. */
   const fallbackTab = (): Tab => {
     if (params.new || runningNow() > 0) {
@@ -186,6 +200,13 @@ export function Dashboard(props: {
     }
   });
   const tab = (): Tab | null => shown().find(s => s.tab === params.tab)?.tab ?? opening();
+  // The Admin tab moved to /admin; an old address for it goes there, its section with it.
+  const navigate = useNavigate();
+  createEffect(() => {
+    if (params.tab === 'admin') {
+      navigate(params.section ? `/admin?tab=${encodeURIComponent(params.section)}` : '/admin', { replace: true });
+    }
+  });
   const select = (next: Tab) => setParams({ tab: next }, { replace: true });
 
   createEffect(() => {
@@ -198,15 +219,15 @@ export function Dashboard(props: {
   return (
     <Show when={opening() && tab()} fallback={<Skeleton height='200px' />}>
       {open => (
-        <div class='tm-dash' classList={{ 'tm-dash-barred': shown().length > 1 }}>
+        <div class='tm-dash' classList={{ 'tm-dash-barred': barred() }}>
           <header class='tm-dash-head'>
-            <Show when={shown().length > 1} fallback={<h1 class='tm-dash-title'>{LABELS[open()]}</h1>}>
+            <Show when={barred()} fallback={<h1 class='tm-dash-title'>{LABELS[open()]}</h1>}>
               <h1 class='tm-dash-title tm-dash-phone'>{LABELS[open()]}</h1>
-              <TabList shown={shown()} tab={open()} onSelect={select} wide />
+              <TabList shown={shown()} tab={open()} onSelect={select} wide admin={adminLink()} />
             </Show>
           </header>
-          <Show when={shown().length > 1}>
-            <TabList shown={shown()} tab={open()} onSelect={select} wide={false} />
+          <Show when={barred()}>
+            <TabList shown={shown()} tab={open()} onSelect={select} wide={false} admin={adminLink()} />
           </Show>
           <div id='tm-dash-panel' role='tabpanel' aria-label={LABELS[open()]}>
             <Switch>
@@ -214,9 +235,6 @@ export function Dashboard(props: {
                 <PlayingTab history={history} onRetry={() => void refetch()} />
               </Match>
               <Match when={open() === 'organizing'}>{props.organizing(latestValue(events) ?? [], application)}</Match>
-              <Match when={open() === 'admin'}>
-                <AdminSections param='section' />
-              </Match>
             </Switch>
           </div>
         </div>

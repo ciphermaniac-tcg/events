@@ -20,7 +20,11 @@
   gap: var(--space-5);
   min-width: 0;
 }
-.tm-dash-tabs button {
+/* The tabs and the Admin link after them share one row. */
+.tm-dash-tablist {
+  display: contents;
+}
+.tm-dash-tabs :is(button, .tm-dash-link) {
   margin-bottom: -1px;
   padding: 0 0 var(--space-3);
   border: 0;
@@ -34,8 +38,9 @@
   cursor: pointer;
   transition: color var(--ms-fast);
 }
-.tm-dash-tabs button:hover {
+.tm-dash-tabs :is(button, .tm-dash-link):hover {
   color: var(--fg);
+  text-decoration: none;
 }
 /* The site's tab mark (components.css .tabs), at the page's own size. */
 .tm-dash-tabs button[aria-selected='true'] {
@@ -111,7 +116,7 @@
     border-top: 1px solid var(--border);
     background: var(--surface);
   }
-  .tm-dash-bar button {
+  .tm-dash-bar :is(button, .tm-dash-link) {
     display: flex;
     flex: 1;
     flex-direction: column;

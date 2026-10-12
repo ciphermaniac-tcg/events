@@ -1,7 +1,6 @@
 /**
  * /admin: an Admin's page; for anyone else, signed in or not, it is not
- * found. Its sections are AdminSections, the same the dashboard's Admin tab
- * shows.
+ * found. Its sections are AdminSections; the dashboard links here.
  */
 
 import { createEffect, Show } from 'solid-js';
@@ -22,7 +21,7 @@ export function AdminPage() {
     <div class='tm-page tm-admin'>
       <Show when={current()}>
         <Show when={admin()} fallback={<TournamentHero title='Page not found' />}>
-          <TournamentHero title='Admin' tab='admin' />
+          <TournamentHero title='Admin' />
           <AdminSections param='tab' />
         </Show>
       </Show>
