@@ -1,6 +1,6 @@
 /**
  * An account's Application to run events, as the apply page, Settings and
- * /host read and send it: where the account stands (applicantStage), and the
+ * the dashboard read and send it: where the account stands (applicantStage), and the
  * calls behind it.
  */
 

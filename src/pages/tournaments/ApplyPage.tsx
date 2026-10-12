@@ -94,7 +94,7 @@ function CommunityStart() {
     try {
       await joinCommunity();
       await refreshSession();
-      navigate('/host');
+      navigate('/');
     } catch (err) {
       setError(errorText(err));
       setBusy(false);
@@ -122,7 +122,7 @@ function PathRows(props: { role: Me['role']; store: boolean; storeOpen: boolean;
       <Show when={canJoinCommunity(props.role) || joined()}>
         <PathRow path='community' joined={joined()}>
           <Show when={joined()} fallback={<CommunityStart />}>
-            <A class='btn btn-secondary' href='/host'>
+            <A class='btn btn-secondary' href='/'>
               Your events
             </A>
           </Show>

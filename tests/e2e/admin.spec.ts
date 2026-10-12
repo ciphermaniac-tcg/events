@@ -314,7 +314,7 @@ test('an Admin sees every event, a store’s and a community one, each opening i
 
 test('the dashboard’s Admin tab has every section of the admin page, kept in the address', async ({ page }) => {
   await mockAdmin(page);
-  await page.goto('/host?tab=admin&section=events');
+  await page.goto('/?tab=admin&section=events');
   const sections = page.getByRole('tablist', { name: 'Admin sections' });
   await expect(sections.getByRole('tab')).toHaveText(['Applications', 'Organizers', 'POP IDs', 'Events']);
   await expect(page.locator('.tm-admin-events tbody tr')).not.toHaveCount(0);

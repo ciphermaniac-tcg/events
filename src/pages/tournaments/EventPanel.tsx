@@ -413,7 +413,7 @@ function DeleteEvent(props: { manage: Manage }) {
   async function remove() {
     try {
       await deleteTournament(props.manage.code);
-      navigate('/host');
+      navigate('/');
     } catch (err) {
       setError(errorText(err));
     }

@@ -280,12 +280,19 @@ test('standings rank a combined pod per division', async ({ page }) => {
   await expect(page.locator('.tm-standings').last().locator('tbody tr')).toHaveCount(7);
 });
 
+test('the old /host address opens the home page at the root, query and all', async ({ page }) => {
+  await mockApi(page);
+  await page.goto('/host?tab=organizing');
+  await expect(page).toHaveURL(/:\d+\/\?tab=organizing$/);
+  await expect(page.getByRole('link', { name: 'Ciphermaniac Events' })).toBeVisible();
+});
+
 test('a signed-out organizer is offered sign-in, not a console @mobile', async ({ page }) => {
   await mockApi(page);
-  await page.goto('/host');
-  // The page stands as its own product: its head replaces the site's nav.
-  await expect(page.getByRole('link', { name: 'Ciphermaniac Events' })).toHaveAttribute('href', '/host');
-  await expect(page.locator('.topnav')).toBeHidden();
+  await page.goto('/');
+  // The site's own head, and none of the main site's nav.
+  await expect(page.getByRole('link', { name: 'Ciphermaniac Events' })).toHaveAttribute('href', '/');
+  await expect(page.getByRole('link', { name: 'Cards', exact: true })).toHaveCount(0);
   // The sample event plays on the real engine, its standings cut to the top eight.
   const sample = page.getByRole('region', { name: 'Sample event' });
   await expect(sample.locator('.tm-sim-stand .sr-only li')).toHaveCount(8);
@@ -295,7 +302,7 @@ test('a signed-out organizer is offered sign-in, not a console @mobile', async (
   await expect(page).toHaveURL(/#sign-in$/);
   // The home page offers sign-in at the top and again at the end.
   const google = page.getByRole('link', { name: 'Sign in with Google' }).first();
-  await expect(google).toHaveAttribute('href', '/api/auth/login/google?next=%2Fhost');
+  await expect(google).toHaveAttribute('href', '/api/auth/login/google?next=%2F');
   await expect(page.getByRole('link', { name: 'Sign in with Discord' }).first()).toBeVisible();
   // The server has to see the click: the client router must not take it as one of its own routes.
   const login = page.waitForRequest(
@@ -342,7 +349,7 @@ async function mockOrganizer(page: Page) {
 
 test('sanctioned setup requires Play! Tools confirmation; local setup skips it @mobile', async ({ page }) => {
   const submissions = await mockOrganizer(page);
-  await page.goto('/host');
+  await page.goto('/');
   await page.getByRole('button', { name: 'Start an event' }).click();
   const create = page.getByRole('button', { name: 'Create event' });
   const confirmation = page.getByRole('checkbox', { name: 'I’ve created this event in Play! Tools' });
@@ -391,7 +398,7 @@ test('a TOM sanction ID shows an unchecked confirmation; an unsanctioned file sk
   await page.addInitScript(() => {
     Object.defineProperty(window, 'showOpenFilePicker', { value: undefined });
   });
-  await page.goto('/host');
+  await page.goto('/');
   const buffer = readFileSync(new URL('../fixtures/tdf/challenge-midevent.tdf', import.meta.url));
   await page.locator('input[type="file"]').setInputFiles({ name: 'challenge.tdf', mimeType: 'text/xml', buffer });
   const confirmation = page.getByRole('checkbox', { name: 'I’ve created this event in Play! Tools' });

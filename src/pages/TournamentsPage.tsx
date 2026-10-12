@@ -1,6 +1,6 @@
 /**
- * Every tournament route through one entry in main.tsx: /host (an
- * organizer's events), /host/:code (running one), /t/:code (the public page
+ * Every tournament route through one entry in main.tsx: / (the home page,
+ * or signed in an organizer's events), /host/:code (running one), /t/:code (the public page
  * players follow), /settings (sign-in, sign-out and the player profile;
  * /account is its older name), /history (the events an account played),
  * /u/:handle (an account's public profile), /apply (applying to run events),
@@ -50,7 +50,7 @@ export function TournamentsPage() {
   // Nobody is signed in yet at the age check, and its only way on is the form.
   const welcome = () => location.pathname.startsWith('/welcome');
   // The dashboard and the event console carry their own account menu.
-  const dashboard = () => location.pathname.startsWith('/host');
+  const dashboard = () => location.pathname === '/' || location.pathname.startsWith('/host/');
   const organizer = () =>
     dashboard() ||
     settings() ||

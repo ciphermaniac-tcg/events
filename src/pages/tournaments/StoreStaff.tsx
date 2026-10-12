@@ -183,7 +183,7 @@ export function StoreStaff(props: { storeId: string }) {
       await removeMember(store, member.id);
       if (leaving) {
         await refreshSession();
-        navigate('/host');
+        navigate('/');
         return;
       }
       await refetch();

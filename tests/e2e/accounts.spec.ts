@@ -201,10 +201,10 @@ test('History and Settings lead back to the dashboard, History to its Playing ta
   await publishCopies(page);
   const trail = page.getByRole('navigation', { name: 'Breadcrumb' });
   await page.goto('/history');
-  await expect(trail.getByRole('link', { name: 'Your events' })).toHaveAttribute('href', '/host?tab=playing');
+  await expect(trail.getByRole('link', { name: 'Your events' })).toHaveAttribute('href', '/?tab=playing');
   await expect(trail.locator('[aria-current="page"]')).toHaveText('History');
   await page.goto('/settings');
-  await expect(trail.getByRole('link', { name: 'Your events' })).toHaveAttribute('href', '/host');
+  await expect(trail.getByRole('link', { name: 'Your events' })).toHaveAttribute('href', '/');
   await expect(trail.locator('[aria-current="page"]')).toHaveText('Settings');
   await page.unrouteAll();
   await mockAccount(page, null);
@@ -488,7 +488,7 @@ test('Settings: deleting asks for the username typed out, then signs out @mobile
   await expect(dialog.getByRole('textbox')).toHaveValue('');
   await dialog.getByRole('textbox').fill('mary');
   await remove.click();
-  await expect(page).toHaveURL(/\/host$/);
+  await expect(page).toHaveURL(/:\d+\/$/);
   expect(sent.find(s => s.method === 'DELETE')?.body).toEqual({ confirm: 'mary' });
 });
 
@@ -672,11 +672,11 @@ test('an event’s player is led back to the dashboard’s Playing tab, a strang
   await page.goto(`/t/${code}`);
   const back = page.getByRole('navigation', { name: 'Breadcrumb' }).getByRole('link', { name: 'Your events' });
   await expect(page.locator('.tm-you-who')).toContainText('Ash Ketchum');
-  await expect(back).toHaveAttribute('href', '/host?tab=playing');
+  await expect(back).toHaveAttribute('href', '/?tab=playing');
   await page.unrouteAll();
   await mockEvent(page, roundOne(true), { sanctioned: true, user: { ...ME, popId: '9999' }, linked: false });
   await page.goto(`/t/${code}`);
-  await expect(back).toHaveAttribute('href', '/host');
+  await expect(back).toHaveAttribute('href', '/');
 });
 
 test('a Claim released or made elsewhere reaches the open page when it is shown again, at most every half minute', async ({
@@ -1054,7 +1054,7 @@ test('the dashboard of a player who runs nothing is its Playing tab alone, the l
   page
 }) => {
   const errors = await mockDashboard(page, ME);
-  await page.goto('/host');
+  await page.goto('/');
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Playing');
   await expect(page.getByRole('tablist')).toHaveCount(0);
   await expect(page.locator('.tm-account-strip')).toHaveCount(0);
@@ -1075,7 +1075,7 @@ test('a player with no events yet is welcomed with the way to play, then the way
 }) => {
   const errors = await mockDashboard(page, ME);
   await page.route('**/api/history', route => route.fulfill({ json: { entries: [] } }));
-  await page.goto('/host');
+  await page.goto('/');
   const welcome = page.locator('.tm-welcome');
   await expect(welcome.getByRole('heading', { level: 2 })).toHaveText('Welcome to Ciphermaniac');
   await expect(welcome.locator('.tm-welcome-steps li strong')).toHaveText([
@@ -1096,7 +1096,7 @@ test('the dashboard’s account menu holds the account’s pages, and the way to
   page
 }) => {
   await mockDashboard(page, ME);
-  await page.goto('/host');
+  await page.goto('/');
   const button = page.getByRole('button', { name: 'Account' });
   await button.click();
   await expect(button).toHaveAttribute('aria-expanded', 'true');
@@ -1111,7 +1111,7 @@ test('the dashboard’s account menu holds the account’s pages, and the way to
   await expect(page.locator('.tm-acct-menu')).toHaveCount(0);
   await page.unrouteAll();
   await mockDashboard(page, { ...ME, role: 'community' });
-  await page.goto('/host');
+  await page.goto('/');
   await page.getByRole('button', { name: 'Account' }).click();
   await expect(page.locator('.tm-acct-menu').getByRole('link', { name: 'Apply to organize' })).toHaveCount(0);
 });
@@ -1120,12 +1120,12 @@ test('an organizer who plays has both tabs, opens on the match being played, and
   page
 }) => {
   await mockDashboard(page, { ...ME, role: 'community' }, [SUMMARY]);
-  await page.goto('/host');
+  await page.goto('/');
   const tabs = page.locator('.tm-dash-tabs');
   await expect(tabs.getByRole('tab')).toHaveText(['Playing1', 'Organizing']);
   await expect(tabs.getByRole('tab', { name: /Playing/ })).toHaveAttribute('aria-selected', 'true');
   await tabs.getByRole('tab', { name: 'Organizing' }).click();
-  await expect(page).toHaveURL(/\/host\?tab=organizing$/);
+  await expect(page).toHaveURL(/:\d+\/\?tab=organizing$/);
   await expect(page.getByRole('button', { name: 'Start an event' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Thursday Locals' })).toHaveAttribute('href', '/host/OWNED1');
   await page.reload();
@@ -1136,7 +1136,7 @@ test('on a phone the dashboard’s tabs move to a bar along the bottom, and the 
   page
 }) => {
   await mockDashboard(page, { ...ME, role: 'community' }, [SUMMARY]);
-  await page.goto('/host?tab=organizing');
+  await page.goto('/?tab=organizing');
   await expect(page.locator('.tm-dash-tabs')).toBeHidden();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Organizing');
   const bar = page.locator('.tm-dash-bar');
@@ -1173,7 +1173,7 @@ test('a player whose Application is pending has the Organizing tab, which a relo
       }
     })
   );
-  await page.goto('/host?tab=organizing');
+  await page.goto('/?tab=organizing');
   await expect(page.locator('.tm-dash-tabs').getByRole('tab', { name: 'Organizing' })).toHaveAttribute(
     'aria-selected',
     'true'
@@ -1183,7 +1183,7 @@ test('a player whose Application is pending has the Organizing tab, which a relo
 
 test('the dashboard’s tabs move with the arrow keys, and name the panel they open', async ({ page }) => {
   await mockDashboard(page, { ...ME, role: 'community' }, [SUMMARY]);
-  await page.goto('/host');
+  await page.goto('/');
   const tabs = page.locator('.tm-dash-tabs');
   await tabs.getByRole('tab', { selected: true }).focus();
   await page.keyboard.press('ArrowRight');

@@ -1,5 +1,5 @@
 /**
- * The /host home page's pictures: one 160 x 120 canvas each, one stroke
+ * The home page's pictures: one 160 x 120 canvas each, one stroke
  * weight, marigold for whatever moves. Each does its one thing while its
  * point is on screen (tournament-home.css, under `.is-in`) and rests under
  * reduced motion.

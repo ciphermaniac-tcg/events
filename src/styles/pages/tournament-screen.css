@@ -1,9 +1,8 @@
 /* The big screen (/t/:code?screen=1), loaded with its chunk (BigScreen).
    Read from across a room: sizes scale with the screen, and while a round
    runs the clock is the largest thing on it. */
-body.tm-screen-mode .topnav,
-body.tm-screen-mode .site-footer,
-body.tm-screen-mode .live-banner {
+body.tm-screen-mode .site-head,
+body.tm-screen-mode .site-footer {
   display: none;
 }
 body.tm-screen-mode main.page {

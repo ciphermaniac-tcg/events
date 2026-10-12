@@ -308,6 +308,8 @@ test('a deck list opened in the last row is drawn whole, not cut off at the tabl
   await page.getByRole('combobox', { name: 'Deck' }).last().focus();
   const list = page.getByRole('listbox');
   await expect(list).toBeVisible();
+  // The deck options load after the list opens; measure it once they are in.
+  await expect.poll(() => list.evaluate(el => el.getBoundingClientRect().height)).toBeGreaterThan(100);
   const drawn = await list.evaluate(el => {
     const r = el.getBoundingClientRect();
     const corners: [number, number][] = [
@@ -535,7 +537,7 @@ test('on a phone the tabs sit along the bottom, and the round and its clock stay
 test('the console leads back to the dashboard’s Organizing tab, above the event’s name @mobile', async ({ page }) => {
   await mockConsole(page, event(8, 0, true), settingsOf({}));
   const trail = page.getByRole('navigation', { name: 'Breadcrumb' });
-  await expect(trail.getByRole('link', { name: 'Your events' })).toHaveAttribute('href', '/host?tab=organizing');
+  await expect(trail.getByRole('link', { name: 'Your events' })).toHaveAttribute('href', '/?tab=organizing');
   await expect(trail.locator('[aria-current="page"]')).toHaveText(
     await page.locator('.tm-console-hero h1').innerText()
   );

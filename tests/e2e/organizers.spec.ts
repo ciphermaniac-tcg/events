@@ -229,10 +229,7 @@ test('an approved account sees its store was approved, with the way to its event
   await mockApplicant(page, { ...NONE, application: application('approved') }, { ...ME, stores: [STORE] });
   await page.goto('/apply');
   await expect(page.locator('.tm-applicant-stage strong')).toHaveText('Store approved');
-  await expect(page.locator('.tm-applicant').getByRole('link', { name: 'Your events' })).toHaveAttribute(
-    'href',
-    '/host'
-  );
+  await expect(page.locator('.tm-applicant').getByRole('link', { name: 'Your events' })).toHaveAttribute('href', '/');
   await expect(page.getByRole('button', { name: 'Send application' })).toHaveCount(0);
 });
 
@@ -247,7 +244,7 @@ test('an account approved since the page read it is read again, and starts event
     reread: { ...ME, stores: [STORE] }
   });
   await page.route('**/api/tournaments', route => route.fulfill({ json: { tournaments: [] } }));
-  await page.goto('/host');
+  await page.goto('/');
   await expect(page.getByRole('button', { name: 'Start an event' })).toBeVisible();
   expect(asks.filter(a => a.path === '/api/me')).toHaveLength(2);
 });
@@ -461,7 +458,7 @@ test('/host: an account that is not an Organizer starts no event, applies instea
   page
 }) => {
   await mockHost(page, ME);
-  await page.goto('/host');
+  await page.goto('/');
   await expect(page.getByRole('link', { name: 'Apply to run events' })).toHaveAttribute('href', '/apply');
   await expect(page.getByRole('button', { name: 'Start an event' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Link .tdf file' })).toHaveCount(0);
@@ -473,7 +470,7 @@ test('/host: on a phone, an event row keeps its links on screen without scrollin
 }) => {
   await mockHost(page, { ...ME, role: 'community' });
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto('/host');
+  await page.goto('/');
   const row = page.locator('.tm-host-table tbody tr').first();
   for (const name of ['Results', 'Public page']) {
     const box = await row.getByRole('link', { name }).boundingBox();
@@ -487,7 +484,7 @@ test('/host: on a phone, an event row keeps its links on screen without scrollin
 
 test('/host: the events table keeps the box’s rounded corners @mobile', async ({ page }) => {
   await mockHost(page, { ...ME, role: 'community' });
-  await page.goto('/host');
+  await page.goto('/');
   const box = page.locator('.tm-host-section .tm-box').first();
   await box.locator('tbody tr').first().hover();
   const radii = await box.evaluate(el => {
@@ -501,7 +498,7 @@ test('/host: the events table keeps the box’s rounded corners @mobile', async 
 
 test('/host: a pending Application shows in place of the way to apply', async ({ page }) => {
   await mockHost(page, ME, { ...NONE, application: application('pending') });
-  await page.goto('/host');
+  await page.goto('/');
   await expect(page.locator('.tm-applicant-line')).toHaveText('Application pending');
   await expect(page.getByRole('link', { name: 'Apply to run events' })).toHaveCount(0);
 });
@@ -510,7 +507,7 @@ test('/host: an Organizer whose access goes while the page is open is refused, a
   page
 }) => {
   const asks = await mockHost(page, { ...ME, role: 'community' });
-  await page.goto('/host');
+  await page.goto('/');
   await page.getByRole('button', { name: 'Start an event' }).click();
   await page.getByRole('textbox', { name: 'Event name' }).fill('Tuesday League');
   await page.getByRole('button', { name: 'Create event' }).click();
@@ -526,7 +523,7 @@ test('/host: a hero with nothing for its meta line draws none, so its action sit
   page
 }) => {
   await mockHost(page, ME);
-  await page.goto('/host');
+  await page.goto('/');
   const apply = page.getByRole('link', { name: 'Apply to run events' });
   await expect(apply).toBeVisible();
   await expect(page.locator('.tm-hero .hero-meta')).toHaveCount(0);
@@ -538,7 +535,7 @@ test('/host: a hero with nothing for its meta line draws none, so its action sit
 
 test('/host: an account that runs events is offered a store, after the stores it already has', async ({ page }) => {
   await mockHost(page, { ...ME, role: 'community' });
-  await page.goto('/host');
+  await page.goto('/');
   const meta = page.locator('.tm-hero .hero-meta');
   await expect(meta.getByRole('link')).toHaveText(['Apply for a store']);
   await page.unrouteAll();
@@ -549,7 +546,7 @@ test('/host: an account that runs events is offered a store, after the stores it
       { ...STORE, id: 'store-2', name: 'Tower Games', role: 'staff' }
     ]
   });
-  await page.goto('/host');
+  await page.goto('/');
   await expect(meta.getByRole('link')).toHaveText(['Combat Power Gaming settings', 'Tower Games', 'Apply for a store']);
   await expect(meta.getByRole('link', { name: 'Tower Games' })).toHaveAttribute('href', '/stores/store-2');
 });
@@ -558,7 +555,7 @@ test('/host: an account whose only store was revoked keeps its link, and applies
   page
 }) => {
   await mockHost(page, { ...ME, stores: [{ ...STORE, role: 'staff', status: 'revoked' }] });
-  await page.goto('/host');
+  await page.goto('/');
   await expect(page.locator('.tm-hero .hero-meta').getByRole('link')).toHaveText(['Combat Power Gaming']);
   await expect(page.getByRole('link', { name: 'Apply to run events' })).toBeVisible();
 });
@@ -567,7 +564,7 @@ test('the new event setup explains player reporting, archetypes and decklists, e
   page
 }) => {
   await mockHost(page, { ...ME, role: 'community' });
-  await page.goto('/host');
+  await page.goto('/');
   await page.getByRole('button', { name: 'Start an event' }).click();
   for (const [setting, words] of [
     ['Mobile result reporting', 'report the results of their match'],

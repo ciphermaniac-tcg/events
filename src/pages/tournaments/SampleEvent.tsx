@@ -1,5 +1,5 @@
 /**
- * The /host home page's hero picture: a sixteen-player event playing itself,
+ * The home page's hero picture: a sixteen-player event playing itself,
  * paired round by round by the engine real events run on (see
  * lib/tournament/sampleEvent.ts). Results land a table at a time and the
  * standings' top eight move as they do; at the end it rests, then plays a

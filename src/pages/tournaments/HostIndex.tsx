@@ -1,5 +1,5 @@
 /**
- * /host: for someone signed out, the home page (HostHome: what running an
+ * /: for someone signed out, the home page (HostHome: what running an
  * event here is, and sign-in for organizers). Signed in, the dashboard (see
  * Dashboard), whose Organizing tab is drawn here: the events they run or
  * staff, a hero with the count of each and the ways to start one, the events
@@ -53,8 +53,17 @@ import { ErrorLine } from './Field';
 import { TournamentHero } from './Hero';
 import { refreshSession, session } from './session';
 
-const Dashboard = lazy(() => import('./Dashboard').then(m => ({ default: m.Dashboard })));
-const HostHome = lazy(() => import('./HostHome').then(m => ({ default: m.HostHome })));
+const loadDashboard = () => import('./Dashboard');
+const loadHostHome = () => import('./HostHome');
+const Dashboard = lazy(() => loadDashboard().then(m => ({ default: m.Dashboard })));
+const HostHome = lazy(() => loadHostHome().then(m => ({ default: m.HostHome })));
+
+// Which of the two the root shows waits on who is signed in. Ask for both while
+// that answer is on its way, rather than one after it.
+if (window.location.pathname === '/') {
+  void loadDashboard();
+  void loadHostHome();
+}
 
 const shortDate = (startDate: string) =>
   parseTomDate(startDate)?.toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' }) ?? '';
@@ -267,7 +276,7 @@ function StoreLinks(props: { stores: readonly MyStore[]; apply: boolean }) {
 }
 
 /**
- * /host's meta line: the account's stores, and the way to apply for one when
+ * The dashboard's meta line: the account's stores, and the way to apply for one when
  * it may start events; one that may not is offered a way by ApplicantLine.
  */
 function HeroMeta(props: { user: Me | null | undefined }) {

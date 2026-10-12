@@ -11,7 +11,7 @@ import { session } from './session';
  * no events of one's own to go back to, so it draws nothing.
  */
 export function Trail(props: { here: string; tab?: Tab | undefined }) {
-  const href = () => (props.tab ? `/host?tab=${props.tab}` : '/host');
+  const href = () => (props.tab ? `/?tab=${props.tab}` : '/');
   return (
     <Show when={latestValue(session)?.user}>
       <nav class='tm-trail' aria-label='Breadcrumb'>

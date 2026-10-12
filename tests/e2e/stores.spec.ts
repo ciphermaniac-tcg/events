@@ -264,7 +264,7 @@ test('a player becomes a Community organizer from the first row, and goes on to 
   await page.goto('/apply');
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Run events');
   await page.getByRole('button', { name: 'Community organizer' }).click();
-  await expect(page).toHaveURL(/\/host$/);
+  await expect(page).toHaveURL(/:\d+\/$/);
   await expect(page.getByRole('button', { name: 'Start an event' })).toBeVisible();
   expect(sentTo(asks, 'POST', '/api/community')).toHaveLength(1);
 });
@@ -280,7 +280,7 @@ test('a Community organizer is told it may run unsanctioned events and not sanct
     'You are currently approved for unsanctioned events.',
     'You are currently not approved for sanctioned events.'
   ]);
-  await expect(page.locator('.tm-paths').getByRole('link', { name: 'Your events' })).toHaveAttribute('href', '/host');
+  await expect(page.locator('.tm-paths').getByRole('link', { name: 'Your events' })).toHaveAttribute('href', '/');
   await expect(page.getByRole('button', { name: 'Community organizer' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Apply as store' })).toBeVisible();
 });
@@ -646,7 +646,7 @@ test('a store event starts from a listing, which fills the setup and sends its s
   page
 }) => {
   const asks = await mock(page, { user: MANAGER });
-  await page.goto('/host');
+  await page.goto('/');
   await page.getByRole('button', { name: 'Start an event' }).click();
   const picker = page.getByRole('group', { name: 'On pokemon.com' });
   await expect(picker.getByRole('radio', { name: 'Not listed here' })).toBeChecked();
@@ -670,7 +670,7 @@ test('a store event starts from a listing, which fills the setup and sends its s
 
 test('Not listed here keeps what was typed and sends no sanction ID', async ({ page }) => {
   const asks = await mock(page, { user: MANAGER });
-  await page.goto('/host');
+  await page.goto('/');
   await page.getByRole('button', { name: 'Start an event' }).click();
   const picker = page.getByRole('group', { name: 'On pokemon.com' });
   await picker.getByRole('radio', { name: /Combat Power Locals/ }).check();
@@ -686,7 +686,7 @@ test('Not listed here keeps what was typed and sends no sanction ID', async ({ p
 
 test('an event run under the account’s own name offers no listings', async ({ page }) => {
   const asks = await mock(page, { user: { ...MANAGER, role: 'community' } });
-  await page.goto('/host');
+  await page.goto('/');
   await page.getByRole('button', { name: 'Start an event' }).click();
   await expect(page.getByRole('group', { name: 'On pokemon.com' })).toBeVisible();
   await page.getByLabel('Run as').selectOption({ label: 'Mary Jackson' });
@@ -696,7 +696,7 @@ test('an event run under the account’s own name offers no listings', async ({ 
 
 test('an unsanctioned store’s event offers no listings, no sanctioned switch and no event type', async ({ page }) => {
   const asks = await mock(page, { user: { ...ME, stores: [{ ...MY_STORE, leagueId: null }] } });
-  await page.goto('/host');
+  await page.goto('/');
   await page.getByRole('button', { name: 'Start an event' }).click();
   await expect(page.getByRole('textbox', { name: 'Event name' })).toBeVisible();
   await expect(page.getByRole('group', { name: 'On pokemon.com' })).toHaveCount(0);
@@ -705,15 +705,17 @@ test('an unsanctioned store’s event offers no listings, no sanctioned switch a
   expect(asks.filter(a => a.path.endsWith('/listings'))).toHaveLength(0);
 });
 
-test('store settings’ Start an event opens the setup as the store, and /host links to settings', async ({ page }) => {
+test('store settings’ Start an event opens the setup as the store, and the dashboard links to settings', async ({
+  page
+}) => {
   await mock(page, { user: { ...MANAGER, role: 'community' } });
   await page.goto('/stores/store-1/settings');
   await page.getByRole('link', { name: 'Start an event' }).click();
-  await expect(page).toHaveURL(/\/host\?new=store-1$/);
+  await expect(page).toHaveURL(/:\d+\/\?new=store-1$/);
   await expect(page.getByLabel('Run as')).toHaveValue('store-1');
   await expect(page.getByRole('group', { name: 'On pokemon.com' })).toBeVisible();
   await page.getByRole('button', { name: 'Cancel' }).click();
-  await expect(page).toHaveURL(/\/host$/);
+  await expect(page).toHaveURL(/:\d+\/$/);
   await expect(page.getByRole('link', { name: 'Combat Power Gaming settings' })).toHaveAttribute(
     'href',
     '/stores/store-1/settings'

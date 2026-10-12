@@ -2,7 +2,7 @@
  * Where an account stands on running events (see applicantStage), on
  * Settings and the apply page: the stage in words, its day, the admin's note
  * on a rejection, and the step it leaves (apply, withdraw, apply again, the
- * events, the admin page). On /host, one line in the hero: the stage and its
+ * events, the admin page). On the dashboard, one line in the hero: the stage and its
  * step, for an account that may not start events.
  */
 
@@ -108,7 +108,7 @@ function StageStep(props: {
         <ApplyAgain onApply={props.onApplyAgain} />
       </Match>
       <Match when={props.stage === 'store' || props.stage === 'community'}>
-        <A class='btn btn-secondary' href='/host'>
+        <A class='btn btn-secondary' href='/'>
           Your events
         </A>
       </Match>
@@ -116,7 +116,7 @@ function StageStep(props: {
         <A class='btn btn-secondary' href='/admin'>
           Admin page
         </A>
-        <A class='btn btn-ghost' href='/host'>
+        <A class='btn btn-ghost' href='/'>
           Your events
         </A>
       </Match>
@@ -186,7 +186,7 @@ export function createSessionCatchUp(role: () => AccountRole | null, latest: () 
 }
 
 /**
- * /host's line for an account that may not start events: the way to apply,
+ * The dashboard's line for an account that may not start events: the way to apply,
  * or where its Application stands, as the dashboard read it (which also reads
  * the session again once it is approved). `primary`: applying is the page's
  * one step, with no event of its own running.

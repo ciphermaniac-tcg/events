@@ -1,5 +1,5 @@
 /**
- * /host for someone signed out: what running an event here is, and the way
+ * The home page, for someone signed out: what running an event here is, and the way
  * in for organizers. It stands as its own product, Ciphermaniac Events, with
  * its own head in place of the site's nav. The hero plays a sample event on
  * the real pairing engine (SampleEvent); below it, one band for each thing
@@ -7,9 +7,7 @@
  * with its picture (HostHomeArt).
  */
 
-import { A } from '@solidjs/router';
-import { MAIN_SITE } from '../../lib/constants';
-import { For, type JSX, onCleanup, onMount } from 'solid-js';
+import { For, type JSX, onCleanup } from 'solid-js';
 import type { SignInOffer } from '../../lib/tournament/api';
 import { DecklistArt, FieldArt, PhoneArt, ProfileArt, ResultsArt, ScreenArt, StreamArt, TdfArt } from './HostHomeArt';
 import { SampleEvent } from './SampleEvent';
@@ -86,37 +84,10 @@ function PointView(props: { point: Point }) {
   );
 }
 
-/** The product's own head: its name, and the two ways on. */
-function Head() {
-  return (
-    <header class='tm-home-head'>
-      <A href='/host' class='tm-home-name'>
-        <img src='/logo.svg' alt='' width='24' height='28' />
-        <span>
-          Ciphermaniac <small>Events</small>
-        </span>
-      </A>
-      <nav aria-label='Ciphermaniac Events'>
-        <a href={`${MAIN_SITE}/tools/event-locator`} class='tm-home-wide'>
-          Find an event
-        </a>
-        {/* The browser's own jump: the router ignores a second click on the same hash. */}
-        <a href='#sign-in' rel='external'>
-          Sign in
-        </a>
-      </nav>
-    </header>
-  );
-}
-
 export function HostHome(props: { offer: SignInOffer }) {
-  // The site's nav and live banner make way for the product's own head.
-  onMount(() => document.body.classList.add('tm-home-mode'));
-  onCleanup(() => document.body.classList.remove('tm-home-mode'));
-  const signIn = () => <SignIn offer={props.offer} next='/host' />;
+  const signIn = () => <SignIn offer={props.offer} next='/' />;
   return (
     <div class='tm-home'>
-      <Head />
       <section class='tm-home-hero'>
         <div>
           <h1>

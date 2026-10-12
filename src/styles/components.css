@@ -6,40 +6,6 @@
    ============================================================ */
 
 /* ---------- Page wrapper ---------- */
-/* Live banner: one line under the nav while a listed event is on, held to the
-   page measure. The whole strip is the link. */
-.live-banner {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 4px 12px;
-  padding: 8px max(32px, calc((100% - 1180px) / 2 + 32px));
-  border-bottom: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--fg);
-  font-size: 13px;
-  text-decoration: none;
-}
-.live-banner:hover {
-  text-decoration: none;
-}
-.live-banner:hover .live-banner-name {
-  text-decoration: underline;
-}
-.live-banner-mark {
-  color: var(--accent-ink);
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: var(--tracking-micro);
-  text-transform: uppercase;
-}
-.live-banner-name {
-  font-weight: 500;
-}
-.live-banner-meta {
-  color: var(--muted);
-  font-variant-numeric: tabular-nums;
-}
 /* The deck report: the shared Combo, standing for sprites rather than card art.
    Sprites are not thumbnails, so the list's frame and crop come off, and the
    field leaves room for a pair of them. The picker's own box lives in
@@ -163,324 +129,62 @@
   }
 }
 
-/* ---------- Top nav ---------- */
-.topnav {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  gap: 24px;
-  align-items: center;
-  /* The dark band runs edge to edge; the padding holds its contents to the
-     1400px measure the header used to be capped at. */
-  padding: 8px max(32px, calc((100% - 1400px) / 2 + 32px));
-  border-bottom: 1px solid var(--border);
-  background: var(--bg);
-  color-scheme: dark;
-  position: sticky;
-  top: 0;
-  z-index: 50;
-}
-.topnav-word {
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
-  font-size: 18px;
-  font-weight: 800;
-  letter-spacing: -0.04em;
-  color: var(--fg);
-  transition: color var(--ms-fast) var(--ease-base);
-}
-.topnav-logo {
-  display: block;
-  width: 22px;
-  height: 26px;
-}
-.topnav-word:hover {
-  color: var(--accent-ink);
-  text-decoration: none;
-}
-.topnav-links {
-  display: flex;
-  gap: 18px;
-  justify-content: center;
-}
-.topnav-link {
-  font-size: var(--text-sm);
-  color: var(--fg);
-  font-weight: 500;
-  padding: 6px 0;
-  position: relative;
-  transition: color var(--ms-fast) var(--ease-base);
-}
-.topnav-link:hover {
-  color: var(--accent-ink);
-  text-decoration: none;
-}
-.topnav-link.active::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 2px;
-  height: 2px;
-  background: var(--accent);
-}
-.topnav-item {
-  position: relative;
-  display: flex;
-}
-
-/* Hover shortcut to the headline tools. Pointer/keyboard only — phones get the
-   /tools page instead (hidden in the 640px block below). */
-.topnav-menu {
-  position: absolute;
-  top: 100%;
-  left: 50%;
-  transform: translateX(-50%);
-  min-width: 190px;
-  display: grid;
-  padding: 4px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  opacity: 0;
-  visibility: hidden;
-  transition:
-    opacity var(--ms-fast) var(--ease-base),
-    visibility var(--ms-fast) var(--ease-base);
-}
-/* Keyboard focus opens it; a mouse click does not, or the menu would stay
-   pinned open after clicking Tools itself (the anchor keeps DOM focus). */
-.topnav-item:has(:focus-visible) > .topnav-menu {
-  opacity: 1;
-  visibility: visible;
-}
-/* Hover is gated on a real pointer so a tap does not leave it stuck open. */
-@media (hover: hover) and (pointer: fine) {
-  .topnav-item:hover > .topnav-menu {
-    opacity: 1;
-    visibility: visible;
-  }
-}
-.topnav-menu-link {
-  font-size: 13px;
-  color: var(--muted);
-  padding: 7px 10px;
-  border-radius: var(--radius-sm);
-  white-space: nowrap;
-}
-.topnav-menu-link:hover,
-.topnav-menu-link:focus-visible {
-  color: var(--fg);
-  background: var(--surface-2);
-  text-decoration: none;
-}
-
-.topnav-actions {
-  display: flex;
-  gap: 6px;
-}
-
-/* ---------- Global search ----------
-   An inline field beside the tournament selector; on phones a button that
-   opens the bottom sheet with the same field and results. */
-.gsearch {
+/* ---------- Site head ---------- */
+/* The events site's own head, on every page: its name and the ways on. It
+   scrolls away with the page, so nothing sticks beneath it (--topnav-h: 0). */
+.site-head {
   display: flex;
   align-items: center;
-  min-width: 0;
-}
-.gsearch-field {
-  position: relative;
-  min-width: 0;
-}
-.gsearch-input {
-  width: 220px;
-  font-size: 12px;
-  padding: 6px 10px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  color: var(--fg);
-}
-.gsearch-input::placeholder {
-  color: var(--muted);
-}
-.gsearch-field-sheet .gsearch-input {
+  justify-content: space-between;
+  gap: var(--space-4);
+  max-width: 1180px;
+  margin: 0 auto;
   width: 100%;
-  font-size: 15px;
-  padding: 10px 12px;
+  padding: var(--space-5) 32px 0;
 }
-.gsearch-pop {
-  position: absolute;
-  top: calc(100% + 6px);
-  right: 0;
-  width: min(420px, 90vw);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 4px;
-  z-index: 60;
-  max-height: 70vh;
-  max-height: 70dvh;
-  overflow-y: auto;
+.site-head + main.page {
+  padding-top: var(--space-4);
 }
-.gsearch-results-sheet {
-  margin-top: var(--space-2);
-}
-.gsearch-group {
-  font-size: 11px;
-  color: var(--muted);
-  padding: 8px 10px 4px;
-}
-.gsearch-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 6px 10px;
-  min-height: 36px;
-  font-size: 13px;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-}
-.gsearch-row.active {
-  background: var(--surface-2);
-}
-.gsearch-skeleton {
-  cursor: default;
-}
-.gsearch-lead {
+.site-head-name {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  flex: 0 0 auto;
-}
-.gsearch-lead:empty {
-  display: none;
-}
-.gsearch-thumb {
-  width: 20px;
-  height: auto;
-  border-radius: var(--radius-sm);
-}
-.gsearch-date {
-  font-size: 11px;
-  color: var(--muted);
-  font-variant-numeric: tabular-nums;
-  min-width: 44px;
-}
-.gsearch-label {
-  flex: 1;
-  min-width: 0;
-  font-weight: 500;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.gsearch-sub {
-  font-size: 11px;
-  color: var(--muted);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-.gsearch-empty {
-  font-size: 12px;
-  color: var(--muted);
-  padding: 10px;
-}
-.gsearch-trigger {
-  display: none;
-  align-items: center;
-  justify-content: center;
-  min-width: 44px;
-  min-height: 44px;
+  gap: var(--space-2);
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
   color: var(--fg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
+  text-decoration: none;
 }
-@media (max-width: 900px) {
-  .gsearch-input {
-    width: 160px;
-    min-height: 44px;
+.site-head-name img {
+  width: 24px;
+  height: 28px;
+}
+.site-head-name small {
+  margin-left: 1px;
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--muted);
+}
+.site-head nav {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  font-size: 14px;
+}
+.site-head nav a {
+  color: var(--fg);
+}
+/* On a phone the head keeps its name and sign-in; the locator is a tap away on the main site. */
+@media (max-width: 700px) {
+  .site-head-wide {
+    display: none;
   }
 }
 @media (max-width: 640px) {
-  .gsearch > .gsearch-field {
-    display: none;
-  }
-  .gsearch-trigger {
-    display: inline-flex;
-  }
-  /* The search and scope controls are separate buttons, but visually read as
-     one compact control group in the phone header. */
-  .topnav-actions {
-    gap: 0;
-  }
-  .gsearch-trigger {
-    border-radius: var(--radius-sm) 0 0 var(--radius-sm);
-    border-right: 0;
-  }
-  .t-selector-trigger {
-    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-  }
-}
-@media (max-width: 900px) {
-  .topnav {
-    grid-template-columns: max-content minmax(0, 1fr);
-    grid-template-rows: auto auto;
-    grid-template-areas:
-      'word actions'
-      'links links';
-    column-gap: var(--space-3);
-    row-gap: var(--space-2);
-    padding: 10px max(var(--space-3), env(safe-area-inset-left)) 10px max(var(--space-3), env(safe-area-inset-left));
-    padding-right: max(var(--space-3), env(safe-area-inset-right));
-  }
-  .topnav-word {
-    grid-area: word;
-  }
-  .topnav-actions {
-    grid-area: actions;
-    gap: 4px;
-    min-width: 0;
-    justify-content: flex-end;
-  }
-  .t-selector {
-    min-width: 0;
-    max-width: 100%;
-  }
-  .t-selector-trigger {
-    min-width: 0;
-  }
-  .t-selector-label {
-    min-width: 0;
-  }
-  .topnav-links {
-    grid-area: links;
-    gap: var(--space-4);
-    justify-content: flex-start;
-    overflow-x: auto;
-    scrollbar-width: none;
-    padding-top: var(--space-1);
-    border-top: 1px solid var(--rule);
-  }
-  .topnav-links::-webkit-scrollbar {
-    display: none;
-  }
-  .topnav-link {
-    padding: 8px 0;
-    flex-shrink: 0;
-    scroll-snap-align: start;
-  }
-  .topnav-link.active::after {
-    bottom: 4px;
-  }
-  .topnav-menu {
-    display: none;
-  }
-  .t-selector-trigger {
-    max-width: 100%;
-    padding: 8px 10px;
-    min-height: 44px;
+  .site-head {
+    padding: var(--space-4) max(var(--space-3), env(safe-area-inset-left)) 0
+      max(var(--space-3), env(safe-area-inset-right));
   }
 }
 
@@ -558,105 +262,6 @@
     grid-area: toggle;
     margin: 0;
   }
-}
-
-/* ---------- Tournament selector ---------- */
-.t-selector {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.t-selector-trigger {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: var(--fg);
-  font-weight: 500;
-  padding: 6px 10px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  transition:
-    background var(--ms-fast),
-    transform var(--ms-fast);
-  max-width: 280px;
-}
-.t-selector-trigger:hover {
-  background: var(--surface-2);
-}
-.t-selector-trigger:active {
-  transform: scale(var(--press-scale));
-}
-.t-selector-label {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.t-selector-caret {
-  color: var(--muted);
-  font-size: 10.5px;
-}
-.t-selector-pop {
-  position: absolute;
-  top: calc(100% + 6px);
-  right: 0;
-  width: min(360px, 90vw);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 10px;
-  z-index: 60;
-  display: grid;
-  gap: 8px;
-  max-height: 70vh;
-  max-height: 70dvh;
-}
-.t-selector-pop .search {
-  width: 100%;
-  min-width: 0;
-}
-.t-selector-list {
-  overflow-y: auto;
-  max-height: calc(70vh - 80px);
-  max-height: calc(70dvh - 80px);
-  display: grid;
-  gap: 12px;
-  scrollbar-width: thin;
-}
-.t-selector-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 12px;
-  padding: 7px 10px;
-  font-size: 13px;
-  color: var(--fg);
-  text-align: left;
-  border-radius: var(--radius-sm);
-  transition:
-    background var(--ms-fast),
-    color var(--ms-fast);
-}
-.t-selector-item:hover {
-  background: var(--surface-2);
-}
-.t-selector-item.active {
-  background: color-mix(in srgb, var(--accent) 14%, transparent);
-  color: var(--fg);
-}
-.t-selector-item .primary {
-  font-weight: 500;
-  text-overflow: ellipsis;
-  overflow: hidden;
-  white-space: nowrap;
-}
-.t-selector-item .secondary {
-  font-size: 11px;
-  color: var(--muted);
-  font-variant-numeric: tabular-nums;
-  flex-shrink: 0;
 }
 
 /* ---------- Hero ---------- */

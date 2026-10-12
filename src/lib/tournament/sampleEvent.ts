@@ -1,5 +1,5 @@
 /**
- * The sample event the /host home page plays: real Swiss pairings from the
+ * The sample event the home page plays: real Swiss pairings from the
  * engine events run on, with each table's result drawn at random. The page
  * steps through the rounds a result at a time.
  */

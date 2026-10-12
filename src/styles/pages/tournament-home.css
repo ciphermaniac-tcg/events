@@ -1,54 +1,7 @@
-/* The /host home page, loaded with its lazy chunk (HostHome). */
-
-/* The page is its own product: its head stands in for the site's nav. */
-body.tm-home-mode .topnav,
-body.tm-home-mode .live-banner {
-  display: none;
-}
-body.tm-home-mode main.page {
-  padding-top: var(--space-4);
-}
+/* The home page, loaded with its lazy chunk (HostHome). */
 
 .tm-home {
   --tm-home-row: 30px;
-}
-
-/* ---------- Head ---------- */
-.tm-home-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
-}
-.tm-home-name {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: 16px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  color: var(--fg);
-  text-decoration: none;
-}
-.tm-home-name img {
-  width: 24px;
-  height: 28px;
-}
-.tm-home-name small {
-  margin-left: 1px;
-  font-size: 16px;
-  font-weight: 500;
-  letter-spacing: -0.01em;
-  color: var(--muted);
-}
-.tm-home-head nav {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-  font-size: 14px;
-}
-.tm-home-head nav a {
-  color: var(--fg);
 }
 
 /* ---------- Hero ---------- */
@@ -574,9 +527,6 @@ body.tm-home-mode main.page {
 }
 /* On a phone each band stacks, picture over centred words, as the three features do. */
 @media (max-width: 700px) {
-  .tm-home-wide {
-    display: none;
-  }
   .tm-home-hero {
     padding-bottom: var(--space-5);
   }

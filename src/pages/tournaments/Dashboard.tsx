@@ -1,5 +1,5 @@
 /**
- * /host signed in: the account's dashboard, one tab per part it plays.
+ * / signed in: the account's dashboard, one tab per part it plays.
  * Playing is every account's (its History, see PlayingTab); Organizing
  * belongs to an account that may start events or already runs or staffs one
  * (the organizer's lists, see HostIndex); Admin to an Admin (every section

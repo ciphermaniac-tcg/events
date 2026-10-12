@@ -90,9 +90,9 @@ body[data-mode="light"] {
   --row-height: 34px;
   /* One height for the controls that share a row: search input, select, segmented switch. */
   --control-h: 38px;
-  /* Sticky offset for in-table headers: matches the sticky topnav's height so
-     headers park directly beneath it. Overridden per breakpoint below. */
-  --topnav-h: 49px;
+  /* Sticky offset for in-table headers. The site head scrolls away with the
+     page, so they park at the very top. */
+  --topnav-h: 0px;
 
   /* Motion */
   --ms-fast: 130ms;
@@ -111,10 +111,7 @@ body[data-mode="light"] {
   --focus-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
-/* The topnav is dark in both modes, so it takes this block whatever the body
-   says; its menus and the tournament popover inherit it. */
-body[data-mode="dark"],
-.topnav {
+body[data-mode="dark"] {
   --bg: #181514;
   --surface: #211f1d;
   --surface-2: #2b2827;
@@ -137,18 +134,6 @@ body[data-mode="dark"],
   --chart-1: #ff9c4a;
   --chart-2: #6bb6ff;
   --chart-3: #7ed68a;
-}
-
-@media (max-width: 900px) {
-  /* The topnav wraps to two rows (word/actions, then links) before the
-     single-row desktop header would overflow. The selector's 44px target and
-     the link row make the rendered header 114px tall. */
-  /* body[data-mode] as well as :root: the light block re-declares every token
-     on body, so an override pinned only to :root never reaches the page. */
-  :root,
-  body[data-mode] {
-    --topnav-h: 114px;
-  }
 }
 
 @media (prefers-color-scheme: dark) {

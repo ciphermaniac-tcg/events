@@ -2,7 +2,7 @@ import { ErrorBoundary, type ParentComponent, Suspense } from 'solid-js';
 import { useIsRouting } from '@solidjs/router';
 import { SiteFooter } from './components/SiteFooter';
 import { Skeleton } from './components/Skeleton';
-import { TopNav } from './components/TopNav';
+import { SiteHead } from './components/SiteHead';
 import { useScrollRestoration } from './lib/scrollRestore';
 
 /**
@@ -23,7 +23,7 @@ function ChunkFallback() {
 }
 
 /**
- * Root layout. Every route renders inside this — TopNav always shows. The
+ * Root layout. Every route renders inside this, under the site's head. The
  * ErrorBoundary catches any thrown render error in a page so a single bad
  * page doesn't take down the whole SPA.
  */
@@ -35,7 +35,7 @@ export const App: ParentComponent = props => {
       {/* Slim pending bar: instant feedback the moment a nav starts, for the
           cases that still take time (lazy chunk download on slow networks). */}
       <div class='route-progress' classList={{ active: isRouting() }} aria-hidden='true' />
-      <TopNav />
+      <SiteHead />
       <main class='page'>
         <ErrorBoundary
           fallback={(err, reset) => (

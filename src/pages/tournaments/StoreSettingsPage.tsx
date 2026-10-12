@@ -284,7 +284,7 @@ function Settings(props: { id: string }) {
               </>
             }
             action={
-              <A class='btn btn-primary' href={`/host?${new URLSearchParams({ new: answer().store.id }).toString()}`}>
+              <A class='btn btn-primary' href={`/?${new URLSearchParams({ new: answer().store.id }).toString()}`}>
                 Start an event
               </A>
             }

@@ -6,9 +6,8 @@ body.tm-stream-mode {
   background: transparent;
   transition: none;
 }
-body.tm-stream-mode .topnav,
-body.tm-stream-mode .site-footer,
-body.tm-stream-mode .live-banner {
+body.tm-stream-mode .site-head,
+body.tm-stream-mode .site-footer {
   display: none;
 }
 body.tm-stream-mode main.page {
