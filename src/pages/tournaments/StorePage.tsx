@@ -30,6 +30,7 @@ import { ErrorLine } from './Field';
 import { TournamentHero } from './Hero';
 import { StoreMap } from './StoreMap';
 import '../../styles/pages/tournament-store-page.css';
+import { pageTitle } from '../../lib/title';
 
 /** Third-party links from store-entered data: no referrer, no endorsement. */
 const STORE_LINK_REL = 'noopener noreferrer nofollow ugc';
@@ -188,7 +189,7 @@ export function StorePage(props: { id: string }) {
   const [read] = createResource(() => props.id, fetchStore);
   const current = () => latestValue(read);
   createEffect(() => {
-    document.title = `${current()?.store.name ?? 'Store'} — Ciphermaniac`;
+    document.title = pageTitle(current()?.store.name ?? 'Store');
   });
   return (
     <div class='tm-page tm-storepage'>

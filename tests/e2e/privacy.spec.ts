@@ -27,7 +27,7 @@ test('the policy reads signed out, with its contact address', async ({ page }) =
     'href',
     'mailto:privacy@ciphermaniac.com'
   );
-  await expect(page).toHaveTitle('Privacy Policy — Ciphermaniac');
+  await expect(page).toHaveTitle('Privacy Policy — Ciphermaniac Events');
 });
 
 test('the terms read signed out, with their contact address', async ({ page }) => {
@@ -44,7 +44,7 @@ test('the terms read signed out, with their contact address', async ({ page }) =
     'href',
     'mailto:howdy@ciphermaniac.com'
   );
-  await expect(page).toHaveTitle('Terms of Service — Ciphermaniac');
+  await expect(page).toHaveTitle('Terms of Service — Ciphermaniac Events');
 });
 
 test('the age check links to the terms', async ({ page }) => {

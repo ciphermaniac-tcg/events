@@ -1066,7 +1066,7 @@ test('the dashboard of a player who runs nothing is its Playing tab alone, the l
   await expect(cup.locator('.tm-hist-place')).toHaveText('1st');
   // Decks are sprites alone here; their names stay in the tooltip and for assistive tech.
   await expect(page.locator('.tm-hist-icons .tm-hist-deck-name').first()).toBeHidden();
-  await expect(page).toHaveTitle('Playing — Ciphermaniac');
+  await expect(page).toHaveTitle('Playing — Ciphermaniac Events');
   expect(errors).toEqual([]);
 });
 

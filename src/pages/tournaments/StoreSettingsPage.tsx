@@ -37,6 +37,7 @@ import { SignIn } from './SignIn';
 import { StoreFields } from './StoreFields';
 import { StoreStaff } from './StoreStaff';
 import '../../styles/pages/tournament-store-settings.css';
+import { pageTitle } from '../../lib/title';
 
 type Section = 'nights' | 'staff' | 'details';
 
@@ -243,7 +244,7 @@ function Settings(props: { id: string }) {
   const section = () => readSection(params.section);
   createEffect(() => {
     const name = current()?.store.name;
-    document.title = `${name ? `${name} settings` : 'Store settings'} — Ciphermaniac`;
+    document.title = pageTitle(name ? `${name} settings` : 'Store settings');
   });
   const saved = (store: PublicStore, contact?: { phone: string; email: string }) =>
     mutate(prev => prev && { ...prev, store, ...(contact ? { contact } : {}) });

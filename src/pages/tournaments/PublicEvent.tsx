@@ -69,6 +69,7 @@ import type { Identified } from './Identify';
 import { StandingsTable } from './StandingsTable';
 import { YourMatch } from './YourMatch';
 import '../../styles/pages/tournament-public.css';
+import { pageTitle } from '../../lib/title';
 
 const BigScreen = lazy(() => import('./BigScreen').then(m => ({ default: m.BigScreen })));
 const StreamOverlay = lazy(() => import('./StreamOverlay').then(m => ({ default: m.StreamOverlay })));
@@ -776,7 +777,7 @@ export function PublicEvent(props: { code: string; session: Session | undefined 
     }
   });
   createEffect(() => {
-    document.title = `${current()?.tournament.info.name ?? props.code} — Ciphermaniac`;
+    document.title = pageTitle(current()?.tournament.info.name ?? props.code);
   });
   return (
     <Show

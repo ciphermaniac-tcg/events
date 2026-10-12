@@ -13,6 +13,7 @@ import { TournamentHero } from './Hero';
 import { HistoryList } from './HistoryList';
 import { session } from './session';
 import { SignIn } from './SignIn';
+import { pageTitle } from '../../lib/title';
 
 const eventCount = (n: number) => `${n} event${n === 1 ? '' : 's'}`;
 
@@ -68,7 +69,7 @@ function MyHistory() {
 export function HistoryPage() {
   const current = () => latestValue(session);
   onMount(() => {
-    document.title = 'History — Ciphermaniac';
+    document.title = pageTitle('History');
   });
   return (
     <div class='tm-page'>

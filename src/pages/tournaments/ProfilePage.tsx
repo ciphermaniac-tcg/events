@@ -15,6 +15,7 @@ import { ErrorLine } from './Field';
 import { TournamentHero } from './Hero';
 import { Trail } from './Trail';
 import { HistoryList } from './HistoryList';
+import { pageTitle } from '../../lib/title';
 
 const eventCount = (n: number) => `${n} event${n === 1 ? '' : 's'}`;
 
@@ -26,7 +27,7 @@ export function ProfilePage(props: { handle: string }) {
   createEffect(() => {
     const name = shown()?.name;
     if (name) {
-      document.title = `${name} — Ciphermaniac`;
+      document.title = pageTitle(name);
     }
   });
   return (

@@ -7,12 +7,13 @@
 import { A } from '@solidjs/router';
 import { onMount } from 'solid-js';
 import { TournamentHero } from './Hero';
+import { pageTitle } from '../../lib/title';
 
 const CONTACT = 'privacy@ciphermaniac.com';
 
 export function PrivacyPage() {
   onMount(() => {
-    document.title = 'Privacy Policy — Ciphermaniac';
+    document.title = pageTitle('Privacy Policy');
   });
   return (
     <div class='tm-page tm-narrow'>

@@ -26,6 +26,7 @@ import { refreshSession, session } from './session';
 import { SignIn } from './SignIn';
 import { StoreApplicationForm } from './StoreApplicationForm';
 import '../../styles/pages/tournament-store-apply.css';
+import { pageTitle } from '../../lib/title';
 
 const TITLE = 'Run events';
 
@@ -238,7 +239,7 @@ function Applying(props: { user: Me }) {
 export function ApplyPage() {
   const current = () => latestValue(session);
   onMount(() => {
-    document.title = `${TITLE} — Ciphermaniac`;
+    document.title = pageTitle(TITLE);
   });
   return (
     <div class='tm-page tm-narrow tm-apply-page'>

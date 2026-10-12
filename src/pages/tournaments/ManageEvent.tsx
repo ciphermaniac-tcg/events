@@ -60,6 +60,7 @@ import { RoundPanel } from './RoundPanel';
 import { SignIn } from './SignIn';
 import { createTomLink, type FileWrite, type TomLink, TomNextStep, TomStrip } from './TomSyncPanel';
 import { Trail } from './Trail';
+import { pageTitle } from '../../lib/title';
 
 // Pairings is the tab a running event lives on, so only it loads with the page;
 // the others load when opened (decklists are read before the event, the
@@ -588,7 +589,7 @@ export function ManageEvent(props: { code: string }) {
   });
 
   createEffect(() => {
-    document.title = `${state.data()?.tournament.info.name ?? props.code} — Run an event — Ciphermaniac`;
+    document.title = pageTitle(state.data()?.tournament.info.name ?? props.code);
   });
 
   return (

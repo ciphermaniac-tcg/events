@@ -6,12 +6,13 @@
 import { A } from '@solidjs/router';
 import { onMount } from 'solid-js';
 import { TournamentHero } from './Hero';
+import { pageTitle } from '../../lib/title';
 
 const CONTACT = 'howdy@ciphermaniac.com';
 
 export function TermsPage() {
   onMount(() => {
-    document.title = 'Terms of Service — Ciphermaniac';
+    document.title = pageTitle('Terms of Service');
   });
   return (
     <div class='tm-page tm-narrow'>

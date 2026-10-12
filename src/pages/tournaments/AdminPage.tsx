@@ -10,12 +10,13 @@ import { latestValue } from '../../lib/resource';
 import { AdminSections } from './AdminSections';
 import { TournamentHero } from './Hero';
 import { session } from './session';
+import { pageTitle } from '../../lib/title';
 
 export function AdminPage() {
   const current = () => latestValue(session);
   const admin = () => isAdmin(current()?.user?.role ?? null);
   createEffect(() => {
-    document.title = admin() ? 'Admin — Ciphermaniac' : 'Not found — Ciphermaniac';
+    document.title = pageTitle(admin() ? 'Admin' : 'Page not found');
   });
   return (
     <div class='tm-page tm-admin'>

@@ -44,6 +44,7 @@ import { SettingInfo } from './SettingInfo';
 import { SignIn } from './SignIn';
 import { Trail } from './Trail';
 import { MAIN_SITE } from '../../lib/constants';
+import { pageTitle } from '../../lib/title';
 
 /**
  * Takes in the fields one save changed, and only those: each answer carries
@@ -397,7 +398,7 @@ export function SettingsPage() {
   const [params] = useSearchParams<{ signin?: string; link?: string }>();
   const current = () => latestValue(session);
   onMount(() => {
-    document.title = 'Settings — Ciphermaniac';
+    document.title = pageTitle('Settings');
   });
   return (
     <div class='tm-page tm-settings'>

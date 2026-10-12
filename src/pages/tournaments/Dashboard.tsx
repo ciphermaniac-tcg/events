@@ -38,6 +38,7 @@ import { pendingApplications } from './pendingApplications';
 import { createSessionCatchUp } from './ApplicantStatus';
 import { PlayingTab } from './PlayingTab';
 import '../../styles/pages/tournament-dashboard.css';
+import { pageTitle } from '../../lib/title';
 
 const AdminSections = lazy(() => import('./AdminSections').then(m => ({ default: m.AdminSections })));
 
@@ -190,7 +191,7 @@ export function Dashboard(props: {
   createEffect(() => {
     const open = tab();
     if (open) {
-      document.title = `${LABELS[open]} — Ciphermaniac`;
+      document.title = pageTitle(LABELS[open]);
     }
   });
 

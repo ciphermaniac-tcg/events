@@ -52,6 +52,7 @@ import { EventSetup, type RunAs, type Setup } from './EventSetup';
 import { ErrorLine } from './Field';
 import { TournamentHero } from './Hero';
 import { refreshSession, session } from './session';
+import { pageTitle } from '../../lib/title';
 
 const loadDashboard = () => import('./Dashboard');
 const loadHostHome = () => import('./HostHome');
@@ -406,7 +407,7 @@ export function HostIndex() {
   const navigate = useNavigate();
   const current = () => latestValue(session);
   onMount(() => {
-    document.title = 'Run an event — Ciphermaniac';
+    document.title = pageTitle();
   });
   const opened = (code: string) => navigate(`/host/${code}`);
   return (

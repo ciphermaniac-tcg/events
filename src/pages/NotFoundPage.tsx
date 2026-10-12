@@ -1,17 +1,17 @@
 import { A } from '@solidjs/router';
 import { onMount } from 'solid-js';
 import { EmptyState } from '../components/EmptyState';
+import { pageTitle } from '../lib/title';
 
 export function NotFoundPage() {
   onMount(() => {
-    document.title = 'Not found — Ciphermaniac';
+    document.title = pageTitle('Page not found');
   });
 
   return (
     <section>
       <EmptyState
-        title='404 — page not found.'
-        description="That route doesn't exist (yet). Most of the app is still being scaffolded."
+        title='Page not found'
         mark={<NotFoundMark />}
         actions={
           <A href='/' class='btn btn-primary'>
