@@ -32,16 +32,6 @@
   border-radius: inherit;
   object-fit: cover;
 }
-.tm-acct-pip {
-  position: absolute;
-  top: -2px;
-  right: -2px;
-  width: 9px;
-  height: 9px;
-  border: 2px solid var(--bg);
-  border-radius: var(--radius-pill);
-  background: var(--accent);
-}
 .tm-acct-menu {
   position: absolute;
   top: calc(100% + 8px);

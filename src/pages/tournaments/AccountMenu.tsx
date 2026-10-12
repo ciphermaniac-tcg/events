@@ -50,9 +50,6 @@ export function AccountMenu(props: { user: Me; pending: number }) {
         <Show when={props.user.avatar} fallback={<span aria-hidden='true'>{props.user.name.slice(0, 1)}</span>}>
           {src => <img src={src()} alt='' width='34' height='34' />}
         </Show>
-        <Show when={admin() && props.pending > 0}>
-          <span class='tm-acct-pip' aria-hidden='true' />
-        </Show>
       </button>
       <Show when={open()}>
         <div class='tm-acct-menu'>

@@ -4225,9 +4225,6 @@ tr.row-expansion > td {
   background: var(--surface-2);
 }
 /* The row the box already stands for. */
-.tl-list li.cur {
-  box-shadow: inset 2px 0 0 var(--accent);
-}
 .tl-list li.cur b {
   font-weight: 700;
 }

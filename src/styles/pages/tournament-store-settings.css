@@ -155,7 +155,6 @@
   }
 }
 .tm-store-nav button.is-on {
-  border-left-color: var(--accent);
   background: var(--surface);
   color: var(--fg);
   font-weight: 600;
