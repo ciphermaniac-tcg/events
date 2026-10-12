@@ -220,7 +220,7 @@ function DetailsSection(props: {
 /** The section list: down the left on a wide screen, a row of tabs on a phone. */
 function SectionNav(props: { current: Section; onPick: (section: Section) => void }) {
   return (
-    <nav class='tm-store-nav' aria-label='Store settings'>
+    <nav class='tm-side-nav' aria-label='Store settings'>
       <For each={SECTIONS}>
         {section => (
           <button
@@ -305,9 +305,9 @@ function Settings(props: { id: string }) {
               </A>
             }
           />
-          <div class='tm-store-settings'>
+          <div class='tm-side-layout'>
             <SectionNav current={section()} onPick={value => setParams({ section: value })} />
-            <div class='tm-store-content'>
+            <div class='tm-side-content'>
               <Pane of='nights' current={section()} opened={opened()}>
                 <NightsSection store={answer().store} onSaved={store => saved(store)} />
               </Pane>

@@ -49,7 +49,7 @@
 .tm-organizer-surface .tm-page:not(.tm-console) .search,
 .tm-organizer-surface .tm-page:not(.tm-console) .segmented button,
 .tm-organizer-surface .tm-page:not(.tm-console) .tm-check,
-.tm-organizer-surface .tm-page:not(.tm-console) .tm-store-nav button {
+.tm-organizer-surface .tm-page:not(.tm-console) .tm-side-nav button {
   min-height: 44px;
 }
 .tm-organizer-surface .tm-page:not(.tm-console) .tm-error,

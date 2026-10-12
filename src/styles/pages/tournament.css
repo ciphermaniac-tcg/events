@@ -1944,3 +1944,70 @@ tr.is-in .tm-place {
   margin-left: -1px;
   border-radius: 0;
 }
+
+/* ---------- Sections down the left, the chosen one at right: Settings and store settings ---------- */
+.tm-side-layout {
+  display: grid;
+  grid-template-columns: 192px minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-5);
+  padding-top: var(--space-2);
+}
+.tm-side-nav {
+  position: sticky;
+  top: calc(var(--topnav-h) + var(--space-4));
+  display: grid;
+  gap: 2px;
+}
+.tm-side-nav button {
+  min-height: 40px;
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: var(--text-base);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background var(--ms-fast) var(--ease-base),
+    color var(--ms-fast) var(--ease-base);
+}
+.tm-side-nav button:hover {
+  color: var(--fg);
+  background: var(--surface-2);
+}
+/* The section shown: raised in the box colour and set in weight, no edge. */
+.tm-side-nav button.is-on {
+  background: var(--surface);
+  color: var(--fg);
+  font-weight: 600;
+}
+.tm-side-content {
+  min-width: 0;
+}
+/* Narrower, the sections become a row of tabs over the one shown. */
+@media (max-width: 900px) {
+  .tm-side-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-4);
+  }
+  .tm-side-nav {
+    position: static;
+    display: flex;
+    gap: 0;
+    overflow-x: auto;
+    border-bottom: 1px solid var(--rule);
+  }
+  .tm-side-nav button {
+    flex: none;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
+    margin-bottom: -1px;
+  }
+  .tm-side-nav button.is-on {
+    border-bottom-color: var(--fg);
+    background: transparent;
+  }
+}

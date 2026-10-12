@@ -6,39 +6,6 @@
 .tm-store-settings-page {
   max-width: 1040px;
 }
-.tm-store-settings {
-  display: grid;
-  grid-template-columns: 192px minmax(0, 1fr);
-  align-items: start;
-  gap: var(--space-5);
-  padding-top: var(--space-2);
-}
-.tm-store-nav {
-  position: sticky;
-  top: calc(var(--topnav-h) + var(--space-4));
-  display: grid;
-  gap: 2px;
-}
-.tm-store-nav button {
-  min-height: 40px;
-  padding: var(--space-2) var(--space-3);
-  border-left: 2px solid transparent;
-  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-  color: var(--muted);
-  font: inherit;
-  font-size: var(--text-base);
-  text-align: left;
-  transition:
-    background var(--ms-fast) var(--ease-base),
-    color var(--ms-fast) var(--ease-base);
-}
-.tm-store-nav button:hover {
-  color: var(--fg);
-  background: var(--surface-2);
-}
-.tm-store-content {
-  min-width: 0;
-}
 .tm-store-section {
   display: grid;
   gap: var(--space-2);
@@ -97,31 +64,6 @@
   width: 120px;
 }
 
-@media (max-width: 760px) {
-  .tm-store-settings {
-    grid-template-columns: minmax(0, 1fr);
-    gap: var(--space-4);
-  }
-  /* On a phone the sections are a row of tabs over the one shown. */
-  .tm-store-nav {
-    position: static;
-    display: flex;
-    gap: 0;
-    overflow-x: auto;
-    border-bottom: 1px solid var(--rule);
-  }
-  .tm-store-nav button {
-    flex: none;
-    border-left: 0;
-    border-bottom: 2px solid transparent;
-    border-radius: 0;
-    margin-bottom: -1px;
-  }
-  .tm-store-nav button.is-on {
-    border-bottom-color: var(--accent);
-    background: transparent;
-  }
-}
 @media (max-width: 640px) {
   .tm-store-pane {
     padding: var(--space-3);
@@ -154,12 +96,6 @@
     background: color-mix(in srgb, var(--fg) 25%, var(--surface));
   }
 }
-.tm-store-nav button.is-on {
-  background: var(--surface);
-  color: var(--fg);
-  font-weight: 600;
-  border-color: var(--fg);
-}
 .tm-staff-options {
   width: 240px;
   max-width: calc(100vw - 32px);
@@ -190,36 +126,7 @@
   flex-basis: 100%;
   white-space: normal;
 }
-@media (max-width: 900px) {
-  .tm-store-settings {
-    grid-template-columns: minmax(0, 1fr);
-    gap: var(--space-4);
-  }
-}
-@media (max-width: 900px) {
-  .tm-store-nav {
-    position: static;
-    display: flex;
-    gap: 0;
-    overflow-x: auto;
-    border-bottom: 1px solid var(--rule);
-  }
-}
-@media (max-width: 900px) {
-  .tm-store-nav button {
-    flex: none;
-    border: 0;
-    border-bottom: 2px solid transparent;
-    border-radius: 0;
-    margin-bottom: -1px;
-  }
-}
-@media (max-width: 900px) {
-  .tm-store-nav button.is-on {
-    border-bottom-color: var(--fg);
-    background: transparent;
-  }
-}
+
 @media (max-width: 760px) {
   .tm-store-staff thead {
     display: none;
