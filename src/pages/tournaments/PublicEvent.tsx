@@ -703,7 +703,8 @@ function Hero(props: { view: TournamentView }) {
       settings().format,
       place(),
       `${props.view.tournament.players.length} players`,
-      `Updated ${updatedLabel(props.view.updatedAt)}`
+      // A finished event's date already says when; an unknown time says nothing.
+      !settings().finished && props.view.updatedAt > 0 && `Updated ${updatedLabel(props.view.updatedAt)}`
     ].filter(Boolean);
   return (
     <>
