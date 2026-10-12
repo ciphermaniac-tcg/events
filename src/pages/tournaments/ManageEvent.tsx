@@ -32,7 +32,7 @@ import { eventTypeOf } from '../../../shared/tournament/structure';
 import type { Pod, PodCategory } from '../../../shared/tournament/types';
 import { Segmented } from '../../components/Segmented';
 import { LockedTab, Tabs } from '../../components/Tabs';
-import { errorText, joinStaff, type Manage, saveSettings } from '../../lib/tournament/api';
+import { errorText, joinStaff, type Manage } from '../../lib/tournament/api';
 import {
   type DivisionCut,
   divisionCuts,
@@ -50,12 +50,12 @@ import {
 } from '../../lib/tournament/present';
 import { session } from './session';
 import { latestValue } from '../../lib/resource';
-import { ConfirmAction } from './ConfirmAction';
 import { ErrorLine } from './Field';
 import { lookOnReturn, schedulePolls } from '../../lib/tournament/viewPoll';
 import { createManage, type ManageState } from './manageState';
 import '../../styles/pages/tournament-console.css';
-import { ClockControls, TopCutControl } from './RoundControls';
+import { ClockControls } from './RoundControls';
+import { EndEventStep, type RoundEnd, RoundEndSplit } from './NextStep';
 import { RoundPanel } from './RoundPanel';
 import { SignIn } from './SignIn';
 import { createTomLink, type FileWrite, type TomLink, TomNextStep, TomStrip } from './TomSyncPanel';
@@ -142,36 +142,13 @@ function PairButton(props: {
   );
 }
 
-/** Ending the event, asked in place. */
-function EndEvent(props: { state: ManageState; manage: Manage; primary?: boolean }) {
-  function end() {
-    const { code } = props.manage;
-    void props.state.run(() => saveSettings(code, { finished: true }));
-  }
-  return (
-    <ConfirmAction
-      class={props.primary ? 'btn btn-primary' : 'btn btn-secondary'}
-      label='End event'
-      question='End the event?'
-      confirmLabel='End event'
-      disabled={props.state.busy()}
-      onConfirm={end}
-    />
-  );
-}
-
-/** Which of a Swiss round's ends the plan calls for: another round until its rounds are played, then the cut or the end. */
-type RoundEnd = 'pair' | 'cut' | 'end';
-
 /** What the disabled step says while the round plays, when it is not pairing. */
 const WAITING_WORDS: Partial<Record<RoundEnd, string>> = { cut: 'Start top cut', end: 'End event' };
 
 /**
- * The end of a Swiss round: another round, the top cut and ending the event,
- * together on one line and always in that order, so a hand finds each where
- * it was last round. Only the one the plan calls for is primary. While the
- * round is still playing, only that step shows, disabled, with the reason
- * under it.
+ * The end of a Swiss round: the step the plan calls for as one button, the
+ * others behind its caret (see RoundEndSplit). While the round is still
+ * playing, only that step shows, disabled, with the reason under it.
  */
 function RoundEndStep(props: {
   state: ManageState;
@@ -183,8 +160,6 @@ function RoundEndStep(props: {
   cuts: readonly DivisionCut[];
   /** The pod's divisions have begun their top cuts: its Swiss rounds are over, and only the others' cuts are left. */
   swissOver: boolean;
-  /** Another pod's round is still playing, so ending the event is not the step to take. */
-  othersPlaying: boolean;
 }) {
   const open = () => props.cuts.filter(c => !c.started);
   // A League Challenge plays Swiss rounds only.
@@ -199,21 +174,16 @@ function RoundEndStep(props: {
         </button>
       }
     >
-      <span class='tm-next-acts'>
-        <Show when={!props.swissOver}>
-          <PairButton state={props.state} pod={props.pod} label={props.label} ready primary={props.step === 'pair'} />
-        </Show>
-        <Show when={canCut()}>
-          <TopCutControl
-            state={props.state}
-            pod={props.pod}
-            cuts={open()}
-            divided={props.cuts.length > 1}
-            primary={props.step === 'cut'}
-          />
-        </Show>
-        <EndEvent state={props.state} manage={props.manage} primary={props.step === 'end' && !props.othersPlaying} />
-      </span>
+      <RoundEndSplit
+        state={props.state}
+        manage={props.manage}
+        pod={props.pod}
+        label={props.label}
+        step={props.step}
+        cuts={props.cuts}
+        canCut={canCut()}
+        swissOver={props.swissOver}
+      />
     </Show>
   );
 }
@@ -311,7 +281,6 @@ function Hero(props: { state: ManageState; manage: Manage; pod: Pod | undefined;
             step={s().end}
             cuts={cuts()}
             swissOver={swissOver()}
-            othersPlaying={othersPlaying()}
           />
         )}
       </Match>
@@ -328,7 +297,7 @@ function Hero(props: { state: ManageState; manage: Manage; pod: Pod | undefined;
               </button>
             }
           >
-            <EndEvent state={props.state} manage={props.manage} primary={!othersPlaying()} />
+            <EndEventStep state={props.state} manage={props.manage} primary={!othersPlaying()} />
           </Show>
         )}
       </Match>

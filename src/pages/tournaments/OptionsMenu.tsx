@@ -21,6 +21,10 @@ export function OptionsMenu(props: {
   staff?: boolean;
   closeOnSelect?: boolean;
   busy?: boolean;
+  /** The trigger's look, name and face, when it is not the row's "..." (a split button's caret). */
+  buttonClass?: string;
+  buttonLabel?: string;
+  buttonContent?: JSX.Element;
   children: JSX.Element;
 }) {
   const id = createUniqueId();
@@ -88,8 +92,8 @@ export function OptionsMenu(props: {
       <button
         ref={button}
         type='button'
-        class='btn btn-ghost tm-small'
-        aria-label={`More for ${props.name}`}
+        class={props.buttonClass ?? 'btn btn-ghost tm-small'}
+        aria-label={props.buttonLabel ?? `More for ${props.name}`}
         aria-expanded={at() !== null}
         aria-controls={at() ? id : undefined}
         disabled={props.busy}
@@ -101,7 +105,7 @@ export function OptionsMenu(props: {
           }
         }}
       >
-        ...
+        {props.buttonContent ?? '...'}
       </button>
       <Show when={at()}>
         {position => (

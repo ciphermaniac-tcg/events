@@ -2,31 +2,6 @@
    delete. Built on the tournament pages' boxes and the apply page's choice
    rows (tournament-store-apply.css). */
 
-.tm-modal {
-  width: min(480px, calc(100vw - 32px));
-  padding: 0;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--surface);
-  color: var(--fg);
-}
-.tm-modal::backdrop {
-  background: color-mix(in srgb, var(--bg) 72%, transparent);
-}
-.tm-modal .tm-box-bar {
-  padding: var(--space-3) var(--space-4);
-}
-.tm-modal h3 {
-  margin: 0;
-  font-size: var(--text-body);
-}
-.tm-modal-foot {
-  justify-content: flex-end;
-}
-.tm-modal-body {
-  display: grid;
-  gap: var(--space-2);
-}
 .tm-modal-steps {
   font-size: var(--text-sm);
   color: var(--muted);

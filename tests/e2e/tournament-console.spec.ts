@@ -181,27 +181,47 @@ test('a result shows in its row while it is on its way, and its answer is not re
   expect(reads).toEqual([]);
 });
 
-test('after the planned rounds the console offers the top cut, another round and ending the event', async ({
+test('after the planned rounds the step is the top cut, set in a dialog, with another round and the end behind it', async ({
   page
 }) => {
   // Sixteen players play five rounds and a top 4, as Play! Pokémon recommends.
-  await mockConsole(page, event(16, 5, false), settingsOf({}));
+  const sent = await mockConsole(page, event(16, 5, false), settingsOf({}));
   await expect(page.getByText('Round 5 of 5 complete')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Start top cut' })).toBeEnabled();
-  await expect(page.getByRole('combobox', { name: 'Top cut size' })).toHaveValue('4');
-  await expect(page.getByRole('button', { name: 'Pair round 6' })).toBeVisible();
-  await page.getByRole('button', { name: 'End event' }).click();
-  await expect(page.getByText('End the event?')).toBeVisible();
+  const step = page.locator('.tm-split');
+  await expect(step.getByRole('button', { name: 'Start top cut' })).toHaveClass(/btn-primary/);
+  await step.getByRole('button', { name: 'Other next steps' }).click();
+  await expect(step.locator('.tm-menu-item')).toHaveText(['Pair round 6', 'End event']);
+  await page.keyboard.press('Escape');
+  await step.getByRole('button', { name: 'Start top cut' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Start the top cut' });
+  await expect(dialog.getByRole('tablist', { name: 'Top cut size' }).getByRole('tab', { selected: true })).toHaveText(
+    'Top 4'
+  );
+  await dialog.getByRole('tab', { name: 'Top 8' }).click();
+  await dialog.getByLabel('Third place match').check();
+  await dialog.getByRole('button', { name: 'Start top 8 cut' }).click();
+  await expect(dialog).toBeHidden();
+  await expect.poll(() => sent.at(-1)).toMatchObject({ type: 'startTopCut', size: 8, playoff3rd4th: true });
 });
 
-test('every Swiss round ends with another round, the top cut and ending the event, in that order', async ({ page }) => {
+test('ending the event from the next step asks first, in a dialog', async ({ page }) => {
+  await mockConsole(page, event(16, 5, false), settingsOf({}));
+  const step = page.locator('.tm-split');
+  await step.getByRole('button', { name: 'Other next steps' }).click();
+  await step.locator('.tm-menu-item', { hasText: 'End event' }).click();
+  const dialog = page.getByRole('dialog', { name: 'End the event?' });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole('button', { name: 'Keep running' }).click();
+  await expect(dialog).toBeHidden();
+});
+
+test('every Swiss round ends with another round as the step, the top cut and the end behind it', async ({ page }) => {
   // Sixteen players plan five rounds, so after round 2 another round is the step.
   await mockConsole(page, event(16, 2, false), settingsOf({}));
-  const acts = page.locator('.tm-next-acts');
-  await expect(acts.getByRole('button')).toHaveText(['Pair round 3', 'Start top cut', 'End event']);
-  await expect(acts.getByRole('button', { name: 'Pair round 3' })).toHaveClass(/btn-primary/);
-  await expect(acts.getByRole('button', { name: 'Start top cut' })).toHaveClass(/btn-secondary/);
-  await expect(acts.getByRole('button', { name: 'End event' })).toHaveClass(/btn-secondary/);
+  const step = page.locator('.tm-split');
+  await expect(step.locator('> .btn')).toHaveText('Pair round 3');
+  await step.getByRole('button', { name: 'Other next steps' }).click();
+  await expect(step.locator('.tm-menu-item')).toHaveText(['Start top cut', 'End event']);
 });
 
 test("an open table shows its players' reports in its one row, and a lone report can be accepted", async ({ page }) => {
@@ -241,8 +261,10 @@ test("an open table shows its players' reports in its one row, and a lone report
 test('a capped league ends after its rounds instead of pairing on', async ({ page }) => {
   const sent = await mockConsole(page, event(6, 3, false), settingsOf({ roundCap: 3 }));
   await expect(page.getByText('Round 3 of 3 complete')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'End event' })).toHaveClass(/btn-primary/);
-  await page.getByRole('button', { name: 'Pair round 4' }).click();
+  const step = page.locator('.tm-split');
+  await expect(step.locator('> .btn')).toHaveText('End event');
+  await step.getByRole('button', { name: 'Other next steps' }).click();
+  await step.locator('.tm-menu-item', { hasText: 'Pair round 4' }).click();
   await expect.poll(() => sent.map(c => c.type)).toEqual(['pairRound']);
 });
 

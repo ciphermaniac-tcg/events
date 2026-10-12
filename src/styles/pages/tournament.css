@@ -1857,3 +1857,65 @@ tr.is-in .tm-place {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* ---------- Dialogs (Modal): My Data's choices, the console's top cut and end ---------- */
+.tm-modal {
+  width: min(480px, calc(100vw - 32px));
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--fg);
+}
+.tm-modal::backdrop {
+  background: color-mix(in srgb, var(--bg) 72%, transparent);
+}
+.tm-modal .tm-box-bar {
+  padding: var(--space-3) var(--space-4);
+}
+.tm-modal h3 {
+  margin: 0;
+  font-size: var(--text-body);
+}
+.tm-modal-foot {
+  justify-content: flex-end;
+}
+.tm-modal-body {
+  display: grid;
+  gap: var(--space-2);
+}
+
+/* ---------- The console's next step: a split button (NextStep) ---------- */
+.tm-split {
+  display: inline-flex;
+}
+.tm-split > .btn {
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+}
+.tm-split .tm-split-caret {
+  padding-inline: 10px;
+  border-left-color: color-mix(in srgb, var(--accent-fg) 30%, transparent);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+.tm-split .tm-more {
+  display: inline-flex;
+}
+.tm-cut-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+.tm-cut-label {
+  font-weight: 600;
+}
+.tm-cut-dialog h3,
+.tm-end-dialog h3 {
+  font-size: var(--text-lg);
+}
+.tm-modal .tm-modal-body {
+  gap: var(--space-3);
+}
+.tm-modal .tm-box-bar + .tm-box-bar {
+  border-top: 0;
+}

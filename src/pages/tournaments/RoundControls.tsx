@@ -1,109 +1,16 @@
 /**
- * The controls that move a round along besides pairing the next one (the
- * console's head does that, and offers the top cut once the Swiss rounds are
- * played): the clock, re-pairing, deleting a round nobody has played, and the
- * champion. Each shows only in the state it belongs to, and anything that
+ * The controls that move a round along besides the next step (the console's
+ * head offers that, see NextStep): the clock, re-pairing, deleting a round
+ * nobody has played, and the champion. Each shows only in the state it belongs to, and anything that
  * cannot be taken back asks first, in place.
  */
 
-import { createSignal, For, Show } from 'solid-js';
-import { TOP_CUT_SIZES } from '../../../shared/tournament/commands';
-import { type Division, DIVISION_LABELS, type Pod, type Round } from '../../../shared/tournament/types';
-import { clockLabel, type DivisionCut } from '../../lib/tournament/present';
+import { createSignal, Show } from 'solid-js';
+import type { Pod, Round } from '../../../shared/tournament/types';
+import { clockLabel } from '../../lib/tournament/present';
 import { Clock } from './Clock';
 import { ConfirmAction } from './ConfirmAction';
 import type { ManageState } from './manageState';
-
-/** With no cut planned, the biggest one the players still in can fill, up to a top 8. */
-const largestCut = (active: number) => TOP_CUT_SIZES.filter(n => n <= Math.min(8, active)).at(-1) ?? 2;
-
-/** The size to offer first for a division: its planned cut, else the biggest it can fill. */
-const suggestedCut = (entry: DivisionCut | undefined) => (entry ? entry.cut || largestCut(entry.active) : 2);
-
-/**
- * The top cut's size, whether it plays for third place, then the button
- * that starts it. `cuts` are the divisions the pod plays that have yet to cut
- * (see divisionCuts); in a pod of several (`divided`), each cuts on its own,
- * so the division is named too, asked when more than one is left, and
- * picking one offers its own cut first.
- */
-export function TopCutControl(props: {
-  state: ManageState;
-  pod: Pod;
-  cuts: readonly DivisionCut[];
-  divided: boolean;
-  primary?: boolean;
-}) {
-  // eslint-disable-next-line solid/reactivity -- a starting suggestion; the organizer's pick wins from then on
-  const [division, setDivision] = createSignal<Division>(props.cuts.at(-1)?.division ?? 'masters');
-  // The pick, while it is still a division left to cut; the last one left otherwise.
-  const entry = () => props.cuts.find(c => c.division === division()) ?? props.cuts.at(-1);
-
-  // A size picked stays with the division it was picked for; another division offers its own first.
-  const [picked, setPicked] = createSignal<{ division: Division | undefined; size: number } | null>(null);
-  const size = () => {
-    const choice = picked();
-    return choice && choice.division === entry()?.division ? choice.size : suggestedCut(entry());
-  };
-  const setSize = (next: number) => setPicked({ division: entry()?.division, size: next });
-  const several = () => props.cuts.length > 1;
-  const pickDivision = (next: Division) => setDivision(next);
-  // Optional, and announced before the cut starts; it needs two semifinal losers.
-  const [thirdPlace, setThirdPlace] = createSignal(false);
-  const playsThird = () => thirdPlace() && size() >= 4;
-  function start() {
-    const cut = {
-      type: 'startTopCut' as const,
-      pod: props.pod.category,
-      size: size(),
-      ...(playsThird() ? { playoff3rd4th: true } : {})
-    };
-    const picked = entry()?.division;
-    void props.state.send(props.divided && picked ? { ...cut, division: picked } : cut);
-  }
-  return (
-    <span class='tm-inline-form'>
-      <Show when={several()}>
-        <select
-          class='tm-select'
-          aria-label='Division to cut'
-          onChange={e => pickDivision(e.currentTarget.value as Division)}
-        >
-          <For each={props.cuts}>
-            {c => (
-              <option value={c.division} selected={c.division === entry()?.division}>
-                {DIVISION_LABELS[c.division]}
-              </option>
-            )}
-          </For>
-        </select>
-      </Show>
-      <select class='tm-select' aria-label='Top cut size' onChange={e => setSize(Number(e.currentTarget.value))}>
-        <For each={TOP_CUT_SIZES.filter(n => n <= (entry()?.active ?? 0))}>
-          {n => (
-            <option value={n} selected={n === size()}>
-              Top {n}
-            </option>
-          )}
-        </For>
-      </select>
-      <Show when={size() >= 4}>
-        <label class='tm-check'>
-          <input type='checkbox' checked={thirdPlace()} onChange={e => setThirdPlace(e.currentTarget.checked)} />
-          Third place match
-        </label>
-      </Show>
-      <button
-        type='button'
-        class={props.primary ? 'btn btn-primary' : 'btn btn-secondary'}
-        disabled={props.state.busy()}
-        onClick={start}
-      >
-        Start top cut
-      </button>
-    </span>
-  );
-}
 
 /** The clock as one control: time left, then start or pause, then a minute either way. */
 export function ClockControls(props: { state: ManageState; pod: Pod; round: Round; class?: string }) {
