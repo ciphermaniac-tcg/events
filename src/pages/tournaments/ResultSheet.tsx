@@ -36,10 +36,10 @@ export function ResultSheet(props: {
   const [ready, setReady] = createSignal(false);
   let sheet: HTMLDivElement | undefined;
   const name = (id: string | null) => (id ? (props.names.get(id) ?? id) : '');
-  const first = (id: string | null) => name(id).split(' ')[0] ?? '';
+  // Full names: two players can share a first name, and the buttons must never read alike.
   const winners = (): { outcome: Outcome; label: string }[] => [
-    { outcome: 'p1', label: `${first(props.match.p1)} wins` },
-    { outcome: 'p2', label: `${first(props.match.p2)} wins` }
+    { outcome: 'p1', label: `${name(props.match.p1)} wins` },
+    { outcome: 'p2', label: `${name(props.match.p2)} wins` }
   ];
   const choices = () => [...winners(), ...(props.round.kind === 'elimination' ? [] : EVEN)];
   const standing = () =>
