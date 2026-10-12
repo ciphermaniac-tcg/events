@@ -186,3 +186,16 @@ body[data-mode="dark"] {
   --accent-fill: #efb32c;
   --accent-fill-hover: #f5c450;
 }
+
+/* On a dark page the bar steps up a shade and draws its edge, so it still
+   reads as a bar rather than melting into the page. */
+body[data-mode="dark"] .site-head {
+  --bg: #24221f;
+  --border: #4d4a46;
+}
+@media (prefers-color-scheme: dark) {
+  body:not([data-mode]) .site-head {
+    --bg: #24221f;
+    --border: #4d4a46;
+  }
+}
