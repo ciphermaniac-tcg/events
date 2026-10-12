@@ -26,11 +26,11 @@ import {
   zoneName
 } from '../../lib/tournament/stores';
 import { latestValue } from '../../lib/resource';
-import { ErrorLine } from './Field';
 import { TournamentHero } from './Hero';
 import { StoreMap } from './StoreMap';
 import '../../styles/pages/tournament-store-page.css';
 import { pageTitle } from '../../lib/title';
+import { ErrorState } from '../../components/ErrorState';
 
 /** Third-party links from store-entered data: no referrer, no endorsement. */
 const STORE_LINK_REL = 'noopener noreferrer nofollow ugc';
@@ -197,7 +197,11 @@ export function StorePage(props: { id: string }) {
         when={current()}
         fallback={
           <Show when={read.error} fallback={<Skeleton height='320px' />}>
-            <ErrorLine message={errorText(read.error)} />
+            <ErrorState code='Store' title='Couldn’t load this store' line={errorText(read.error)}>
+              <A href='/' class='btn btn-primary'>
+                Go home
+              </A>
+            </ErrorState>
           </Show>
         }
       >

@@ -8,6 +8,7 @@ import { isAdmin } from '../../../shared/accounts/roles';
 import { latestValue } from '../../lib/resource';
 import { AdminSections } from './AdminSections';
 import { TournamentHero } from './Hero';
+import { NotFoundPage } from '../NotFoundPage';
 import { session } from './session';
 import { pageTitle } from '../../lib/title';
 
@@ -20,7 +21,7 @@ export function AdminPage() {
   return (
     <div class='tm-page tm-admin'>
       <Show when={current()}>
-        <Show when={admin()} fallback={<TournamentHero title='Page not found' />}>
+        <Show when={admin()} fallback={<NotFoundPage />}>
           <TournamentHero title='Admin' />
           <AdminSections param='tab' />
         </Show>

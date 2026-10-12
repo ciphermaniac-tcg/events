@@ -2,6 +2,7 @@ import { ErrorBoundary, type ParentComponent, Suspense } from 'solid-js';
 import { useIsRouting } from '@solidjs/router';
 import { SiteFooter } from './components/SiteFooter';
 import { Skeleton } from './components/Skeleton';
+import { ErrorState } from './components/ErrorState';
 import { SiteHead } from './components/SiteHead';
 import { useScrollRestoration } from './lib/scrollRestore';
 
@@ -38,16 +39,26 @@ export const App: ParentComponent = props => {
       <SiteHead />
       <main class='page'>
         <ErrorBoundary
-          fallback={(err, reset) => (
-            <section class='error-fallback' role='alert'>
-              <h1>Something went wrong</h1>
-              <p>This page hit an unexpected error. The rest of the site should still work.</p>
-              <pre class='muted'>{err instanceof Error ? err.message : String(err)}</pre>
-              <button type='button' onClick={reset}>
-                Try again
-              </button>
-            </section>
-          )}
+          fallback={(err, reset) => {
+            // The detail is for whoever debugs it, not for the page.
+            console.error(err);
+            return (
+              <div role='alert'>
+                <ErrorState
+                  code='Error'
+                  title='Something went wrong'
+                  line='This page hit a problem it couldn’t recover from. Trying again usually works.'
+                >
+                  <button type='button' class='btn btn-primary' onClick={reset}>
+                    Try again
+                  </button>
+                  <a href='/' class='btn btn-secondary'>
+                    Go home
+                  </a>
+                </ErrorState>
+              </div>
+            );
+          }}
         >
           {/* Routes are code-split (lazy()) — this boundary only covers route
               chunk loading. Page DATA must never suspend (see lib/resource.ts):

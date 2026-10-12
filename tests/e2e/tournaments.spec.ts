@@ -506,14 +506,14 @@ test('the player sheet keeps Tab inside it until it closes', async ({ page }) =>
   expect(await sheet.evaluate(el => el.contains(document.activeElement))).toBe(true);
 });
 
-test('a first load that fails offers Retry, which loads the event', async ({ page }) => {
+test('a first load that fails offers Try again, which loads the event', async ({ page }) => {
   await mockApi(page);
   let failing = true;
   await page.route(`**/api/tournaments/${CODE}`, route =>
     failing ? route.fulfill({ status: 500, json: { error: 'Something went wrong' } }) : route.fallback()
   );
   await page.goto(`/t/${CODE}`);
-  const retry = page.getByRole('button', { name: 'Retry' });
+  const retry = page.getByRole('button', { name: 'Try again' });
   await expect(retry).toBeVisible();
   failing = false;
   await retry.click();

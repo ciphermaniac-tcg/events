@@ -4,15 +4,15 @@
  * says so. Signed out, sign-in comes back here.
  */
 
-import { useNavigate, useSearchParams } from '@solidjs/router';
+import { A, useNavigate, useSearchParams } from '@solidjs/router';
 import { createEffect, createSignal, Show, untrack } from 'solid-js';
 import { errorText } from '../../lib/tournament/api';
 import { joinStore } from '../../lib/tournament/stores';
 import { latestValue } from '../../lib/resource';
-import { ErrorLine } from './Field';
 import { TournamentHero } from './Hero';
 import { refreshSession, session } from './session';
 import { SignIn } from './SignIn';
+import { ErrorState } from '../../components/ErrorState';
 
 const TITLE = 'Join a store';
 
@@ -45,7 +45,9 @@ export function StoreJoinPage() {
   }
   return (
     <div class='tm-page tm-narrow'>
-      <TournamentHero title={TITLE} />
+      <Show when={!error()}>
+        <TournamentHero title={TITLE} />
+      </Show>
       <Show when={latestValue(session)}>
         {s => (
           <Show
@@ -69,7 +71,13 @@ export function StoreJoinPage() {
                 </p>
               }
             >
-              <ErrorLine message={error()} />
+              {message => (
+                <ErrorState code='Invite' title='This invite didn’t work' line={message()}>
+                  <A href='/' class='btn btn-primary'>
+                    Go to your events
+                  </A>
+                </ErrorState>
+              )}
             </Show>
           </Show>
         )}

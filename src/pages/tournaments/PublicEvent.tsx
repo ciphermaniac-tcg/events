@@ -9,7 +9,7 @@
  * screen, and `?stream=table&table=N` one table's overlay for a stream.
  */
 
-import { useSearchParams } from '@solidjs/router';
+import { A, useSearchParams } from '@solidjs/router';
 import { createEffect, createMemo, createResource, createSignal, For, lazy, onCleanup, onMount, Show } from 'solid-js';
 import { hasStarted, latestRound, livePods, playerPod, podOf, regularRounds } from '../../../shared/tournament/rounds';
 import { recordLabel, swissStandings } from '../../../shared/tournament/standings';
@@ -57,7 +57,6 @@ import {
   podLabel,
   roundCapOf
 } from '../../lib/tournament/present';
-import { ErrorLine } from './Field';
 import type { Tab as DashboardTab } from './Dashboard';
 import { TournamentHero } from './Hero';
 import { createNow } from './now';
@@ -69,6 +68,8 @@ import { YourMatch } from './YourMatch';
 import '../../styles/pages/tournament-public.css';
 import { pageTitle } from '../../lib/title';
 import { RoundStepper } from './RoundStepper';
+import { ErrorState } from '../../components/ErrorState';
+import { MAIN_SITE } from '../../lib/constants';
 
 const BigScreen = lazy(() => import('./BigScreen').then(m => ({ default: m.BigScreen })));
 const StreamOverlay = lazy(() => import('./StreamOverlay').then(m => ({ default: m.StreamOverlay })));
@@ -781,11 +782,35 @@ export function PublicEvent(props: { code: string; session: Session | undefined 
       when={current()}
       fallback={
         <Show when={view.error} fallback={<Skeleton width='280px' height='28px' />}>
-          <ErrorLine message={view.error instanceof Error ? view.error.message : 'This event could not be loaded.'} />
-          <Show when={!missing(view.error)}>
-            <button type='button' class='btn btn-secondary tm-small' onClick={() => retry()}>
-              Retry
-            </button>
+          <Show
+            when={!missing(view.error)}
+            fallback={
+              <ErrorState
+                code={props.code}
+                title='Event not found'
+                line={`There’s no event with the code ${props.code}. Check the code with your organizer, or look for the event by name.`}
+              >
+                <a href={`${MAIN_SITE}/tools/event-locator`} class='btn btn-primary'>
+                  Find an event
+                </a>
+                <A href='/' class='btn btn-secondary'>
+                  Go home
+                </A>
+              </ErrorState>
+            }
+          >
+            <ErrorState
+              code={props.code}
+              title='Couldn’t load this event'
+              line='Something went wrong on our side or with your connection. Try again in a moment.'
+            >
+              <button type='button' class='btn btn-primary' onClick={() => retry()}>
+                Try again
+              </button>
+              <A href='/' class='btn btn-secondary'>
+                Go home
+              </A>
+            </ErrorState>
           </Show>
         </Show>
       }

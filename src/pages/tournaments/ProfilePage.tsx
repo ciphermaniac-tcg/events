@@ -5,17 +5,17 @@
  * the same: not found.
  */
 
+import { A } from '@solidjs/router';
 import { createEffect, createResource, Show } from 'solid-js';
 import { Skeleton } from '../../components/Skeleton';
-import { ApiError, errorText, fetchProfile } from '../../lib/tournament/api';
+import { ApiError, fetchProfile } from '../../lib/tournament/api';
 import { resolved } from '../../lib/resource';
 import { Avatar } from './Avatar';
 import { Badges } from './Badges';
-import { ErrorLine } from './Field';
-import { TournamentHero } from './Hero';
 import { Trail } from './Trail';
 import { createShownCount, HistoryList } from './HistoryList';
 import { pageTitle } from '../../lib/title';
+import { ErrorState } from '../../components/ErrorState';
 
 const eventCount = (n: number) => `${n} event${n === 1 ? '' : 's'}`;
 
@@ -33,15 +33,33 @@ export function ProfilePage(props: { handle: string }) {
   });
   return (
     <div class='tm-page'>
-      <Show when={!missing(profile.error)} fallback={<TournamentHero title='Profile not found' />}>
+      <Show
+        when={!missing(profile.error)}
+        fallback={
+          <ErrorState
+            code={`@${props.handle}`}
+            title='Profile not found'
+            line={`No one here goes by @${props.handle}, or their profile is private.`}
+          >
+            <A href='/' class='btn btn-primary'>
+              Go home
+            </A>
+          </ErrorState>
+        }
+      >
         <Show
           when={shown()}
           fallback={
             <Show when={profile.error} fallback={<Skeleton width='280px' height='28px' />}>
-              <ErrorLine message={errorText(profile.error)} />
-              <button type='button' class='btn btn-secondary tm-small' onClick={() => void refetch()}>
-                Retry
-              </button>
+              <ErrorState
+                code={`@${props.handle}`}
+                title='Couldn’t load this profile'
+                line='Something went wrong on our side or with your connection. Try again in a moment.'
+              >
+                <button type='button' class='btn btn-primary' onClick={() => void refetch()}>
+                  Try again
+                </button>
+              </ErrorState>
             </Show>
           }
         >

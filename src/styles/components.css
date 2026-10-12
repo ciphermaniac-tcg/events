@@ -203,6 +203,44 @@
   }
 }
 
+/* ---------- Error state (ErrorState): not found, failed, crashed ---------- */
+.error-state {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-2);
+  padding: 72px 0;
+  text-align: center;
+}
+.error-state-code {
+  margin: 0;
+  font-size: clamp(72px, 16vw, 120px);
+  font-weight: 800;
+  line-height: 0.9;
+  letter-spacing: -0.05em;
+  overflow-wrap: anywhere;
+  color: color-mix(in srgb, var(--fg) 12%, var(--bg));
+}
+.error-state h1 {
+  margin: var(--space-3) 0 0;
+}
+.error-state-line {
+  max-width: 44ch;
+  margin: 0 0 var(--space-3);
+  color: var(--muted);
+  font-size: 15px;
+}
+.error-state-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-2);
+}
+@media (max-width: 640px) {
+  .error-state {
+    padding: 40px 0;
+  }
+}
+
 /* ---------- Site footer ----------
    A rule and a row: the site's map, who runs it, and the mode toggle. It ends
    the page rather than decorating it, so it borrows the topnav's measure and
@@ -540,44 +578,6 @@
 .btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
-}
-
-/* ---------- Empty state (locked: B — mark + heading + actions) ---------- */
-.empty-state {
-  padding: 48px 24px 52px;
-  text-align: center;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  display: grid;
-  place-items: center;
-  gap: 12px;
-}
-.empty-state-mark {
-  width: 56px;
-  height: 56px;
-  display: grid;
-  place-items: center;
-  border: 1.5px dashed var(--border);
-  border-radius: var(--radius-md);
-  color: var(--muted);
-}
-.empty-state h4 {
-  font-size: 17px;
-  font-weight: 700;
-  margin: 4px 0 0;
-}
-.empty-state p {
-  font-size: 13px;
-  color: var(--muted);
-  max-width: 38ch;
-  margin: 0;
-  line-height: 1.55;
-}
-.empty-state-actions {
-  display: inline-flex;
-  gap: 8px;
-  margin-top: 6px;
 }
 
 /* ---------- Archetype gallery card ---------- */

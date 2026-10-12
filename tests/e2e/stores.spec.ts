@@ -643,7 +643,8 @@ test('an invite link joins the store and goes on to its page; a used one says so
   await expect(page).toHaveURL(/\/stores\/store-1$/);
   expect(sentTo(asks, 'POST', '/api/stores/join')).toEqual([{ token: 'good' }]);
   await page.goto('/stores/join?invite=old');
-  await expect(page.getByRole('alert')).toHaveText('This invite link was used or has run out');
+  await expect(page.getByRole('heading', { level: 1, name: 'This invite didn’t work' })).toBeVisible();
+  await expect(page.locator('.error-state-line')).toHaveText('This invite link was used or has run out');
 });
 
 test('signed out, an invite link offers sign-in that comes back to it', async ({ page }) => {
