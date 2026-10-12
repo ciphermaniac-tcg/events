@@ -6,38 +6,39 @@
 
 :root,
 body[data-mode="light"] {
-  /* Palette. The ground is a neutral warm stone, not a pink cream: the cream
-     end of "warm paper" is the saturated corner every generated UI lands in.
-     --border is a mid warm grey rather than ink: the lightest value on this
-     hue that still holds 3:1 against --bg, --surface AND --surface-2
-     (WCAG 1.4.11), so it reads as a drawn edge, not a printed outline. */
-  --bg: #f1eee8;
-  --surface: #faf8f4;
-  --surface-2: #e6e1d8;
+  /* Palette: one cool grey for the whole site. The page is a light grey, a
+     box sits clearly above it in white, and --border is the mid grey that
+     holds 3:1 against the page and both surfaces (WCAG 1.4.11), so it reads
+     as a drawn edge. */
+  --bg: #ececea;
+  --surface: #ffffff;
+  --surface-2: #e3e4e1;
   /* A text field's fill: set off from the page it sits on, lighter in both modes. */
-  --field: #faf8f4;
-  --border: #8a7f74;
-  --rule: #d7d1c7;
-  --fg: #1d1913;
-  --muted: #6a6055;
+  --field: #ffffff;
+  --border: #7b8079;
+  --rule: #bfc3bc;
+  --fg: #20221f;
+  --muted: #50544f;
   --accent: #b70;
-  --accent-fg: #110;
+  --accent-fg: #211b0b;
   --accent-hover: #950;
+  /* A pressed segment sits raised off its track. */
+  --segment-on: var(--surface);
   /* The marigold is a fill: #bb7700 is 3.15:1 on --bg, which clears the 3:1 a
      border needs and misses the 4.5:1 body text needs. Links, lead values and
      every other accented word take --accent-ink instead, the same hue walked
      down until it clears 4.5:1 on --bg, --surface and --surface-2. Dark mode
      needs no second value: its accent is already ~8:1 on every dark ground. */
-  --accent-ink: #8c5900;
-  --accent-ink-hover: #734900;
+  --accent-ink: #855500;
+  --accent-ink-hover: #6b4400;
   /* A fill that carries text (a primary button, a pressed chip) takes the bright
      marigold in both modes: under dark text #bb7700 reads as brown. Its edge is
      drawn in --accent, which keeps the 3:1 against --bg that the fill alone
      misses. Dark mode's accent is already this value. */
-  --accent-fill: #ea1;
-  --accent-fill-hover: #fb3;
-  --positive: #3a6a52;
-  --negative: #c44e3a;
+  --accent-fill: #efb32c;
+  --accent-fill-hover: #f5c450;
+  --positive: #286045;
+  --negative: #c21c2b;
   /* Badge tiers (Badges.tsx): bronze, silver, gold, then past gold. Each
      holds 3:1 against --bg and --surface as a drawn graphic. */
   --badge-tier-1: #9a5a2c;
@@ -112,24 +113,22 @@ body[data-mode="light"] {
   --focus-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
-/* The site head is dark in both modes, so it takes this block whatever the body
-   says; its account menu inherits it. */
-body[data-mode="dark"],
-.site-head {
-  --bg: #181514;
-  --surface: #211f1d;
-  --surface-2: #2b2827;
-  --field: #2b2827;
-  --border: #373533;
-  --rule: #262422;
-  --fg: #ede8e6;
-  --muted: #9e9792;
-  --accent: #ea1;
-  --accent-hover: #fb3;
+body[data-mode="dark"] {
+  --bg: #161615;
+  --surface: #252523;
+  --surface-2: #33332f;
+  --field: #33332f;
+  --border: #8e8e88;
+  --rule: #59594f;
+  --fg: #f5f3eb;
+  --muted: #b9b6aa;
+  --accent: #f3c15d;
+  --accent-hover: #f7d27f;
   --accent-ink: var(--accent);
   --accent-ink-hover: var(--accent-hover);
-  --positive: #84c479;
-  --negative: #e07a5e;
+  --segment-on: #45453f;
+  --positive: #a2d3ac;
+  --negative: #ff6b6b;
   --badge-tier-1: #d0915f;
   --badge-tier-2: #b4bcc3;
   --badge-tier-3: #e2bb3c;
@@ -144,20 +143,21 @@ body[data-mode="dark"],
 @media (prefers-color-scheme: dark) {
   /* Only auto-dark when the user hasn't pinned a mode */
   body:not([data-mode]) {
-    --bg: #181514;
-    --surface: #211f1d;
-    --surface-2: #2b2827;
-    --field: #2b2827;
-    --border: #373533;
-    --rule: #262422;
-    --fg: #ede8e6;
-    --muted: #9e9792;
-    --accent: #ea1;
-    --accent-hover: #fb3;
+    --bg: #161615;
+    --surface: #252523;
+    --surface-2: #33332f;
+    --field: #33332f;
+    --border: #8e8e88;
+    --rule: #59594f;
+    --fg: #f5f3eb;
+    --muted: #b9b6aa;
+    --accent: #f3c15d;
+    --accent-hover: #f7d27f;
     --accent-ink: var(--accent);
     --accent-ink-hover: var(--accent-hover);
-    --positive: #84c479;
-    --negative: #e07a5e;
+    --segment-on: #45453f;
+    --positive: #a2d3ac;
+    --negative: #ff6b6b;
     --badge-tier-1: #d0915f;
     --badge-tier-2: #b4bcc3;
     --badge-tier-3: #e2bb3c;
@@ -166,4 +166,23 @@ body[data-mode="dark"],
     --chart-2: #6bb6ff;
     --chart-3: #7ed68a;
   }
+}
+
+/* The site head is a dark bar in both modes, so it takes its own values
+   whatever the body says; its account menu inherits them. */
+.site-head {
+  --bg: #181514;
+  --surface: #211f1d;
+  --surface-2: #2b2827;
+  --field: #2b2827;
+  --border: #4a4744;
+  --rule: #262422;
+  --fg: #ede8e6;
+  --muted: #9e9792;
+  --accent: #ea1;
+  --accent-hover: #fb3;
+  --accent-ink: var(--accent);
+  --accent-ink-hover: var(--accent-hover);
+  --accent-fill: #efb32c;
+  --accent-fill-hover: #f5c450;
 }

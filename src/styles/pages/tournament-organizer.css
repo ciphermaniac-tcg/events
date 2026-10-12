@@ -1,25 +1,6 @@
 .tm-organizer-surface {
   display: contents;
-  --bg: #ececea;
-  --surface: #ffffff;
-  --surface-2: #e3e4e1;
-  --field: #ffffff;
-  --fg: #20221f;
-  --muted: #50544f;
-  --border: #7b8079;
-  --rule: #bfc3bc;
-  --accent: #855500;
-  --positive: #286045;
-  --negative: #c21c2b;
-  --accent-ink: #855500;
-  --accent-hover: #855500;
-  --accent-ink-hover: #855500;
-  --accent-fill: #efb32c;
-  --accent-fill-hover: #efb32c;
-  --accent-fg: #211b0b;
-  --tm-confirm-fill: #ffdb58;
-  --tm-confirm-ink: #211b0b;
-  --segment-on: var(--surface);
+  /* Organizer pages are the same palette, denser and larger to tap: one text size, taller rows and controls. */
   --text-xs: 14px;
   --text-sm: 14px;
   --text-base: 14px;
@@ -28,51 +9,10 @@
   --control-h: 44px;
   --radius-sm: 4px;
   --radius-md: 6px;
+  --tm-confirm-fill: #ffdb58;
+  --tm-confirm-ink: #211b0b;
 }
-body:has(.tm-organizer-surface) {
-  background: #ececea;
-}
-body[data-mode='dark'] .tm-organizer-surface {
-  --bg: #161615;
-  --surface: #252523;
-  --surface-2: #33332f;
-  --field: #33332f;
-  --fg: #f5f3eb;
-  --muted: #b9b6aa;
-  --border: #8e8e88;
-  --rule: #59594f;
-  --accent: #f3c15d;
-  --positive: #a2d3ac;
-  --negative: #ff6b6b;
-  --accent-ink: #f3c15d;
-  --accent-hover: #f3c15d;
-  --accent-ink-hover: #f3c15d;
-}
-body[data-mode='dark']:has(.tm-organizer-surface) {
-  background: #161615;
-}
-@media (prefers-color-scheme: dark) {
-  body:not([data-mode]) .tm-organizer-surface {
-    --bg: #161615;
-    --surface: #252523;
-    --surface-2: #33332f;
-    --field: #33332f;
-    --fg: #f5f3eb;
-    --muted: #b9b6aa;
-    --border: #8e8e88;
-    --rule: #59594f;
-    --accent: #f3c15d;
-    --positive: #a2d3ac;
-    --negative: #ff6b6b;
-    --accent-ink: #f3c15d;
-    --accent-hover: #f3c15d;
-    --accent-ink-hover: #f3c15d;
-  }
-  body:not([data-mode]):has(.tm-organizer-surface) {
-    background: #161615;
-  }
-}
-/* The event console retains its own layout within the organizer palette. */
+/* The event console retains its own layout on organizer pages. */
 .tm-organizer-surface
   .tm-console
   .tm-matches

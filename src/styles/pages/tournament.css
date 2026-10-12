@@ -2,43 +2,7 @@
 
    Built from the house parts (hero, .data tables, .btn, .search, .chip,
    tabs) and only adds what those lack: form rows, the result marks in a
-   pairings row, the clock, the player sheet and the projector view. Fields
-   sit on the page background, so they take --surface, as /feedback's do. */
-
-/* ---------- Tone ----------
-   These pages are read at arm's length in a busy room, so they pull the
-   site's tiers further apart than the rest of the site does: a box sits
-   clearly above the page, as HIG's base and elevated backgrounds do, rows
-   get a separator you can see, and dark mode's edge clears the 3:1 the
-   tokens promise on the page and both surfaces (the site's dark --border is
-   1.5:1 on the page). The dark blocks outrank the light one, which would
-   otherwise win on source order. */
-body:has(.tm-page) {
-  --bg: #e9e4db;
-  --surface: #fcfbf8;
-  --surface-2: #ece7df;
-  --rule: #d2cbc0;
-  /* A chosen segment sits raised off its track: lighter in either mode. */
-  --segment-on: var(--surface);
-}
-body[data-mode='dark']:has(.tm-page) {
-  --bg: #131110;
-  --surface: #252220;
-  --surface-2: #302c29;
-  --border: #7d746c;
-  --rule: #3a3633;
-  --segment-on: #48423e;
-}
-@media (prefers-color-scheme: dark) {
-  body:not([data-mode]):has(.tm-page) {
-    --bg: #131110;
-    --surface: #252220;
-    --surface-2: #302c29;
-    --border: #7d746c;
-    --rule: #3a3633;
-    --segment-on: #48423e;
-  }
-}
+   pairings row, the clock, the player sheet and the projector view. */
 
 .tm-narrow {
   max-width: 640px;
