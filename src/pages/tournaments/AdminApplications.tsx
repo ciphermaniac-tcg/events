@@ -17,6 +17,7 @@ import { Segmented } from '../../components/Segmented';
 import { Skeleton } from '../../components/Skeleton';
 import { ApiError, errorText } from '../../lib/tournament/api';
 import { decideApplication, fetchApplications } from '../../lib/tournament/admin';
+import { recountApplications } from './pendingApplications';
 import { dayOf } from '../../lib/tournament/applications';
 import { RELATIONSHIP_LABELS, STORE_ROLE_WORDS } from '../../lib/tournament/stores';
 import { resolved } from '../../lib/resource';
@@ -63,6 +64,7 @@ function Decide(props: {
     setError(null);
     try {
       const { application } = await decideApplication(props.application.id, decision, note());
+      recountApplications();
       props.onDecided(application);
     } catch (err) {
       setError(errorText(err));

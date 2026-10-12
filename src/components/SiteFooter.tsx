@@ -1,18 +1,17 @@
 /**
- * The strip under every page: where the site goes, who runs it, and the mode
- * toggle.
- *
- * Only the links the nav doesn't carry: the main site's About and Feedback.
+ * The strip under every page: the site's terms and privacy policy, the main
+ * site's Feedback and the main site itself, who runs it, and the mode toggle.
  * @module components/SiteFooter
  */
 
 import { For, type JSX } from 'solid-js';
+import { A } from '@solidjs/router';
 import { MAIN_SITE } from '../lib/constants';
 import { type Mode, mode, setMode } from '../lib/theme';
 
 const LINKS: { href: string; label: string }[] = [
-  { href: `${MAIN_SITE}/about`, label: 'About' },
-  { href: `${MAIN_SITE}/feedback`, label: 'Feedback' }
+  { href: `${MAIN_SITE}/feedback`, label: 'Feedback' },
+  { href: MAIN_SITE, label: 'Ciphermaniac' }
 ];
 
 export function SiteFooter(): JSX.Element {
@@ -24,6 +23,8 @@ export function SiteFooter(): JSX.Element {
   return (
     <footer class='site-footer'>
       <nav class='site-footer-links' aria-label='Footer'>
+        <A href='/terms'>Terms</A>
+        <A href='/privacy'>Privacy</A>
         <For each={LINKS}>{link => <a href={link.href}>{link.label}</a>}</For>
       </nav>
       <p class='site-footer-note'>

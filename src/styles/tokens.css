@@ -90,9 +90,8 @@ body[data-mode="light"] {
   --row-height: 34px;
   /* One height for the controls that share a row: search input, select, segmented switch. */
   --control-h: 38px;
-  /* Sticky offset for in-table headers. The site head scrolls away with the
-     page, so they park at the very top. */
-  --topnav-h: 0px;
+  /* The site head's height, and the sticky offset for rows that park beneath it. */
+  --topnav-h: 42px;
 
   /* Motion */
   --ms-fast: 130ms;
@@ -111,7 +110,10 @@ body[data-mode="light"] {
   --focus-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
-body[data-mode="dark"] {
+/* The site head is dark in both modes, so it takes this block whatever the body
+   says; its account menu inherits it. */
+body[data-mode="dark"],
+.site-head {
   --bg: #181514;
   --surface: #211f1d;
   --surface-2: #2b2827;
@@ -142,7 +144,7 @@ body[data-mode="dark"] {
     --bg: #181514;
     --surface: #211f1d;
     --surface-2: #2b2827;
-    --border: #373533;
+      --border: #373533;
     --rule: #262422;
     --fg: #ede8e6;
     --muted: #9e9792;

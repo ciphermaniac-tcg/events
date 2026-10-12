@@ -13,12 +13,11 @@
  */
 
 import { useLocation, useParams } from '@solidjs/router';
-import { lazy, Match, Show, Switch } from 'solid-js';
+import { lazy, Match, Switch } from 'solid-js';
 import '../styles/pages/tournament.css';
 import '../styles/pages/tournament-organizer.css';
 import { latestValue } from '../lib/resource';
 import { preloadPublished } from '../lib/tournament/api';
-import { AccountStrip } from './tournaments/AccountStrip';
 import { session } from './tournaments/session';
 
 const SettingsPage = lazy(() => import('./tournaments/SettingsPage').then(m => ({ default: m.SettingsPage })));
@@ -45,11 +44,9 @@ export function TournamentsPage() {
   const location = useLocation();
   const params = useParams<{ code?: string; handle?: string }>();
   const code = () => (params.code ?? '').toUpperCase();
-  const screen = () => new URLSearchParams(location.search).get('screen') === '1';
   const settings = () => location.pathname.startsWith('/account') || location.pathname.startsWith('/settings');
   // Nobody is signed in yet at the age check, and its only way on is the form.
   const welcome = () => location.pathname.startsWith('/welcome');
-  // The dashboard and the event console carry their own account menu.
   const dashboard = () => location.pathname === '/' || location.pathname.startsWith('/host/');
   const organizer = () =>
     dashboard() ||
@@ -58,10 +55,6 @@ export function TournamentsPage() {
     /^\/stores\/[^/]+\/settings$/.test(location.pathname);
   return (
     <div classList={{ 'tm-organizer-surface': organizer() }}>
-      {/* Settings, the dashboard and the console show who is signed in themselves. */}
-      <Show when={!screen() && !settings() && !welcome() && !dashboard()}>
-        <AccountStrip />
-      </Show>
       <Switch fallback={<HostIndex />}>
         <Match when={settings()}>
           <SettingsPage />

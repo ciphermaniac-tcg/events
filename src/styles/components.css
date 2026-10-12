@@ -130,61 +130,66 @@
 }
 
 /* ---------- Site head ---------- */
-/* The events site's own head, on every page: its name and the ways on. It
-   scrolls away with the page, so nothing sticks beneath it (--topnav-h: 0). */
+/* The events site's head: a slim dark bar in both modes, as the main site's,
+   holding the site's name and the account. It sticks, and --topnav-h is its
+   height so sticky rows below park under it. */
 .site-head {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--fg);
+  color-scheme: dark;
+}
+.site-head-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
   max-width: 1180px;
+  height: var(--topnav-h);
   margin: 0 auto;
-  width: 100%;
-  padding: var(--space-5) 32px 0;
-}
-.site-head + main.page {
-  padding-top: var(--space-4);
+  padding: 0 32px;
 }
 .site-head-name {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 800;
   letter-spacing: -0.02em;
   color: var(--fg);
   text-decoration: none;
 }
+.site-head-name:hover {
+  text-decoration: none;
+}
 .site-head-name img {
-  width: 24px;
-  height: 28px;
+  width: 20px;
+  height: 24px;
 }
 .site-head-name small {
   margin-left: 1px;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 500;
   letter-spacing: -0.01em;
   color: var(--muted);
 }
-.site-head nav {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-  font-size: 14px;
+.site-head .tm-acct-button {
+  width: 28px;
+  height: 28px;
+  font-size: 13px;
 }
-.site-head nav a {
-  color: var(--fg);
-}
-/* On a phone the head keeps its name and sign-in; the locator is a tap away on the main site. */
-@media (max-width: 700px) {
-  .site-head-wide {
-    display: none;
-  }
+.site-head-signin {
+  min-height: 28px;
+  height: 28px;
+  padding: 0 var(--space-3);
+  font-size: 13px;
 }
 @media (max-width: 640px) {
-  .site-head {
-    padding: var(--space-4) max(var(--space-3), env(safe-area-inset-left)) 0
-      max(var(--space-3), env(safe-area-inset-right));
+  .site-head-row {
+    padding: 0 max(var(--space-3), env(safe-area-inset-right)) 0 max(var(--space-3), env(safe-area-inset-left));
   }
 }
 

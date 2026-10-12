@@ -369,7 +369,7 @@ test('Settings shows an admin the way to the admin page, and the account button 
   await page.goto('/settings');
   await expect(page.getByRole('link', { name: 'Admin' })).toHaveAttribute('href', '/admin');
   await page.getByRole('link', { name: 'View history' }).click();
-  await page.locator('.tm-account-strip').getByRole('button', { name: 'Account' }).click();
+  await page.locator('.site-head').getByRole('button', { name: 'Account' }).click();
   await expect(page.locator('.tm-acct-menu').getByRole('link', { name: 'History' })).toHaveAttribute(
     'href',
     '/history'

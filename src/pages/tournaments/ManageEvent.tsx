@@ -32,7 +32,7 @@ import { eventTypeOf } from '../../../shared/tournament/structure';
 import type { Pod, PodCategory } from '../../../shared/tournament/types';
 import { Segmented } from '../../components/Segmented';
 import { LockedTab, Tabs } from '../../components/Tabs';
-import { errorText, joinStaff, type Manage, type Me, saveSettings } from '../../lib/tournament/api';
+import { errorText, joinStaff, type Manage, saveSettings } from '../../lib/tournament/api';
 import {
   type DivisionCut,
   divisionCuts,
@@ -52,7 +52,6 @@ import { session } from './session';
 import { latestValue } from '../../lib/resource';
 import { ConfirmAction } from './ConfirmAction';
 import { ErrorLine } from './Field';
-import { AccountMenu } from './AccountMenu';
 import { lookOnReturn, schedulePolls } from '../../lib/tournament/viewPoll';
 import { createManage, type ManageState } from './manageState';
 import '../../styles/pages/tournament-console.css';
@@ -224,13 +223,7 @@ function RoundEndStep(props: {
  * its file: reconnect it, write the results TOM does not have, or read it
  * again (see TomSyncPanel).
  */
-function Hero(props: {
-  state: ManageState;
-  manage: Manage;
-  pod: Pod | undefined;
-  tom: TomLink | null;
-  user: Me | null | undefined;
-}) {
+function Hero(props: { state: ManageState; manage: Manage; pod: Pod | undefined; tom: TomLink | null }) {
   const finished = () => props.manage.settings.finished;
   const progress = () => (props.pod ? podProgress(props.pod, props.manage.pending) : NO_PROGRESS);
   const waiting = () =>
@@ -375,7 +368,6 @@ function Hero(props: {
               </a>
             </p>
           </div>
-          <Show when={props.user}>{user => <AccountMenu user={user()} pending={0} />}</Show>
         </div>
         <div class='tm-console-steps'>
           <Show when={props.pod && clockRound()}>
@@ -497,7 +489,7 @@ function Console(props: { state: ReturnType<typeof createManage>; manage: Manage
       : null;
   return (
     <div class='tm-page tm-console' classList={{ 'is-pairings': tab() === 'round' }}>
-      <Hero state={props.state} manage={props.manage} pod={pod()} tom={tom} user={latestValue(session)?.user} />
+      <Hero state={props.state} manage={props.manage} pod={pod()} tom={tom} />
       <Tabs options={tabs()} selected={tab()} onSelect={setTab} ariaLabel='Event sections' />
       <TabBar tabs={tabs()} selected={tab()} onSelect={setTab} />
       <Show when={tom}>{link => <TomStrip link={link()} />}</Show>

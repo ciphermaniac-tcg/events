@@ -32,10 +32,9 @@ import { isAdmin } from '../../../shared/accounts/roles';
 import { canCreateEvents } from '../../../shared/accounts/stores';
 import { Skeleton } from '../../components/Skeleton';
 import { fetchHistory, listTournaments, type Me, type TournamentSummary } from '../../lib/tournament/api';
-import { fetchApplications } from '../../lib/tournament/admin';
 import { applicantStage, fetchApplication } from '../../lib/tournament/applications';
 import { latestValue } from '../../lib/resource';
-import { AccountMenu } from './AccountMenu';
+import { pendingApplications } from './pendingApplications';
 import { createSessionCatchUp } from './ApplicantStatus';
 import { PlayingTab } from './PlayingTab';
 import '../../styles/pages/tournament-dashboard.css';
@@ -145,9 +144,6 @@ export function Dashboard(props: {
   const [events] = createResource(() => listTournaments().then(answer => answer.tournaments));
   const [history, { refetch }] = createResource(() => fetchHistory().then(answer => answer.entries));
   const admin = () => isAdmin(props.user.role);
-  const [pending] = createResource(admin, () =>
-    fetchApplications('pending').then(answer => answer.applications.length)
-  );
 
   const runningNow = () => (latestValue(events) ?? []).filter(event => !event.finished && event.rounds > 0).length;
   // A History unread for an error counts nothing here; the Playing tab says why.
@@ -170,7 +166,7 @@ export function Dashboard(props: {
   const shown = (): Shown[] => [
     { tab: 'playing', count: playingNow() },
     ...(organizes() ? [{ tab: 'organizing' as const, count: runningNow() }] : []),
-    ...(admin() ? [{ tab: 'admin' as const, count: latestValue(pending) ?? 0 }] : [])
+    ...(admin() ? [{ tab: 'admin' as const, count: pendingApplications() }] : [])
   ];
   /** The tab to open with none asked for: a running event's, then a match being played, then an organizer's events. */
   const fallbackTab = (): Tab => {
@@ -207,7 +203,6 @@ export function Dashboard(props: {
               <h1 class='tm-dash-title tm-dash-phone'>{LABELS[open()]}</h1>
               <TabList shown={shown()} tab={open()} onSelect={select} wide />
             </Show>
-            <AccountMenu user={props.user} pending={latestValue(pending) ?? 0} />
           </header>
           <Show when={shown().length > 1}>
             <TabList shown={shown()} tab={open()} onSelect={select} wide={false} />

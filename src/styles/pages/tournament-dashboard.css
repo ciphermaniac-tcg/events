@@ -14,9 +14,6 @@
   font-size: var(--text-xl);
 }
 
-.tm-dash-head .tm-acct {
-  margin-bottom: 10px;
-}
 
 .tm-dash-tabs {
   display: flex;
@@ -93,9 +90,6 @@
   .tm-dash-head {
     align-items: center;
     margin-bottom: var(--space-4);
-  }
-  .tm-dash-head .tm-acct {
-    margin-bottom: var(--space-3);
   }
   /* The bar sits over the page's foot, so the page runs on past it. */
   body:has(.tm-dash-barred) {

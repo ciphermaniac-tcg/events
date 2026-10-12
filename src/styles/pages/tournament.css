@@ -1844,27 +1844,7 @@ tr.is-in .tm-place {
 }
 
 /* ---------- Account ---------- */
-/* Quiet and right-aligned above the page: present on every tournament page,
-   never competing with the event's own heading. */
-.tm-account-strip {
-  position: relative;
-  z-index: 2;
-  display: flex;
-  justify-content: flex-end;
-  height: 0;
-}
-/* The title keeps clear of the account button beside it. */
-.tm-account-strip + .tm-page .tm-hero-text {
-  padding-right: 48px;
-}
-/* With the trail above the title, the account button still sits level with the title. */
-.tm-account-strip:has(+ .tm-page > .tm-trail) {
-  top: calc(var(--tm-trail-h) + var(--space-2));
-}
-
 /* ---------- The way back to the dashboard (Trail), above a page's title ---------- */
-/* Shared with the account strip, which is the page's sibling. */
-.tm-account-strip,
 .tm-page {
   --tm-trail-h: 20px;
 }

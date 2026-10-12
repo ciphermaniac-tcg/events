@@ -203,12 +203,16 @@ test('an Admin rejects one, and reads the decided ones by status', async ({ page
   await page.getByRole('tablist', { name: 'Status' }).getByRole('tab', { name: 'Rejected' }).click();
   await expect(page.locator('.tm-app')).toHaveCount(1);
   await expect(page.locator('.tm-app')).toContainText('Not certified');
-  expect(adminAsks(asks).map(a => `${a.method} ${a.path}`)).toEqual([
-    'GET /api/admin/applications?status=pending',
-    'POST /api/admin/applications/app-2',
-    'GET /api/admin/applications?status=rejected'
-  ]);
-  expect(adminAsks(asks)[1]?.body).toEqual({ decision: 'reject', note: '' });
+  const pendingReads = () => adminAsks(asks).filter(a => a.path === '/api/admin/applications?status=pending');
+  // The rest in order; the queue is read by the page and, for its count, by the site's head, which
+  // counts again once one is decided.
+  expect(
+    adminAsks(asks)
+      .filter(a => !pendingReads().includes(a))
+      .map(a => `${a.method} ${a.path}`)
+  ).toEqual(['POST /api/admin/applications/app-2', 'GET /api/admin/applications?status=rejected']);
+  await expect.poll(() => pendingReads().length).toBe(3);
+  expect(adminAsks(asks).find(a => a.method === 'POST')?.body).toEqual({ decision: 'reject', note: '' });
 });
 
 test('an Admin revokes a Community organizer, asked first, and reinstates them; an Admin is not changed here', async ({
@@ -265,7 +269,8 @@ test('one another Admin decided first says so, and the queue is read again witho
   await expect(page.locator('.tm-app')).toHaveCount(1);
   // The one left is the second.
   await expect(page.locator('.tm-app')).toContainText('I judge at the card shop.');
-  expect(adminAsks(asks).filter(a => a.path === '/api/admin/applications?status=pending')).toHaveLength(2);
+  // The head's count, the page's queue, and the queue again: no decision was made, so no recount.
+  expect(adminAsks(asks).filter(a => a.path === '/api/admin/applications?status=pending')).toHaveLength(3);
 });
 
 test('a lookup that finds no one says so, the same lookup asks again, and a move to no account is refused', async ({
