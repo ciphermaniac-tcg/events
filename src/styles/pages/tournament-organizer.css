@@ -3,6 +3,7 @@
   --bg: #ececea;
   --surface: #ffffff;
   --surface-2: #e3e4e1;
+  --field: #ffffff;
   --fg: #20221f;
   --muted: #50544f;
   --border: #7b8079;
@@ -35,6 +36,7 @@ body[data-mode='dark'] .tm-organizer-surface {
   --bg: #161615;
   --surface: #252523;
   --surface-2: #33332f;
+  --field: #33332f;
   --fg: #f5f3eb;
   --muted: #b9b6aa;
   --border: #8e8e88;
@@ -54,6 +56,7 @@ body[data-mode='dark']:has(.tm-organizer-surface) {
     --bg: #161615;
     --surface: #252523;
     --surface-2: #33332f;
+    --field: #33332f;
     --fg: #f5f3eb;
     --muted: #b9b6aa;
     --border: #8e8e88;
@@ -92,6 +95,11 @@ body[data-mode='dark']:has(.tm-organizer-surface) {
 .tm-organizer-surface .tm-page:not(.tm-console) .search {
   background: var(--bg);
   border-color: var(--border);
+}
+/* The sign-in form sits on the page itself, not in a box, so its fields take the
+   field fill to stand off it rather than the page's own colour. */
+.tm-organizer-surface .tm-page .tm-signin-form .tm-input {
+  background: var(--field);
 }
 .tm-organizer-surface .tm-page:not(.tm-console) .tm-setup-name {
   min-height: 44px;

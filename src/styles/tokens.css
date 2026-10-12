@@ -14,6 +14,8 @@ body[data-mode="light"] {
   --bg: #f1eee8;
   --surface: #faf8f4;
   --surface-2: #e6e1d8;
+  /* A text field's fill: set off from the page it sits on, lighter in both modes. */
+  --field: #faf8f4;
   --border: #8a7f74;
   --rule: #d7d1c7;
   --fg: #1d1913;
@@ -117,6 +119,7 @@ body[data-mode="dark"],
   --bg: #181514;
   --surface: #211f1d;
   --surface-2: #2b2827;
+  --field: #2b2827;
   --border: #373533;
   --rule: #262422;
   --fg: #ede8e6;
@@ -144,7 +147,8 @@ body[data-mode="dark"],
     --bg: #181514;
     --surface: #211f1d;
     --surface-2: #2b2827;
-      --border: #373533;
+    --field: #2b2827;
+    --border: #373533;
     --rule: #262422;
     --fg: #ede8e6;
     --muted: #9e9792;

@@ -66,25 +66,41 @@ async function mockSite(page: Page, providers: string[], clerkKey: string | null
 }
 
 const form = (page: Page) => page.locator('.tm-signin-form');
+const other = (page: Page) => page.getByRole('button', { name: 'Sign in with username and password' });
+
+/** Beside a provider, the form waits behind its own button. */
+async function openForm(page: Page) {
+  await other(page).click();
+  await expect(form(page)).toBeVisible();
+}
 
 async function fill(page: Page, username: string, password: string) {
   await form(page).getByLabel('Username').fill(username);
   await form(page).getByLabel('Password').fill(password);
 }
 
-test('the form sits beside the provider buttons only when the server offers it', async ({ page }) => {
+test('the form waits under the provider buttons, opens focused, and closes again', async ({ page }) => {
   await mockSite(page, ['google', 'discord', 'clerk']);
   await page.goto('/settings');
-  await expect(form(page)).toBeVisible();
+  await expect(page.locator('.tm-sso-google')).toBeVisible();
+  await expect(form(page)).toHaveCount(0);
   const buttons = await page.locator('.tm-signin').boundingBox();
-  const fields = await form(page).boundingBox();
-  expect(fields!.x).toBeGreaterThan(buttons!.x + buttons!.width - 1);
+  const option = await other(page).boundingBox();
+  expect(option!.y).toBeGreaterThanOrEqual(buttons!.y + buttons!.height - 1);
+  expect(Math.abs(option!.width - buttons!.width)).toBeLessThan(2);
+
+  await openForm(page);
+  await expect(form(page).getByLabel('Username')).toBeFocused();
+  await expect(other(page)).toHaveCount(0);
+  await page.getByRole('button', { name: 'Back' }).click();
+  await expect(form(page)).toHaveCount(0);
+  await expect(other(page)).toBeFocused();
 
   await page.unrouteAll({ behavior: 'ignoreErrors' });
   await mockSite(page, ['google', 'discord']);
   await page.goto('/settings');
   await expect(page.locator('.tm-sso-google')).toBeVisible();
-  await expect(form(page)).toHaveCount(0);
+  await expect(other(page)).toHaveCount(0);
 });
 
 test('without the publishable key there is no form, even when the server lists it', async ({ page }) => {
@@ -97,6 +113,7 @@ test('without the publishable key there is no form, even when the server lists i
 test('signing in posts Clerk’s token here and leaves no Clerk session behind', async ({ page }) => {
   const posted = await mockSite(page, ['google', 'clerk']);
   await page.goto('/settings');
+  await openForm(page);
   await fill(page, '  pat_plays ', 'correct horse battery staple');
   await form(page).getByRole('button', { name: 'Sign in' }).click();
   await expect(page.getByText('posted')).toBeVisible();
@@ -127,6 +144,7 @@ test('the same form makes an account: a new password, the length it needs, and o
 }) => {
   const posted = await mockSite(page, ['google', 'clerk']);
   await page.goto('/settings');
+  await openForm(page);
   await form(page).getByRole('button', { name: 'Create an account' }).click();
   const password = form(page).getByLabel('Password');
   await expect(password).toHaveAttribute('autocomplete', 'new-password');
@@ -140,6 +158,7 @@ test('the same form makes an account: a new password, the length it needs, and o
   expect(await page.evaluate(() => sessionStorage.getItem('captcha-up'))).toBe('1');
 
   await page.goto('/settings');
+  await openForm(page);
   await form(page).getByRole('button', { name: 'Create an account' }).click();
   await form(page).getByRole('button', { name: 'I have an account' }).click();
   await expect(form(page).getByLabel('Password')).toHaveAttribute('autocomplete', 'current-password');
@@ -152,6 +171,7 @@ test('when Clerk refuses, the form says why, marks the fields, and can be sent a
     (window as any).clerkFake = { error: { code: 'form_password_incorrect' } };
   });
   await page.goto('/settings');
+  await openForm(page);
   await fill(page, 'pat_plays', 'not the password at all');
   const submit = form(page).getByRole('button', { name: 'Sign in' });
   await submit.click();
@@ -173,14 +193,11 @@ test('when Clerk refuses, the form says why, marks the fields, and can be sent a
   expect(posted).toEqual([]);
 });
 
-test('on a phone the form goes under the provider buttons', async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 800 });
-  await mockSite(page, ['google', 'discord', 'clerk']);
+test('with no provider to prefer, the form shows from the start', async ({ page }) => {
+  await mockSite(page, ['clerk']);
   await page.goto('/settings');
-  const buttons = await page.locator('.tm-signin').boundingBox();
-  const fields = await form(page).boundingBox();
-  expect(fields!.y).toBeGreaterThanOrEqual(buttons!.y + buttons!.height - 1);
-  expect(Math.abs(fields!.width - buttons!.width)).toBeLessThan(40);
+  await expect(form(page)).toBeVisible();
+  await expect(other(page)).toHaveCount(0);
 });
 
 test('while a sign-in is under way the form can’t switch to making an account', async ({ page }) => {
@@ -193,6 +210,7 @@ test('while a sign-in is under way the form can’t switch to making an account'
     })
   );
   await page.goto('/settings');
+  await openForm(page);
   await fill(page, 'pat_plays', 'correct horse battery staple');
   await form(page).getByRole('button', { name: 'Sign in' }).click();
   await expect(form(page).getByRole('button', { name: 'Sign in' })).toBeDisabled();

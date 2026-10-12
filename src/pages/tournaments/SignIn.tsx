@@ -109,7 +109,7 @@ const clerkClient = () => import('../../lib/tournament/clerk');
  * form making an account at that moment holds, so a page with two forms has
  * one.
  */
-function UsernameForm(props: { publishableKey: string; next: string }) {
+function UsernameForm(props: { publishableKey: string; next: string; focus?: boolean }) {
   const [mode, setMode] = createSignal<ClerkMode>('in');
   const [username, setUsername] = createSignal('');
   const [password, setPassword] = createSignal('');
@@ -151,7 +151,13 @@ function UsernameForm(props: { publishableKey: string; next: string }) {
       setPassword('');
     }
   };
-  onMount(() => window.addEventListener('pageshow', restored));
+  let first: HTMLInputElement | undefined;
+  onMount(() => {
+    window.addEventListener('pageshow', restored);
+    if (props.focus) {
+      first?.focus();
+    }
+  });
   onCleanup(() => window.removeEventListener('pageshow', restored));
   function swap() {
     setMode(making() ? 'in' : 'up');
@@ -162,6 +168,7 @@ function UsernameForm(props: { publishableKey: string; next: string }) {
       <label class='tm-field'>
         <span class='tm-label'>Username</span>
         <input
+          ref={first}
           class='tm-input'
           name='username'
           autocomplete='username'
@@ -216,10 +223,43 @@ function UsernameForm(props: { publishableKey: string; next: string }) {
 }
 
 /**
- * Every way in the server offers. With username and password sign-in, the
- * provider buttons sit on one side and the form on the other, a hairline
- * between them; they stack when the space they're given is narrow. The local test
- * sign-in then gets a row of its own beneath.
+ * The username and password form, behind a button of its own under the
+ * providers: those are the way in to prefer, so the form takes no room until
+ * someone asks for it. It opens in place, focused, with the way back.
+ */
+function PasswordOption(props: { publishableKey: string; next: string }) {
+  const [open, setOpen] = createSignal(false);
+  let opener: HTMLButtonElement | undefined;
+  return (
+    <Show
+      when={open()}
+      fallback={
+        <button type='button' class='tm-signin-other' ref={opener} onClick={() => setOpen(true)}>
+          Sign in with username and password
+        </button>
+      }
+    >
+      <div class='tm-signin-reveal'>
+        <UsernameForm publishableKey={props.publishableKey} next={props.next} focus />
+        <button
+          type='button'
+          class='tm-signin-swap tm-signin-back'
+          onClick={() => {
+            setOpen(false);
+            queueMicrotask(() => opener?.focus());
+          }}
+        >
+          Back
+        </button>
+      </div>
+    </Show>
+  );
+}
+
+/**
+ * Every way in the server offers, one over the other: the providers, then
+ * username and password (PasswordOption), open from the start when there is
+ * no provider to prefer. The local test sign-in gets a row of its own beneath.
  */
 export function SignIn(props: { offer: SignInOffer; next: string; stacked?: boolean }) {
   const providers = () => props.offer.providers;
@@ -233,13 +273,12 @@ export function SignIn(props: { offer: SignInOffer; next: string; stacked?: bool
     >
       {key => (
         <div class='tm-signin-split'>
-          <div class='tm-signin-cols' classList={{ 'is-alone': !buttons() }}>
-            <Show when={buttons()}>
+          <Show when={buttons()} fallback={<UsernameForm publishableKey={key()} next={props.next} />}>
+            <div class='tm-signin-ways'>
               <ProviderButtons providers={providers()} next={props.next} stacked dev={false} />
-              <div class='tm-signin-rule' />
-            </Show>
-            <UsernameForm publishableKey={key()} next={props.next} />
-          </div>
+              <PasswordOption publishableKey={key()} next={props.next} />
+            </div>
+          </Show>
           <Show when={dev()}>
             <div class='tm-signin-dev'>
               <DevSignIn next={props.next} />

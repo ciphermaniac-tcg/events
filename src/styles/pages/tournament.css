@@ -438,24 +438,53 @@ body[data-mode='dark'] .tm-sso-google:hover {
    padding to the sides. */
 .tm-signin-split {
   --signin-control: 40px;
-  container-type: inline-size;
   width: 100%;
-  max-width: 640px;
+  max-width: 400px;
 }
-.tm-signin-cols {
+.tm-signin-ways {
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  gap: var(--space-2);
 }
-.tm-signin-cols.is-alone {
-  grid-template-columns: 1fr;
+/* The way to the username and password form: the providers' size, quieter than either. */
+.tm-signin-other {
+  height: var(--signin-control);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: none;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--fg);
+  cursor: pointer;
 }
-.tm-signin-cols > .tm-signin {
-  align-content: center;
+.tm-signin-other:hover {
+  background: color-mix(in srgb, var(--fg) 6%, transparent);
 }
-.tm-signin-rule {
-  width: 1px;
-  margin-inline: 14px;
-  background: var(--rule);
+.tm-signin-other:focus-visible {
+  outline: var(--focus-width) solid var(--accent);
+  outline-offset: var(--focus-offset);
+}
+.tm-signin-reveal {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: center;
+  padding-top: var(--space-2);
+  animation: tm-signin-reveal var(--ms-slow) var(--ease-spring);
+}
+.tm-signin-reveal > .tm-signin-form {
+  width: 100%;
+}
+@keyframes tm-signin-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tm-signin-reveal {
+    animation: none;
+  }
 }
 .tm-signin-form {
   display: grid;
@@ -513,11 +542,8 @@ body[data-mode='dark'] .tm-sso-google:hover {
 .tm-box-bar > .tm-signin-split {
   max-width: none;
 }
-.tm-box-bar > .tm-signin-split .tm-signin-cols > :is(.tm-signin, .tm-signin-form) {
+.tm-box-bar > .tm-signin-split > :is(.tm-signin-ways, .tm-signin-form) {
   padding: 14px;
-}
-.tm-box-bar > .tm-signin-split .tm-signin-rule {
-  margin-inline: 0;
 }
 .tm-box-bar > .tm-signin-split .tm-signin-dev {
   margin: 0;
@@ -527,19 +553,6 @@ body[data-mode='dark'] .tm-sso-google:hover {
 @media (max-width: 640px) {
   .tm-signin-split {
     --signin-control: 44px;
-  }
-}
-@container (max-width: 480px) {
-  .tm-signin-cols {
-    grid-template-columns: 1fr;
-  }
-  .tm-signin-rule {
-    width: auto;
-    height: 1px;
-    margin: var(--space-3) 0;
-  }
-  .tm-box-bar > .tm-signin-split .tm-signin-rule {
-    margin: 0;
   }
 }
 
@@ -569,7 +582,7 @@ body[data-mode='dark'] .tm-sso-google:hover {
   font: inherit;
   font-size: var(--text-base);
   color: var(--fg);
-  background: var(--surface);
+  background: var(--field);
   border: var(--border-width) solid var(--border);
   border-radius: var(--radius-sm);
   padding: var(--space-2) 10px;
