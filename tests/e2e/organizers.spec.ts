@@ -264,7 +264,7 @@ test('Settings shows where an Application stands, with its step @mobile', async 
   for (const [state, words, step, href] of stages) {
     await page.unrouteAll();
     const asks = await mockApplicant(page, state, ME);
-    await page.goto('/settings');
+    await page.goto('/settings?section=organizer');
     const status = page.locator('.tm-applicant');
     await expect(status.getByRole('link', { name: step, exact: true })).toHaveAttribute('href', href);
     if (words) {
@@ -291,7 +291,7 @@ test('Settings lists every way the account runs events, each with its step @mobi
       stores: [{ ...STORE, role: 'owner' }, STAFFED]
     }
   );
-  await page.goto('/settings');
+  await page.goto('/settings?section=organizer');
   const rows = page.locator('.tm-organizer .tm-set-row');
   await expect(rows).toHaveCount(4);
   await expect(rows.nth(0)).toContainText('Community organizer');
@@ -322,7 +322,7 @@ test('Settings: the account’s standing as a community organizer, for each role
   for (const [user, label, step] of cases) {
     await page.unrouteAll();
     await mockApplicant(page, NONE, user);
-    await page.goto('/settings');
+    await page.goto('/settings?section=organizer');
     const first = page.locator('.tm-organizer .tm-set-row').first();
     await expect(first.locator('.tm-set-label')).toContainText(label);
     await expect(first.locator('.tm-set-control')).toContainText(step);
@@ -333,7 +333,7 @@ test('Settings: resigning as a community organizer and leaving a store are asked
   page
 }) => {
   const asks = await mockApplicant(page, NONE, { ...ME, role: 'community', stores: [STAFFED] });
-  await page.goto('/settings');
+  await page.goto('/settings?section=organizer');
   const organizer = page.locator('.tm-organizer');
   await organizer.getByRole('button', { name: 'Resign' }).click();
   expect(asks.filter(a => a.method === 'DELETE')).toEqual([]);
@@ -355,28 +355,28 @@ test('Settings: an account that ran a store and left it is offered the way to ap
   page
 }) => {
   await mockApplicant(page, { ...NONE, application: application('approved') }, ME);
-  await page.goto('/settings');
+  await page.goto('/settings?section=organizer');
   await expect(page.locator('.tm-applicant').getByRole('link', { name: 'Apply to run events' })).toBeVisible();
   await expect(page.locator('.tm-applicant-stage')).toHaveCount(0);
 });
 
 test('Settings: after a rejection, Apply again is the one way to apply', async ({ page }) => {
   await mockApplicant(page, { ...NONE, application: application('rejected') }, { ...ME, role: 'community' });
-  await page.goto('/settings');
+  await page.goto('/settings?section=organizer');
   await expect(page.locator('.tm-applicant').getByRole('link', { name: 'Apply again' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Apply for a store' })).toHaveCount(0);
 });
 
 test('Settings: with an Application pending, no second one is offered', async ({ page }) => {
   await mockApplicant(page, { ...NONE, application: application('pending') }, { ...ME, role: 'community' });
-  await page.goto('/settings');
+  await page.goto('/settings?section=organizer');
   await expect(page.locator('.tm-applicant')).toContainText('Application pending');
   await expect(page.getByRole('link', { name: 'Apply for a store' })).toHaveCount(0);
 });
 
 test('Settings shows a pending Application with its day, and withdraws it', async ({ page }) => {
   const asks = await mockApplicant(page, { ...NONE, application: application('pending') });
-  await page.goto('/settings');
+  await page.goto('/settings?section=organizer');
   const status = page.locator('.tm-applicant');
   await expect(status).toContainText('Application pending');
   await expect(status).toContainText(/Sent .*2026/);
@@ -394,7 +394,7 @@ test('withdrawn, an Application gives way to the decision before it @mobile', as
   await mockApplicant(page, { ...NONE, application: application('pending') }, ME, { afterWithdraw: rejected });
   // The narrowest phones, where the question and its buttons are wider than the box.
   await page.setViewportSize({ width: 320, height: 640 });
-  await page.goto('/settings');
+  await page.goto('/settings?section=organizer');
   const status = page.locator('.tm-applicant');
   await status.getByRole('button', { name: 'Withdraw' }).click();
   const question = status.getByRole('group', { name: 'Withdraw your application?' });
@@ -409,7 +409,7 @@ test('withdrawn, an Application gives way to the decision before it @mobile', as
 
 test('Apply again on Settings opens the apply page at its form', async ({ page }) => {
   await mockApplicant(page, { ...NONE, application: application('rejected') });
-  await page.goto('/settings');
+  await page.goto('/settings?section=organizer');
   await page.locator('.tm-applicant').getByRole('link', { name: 'Apply again' }).click();
   await expect(page).toHaveURL(/\/apply\?again=1$/);
   await expect(page.locator('.tm-applicant')).toContainText('Not approved');

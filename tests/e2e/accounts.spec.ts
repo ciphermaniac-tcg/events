@@ -315,7 +315,7 @@ test('Settings: the public profile switch shows its link, and a POP ID clash poi
   page
 }) => {
   const sent = await mockSettings(page, ME);
-  await page.goto('/settings');
+  await page.goto('/settings?section=history');
   await expect(page.getByRole('link', { name: 'View history' })).toHaveAttribute('href', '/history');
   await expect(page.getByRole('link', { name: 'Admin' })).toHaveCount(0);
   const profile = page.getByRole('tablist', { name: 'Public profile' });
@@ -331,6 +331,7 @@ test('Settings: the public profile switch shows its link, and a POP ID clash poi
   expect(sent.filter(s => s.method === 'PATCH').at(-1)?.body).toEqual({ profileName: 'handle' });
   await profile.getByRole('tab', { name: 'Disabled' }).click();
   await expect(page.getByRole('button', { name: 'Copy' })).toHaveCount(0);
+  await page.getByRole('navigation', { name: 'Settings' }).getByRole('button', { name: 'Player profile' }).click();
   await page.getByRole('button', { name: 'Save profile' }).click();
   const alert = page.getByRole('alert');
   await expect(alert).toContainText('This POP ID is on another account');
@@ -340,11 +341,28 @@ test('Settings: the public profile switch shows its link, and a POP ID clash poi
   );
 });
 
+test('Settings opens on the player profile, keeps its section in the address, and its edits across sections @mobile', async ({
+  page
+}) => {
+  await mockSettings(page, ME);
+  await page.goto('/settings');
+  const nav = page.getByRole('navigation', { name: 'Settings' });
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Player profile');
+  await expect(nav.getByRole('button', { name: 'Player profile' })).toHaveAttribute('aria-current', 'page');
+  await expect(page.locator('.tm-settings-who')).toContainText('@mary');
+  await page.getByLabel('First name').fill('Marianne');
+  await nav.getByRole('button', { name: 'Username' }).click();
+  await expect(page).toHaveURL(/section=username/);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Username');
+  await nav.getByRole('button', { name: 'Player profile' }).click();
+  await expect(page.getByLabel('First name')).toHaveValue('Marianne');
+});
+
 test('Settings: the username is checked as it is typed, saved lowercased, and refused when taken @mobile', async ({
   page
 }) => {
   const sent = await mockSettings(page, ME);
-  await page.goto('/settings');
+  await page.goto('/settings?section=username');
   const input = page.getByRole('textbox', { name: 'Username' });
   const save = page.getByRole('button', { name: 'Save username' });
   await expect(input).toHaveValue('mary');
@@ -355,20 +373,25 @@ test('Settings: the username is checked as it is typed, saved lowercased, and re
   await input.fill('taken');
   await save.click();
   await expect(page.getByRole('alert')).toHaveText('That username is taken');
+  const nav = page.getByRole('navigation', { name: 'Settings' });
+  await nav.getByRole('button', { name: 'History' }).click();
   await page.getByRole('tablist', { name: 'Public profile' }).getByRole('tab', { name: 'Enabled' }).click();
+  await nav.getByRole('button', { name: 'Username' }).click();
   await input.fill('Mary.J');
   await expect(page.getByRole('alert')).toHaveCount(0);
   await save.click();
   await expect(page.getByRole('status')).toHaveText('Saved');
   expect(sent.filter(s => s.method === 'PATCH').at(-1)?.body).toEqual({ handle: 'mary.j' });
+  await nav.getByRole('button', { name: 'History' }).click();
   await expect(page.getByRole('link', { name: /\/u\/mary\.j$/ })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Copy' })).toBeVisible();
 });
 
 test('Settings shows an admin the way to the admin page, and the account button offers History', async ({ page }) => {
   await mockSettings(page, { ...ME, role: 'admin' });
-  await page.goto('/settings');
+  await page.goto('/settings?section=organizer');
   await expect(page.getByRole('link', { name: 'Admin' })).toHaveAttribute('href', '/admin');
+  await page.getByRole('navigation', { name: 'Settings' }).getByRole('button', { name: 'History' }).click();
   await page.getByRole('link', { name: 'View history' }).click();
   await page.locator('.site-head').getByRole('button', { name: 'Account' }).click();
   await expect(page.locator('.tm-acct-menu').getByRole('link', { name: 'History' })).toHaveAttribute(
@@ -436,7 +459,7 @@ async function mockMyData(page: Page) {
 
 test('Settings: My data exports the parts ticked as a Markdown download @mobile', async ({ page }) => {
   const sent = await mockMyData(page);
-  await page.goto('/settings');
+  await page.goto('/settings?section=data');
   await page.getByRole('button', { name: 'Export data' }).click();
   const dialog = page.getByRole('dialog', { name: 'Export data' });
   await expect(dialog.getByRole('checkbox')).toHaveCount(5);
@@ -453,7 +476,7 @@ test('Settings: My data exports the parts ticked as a Markdown download @mobile'
 
 test('Settings: a wipe is chosen, reviewed, then sent, and says what holds it up @mobile', async ({ page }) => {
   const sent = await mockMyData(page);
-  await page.goto('/settings');
+  await page.goto('/settings?section=data');
   await page.getByRole('button', { name: 'Wipe data' }).click();
   const dialog = page.getByRole('dialog', { name: 'Wipe data' });
   const review = dialog.getByRole('button', { name: 'Review' });
@@ -471,12 +494,13 @@ test('Settings: a wipe is chosen, reviewed, then sent, and says what holds it up
   await dialog.getByRole('button', { name: 'Wipe 2' }).click();
   await expect(dialog).toBeHidden();
   expect(sent.filter(s => s.method === 'POST').at(-1)?.body).toEqual({ parts: ['profile', 'username'] });
+  await page.getByRole('navigation', { name: 'Settings' }).getByRole('button', { name: 'Username' }).click();
   await expect(page.getByRole('textbox', { name: 'Username' })).toHaveValue('quiet-otter-41');
 });
 
 test('Settings: deleting asks for the username typed out, then signs out @mobile', async ({ page }) => {
   const sent = await mockMyData(page);
-  await page.goto('/settings');
+  await page.goto('/settings?section=data');
   await page.getByRole('button', { name: 'Delete account' }).click();
   const dialog = page.getByRole('dialog', { name: 'Delete your account?' });
   const remove = dialog.getByRole('button', { name: 'Delete account' });

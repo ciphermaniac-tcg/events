@@ -320,7 +320,6 @@ export function MyData(props: { user: Me; onWiped: (user: Me) => void }) {
   const close = () => setOpen(null);
   return (
     <section>
-      <h2 class='tm-subhead tm-box-head'>My data</h2>
       <div class='tm-box'>
         <SettingRow label='Terms of service'>
           <A class='btn btn-secondary' href='/terms'>

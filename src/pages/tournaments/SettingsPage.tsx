@@ -12,7 +12,7 @@
  */
 
 import { A, useNavigate, useSearchParams } from '@solidjs/router';
-import { createEffect, createMemo, createResource, createSignal, For, on, Show } from 'solid-js';
+import { createEffect, createMemo, createResource, createSignal, For, type JSX, on, Show, untrack } from 'solid-js';
 import { displayName, HANDLE_MAX, handleProblem, normalizeHandle } from '../../../shared/accounts/handle';
 import type { PlayerProfile } from '../../../shared/tournament/profile';
 import {
@@ -64,42 +64,128 @@ function mergeUser(user: Me, ...fields: (keyof Me)[]) {
 
 const PROVIDER_NAMES: Record<OAuthProvider, string> = { google: 'Google', discord: 'Discord' };
 
+/** The sections, in the column's order; the first opens with none asked for. */
+const SECTIONS = [
+  { id: 'profile', label: 'Player profile' },
+  { id: 'username', label: 'Username' },
+  { id: 'history', label: 'History' },
+  { id: 'organizer', label: 'Organizer' },
+  { id: 'data', label: 'Your data' }
+] as const;
+type Section = (typeof SECTIONS)[number]['id'];
+const readSection = (value: string | undefined): Section =>
+  SECTIONS.find(section => section.id === value)?.id ?? 'profile';
+
+/** Who is signed in, at the head of the column: picture, name, username, and the accounts linked or offered. */
 function Identity(props: { user: Me; providers: readonly Provider[] }) {
+  const offered = () => (['google', 'discord'] as const).filter(provider => props.providers.includes(provider));
+  return (
+    <div class='tm-settings-who'>
+      <Avatar name={props.user.name} src={props.user.avatar} />
+      <div>
+        <p class='tm-settings-name'>{props.user.name}</p>
+        <p class='tm-settings-handle muted'>@{props.user.handle}</p>
+      </div>
+      <p class='tm-identity-links'>
+        <For each={offered()}>
+          {provider => (
+            <Show
+              when={props.user.providers.includes(provider)}
+              fallback={
+                <a class='tm-link-inline' href={linkUrl(provider)} rel='external'>
+                  Link {PROVIDER_NAMES[provider]}
+                </a>
+              }
+            >
+              <span class='muted'>{PROVIDER_NAMES[provider]} linked</span>
+            </Show>
+          )}
+        </For>
+      </p>
+    </div>
+  );
+}
+
+function SignOut() {
   const navigate = useNavigate();
   async function leave() {
     await signOut().catch(() => undefined);
     await refreshSession();
     navigate('/');
   }
-  const offered = () => (['google', 'discord'] as const).filter(provider => props.providers.includes(provider));
+  return (
+    <button type='button' class='btn btn-ghost tm-settings-out' onClick={() => void leave()}>
+      Sign out
+    </button>
+  );
+}
+
+/** One section, mounted once opened and hidden while another shows, so its unsaved edits survive the switch. */
+function Pane(props: { of: Section; current: Section; opened: ReadonlySet<Section>; children: JSX.Element }) {
+  return (
+    <Show when={props.opened.has(props.of)}>
+      <div hidden={props.current !== props.of}>{props.children}</div>
+    </Show>
+  );
+}
+
+/**
+ * Signed in: who it is and the sections down the left, the chosen one at
+ * right under its name, kept in the address as ?section=.
+ */
+function SignedIn(props: { user: Me; providers: readonly Provider[] }) {
+  const [params, setParams] = useSearchParams<{ section?: string }>();
+  const section = () => readSection(params.section);
+  const [opened, setOpened] = createSignal<ReadonlySet<Section>>(new Set([untrack(section)]));
+  createEffect(() => {
+    const now = section();
+    setOpened(prev => (prev.has(now) ? prev : new Set([...prev, now])));
+  });
+  const label = () => SECTIONS.find(s => s.id === section())?.label ?? '';
   return (
     <>
       <Trail here='Settings' />
-      <section class='tm-identity'>
-        <Avatar name={props.user.name} src={props.user.avatar} />
-        <h1>{props.user.name}</h1>
-        <div class='tm-identity-acts'>
-          <button type='button' class='btn btn-ghost' onClick={() => void leave()}>
-            Sign out
-          </button>
+      <div class='tm-side-layout tm-settings-layout'>
+        <div class='tm-settings-side'>
+          <Identity user={props.user} providers={props.providers} />
+          <nav class='tm-side-nav' aria-label='Settings'>
+            <For each={SECTIONS}>
+              {s => (
+                <button
+                  type='button'
+                  classList={{ 'is-on': s.id === section() }}
+                  aria-current={s.id === section() ? 'page' : undefined}
+                  onClick={() => setParams({ section: s.id })}
+                >
+                  {s.label}
+                </button>
+              )}
+            </For>
+          </nav>
+          <SignOut />
         </div>
-        <p class='tm-identity-links'>
-          <For each={offered()}>
-            {provider => (
-              <Show
-                when={props.user.providers.includes(provider)}
-                fallback={
-                  <a class='tm-link-inline' href={linkUrl(provider)} rel='external'>
-                    Link {PROVIDER_NAMES[provider]}
-                  </a>
-                }
-              >
-                <span class='muted'>{PROVIDER_NAMES[provider]} linked</span>
-              </Show>
-            )}
-          </For>
-        </p>
-      </section>
+        <div class='tm-side-content tm-settings-body'>
+          <h1 class='tm-settings-title'>{label()}</h1>
+          <Pane of='profile' current={section()} opened={opened()}>
+            <Profile user={props.user} />
+          </Pane>
+          <Pane of='username' current={section()} opened={opened()}>
+            <Username user={props.user} />
+          </Pane>
+          <Pane of='history' current={section()} opened={opened()}>
+            <HistorySection user={props.user} />
+          </Pane>
+          <Pane of='organizer' current={section()} opened={opened()}>
+            <OrganizerSection user={props.user} />
+          </Pane>
+          <Pane of='data' current={section()} opened={opened()}>
+            <MyData
+              user={props.user}
+              onWiped={wiped => mergeUser(wiped, 'handle', 'popId', 'firstName', 'lastName', 'birthDate')}
+            />
+          </Pane>
+        </div>
+      </div>
     </>
   );
 }
@@ -131,7 +217,6 @@ function Username(props: { user: Me }) {
   }
   return (
     <section>
-      <h2 class='tm-subhead tm-box-head'>Username</h2>
       <form class='tm-box' onSubmit={event => void save(event)}>
         <div class='tm-box-bar'>
           <input
@@ -205,7 +290,6 @@ function Profile(props: { user: Me }) {
 
   return (
     <section>
-      <h2 class='tm-subhead tm-box-head'>Player profile</h2>
       <form class='tm-box' onSubmit={event => void save(event)}>
         <div class='tm-box-bar tm-profile-bar'>
           <ProfileFields
@@ -280,7 +364,6 @@ function HistorySection(props: { user: Me }) {
   }
   return (
     <section>
-      <h2 class='tm-subhead tm-box-head'>History</h2>
       <div class='tm-box'>
         <SettingRow label='Your history'>
           <A class='btn btn-secondary' href='/history'>
@@ -346,7 +429,6 @@ function OrganizerSection(props: { user: Me }) {
   const status = () => stage() !== 'none' || !runs();
   return (
     <section>
-      <h2 class='tm-subhead tm-box-head'>Organizer</h2>
       <Show
         when={current() !== undefined}
         fallback={
@@ -412,19 +494,7 @@ export function SettingsPage() {
       <Show when={current()}>
         {s => (
           <Show when={s().user} fallback={<SignedOut offer={s()} next={returnTo(params.next)} />}>
-            {user => (
-              <>
-                <Identity user={user()} providers={s().providers} />
-                <Username user={user()} />
-                <Profile user={user()} />
-                <HistorySection user={user()} />
-                <OrganizerSection user={user()} />
-                <MyData
-                  user={user()}
-                  onWiped={wiped => mergeUser(wiped, 'handle', 'popId', 'firstName', 'lastName', 'birthDate')}
-                />
-              </>
-            )}
+            {user => <SignedIn user={user()} providers={s().providers} />}
           </Show>
         )}
       </Show>

@@ -73,7 +73,7 @@
   outline: 3px solid var(--accent-ink);
   outline-offset: 3px;
 }
-.tm-organizer-surface .tm-page:not(.tm-console):has(.tm-identity, .tm-apply) {
+.tm-organizer-surface .tm-page:not(.tm-console):has(.tm-apply) {
   max-width: 880px;
 }
 .tm-organizer-surface .tm-page:not(.tm-console) .tm-box-bar > .tm-grow.tm-input {

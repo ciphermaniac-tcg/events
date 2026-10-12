@@ -1520,58 +1520,75 @@ tr.is-in .tm-place {
   display: grid;
   gap: var(--space-2);
 }
-.tm-identity {
-  display: grid;
-  justify-items: center;
-  gap: var(--space-2);
-  padding: var(--space-4) 0 var(--space-5);
-  border-bottom: 1px solid var(--rule);
-  text-align: center;
-}
-.tm-identity h1 {
-  margin: 0;
-  font-size: var(--text-xl);
-}
-.tm-identity-acts {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: var(--space-2);
-}
 .tm-identity-links {
   display: flex;
   flex-wrap: wrap;
-  justify-content: center;
   gap: var(--space-1) 14px;
   margin: 0;
-  font-size: var(--text-base);
+  font-size: var(--text-sm);
 }
-/* Wider than a phone, the page takes the width every tournament page does, and
-   the identity is one line: avatar, then name over linked accounts, then the actions at the right. */
-@media (min-width: 641px) {
-  .tm-identity {
-    grid-template-columns: auto 1fr auto;
-    align-items: center;
-    justify-items: start;
-    column-gap: var(--space-4);
-    padding: var(--space-4) 0;
-    text-align: left;
+/* The column: who is signed in, the sections, then Sign out at its foot. */
+.tm-settings-side {
+  display: grid;
+  gap: var(--space-4);
+  align-content: start;
+}
+.tm-settings-who {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+.tm-settings-who .tm-identity-links {
+  grid-column: 1 / -1;
+}
+.tm-settings-name {
+  margin: 0;
+  font-weight: 700;
+  font-size: var(--text-lg);
+  overflow-wrap: anywhere;
+}
+.tm-settings-handle {
+  margin: 0;
+  font-size: var(--text-sm);
+}
+.tm-settings-out {
+  justify-self: start;
+}
+.tm-settings-body .tm-settings-title {
+  margin: 0 0 var(--space-4);
+}
+/* A section sits on the page, not in a box: its rows keep their rules, its
+   fields their own fill. */
+.tm-settings-body .tm-box {
+  border: 0;
+  border-radius: 0;
+  background: none;
+}
+.tm-settings-body .tm-box > .tm-box-bar,
+.tm-settings-body .tm-box > .tm-set-row {
+  padding-inline: 0;
+}
+.tm-settings-body .tm-box .tm-input,
+.tm-settings-body .tm-box .tm-select {
+  background: var(--field);
+}
+/* Narrower, Sign out sits beside who is signed in, above the section tabs. */
+@media (max-width: 900px) {
+  .tm-settings-side {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
   }
-  .tm-identity > :first-child {
-    grid-row: 1 / span 2;
+  .tm-settings-side > .tm-side-nav {
+    grid-column: 1 / -1;
+    grid-row: 2;
   }
-  .tm-identity h1 {
+  .tm-settings-out {
     grid-column: 2;
-  }
-  .tm-identity-acts {
-    grid-column: 3;
-    grid-row: 1 / span 2;
-  }
-  .tm-identity-links {
-    grid-column: 2;
-    justify-content: flex-start;
+    grid-row: 1;
   }
 }
+
 .tm-link-inline {
   color: var(--accent-ink);
 }
