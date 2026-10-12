@@ -1919,3 +1919,28 @@ tr.is-in .tm-place {
 .tm-modal .tm-box-bar + .tm-box-bar {
   border-top: 0;
 }
+
+/* ---------- The round picker between its neighbours (RoundStepper): console and public page ---------- */
+.tm-stepper {
+  display: inline-flex;
+  flex: none;
+}
+.tm-stepper .btn {
+  justify-content: center;
+  width: var(--control-h);
+  min-height: var(--control-h);
+  padding: 0;
+  border-radius: 0;
+  font-size: var(--text-body);
+}
+.tm-stepper .btn:first-child {
+  border-radius: var(--radius-md) 0 0 var(--radius-md);
+}
+.tm-stepper .btn:last-child {
+  margin-left: -1px;
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+}
+.tm-stepper .tm-select {
+  margin-left: -1px;
+  border-radius: 0;
+}

@@ -49,29 +49,6 @@
 
 /* ---------- The round's box ---------- */
 /* Previous round, the picker, next round: one control, drawn as one. */
-.tm-console .tm-stepper {
-  display: inline-flex;
-  flex: none;
-}
-.tm-console .tm-stepper .btn {
-  justify-content: center;
-  width: var(--control-h);
-  min-height: var(--control-h);
-  padding: 0;
-  border-radius: 0;
-  font-size: var(--text-body);
-}
-.tm-console .tm-stepper .btn:first-child {
-  border-radius: var(--radius-md) 0 0 var(--radius-md);
-}
-.tm-console .tm-stepper .btn:last-child {
-  margin-left: -1px;
-  border-radius: 0 var(--radius-md) var(--radius-md) 0;
-}
-.tm-console .tm-stepper .tm-select {
-  margin-left: -1px;
-  border-radius: 0;
-}
 .tm-console .tm-filter-bar .search {
   flex: 1 1 auto;
 }

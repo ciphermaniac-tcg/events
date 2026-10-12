@@ -56,13 +56,19 @@ test('a spectator narrows the pairings to the tables playing, one deck, or the p
   await page.goto(`/t/${CODE}`);
   const rows = page.locator('.tm-matches tbody tr');
   await expect(rows).toHaveCount(matches.length);
-  await page.getByRole('tab', { name: 'In progress' }).click();
-  await expect(rows).toHaveCount(playing.length);
-  await page.getByRole('tab', { name: 'All', exact: true }).click();
-  await page.getByRole('combobox', { name: 'Deck' }).selectOption('Gardevoir ex');
-  await expect(rows).toHaveCount(1);
-  await page.getByRole('combobox', { name: 'Deck' }).selectOption('');
-  await expect(rows).toHaveCount(matches.length);
+  if (test.info().project.name === 'mobile') {
+    // A phone keeps the round and Following; In progress and the deck filter are desktop's.
+    await expect(page.getByRole('tab', { name: 'In progress' })).toBeHidden();
+    await expect(page.getByRole('combobox', { name: 'Deck' })).toBeHidden();
+  } else {
+    await page.getByRole('tab', { name: 'In progress' }).click();
+    await expect(rows).toHaveCount(playing.length);
+    await page.getByRole('tab', { name: 'All', exact: true }).click();
+    await page.getByRole('combobox', { name: 'Deck' }).selectOption('Gardevoir ex');
+    await expect(rows).toHaveCount(1);
+    await page.getByRole('combobox', { name: 'Deck' }).selectOption('');
+    await expect(rows).toHaveCount(matches.length);
+  }
 
   await expect(page.getByRole('tab', { name: /^Following/ })).toHaveCount(0);
   await rows.last().getByRole('button').first().click();

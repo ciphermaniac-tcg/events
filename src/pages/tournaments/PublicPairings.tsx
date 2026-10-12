@@ -77,15 +77,15 @@ export function PublicPairings(props: {
   const choose = (value: MatchView) => setParams({ view: value === 'bracket' ? value : undefined }, { replace: true });
   return (
     <>
-      <div class='tm-box-bar'>
+      <div class='tm-box-bar tm-pairings-bar'>
         {props.bar(withRounds(), asTable())}
+        <Show when={props.round && asTable()}>
+          <SpectateBar filter={applied()} decks={decks()} following={props.following.size} onFilter={setFilter} />
+        </Show>
         <Show when={cut()}>
           <Segmented options={MATCH_VIEWS} selected={shown()} onSelect={choose} ariaLabel='Show matches as' />
         </Show>
       </div>
-      <Show when={props.round && asTable()}>
-        <SpectateBar filter={applied()} decks={decks()} following={props.following.size} onFilter={setFilter} />
-      </Show>
       <Show when={props.pod && props.round} fallback={props.registered}>
         <Show when={shown() === 'bracket'} fallback={table()}>
           <CutBracket

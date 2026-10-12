@@ -21,7 +21,7 @@ export function SpectateBar(props: {
     ...(props.following > 0 ? [{ value: 'following' as const, label: `Following ${props.following}` }] : [])
   ];
   return (
-    <div class='tm-box-bar tm-spectate'>
+    <span class='tm-spectate'>
       <Segmented
         options={options()}
         selected={props.filter.showing}
@@ -46,6 +46,6 @@ export function SpectateBar(props: {
           </For>
         </select>
       </Show>
-    </div>
+    </span>
   );
 }

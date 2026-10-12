@@ -55,9 +55,7 @@ import {
   firstRoundTime,
   namesById,
   podLabel,
-  roundCapOf,
-  roundLabel,
-  STATUS_LABELS
+  roundCapOf
 } from '../../lib/tournament/present';
 import { ErrorLine } from './Field';
 import type { Tab as DashboardTab } from './Dashboard';
@@ -70,6 +68,7 @@ import { StandingsTable } from './StandingsTable';
 import { YourMatch } from './YourMatch';
 import '../../styles/pages/tournament-public.css';
 import { pageTitle } from '../../lib/title';
+import { RoundStepper } from './RoundStepper';
 
 const BigScreen = lazy(() => import('./BigScreen').then(m => ({ default: m.BigScreen })));
 const StreamOverlay = lazy(() => import('./StreamOverlay').then(m => ({ default: m.StreamOverlay })));
@@ -379,19 +378,16 @@ function pickTab(tabs: readonly { value: Tab }[], wanted: string | undefined, vi
 const deckNote = (view: TournamentView) =>
   view.settings.deckVisibility === 'after' && !view.settings.finished ? 'Decks shown once the event ends' : undefined;
 
+/** The console's round picker; the line under the event's name says where the round stands. */
 function RoundSelect(props: { pod: Pod | undefined; round: Round | undefined; onSelect: (n: number) => void }) {
   return (
     <Show when={props.pod?.rounds.length ? props.pod : undefined}>
       {pod => (
-        <select class='tm-select' aria-label='Round' onChange={e => props.onSelect(Number(e.currentTarget.value))}>
-          <For each={pod().rounds}>
-            {r => (
-              <option value={r.number} selected={r.number === props.round?.number}>
-                {roundLabel(r, pod())} · {STATUS_LABELS[r.status]}
-              </option>
-            )}
-          </For>
-        </select>
+        <RoundStepper
+          pod={pod()}
+          selected={props.round?.number ?? pod().rounds.at(-1)?.number ?? 1}
+          onSelect={props.onSelect}
+        />
       )}
     </Show>
   );

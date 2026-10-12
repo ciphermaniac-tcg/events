@@ -73,11 +73,16 @@ test('the public page shows the round, finds a player and opens their history @m
   await expect(page.locator('.tm-details')).toHaveText('Doors at 11');
   const rows = page.locator('.tm-matches tbody tr');
   await expect(rows).toHaveCount(4);
-  await page.getByRole('searchbox', { name: 'Find a player' }).fill('lamarr');
-  await expect(rows).toHaveCount(1);
-  await rows
-    .first()
+  if (test.info().project.name === 'mobile') {
+    // A phone has no search: the round and its tables are the list.
+    await expect(page.getByRole('searchbox', { name: 'Find a player' })).toBeHidden();
+  } else {
+    await page.getByRole('searchbox', { name: 'Find a player' }).fill('lamarr');
+    await expect(rows).toHaveCount(1);
+  }
+  await page
     .getByRole('button', { name: /Hedy Lamarr/ })
+    .first()
     .click();
   const sheet = page.getByRole('dialog');
   await expect(sheet).toContainText('Hedy Lamarr');

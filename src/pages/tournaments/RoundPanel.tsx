@@ -33,7 +33,6 @@ import {
   outcomeLabel,
   recordsBefore,
   RESULT_WORDS,
-  roundLabel,
   shownDecks,
   shownOutcome,
   staffReport,
@@ -42,6 +41,7 @@ import {
 } from '../../lib/tournament/present';
 import type { ManageState } from './manageState';
 import { OptionsMenu } from './OptionsMenu';
+import { RoundPicker, RoundStepper } from './RoundStepper';
 import { MatchTable } from './MatchTable';
 import { ChampionLine, ClockControls, DeleteRound, RepairControl } from './RoundControls';
 
@@ -49,20 +49,6 @@ import { ChampionLine, ClockControls, DeleteRound, RepairControl } from './Round
 const CutBracket = lazy(() => import('./Bracket').then(m => ({ default: m.CutBracket })));
 // The sheet results take where rows are narrow; a desktop console never opens it.
 const ResultSheet = lazy(() => import('./ResultSheet').then(m => ({ default: m.ResultSheet })));
-
-function RoundPicker(props: { pod: Pod; selected: number; onSelect: (n: number) => void }) {
-  return (
-    <select class='tm-select' aria-label='Round' onChange={e => props.onSelect(Number(e.currentTarget.value))}>
-      <For each={props.pod.rounds}>
-        {round => (
-          <option value={round.number} selected={round.number === props.selected}>
-            {roundLabel(round, props.pod)}
-          </option>
-        )}
-      </For>
-    </select>
-  );
-}
 
 interface Asking {
   table: number;
@@ -279,40 +265,6 @@ function ShowTables(props: { openOnly: boolean; open: number; onOpenOnly: (value
         </Show>
       </button>
     </div>
-  );
-}
-
-/** The round before and after the one shown, either side of the picker. */
-function RoundStepper(props: { pod: Pod; selected: number; onSelect: (n: number) => void }) {
-  const index = () => props.pod.rounds.findIndex(r => r.number === props.selected);
-  const step = (by: number) => {
-    const next = props.pod.rounds[index() + by];
-    if (next) {
-      props.onSelect(next.number);
-    }
-  };
-  return (
-    <span class='tm-stepper'>
-      <button
-        type='button'
-        class='btn btn-secondary'
-        aria-label='Previous round'
-        disabled={index() <= 0}
-        onClick={() => step(-1)}
-      >
-        ‹
-      </button>
-      <RoundPicker pod={props.pod} selected={props.selected} onSelect={props.onSelect} />
-      <button
-        type='button'
-        class='btn btn-secondary'
-        aria-label='Next round'
-        disabled={index() >= props.pod.rounds.length - 1}
-        onClick={() => step(1)}
-      >
-        ›
-      </button>
-    </span>
   );
 }
 

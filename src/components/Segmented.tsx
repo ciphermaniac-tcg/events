@@ -19,6 +19,7 @@ export function Segmented<T extends string>(props: SegmentedProps<T>) {
             type='button'
             role='tab'
             class={props.selected === opt.value ? 'active' : ''}
+            data-value={opt.value}
             aria-selected={props.selected === opt.value ? 'true' : 'false'}
             onClick={() => props.onSelect(opt.value)}
           >

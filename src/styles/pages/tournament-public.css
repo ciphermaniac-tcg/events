@@ -364,9 +364,35 @@
    on two lines with their records beside their names. Whether a table is
    still playing is for the room, on desktop. The whole row shades for the
    viewer's own table. */
+/* The pairings' bar: the round picker, then what to show. */
+.tm-spectate {
+  display: contents;
+}
 @media (max-width: 640px) {
-  .tm-public-pairings .tm-box-bar > * {
-    flex: 1 1 100%;
+  /* A phone keeps the round and All / Following on one row; search, the deck
+     filter and In progress stay on desktop. */
+  .tm-pairings-bar {
+    flex-wrap: nowrap;
+  }
+  .tm-pairings-bar > .tm-stepper {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .tm-pairings-bar > .tm-stepper .tm-select {
+    flex: 1;
+    min-width: 0;
+  }
+  .tm-pairings-bar > .search,
+  .tm-spectate > .tm-select,
+  .tm-spectate .segmented button[data-value='playing'],
+  .tm-spectate .segmented:not(:has([data-value='following'])) {
+    display: none;
+  }
+  .tm-pairings-bar > :is(.segmented, .tm-spectate) {
+    flex: none;
+  }
+  .tm-pairings-bar .segmented button {
+    white-space: nowrap;
   }
   .tm-public-pairings .data tr {
     grid-template-columns: 26px minmax(0, 1fr);
