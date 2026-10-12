@@ -57,9 +57,15 @@ export function PlayerSheet(props: {
       keepTabIn(sheet, event);
     }
   };
-  onMount(() => document.addEventListener('keydown', onKey));
+  // The page behind holds still while the sheet is open.
+  const { overflow } = document.documentElement.style;
+  onMount(() => {
+    document.addEventListener('keydown', onKey);
+    document.documentElement.style.overflow = 'hidden';
+  });
   onCleanup(() => {
     document.removeEventListener('keydown', onKey);
+    document.documentElement.style.overflow = overflow;
     opener?.focus();
   });
   return (

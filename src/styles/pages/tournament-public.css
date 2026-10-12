@@ -234,18 +234,19 @@
 }
 
 /* ---------- Player sheet: at the side on desktop, from the bottom on a phone ---------- */
+/* Over the head bar too (z-index 50): a modal sheet leaves nothing behind it to press. */
 .tm-scrim {
   position: fixed;
   inset: 0;
-  z-index: 39;
+  z-index: 60;
   background: color-mix(in srgb, var(--fg) 18%, transparent);
 }
 .tm-sheet {
   position: fixed;
-  top: var(--topnav-h);
+  top: 0;
   right: 0;
   bottom: 0;
-  z-index: 40;
+  z-index: 61;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
   width: min(440px, 100vw);
@@ -343,7 +344,7 @@
     top: auto;
     left: 0;
     width: auto;
-    height: 80vh;
+    max-height: 80dvh;
     border-left: 0;
     border-top: 1px solid var(--border);
     border-radius: var(--radius-md) var(--radius-md) 0 0;
