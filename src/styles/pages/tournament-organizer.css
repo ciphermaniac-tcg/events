@@ -33,13 +33,7 @@
 .tm-organizer-surface .tm-page:not(.tm-console) .tm-input,
 .tm-organizer-surface .tm-page:not(.tm-console) .tm-select,
 .tm-organizer-surface .tm-page:not(.tm-console) .search {
-  background: var(--bg);
   border-color: var(--border);
-}
-/* The sign-in form sits on the page itself, not in a box, so its fields take the
-   field fill to stand off it rather than the page's own colour. */
-.tm-organizer-surface .tm-page .tm-signin-form .tm-input {
-  background: var(--field);
 }
 .tm-organizer-surface .tm-page:not(.tm-console) .tm-setup-name {
   min-height: 44px;

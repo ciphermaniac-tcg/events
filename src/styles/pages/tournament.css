@@ -554,6 +554,13 @@ body[data-mode='dark'] .tm-sso-google:hover {
     border-color var(--ms-fast) var(--ease-base),
     box-shadow var(--ms-fast) var(--ease-base);
 }
+/* Fields stand off whatever they sit on: on the page they take the lighter --field,
+   inside a white box the page's grey, as a recessed well. */
+.tm-box .tm-input,
+.tm-box .tm-select,
+.tm-box .search {
+  background: var(--bg);
+}
 .tm-input:hover,
 .tm-select:hover {
   border-color: var(--fg);
