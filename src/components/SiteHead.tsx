@@ -1,7 +1,8 @@
 /**
  * The events site's head: a slim dark bar, as the main site's, with the
  * site's name and who is signed in. Signed out, the way to sign in: on the
- * home page a jump to its sign-in, elsewhere Settings, which offers it; none
+ * home page a jump to its sign-in, elsewhere Settings, which offers it and
+ * comes back to the page it was asked from; none
  * at the age check, which is the middle of signing up.
  * @module components/SiteHead
  */
@@ -33,7 +34,10 @@ export function SiteHead() {
                 <Show
                   when={location.pathname === '/'}
                   fallback={
-                    <A class='btn btn-primary site-head-signin' href='/settings'>
+                    <A
+                      class='btn btn-primary site-head-signin'
+                      href={`/settings?${new URLSearchParams({ next: `${location.pathname}${location.search}` })}`}
+                    >
                       Sign in
                     </A>
                   }

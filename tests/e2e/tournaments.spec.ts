@@ -280,6 +280,19 @@ test('standings rank a combined pod per division', async ({ page }) => {
   await expect(page.locator('.tm-standings').last().locator('tbody tr')).toHaveCount(7);
 });
 
+test('signing in from an event page comes back to that event', async ({ page }) => {
+  await mockApi(page);
+  await page.goto(`/t/${CODE}?tab=standings`);
+  await page.locator('.site-head').getByRole('link', { name: 'Sign in' }).click();
+  await expect(page).toHaveURL(new RegExp(`/settings\\?next=%2Ft%2F${CODE}%3Ftab%3Dstandings$`));
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Sign in');
+  await expect(page).toHaveTitle('Sign in — Ciphermaniac Events');
+  await expect(page.getByRole('link', { name: 'Sign in with Google' })).toHaveAttribute(
+    'href',
+    `/api/auth/login/google?next=${encodeURIComponent(`/t/${CODE}?tab=standings`)}`
+  );
+});
+
 test('the old /host address opens the home page at the root, query and all', async ({ page }) => {
   await mockApi(page);
   await page.goto('/host?tab=organizing');

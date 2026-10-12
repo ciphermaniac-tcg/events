@@ -12,7 +12,7 @@
  */
 
 import { A, useNavigate, useSearchParams } from '@solidjs/router';
-import { createEffect, createMemo, createResource, createSignal, For, on, onMount, Show } from 'solid-js';
+import { createEffect, createMemo, createResource, createSignal, For, on, Show } from 'solid-js';
 import { displayName, HANDLE_MAX, handleProblem, normalizeHandle } from '../../../shared/accounts/handle';
 import type { PlayerProfile } from '../../../shared/tournament/profile';
 import {
@@ -375,30 +375,27 @@ function OrganizerSection(props: { user: Me }) {
   );
 }
 
-/** Signed out: one box, a line on who signs in, and the providers. */
-function SignedOut(props: { offer: SignInOffer }) {
+/** A page on this site to come back to after signing in; anything else, Settings. */
+export function returnTo(next: string | undefined): string {
+  return next?.startsWith('/') && !next.startsWith('//') ? next : '/settings';
+}
+
+/** Signed out: the way to sign in, back to the page that asked for it (`?next=`). */
+function SignedOut(props: { offer: SignInOffer; next: string }) {
   return (
     <>
-      <h1 class='tm-settings-title'>Settings</h1>
-      <section class='tm-box'>
-        <div class='tm-box-bar'>
-          <strong>Sign in</strong>
-          <span class='tm-grow' />
-          <span class='tm-flag'>Signed out</span>
-        </div>
-        <div class='tm-box-bar'>
-          <SignIn offer={props.offer} next='/settings' />
-        </div>
-      </section>
+      <h1 class='tm-settings-title'>Sign in</h1>
+      <SignIn offer={props.offer} next={props.next} />
     </>
   );
 }
 
 export function SettingsPage() {
-  const [params] = useSearchParams<{ signin?: string; link?: string }>();
+  const [params] = useSearchParams<{ signin?: string; link?: string; next?: string }>();
   const current = () => latestValue(session);
-  onMount(() => {
-    document.title = pageTitle('Settings');
+  createEffect(() => {
+    const read = current();
+    document.title = pageTitle(read && !read.user ? 'Sign in' : 'Settings');
   });
   return (
     <div class='tm-page tm-settings'>
@@ -414,7 +411,7 @@ export function SettingsPage() {
       </Show>
       <Show when={current()}>
         {s => (
-          <Show when={s().user} fallback={<SignedOut offer={s()} />}>
+          <Show when={s().user} fallback={<SignedOut offer={s()} next={returnTo(params.next)} />}>
             {user => (
               <>
                 <Identity user={user()} providers={s().providers} />
