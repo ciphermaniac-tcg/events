@@ -177,13 +177,6 @@
 .tm-grow {
   flex: 1;
 }
-.tm-th {
-  font-size: var(--text-xs);
-  font-weight: 600;
-  letter-spacing: var(--tracking-micro);
-  text-transform: uppercase;
-  color: var(--muted);
-}
 /* A section heading labels the box under it, never a title. */
 .tm-box-head {
   margin: 0 0 var(--space-2);
@@ -1240,17 +1233,6 @@ body:has(.tm-sheet) {
   color: var(--accent-ink);
   text-decoration: underline;
   text-underline-offset: 3px;
-}
-/* A chosen deck reads as a value in the row, not as a heading. */
-/* A player's actions sit at the row's end, so Drop lines up down the column
-   however many come before it. (Decklists keep theirs from the left: View,
-   the one every row has, stays put.) */
-/* Up to a tablet, a player restacks to a card of lines: the name and their
-   fixed table, then the rounds and the actions, then the deck; nothing hides
-   off the side. Rows part on the zebra, not on a rule. */
-@media (max-width: 900px) {
-  /* The column head is hidden here, so the field says what it is. */
-  /* The actions take a line of their own, so their width never squeezes the name. */
 }
 
 /* ---------- Standings ---------- */

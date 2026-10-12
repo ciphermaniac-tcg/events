@@ -2,9 +2,14 @@
    Global reset + base typography
    ============================================================ */
 
-*, *::before, *::after { box-sizing: border-box; }
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
 
-html, body {
+html,
+body {
   margin: 0;
   padding: 0;
   /* Prevent mobile pull-to-refresh: an upward overscroll at the top of a long
@@ -56,41 +61,57 @@ main.page:has(.skeleton) + .site-footer {
 }
 
 body {
-  font-family: 'Inter', 'Inter Fallback', system-ui, -apple-system, sans-serif;
+  font-family:
+    'Inter',
+    'Inter Fallback',
+    system-ui,
+    -apple-system,
+    sans-serif;
   font-size: 15px;
   line-height: 1.5;
   color: var(--fg);
   background: var(--bg);
   font-feature-settings: 'ss01', 'cv11', 'cv05';
-  transition: background var(--ms-base) ease, color var(--ms-base) ease;
+  transition:
+    background var(--ms-base) ease,
+    color var(--ms-base) ease;
 }
 
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
   margin: 0;
   font-family: 'Inter', 'Inter Fallback', sans-serif;
   font-weight: 700;
   letter-spacing: -0.02em;
   color: var(--fg);
 }
-h1 { font-size: clamp(24px, 3vw, 30px); line-height: 1.15; letter-spacing: -0.02em; }
-h2 { font-size: 18px; line-height: 1.25; letter-spacing: -0.015em; font-weight: 600; }
-h3 { font-size: 15px; line-height: 1.3; font-weight: 600; }
+h1 {
+  font-size: clamp(24px, 3vw, 30px);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+h2 {
+  font-size: 18px;
+  line-height: 1.25;
+  letter-spacing: -0.015em;
+  font-weight: 600;
+}
+h3 {
+  font-size: 15px;
+  line-height: 1.3;
+  font-weight: 600;
+}
 
-p { margin: 0; }
+p {
+  margin: 0;
+}
 
 .num {
   font-variant-numeric: tabular-nums;
-}
-
-/* The house micro-label: column headers, KPI captions, field labels, card-page
-   section headings. One recipe, 11px/600/0.08em — the tracking had drifted
-   across eight values (0.04em to 0.16em) at three sizes before this existed. */
-.label-micro {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: var(--tracking-micro);
-  text-transform: uppercase;
-  color: var(--muted);
 }
 
 button {
@@ -105,9 +126,13 @@ a {
   color: var(--accent-ink);
   text-decoration: none;
 }
-a:hover { text-decoration: underline; }
+a:hover {
+  text-decoration: underline;
+}
 
-input, select, textarea {
+input,
+select,
+textarea {
   font: inherit;
   color: inherit;
 }
@@ -129,7 +154,9 @@ input, select, textarea {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
+  *,
+  *::before,
+  *::after {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
