@@ -43,9 +43,12 @@ database_name = "ciphermaniac-tournaments"
 database_id = "a384bf93-4d0c-4560-b311-615cfb9bf334"
 migrations_dir = "config/d1/migrations/tournaments"
 
-# Environment variables (set these in Cloudflare dashboard)
+# Plain variables live here: a deploy replaces the dashboard's with these.
+# Secrets (OAuth, Clerk's secret and JWT keys, IDLE_SWEEP_TOKEN) stay in the dashboard.
 [env.production.vars]
 ENVIRONMENT = "production"
+# Public by design: it ships in the sign-in page. Its instance is clerk.ciphermaniac.com.
+CLERK_PUBLISHABLE_KEY = "pk_live_Y2xlcmsuY2lwaGVybWFuaWFjLmNvbSQ"
 
 # Preview deployments get no storage: preview bindings must never point to
 # production databases or buckets.
