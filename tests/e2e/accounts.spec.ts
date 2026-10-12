@@ -333,7 +333,10 @@ test('Settings: the public profile switch shows its link, and a POP ID clash poi
   await page.getByRole('button', { name: 'Save profile' }).click();
   const alert = page.getByRole('alert');
   await expect(alert).toContainText('This POP ID is on another account');
-  await expect(alert.getByRole('link', { name: 'Feedback' })).toHaveAttribute('href', '/feedback?from=/settings');
+  await expect(alert.getByRole('link', { name: 'Feedback' })).toHaveAttribute(
+    'href',
+    'https://ciphermaniac.com/feedback'
+  );
 });
 
 test('Settings: the username is checked as it is typed, saved lowercased, and refused when taken @mobile', async ({
@@ -485,7 +488,7 @@ test('Settings: deleting asks for the username typed out, then signs out @mobile
   await expect(dialog.getByRole('textbox')).toHaveValue('');
   await dialog.getByRole('textbox').fill('mary');
   await remove.click();
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/host$/);
   expect(sent.find(s => s.method === 'DELETE')?.body).toEqual({ confirm: 'mary' });
 });
 
@@ -1080,7 +1083,10 @@ test('a player with no events yet is welcomed with the way to play, then the way
     'Add your Player ID',
     'Play'
   ]);
-  await expect(welcome.getByRole('link', { name: 'Find events' })).toHaveAttribute('href', '/tools/event-locator');
+  await expect(welcome.getByRole('link', { name: 'Find events' })).toHaveAttribute(
+    'href',
+    'https://ciphermaniac.com/tools/event-locator'
+  );
   await expect(welcome.getByRole('link', { name: 'Settings' })).toHaveAttribute('href', '/settings');
   await expect(welcome.getByRole('link', { name: 'Apply here' })).toHaveAttribute('href', '/apply');
   expect(errors).toEqual([]);

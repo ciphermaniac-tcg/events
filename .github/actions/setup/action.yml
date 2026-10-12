@@ -2,7 +2,7 @@ name: Pipeline setup
 description: Install the repository runtimes and locked dependencies
 inputs:
   python:
-    description: Install Python and the locked producer and quality dependencies
+    description: Install Python and the locked workflow linters
     default: 'false'
 runs:
   using: composite

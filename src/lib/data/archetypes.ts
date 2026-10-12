@@ -12,11 +12,10 @@ import { normalizeArchetypeKey } from '../../../shared/data/archetypes/winRate';
 export { normalizeArchetypeKey } from '../../../shared/data/archetypes/winRate';
 
 import { dataClient } from './client';
-import { canonicalizeReportCached, normalizeIndexPercentScale } from './compat';
+import { normalizeIndexPercentScale } from './compat';
 import { ONLINE, tournamentPath } from './paths';
-import { getSynonymDatabase } from '../../utils/cardSynonyms';
 import { createSignal } from 'solid-js';
-import type { ArchetypeIndexEntry, ArchetypeReport } from '../../types';
+import type { ArchetypeIndexEntry } from '../../types';
 
 const { fetchJson } = dataClient;
 
@@ -75,16 +74,6 @@ export function resolveArchetypeIcons(
     return [];
   }
   return map.get(normalizeArchetypeKey(identifiers.label)) ?? map.get(normalizeArchetypeKey(identifiers.name)) ?? [];
-}
-
-export async function fetchArchetype(tournament: string, archetypeBase: string): Promise<ArchetypeReport> {
-  const [raw, db] = await Promise.all([
-    fetchJson<ArchetypeReport>(
-      `${tournamentPath(tournament)}/archetypes/${encodeURIComponent(archetypeBase)}/cards.json`
-    ),
-    getSynonymDatabase()
-  ]);
-  return canonicalizeReportCached(raw, db);
 }
 
 // Backwards-compatible alias (always online meta)

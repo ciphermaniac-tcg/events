@@ -65,6 +65,7 @@ import { at, eventCalls } from '../__utils__/eventCalls.ts';
 import { storeApplication } from '../__utils__/storeApplication.ts';
 import { countingTrips, racing, sqliteD1 } from '../__utils__/sqliteD1.ts';
 import { context, generatedEvent } from '../tournament/conformance-generated.ts';
+import { type MainSiteData, serveMainSiteData } from '../__utils__/mainSiteData.ts';
 
 /** Every scalar in a JSON value, keys included, for asserting what a public copy never carries. */
 function jsonValues(value: unknown): unknown[] {
@@ -81,8 +82,12 @@ let env: TournamentEnv;
 const { hit, signIn } = apiCalls(() => env);
 const { newEvent, newSwiss, send, addPlayers, settle, playerSays, view, storeOf } = eventCalls(hit);
 
+// No test reaches the real main site for the event locator's league files.
+let mainSite: MainSiteData;
+
 beforeEach(() => {
   env = { TOURNAMENT_DB: sqliteD1('tournaments.sql'), DEV_LOGIN: 'true' };
+  mainSite = serveMainSiteData();
   decklists._resetRateLimitStore();
   report._resetRateLimitStore();
   event._resetRateLimitStore();
@@ -902,7 +907,7 @@ test('every change publishes the public view to R2, and deleting the event remov
 });
 
 test('a failed publish does not fail the change', async () => {
-  env.REPORTS = {
+  env.EVENTS_DATA = {
     head: async () => null,
     put: async () => {
       throw new Error('R2 down');
@@ -945,9 +950,10 @@ test('only the organizer deletes an event', async () => {
 });
 
 afterEach(() => {
+  mainSite.restore();
   mock.timers.reset();
   delete env.ENVIRONMENT;
-  delete env.REPORTS;
+  delete env.EVENTS_DATA;
 });
 
 /** A player's phone: it says who they are once, keeps the token it is given, and reports with it. */
@@ -1776,7 +1782,7 @@ function memoryBucket() {
     }
     return onlyIf instanceof Headers ? onlyIf.get('If-None-Match') === '*' && !held : held?.etag === onlyIf.etagMatches;
   };
-  env.REPORTS = {
+  env.EVENTS_DATA = {
     head: async key => {
       const held = objects.get(key);
       return held ? { etag: held.etag, customMetadata: { version: held.version } } : null;
@@ -1820,11 +1826,11 @@ test('a publish that lands late leaves the newer copy up, and cannot bring back 
   assert.equal(bodyOf(objects.get(key)).version, newest.version, 'the late copy does not replace the newer one');
 
   // Another publish lands between this one's look and its write.
-  const bucket = env.REPORTS as NonNullable<TournamentEnv['REPORTS']>;
-  env.REPORTS = {
+  const bucket = env.EVENTS_DATA as NonNullable<TournamentEnv['EVENTS_DATA']>;
+  env.EVENTS_DATA = {
     ...bucket,
     put: async (...args) => {
-      env.REPORTS = bucket;
+      env.EVENTS_DATA = bucket;
       objects.set(key, { ...(objects.get(key) as Stored), etag: 'crossed', version: String(newest.version + 5) });
       return bucket.put(...args);
     }
@@ -1843,9 +1849,9 @@ test('a publish that never gets a write in takes the copy down rather than leave
   const objects = memoryBucket();
   const owner = await signIn('Organizer', 'organizer');
   const code = await newSwiss(owner);
-  const bucket = env.REPORTS as NonNullable<TournamentEnv['REPORTS']>;
+  const bucket = env.EVENTS_DATA as NonNullable<TournamentEnv['EVENTS_DATA']>;
   let refused = 0;
-  env.REPORTS = {
+  env.EVENTS_DATA = {
     ...bucket,
     put: async () => {
       refused += 1;
@@ -1868,8 +1874,8 @@ test('a publish R2 refuses takes the stale copy down, so the page asks the API',
   const owner = await signIn('Organizer', 'organizer');
   const code = await newSwiss(owner);
   assert.ok(objects.has(`tournaments/v1/${code}.json`));
-  const bucket = env.REPORTS as NonNullable<TournamentEnv['REPORTS']>;
-  env.REPORTS = { ...bucket, put: () => Promise.reject(new Error('R2 down')) };
+  const bucket = env.EVENTS_DATA as NonNullable<TournamentEnv['EVENTS_DATA']>;
+  env.EVENTS_DATA = { ...bucket, put: () => Promise.reject(new Error('R2 down')) };
   const log = console.error;
   console.error = () => undefined;
   try {
@@ -1983,12 +1989,12 @@ test('the answer to a change does not wait for its publish where the runtime kee
   const code = await newSwiss(owner);
   const key = `tournaments/v1/${code}.json`;
   const before = objects.get(key);
-  const bucket = env.REPORTS as NonNullable<TournamentEnv['REPORTS']>;
+  const bucket = env.EVENTS_DATA as NonNullable<TournamentEnv['EVENTS_DATA']>;
   let release = () => undefined as void;
   const held = new Promise<void>(resolve => {
     release = resolve;
   });
-  env.REPORTS = { ...bucket, put: (...args) => held.then(() => bucket.put(...args)) };
+  env.EVENTS_DATA = { ...bucket, put: (...args) => held.then(() => bucket.put(...args)) };
   const kept: Promise<unknown>[] = [];
   const response = await commands.onRequestPost({
     request: request(`/api/tournaments/${code}/commands`, {

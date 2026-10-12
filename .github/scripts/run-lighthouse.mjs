@@ -34,7 +34,7 @@ const fixtures = spawn(process.execPath, ['--import', 'tsx', 'tests/e2e/serve-fi
 });
 try {
   await waitForFixtures();
-  run(['vite', 'build', '--config', 'tests/e2e/release-build.config.ts', '--outDir', '.cache/lighthouse-dist'], {
+  run(['vite', 'build', '--outDir', '.cache/lighthouse-dist'], {
     ...process.env,
     VITE_DATA_ORIGIN: 'http://127.0.0.1:4320'
   });

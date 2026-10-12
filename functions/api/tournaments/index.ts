@@ -36,13 +36,14 @@ import {
   type NewTournament,
   TooLarge
 } from '../../lib/tournaments/store.js';
-import type { D1Like, PublishBucket } from '../../lib/types.js';
+import type { D1Like, ReadBucket } from '../../lib/types.js';
 import { leagueListings } from '../../lib/stores/leagues.js';
+import { mainSiteData } from '../../lib/stores/mainSiteData.js';
 
-/** The database and the data bucket a creation reads. */
+/** The database and the main site's league files a creation reads. */
 interface Where {
   db: D1Like;
-  bucket: PublishBucket | undefined;
+  bucket: ReadBucket;
 }
 import { EVENT_TYPES, type EventType, type Tournament } from '../../../shared/tournament/types.js';
 
@@ -204,7 +205,7 @@ function storeInfo(user: User, read: NewEvent, place: StorePlace): Tournament {
 }
 
 /** Whether `sanctionId` is one pokemon.com lists for the league: a store starts only its own league's events from a listing. */
-async function listedFor(bucket: PublishBucket | undefined, leagueId: string, sanctionId: string): Promise<boolean> {
+async function listedFor(bucket: ReadBucket, leagueId: string, sanctionId: string): Promise<boolean> {
   const listings = await leagueListings(bucket, leagueId, '');
   return listings.some(listing => listing.sanctionId === sanctionId);
 }
@@ -309,7 +310,7 @@ export async function onRequestPost(context: Context): Promise<Response> {
   if (typeof read === 'string') {
     return jsonError(read, 400);
   }
-  const where = { db, bucket: env.REPORTS };
+  const where = { db, bucket: mainSiteData() };
   const running = read.storeId ? await storeEvent(where, user, read, read.storeId) : ownEvent(user, read);
   if (running instanceof Response) {
     return running;

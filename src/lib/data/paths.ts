@@ -1,18 +1,3 @@
-/**
- * Data path construction for the browser.
- *
- * One home for the rules that turn a UI-level identifier (a tournament key, a
- * card's set/number) into an R2 path or an index key. Both halves of a lookup
- * have to agree on these, and when the construction was inlined at each call
- * site they could quietly stop agreeing.
- *
- * These produce LEGACY paths. Rewriting them onto immutable release roots is
- * the client's job (see ./client and ../releaseClient), so nothing here needs
- * to know whether a release manifest is embedded.
- * @module src/lib/data/paths
- */
-
-import { cardNumberIndexKey } from '../../../shared/data/cardIdentity.js';
 import { ONLINE_META_NAME } from '../constants';
 
 /** The rolling online meta report's tournament key. */
@@ -31,10 +16,6 @@ export function isSnapshotSource(source: string): boolean {
   return source.startsWith(SNAPSHOT_SOURCE_PREFIX);
 }
 
-export function snapshotSourceKey(rotationDate: string): string {
-  return `${SNAPSHOT_SOURCE_PREFIX}${rotationDate}`;
-}
-
 /** Root path for a tournament's reports, snapshot sentinels included. */
 export function tournamentPath(name: string): string {
   if (isSnapshotSource(name)) {
@@ -42,14 +23,4 @@ export function tournamentPath(name: string): string {
     return `/reports/Snapshots/${encodeURIComponent(date)}`;
   }
   return `/reports/${encodeURIComponent(name)}`;
-}
-
-/**
- * Normalize a card number for the SPA's `SET::NUMBER` synonym/snapshot index
- * keys. Delegates to the shared helper so the keys the SPA builds can never
- * drift from the ones the index producers write; lowercase-suffixed URLs
- * resolve the same way the edge 301 does.
- */
-export function setNumberKey(value: string | number): string {
-  return cardNumberIndexKey(value);
 }

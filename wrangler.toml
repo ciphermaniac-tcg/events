@@ -1,20 +1,16 @@
-# Cloudflare Pages configuration for Ciphermaniac
-name = "ciphermaniac"
+# Cloudflare Pages configuration for Ciphermaniac Events
+name = "ciphermaniac-events"
 compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat"]
 
 # Pages build output directory — Vite outputs the SPA shell + assets here.
 pages_build_output_dir = "dist"
 
-# KV namespace binding for price data storage
-[[kv_namespaces]]
-binding = "PRICE_DATA"
-id = "c43f84feaa1049488390313c619610d8"
-
-# R2 bucket binding for report storage
+# Public bucket served at events-data.ciphermaniac.com: published event views
+# (tournaments/v1) and the stores index the main site's event locator reads.
 [[r2_buckets]]
-bucket_name = "ciphermaniac-reports"
-binding = "REPORTS"
+bucket_name = "ciphermaniac-events-data"
+binding = "EVENTS_DATA"
 
 # Private R2 bucket that held organizer applications' proof files. It has no
 # custom domain and no r2.dev URL; the functions only delete what is left in
@@ -24,12 +20,6 @@ binding = "REPORTS"
 bucket_name = "ciphermaniac-proofs"
 binding = "PROOFS"
 
-# D1 binding for live-event deck reports (schema: config/d1/live.sql)
-[[d1_databases]]
-binding = "LIVE_DB"
-database_name = "ciphermaniac-live"
-database_id = "ad51e340-8a8f-418e-98aa-f074c0bf28e4"
-
 # D1 binding for accounts and organizer-run tournaments (schema: config/d1/tournaments.sql)
 [[d1_databases]]
 binding = "TOURNAMENT_DB"
@@ -37,31 +27,16 @@ database_name = "ciphermaniac-tournaments"
 database_id = "a384bf93-4d0c-4560-b311-615cfb9bf334"
 migrations_dir = "config/d1/migrations/tournaments"
 
-# Production environment configuration
 [env.production]
 
-# KV namespace binding for production
-[[env.production.kv_namespaces]]
-binding = "PRICE_DATA"
-id = "c43f84feaa1049488390313c619610d8"
-
-# R2 bucket binding for production
 [[env.production.r2_buckets]]
-bucket_name = "ciphermaniac-reports"
-binding = "REPORTS"
+bucket_name = "ciphermaniac-events-data"
+binding = "EVENTS_DATA"
 
-# Private proofs bucket for production (create it before the first deploy that carries this)
 [[env.production.r2_buckets]]
 bucket_name = "ciphermaniac-proofs"
 binding = "PROOFS"
 
-# D1 binding for production
-[[env.production.d1_databases]]
-binding = "LIVE_DB"
-database_name = "ciphermaniac-live"
-database_id = "ad51e340-8a8f-418e-98aa-f074c0bf28e4"
-
-# D1 binding for tournaments in production
 [[env.production.d1_databases]]
 binding = "TOURNAMENT_DB"
 database_name = "ciphermaniac-tournaments"
@@ -72,70 +47,11 @@ migrations_dir = "config/d1/migrations/tournaments"
 [env.production.vars]
 ENVIRONMENT = "production"
 
-# =============================================================================
-# Preview Environment Configuration
-# =============================================================================
-# Keep this preview environment active: omitting it exposes top-level storage.
-# Explicit empty overrides deny storage access until isolated resources exist.
-# Preview bindings must never point to production databases or buckets.
+# Preview deployments get no storage: preview bindings must never point to
+# production databases or buckets.
 [env.preview]
-kv_namespaces = []
 r2_buckets = []
 d1_databases = []
 
 [env.preview.vars]
 ENVIRONMENT = "preview"
-
-# Enable the binding template below only after every preview resource exists
-# and both preview databases have current schemas.
-#
-# Prerequisites (run in the intended Cloudflare account):
-#   npx wrangler kv namespace create ciphermaniac-preview-prices
-#   npx wrangler r2 bucket create ciphermaniac-preview-reports
-#   npx wrangler r2 bucket create ciphermaniac-preview-proofs
-#   npx wrangler d1 create ciphermaniac-preview-live
-#   npx wrangler d1 create ciphermaniac-preview-tournaments
-# Replace every <REPLACE_...> marker below with the ID returned by creation.
-# Keep the template commented until IDs are real and verified for this account.
-#
-# Copy the verified preview D1 binding blocks into a temporary provisioning
-# config at .scratch/preview-provisioning.toml (uncommented, with actual IDs),
-# keeping this deployment template disabled during initialization.
-# Initialize new preview databases with the current schemas:
-#   npx wrangler d1 execute ciphermaniac-preview-live --config=.scratch/preview-provisioning.toml --remote --file=config/d1/live.sql
-#   npx wrangler d1 execute ciphermaniac-preview-tournaments --config=.scratch/preview-provisioning.toml --remote --file=config/d1/tournaments.sql
-# For existing preview databases, execute each unapplied migration in numeric
-# order from config/d1/migrations/live-*.sql or tournaments/*.sql against its
-# matching preview database with `wrangler d1 execute <preview-name>
-# --config=.scratch/preview-provisioning.toml --remote
-# --file=<migration-file>`. The current schemas already include those changes;
-# do not replay column-adding migrations on freshly initialized databases.
-#
-# After provisioning and schema/migration execution, remove the three empty
-# storage arrays above and uncomment the matching binding blocks below.
-# Keep [env.preview] and its vars active throughout. Configure preview secrets
-# in Cloudflare Pages and use preview URLs
-# for OAuth redirects. Verify binding resolution before deploying a preview.
-#
-# # KV namespace: ciphermaniac-preview-prices
-# [[env.preview.kv_namespaces]]
-# binding = "PRICE_DATA"
-# id = "<REPLACE_WITH_PREVIEW_KV_ID>"
-#
-# [[env.preview.r2_buckets]]
-# bucket_name = "ciphermaniac-preview-reports"
-# binding = "REPORTS"
-#
-# [[env.preview.r2_buckets]]
-# bucket_name = "ciphermaniac-preview-proofs"
-# binding = "PROOFS"
-#
-# [[env.preview.d1_databases]]
-# binding = "LIVE_DB"
-# database_name = "ciphermaniac-preview-live"
-# database_id = "<REPLACE_WITH_PREVIEW_LIVE_D1_ID>"
-#
-# [[env.preview.d1_databases]]
-# binding = "TOURNAMENT_DB"
-# database_name = "ciphermaniac-preview-tournaments"
-# database_id = "<REPLACE_WITH_PREVIEW_TOURNAMENTS_D1_ID>"

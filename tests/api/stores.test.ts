@@ -13,7 +13,7 @@
 
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { beforeEach, mock, test } from 'node:test';
+import { afterEach, beforeEach, mock, test } from 'node:test';
 
 import * as community from '../../functions/api/community.ts';
 import * as leagues from '../../functions/api/leagues/[id].ts';
@@ -34,6 +34,7 @@ import * as adminStore from '../../functions/api/admin/stores/[id].ts';
 import type { TournamentEnv } from '../../functions/lib/auth/env.ts';
 import type { PublishBucket } from '../../functions/lib/types.ts';
 import { leagueShardPath } from '../../shared/events/leagues.ts';
+import { type MainSiteData, serveMainSiteData } from '../__utils__/mainSiteData.ts';
 import { STORES_INDEX_KEY } from '../../shared/events/stores.ts';
 import { parseTdf } from '../../shared/tournament/tdf.ts';
 import { apiCalls, type Handler } from '../__utils__/apiCalls.ts';
@@ -44,10 +45,12 @@ import { storeApplication } from '../__utils__/storeApplication.ts';
 
 let env: TournamentEnv;
 let objects: Map<string, string>;
+/** The event locator's league files, as the main site serves them. */
+let mainSite: MainSiteData;
 const { hit, signIn } = apiCalls(() => env);
 const { newEvent, settle, storeOf } = eventCalls(hit);
 
-/** A data bucket in memory: what the functions publish, and the locator's files a test puts there. */
+/** This site's data bucket in memory: what the functions publish. */
 function memoryBucket(): PublishBucket {
   return {
     head: async () => null,
@@ -65,8 +68,11 @@ function memoryBucket(): PublishBucket {
 
 beforeEach(() => {
   objects = new Map();
-  env = { TOURNAMENT_DB: sqliteD1('tournaments.sql'), DEV_LOGIN: 'true', REPORTS: memoryBucket() };
+  mainSite = serveMainSiteData();
+  env = { TOURNAMENT_DB: sqliteD1('tournaments.sql'), DEV_LOGIN: 'true', EVENTS_DATA: memoryBucket() };
 });
+
+afterEach(() => mainSite.restore());
 
 const raw = () => (env.TOURNAMENT_DB as ReturnType<typeof sqliteD1>).raw;
 
@@ -250,7 +256,7 @@ test('a store’s people start its events, sanctioned or not, from TOM or not; o
     )
     .run(store);
   const listing = { sanctionId: '26-11-000123', kind: 'cup', name: 'Cup', date: '2026-11-15', time: '15:00' };
-  objects.set(
+  mainSite.files.set(
     leagueShardPath('sanctioned', '20'),
     JSON.stringify({ version: 1, leagues: { 6238620: { listings: [listing] } } })
   );
@@ -850,8 +856,8 @@ test('a store’s listings and its league come from the locator’s files', asyn
     time: '19:30'
   };
   const past = { sanctionId: '26-01-000003', kind: 'local', name: 'Old', date: '2000-01-01', time: '19:30' };
-  objects.set(leagueShardPath('sanctioned', '20'), JSON.stringify(entry([cup])));
-  objects.set(leagueShardPath('locals', '20'), JSON.stringify(entry([local, past, cup])));
+  mainSite.files.set(leagueShardPath('sanctioned', '20'), JSON.stringify(entry([cup])));
+  mainSite.files.set(leagueShardPath('locals', '20'), JSON.stringify(entry([local, past, cup])));
   const listed = await hit(listings.onRequestGet as Handler, '/listings', { id: store }, { cookie: helper });
   assert.deepEqual(
     listed.json.listings.map((one: { sanctionId: string }) => one.sanctionId),
@@ -877,9 +883,9 @@ test('a store’s listings and its league come from the locator’s files', asyn
     400
   );
   assert.equal((await hit(leagues.onRequestGet as Handler, '/api/leagues/1234567', { id: '1234567' })).status, 401);
-  delete env.REPORTS;
-  const unbound = await hit(listings.onRequestGet as Handler, '/listings', { id: store }, { cookie: helper });
-  assert.deepEqual(unbound.json.listings, [], 'without the bucket, none');
+  mainSite.down = true;
+  const unreachable = await hit(listings.onRequestGet as Handler, '/listings', { id: store }, { cookie: helper });
+  assert.deepEqual(unreachable.json.listings, [], 'with the main site unreachable, none');
 });
 
 test('a store’s organizer of record is one of its people with a POP ID', async () => {
@@ -1018,7 +1024,7 @@ test('a stores publisher retries a failed conditional write after an older snaps
   let puts = 0;
   let heads = 0;
   let written = '';
-  env.REPORTS = {
+  env.EVENTS_DATA = {
     head: async () => {
       heads += 1;
       return { etag: heads === 1 ? 'initial' : 'older', customMetadata: { updatedAt: '2000-01-01T00:00:00.000Z' } };
@@ -1046,7 +1052,7 @@ test('same-millisecond publication reads the current database after acquiring it
   const store = await storeOf(manager);
   const now = new Date().toISOString();
   let written = '';
-  env.REPORTS = {
+  env.EVENTS_DATA = {
     head: async () => {
       raw().prepare('UPDATE stores SET name = ? WHERE id = ?').run('Latest Games', store);
       return { etag: 'latest', customMetadata: { updatedAt: now } };

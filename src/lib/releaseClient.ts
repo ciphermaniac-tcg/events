@@ -1,20 +1,68 @@
 /**
  * Release-aware data path resolution for the browser.
  *
- * Builds one resolver from the embedded release manifest (frozen for the
- * document lifetime) and maps legacy `reports/…` / `players/…` paths to their
- * immutable `/releases/v1/…` roots when a release is embedded. The committed
- * null state leaves local development usable without a published release.
+ * The main site embeds its data release at build time. This site deploys on its
+ * own schedule, so it asks the main site's bucket which release is current
+ * (`current.json`, never cached) and resolves against that manifest, once per
+ * document. If the pointer or manifest can't be read, legacy `reports/…` paths
+ * pass through unchanged.
  */
 
-import { EMBEDDED_RELEASE } from '../../shared/generated/release';
 import { createReleaseResolver, type ReleaseResolver } from '../../shared/releaseManifest';
 import type { ReleaseScope } from '../../shared/data/build/release';
+import { R2_ORIGIN } from './constants';
 
-const resolver = createReleaseResolver(EMBEDDED_RELEASE);
+interface ReleasePointer {
+  manifest?: unknown;
+}
 
-/** True when an immutable release drives resolution. */
-export const { isReleaseAware } = resolver;
+async function fetchJsonOrThrow(fetchImpl: typeof globalThis.fetch, url: string, init?: RequestInit): Promise<unknown> {
+  const response = await fetchImpl(url, { mode: 'cors', ...init });
+  if (!response.ok) {
+    void response.body?.cancel();
+    throw new Error(`Failed to fetch ${url}: ${response.status}`);
+  }
+  return response.json();
+}
+
+/**
+ * Read the main site's current release and build a resolver over it.
+ * @param fetchImpl - Transport
+ * @param origin - The main site's data origin
+ * @returns The resolver; a legacy one when the release can't be read
+ */
+export async function loadCurrentResolver(
+  fetchImpl: typeof globalThis.fetch = (...args) => globalThis.fetch(...args),
+  origin: string = R2_ORIGIN
+): Promise<ReleaseResolver> {
+  try {
+    const pointer = (await fetchJsonOrThrow(fetchImpl, `${origin}/current.json`, {
+      cache: 'no-store'
+    })) as ReleasePointer;
+    if (typeof pointer.manifest !== 'string' || !pointer.manifest.startsWith('/releases/v1/')) {
+      throw new Error('Invalid release pointer');
+    }
+    return createReleaseResolver(await fetchJsonOrThrow(fetchImpl, `${origin}${pointer.manifest}`));
+  } catch (error) {
+    console.warn(error);
+    return createReleaseResolver(null);
+  }
+}
+
+let current: Promise<ReleaseResolver> | null = null;
+let releaseAware = false;
+
+// A release that couldn't be read is not remembered: the next data path asks again.
+function resolver(): Promise<ReleaseResolver> {
+  current ??= loadCurrentResolver().then(loaded => {
+    releaseAware = loaded.isReleaseAware;
+    if (!loaded.isReleaseAware) {
+      current = null;
+    }
+    return loaded;
+  });
+  return current;
+}
 
 const ONLINE_PREFIX = 'reports/Online - Last 14 Days/';
 const TRENDS_PREFIX = 'reports/Trends - Last 30 Days/';
@@ -59,10 +107,10 @@ function classify(path: string): { scope: ReleaseScope; rel: string } | null {
  * release builds resolve every recognized data path immutably and reject paths
  * absent from that release.
  * @param path - The legacy report path (e.g. "/reports/Online - Last 14 Days/master.json")
- * @returns The path to fetch (unchanged in production, or a `/releases/v1/…` path)
+ * @returns The path to fetch (unchanged in legacy mode, or a `/releases/v1/…` path)
  */
-export function resolveDataPath(path: string): string {
-  return resolvePathWith(resolver, path);
+export async function resolveDataPath(path: string): Promise<string> {
+  return resolvePathWith(await resolver(), path);
 }
 
 /**
@@ -86,7 +134,7 @@ export function resolvePathWith(withResolver: ReleaseResolver, path: string): st
     return resolved.startsWith('/') ? resolved : `/${resolved}`;
   }
   // Event-folder path: /reports/{YYYY-MM-DD, Name}/{rel}. Resolve via the
-  // embedded event map, keyed by the folder name the UI already uses.
+  // release's event map, keyed by the folder name the UI already uses.
   const event = classifyEvent(normalized);
   if (event) {
     const resolved = withResolver.eventPath(event.folder, event.rel);
@@ -105,11 +153,11 @@ export function isReleasePath(path: string): boolean {
 /**
  * Decide how to handle a 404 on a resolved report path. A missing IMMUTABLE
  * release body is treated as corruption: recover with exactly ONE controlled
- * reload (to adopt a newer embedded release) — never fall back to a legacy
+ * reload (to adopt the newer current release) — never fall back to a legacy
  * generation within the same document. A 404 on a legacy path, or a second
  * miss after we already reloaded, is a normal miss.
  * @param resolvedPath - The path that 404'd (post-resolution)
- * @param releaseAware - Whether a release manifest is embedded
+ * @param releaseAware - Whether a release manifest is driving resolution
  * @param alreadyReloaded - Whether this document already did its one recovery reload
  * @returns 'reload' to perform the single recovery reload, else 'passthrough'
  */
@@ -136,7 +184,7 @@ export function recoverFromMissingReleaseBody(resolvedPath: string): boolean {
     return false;
   }
   const already = sessionStorage.getItem(RELOAD_FLAG) === '1';
-  if (planMissingBodyRecovery(resolvedPath, isReleaseAware, already) !== 'reload') {
+  if (planMissingBodyRecovery(resolvedPath, releaseAware, already) !== 'reload') {
     return false;
   }
   sessionStorage.setItem(RELOAD_FLAG, '1');

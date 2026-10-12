@@ -24,7 +24,7 @@ import {
   type TournamentSummary,
   type TournamentView
 } from '../../../shared/tournament/view';
-import { R2_ORIGIN } from '../constants';
+import { EVENTS_DATA_ORIGIN } from '../constants';
 
 export type { Decklist, HistoryEntry, Manage, PublicProfile, Registration, StaffMember, TournamentSummary };
 
@@ -189,7 +189,7 @@ export function fetchPublished(code: string, cache: RequestCache = 'no-cache'): 
 }
 
 async function readPublished(code: string, cache: RequestCache = 'no-cache'): Promise<PublishedView | null> {
-  const response = await fetch(`${R2_ORIGIN}/${publishedViewKey(code)}`, {
+  const response = await fetch(`${EVENTS_DATA_ORIGIN}/${publishedViewKey(code)}`, {
     cache,
     signal: AbortSignal.timeout(15_000)
   });

@@ -20,17 +20,6 @@ updates:
         update-types: ['version-update:semver-major']
       - dependency-name: '@eslint/js'
         update-types: ['version-update:semver-major']
-  - package-ecosystem: pip
-    directory: /.github/scripts
-    schedule:
-      interval: weekly
-    groups:
-      pip:
-        patterns: ['*']
-    ignore:
-      # numpy 2.5 needs Python 3.12; the workflows pin 3.11 in .python-version.
-      - dependency-name: numpy
-        versions: ['>=2.5']
   - package-ecosystem: github-actions
     directories: ['/', '/.github/actions/*']
     schedule:

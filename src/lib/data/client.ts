@@ -14,8 +14,6 @@
 
 import { isReleasePath, recoverFromMissingReleaseBody, resolveDataPath } from '../releaseClient';
 
-export { R2_ORIGIN as R2_BASE } from '../constants';
-
 import { R2_ORIGIN as R2_BASE } from '../constants';
 
 /**
@@ -38,10 +36,10 @@ export interface DataClientOptions {
   /** Resolved-response cache lifetime. Defaults to {@link FETCH_TTL_MS}. */
   ttlMs?: number;
   /**
-   * Legacy path → path to actually fetch. Defaults to the embedded release
-   * resolver, which is a no-op when no manifest is embedded.
+   * Legacy path → path to actually fetch. Defaults to the current release
+   * resolver, which is a no-op when no release could be read.
    */
-  resolvePath?: (path: string) => string;
+  resolvePath?: (path: string) => string | Promise<string>;
   /**
    * True when a resolved path targets an immutable release body, where a 404
    * means corruption rather than an optional miss.
@@ -75,8 +73,6 @@ export interface DataClient {
   fetchJson: <T>(path: string) => Promise<T>;
   /** Fetch JSON; resolves to null on 404 rather than rejecting. */
   fetchJsonOptional: <T>(path: string) => Promise<T | null>;
-  /** Resolve a data path to the URL this client would fetch. */
-  resolveUrl: (path: string) => string;
   /** Drop every cached entry. For tests and hard refreshes; not used in the app. */
   clearCache: () => void;
   /** Number of entries currently held. For tests. */
@@ -144,15 +140,10 @@ export function createDataClient(options: DataClientOptions = {}): DataClient {
     );
   }
 
-  function resolveUrl(path: string): string {
-    const resolvedPath = resolvePath(path);
-    return useLocalOrigin(resolvedPath) ? resolvedPath : `${baseUrl}${resolvedPath}`;
-  }
-
   async function fetchJsonCore<T>(path: string, optional: boolean): Promise<T | null> {
-    // Release-aware resolution: a no-op when no manifest is embedded (production
-    // default), else rewrites scope paths to their immutable release roots.
-    const resolvedPath = resolvePath(path);
+    // Release-aware resolution: rewrites scope paths to their immutable release
+    // roots, or a no-op when no release could be read.
+    const resolvedPath = await resolvePath(path);
     const url = useLocalOrigin(resolvedPath) ? resolvedPath : `${baseUrl}${resolvedPath}`;
     const hit = cached(url);
     if (hit) {
@@ -163,7 +154,7 @@ export function createDataClient(options: DataClientOptions = {}): DataClient {
       // A 404 on an IMMUTABLE release body is corruption, not an optional miss:
       // recover with one controlled reload (adopt a newer release) rather than
       // mixing a legacy generation into this document. recoverFromMissingBody
-      // is a no-op unless a manifest is embedded and this is a release path.
+      // is a no-op unless a release drives resolution and this is a release path.
       if (
         !optional &&
         response.status === 404 &&
@@ -192,7 +183,6 @@ export function createDataClient(options: DataClientOptions = {}): DataClient {
   return {
     fetchJson: <T>(path: string) => fetchJsonCore<T>(path, false) as Promise<T>,
     fetchJsonOptional: <T>(path: string) => fetchJsonCore<T>(path, true),
-    resolveUrl,
     clearCache: () => inflight.clear(),
     get cacheSize() {
       return inflight.size;

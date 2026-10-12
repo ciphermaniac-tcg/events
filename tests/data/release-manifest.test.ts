@@ -68,3 +68,34 @@ test('validateReleaseManifest flags missing scopes and bad paths', () => {
   assert.ok(errors.some(e => e.includes('roots.online')));
   assert.ok(errors.some(e => e.includes('roots.trends: missing')));
 });
+
+test('validateReleaseManifest refuses whatever is not a whole manifest', () => {
+  const whole = { contractVersion: 2, ...composition() };
+  assert.deepEqual(validateReleaseManifest(whole), []);
+  assert.deepEqual(validateReleaseManifest(null), ['manifest: expected object']);
+  assert.deepEqual(validateReleaseManifest('manifest'), ['manifest: expected object']);
+  const broken = validateReleaseManifest({
+    ...whole,
+    contractVersion: 1,
+    releaseId: '',
+    publishedAt: 7,
+    roots: null,
+    events: { 'labs:0042': '/reports/labs:0042' },
+    dependencies: null
+  });
+  assert.deepEqual(broken, [
+    'contractVersion: expected 2',
+    'releaseId: expected non-empty string',
+    'publishedAt: expected non-empty string',
+    'roots: expected object',
+    'events.labs:0042: expected an immutable /releases/v1/... path',
+    'dependencies: expected object'
+  ]);
+  assert.deepEqual(validateReleaseManifest({ ...whole, events: null }), ['events: expected object']);
+});
+
+test('resolveScopePath refuses a scope the release has no root for', () => {
+  const manifest = composeRelease(composition());
+  delete (manifest.roots as Partial<typeof manifest.roots>).assets;
+  assert.throws(() => resolveScopePath(manifest, 'assets', 'card-synonyms.json'), /has no root for scope "assets"/);
+});

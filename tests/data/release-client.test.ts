@@ -1,31 +1,84 @@
 /**
  * tests/data/release-client.test.ts
- * Release-aware path resolution: pass-through in production (no manifest).
+ * Release-aware path resolution against the main site's current release.
  */
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { isReleaseAware, resolveDataPath } from '../../src/lib/releaseClient.ts';
+import { loadCurrentResolver, resolvePathWith } from '../../src/lib/releaseClient.ts';
 
-test('production default (no embedded manifest) resolves paths unchanged', () => {
-  // The committed generated module exports null, so this is the production state.
-  assert.strictEqual(isReleaseAware, false);
-  for (const path of [
-    '/reports/Online - Last 14 Days/master.json',
-    '/reports/Trends - Last 30 Days/trends.json',
-    '/reports/2026-01-16, Regional Championship Toronto/decks.json',
-    '/players/1272/profile.json',
-    '/reports/tournaments.json',
-    '/reports/prices.json'
+const ORIGIN = 'https://data.example';
+const MANIFEST = {
+  contractVersion: 2,
+  releaseId: '20260713T000000Z-abc',
+  publishedAt: '2026-07-13T00:00:00Z',
+  roots: {
+    online: '/releases/v1/online/aaa',
+    trends: '/releases/v1/trends/bbb',
+    players: '/releases/v1/players/ccc',
+    prices: '/releases/v1/prices/ddd',
+    catalogs: '/releases/v1/catalogs/eee',
+    snapshots: '/releases/v1/snapshots/fff',
+    assets: '/releases/v1/assets/ggg'
+  },
+  events: {},
+  dependencies: {}
+};
+
+/** A data origin that answers the listed paths and 404s the rest, recording what was asked and how. */
+function origin(files: Record<string, unknown>) {
+  const asked: { url: string; cache?: RequestCache }[] = [];
+  const fetchImpl = (async (url: string | URL | Request, init?: RequestInit) => {
+    const href = String(url);
+    asked.push({ url: href, cache: init?.cache });
+    const path = href.slice(ORIGIN.length);
+    return path in files ? Response.json(files[path]) : new Response('not found', { status: 404 });
+  }) as typeof fetch;
+  return { asked, fetchImpl };
+}
+
+const quietly = async <T>(run: () => Promise<T>): Promise<T> => {
+  const { warn } = console;
+  console.warn = () => {};
+  try {
+    return await run();
+  } finally {
+    console.warn = warn;
+  }
+};
+
+test('the current release comes from the uncached pointer and the manifest it names', async () => {
+  const manifest = '/releases/v1/manifests/20260713T000000Z-abc.json';
+  const { asked, fetchImpl } = origin({ '/current.json': { channel: 'production', manifest }, [manifest]: MANIFEST });
+  const resolver = await loadCurrentResolver(fetchImpl, ORIGIN);
+  assert.strictEqual(resolver.isReleaseAware, true);
+  assert.strictEqual(resolver.releaseId, '20260713T000000Z-abc');
+  assert.deepStrictEqual(asked, [
+    { url: `${ORIGIN}/current.json`, cache: 'no-store' },
+    { url: `${ORIGIN}${manifest}`, cache: undefined }
+  ]);
+});
+
+test('an unreadable or invalid release leaves paths unchanged', async () => {
+  const manifest = '/releases/v1/manifests/x.json';
+  for (const files of [
+    {},
+    { '/current.json': { manifest: 'https://elsewhere.example/x.json' } },
+    { '/current.json': { manifest } },
+    { '/current.json': { manifest }, [manifest]: { ...MANIFEST, roots: {} } }
   ]) {
-    assert.strictEqual(resolveDataPath(path), path, `path must be unchanged: ${path}`);
+    const resolver = await quietly(() => loadCurrentResolver(origin(files).fetchImpl, ORIGIN));
+    assert.strictEqual(resolver.isReleaseAware, false, JSON.stringify(files));
+    assert.strictEqual(
+      resolvePathWith(resolver, '/reports/Online - Last 14 Days/master.json'),
+      '/reports/Online - Last 14 Days/master.json'
+    );
   }
 });
 
-test('with an embedded manifest, scope paths resolve to immutable release roots', async () => {
+test('with a release, scope paths resolve to immutable release roots', async () => {
   const { createReleaseResolver } = await import('../../shared/releaseManifest.ts');
-  const { resolvePathWith } = await import('../../src/lib/releaseClient.ts');
   const resolver = createReleaseResolver({
     contractVersion: 2,
     releaseId: '20260713T000000Z-abc',
@@ -87,7 +140,7 @@ test('with an embedded manifest, scope paths resolve to immutable release roots'
     resolvePathWith(resolver, '/reports/Snapshots/2025-05-01/master.json'),
     '/releases/v1/snapshots/fff/2025-05-01/master.json'
   );
-  // Event-folder paths resolve when the event is in the embedded map.
+  // Event-folder paths resolve when the event is in the release's map.
   assert.strictEqual(
     resolvePathWith(resolver, '/reports/2026-01-16, Regional X/master.json'),
     '/releases/v1/events/2026-01-16, Regional X/999/master.json'
@@ -115,8 +168,31 @@ test('missing-release-body recovery: reload once for a release path, never for l
   assert.strictEqual(planMissingBodyRecovery('/releases/v1/online/aaa/master.json', true, true), 'passthrough');
   // A legacy path 404 is a normal miss, never a recovery reload.
   assert.strictEqual(planMissingBodyRecovery('/reports/Online - Last 14 Days/master.json', true, false), 'passthrough');
-  // Not release-aware (production default) -> never reloads.
+  // Not release-aware (no release could be read) -> never reloads.
   assert.strictEqual(planMissingBodyRecovery('/releases/v1/online/aaa/master.json', false, false), 'passthrough');
   assert.strictEqual(isReleasePath('/releases/v1/x/y.json'), true);
   assert.strictEqual(isReleasePath('/reports/x/y.json'), false);
+});
+
+test('a release that could not be read is asked for again by the next path', async () => {
+  const manifest = '/releases/v1/manifests/20260713T000000Z-abc.json';
+  const { R2_ORIGIN } = await import('../../src/lib/constants.ts');
+  const { resolveDataPath } = await import('../../src/lib/releaseClient.ts');
+  let up = false;
+  const previous = globalThis.fetch;
+  globalThis.fetch = (async (url: string | URL | Request) => {
+    const path = String(url).slice(R2_ORIGIN.length);
+    if (!up) {
+      throw new TypeError('fetch failed');
+    }
+    return path === '/current.json' ? Response.json({ manifest }) : Response.json(MANIFEST);
+  }) as typeof fetch;
+  try {
+    const path = '/reports/Online - Last 14 Days/master.json';
+    assert.strictEqual(await quietly(() => resolveDataPath(path)), path);
+    up = true;
+    assert.strictEqual(await resolveDataPath(path), '/releases/v1/online/aaa/master.json');
+  } finally {
+    globalThis.fetch = previous;
+  }
 });

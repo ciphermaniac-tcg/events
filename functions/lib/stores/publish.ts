@@ -76,7 +76,7 @@ async function putNewer(bucket: PublishBucket, db: D1Like): Promise<void> {
 
 /** Writes the index again, after the answer where the runtime keeps the function alive for it. */
 export async function publishStores(context: Pick<Context, 'env' | 'waitUntil'>): Promise<void> {
-  const { REPORTS: bucket, TOURNAMENT_DB: db } = context.env;
+  const { EVENTS_DATA: bucket, TOURNAMENT_DB: db } = context.env;
   if (!bucket || !db) {
     return;
   }

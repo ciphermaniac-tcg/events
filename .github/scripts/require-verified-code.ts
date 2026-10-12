@@ -1,7 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { setTimeout } from 'node:timers/promises';
-import { requireEnv } from './lib/env';
 
 interface CheckRun {
   name: string;
@@ -40,6 +39,14 @@ export function assertVerifiedCode(sha: string, mainSha: string, checks: CheckRu
       throw new Error(`${name} has not passed for ${sha}`);
     }
   }
+}
+
+function requireEnv(name: string): string {
+  const value = process.env[name]?.trim();
+  if (!value) {
+    throw new Error(`Missing required environment variable ${name}`);
+  }
+  return value;
 }
 
 function api<T>(path: string): T {

@@ -7,6 +7,7 @@
  */
 
 import { A } from '@solidjs/router';
+import { MAIN_SITE } from '../../lib/constants';
 import { createResource, For, type Resource, Show } from 'solid-js';
 import { Skeleton } from '../../components/Skeleton';
 import { errorText, type HistoryEntry } from '../../lib/tournament/api';
@@ -84,7 +85,7 @@ function Welcome() {
         <li>
           <strong>Find an event</strong>
           <span class='muted'>Search for tournaments near you.</span>
-          <A href='/tools/event-locator'>Find events</A>
+          <a href={`${MAIN_SITE}/tools/event-locator`}>Find events</a>
         </li>
         <li>
           <strong>Add your Player ID</strong>

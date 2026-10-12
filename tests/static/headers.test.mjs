@@ -50,10 +50,6 @@ function headerValue(path, name, source = headers) {
 
 const cacheControl = (path, source = headers) => headerValue(path, 'Cache-Control', source);
 
-test('service worker script prevents HTTP storage and requires revalidation', () => {
-  assert.equal(cacheControl('/sw.js'), 'no-store, no-cache, must-revalidate');
-});
-
 test('Pages app routes and R2-only paths receive no custom cache policy', () => {
   for (const path of [
     '/live/testcup-2027',
@@ -67,12 +63,10 @@ test('Pages app routes and R2-only paths receive no custom cache policy', () => 
   }
 });
 
-test('bundles, fonts and snapshots retain an unambiguous year-long policy', () => {
-  for (const path of ['/assets/app-hash.js', '/fonts/inter.woff2', '/reports/Snapshots/2026-01-01/master.json']) {
+test('bundles and fonts retain an unambiguous year-long policy', () => {
+  for (const path of ['/assets/app-hash.js', '/fonts/inter.woff2']) {
     assert.equal(cacheControl(path), 'public, max-age=31536000, immutable', path);
   }
-  assert.equal(cacheControl('/reports/master.json'), 'public, max-age=21600');
-  assert.equal(cacheControl('/reports/Snapshots/index.json'), 'public, max-age=21600');
 });
 
 test('matching Pages rules merge values unless explicitly detached', () => {

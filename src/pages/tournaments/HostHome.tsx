@@ -8,6 +8,7 @@
  */
 
 import { A } from '@solidjs/router';
+import { MAIN_SITE } from '../../lib/constants';
 import { For, type JSX, onCleanup, onMount } from 'solid-js';
 import type { SignInOffer } from '../../lib/tournament/api';
 import { DecklistArt, FieldArt, PhoneArt, ProfileArt, ResultsArt, ScreenArt, StreamArt, TdfArt } from './HostHomeArt';
@@ -96,9 +97,9 @@ function Head() {
         </span>
       </A>
       <nav aria-label='Ciphermaniac Events'>
-        <A href='/tools/event-locator' class='tm-home-wide'>
+        <a href={`${MAIN_SITE}/tools/event-locator`} class='tm-home-wide'>
           Find an event
-        </A>
+        </a>
         {/* The browser's own jump: the router ignores a second click on the same hash. */}
         <a href='#sign-in' rel='external'>
           Sign in

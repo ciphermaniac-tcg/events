@@ -18,8 +18,7 @@ module.exports = {
       severity: 'error',
       from: { path: '^shared/' },
       to: {
-        path: '^(src|functions|scripts|\\.github)/|node_modules/(solid-js|@solidjs|@aws-sdk)/',
-        pathNot: '^\\.github/scripts/data/set-catalog\\.json$'
+        path: '^(src|functions|scripts|\\.github)/|node_modules/(solid-js|@solidjs|@aws-sdk)/'
       }
     },
     {

@@ -4,12 +4,6 @@ const config: KnipConfig = {
   // Exports referenced only inside their own module (internal constants that
   // are exported for documentation/typing) are not dead code.
   ignoreExportsUsedInFile: true,
-  // These are retained test oracles/prototypes, not shipped entry points.
-  // Production mode still rejects any additional test-only module.
-  ignoreIssues: {
-    'shared/data/artifacts.ts': ['files']
-  },
-
   entry: [
     // SPA entry point (src/main.tsx) is picked up by knip's Vite plugin.
 
@@ -27,8 +21,7 @@ const config: KnipConfig = {
     // Fixture server for the deterministic browser suite: Playwright's
     // `webServer` launches serve-fixtures.ts as a process, so no import graph
     // reaches it.
-    'tests/e2e/serve-fixtures.ts',
-    'tests/e2e/release-build.config.ts'
+    'tests/e2e/serve-fixtures.ts'
   ],
 
   project: [
@@ -38,8 +31,6 @@ const config: KnipConfig = {
     'scripts/*.{ts,mjs}!',
     'scripts/quality/*.mjs',
     '.github/scripts/*.{ts,mjs}!',
-    // Producer libraries: analyzed so the shared exports they use count as used.
-    '.github/scripts/lib/**/*.{ts,mjs}!',
     'tests/**/*.{ts,js,mjs}'
   ]
 };

@@ -13,6 +13,7 @@ import { type Context, param } from '../../lib/auth/env.js';
 import { currentUser } from '../../lib/auth/session.js';
 import { storeOfLeague } from '../../lib/stores/db.js';
 import { findLeague } from '../../lib/stores/leagues.js';
+import { mainSiteData } from '../../lib/stores/mainSiteData.js';
 import { privateJson } from '../../lib/tournaments/access.js';
 
 export async function onRequestGet({ request, env, params }: Context<'id'>): Promise<Response> {
@@ -27,6 +28,6 @@ export async function onRequestGet({ request, env, params }: Context<'id'>): Pro
   if (!leagueId) {
     return jsonError('Not a league ID', 400);
   }
-  const [league, store] = await Promise.all([findLeague(env.REPORTS, leagueId), storeOfLeague(db, leagueId)]);
+  const [league, store] = await Promise.all([findLeague(mainSiteData(), leagueId), storeOfLeague(db, leagueId)]);
   return privateJson({ leagueId, league, taken: store !== null });
 }

@@ -13,9 +13,18 @@ import { createServer, type Server } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { dirname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { fixtureLegacyPath } from './release-fixture';
+import { fixtureLegacyPath, fixtureRelease } from './release-fixture';
 
 const FIXTURE_ROOT = join(dirname(fileURLToPath(import.meta.url)), '../fixtures/e2e');
+
+const MANIFEST_PATH = `/releases/v1/manifests/${fixtureRelease.releaseId}.json`;
+
+function releaseBody(path: string): string | null {
+  if (path === '/current.json') {
+    return JSON.stringify({ channel: 'production', releaseId: fixtureRelease.releaseId, manifest: MANIFEST_PATH });
+  }
+  return path === MANIFEST_PATH ? JSON.stringify(fixtureRelease) : null;
+}
 
 export interface FixtureServer {
   origin: string;
@@ -47,6 +56,15 @@ export async function startFixtureServer(port = 0, root: string = FIXTURE_ROOT):
     if (req.method === 'OPTIONS') {
       res.writeHead(204, headers);
       res.end();
+      return;
+    }
+
+    // The main site's release pointer and the fixture release it names, which
+    // the app reads before any data path (src/lib/releaseClient.ts).
+    const release = releaseBody(decoded);
+    if (release) {
+      res.writeHead(200, { ...headers, 'Content-Type': 'application/json' });
+      res.end(release);
       return;
     }
 

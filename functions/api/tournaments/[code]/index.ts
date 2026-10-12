@@ -76,6 +76,6 @@ export async function onRequestDelete(context: Context<'code'>): Promise<Respons
   if (!(await deleteTournament(access.db, access.row))) {
     return jsonError('Busy; try again', 409);
   }
-  await unpublishView(context.env.REPORTS, access.row.code);
+  await unpublishView(context.env.EVENTS_DATA, access.row.code);
   return noContent();
 }

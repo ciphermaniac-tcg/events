@@ -11,6 +11,7 @@ import { dateIn } from '../../../../shared/accounts/stores.js';
 import type { Context } from '../../../lib/auth/env.js';
 import { openStore } from '../../../lib/stores/access.js';
 import { leagueListings } from '../../../lib/stores/leagues.js';
+import { mainSiteData } from '../../../lib/stores/mainSiteData.js';
 import { privateJson } from '../../../lib/tournaments/access.js';
 
 export async function onRequestGet(context: Context<'id'>): Promise<Response> {
@@ -23,5 +24,5 @@ export async function onRequestGet(context: Context<'id'>): Promise<Response> {
     return privateJson({ listings: [] });
   }
   const today = dateIn(store.timeZone, Date.now());
-  return privateJson({ listings: await leagueListings(context.env.REPORTS, store.leagueId, today) });
+  return privateJson({ listings: await leagueListings(mainSiteData(), store.leagueId, today) });
 }

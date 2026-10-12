@@ -43,6 +43,7 @@ import { SettingRow, Toggle } from './SettingControls';
 import { SettingInfo } from './SettingInfo';
 import { SignIn } from './SignIn';
 import { Trail } from './Trail';
+import { MAIN_SITE } from '../../lib/constants';
 
 /**
  * Takes in the fields one save changed, and only those: each answer carries
@@ -234,9 +235,9 @@ function Profile(props: { user: Me }) {
           <span class='dot' aria-hidden='true'>
             {' · '}
           </span>
-          <A class='tm-link-inline' href='/feedback?from=/settings'>
+          <a class='tm-link-inline' href={`${MAIN_SITE}/feedback`}>
             Feedback
-          </A>
+          </a>
         </p>
       </Show>
     </section>

@@ -11,7 +11,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { createDataClient, type DataClientOptions, FETCH_TTL_MS, R2_BASE } from '../../src/lib/data/client.ts';
+import { createDataClient, type DataClientOptions, FETCH_TTL_MS } from '../../src/lib/data/client.ts';
+import { R2_ORIGIN as R2_BASE } from '../../src/lib/constants.ts';
 
 /** A controllable clock, so TTL behavior is asserted rather than slept through. */
 function makeClock(start = 1_000_000) {
@@ -243,9 +244,14 @@ test('the cache is keyed by the RESOLVED url, so two legacy paths sharing a rele
   assert.equal(calls.length, 1);
 });
 
-test('resolveUrl reports the url a fetch would use', () => {
-  const c = client({ resolvePath: () => '/releases/v1/abc/x.json' });
-  assert.equal(c.resolveUrl('/reports/x.json'), `${R2_BASE}/releases/v1/abc/x.json`);
+test('a resolver that answers later is awaited before anything is fetched', async () => {
+  const { impl, calls } = makeFetch({}, () => json({ ok: 1 }));
+  const c = client({ fetch: impl, resolvePath: async () => '/releases/v1/abc/x.json' });
+  await Promise.all([c.fetchJson('/reports/x.json'), c.fetchJson('/reports/x.json')]);
+  assert.deepEqual(
+    calls.map(call => call.url),
+    [`${R2_BASE}/releases/v1/abc/x.json`]
+  );
 });
 
 // ---------------------------------------------------------------------------

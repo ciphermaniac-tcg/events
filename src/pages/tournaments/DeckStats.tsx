@@ -4,7 +4,7 @@
  * count sits beside the rate, so one lucky match does not read as a 100% deck.
  */
 
-import { A } from '@solidjs/router';
+import { MAIN_SITE } from '../../lib/constants';
 import { For, Show } from 'solid-js';
 import type { Tournament } from '../../../shared/tournament/types';
 import { deckBreakdown } from '../../lib/tournament/present';
@@ -12,8 +12,8 @@ import { DeckIcons } from './DeckIcons';
 
 const percent = (value: number) => `${Math.round(value * 100)}%`;
 
-/** The site's archetype page for a label: the index names archetypes with underscores for spaces. */
-const archetypeHref = (label: string) => `/archetypes/${encodeURIComponent(label.replace(/ /g, '_'))}`;
+/** The main site's archetype page for a label: the index names archetypes with underscores for spaces. */
+const archetypeHref = (label: string) => `${MAIN_SITE}/archetypes/${encodeURIComponent(label.replace(/ /g, '_'))}`;
 
 export function DeckStats(props: { tournament: Tournament; decks: Record<string, string> }) {
   const rows = () => deckBreakdown(props.tournament, props.decks);
@@ -36,10 +36,10 @@ export function DeckStats(props: { tournament: Tournament; decks: Record<string,
               {row => (
                 <tr>
                   <td>
-                    <A class='tm-seat-inner tm-deck-link' href={archetypeHref(row.label)}>
+                    <a class='tm-seat-inner tm-deck-link' href={archetypeHref(row.label)}>
                       <DeckIcons label={row.label} />
                       <span>{row.label}</span>
-                    </A>
+                    </a>
                   </td>
                   <td class='num'>{row.players}</td>
                   <td class='num tm-share-col'>

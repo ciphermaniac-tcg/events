@@ -34,7 +34,7 @@ export const PUBLISHED_CACHE_CONTROL = 'public, max-age=5';
 const MAX_TRIES = 32;
 
 interface PublishEnv {
-  REPORTS?: PublishBucket;
+  EVENTS_DATA?: PublishBucket;
   TOURNAMENT_DB?: D1Like;
 }
 
@@ -67,7 +67,7 @@ async function putOver(bucket: PublishBucket, row: TournamentRow, body: string):
 }
 
 export async function publishView(env: PublishEnv, row: TournamentRow): Promise<void> {
-  const bucket = env.REPORTS;
+  const bucket = env.EVENTS_DATA;
   if (!bucket) {
     return;
   }
@@ -94,7 +94,7 @@ export async function publishView(env: PublishEnv, row: TournamentRow): Promise<
 /** A copy put where there was none may belong to an event deleted meanwhile. */
 async function takeDownIfGone(env: PublishEnv, code: string): Promise<void> {
   if (env.TOURNAMENT_DB && (await loadVersion(env.TOURNAMENT_DB, code)) === null) {
-    await unpublishView(env.REPORTS, code);
+    await unpublishView(env.EVENTS_DATA, code);
   }
 }
 

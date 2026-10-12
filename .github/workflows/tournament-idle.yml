@@ -5,7 +5,7 @@
 # (functions/api/tournaments/idle.ts). Pages Functions run on no timer, so
 # this calls the sweep on a schedule. GitHub runs schedules late at busy
 # times, so an event ends somewhere past its two hours. It calls the Pages
-# address: Bot Fight Mode on ciphermaniac.com challenges runner IPs.
+# address: Bot Fight Mode on the ciphermaniac.com zone challenges runner IPs.
 #
 # Triggers:
 #   - Every 15 minutes
@@ -32,5 +32,5 @@ jobs:
           IDLE_SWEEP_TOKEN: ${{ secrets.IDLE_SWEEP_TOKEN }}
         run: >-
           curl --fail-with-body --silent --show-error
-          -X POST https://ciphermaniac.pages.dev/api/tournaments/idle
+          -X POST https://ciphermaniac-events.pages.dev/api/tournaments/idle
           -H "Authorization: Bearer $IDLE_SWEEP_TOKEN"

@@ -5,8 +5,8 @@ import type { AuthEnv } from './oauth.js';
 
 export interface TournamentEnv extends AuthEnv {
   TOURNAMENT_DB?: D1Like;
-  /** The data bucket r2.ciphermaniac.com serves; event views are published to it. */
-  REPORTS?: PublishBucket;
+  /** This site's data bucket, served at events-data.ciphermaniac.com: event views and the stores index are published to it. */
+  EVENTS_DATA?: PublishBucket;
   /** What the scheduled sweep that ends idle events sends as its bearer token (functions/api/tournaments/idle.ts). */
   IDLE_SWEEP_TOKEN?: string;
   /** The private bucket Applications' proof files were kept in; only deleted from now (functions/lib/auth/rejection.ts). */

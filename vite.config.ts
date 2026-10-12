@@ -25,10 +25,6 @@ export default defineConfig({
         entryFileNames: 'assets/[name]-[hash].js',
         chunkFileNames: 'assets/[hash].js',
         assetFileNames: 'assets/[name]-[hash][extname]',
-        // The embedded release manifest grows with every event, so it ships in a
-        // chunk of its own and is budgeted apart from the code (see check-bundle-budget).
-        // It outranks every group: one that takes its dependencies recursively (form,
-        // through the data layer) would otherwise swallow it into the initial bundle.
         codeSplitting: {
           groups: [
             {
@@ -37,7 +33,6 @@ export default defineConfig({
               test: /src[\\/]lib[\\/](format|concurrency)\.ts$/,
               includeDependenciesRecursively: false
             },
-            { name: 'release', priority: 3, test: /shared[\\/]generated[\\/]release/ },
             {
               // Share event models and helpers instead of repeating exports across route chunks. The TOM
               // file reader and writer stay out: only organizer pages load them, the download on demand. So
@@ -70,38 +65,15 @@ export default defineConfig({
     port: 5173,
     strictPort: false,
     proxy: {
-      // Cloudflare Functions (upcoming-tournaments scraper, feedback, and the
-      // Limitless proxies) live at /api/*. Vite does not run them, so this
+      // Pages Functions live at /api/*. Vite does not run them, so this
       // proxies to a LOCAL Wrangler — run `npm run dev:functions` in a second
-      // terminal. Without it the proxy fails and the affected panels show their
-      // "couldn't load" empty state; every other route works, since page data
-      // comes straight from r2.ciphermaniac.com.
-      //
-      // Deliberately local rather than production: /api includes an endpoint
-      // that sends mail, and a dev session must not reach it.
+      // terminal. Deliberately local rather than production: a dev session
+      // must not reach the live database.
       '/api': {
         target: 'http://localhost:8788',
         changeOrigin: true,
         secure: false
-      },
-      // SocialGraphicsPage loads thumbnails through the /thumbnails Pages Function
-      // (same-origin so the canvas export isn't CORS-tainted). Vite doesn't run
-      // Functions, so proxy to production to avoid a local wrangler dependency.
-      '/thumbnails': {
-        target: 'https://ciphermaniac.com',
-        changeOrigin: true,
-        secure: true
-      },
-      // Same deal for the label maker's Pokémon sprites (/sprites Pages
-      // Function) — same-origin keeps its canvas exportable.
-      '/sprites': {
-        target: 'https://ciphermaniac.com',
-        changeOrigin: true,
-        secure: true
       }
     }
-    // Card art must also load same-origin via the /thumbnails proxy (or R2) —
-    // hotlinking the LimitlessTCG CDN directly breaks in browsers (its __cf_bm
-    // cookie is rejected as a public-suffix cookie). See src/components/CardImage.tsx.
   }
 });

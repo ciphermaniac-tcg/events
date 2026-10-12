@@ -16,7 +16,6 @@
  * for a friend. An account that owns its list sees it on any of its devices.
  */
 
-import { A } from '@solidjs/router';
 import { createEffect, createMemo, createResource, createSignal, For, Show, untrack } from 'solid-js';
 import { type DeckSection, parseDecklist } from '../../../shared/tournament/decklist';
 import type { PlayerProfile } from '../../../shared/tournament/profile';
@@ -38,6 +37,7 @@ import { createDeckOptions } from './deckOptions';
 import { ErrorLine } from './Field';
 import { birthYearOf, emptyProfile, ProfileFields, profileProblems } from './ProfileFields';
 import { session, setSession } from './session';
+import { MAIN_SITE } from '../../lib/constants';
 
 interface FormProps {
   code: string;
@@ -485,9 +485,9 @@ export function DecklistForm(props: FormProps) {
           <span class='dot' aria-hidden='true'>
             {' · '}
           </span>
-          <A class='tm-link-inline' href={`/feedback?from=/t/${props.code}`}>
+          <a class='tm-link-inline' href={`${MAIN_SITE}/feedback`}>
             Feedback
-          </A>
+          </a>
         </p>
       </Show>
     </form>

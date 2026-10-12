@@ -1,19 +1,9 @@
-import { createSignal, Show } from 'solid-js';
+import { Show } from 'solid-js';
 import { ArchetypeIcons } from '../../components/ArchetypeIcon';
 import { Combo, splitMatch } from '../../components/Combo';
 import { deckIcons, loadedSpecies } from '../../lib/deckIcons';
 import { pairSearch } from './deckPairs';
 import type { ReportedDeck } from './reportedDeck';
-
-/** A reported archetype the way the rest of the site writes one: sprites, then the name. */
-export function LiveDeck(props: { deck: ReportedDeck; class?: string }) {
-  return (
-    <span class={`arche-name-cell live-deck ${props.class ?? ''}`}>
-      <ArchetypeIcons slugs={deckIcons(props.deck)} size={20} />
-      <span>{props.deck.label}</span>
-    </span>
-  );
-}
 
 /**
  * The deck typeahead, wherever a deck is named: sprites in the field and in the
@@ -58,79 +48,6 @@ export function DeckCombo(props: {
     >
       {(deck, query) => <DeckOption deck={deck} query={query} />}
     </Combo>
-  );
-}
-
-/**
- * This device's report for a player. Idle, the box stands for the deck you
- * reported, sprites and all; focused, it is a search over every archetype the
- * site names, the decks in play offered first. A pick is only sent once it is
- * confirmed, since the row under a finger is not always the row meant, and a
- * report can be changed or taken back afterwards.
- */
-export function DeckReporter(props: {
-  decks: readonly ReportedDeck[];
-  /** What this device has reported for the player, if anything. */
-  mine?: ReportedDeck;
-  onReport: (archetype: string | null) => Promise<void>;
-}) {
-  const [pending, setPending] = createSignal<ReportedDeck>();
-  const [state, setState] = createSignal<'idle' | 'sending' | 'failed'>('idle');
-  // The list's own object, so the box can mark the row it stands for.
-  const selected = () => props.decks.find(deck => deck.label === props.mine?.label) ?? props.mine;
-  const send = async (archetype: string | null) => {
-    setState('sending');
-    try {
-      await props.onReport(archetype);
-      setPending(undefined);
-      setState('idle');
-    } catch {
-      setState('failed');
-    }
-  };
-  return (
-    <span class='live-deck-picker'>
-      <Show
-        when={pending()}
-        fallback={
-          <>
-            <DeckCombo
-              placeholder={state() === 'failed' ? 'Report failed, try again' : 'Report deck...'}
-              decks={props.decks}
-              selected={selected()}
-              onPick={setPending}
-            />
-            <Show when={props.mine}>
-              <button
-                type='button'
-                class='btn btn-secondary'
-                disabled={state() === 'sending'}
-                onClick={() => void send(null)}
-              >
-                Remove
-              </button>
-            </Show>
-          </>
-        }
-      >
-        {deck => (
-          <>
-            <LiveDeck deck={deck()} />
-            <button
-              type='button'
-              class='btn btn-primary'
-              disabled={state() === 'sending'}
-              onClick={() => void send(deck().label)}
-            >
-              {state() === 'failed' ? 'Try again' : 'Report'}
-            </button>
-            <button type='button' class='btn btn-secondary' onClick={() => setPending(undefined)}>
-              Cancel
-            </button>
-          </>
-        )}
-      </Show>
-    </span>
   );
 }
 

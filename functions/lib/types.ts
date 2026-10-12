@@ -44,6 +44,11 @@ export interface PublishBucket {
   get?: (key: string) => Promise<{ text: () => Promise<string> } | null>;
 }
 
+/** A bucket that is only read: the main site's, over HTTP (functions/lib/stores/mainSiteData.ts). */
+export interface ReadBucket {
+  get: (key: string) => Promise<{ text: () => Promise<string> } | null>;
+}
+
 /**
  * The private bucket Store Applications' proof files were kept in, when they
  * carried one. Nothing reads it; the files left in it are being deleted.
