@@ -1,0 +1,5 @@
+#!/usr/bin/env sh
+set -eu
+
+./node_modules/.bin/lint-staged
+node scripts/check-index.mjs

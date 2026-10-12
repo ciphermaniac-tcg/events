@@ -1,0 +1,57 @@
+# Cloudflare Pages configuration for Ciphermaniac Events
+name = "ciphermaniac-events"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+# Pages build output directory — Vite outputs the SPA shell + assets here.
+pages_build_output_dir = "dist"
+
+# Public bucket served at events-data.ciphermaniac.com: published event views
+# (tournaments/v1) and the stores index the main site's event locator reads.
+[[r2_buckets]]
+bucket_name = "ciphermaniac-events-data"
+binding = "EVENTS_DATA"
+
+# Private R2 bucket that held organizer applications' proof files. It has no
+# custom domain and no r2.dev URL; the functions only delete what is left in
+# it (proof_deletions, migration 0020). Empty it by hand before removing it:
+# a file whose upload failed partway has no row to queue it.
+[[r2_buckets]]
+bucket_name = "ciphermaniac-proofs"
+binding = "PROOFS"
+
+# D1 binding for accounts and organizer-run tournaments (schema: config/d1/tournaments.sql)
+[[d1_databases]]
+binding = "TOURNAMENT_DB"
+database_name = "ciphermaniac-tournaments"
+database_id = "a384bf93-4d0c-4560-b311-615cfb9bf334"
+migrations_dir = "config/d1/migrations/tournaments"
+
+[env.production]
+
+[[env.production.r2_buckets]]
+bucket_name = "ciphermaniac-events-data"
+binding = "EVENTS_DATA"
+
+[[env.production.r2_buckets]]
+bucket_name = "ciphermaniac-proofs"
+binding = "PROOFS"
+
+[[env.production.d1_databases]]
+binding = "TOURNAMENT_DB"
+database_name = "ciphermaniac-tournaments"
+database_id = "a384bf93-4d0c-4560-b311-615cfb9bf334"
+migrations_dir = "config/d1/migrations/tournaments"
+
+# Environment variables (set these in Cloudflare dashboard)
+[env.production.vars]
+ENVIRONMENT = "production"
+
+# Preview deployments get no storage: preview bindings must never point to
+# production databases or buckets.
+[env.preview]
+r2_buckets = []
+d1_databases = []
+
+[env.preview.vars]
+ENVIRONMENT = "preview"

@@ -1,0 +1,29 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      npm:
+        patterns: ['*']
+        update-types: [minor, patch]
+    ignore:
+      # typescript-eslint 8 cannot resolve against TypeScript 7; npm ci fails with ERESOLVE.
+      - dependency-name: typescript
+        update-types: ['version-update:semver-major']
+      # Router 0.16 adds 587 gzip bytes to the initial shell (1.0 adds 489), which has no room for it.
+      - dependency-name: '@solidjs/router'
+        versions: ['>=0.16']
+      # ESLint 10 lints this repo in ~17 min against ~20 s on 9; every hook and CI job would time out.
+      - dependency-name: eslint
+        update-types: ['version-update:semver-major']
+      - dependency-name: '@eslint/js'
+        update-types: ['version-update:semver-major']
+  - package-ecosystem: github-actions
+    directories: ['/', '/.github/actions/*']
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ['*']

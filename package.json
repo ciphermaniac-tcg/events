@@ -1,0 +1,97 @@
+{
+  "name": "ciphermaniac-events",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Pokemon TCG event hosting for Ciphermaniac",
+  "scripts": {
+    "dev": "vite",
+    "dev:functions": "npm run build && npx --yes wrangler pages dev dist --port 8788",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit --project tsconfig.frontend.json",
+    "typecheck:backend": "tsc --noEmit --project tsconfig.json",
+    "typecheck:node": "tsc --noEmit --project tsconfig.node.json",
+    "lint": "eslint *.config.mjs *.config.ts .dependency-cruiser.cjs src shared functions scripts tests .github/scripts --ext .ts,.tsx,.mts,.mjs,.js --max-warnings 0 --report-unused-disable-directives",
+    "lint:fix": "eslint *.config.mjs *.config.ts .dependency-cruiser.cjs src shared functions scripts tests .github/scripts --ext .ts,.tsx,.mts,.mjs,.js --fix --max-warnings 0 --report-unused-disable-directives",
+    "validate": "npm run typecheck && npm run typecheck:backend && npm run typecheck:node && npm run typecheck:domain && npm run lint && npm run check:design",
+    "validate:fix": "npm run lint:fix && npm run typecheck",
+    "test": "npm run test:all",
+    "test:all": "npm run test:unit && npm run test:api && npm run test:e2e:local",
+    "test:unit": "node scripts/run-node-tests.mjs unit",
+    "test:api": "node scripts/run-node-tests.mjs api",
+    "test:node": "node scripts/run-node-tests.mjs node",
+    "test:conformance-bulk": "tsx tests/tournament/conformance-bulk.ts",
+    "test:e2e:local": "playwright test --config playwright.local.config.ts",
+    "test:coverage": "c8 --reporter=text --reporter=lcov --reporter=json npm run test:node",
+    "coverage:check": "c8 check-coverage --statements 80 --branches 77 --functions 86 --lines 80",
+    "coverage:check:domain": "c8 check-coverage --statements 92 --branches 76 --functions 98 --lines 92 --include 'shared/data/**/*.ts'",
+    "prepare": "husky",
+    "knip": "knip",
+    "check:design": "tsx scripts/check-design-drift.ts",
+    "report:modules": "tsx scripts/module-report.ts",
+    "verify": "npm run verify:static && npm run verify:tests && npm run verify:build && npm run test:e2e:local",
+    "typecheck:domain": "tsc --noEmit --project tsconfig.domain.json",
+    "lint:workflows": "node scripts/quality/run-tool.mjs actionlint -ignore 'unexpected key \\\"queue\\\" for \\\"concurrency\\\" section' && node scripts/quality/run-tool.mjs shellcheck .husky/pre-commit .husky/commit-msg",
+    "check:architecture": "depcruise src shared functions scripts .github/scripts --config .dependency-cruiser.cjs",
+    "coverage:check:changed": "node scripts/check-changed-coverage.mjs",
+    "check:bundle": "node scripts/check-bundle-budget.mjs",
+    "knip:production": "knip --production --include files,dependencies,unlisted,unresolved",
+    "verify:static": "npm run format:check && npm run validate && npm run knip && npm run knip:production && npm run check:architecture && npm run lint:workflows && npm run check:generated",
+    "verify:tests": "npm run test:coverage && npm run coverage:check && npm run coverage:check:domain && npm run coverage:check:changed",
+    "verify:build": "npm run build && npm run check:bundle",
+    "format:check": "prettier --check package.json package-lock.json 'tsconfig*.json' '*.config.{ts,mjs}' .dependency-cruiser.cjs 'config/quality/*.json' '.github/workflows/*.yml'",
+    "check:generated": "node scripts/check-generated-files.mjs",
+    "test:lighthouse": "node .github/scripts/run-lighthouse.mjs"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.39.5",
+    "@playwright/test": "^1.63.0",
+    "@types/node": "^26.6.4",
+    "@typescript-eslint/eslint-plugin": "8.71.0",
+    "@typescript-eslint/parser": "8.71.0",
+    "c8": "^12.0.0",
+    "dependency-cruiser": "18.5.0",
+    "eslint": "9.39.5",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.4",
+    "eslint-plugin-solid": "^0.18.0",
+    "globals": "17.13.0",
+    "husky": "^9.1.7",
+    "istanbul-lib-coverage": "3.2.2",
+    "knip": "^6.39.0",
+    "lint-staged": "^17.6.0",
+    "prettier": "^3.9.9",
+    "terser": "5.51.2",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.2",
+    "vite": "^8.3.2",
+    "vite-plugin-solid": "^2.11.0"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "keywords": [
+    "pokemon",
+    "tcg",
+    "tournament",
+    "events"
+  ],
+  "author": "Ciphermaniac",
+  "license": "MIT",
+  "dependencies": {
+    "@solidjs/router": "^0.15.0",
+    "solid-js": "^1.9.3",
+    "uqr": "^0.1.3"
+  },
+  "overrides": {
+    "fast-xml-parser": "^5.4.1",
+    "seroval": "^1.6.8",
+    "seroval-plugins": "^1.6.8"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,mts,mjs,js}": [
+      "eslint --fix --max-warnings 0 --report-unused-disable-directives --no-warn-ignored"
+    ]
+  }
+}

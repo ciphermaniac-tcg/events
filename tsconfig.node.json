@@ -1,0 +1,34 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "allowJs": false,
+    "checkJs": false,
+    "allowImportingTsExtensions": true,
+    "baseUrl": ".",
+    "paths": {
+      "~/*": ["src/*"]
+    },
+    "types": ["node", "vite/client"]
+  },
+  "include": [
+    "scripts/**/*.ts",
+    ".github/scripts/**/*.ts",
+    "tests/**/*.ts",
+    "playwright.config.ts",
+    "knip.config.ts",
+    "types/cloudflare-shim.d.ts",
+    "playwright.local.config.ts"
+  ],
+  "exclude": ["node_modules", "dist"]
+}

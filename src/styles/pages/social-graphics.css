@@ -1,0 +1,582 @@
+/* ============================================================
+   Social Graphics — /tools/social-graphics
+   Page chrome uses the global Stamp tokens.
+   The exported canvas (`.sg-canvas`) declares its own scoped
+   token set so it can be exported in light or dark independent
+   of the page's `data-mode`. The values mirror the global ones
+   and have to be updated alongside them — the drift check
+   exempts this sheet, so nothing else will catch it.
+   ============================================================ */
+
+.sg-page {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.sg-controls {
+  display: grid;
+  gap: var(--space-3);
+  background: var(--surface);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+}
+
+.sg-warning {
+  display: grid;
+  gap: 4px;
+  padding: var(--space-3) var(--space-4);
+  border: var(--border-width) solid #b3541e;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, #e07b4a 12%, var(--surface));
+  color: var(--fg);
+  font-size: 14px;
+  line-height: 1.45;
+}
+.sg-warning strong {
+  font-weight: 700;
+}
+.sg-warning span {
+  color: var(--muted);
+}
+
+.sg-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.sg-row label {
+  display: grid;
+  gap: 4px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.sg-row select {
+  font: inherit;
+  font-size: 13px;
+  color: var(--fg);
+  background: var(--bg);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  min-width: 280px;
+  font-variant-numeric: tabular-nums;
+}
+.sg-row select:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.sg-actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin-top: var(--space-2);
+}
+
+.sg-btn {
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  padding: 9px 16px;
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--fg);
+  cursor: pointer;
+  transition:
+    transform var(--ms-fast) var(--ease-base),
+    background var(--ms-fast) var(--ease-base);
+}
+.sg-btn:hover {
+  background: var(--surface-2);
+}
+.sg-btn:active {
+  transform: scale(var(--press-scale));
+}
+.sg-btn.primary {
+  background: var(--accent-fill);
+  color: var(--accent-fg);
+  border-color: var(--accent);
+}
+.sg-btn.primary:hover {
+  background: var(--accent-fill-hover);
+}
+.sg-btn[disabled] {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.sg-stage {
+  overflow-x: auto;
+  background: var(--surface-2);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-5);
+  display: flex;
+  justify-content: center;
+  /* Break out of the page's max-width so the 1280px canvas fits on
+     wider viewports. Falls back to horizontal scroll on narrow ones. */
+  width: min(100vw - var(--space-4) * 2, 1400px);
+  margin-left: calc(50% - min(50vw - var(--space-4), 700px));
+}
+
+.sg-status {
+  font-size: 12px;
+  color: var(--muted);
+}
+.sg-status.error {
+  color: var(--negative);
+}
+
+/* ============================================================
+   THE CANVAS — what becomes the exported image
+   1280px wide. Self-contained token block so light/dark
+   exports are independent of page mode.
+   ============================================================ */
+
+.sg-canvas {
+  width: 1280px;
+  flex-shrink: 0;
+  position: relative;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-feature-settings: 'ss01', 'cv11', 'cv05';
+  -webkit-font-smoothing: antialiased;
+  color: var(--sg-fg);
+  background: var(--sg-bg);
+  padding: 36px 44px 32px;
+  border: 1px solid var(--sg-border);
+  display: grid;
+  gap: 24px;
+  /* Light is the default */
+  --sg-bg: #f1eee8;
+  --sg-surface: #faf8f4;
+  --sg-surface-2: #e6e1d8;
+  --sg-fg: #1d1913;
+  --sg-muted: #6a6055;
+  --sg-border: #8a7f74;
+  --sg-rule: #d7d1c7;
+  /* Words take the ink; the marigold fill is too light for text on stone. */
+  --sg-accent: #8c5900;
+}
+
+.sg-canvas[data-mode='dark'] {
+  --sg-bg: #181514;
+  --sg-surface: #211f1d;
+  --sg-surface-2: #2b2827;
+  --sg-fg: #ede8e6;
+  --sg-muted: #9e9792;
+  --sg-border: #373533;
+  --sg-rule: #262422;
+  --sg-accent: #ea1;
+}
+
+/* ---- Head ----
+   A dark band in both modes, like the site's topnav: it bleeds to the canvas
+   edges and takes the dark token set whatever the export mode. */
+
+.sg-head {
+  --sg-fg: #ede8e6;
+  --sg-muted: #9e9792;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 24px;
+  margin: -37px -45px 0;
+  padding: 18px 44px;
+  background: #181514;
+  border-bottom: 1px solid #373533;
+}
+.sg-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  color: var(--sg-fg);
+  line-height: 1;
+}
+.sg-mark img {
+  display: block;
+  width: 24px;
+  height: 28px;
+}
+.sg-tournament {
+  text-align: center;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--sg-muted);
+  font-weight: 600;
+  line-height: 1.5;
+}
+.sg-tournament strong {
+  display: block;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--sg-fg);
+  letter-spacing: -0.015em;
+  text-transform: none;
+  white-space: nowrap;
+}
+.sg-meta {
+  text-align: right;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--sg-muted);
+  font-weight: 600;
+  line-height: 1.5;
+}
+.sg-meta strong {
+  display: block;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--sg-fg);
+  letter-spacing: -0.015em;
+  text-transform: none;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* ---- Feature: hero + right-column title + stack 2-4 ---- */
+
+.sg-feature {
+  display: grid;
+  grid-template-columns: 1fr 1.15fr;
+  gap: 28px;
+  align-items: start;
+}
+
+.sg-hero {
+  position: relative;
+  background: var(--sg-surface);
+  border: 1px solid var(--sg-border);
+  display: grid;
+  grid-template-rows: auto auto;
+  overflow: hidden;
+}
+.sg-hero-img {
+  position: relative;
+  background: var(--sg-surface-2);
+  overflow: hidden;
+  aspect-ratio: 16 / 9;
+}
+.sg-hero-img img,
+.sg-row-img img,
+.sg-cell-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+[data-cat='pokemon'] > img {
+  object-position: 50% 15%;
+}
+[data-cat='trainer'] > img,
+[data-cat='energy-special'] > img {
+  object-position: 50% 22%;
+}
+[data-cat='energy-basic'] > img {
+  object-position: 50% 55%;
+}
+.sg-hero-body {
+  position: relative;
+  z-index: 4;
+  padding: 12px 24px 14px;
+  background: var(--sg-surface);
+  border-top: 1px solid var(--sg-border);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 20px;
+  align-items: end;
+}
+/* Font size is driven by fitText() — long names scale down from 42px rather
+   than spilling past the card. The clip is the last-resort backstop for a name
+   that still does not fit at the floor size; the roomier line-height keeps
+   descenders out of the clip. */
+.sg-hero-name {
+  font-size: 42px;
+  font-weight: 800;
+  letter-spacing: -0.028em;
+  line-height: 1.15;
+  color: var(--sg-fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sg-hero-decks {
+  font-size: 15px;
+  color: var(--sg-muted);
+  margin-top: 6px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+}
+.sg-hero-decks strong {
+  color: var(--sg-fg);
+  font-weight: 700;
+}
+.sg-hero-pct {
+  font-size: 56px;
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 0.9;
+  color: var(--sg-accent);
+  font-variant-numeric: tabular-nums;
+}
+.sg-hero-delta {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--sg-accent);
+  text-transform: uppercase;
+  margin-top: 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Right column: title above stack */
+.sg-right {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: 18px;
+}
+/* Font size is driven by fitText(): 'FRAUDULENT CARDS' is wider than the
+   column at the design size, so the headline scales like the card names do. */
+.sg-title {
+  font-size: 64px;
+  overflow: hidden;
+  font-weight: 900;
+  font-style: italic;
+  letter-spacing: -0.04em;
+  line-height: 0.9;
+  color: var(--sg-fg);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.sg-title .accent {
+  color: var(--sg-accent);
+}
+
+.sg-stack {
+  display: grid;
+  grid-template-rows: repeat(3, auto);
+  align-content: space-between;
+  gap: 12px;
+}
+.sg-row-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 16px;
+  align-items: stretch;
+  padding: 0 18px 0 0;
+  min-height: 100px;
+  background: var(--sg-surface);
+  border: 1px solid var(--sg-border);
+  overflow: hidden;
+}
+.sg-row-rank {
+  position: absolute;
+  bottom: -10px;
+  right: 10px;
+  font-size: 76px;
+  font-weight: 900;
+  font-style: italic;
+  letter-spacing: -0.05em;
+  line-height: 0.85;
+  color: color-mix(in srgb, var(--sg-fg) 8%, transparent);
+  pointer-events: none;
+  z-index: 0;
+  font-variant-numeric: tabular-nums;
+}
+.sg-canvas[data-mode='dark'] .sg-row-rank {
+  color: color-mix(in srgb, var(--sg-fg) 12%, transparent);
+}
+.sg-row-img {
+  height: 100px;
+  aspect-ratio: 16 / 9;
+  background: var(--sg-surface-2);
+  border-right: 1px solid var(--sg-border);
+  overflow: hidden;
+  position: relative;
+  z-index: 1;
+}
+.sg-row-meta {
+  min-width: 0;
+  position: relative;
+  z-index: 1;
+  align-self: center;
+}
+.sg-row-name {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.018em;
+  line-height: 1.1;
+  color: var(--sg-fg);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sg-row-decks {
+  font-size: 13px;
+  color: var(--sg-muted);
+  margin-top: 3px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+}
+.sg-row-pct {
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 0.9;
+  color: var(--sg-accent);
+  font-variant-numeric: tabular-nums;
+  position: relative;
+  z-index: 1;
+  align-self: center;
+}
+
+/* ---- Grid: ranks 5-12 ---- */
+
+.sg-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+.sg-cell {
+  position: relative;
+  background: var(--sg-surface);
+  border: 1px solid var(--sg-border);
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: auto auto;
+}
+.sg-cell-img {
+  aspect-ratio: 16 / 9;
+  background: var(--sg-surface-2);
+  overflow: hidden;
+  position: relative;
+  border-bottom: 1px solid var(--sg-border);
+}
+.sg-cell-body {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: end;
+  padding: 12px 14px;
+}
+.sg-cell-name {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  line-height: 1.1;
+  color: var(--sg-fg);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sg-cell-pct {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.028em;
+  line-height: 0.9;
+  color: var(--sg-accent);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- Tail: ranks 13-20 ---- */
+
+.sg-tail {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 12px;
+  padding-top: 18px;
+  border-top: 1px solid var(--sg-border);
+}
+.sg-tail-cell {
+  padding-left: 10px;
+  border-left: 1px solid var(--sg-rule);
+}
+.sg-tail-cell:first-child {
+  border-left: none;
+  padding-left: 0;
+}
+.sg-tail-rank {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--sg-accent);
+  font-weight: 700;
+  margin-bottom: 4px;
+  font-variant-numeric: tabular-nums;
+}
+.sg-tail-name {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.012em;
+  line-height: 1.1;
+  color: var(--sg-fg);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  height: 14px;
+  margin-bottom: 4px;
+}
+.sg-tail-pct {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--sg-fg);
+  letter-spacing: -0.015em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- Signoff ---- */
+
+.sg-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 14px;
+  border-top: 2px dashed var(--sg-rule);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--sg-muted);
+  font-weight: 600;
+}
+.sg-foot > span {
+  white-space: nowrap;
+}
+.sg-foot .src {
+  background: var(--sg-accent);
+  color: var(--sg-bg);
+  padding: 5px 12px 4px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+}
+.sg-foot b {
+  color: var(--sg-fg);
+  font-weight: 700;
+}
+
+/* ---- Fallback placeholder image ---- */
+.sg-img-placeholder {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: var(--sg-surface-2);
+  color: var(--sg-muted);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 600;
+}

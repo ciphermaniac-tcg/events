@@ -1,0 +1,4661 @@
+/* ============================================================
+   Component styles
+   Every selector below is a stable component class; no nesting.
+   Stamp's identity moves live here: a drawn 1px edge, hairline-ruled rows,
+   and flat fills. No shadows, no gradients, no glass.
+   ============================================================ */
+
+/* ---------- Page wrapper ---------- */
+/* Live banner: one line under the nav while a listed event is on, held to the
+   page measure. The whole strip is the link. */
+.live-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  padding: 8px max(32px, calc((100% - 1180px) / 2 + 32px));
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--fg);
+  font-size: 13px;
+  text-decoration: none;
+}
+.live-banner:hover {
+  text-decoration: none;
+}
+.live-banner:hover .live-banner-name {
+  text-decoration: underline;
+}
+.live-banner-mark {
+  color: var(--accent-ink);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: var(--tracking-micro);
+  text-transform: uppercase;
+}
+.live-banner-name {
+  font-weight: 500;
+}
+.live-banner-meta {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+/* The deck report: the shared Combo, standing for sprites rather than card art.
+   Sprites are not thumbnails, so the list's frame and crop come off, and the
+   field leaves room for a pair of them. The picker's own box lives in
+   pages/live.css with the rest of the run. */
+.live-deck-picker .tl-picker .search {
+  padding-left: 48px;
+}
+.live-deck-picker :is(.tl-combo-lead, .tl-list li) img {
+  width: auto;
+  aspect-ratio: auto;
+  object-fit: contain;
+  border: 0;
+  border-radius: 0;
+  background: none;
+}
+.live-deck-picker .tl-list li {
+  grid-template-columns: 46px 1fr auto;
+}
+.live-deck {
+  gap: 8px;
+}
+/* Reporting a whole run: the run's own rows become pickers, so the form reads
+   as the list it replaces, and the picker keeps the sprite treatment above. */
+.run-report .round {
+  grid-template-columns: 34px minmax(0, 1fr) minmax(0, 300px);
+  padding: 5px 0;
+  border-bottom: 1px solid var(--rule);
+}
+.run-report.has-cut .round {
+  grid-template-columns: 42px minmax(0, 1fr) minmax(0, 300px);
+}
+.run-report .round-n {
+  white-space: nowrap;
+}
+.run-report .live-deck-picker {
+  display: block;
+}
+.run-report-actions {
+  display: flex;
+  gap: var(--space-2);
+  padding-top: var(--space-3);
+}
+@media (max-width: 640px) {
+  .live-banner {
+    padding-inline: max(var(--space-3), env(safe-area-inset-left)) max(var(--space-3), env(safe-area-inset-right));
+  }
+  .run-report .round {
+    grid-template-columns: 34px minmax(0, 1fr);
+  }
+  .run-report.has-cut .round {
+    grid-template-columns: 42px minmax(0, 1fr);
+  }
+  .run-report .live-deck-picker {
+    grid-column: 1 / -1;
+  }
+}
+
+.page {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 36px 32px 64px;
+}
+.page > section + section {
+  margin-top: var(--section-gap);
+}
+@media (max-width: 640px) {
+  .page {
+    /* env(safe-area-inset-*) keeps content clear of the Dynamic Island /
+       rounded corners in landscape and the home-indicator bar at the bottom
+       (viewport-fit=cover is set in index.html). */
+    padding: var(--space-5) max(var(--space-3), env(safe-area-inset-left))
+      max(var(--space-6), env(safe-area-inset-bottom));
+    padding-right: max(var(--space-3), env(safe-area-inset-right));
+  }
+  .page > section + section {
+    margin-top: var(--space-5);
+  }
+}
+
+/* ---------- Route pending bar ---------- */
+/* Instant "something is happening" feedback while the router resolves a
+   navigation (in practice: a lazy chunk downloading on a slow connection —
+   page data renders skeletons instead of blocking the nav). The opacity
+   transition is delayed so sub-150ms navigations never flash it. */
+.route-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  z-index: 200;
+  pointer-events: none;
+  overflow: hidden;
+  opacity: 0;
+  transition: opacity 0.15s ease 0.15s;
+}
+.route-progress.active {
+  opacity: 1;
+}
+.route-progress.active::before {
+  content: '';
+  display: block;
+  height: 100%;
+  width: 40%;
+  background: var(--accent);
+  animation: route-progress-slide 1s ease-in-out infinite;
+}
+@keyframes route-progress-slide {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(350%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .route-progress.active::before {
+    animation: none;
+    width: 100%;
+    opacity: 0.6;
+  }
+}
+
+/* ---------- Top nav ---------- */
+.topnav {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 24px;
+  align-items: center;
+  /* The dark band runs edge to edge; the padding holds its contents to the
+     1400px measure the header used to be capped at. */
+  padding: 8px max(32px, calc((100% - 1400px) / 2 + 32px));
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  color-scheme: dark;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+.topnav-word {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  color: var(--fg);
+  transition: color var(--ms-fast) var(--ease-base);
+}
+.topnav-logo {
+  display: block;
+  width: 22px;
+  height: 26px;
+}
+.topnav-word:hover {
+  color: var(--accent-ink);
+  text-decoration: none;
+}
+.topnav-links {
+  display: flex;
+  gap: 18px;
+  justify-content: center;
+}
+.topnav-link {
+  font-size: var(--text-sm);
+  color: var(--fg);
+  font-weight: 500;
+  padding: 6px 0;
+  position: relative;
+  transition: color var(--ms-fast) var(--ease-base);
+}
+.topnav-link:hover {
+  color: var(--accent-ink);
+  text-decoration: none;
+}
+.topnav-link.active::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 2px;
+  height: 2px;
+  background: var(--accent);
+}
+.topnav-item {
+  position: relative;
+  display: flex;
+}
+
+/* Hover shortcut to the headline tools. Pointer/keyboard only — phones get the
+   /tools page instead (hidden in the 640px block below). */
+.topnav-menu {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 190px;
+  display: grid;
+  padding: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity var(--ms-fast) var(--ease-base),
+    visibility var(--ms-fast) var(--ease-base);
+}
+/* Keyboard focus opens it; a mouse click does not, or the menu would stay
+   pinned open after clicking Tools itself (the anchor keeps DOM focus). */
+.topnav-item:has(:focus-visible) > .topnav-menu {
+  opacity: 1;
+  visibility: visible;
+}
+/* Hover is gated on a real pointer so a tap does not leave it stuck open. */
+@media (hover: hover) and (pointer: fine) {
+  .topnav-item:hover > .topnav-menu {
+    opacity: 1;
+    visibility: visible;
+  }
+}
+.topnav-menu-link {
+  font-size: 13px;
+  color: var(--muted);
+  padding: 7px 10px;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+}
+.topnav-menu-link:hover,
+.topnav-menu-link:focus-visible {
+  color: var(--fg);
+  background: var(--surface-2);
+  text-decoration: none;
+}
+
+.topnav-actions {
+  display: flex;
+  gap: 6px;
+}
+
+/* ---------- Global search ----------
+   An inline field beside the tournament selector; on phones a button that
+   opens the bottom sheet with the same field and results. */
+.gsearch {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+.gsearch-field {
+  position: relative;
+  min-width: 0;
+}
+.gsearch-input {
+  width: 220px;
+  font-size: 12px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--fg);
+}
+.gsearch-input::placeholder {
+  color: var(--muted);
+}
+.gsearch-field-sheet .gsearch-input {
+  width: 100%;
+  font-size: 15px;
+  padding: 10px 12px;
+}
+.gsearch-pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  width: min(420px, 90vw);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 4px;
+  z-index: 60;
+  max-height: 70vh;
+  max-height: 70dvh;
+  overflow-y: auto;
+}
+.gsearch-results-sheet {
+  margin-top: var(--space-2);
+}
+.gsearch-group {
+  font-size: 11px;
+  color: var(--muted);
+  padding: 8px 10px 4px;
+}
+.gsearch-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  min-height: 36px;
+  font-size: 13px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.gsearch-row.active {
+  background: var(--surface-2);
+}
+.gsearch-skeleton {
+  cursor: default;
+}
+.gsearch-lead {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+.gsearch-lead:empty {
+  display: none;
+}
+.gsearch-thumb {
+  width: 20px;
+  height: auto;
+  border-radius: var(--radius-sm);
+}
+.gsearch-date {
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  min-width: 44px;
+}
+.gsearch-label {
+  flex: 1;
+  min-width: 0;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.gsearch-sub {
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.gsearch-empty {
+  font-size: 12px;
+  color: var(--muted);
+  padding: 10px;
+}
+.gsearch-trigger {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+@media (max-width: 900px) {
+  .gsearch-input {
+    width: 160px;
+    min-height: 44px;
+  }
+}
+@media (max-width: 640px) {
+  .gsearch > .gsearch-field {
+    display: none;
+  }
+  .gsearch-trigger {
+    display: inline-flex;
+  }
+  /* The search and scope controls are separate buttons, but visually read as
+     one compact control group in the phone header. */
+  .topnav-actions {
+    gap: 0;
+  }
+  .gsearch-trigger {
+    border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+    border-right: 0;
+  }
+  .t-selector-trigger {
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  }
+}
+@media (max-width: 900px) {
+  .topnav {
+    grid-template-columns: max-content minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    grid-template-areas:
+      'word actions'
+      'links links';
+    column-gap: var(--space-3);
+    row-gap: var(--space-2);
+    padding: 10px max(var(--space-3), env(safe-area-inset-left)) 10px max(var(--space-3), env(safe-area-inset-left));
+    padding-right: max(var(--space-3), env(safe-area-inset-right));
+  }
+  .topnav-word {
+    grid-area: word;
+  }
+  .topnav-actions {
+    grid-area: actions;
+    gap: 4px;
+    min-width: 0;
+    justify-content: flex-end;
+  }
+  .t-selector {
+    min-width: 0;
+    max-width: 100%;
+  }
+  .t-selector-trigger {
+    min-width: 0;
+  }
+  .t-selector-label {
+    min-width: 0;
+  }
+  .topnav-links {
+    grid-area: links;
+    gap: var(--space-4);
+    justify-content: flex-start;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding-top: var(--space-1);
+    border-top: 1px solid var(--rule);
+  }
+  .topnav-links::-webkit-scrollbar {
+    display: none;
+  }
+  .topnav-link {
+    padding: 8px 0;
+    flex-shrink: 0;
+    scroll-snap-align: start;
+  }
+  .topnav-link.active::after {
+    bottom: 4px;
+  }
+  .topnav-menu {
+    display: none;
+  }
+  .t-selector-trigger {
+    max-width: 100%;
+    padding: 8px 10px;
+    min-height: 44px;
+  }
+}
+
+/* ---------- Site footer ----------
+   A rule and a row: the site's map, who runs it, and the mode toggle. It ends
+   the page rather than decorating it, so it borrows the topnav's measure and
+   its link treatment and adds nothing of its own.
+   ------------------------------------ */
+.site-footer {
+  max-width: 1180px;
+  margin: 0 auto;
+  /* Same trap as `main.page`: auto margins beat the `#root` column's stretch,
+     so without this the footer shrinks to its content and the note's
+     push-apart margin has no room to work. */
+  width: 100%;
+  padding: var(--space-4) 32px var(--space-6);
+  border-top: 1px solid var(--rule);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+.site-footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+}
+.site-footer-links a,
+.site-footer-note {
+  font-size: 12px;
+  color: var(--muted);
+}
+.site-footer-links a {
+  font-weight: 500;
+  transition: color var(--ms-fast) var(--ease-base);
+}
+.site-footer-links a:hover {
+  color: var(--fg);
+  text-decoration: none;
+}
+/* Pushed off the links, and the toggle off it: three groups, one row. */
+.site-footer-note {
+  margin: 0;
+  margin-inline-start: auto;
+}
+.site-footer .chip {
+  font-size: 12px;
+}
+
+@media (max-width: 900px) {
+  .site-footer {
+    /* Same safe-area treatment as `.page`: the toggle must not sit under the
+       home-indicator bar. */
+    padding: var(--space-4) max(var(--space-3), env(safe-area-inset-left))
+      max(var(--space-5), env(safe-area-inset-bottom));
+    padding-right: max(var(--space-3), env(safe-area-inset-right));
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) max-content;
+    grid-template-areas:
+      'links links'
+      'note toggle';
+    align-items: center;
+    gap: var(--space-3);
+  }
+  /* The links take their own row rather than relying on flex wrapping once the
+     three footer groups no longer fit beside one another. */
+  .site-footer-links {
+    grid-area: links;
+  }
+  .site-footer-note {
+    grid-area: note;
+    margin: 0;
+  }
+  .site-footer .chip {
+    grid-area: toggle;
+    margin: 0;
+  }
+}
+
+/* ---------- Tournament selector ---------- */
+.t-selector {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.t-selector-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--fg);
+  font-weight: 500;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  transition:
+    background var(--ms-fast),
+    transform var(--ms-fast);
+  max-width: 280px;
+}
+.t-selector-trigger:hover {
+  background: var(--surface-2);
+}
+.t-selector-trigger:active {
+  transform: scale(var(--press-scale));
+}
+.t-selector-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.t-selector-caret {
+  color: var(--muted);
+  font-size: 10.5px;
+}
+.t-selector-pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  width: min(360px, 90vw);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 10px;
+  z-index: 60;
+  display: grid;
+  gap: 8px;
+  max-height: 70vh;
+  max-height: 70dvh;
+}
+.t-selector-pop .search {
+  width: 100%;
+  min-width: 0;
+}
+.t-selector-list {
+  overflow-y: auto;
+  max-height: calc(70vh - 80px);
+  max-height: calc(70dvh - 80px);
+  display: grid;
+  gap: 12px;
+  scrollbar-width: thin;
+}
+.t-selector-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  padding: 7px 10px;
+  font-size: 13px;
+  color: var(--fg);
+  text-align: left;
+  border-radius: var(--radius-sm);
+  transition:
+    background var(--ms-fast),
+    color var(--ms-fast);
+}
+.t-selector-item:hover {
+  background: var(--surface-2);
+}
+.t-selector-item.active {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--fg);
+}
+.t-selector-item .primary {
+  font-weight: 500;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.t-selector-item .secondary {
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+/* ---------- Hero ---------- */
+.hero h1 {
+  margin: 0 0 6px 0;
+}
+.hero-meta {
+  font-size: 13px;
+  color: var(--muted);
+  /* Most heroes fill this line from a resource, so it starts empty and the
+     whole page slid up under it. Reserve the line height up front. */
+  min-height: 1.5em;
+}
+.hero-meta .dot {
+  margin: 0 8px;
+  opacity: 0.4;
+}
+
+/* ---------- Stat band ----------
+   A hero's figures, value over label, in one ruled band: the player profile's
+   career figures and the archetype page's. The rules do the separating — a row
+   of figures set inline ran together into a sentence, and a framed scorecard
+   would be the box the rest of the site does without. Ink top and bottom,
+   hairlines between. A phone folds it into two columns of label / value rows.
+   dt comes before dd so the list stays valid; column-reverse puts the figure
+   first. */
+.stat-band {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  margin: 18px 0 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  font-variant-numeric: tabular-nums;
+}
+.stat-band-item {
+  display: flex;
+  flex-direction: column-reverse;
+  justify-content: flex-end;
+  gap: 3px;
+  min-width: 0;
+  padding: 11px 16px;
+  border-left: 1px solid var(--rule);
+}
+.stat-band-item:first-child {
+  padding-left: 0;
+  border-left: 0;
+}
+.stat-band-item dd,
+.stat-band-item dt {
+  margin: 0;
+}
+.stat-band-item dd {
+  color: var(--fg);
+  font-size: clamp(17px, 1.7vw, 21px);
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+}
+.stat-band-item dt {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: var(--tracking-micro);
+  text-transform: uppercase;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* The figure a page is about carries the accent. */
+.stat-band-item.is-lead dd {
+  color: var(--accent-ink);
+}
+/* Secondary detail rides in the label rather than beside the figure, where
+   two numbers side by side read as one mangled one. */
+.stat-band-item small {
+  font-size: inherit;
+  font-weight: 500;
+  opacity: 0.75;
+}
+@media (max-width: 640px) {
+  .stat-band {
+    grid-auto-flow: row;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 24px;
+    margin-top: 14px;
+    border-top: 0;
+    border-bottom: 0;
+  }
+  .stat-band-item,
+  .stat-band-item:first-child {
+    flex-direction: row;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 9px 0;
+    border-left: 0;
+    border-bottom: 1px solid var(--rule);
+  }
+  .stat-band-item dd {
+    font-size: 14px;
+  }
+  .stat-band-item dt {
+    letter-spacing: 0.04em;
+  }
+}
+/* Two columns stop fitting the longer labels somewhere under 380px, and a
+   truncated label is a label that says nothing. One column below that. */
+@media (max-width: 380px) {
+  .stat-band {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---------- Snapshot banner ----------
+   "You are looking at frozen data" — on the archetype page for a historical
+   event, on the card page for a rotated card. Shared because both render it
+   identically; it lived duplicated verbatim in archetype.css and cards.css,
+   where editing one silently did nothing to the other page. */
+.snapshot-banner {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 20px;
+  padding: 12px 16px;
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface-2));
+  color: var(--fg);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.snapshot-banner-label {
+  color: var(--accent-ink);
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+/* ---------- Section heading ---------- */
+.section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  gap: 16px;
+}
+.section-head h2 {
+  letter-spacing: -0.015em;
+}
+.section-head .right {
+  font-size: 11px;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  min-width: 0;
+  /* This slot is meta text that arrives with the section's data. Hold one
+     line so a section that starts with an empty right slot doesn't grow one. */
+  min-height: 1.5em;
+}
+/* space-between only pushes the meta right when an h2 shares the row with it. */
+.section-head .right:only-child {
+  margin-left: auto;
+}
+/* Destination links ("View all →") are actions, not meta: a step up from the
+   11px caption text around them. */
+.section-head .right a {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+/* A count that arrives with the data, sitting inside running text. Reserving a
+   few digits keeps the line's length — and so where it wraps — stable between
+   the empty state and the loaded one. Pairs with `.num`'s tabular figures, so
+   `ch` really is one digit. */
+.num-slot {
+  display: inline-block;
+  min-width: 3ch;
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 640px) {
+  .section-head {
+    flex-wrap: wrap;
+  }
+}
+
+/* ---------- Trend indicator ---------- */
+.trend {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.trend.up {
+  color: var(--positive);
+}
+.trend.down {
+  color: var(--negative);
+}
+.trend.flat {
+  color: var(--muted);
+}
+
+/* ---------- Buttons ---------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 14px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  border: 1px solid transparent;
+  transition:
+    background var(--ms-fast) var(--ease-base),
+    color var(--ms-fast) var(--ease-base),
+    transform var(--ms-fast) var(--ease-spring),
+    border-color var(--ms-fast) var(--ease-base);
+  text-decoration: none;
+}
+.btn:hover {
+  text-decoration: none;
+}
+.btn:active:not(:disabled) {
+  transform: scale(var(--press-scale));
+}
+.btn-primary {
+  background: var(--accent-fill);
+  color: var(--accent-fg);
+  border-color: var(--accent);
+}
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent-fill-hover);
+}
+.btn-secondary {
+  background: var(--surface);
+  color: var(--fg);
+  border-color: var(--border);
+}
+.btn-secondary:hover:not(:disabled) {
+  background: var(--surface-2);
+}
+.btn-ghost {
+  background: transparent;
+  color: var(--fg);
+}
+.btn-ghost:hover:not(:disabled) {
+  background: var(--surface-2);
+}
+/* One disabled state for every button. Four page sheets used to each re-derive
+   this at 0.4/0.45/0.45/0.5 opacity, and each scoped it to a parent container —
+   so a disabled .btn outside those four containers rendered at full strength
+   and still looked clickable. Matches .pagination button:disabled, which had
+   the only correct version. */
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ---------- Empty state (locked: B — mark + heading + actions) ---------- */
+.empty-state {
+  padding: 48px 24px 52px;
+  text-align: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  display: grid;
+  place-items: center;
+  gap: 12px;
+}
+.empty-state-mark {
+  width: 56px;
+  height: 56px;
+  display: grid;
+  place-items: center;
+  border: 1.5px dashed var(--border);
+  border-radius: var(--radius-md);
+  color: var(--muted);
+}
+.empty-state h4 {
+  font-size: 17px;
+  font-weight: 700;
+  margin: 4px 0 0;
+}
+.empty-state p {
+  font-size: 13px;
+  color: var(--muted);
+  max-width: 38ch;
+  margin: 0;
+  line-height: 1.55;
+}
+.empty-state-actions {
+  display: inline-flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+/* ---------- Archetype gallery card ---------- */
+.gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+@media (max-width: 640px) {
+  .gallery-grid {
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 8px;
+  }
+}
+/* Archetype tile galleries (home and /archetypes): a 200px tile minimum,
+   floored at three columns, so below 620px the three share whatever width
+   there is. The wrapper is the size container because a grid can't query
+   its own width. */
+.arche-gallery {
+  container: arche-gallery / inline-size;
+}
+.arche-gallery .gallery-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+@container arche-gallery (width >= 620px) {
+  .arche-gallery .gallery-grid {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  }
+}
+/* Home's top-archetypes strip stops at two rows. The cutoffs follow the
+   auto-fit math above (n columns need 210n - 10px with the 10px gap); from
+   five columns up, the ten tiles HomePage renders fit in two rows anyway.
+   nth-child can't read a variable, so each step spells out its own cutoff. */
+@container arche-gallery (width < 830px) {
+  .top-archetypes .gallery-grid > :nth-child(n + 7) {
+    display: none;
+  }
+}
+@container arche-gallery (830px <= width < 1040px) {
+  .top-archetypes .gallery-grid > :nth-child(n + 9) {
+    display: none;
+  }
+}
+/* Below 620px the three columns drop under 200px each. Padding and type
+   scale linearly from their desktop values there down to their phone values
+   at 420px, and hold those across phone widths, rather than switching at a
+   breakpoint: a switch let the thumbnail grow as the viewport shrank and
+   flipped names between one and two lines. The name row absorbs any height a
+   taller sibling adds, so thumbnails keep their size and stats line up
+   across a row. */
+.arche-gallery .arche {
+  padding: clamp(8px, 4cqi - 8.8px, 16px) clamp(8px, 4cqi - 8.8px, 16px) clamp(10px, 2cqi + 1.6px, 14px);
+  gap: clamp(6px, 2cqi - 2.4px, 10px);
+  grid-template-rows: auto 1fr auto;
+}
+.arche-gallery .arche-name {
+  font-size: clamp(13px, 1cqi + 8.8px, 15px);
+  line-height: 1.25;
+}
+.arche-gallery .arche-stats {
+  row-gap: 0;
+}
+/* Under 620px a share and a deck count only sometimes fit side by side, and
+   which way they land can flip when the web font swaps in. Stack them
+   outright so a tile's height never depends on font metrics. */
+@container arche-gallery (width < 620px) {
+  .arche-gallery .arche-stats {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+.arche-gallery .arche-share {
+  font-size: clamp(17px, 2.5cqi + 6.5px, 22px);
+}
+.arche-gallery .arche-decks {
+  font-size: clamp(11px, 0.5cqi + 8.9px, 12px);
+}
+/* Residual "Other" bucket — a footnote under the ranked grid, never a tile. */
+.gallery-other {
+  margin: 10px 2px 0;
+  font-size: 13px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.arche {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 16px 16px 14px;
+  display: grid;
+  gap: 10px;
+  cursor: pointer;
+  color: var(--fg);
+  position: relative;
+  transition:
+    transform var(--ms-base) var(--ease-base),
+    border-color var(--ms-base) var(--ease-base);
+  text-decoration: none;
+}
+.arche:hover {
+  text-decoration: none;
+  border-color: var(--fg);
+}
+.arche:active {
+  transform: translateY(0) scale(0.99);
+}
+.arche-thumb {
+  aspect-ratio: 4 / 3;
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  color: var(--muted);
+  position: relative;
+}
+
+/* ---------- Card image + stack ---------- */
+.card-img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  user-select: none;
+  -webkit-user-drag: none;
+  transition: opacity var(--ms-base) var(--ease-base);
+}
+/* Art appears whole or not at all: a streaming image would otherwise paint
+   top-down, and each card landing on its own beat reads as flicker. The frame
+   behind it is the placeholder. Zero specificity on purpose: an image that
+   paints its own placeholder (the tier list's shimmer, the pickers' framed
+   thumbnails, pack EV tiles) opts out with a plain `opacity: 1` beside it. */
+:where(.card-img:not([data-loaded])) {
+  opacity: 0;
+}
+.card-image-fallback {
+  display: grid;
+  place-items: center;
+  background: var(--surface-2);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  padding: 12px;
+  aspect-ratio: 5 / 7;
+}
+.card-image-fallback-inner {
+  text-align: center;
+}
+.card-image-fallback .set {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--fg);
+}
+.card-image-fallback .number {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Card stack — used for archetype thumbnails (3 fanned cards) */
+.card-stack {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  padding: 6px;
+}
+.card-stack-empty {
+  color: var(--muted);
+  font-size: 16px;
+  font-weight: 700;
+}
+.card-stack-slot {
+  position: absolute;
+  /* Center the slot in its container so transforms pivot around the card's
+     own visual center, not the container's top-left corner. */
+  inset: 0;
+  margin: auto;
+  height: 86%;
+  aspect-ratio: 5 / 7;
+  border-radius: 4px;
+  overflow: hidden;
+  box-shadow: 0 2px 6px -2px rgba(0, 0, 0, 0.25);
+  background: var(--surface);
+  transform-origin: center center;
+  transition: transform var(--ms-base) var(--ease-base);
+}
+.card-stack-slot img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.card-stack-slot .card-image-fallback {
+  width: 100%;
+  height: 100%;
+  aspect-ratio: auto;
+}
+/* Fan: each slot offsets + rotates. --i is the slot index. */
+.card-stack-1 .card-stack-slot {
+  transform: translate(0, 0) rotate(-1.5deg);
+}
+.card-stack-2 .card-stack-slot:nth-child(1) {
+  transform: translate(-16%, 4%) rotate(-7deg);
+  z-index: 1;
+}
+.card-stack-2 .card-stack-slot:nth-child(2) {
+  transform: translate(16%, -2%) rotate(6deg);
+  z-index: 2;
+}
+.card-stack-3 .card-stack-slot:nth-child(1) {
+  transform: translate(-22%, 8%) rotate(-9deg);
+  z-index: 1;
+}
+.card-stack-3 .card-stack-slot:nth-child(2) {
+  transform: translate(0, -2%) rotate(0);
+  z-index: 2;
+}
+.card-stack-3 .card-stack-slot:nth-child(3) {
+  transform: translate(22%, 4%) rotate(8deg);
+  z-index: 3;
+}
+
+/* On hover, the stack reacts. Triggered by any hoverable parent that
+   wraps a CardStack — `.arche`, `.story-card`, anything else we add later.
+   Multi-card stacks fan wider; single-card stacks tilt + lift slightly. */
+:is(.arche, .story-card):hover .card-stack-1 .card-stack-slot {
+  transform: translate(0, -3%) rotate(-4deg);
+}
+:is(.arche, .story-card):hover .card-stack-3 .card-stack-slot:nth-child(1) {
+  transform: translate(-26%, 9%) rotate(-11deg);
+}
+:is(.arche, .story-card):hover .card-stack-3 .card-stack-slot:nth-child(3) {
+  transform: translate(26%, 5%) rotate(10deg);
+}
+:is(.arche, .story-card):hover .card-stack-2 .card-stack-slot:nth-child(1) {
+  transform: translate(-20%, 5%) rotate(-9deg);
+}
+:is(.arche, .story-card):hover .card-stack-2 .card-stack-slot:nth-child(2) {
+  transform: translate(20%, -3%) rotate(8deg);
+}
+.arche-name {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  color: var(--fg);
+}
+.arche-stats {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.arche-share {
+  font-size: 22px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.025em;
+  color: var(--fg);
+}
+.arche-wr {
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Filter bar ---------- */
+.filter-bar {
+  display: grid;
+  gap: 10px;
+}
+.filter-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+@media (max-width: 640px) {
+  .filter-row {
+    gap: var(--space-2);
+  }
+  .filter-row .search {
+    flex-basis: 100%;
+    min-width: 0;
+  }
+  .filter-row > .chips {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    width: 100%;
+  }
+  .filter-row > .chips::-webkit-scrollbar {
+    display: none;
+  }
+  .filter-row > .chips .chip {
+    flex-shrink: 0;
+  }
+}
+.search {
+  flex: 1 1 240px;
+  min-width: 240px;
+  height: var(--control-h);
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--fg);
+  font: inherit;
+  font-size: 13px;
+  transition:
+    border-color var(--ms-fast),
+    box-shadow var(--ms-fast);
+}
+.search::-webkit-search-cancel-button {
+  appearance: none;
+  -webkit-appearance: none;
+}
+.search::placeholder {
+  color: var(--muted);
+}
+.search:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: var(--focus-ring);
+}
+.chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.chip {
+  padding: 5px 11px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--fg);
+  font-size: 12px;
+  font-weight: 500;
+  transition:
+    background var(--ms-fast),
+    color var(--ms-fast),
+    transform var(--ms-fast);
+}
+.chip:hover {
+  background: var(--surface-2);
+}
+.chip:active {
+  transform: scale(0.94);
+}
+.chip[aria-pressed='true'] {
+  background: var(--accent-fill);
+  color: var(--accent-fg);
+  border-color: var(--accent);
+}
+
+/* ---------- Data table ---------- */
+.table-wrap {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  /* `clip` (not `hidden`) still trims the rounded corners but does NOT create a
+     scroll container, so sticky `thead` cells can park against the viewport /
+     topnav instead of this box. */
+  overflow: clip;
+}
+@media (max-width: 640px) {
+  /* On phone widths, dense data tables stay scannable via horizontal scroll
+     rather than being clipped. Hide the scrollbar so the wrapper still reads as
+     a STAMP surface — the natural swipe affordance does the discovery.
+     Names in the first column stay on one line so columns can size to their
+     content (otherwise text wrapping fights the horizontal-scroll model). */
+  .table-wrap {
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .table-wrap::-webkit-scrollbar {
+    display: none;
+  }
+  .table-wrap .data th,
+  .table-wrap .data td {
+    white-space: nowrap;
+  }
+  /* The wrapper is a scroll container here, so a sticky header would pin
+     `--topnav-h` down inside it and sit on top of the first rows. */
+  .table-wrap .data thead th {
+    position: static;
+  }
+  /* A sortable header's padding lives on its button, so the phone's tighter
+     gutter has to be set there too. It was still spending 28px a column on
+     desktop padding, and a header label is what sizes a numeric column: three
+     sortable columns took 84px of a 390px screen before a single figure was
+     drawn, and the players table paid for it out of the name. */
+  .table-wrap .data th.sortable button.th-sort {
+    padding: 0 8px;
+  }
+  /* A figure column is only ever as wide as its header, so on a phone the
+     header is what every other column is competing with: "EVENTS" is four
+     times the width of the 43 underneath it. One step down the scale, with the
+     caret tucked in, buys back most of a name. */
+  .table-wrap .data thead th {
+    font-size: 9px;
+    letter-spacing: 0.04em;
+  }
+  .table-wrap .data th.sortable button.th-sort {
+    gap: 2px;
+  }
+}
+table.data {
+  width: 100%;
+  border-collapse: collapse;
+}
+.data th,
+.data td {
+  padding: 0 14px;
+  height: var(--row-height);
+  text-align: left;
+  border-bottom: 1px solid var(--rule);
+  font-size: 13px;
+  vertical-align: middle;
+}
+.data th {
+  font-size: 10.5px;
+  letter-spacing: var(--tracking-micro);
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 600;
+  background: var(--surface-2);
+  height: 34px;
+  white-space: nowrap;
+}
+/* Sticky in-table headers: rows scroll under the header, which parks directly
+   beneath the sticky topnav. z-index sits above rows but below the topnav (50).
+   The bottom hairline is a box-shadow — a border on a sticky cell can drop out
+   mid-scroll under border-collapse. */
+.data thead th {
+  position: sticky;
+  top: var(--topnav-h);
+  z-index: 1;
+  box-shadow: inset 0 -1px 0 var(--rule);
+}
+.data th.sortable {
+  cursor: pointer;
+  user-select: none;
+  /* The button fills the cell, so the cell's own padding would double up. */
+  padding: 0;
+}
+.data th.sortable:hover {
+  color: var(--fg);
+}
+.data th .sort-mark {
+  display: inline-block;
+  margin-left: 4px;
+  font-size: 10.5px;
+  color: var(--accent-ink);
+}
+/* The inactive column's mark still occupies its slot; only the glyph goes. */
+.data th .sort-mark.is-idle {
+  visibility: hidden;
+}
+/* Shared base for the button-driven sortable headers other pages render as
+   `<th class="sortable"><button class="th-sort">…</button></th>`. Strips native
+   button chrome and inherits the th's typography so per-page styles stay thin;
+   the ▲/▼ indicator is driven off the header's aria-sort state. */
+.data th.sortable button.th-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0 14px;
+  border: 0;
+  background: none;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: inherit;
+  cursor: pointer;
+  transition: color var(--ms-fast) var(--ease-base);
+}
+/* A figure column's label belongs over its figures. The button fills the cell,
+   so the cell's own `text-align: right` does not reach the label inside it, and
+   every numeric header sat at the far side of its own column. */
+.data th.num.sortable button.th-sort {
+  justify-content: flex-end;
+}
+/* The mark is reserved in every sortable header and only its glyph is hidden:
+   `table-layout` is auto, so a mark that appears on click re-solves the column
+   widths and the table jumps sideways under the pointer.
+
+   Pages that reserve the mark in markup instead — a `.sort-mark` span, as the
+   card and archetype indexes render — opt out here, or the active column draws
+   both and reads "Inclusion ▼ ▼". */
+.data th.sortable button.th-sort:not(:has(.sort-mark))::after {
+  content: '▼';
+  font-size: 9px;
+  color: var(--accent-ink);
+  visibility: hidden;
+}
+.data th.sortable[aria-sort='ascending'] button.th-sort:not(:has(.sort-mark))::after {
+  content: '▲';
+  visibility: visible;
+}
+.data th.sortable[aria-sort='descending'] button.th-sort:not(:has(.sort-mark))::after {
+  visibility: visible;
+}
+.data tbody tr:last-child td {
+  border-bottom: 0;
+}
+.data tbody tr {
+  transition: background var(--ms-fast);
+}
+/* Only rows that actually go somewhere get the pointer. Every clickable row on
+   the site carries `.is-link`; the profile's archetype rows and its
+   decklist-less tournament rows do not, and were promising a click they
+   couldn't honour. */
+.data tbody tr.is-link {
+  cursor: pointer;
+}
+.data tbody tr:hover {
+  background: var(--surface-2);
+}
+.data tbody tr.is-link .cardname:hover {
+  color: var(--accent-ink);
+}
+.data td.num,
+.data th.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.cardname {
+  font-weight: 500;
+  transition: color var(--ms-fast);
+}
+.data .muted-cell {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* ---------- Expandable row (inline decklist on player profile) ---------- */
+.data th.expand-col,
+.data td.expand-col {
+  width: 28px;
+  padding-right: 4px;
+  padding-left: 14px;
+}
+/* Rendered as a <button> (it toggles the row's decklist for keyboard/AT
+   users), but drawn as the same bare caret glyph as before. */
+.row-caret {
+  display: inline-block;
+  color: var(--muted);
+  font-size: 11px;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  transition: transform var(--ms-fast);
+}
+.row-caret.open {
+  transform: rotate(90deg);
+  color: var(--fg);
+}
+tr.row-expansion {
+  background: var(--surface-2);
+  cursor: default;
+}
+tr.row-expansion:hover {
+  background: var(--surface-2);
+}
+tr.row-expansion > td {
+  padding: 14px 18px;
+}
+.row-expansion-empty {
+  color: var(--muted);
+  font-size: 13px;
+  padding: 4px 0;
+}
+.deck-inline-groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px 24px;
+}
+.deck-inline-group-head {
+  font-size: 11px;
+  letter-spacing: var(--tracking-micro);
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 600;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--rule);
+}
+.deck-inline-group-count {
+  color: var(--fg);
+  font-weight: 600;
+}
+.deck-inline-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 3px;
+  font-size: 13px;
+}
+.deck-inline-list b {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  margin-right: 4px;
+}
+
+/* ---------- Card hover preview (decklist lines) ----------
+   The anchor is inline so it doesn't disturb the list's text flow; the preview
+   itself is portalled to <body> and fixed-positioned (see CardHoverPreview),
+   because .table-wrap clips overflow and would cut an in-flow layer off. */
+.card-hover-anchor {
+  display: inline;
+}
+.card-hover-preview {
+  position: fixed;
+  z-index: 300;
+  pointer-events: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  overflow: hidden;
+  line-height: 0;
+  animation: card-hover-in var(--ms-fast) ease-out;
+}
+.card-hover-preview img,
+.card-hover-preview .card-image-fallback {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 63 / 88;
+}
+@keyframes card-hover-in {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .card-hover-preview {
+    animation: none;
+  }
+}
+
+.row-toggle {
+  margin-top: 10px;
+  padding: 6px 12px;
+  font-size: 12px;
+  color: var(--muted);
+  background: transparent;
+  border: 1px dashed var(--rule);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition:
+    color var(--ms-fast),
+    border-color var(--ms-fast),
+    background var(--ms-fast);
+}
+.row-toggle:hover {
+  color: var(--fg);
+  border-color: var(--border);
+  background: var(--surface-2);
+}
+
+/* ---------- Pagination (numbered) ---------- */
+.pagination {
+  display: inline-flex;
+  /* Wraps only when it has to: a three-digit page count overflowed the
+     narrowest phones, and the row is otherwise unchanged. */
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+  margin-top: 16px;
+}
+.pagination button {
+  font-size: 13px;
+  color: var(--fg);
+  font-weight: 500;
+  padding: 6px 10px;
+  min-width: 32px;
+  text-align: center;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font-variant-numeric: tabular-nums;
+  transition:
+    background var(--ms-fast),
+    transform var(--ms-fast);
+}
+.pagination button:hover:not(:disabled) {
+  background: var(--surface-2);
+}
+.pagination button:active:not(:disabled) {
+  transform: scale(0.94);
+}
+.pagination button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.pagination button.active {
+  background: var(--accent-fill);
+  color: var(--accent-fg);
+  border-color: var(--accent);
+}
+.pagination .ellipsis {
+  color: var(--muted);
+  padding: 0 4px;
+  font-weight: 500;
+}
+
+/* ---------- Segmented control ---------- */
+.segmented {
+  display: inline-flex;
+  align-items: stretch;
+  /* Not a fixed height: the phone breakpoint raises the buttons to a 40px tap
+     target, and a fixed 38px group let the active pill draw outside its own
+     border. The group grows to whatever its buttons need. */
+  min-height: var(--control-h);
+  padding: 3px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  gap: 2px;
+}
+.segmented button {
+  display: inline-flex;
+  align-items: center;
+  font-size: 13px;
+  color: var(--muted);
+  font-weight: 500;
+  padding: 0 12px;
+  border-radius: var(--radius-sm);
+  transition:
+    background var(--ms-fast),
+    color var(--ms-fast);
+}
+.segmented button:hover {
+  color: var(--fg);
+}
+.segmented button.active {
+  background: var(--surface);
+  color: var(--fg);
+  box-shadow: 0 0 0 1px var(--border);
+}
+
+/* Archetype detail toolbar — tabs on left, view toggle on right of the same row. */
+.arche-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+.arche-toolbar .tabs {
+  margin-bottom: 0;
+  flex: 1;
+  min-width: 0;
+}
+/* Card-order and Grid/List toggles share the toolbar's right edge. */
+.arche-toolbar-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* ---------- Tabs (underline) ---------- */
+.tabs {
+  display: flex;
+  gap: 22px;
+  border-bottom: 1px solid var(--rule);
+  margin-bottom: 20px;
+}
+.tabs button {
+  font-size: 13px;
+  color: var(--muted);
+  font-weight: 500;
+  padding: 10px 0 11px;
+  position: relative;
+  transition: color var(--ms-fast);
+}
+.tabs button:hover {
+  color: var(--fg);
+}
+/* A tab not open yet (Tabs.tsx LockedTab): dimmed, its bubble saying why. */
+.tab-locked {
+  padding: 0;
+  margin: 0;
+  cursor: default;
+}
+.tab-locked button,
+.tab-locked button:hover {
+  color: var(--muted);
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.tabs button.active {
+  color: var(--fg);
+  font-weight: 600;
+}
+.tabs button.active::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  background: var(--border);
+}
+@media (max-width: 640px) {
+  .tabs {
+    gap: var(--space-4);
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    scrollbar-width: none;
+    scroll-snap-type: x proximity;
+    margin-left: calc(var(--space-3) * -1);
+    margin-right: calc(var(--space-3) * -1);
+    padding-left: var(--space-3);
+    padding-right: var(--space-3);
+    /* Offset the snapport by the edge padding, otherwise the first tab snaps
+       to scrollLeft=12 and the strip can never rest at 0 — which pinned the
+       left scroll-fade on permanently. */
+    scroll-padding-inline: var(--space-3);
+  }
+  .tabs::-webkit-scrollbar {
+    display: none;
+  }
+  .tabs button {
+    flex-shrink: 0;
+    scroll-snap-align: start;
+    padding: 12px 0 13px;
+  }
+
+  /* Scroll-hint fades (classes managed by Tabs.tsx). Without these, tabs
+     clipped by the viewport edge — e.g. "Matchups" at 384px — gave no signal
+     that more existed. The mask tracks scroll position so the fade only sits
+     on edges that actually hide content. */
+  .tabs.fade-r {
+    mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 36px), transparent);
+    -webkit-mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 36px), transparent);
+  }
+  .tabs.fade-l {
+    mask-image: linear-gradient(to right, transparent, #000 36px, #000 100%);
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 36px, #000 100%);
+  }
+  .tabs.fade-l.fade-r {
+    mask-image: linear-gradient(to right, transparent, #000 36px, #000 calc(100% - 36px), transparent);
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 36px, #000 calc(100% - 36px), transparent);
+  }
+
+  /* Stack the archetype toolbar: the tab strip needs the full row — sharing
+     it with the Grid/List toggle hid 120px+ of tabs behind the toggle. */
+  .arche-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .arche-toolbar-controls {
+    align-self: flex-start;
+  }
+}
+
+/* ---------- Badge ---------- */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: var(--tracking-micro);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--fg);
+  text-transform: uppercase;
+  border: 1px solid var(--border);
+}
+.badge.regulation {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+  color: var(--fg);
+}
+
+/* ---------- Skeleton ---------- */
+.skeleton {
+  display: inline-block;
+  background: linear-gradient(
+    90deg,
+    var(--surface-2),
+    color-mix(in srgb, var(--surface-2) 60%, var(--bg)),
+    var(--surface-2)
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.6s ease-in-out infinite;
+  border-radius: var(--radius-sm);
+}
+.skeleton-block {
+  display: block;
+}
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* ---------- Hero meta line ---------- */
+.hero h1 + .hero-meta {
+  margin-top: 6px;
+}
+
+/* ---------- Tournament row list ---------- */
+.tournament-list {
+  display: grid;
+  gap: 8px;
+}
+.tournament-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 12px;
+  align-items: baseline;
+  padding: 10px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+}
+.tournament-row .date {
+  font-size: 11px;
+  letter-spacing: var(--tracking-micro);
+  text-transform: uppercase;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.tournament-row .name {
+  color: var(--fg);
+  font-weight: 500;
+}
+.tournament-row .players {
+  color: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.tournament-row-clickable {
+  width: 100%;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color var(--ms-base) var(--ease-base);
+}
+.tournament-row-clickable:hover {
+  border-color: var(--fg);
+}
+.tournament-row-clickable.active {
+  border-color: var(--accent);
+}
+.tournament-row .active-marker {
+  color: var(--accent-ink);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-micro);
+  font-size: 10.5px;
+}
+.tournament-row-link {
+  text-decoration: none;
+  color: var(--fg);
+  transition: border-color var(--ms-base) var(--ease-base);
+}
+.tournament-row-link:hover {
+  text-decoration: none;
+  border-color: var(--fg);
+}
+/* Loading rows are real rows with the ink taken out: each keeps placeholder
+   text, so it is exactly as tall as the row it stands in for at any width. */
+.tournament-row.is-skeleton :is(.mon, .day, .name > span, .players > span) {
+  color: transparent;
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+}
+/* Home event rows on phones: the date becomes a month-over-day column and the
+   name and type stack beside it. The name gets the rest of the row to itself,
+   so rows stay two lines, and the same height, whatever the event is called. */
+@media (max-width: 640px) {
+  .tournament-row-dated {
+    grid-template-columns: 38px 1fr;
+    grid-template-areas: 'date name' 'date type';
+    column-gap: 12px;
+    row-gap: 2px;
+    align-items: center;
+  }
+  .tournament-row-dated .date {
+    grid-area: date;
+    display: grid;
+    justify-items: center;
+    line-height: 1.1;
+  }
+  .tournament-row-dated .day {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--fg);
+    letter-spacing: 0;
+  }
+  .tournament-row-dated .name {
+    grid-area: name;
+  }
+  .tournament-row-dated .players {
+    grid-area: type;
+  }
+}
+
+/* ---------- Home: latest-event callout ----------
+   Appears at the very top of the home page when a major has finished within
+   the last 14 days. Built from the same surface primitives as the rest of
+   Stamp: 1px border on a surface fill, no fancy effects. Identity comes from
+   the typographic hierarchy + the winning deck's archetype card stack as a
+   visual anchor. */
+.home-callout-wrap {
+  margin-bottom: var(--section-gap, 42px);
+}
+.callout {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 0;
+  display: grid;
+  gap: 0;
+}
+.callout-head {
+  padding: 22px 28px 18px;
+  border-bottom: 1px solid var(--rule);
+  display: grid;
+  gap: 8px;
+}
+.callout-title {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  margin: 0;
+  color: var(--fg);
+}
+.callout-meta {
+  font-size: 13px;
+  color: var(--muted);
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+.callout-meta .dot {
+  margin: 0 8px;
+  opacity: 0.5;
+}
+
+/* Skeleton slot while participants load; same inset as the stories block. */
+.callout-loading {
+  padding: 22px 28px 26px;
+}
+
+.callout-format-pill {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--fg);
+}
+
+/* Top cut roster strip (shared by A/C/D) */
+.callout-cut-strip {
+  padding: 18px 28px 22px;
+  border-top: 1px solid var(--rule);
+}
+.callout-cut-strip-label {
+  font-size: 11px;
+  letter-spacing: var(--tracking-micro);
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--muted);
+  margin: 0 0 8px;
+  font-variant-numeric: tabular-nums;
+}
+.callout-cut-strip-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 4px 16px;
+}
+.callout-cut-strip-row {
+  display: grid;
+  grid-template-columns: 36px 34px 1fr auto;
+  gap: 8px;
+  align-items: center;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--rule);
+  font-size: 13px;
+  min-width: 0;
+}
+.callout-cut-strip-row .cut-country {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 1px 4px;
+  text-align: center;
+  font-variant: small-caps;
+}
+.callout-cut-strip-row .cut-country-empty {
+  background: transparent;
+  border: 0;
+}
+.callout-cut-strip-row:last-child {
+  border-bottom: 0;
+}
+.callout-cut-strip-row .cut-place {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: var(--muted);
+}
+.callout-cut-strip-row .cut-name {
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.callout-cut-strip-row .cut-deck {
+  font-size: 12px;
+  color: var(--accent-ink);
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 160px;
+}
+.callout-cut-strip-row .cut-deck:hover {
+  text-decoration: underline;
+}
+.callout-cut-more {
+  margin-top: 10px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+}
+.callout-cut-more:hover {
+  color: var(--fg);
+}
+
+@media (max-width: 640px) {
+  .callout-head,
+  .callout-cut-strip,
+  .callout-stories,
+  .callout-loading {
+    padding-left: var(--space-3);
+    padding-right: var(--space-3);
+  }
+  .callout-head {
+    padding-top: var(--space-4);
+    padding-bottom: var(--space-3);
+  }
+  .callout-title {
+    font-size: 22px;
+  }
+  .callout-meta-extra {
+    display: none;
+  }
+  .callout-cut-strip-list {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  .callout-cut-strip-row {
+    grid-template-columns: 36px auto minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    row-gap: 2px;
+    padding: 6px 0;
+  }
+  .callout-cut-strip-row .cut-place {
+    grid-row: 1 / span 2;
+    align-self: start;
+  }
+  .callout-cut-strip-row .cut-name {
+    grid-column: 2 / span 2;
+    grid-row: 1;
+  }
+  .callout-cut-strip-row .cut-country {
+    grid-column: 2;
+    grid-row: 2;
+  }
+  .callout-cut-strip-row .cut-country-empty {
+    display: none;
+  }
+  .callout-cut-strip-row .cut-deck {
+    grid-column: 3;
+    grid-row: 2;
+    max-width: none;
+  }
+  .callout-cut-strip-row .cut-country-empty + .cut-name + .cut-deck {
+    grid-column: 2 / span 2;
+  }
+}
+
+/* ---------- Conversion table (Field → Day 2 → top cut) ---------- */
+.conversion-disclosure {
+  margin-top: 16px;
+}
+.conversion-summary {
+  cursor: pointer;
+  width: max-content;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+  user-select: none;
+}
+.conversion-summary:hover {
+  color: var(--fg);
+}
+.conversion-table-wrap {
+  margin-top: 10px;
+}
+.conversion-table tbody tr {
+  cursor: default;
+}
+.conversion-table .conv-count {
+  margin-left: 6px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* =====================================================================
+   Latest Event callout — Story layout (Stamp design system)
+   ===================================================================== */
+
+.callout-stories {
+  padding: 22px 28px 26px;
+}
+.callout-stories-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+@media (max-width: 900px) {
+  .callout-stories-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 640px) {
+  .callout-stories-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Story card — mirrors `.arche` from the design system: thumb on top,
+   bordered, hover darkens the edge to `--fg`. */
+.story-card {
+  display: grid;
+  grid-template-rows: auto auto auto 1fr;
+  align-content: start;
+  gap: 8px;
+  padding: 14px 16px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  text-decoration: none;
+  color: var(--fg);
+  transition: border-color var(--ms-base) var(--ease-base);
+  min-width: 0;
+}
+.story-card:hover {
+  border-color: var(--fg);
+}
+
+.story-card-art {
+  aspect-ratio: 4 / 3;
+  background: var(--surface-2);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  display: block;
+}
+
+.story-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+.story-card-tag {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  font-size: 10.5px;
+  letter-spacing: 0.02em;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.story-card-symbol {
+  font-size: 11px;
+  line-height: 1;
+  color: var(--fg);
+}
+.story-card-surged .story-card-tag,
+.story-card-surged .story-card-symbol {
+  color: var(--positive);
+}
+.story-card-faded .story-card-tag,
+.story-card-faded .story-card-symbol {
+  color: var(--negative);
+}
+.story-card-climbed .story-card-tag,
+.story-card-climbed .story-card-symbol {
+  color: var(--accent-ink);
+}
+
+.story-card-subject {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+  margin: 0;
+  color: var(--fg);
+}
+.story-card-figure {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 0;
+}
+.story-card-value {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--fg);
+}
+.story-card-measure {
+  font-size: 12px;
+  color: var(--muted);
+}
+.story-card-detail {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  margin: 0;
+}
+
+/* ---------- Card detail page ---------- */
+.card-page-hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--rule);
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+.card-page-hero .title-block {
+  display: grid;
+  gap: 6px;
+}
+.card-page-hero h1 {
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+}
+.card-page-hero .card-meta-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 13px;
+  color: var(--muted);
+  flex-wrap: wrap;
+}
+.card-page-hero .card-meta-row .sep {
+  opacity: 0.4;
+}
+.card-page-grid {
+  display: grid;
+  grid-template-columns: minmax(240px, 300px) 1fr;
+  gap: 36px;
+  align-items: start;
+}
+@media (min-width: 761px) {
+  /* The rail is short (art, four stats, a frame grid) while the archetype list
+     runs on for screens, so pin it: the card and its headline numbers stay in
+     view while the reader scrolls the list. */
+  .card-page-left {
+    position: sticky;
+    top: calc(var(--topnav-h) + 16px);
+  }
+}
+@media (max-width: 760px) {
+  .card-page-grid {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+  /* Split rail: on phones the card art and the stat panel sit side by side, so
+     the headline numbers land next to the art instead of a full card-height
+     scroll away. The wider blocks (price, distribution, "where it's played")
+     drop to full width below the rail. */
+  .card-page-left {
+    /* 44% keeps the card art a touch taller than the five stat rows across the
+       target phones, so the art defines the height and the panel fills to it. */
+    grid-template-columns: minmax(0, 44%) 1fr;
+    column-gap: 16px;
+    /* Stretch so the stat panel matches the card art's height. */
+    align-items: stretch;
+  }
+  .card-page-left .card-image-real {
+    grid-column: 1;
+    grid-row: 1;
+    /* Keep the card's own 5:7 aspect — don't let the stretched row distort it. */
+    align-self: start;
+  }
+  /* The list fills the art's height and spreads its rows to match, so the two
+     columns line up top and bottom. */
+  .card-page-left .stats-list {
+    grid-column: 2;
+    grid-row: 1;
+    display: flex;
+    flex-direction: column;
+  }
+  .card-page-left .stats-list .stat-row {
+    flex: 1 1 0;
+    align-items: center;
+  }
+  /* Tighten the rail so all the rows fit comfortably beside the art. */
+  .stats-list .stat-row {
+    padding: 8px 0;
+    font-size: 13px;
+  }
+  .stats-list .stat-label {
+    font-size: 12px;
+  }
+  .card-page-hero {
+    margin-bottom: 18px;
+    padding-bottom: 14px;
+  }
+  .card-page-hero h1 {
+    font-size: 26px;
+  }
+}
+.card-page-left {
+  display: grid;
+  gap: 14px;
+}
+/* Card detail page: hug the printed card's rounded edge — no outer frame.
+   The card's own rounded border-radius is ~5% of its width on lg artwork; we
+   approximate with a fixed 14px which lines up with the visible printed corner. */
+.card-image-real {
+  display: block;
+  aspect-ratio: 5 / 7;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--surface-2);
+}
+.card-image-real img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+/* If the image 404s entirely, the fallback gets its own treatment so it isn't
+   visually empty. */
+.card-image-real .card-image-fallback {
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius-lg);
+  border: 1px dashed var(--border);
+  background: var(--surface);
+}
+
+/* Hairline-ruled stat rows under the card art: no box, the rules do the work,
+   like the data rows elsewhere on the page. */
+.stats-list .stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--rule);
+  font-size: 13px;
+}
+.stats-list .stat-label {
+  color: var(--muted);
+}
+.stats-list .stat-value {
+  color: var(--fg);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.stats-list .stat-label,
+.stats-list .stat-value {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+}
+/* The secondary half of a value — a rank denominator ("of 944"), a record
+   behind a win rate. Lives here rather than in cards.css because the player
+   profile's phase list uses .stats-list without ever loading that sheet, and
+   ran the two halves together as one number. */
+.stats-list .stat-rank-total {
+  color: var(--muted);
+  font-weight: 400;
+  font-size: 11px;
+}
+/* Headline stat: the inclusion rate is the single number the page is about, so
+   it carries the accent and a touch more weight in both the desktop rail and
+   the mobile split rail — mirroring the accent price value below it. */
+.stats-list .stat-row--lead .stat-value {
+  color: var(--accent-ink);
+  font-size: 15px;
+}
+/* Market price row: the value doubles as the TCGplayer link when we have a
+   product id, so it takes the accent like other links in the rail. */
+.stats-list .stat-value .price-link {
+  color: var(--accent-ink);
+  font-weight: 700;
+  text-decoration: none;
+}
+.stats-list .stat-value .price-link:hover {
+  text-decoration: underline;
+}
+
+/* Inline hoverable note: an asterisk (or other marker) that reveals a styled
+   bubble on hover/focus. See InfoTip.tsx. */
+.info-tip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: help;
+  /* Pad out the hit area so the small marker is easy to hover/tap, then pull
+     the surrounding layout back with a matching negative margin. */
+  padding: 4px 7px;
+  margin: -4px -4px;
+}
+.info-tip-marker {
+  color: var(--accent-ink);
+  font-weight: 700;
+  line-height: 1;
+  font-size: 1.05em;
+}
+.info-tip-bubble {
+  position: absolute;
+  bottom: calc(100% + 7px);
+  left: 50%;
+  transform: translateX(-50%) translateY(2px);
+  width: max-content;
+  max-width: 240px;
+  background: var(--surface);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.45;
+  text-align: left;
+  white-space: normal;
+  letter-spacing: normal;
+  text-transform: none;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.12s ease,
+    transform 0.12s ease;
+  z-index: 30;
+  /* Hidden by default, but hoverable once shown so the cursor can move onto it. */
+  pointer-events: none;
+}
+/* Transparent bridge spanning the gap below the bubble, so moving the cursor
+   from the marker up to the bubble never drops the hover. */
+.info-tip-bubble::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  height: 11px;
+}
+.info-tip:hover .info-tip-bubble,
+.info-tip:focus-visible .info-tip-bubble,
+.info-tip.open .info-tip-bubble {
+  opacity: 1;
+  visibility: visible;
+  /* --tip-shift is set by InfoTip.tsx when the bubble would clip the viewport
+     edge (tap-to-open on touch devices); zero everywhere else. */
+  transform: translateX(calc(-50% + var(--tip-shift, 0px))) translateY(0);
+  pointer-events: auto;
+}
+/* Keep the bubble on-screen near the right edge of the rail. */
+.stats-list .stat-value .info-tip-bubble {
+  left: auto;
+  right: 0;
+  transform: translateY(2px);
+}
+.stats-list .stat-value .info-tip:hover .info-tip-bubble,
+.stats-list .stat-value .info-tip:focus-visible .info-tip-bubble,
+.stats-list .stat-value .info-tip.open .info-tip-bubble {
+  transform: translateY(0);
+}
+.info-tip-bubble p {
+  margin: 0;
+}
+.info-tip-bubble p + p {
+  margin-top: 6px;
+}
+
+.card-page-right {
+  display: grid;
+  gap: 32px;
+}
+.card-section h3 {
+  font-size: 11px;
+  letter-spacing: var(--tracking-micro);
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+
+.dist-block {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 10px 16px;
+}
+.dist-row {
+  display: grid;
+  grid-template-columns: 80px 1fr auto;
+  gap: 16px;
+  align-items: center;
+  padding: 8px 0;
+  font-size: 13px;
+  border-bottom: 1px solid var(--rule);
+}
+.dist-row:last-child {
+  border-bottom: 0;
+}
+.dist-row .copies-label {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.dist-row .bar {
+  height: 8px;
+  background: var(--surface-2);
+  border-radius: 2px;
+  overflow: hidden;
+  position: relative;
+}
+.dist-row .bar-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+}
+.dist-row .pct {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Archetype Pokémon icons ----------
+   Compact Limitless sprite(s) shown beside an archetype name (list view,
+   trends legend, etc.). Up to two; paired icons overlap slightly. */
+.arche-icons {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+}
+.arche-icons .arche-icon + .arche-icon {
+  margin-left: -6px;
+}
+.arche-icon {
+  display: block;
+  object-fit: contain;
+}
+/* List-view archetype cell: icon(s) then name on one baseline. */
+.arche-name-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+}
+
+/* ---------- Cards grid (/cards page) ----------
+   Histogram + total-usage bar are overlaid on the card image. Every card
+   image is `object-fit: contain` so its full frame is preserved (no cropping
+   variance between cards). The container background fills any letterboxing.
+
+   IMPORTANT: `min-width: 0` cascades from the grid item down through every
+   inner flex/grid container. Without it, a long card name forces the cell's
+   min-content size larger than the 1fr track, which makes that one cell wider
+   and (because of padding-top: 140%) taller than its neighbors. */
+.cards-grid {
+  display: grid;
+  /* Target 7 columns at the 1180px page max-width (≈149px per card). */
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
+}
+@media (max-width: 640px) {
+  .cards-grid {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 10px;
+  }
+}
+/* "Show all N cards" reveal under a capped CardList. */
+.cards-grid-more {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--space-5);
+}
+.card-tile {
+  display: grid;
+  gap: 8px;
+  min-width: 0; /* ← critical: lets the cell stay at the track width */
+  text-decoration: none;
+  color: var(--fg);
+  transition: transform var(--ms-fast) var(--ease-base);
+  /* Native virtualization: skip layout/paint/image-decode for offscreen tiles
+     and let the browser reclaim their memory. Big archetype card lists were
+     keeping dozens of decoded PNGs live, spiking memory and making mobile
+     browsers discard + reload the page on back-navigation. The `auto` keyword
+     lets each tile remember its real size once rendered; 240px is the initial
+     estimate (≈140% card box + meta) so the scrollbar stays stable before that. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 240px;
+}
+.card-tile:hover {
+  text-decoration: none;
+  transform: translateY(-2px);
+}
+.card-tile:active {
+  transform: translateY(0) scale(0.99);
+}
+
+/* Padding-top technique locks the card to a 5:7 box even when the image hasn't
+   loaded yet OR has a slightly off-standard intrinsic ratio. `aspect-ratio` is
+   advisory to the browser; padding-top is a guaranteed dimension. */
+.card-tile-card {
+  position: relative;
+  width: 100%;
+  padding-top: 140%; /* 7 / 5 = 1.4 → 140% */
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--surface-2);
+}
+
+/* The image fills the 5:7 box absolutely. object-fit: contain shows the full
+   card with letterboxing where needed; the surface-2 background fills the gaps. */
+.card-tile-card img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+/* Override the global .card-image-fallback aspect-ratio when nested inside a
+   tile — fallback should fill the container, not impose its own ratio. */
+.card-tile-card .card-image-fallback {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  aspect-ratio: auto;
+  border-radius: 10px;
+  border: 1px dashed var(--border);
+  background: var(--surface);
+}
+
+/* Subtle dark gradient on the bottom half of the card so the histogram + usage
+   bar read cleanly against arbitrary card art. Sits between the image and the
+   overlay so the bars stack on top of the shade. */
+.card-tile-shade {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 55%;
+  pointer-events: none;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.55) 0%, rgba(0, 0, 0, 0.35) 50%, rgba(0, 0, 0, 0) 100%);
+}
+
+/* Overlay = histogram + usage bar at the bottom of the card. */
+.card-tile-overlay {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 5px;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Histogram: 4 bars showing copy-count distribution.
+   align-items: stretch lets columns be full parent height, which is what makes
+   the fill's `height: X%` resolve to a real pixel value rather than 0. The
+   fill is absolutely positioned at the bottom of each column so the bar grows
+   upward as its percentage rises. */
+.card-tile-hist {
+  display: flex;
+  align-items: stretch;
+  gap: 3px;
+  height: 44px;
+}
+.card-tile-hist-col {
+  flex: 1;
+  position: relative;
+  min-width: 0;
+}
+.card-tile-hist-fill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--accent);
+  border-radius: 3px 3px 0 0;
+  min-height: 3px;
+  box-shadow: 0 0 0 1px color-mix(in srgb, #000 25%, transparent);
+}
+.card-tile-hist-label {
+  position: absolute;
+  left: 50%;
+  bottom: 1px;
+  transform: translateX(-50%);
+  font-size: 9px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.7);
+  border-radius: 2px;
+  padding: 0 4px;
+  line-height: 1.3;
+  letter-spacing: 0;
+  pointer-events: none;
+}
+
+/* Total-usage bar: peach fill width = inclusion %, with the % printed on the right. */
+.card-tile-usage {
+  position: relative;
+  background: rgba(0, 0, 0, 0.7);
+  border-radius: var(--radius-sm);
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 6px;
+  overflow: hidden;
+}
+.card-tile-usage-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  background: var(--accent);
+}
+.card-tile-usage-pct {
+  position: relative;
+  z-index: 1;
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #fff;
+  letter-spacing: -0.005em;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5);
+}
+
+/* Below the card: name + set/number on row 1, "found / total decks" on row 2. */
+.card-tile-meta {
+  display: grid;
+  gap: 2px;
+  min-width: 0; /* cascade — child rows can ellipsis */
+}
+/* Loading placeholder shaped like a tile — see the note in CardsIndexPage.
+   It carries `.card-tile`, so it also picks up that rule's `content-visibility:
+   auto`, which would lay the offscreen ones out against the 240px estimate
+   instead of their real height. There are only fourteen; measure them properly. */
+.card-tile-skeleton {
+  cursor: default;
+  pointer-events: none;
+  content-visibility: visible;
+}
+.card-tile-name-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0; /* cascade — name span can ellipsis */
+  font-size: 12px;
+  line-height: 1.3;
+}
+.card-tile-name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--fg);
+  flex: 1;
+  min-width: 0;
+}
+.card-tile-set {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
+}
+.card-tile-decks {
+  font-size: 10.5px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- About / prose ---------- */
+/* The About page is one reading column, so it sits in the middle of the page
+   rather than against the left edge of a 1180px frame built for tables. */
+.about-column {
+  max-width: 66ch;
+  margin-inline: auto;
+}
+.prose {
+  display: grid;
+  gap: 16px;
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--fg);
+}
+.prose ul {
+  padding-left: 24px;
+  margin: 0;
+  display: grid;
+  gap: 6px;
+}
+.prose li {
+  line-height: 1.55;
+}
+.prose a {
+  font-weight: 500;
+}
+/* Glossary definition list (the Pack EV method notes). */
+.glossary {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 6px 18px;
+  margin: 4px 0 8px;
+}
+.glossary dt {
+  font-weight: 700;
+  color: var(--fg);
+}
+.glossary dd {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+@media (max-width: 640px) {
+  .glossary {
+    grid-template-columns: 1fr;
+    gap: 2px 0;
+  }
+  .glossary dd {
+    margin-bottom: 8px;
+  }
+}
+
+/* ---------- Advanced filter builder (matches design-explore.html FB-B) ---------- */
+.advanced-panel {
+  margin-top: 4px;
+}
+
+.fb-frame {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 18px 20px 16px;
+}
+.fb-controls {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px 18px;
+  margin-bottom: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--rule);
+}
+@media (min-width: 640px) {
+  .fb-controls {
+    grid-template-columns: minmax(0, 220px) minmax(0, 1fr);
+    align-items: end;
+  }
+}
+.fb-field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.fb-field-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-micro);
+  font-weight: 600;
+  color: var(--muted);
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+.fb-threshold-out {
+  font-variant-numeric: tabular-nums;
+  color: var(--fg);
+  font-size: 12px;
+  letter-spacing: 0;
+  text-transform: none;
+  font-weight: 700;
+}
+.fb-select {
+  width: 100%;
+  height: var(--control-h);
+  padding: 0 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--fg);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  transition:
+    border-color var(--ms-fast),
+    box-shadow var(--ms-fast);
+}
+.fb-select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: var(--focus-ring);
+}
+.fb-range {
+  width: 100%;
+  accent-color: var(--accent);
+}
+@media (max-width: 640px) {
+  /* Larger thumb for finger ergonomics. accent-color still themes both tracks
+     and the thumb body; we only inflate the thumb's hit area + visual size. */
+  .fb-range {
+    height: 28px;
+  }
+  .fb-range::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 1px solid var(--border);
+    margin-top: -10px;
+  }
+  .fb-range::-moz-range-thumb {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 1px solid var(--border);
+  }
+  .fb-range::-webkit-slider-runnable-track {
+    height: 4px;
+    background: var(--surface-2);
+    border-radius: 2px;
+  }
+  .fb-range::-moz-range-track {
+    height: 4px;
+    background: var(--surface-2);
+    border-radius: 2px;
+  }
+}
+
+.fb-b-search {
+  position: relative;
+  margin-bottom: 14px;
+}
+.fb-b-search input {
+  width: 100%;
+  padding: 10px 12px 10px 34px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--fg);
+  font: inherit;
+  font-size: 13px;
+  transition:
+    border-color var(--ms-fast),
+    box-shadow var(--ms-fast);
+}
+.fb-b-search input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: var(--focus-ring);
+}
+.fb-b-search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 700;
+  pointer-events: none;
+}
+.fb-b-popover {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 4px;
+  z-index: 10;
+  max-height: 50vh;
+  max-height: 50dvh;
+  overflow-y: auto;
+}
+.fb-b-popover .item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  font-size: 13px;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+}
+.fb-b-popover .item:hover,
+.fb-b-popover .item.highlighted {
+  background: var(--surface-2);
+}
+.fb-b-popover .item .name {
+  font-weight: 500;
+  flex: 1;
+}
+.fb-b-popover .item .meta {
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.fb-b-rules-head {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-micro);
+  font-weight: 700;
+  color: var(--muted);
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--rule);
+  margin-bottom: 2px;
+}
+.fb-b-rules-head b {
+  color: var(--fg);
+}
+
+.fb-b-row {
+  display: grid;
+  grid-template-columns: 1fr 138px 96px 28px;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 0;
+  font-size: 13px;
+  border-bottom: 1px solid var(--rule);
+}
+.fb-b-row:last-of-type {
+  border-bottom: 0;
+}
+@media (max-width: 640px) {
+  .fb-b-row {
+    grid-template-columns: 1fr auto auto;
+    grid-template-areas:
+      'name name name'
+      'op count remove';
+    column-gap: var(--space-2);
+    row-gap: 6px;
+    padding: 10px 0;
+  }
+  .fb-b-row .card-name {
+    grid-area: name;
+  }
+  .fb-b-row .op-select {
+    grid-area: op;
+    padding: 7px 10px;
+  }
+  .fb-b-row .count-input {
+    grid-area: count;
+  }
+  .fb-b-row .remove {
+    grid-area: remove;
+    width: 28px;
+    height: 28px;
+  }
+}
+.fb-b-row .card-name {
+  font-weight: 500;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fb-b-row .op-select {
+  padding: 5px 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--fg);
+  cursor: pointer;
+  letter-spacing: -0.005em;
+  transition:
+    background var(--ms-fast),
+    border-color var(--ms-fast);
+}
+.fb-b-row .op-select:hover {
+  background: var(--surface-2);
+}
+.fb-b-row .op-select.include {
+  color: var(--positive);
+  border-color: color-mix(in srgb, var(--positive) 30%, var(--border));
+}
+.fb-b-row .op-select.exclude {
+  color: var(--negative);
+  border-color: color-mix(in srgb, var(--negative) 30%, var(--border));
+}
+.fb-b-row .count-input {
+  display: flex;
+  align-items: stretch;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  font-size: 12px;
+}
+.fb-b-row .count-input .op-label {
+  padding: 4px 6px;
+  background: var(--surface-2);
+  font-weight: 700;
+  color: var(--fg);
+  font-variant-numeric: tabular-nums;
+  display: grid;
+  place-items: center;
+  min-width: 28px;
+  cursor: pointer;
+  border: 0;
+  border-right: 1px solid var(--border);
+  transition: background var(--ms-fast);
+}
+.fb-b-row .count-input .op-label:hover:not(:disabled) {
+  background: var(--rule);
+}
+.fb-b-row .count-input .op-label:disabled {
+  cursor: not-allowed;
+}
+.fb-b-row .count-input input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  padding: 4px 8px;
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  -moz-appearance: textfield;
+}
+.fb-b-row .count-input input::-webkit-outer-spin-button,
+.fb-b-row .count-input input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+/* The input itself is borderless inside the bordered .count-input wrapper
+   (which clips with overflow: hidden), so the accent focus ring lives on the
+   wrapper via :focus-within instead of the input. */
+.fb-b-row .count-input:focus-within {
+  border-color: var(--accent);
+  box-shadow: var(--focus-ring);
+}
+.fb-b-row .count-input input:focus {
+  outline: none;
+}
+.fb-b-row .count-input.disabled {
+  opacity: 0.4;
+}
+.fb-b-row .remove {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  transition:
+    background var(--ms-fast),
+    color var(--ms-fast);
+}
+.fb-b-row .remove:hover {
+  background: var(--surface-2);
+  color: var(--negative);
+}
+
+.fb-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 14px;
+  margin-top: 14px;
+  border-top: 1px solid var(--rule);
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.fb-count {
+  font-size: 13px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.fb-count b {
+  color: var(--fg);
+  font-weight: 700;
+  font-size: 15px;
+}
+.fb-count-muted {
+  font-style: italic;
+}
+.fb-actions {
+  display: flex;
+  gap: 6px;
+}
+
+/* ============================================================
+   Filters → "build toward 60" tooling: pool meter, PTCGL export,
+   the prefer-this-or-that questionnaire, and co-occurrence chips.
+   ============================================================ */
+.fb-build {
+  display: grid;
+  gap: 12px;
+}
+
+/* Compact pool + export toolbar — one quiet row above the card list. */
+.fb-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.fb-bar-meter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1 1 220px;
+  min-width: 180px;
+}
+.fb-bar-count {
+  font-size: 13px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.fb-bar-count b {
+  color: var(--fg);
+  font-weight: 700;
+  font-size: 15px;
+}
+.fb-bar-track {
+  flex: 1;
+  height: 4px;
+  min-width: 60px;
+  background: var(--surface-2);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.fb-bar-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+}
+.fb-bar-track.is-complete .fb-bar-fill {
+  background: var(--positive);
+}
+.fb-bar-track.is-over .fb-bar-fill {
+  background: var(--negative);
+}
+.fb-bar-over {
+  font-size: 12px;
+  color: var(--negative);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.fb-bar-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.fb-bar-msg {
+  font-size: 12px;
+  color: var(--positive);
+  font-weight: 600;
+  margin-right: 6px;
+}
+.fb-bar-btn {
+  background: transparent;
+  border: 0;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition:
+    color var(--ms-fast),
+    background var(--ms-fast);
+}
+.fb-bar-btn:hover:not(:disabled) {
+  color: var(--fg);
+  background: var(--surface-2);
+}
+.fb-bar-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Questionnaire — quiet text trigger, then a tight card. */
+.fb-narrow {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
+  color: var(--accent-ink);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 7px 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition:
+    background var(--ms-fast),
+    border-color var(--ms-fast);
+}
+.fb-narrow:hover {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  border-color: var(--accent);
+}
+/* Questionnaire lives inside the filter box, set off by a rule like the foot. */
+.fb-quiz-section {
+  display: grid;
+  gap: 12px;
+  padding-top: 14px;
+  margin-top: 14px;
+  border-top: 1px solid var(--rule);
+}
+.fb-quiz {
+  display: grid;
+  gap: 12px;
+}
+.fb-quiz-head {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg);
+}
+.fb-quiz-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+}
+.fb-quiz-opt {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  text-align: left;
+  transition:
+    border-color var(--ms-fast),
+    background var(--ms-fast);
+}
+.fb-quiz-opt:hover {
+  border-color: var(--accent);
+  background: var(--surface-2);
+}
+.fb-quiz-opt .name {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--fg);
+}
+.fb-quiz-opt .pct {
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.fb-quiz-foot {
+  display: flex;
+  gap: 2px;
+}
+.fb-quiz-foot button {
+  background: transparent;
+  border: 0;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition:
+    color var(--ms-fast),
+    background var(--ms-fast);
+}
+.fb-quiz-foot button:hover {
+  color: var(--fg);
+  background: var(--surface-2);
+}
+
+/* Co-occurrence suggestions — inline chips. */
+.fb-suggest {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.fb-suggest-label {
+  font-size: 12px;
+  color: var(--muted);
+}
+.fb-suggest-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: var(--surface);
+  border: 1px solid color-mix(in srgb, var(--positive) 40%, var(--border));
+  border-radius: var(--radius-pill);
+  font: inherit;
+  font-size: 12px;
+  color: var(--fg);
+  cursor: pointer;
+  transition:
+    border-color var(--ms-fast),
+    background var(--ms-fast);
+}
+.fb-suggest-chip:hover {
+  background: var(--surface-2);
+  border-color: var(--positive);
+}
+.fb-suggest-chip .pct {
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.fb-suggest-chip .plus {
+  color: var(--positive);
+  font-weight: 700;
+}
+
+@media (max-width: 640px) {
+  .fb-quiz-options {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ============================================================
+   Touch devices: suppress hover-elevation transforms.
+   On (hover: none) devices, :hover still latches briefly after a tap
+   and can leave cards stuck in their hover transform. We override the
+   transform back to none (and re-apply the base CardStack fan) so the
+   page reads identically before and after a tap. The press-scale on
+   :active is kept — that's the legitimate touch feedback.
+   ============================================================ */
+@media (hover: none) {
+  .card-tile:hover {
+    transform: none;
+  }
+  /* Re-apply the base CardStack fan so :hover doesn't leave slots reshuffled. */
+  :is(.arche, .story-card):hover .card-stack-1 .card-stack-slot {
+    transform: translate(0, 0) rotate(-1.5deg);
+  }
+  :is(.arche, .story-card):hover .card-stack-2 .card-stack-slot:nth-child(1) {
+    transform: translate(-16%, 4%) rotate(-7deg);
+  }
+  :is(.arche, .story-card):hover .card-stack-2 .card-stack-slot:nth-child(2) {
+    transform: translate(16%, -2%) rotate(6deg);
+  }
+  :is(.arche, .story-card):hover .card-stack-3 .card-stack-slot:nth-child(1) {
+    transform: translate(-22%, 8%) rotate(-9deg);
+  }
+  :is(.arche, .story-card):hover .card-stack-3 .card-stack-slot:nth-child(2) {
+    transform: translate(0, -2%) rotate(0);
+  }
+  :is(.arche, .story-card):hover .card-stack-3 .card-stack-slot:nth-child(3) {
+    transform: translate(22%, 4%) rotate(8deg);
+  }
+}
+
+/* =====================================================================
+   Matchups tab — overview strip, key/rest rows on a deviation gauge, and
+   a demoted card-lens drawer. Replaces the old full-width diverging bar.
+   ===================================================================== */
+
+/* ---- Overview: proportional favored/even/unfavored strip ---- */
+.r2-overview {
+  margin-bottom: 18px;
+}
+.r2-strip {
+  display: flex;
+  width: 100%;
+  height: 14px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.r2-strip-seg {
+  height: 100%;
+}
+.r2-strip-seg.fav {
+  background: var(--positive);
+}
+.r2-strip-seg.even {
+  background: var(--surface-2);
+}
+.r2-strip-seg.unf {
+  background: var(--negative);
+}
+.r2-strip-labels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin-top: 9px;
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.r2-strip-labels b {
+  color: var(--fg);
+  font-weight: 700;
+}
+.r2-swatch {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  margin-right: 6px;
+  vertical-align: -1px;
+}
+.r2-swatch.fav {
+  background: var(--positive);
+}
+.r2-swatch.even {
+  background: var(--surface-2);
+  border: 1px solid var(--rule);
+}
+.r2-swatch.unf {
+  background: var(--negative);
+}
+
+/* Summary line + section subline copy */
+.mu-summary {
+  font-size: 13px;
+  color: var(--muted);
+  margin: 0 0 16px;
+  font-variant-numeric: tabular-nums;
+}
+.mu-summary b {
+  color: var(--fg);
+  font-weight: 700;
+}
+
+/* ---- Section headers ---- */
+.r2-sec {
+  margin-top: 22px;
+}
+.r2-sec + .r2-sec {
+  margin-top: 26px;
+}
+.r2-sechead {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 0 6px 8px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+.r2-sechead-title {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-micro);
+  font-weight: 600;
+  color: var(--muted);
+}
+.r2-sechead-count {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--fg);
+  font-variant-numeric: tabular-nums;
+}
+.r2-sechead-note {
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.rf-subline {
+  margin: 0 0 10px;
+  padding: 0 6px;
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.rf-subline b {
+  color: var(--fg);
+  font-weight: 700;
+}
+
+/* Demoted sort control, right-aligned in the Rest section header */
+.mu-sort {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ---- Deviation gauge (half-width; empty at even) ----
+   Fill width = |WR - 50| / 50 of the track: green above 50, red below,
+   transparent at even. Always paired with a visible WR% so it reads
+   without relying on color. */
+.mu-gauge {
+  display: inline-block;
+  position: relative;
+  width: 88px;
+  height: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  vertical-align: middle;
+  flex: none;
+}
+.mu-gauge-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-radius: 1px;
+  z-index: 2;
+}
+.mu-gauge-range {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  background: color-mix(in srgb, var(--fg) 25%, transparent);
+  border-inline: 1px solid color-mix(in srgb, var(--fg) 45%, transparent);
+  z-index: 1;
+}
+.mu-gauge-fill.mu-pos {
+  background: var(--positive);
+}
+.mu-gauge-fill.mu-neg {
+  background: var(--negative);
+}
+.mu-gauge-fill.mu-flat {
+  background: transparent;
+}
+
+/* ---- List + shared cells ---- */
+.mu-list {
+  display: flex;
+  flex-direction: column;
+}
+.mu-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.mu-opp {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+.mu-opp .cardname {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+  transition: color var(--ms-fast);
+}
+.mu-meta {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.mu-stats {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+  text-align: right;
+}
+.mu-wr {
+  font-weight: 700;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.mu-rec {
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.mu-pos {
+  color: var(--positive);
+}
+.mu-neg {
+  color: var(--negative);
+}
+.mu-flat {
+  color: var(--muted);
+}
+
+/* ---- Key rows (large) + Rest rows (compact) ---- */
+.r2-krow {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 88px minmax(96px, max-content);
+  align-items: center;
+  gap: 16px;
+  min-height: 54px;
+  padding: 8px 6px;
+  border-bottom: 1px solid var(--rule);
+  border-radius: var(--radius-sm);
+}
+.r2-rrow {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 88px minmax(84px, max-content);
+  align-items: center;
+  gap: 14px;
+  min-height: 36px;
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--rule);
+  border-radius: var(--radius-sm);
+}
+.r2-krow:last-child,
+.r2-rrow:last-child {
+  border-bottom: 0;
+}
+.r2-kname {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.r2-kname .mu-opp .cardname {
+  font-size: 15px;
+  font-weight: 600;
+}
+.r2-share {
+  flex: none;
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.r2-krow .mu-wr {
+  font-size: 15px;
+}
+.r2-rname {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.r2-rname .mu-opp .cardname {
+  font-size: 13px;
+}
+
+/* Row link + muted low-sample treatment */
+.r2-krow.is-link,
+.r2-rrow.is-link {
+  cursor: pointer;
+}
+.r2-krow.is-link:hover,
+.r2-rrow.is-link:hover {
+  background: var(--surface-2);
+}
+.r2-krow.is-link:hover .cardname,
+.r2-rrow.is-link:hover .cardname {
+  color: var(--accent-ink);
+}
+.r2-krow.is-link:focus-visible,
+.r2-rrow.is-link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  background: var(--surface-2);
+}
+
+/* ---- Low-sample expander ---- */
+.r2-more {
+  margin-top: 16px;
+}
+.r2-more > summary {
+  list-style: none;
+  display: inline-flex;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent-ink);
+  cursor: pointer;
+  padding: 6px 8px;
+}
+.r2-more > summary::-webkit-details-marker {
+  display: none;
+}
+.r2-more > summary:hover {
+  text-decoration: underline;
+}
+.r2-more[open] > summary {
+  color: var(--muted);
+}
+.r2-more .r2-rrow {
+  opacity: 0.6;
+}
+
+/* Text "show more" button, reused by the lens list */
+.mu-more {
+  align-self: flex-start;
+  margin-top: 10px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent-ink);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  padding: 6px 8px;
+}
+.mu-more:hover {
+  text-decoration: underline;
+}
+
+/* ---- Demoted card-lens drawer ---- */
+.r2-lens {
+  margin-top: 26px;
+  padding-top: 18px;
+  border-top: 1px solid var(--rule);
+}
+.r2-lens summary {
+  list-style: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  padding: 5px 13px;
+}
+.r2-lens summary::-webkit-details-marker {
+  display: none;
+}
+.r2-lens summary:hover {
+  color: var(--fg);
+  border-color: var(--accent);
+}
+.r2-lens details[open] > summary {
+  color: var(--fg);
+}
+.r2-lens-plus {
+  color: var(--accent-ink);
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 1;
+}
+.r2-lens-body {
+  margin-top: 12px;
+  color: var(--muted);
+}
+
+/* Suggested tech-card chips + quiet search */
+.rf-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-bottom: 10px;
+}
+.rf-chip {
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  padding: 4px 11px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.rf-chip:hover {
+  color: var(--fg);
+  border-color: var(--accent);
+}
+.rf-chip.is-active {
+  color: var(--fg);
+  background: var(--surface-2);
+  border-color: var(--accent);
+}
+.rf-search-wrap {
+  position: relative;
+  max-width: 320px;
+  margin-bottom: 12px;
+}
+.rf-search {
+  display: block;
+  width: 100%;
+  font: inherit;
+  font-size: 12px;
+  color: var(--fg);
+  background: transparent;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-sm);
+  padding: 5px 9px;
+}
+.rf-search::placeholder {
+  color: var(--muted);
+}
+
+/* Active lens chip + copies control */
+.r2-lens-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.mu-lens-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  padding: 3px 5px 3px 13px;
+}
+.mu-lens-name {
+  font-weight: 600;
+  color: var(--fg);
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mu-copies {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.mu-copies input {
+  width: 34px;
+  padding: 2px;
+  text-align: center;
+  background: var(--bg);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-sm);
+  color: var(--fg);
+  font: inherit;
+  font-size: 12px;
+}
+.mu-lens-clear {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+  padding: 5px;
+  border-radius: 50%;
+}
+.mu-lens-clear:hover {
+  color: var(--negative);
+  background: var(--surface);
+}
+.r2-lens-hint {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 0 0 10px;
+  font-variant-numeric: tabular-nums;
+}
+.r2-lens-hint b {
+  color: var(--fg);
+  font-weight: 700;
+}
+
+/* Lens comparison rows */
+.r2-lens-list {
+  display: flex;
+  flex-direction: column;
+}
+.r2-lensrow {
+  display: grid;
+  grid-template-columns: minmax(120px, 1.4fr) minmax(150px, 1fr) max-content;
+  align-items: center;
+  gap: 14px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--rule);
+  font-size: 12px;
+}
+.r2-lensrow:last-child {
+  border-bottom: 0;
+}
+.r2-lensrow.is-link {
+  cursor: pointer;
+}
+.r2-lensrow.is-link:hover {
+  background: var(--surface-2);
+}
+.r2-lensrow.is-link:hover .cardname {
+  color: var(--accent-ink);
+}
+.r2-lensrow .mu-name {
+  gap: 7px;
+}
+.r2-lensrow .cardname {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+  color: var(--fg);
+}
+.r2-ww {
+  display: flex;
+  gap: 14px;
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.r2-ww .num {
+  color: var(--fg);
+  font-weight: 600;
+}
+.r2-delta {
+  justify-self: end;
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  padding: 2px 8px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-pill);
+  white-space: nowrap;
+}
+.r2-delta small {
+  display: block;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 500;
+  line-height: 1.2;
+  text-align: center;
+}
+
+/* ---- Responsive: rows stack the gauge full-width under name + stats ---- */
+@media (max-width: 720px) {
+  .r2-krow,
+  .r2-rrow {
+    grid-template-columns: minmax(0, 1fr) max-content;
+    grid-template-areas:
+      'name stats'
+      'gauge gauge';
+    row-gap: 7px;
+    column-gap: 12px;
+  }
+  .r2-krow > .r2-kname,
+  .r2-rrow > .r2-rname {
+    grid-area: name;
+  }
+  .r2-krow > .mu-stats,
+  .r2-rrow > .mu-stats {
+    grid-area: stats;
+  }
+  .r2-krow > .mu-gauge,
+  .r2-rrow > .mu-gauge {
+    grid-area: gauge;
+    width: 100%;
+  }
+  .r2-sechead-note {
+    display: none;
+  }
+  .r2-lensrow {
+    grid-template-columns: 1fr max-content;
+    grid-template-areas:
+      'name  delta'
+      'ww    ww';
+    gap: 5px 10px;
+  }
+  .r2-lensrow .mu-name {
+    grid-area: name;
+  }
+  .r2-lensrow .r2-delta {
+    grid-area: delta;
+  }
+  .r2-lensrow .r2-ww {
+    grid-area: ww;
+  }
+}
+
+/* =====================================================================
+   Mobile touch targets (P2.2 / F2)
+   Interactive controls measured 26-38px tall on phones — below the 44px
+   minimum (WCAG 2.5.5 / Apple HIG / Material). Applies on narrow
+   viewports and on any device whose primary pointer is a finger.
+   ===================================================================== */
+@media (max-width: 640px), (pointer: coarse) {
+  /* body[data-mode] matches the specificity of the tokens.css theme blocks
+     (which re-declare --row-height on body); this file loads later, so it wins. */
+  :root,
+  body[data-mode] {
+    --row-height: 44px;
+  }
+
+  .t-selector-trigger {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  /* iOS Safari zooms the viewport on any focused input under 16px, so every
+     visit that starts by searching starts by pinching back out. */
+  .search {
+    font-size: 16px;
+  }
+
+  .chip {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  .pagination button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .segmented button {
+    min-height: 40px; /* inside a bordered group; the group itself clears 44px */
+  }
+
+  .tabs button {
+    min-height: 44px;
+  }
+
+  /* Icon-only buttons (row remove and lens clear) render
+     24-32px square — the glyph stays small, only the hit area grows. */
+  .fb-b-row .remove,
+  .mu-lens-clear {
+    min-width: 44px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .fb-bar-btn,
+  .fb-quiz-foot button {
+    min-height: 44px;
+  }
+
+  /* Tournament picker rows sit in a scrollable popover list; baseline
+     alignment reads wrong once the row grows, so center instead. */
+  .t-selector-item {
+    min-height: 44px;
+    align-items: center;
+  }
+
+  /* Expand caret column on player tables: the whole row is the tap target
+     (44px via --row-height); widen the column so the caret reads as tappable. */
+  .data th.expand-col,
+  .data td.expand-col {
+    width: 36px;
+  }
+  .row-caret {
+    font-size: 13px;
+  }
+}
+
+/* ---------- Bottom sheet (shared BottomSheet component) ----------
+   Portalled to <body>; a scrim + a panel that slides up from the bottom edge.
+   Present in the DOM at all widths but only reachable via the mobile trigger. */
+.sheet-scrim {
+  position: fixed;
+  inset: 0;
+  background: var(--fg);
+  opacity: 0;
+  z-index: 40;
+  pointer-events: none;
+  transition: opacity var(--ms-base) var(--ease-base);
+}
+.sheet-scrim.open {
+  opacity: 0.32;
+  pointer-events: auto;
+}
+.sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 50;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-bottom: 0;
+  border-top-left-radius: var(--radius-md);
+  border-top-right-radius: var(--radius-md);
+  transform: translateY(100%);
+  transition: transform var(--ms-base) var(--ease-base);
+  will-change: transform;
+}
+.sheet.open {
+  transform: translateY(0);
+}
+.sheet-head {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid var(--rule);
+  flex-shrink: 0;
+}
+.sheet-grip {
+  position: absolute;
+  top: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 34px;
+  height: 4px;
+  border-radius: var(--radius-pill);
+  background: var(--border);
+}
+.sheet-head h2 {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--fg);
+  margin: 0;
+}
+.sheet-close {
+  font: inherit;
+  font-size: 13px;
+  color: var(--muted);
+  background: none;
+  border: 0;
+  padding: 4px 2px;
+  cursor: pointer;
+}
+.sheet-close:hover {
+  color: var(--fg);
+}
+.sheet-body {
+  overflow-y: auto;
+  padding: 14px 16px 18px;
+  flex: 1 1 auto;
+}
+/* The "filter room": hairline-separated groups under bold labels, in a sheet
+   or in any panel marked .filter-room. */
+.sheet-body .group,
+.filter-room .group {
+  padding-bottom: 18px;
+  margin-bottom: 18px;
+  border-bottom: 1px solid var(--rule);
+}
+.sheet-body .group:last-child,
+.filter-room .group:last-child {
+  padding-bottom: 0;
+  margin-bottom: 0;
+  border-bottom: 0;
+}
+.sheet-body .group-label,
+.filter-room .group-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--fg);
+  letter-spacing: 0.01em;
+  margin: 0 0 8px;
+}
+.sheet-body .chips,
+.filter-room .chips {
+  flex-wrap: wrap;
+}
+.sheet-foot {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--rule);
+  background: var(--surface);
+  flex-shrink: 0;
+}
+/* The footer's primary action ("Show 24 cards"), filling the row. */
+.sheet-apply {
+  flex: 1 1 auto;
+  background: var(--accent-fill);
+  color: var(--accent-fg);
+  border: 1px solid var(--accent-hover);
+}
+
+/* ---------- Filter trigger and the strip of what it set ----------
+   Written for the cards index, now shared with the live page: the square
+   icon button that opens the filter room, and the removable chips that say
+   what is set while it is closed. */
+.filters-btn {
+  flex-shrink: 0;
+  color: var(--fg);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition:
+    background var(--ms-fast),
+    border-color var(--ms-fast),
+    color var(--ms-fast);
+}
+.filters-btn svg {
+  flex-shrink: 0;
+}
+.filters-btn:hover {
+  background: var(--surface-2);
+}
+.filters-btn:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: var(--focus-ring);
+}
+/* Active state: fill with the accent and widen to seat the count numeral inline
+   next to the funnel — no floating corner badge. */
+.filters-btn.is-active {
+  width: auto;
+  padding: 0 12px;
+  background: var(--accent-fill);
+  border-color: var(--accent-hover);
+  color: var(--accent-fg);
+}
+.filters-btn .fb-count {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent-fg);
+  line-height: 1;
+}
+
+/* Closed-state summary: removable mini-chips for each active facet. */
+.filter-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+.mini-chip {
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 3px 9px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
+  color: var(--fg);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.mini-chip:hover {
+  border-color: var(--muted);
+}
+.mini-chip .mc-x {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+/* The sheet footer's quiet half, beside `.sheet-apply`. */
+.sheet-clear {
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent-ink-hover);
+  background: none;
+  border: 0;
+  padding: 8px 4px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+/* ---------- Combo typeahead (components/Combo.tsx) ----------
+   First written for the tier list, hence the prefix; the live page's deck
+   report uses it too. */
+.tl-combo {
+  position: relative;
+}
+.tl-combo .search {
+  width: 100%;
+  min-width: 0;
+  padding: 6px 10px;
+  font-size: 13px;
+}
+/* The picker stands for the card the board is showing — thumbnail in the
+   field, name as the value — so it sits where the format select sits on the
+   other tab and matches its height and caret. It used to be that name beside
+   a separate search box: two controls for one decision, and a phone stacked
+   them into rows of their own. */
+.tl-picker .search {
+  height: 34px;
+  padding: 0 28px 0 30px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  border-radius: var(--radius-sm);
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+    linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position:
+    right 13px center,
+    right 8px center;
+  background-size:
+    5px 5px,
+    5px 5px;
+  background-repeat: no-repeat;
+}
+/* Typing reads as typing, not as the chosen name. */
+.tl-picker .search[aria-expanded='true'] {
+  font-weight: 500;
+}
+.tl-combo-lead {
+  position: absolute;
+  left: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  pointer-events: none;
+}
+/* A two-sprite archetype is wider than the one thumbnail the picker's padding
+   was set for, and ran over the name's first letter. */
+.tl-picker:has(.tl-combo-lead .arche-icon + .arche-icon) .search {
+  padding-left: 50px;
+}
+.tl-combo-lead img {
+  width: 17px;
+  height: 24px;
+  object-fit: cover;
+  border-radius: 2px;
+  border: 1px solid var(--rule);
+  background: var(--surface-2);
+  opacity: 1;
+}
+/* No dark-mode overrides for these: `--border` already carries the mode's
+   edge. Restating it by hand is how the popover and the typeahead ended up
+   outlined in `--muted` — #a4998a against a #25221f fill, which reads as a
+   white halo, not an edge. */
+
+/* A popover in the top layer, placed by Combo against its field: in a table
+   row it would otherwise be cut off by the `.table-wrap` that clips it. Its
+   place, width and height come from there; this undoes the browser's own
+   popover centring and colours. */
+.tl-list {
+  inset: auto;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  overflow-y: auto;
+  color: inherit;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+/* Turned upward, Combo sets its top at the field, and it rises from there
+   whatever its height. */
+.tl-list[data-side='above'] {
+  translate: 0 -100%;
+}
+.tl-list[hidden] {
+  display: none;
+}
+.tl-list li {
+  display: grid;
+  grid-template-columns: 26px 1fr auto;
+  gap: 9px;
+  align-items: center;
+  padding: 5px 7px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 13px;
+}
+.tl-list li[aria-selected='true'] {
+  background: var(--surface-2);
+}
+/* The row the box already stands for. */
+.tl-list li.cur {
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+.tl-list li.cur b {
+  font-weight: 700;
+}
+.tl-list li img {
+  width: 26px;
+  aspect-ratio: 5 / 7;
+  object-fit: cover;
+  border-radius: 2px;
+  border: 1px solid var(--rule);
+  background: var(--surface-2);
+  opacity: 1;
+}
+.tl-list li b {
+  font-weight: 500;
+}
+.tl-list li b mark {
+  background: none;
+  color: var(--accent-ink);
+  font-weight: 700;
+}
+.tl-list li span {
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+/* Between the entries a list ranks first — the archetypes anyone is actually
+   playing — and the tail below them. Drawn only where the two meet, so a list
+   of one kind carries no rule. */
+.tl-list li.sep {
+  display: block;
+  padding: 0;
+  margin: 5px 7px;
+  border-top: 1px solid var(--rule);
+  cursor: default;
+}
+.tl-list .none {
+  display: block;
+  padding: 8px;
+  color: var(--muted);
+  font-size: 13px;
+}

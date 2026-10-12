@@ -1,0 +1,9 @@
+{
+  "scripts/check-design-drift.ts": [
+    "max-depth:8e1d69e979e3e0bcf27a4106446e898cafa98a67544c9bf854f454cb86ab752f:Blocks are nested too deeply (4). Maximum allowed is 3.",
+    "max-depth:7f75f128cd06cf5456cb5fddb1e465b3cca755f31077a59d4c29f8f90935a89f:Blocks are nested too deeply (4). Maximum allowed is 3."
+  ],
+  "src/lib/format.ts": [
+    "complexity:9083994bef192fa1103d4fa47ecccee81460320de321b02e2c2afa2c15de203c:Function 'formatRecord' has a complexity of 17. Maximum allowed is 12."
+  ]
+}

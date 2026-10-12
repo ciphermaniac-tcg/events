@@ -1,0 +1,32 @@
+name: Deploy verified application
+description: Deploy a verified code revision to Cloudflare Pages
+inputs:
+  cloudflare_api_token:
+    description: 'Cloudflare API Token'
+    required: true
+  cloudflare_account_id:
+    description: 'Cloudflare Account ID'
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Recheck code approval immediately before deployment
+      shell: bash
+      run: npx tsx .github/scripts/require-verified-code.ts
+    - name: Build and enforce bundle budget
+      shell: bash
+      run: npm run verify:build
+    - name: Apply tournament migrations and check the schema
+      shell: bash
+      env:
+        CLOUDFLARE_API_TOKEN: ${{ inputs.cloudflare_api_token }}
+        CLOUDFLARE_ACCOUNT_ID: ${{ inputs.cloudflare_account_id }}
+      run: |
+        npx wrangler d1 migrations apply ciphermaniac-tournaments --remote
+        npx wrangler d1 execute ciphermaniac-tournaments --remote --file=config/d1/check-tournaments.sql
+    - name: Deploy to production
+      uses: cloudflare/wrangler-action@953926a2e2182532811c01a25e53647d93bf07c0
+      with:
+        apiToken: ${{ inputs.cloudflare_api_token }}
+        accountId: ${{ inputs.cloudflare_account_id }}
+        command: pages deploy dist --project-name=ciphermaniac-events --branch=main --commit-hash=${{ github.sha }}

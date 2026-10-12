@@ -1,0 +1,133 @@
+/* =====================================================================
+   Archetype pages (ArchetypePage, ArchetypesIndexPage) + ArchetypeCard.
+   Styles the data-legibility surfaces added to those pages. Owned by the
+   archetype pages; kept out of components.css so the shared sheet stays lean.
+   ===================================================================== */
+
+/* ---------- Hero ----------
+   Title with the deck's sprites, then the shared stat band (components.css). */
+.arche-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.arche-title .arche-icons {
+  flex: none;
+}
+/* A thin-sample win rate is shown, but not with the weight of a solid one. */
+.arche-band .stat-band-item.is-muted dd {
+  opacity: 0.55;
+}
+.arche-delta.is-up {
+  color: var(--positive);
+}
+.arche-delta.is-down {
+  color: var(--negative);
+}
+/* The labels' secondary detail is the first thing to go on a phone: at two
+   columns "meta share · of 8,098" ellipsed before it reached its figure. */
+@media (max-width: 640px) {
+  .arche-band .stat-band-item dt small {
+    display: none;
+  }
+  /* A long name wraps on a phone, and sprites centred on both lines sat
+     beside nothing. Smaller, and on the first line with the name's start. */
+  .arche-title {
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .arche-title .arche-icons {
+    margin-top: calc((1lh - 24px) / 2);
+  }
+  .arche-title .arche-icon {
+    width: 24px;
+    height: 24px;
+  }
+}
+.wr-uncertainty {
+  color: var(--muted);
+  font-size: 0.9em;
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+/* Deck-count stat on the gallery card. Renamed from the orphaned `.arche-wr`
+   in components.css (see cleanup note); mirrors those rules so HomePage cards,
+   which pull in this sheet via ArchetypeCard, keep the muted treatment. */
+.arche-decks {
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- List view on a phone ----------
+   Auto layout let the sprite-and-name column take the row and pushed both
+   rates off the right edge, where a hidden scrollbar meant nothing said they
+   were there: a ranking with no figures in it. Fixed layout puts the rates
+   back on screen and lets the name truncate instead. */
+@media (max-width: 640px) {
+  .arche-list .data {
+    table-layout: fixed;
+  }
+  .arche-list .data .arche-rank-col {
+    width: 30px;
+  }
+  .arche-list .data th.num:not(.arche-rank-col),
+  .arche-list .data td.num:not(.arche-rank-col) {
+    width: 20%;
+  }
+  .arche-list .arche-decks-col {
+    display: none;
+  }
+  .arche-list .data td.arche-name-col {
+    overflow: hidden;
+  }
+  /* Block-level, so the row of sprite-plus-name is bounded by the cell and the
+     name can shrink to an ellipsis inside it. Inline-flex sizes to its content
+     and simply ran over the meta-share column. */
+  .arche-list .arche-name-cell {
+    display: flex;
+    gap: 8px;
+  }
+  /* The sprites are the label's decoration; on a phone they give a couple of
+     characters back to the label itself. */
+  .arche-list .arche-icon {
+    width: 22px;
+    height: 22px;
+  }
+  .arche-list .data .cardname {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  /* The game count is a footnote on the rate, and a phone has no room for
+     footnotes. */
+  .arche-list .wr-games {
+    display: none;
+  }
+}
+
+/* Muted win-rate cell (20–50 games) / game count in the list view. */
+.wr-cell.is-muted {
+  opacity: 0.55;
+}
+.wr-cell {
+  min-width: 118px;
+}
+.wr-games {
+  margin-left: 6px;
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Loading placeholder for a gallery card. Borrows `.arche`'s box model so it
+   matches the card's height at any column width; only the affordances differ. */
+.arche-skeleton {
+  cursor: default;
+  pointer-events: none;
+}
+.arche-skeleton .skeleton-block {
+  display: inline-block;
+  vertical-align: middle;
+}
