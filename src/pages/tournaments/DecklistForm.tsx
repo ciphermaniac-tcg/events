@@ -58,7 +58,7 @@ type ListOwner = Pick<PlayerProfile, 'popId' | 'firstName' | 'lastName'>;
 
 /** Who sent this device's list, and the token that reads it back. */
 interface Remembered {
-  profile: PlayerProfile;
+  profile: PlayerProfile | null;
   token: string;
 }
 
@@ -66,7 +66,9 @@ const memoryKey = (code: string) => `cm-decklist:${code}`;
 
 function recall(code: string): Remembered | null {
   try {
-    return JSON.parse(localStorage.getItem(memoryKey(code)) ?? 'null') as Remembered | null;
+    const held = JSON.parse(localStorage.getItem(memoryKey(code)) ?? 'null') as { token: string } | null;
+    const profile = JSON.parse(sessionStorage.getItem(memoryKey(code)) ?? 'null') as PlayerProfile | null;
+    return held?.token ? { profile, token: held.token } : null;
   } catch {
     return null;
   }
@@ -74,8 +76,10 @@ function recall(code: string): Remembered | null {
 
 function remember(code: string, value: Remembered | null) {
   if (value) {
-    localStorage.setItem(memoryKey(code), JSON.stringify(value));
+    localStorage.setItem(memoryKey(code), JSON.stringify({ token: value.token }));
+    sessionStorage.setItem(memoryKey(code), JSON.stringify(value.profile));
   } else {
+    sessionStorage.removeItem(memoryKey(code));
     localStorage.removeItem(memoryKey(code));
   }
 }
@@ -84,7 +88,7 @@ function remember(code: string, value: Remembered | null) {
 async function loadMine([code, owner]: readonly [string, ListOwner | null]): Promise<Decklist | null> {
   const kept = recall(code);
   if (kept) {
-    return (await fetchMyDecklist(code, kept.profile, kept.token)).mine;
+    return (await fetchMyDecklist(code, kept.profile ?? emptyProfile(), kept.token)).mine;
   }
   return owner ? (await fetchMyDecklist(code, owner, '')).mine : null;
 }
@@ -144,7 +148,7 @@ function createDecklistForm(props: FormProps) {
   });
   const [mine, { mutate }] = createResource(whose, loadMine);
   const [profile, setProfile] = createSignal<PlayerProfile>(kept?.profile ?? emptyProfile(latestValue(session)?.user));
-  const [known, setKnown] = createSignal(kept !== null);
+  const [known, setKnown] = createSignal(kept?.profile != null);
   const [deck, setDeck] = createSignal('');
   const [archetype, setArchetype] = createSignal<string | null>(null);
   const [touched, setTouched] = createSignal(false);

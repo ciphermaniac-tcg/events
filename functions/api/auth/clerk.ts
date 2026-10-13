@@ -42,7 +42,7 @@ export async function onRequestPost({ request, env }: Context): Promise<Response
     const profile = await clerkProfile(env, origin, token);
     return profile ? await finishSignIn(db, request, profile, started) : failed();
   } catch (error) {
-    console.error('Clerk sign-in failed', error);
+    console.error('Clerk sign-in failed', error instanceof Error ? error.message : 'Unknown error');
     return failed();
   }
 }

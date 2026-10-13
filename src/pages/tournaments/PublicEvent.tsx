@@ -220,7 +220,7 @@ const tokenKey = (code: string) => `cm-tournament-report:${code}`;
 
 function storedClaim(code: string): PlayerClaim | null {
   try {
-    return JSON.parse(localStorage.getItem(claimKey(code)) ?? 'null') as PlayerClaim | null;
+    return JSON.parse(sessionStorage.getItem(claimKey(code)) ?? 'null') as PlayerClaim | null;
   } catch {
     return null;
   }
@@ -228,10 +228,11 @@ function storedClaim(code: string): PlayerClaim | null {
 
 /** Sets or clears a remembered value. */
 function keep(key: string, value: string | null) {
+  const storage = key.startsWith('cm-tournament-report:') ? localStorage : sessionStorage;
   if (value) {
-    localStorage.setItem(key, value);
+    storage.setItem(key, value);
   } else {
-    localStorage.removeItem(key);
+    storage.removeItem(key);
   }
 }
 
@@ -274,7 +275,7 @@ function createMe(view: () => TournamentView, events: { onView: (view: Published
   const code = () => view().code;
   const stored = storedClaim(code());
   const [claim, setClaim] = createSignal(stored);
-  const [chosen, setChosen] = createSignal(stored ? localStorage.getItem(meKey(code())) : null);
+  const [chosen, setChosen] = createSignal(stored ? sessionStorage.getItem(meKey(code())) : null);
   const [reportToken, setReportToken] = createSignal(stored ? localStorage.getItem(tokenKey(code())) : null);
   /** The player whose seat the account holds, as the server last answered; no token goes with that. */
   const [accountSeat, setAccountSeat] = createSignal<string | null>(null);
@@ -295,7 +296,8 @@ function createMe(view: () => TournamentView, events: { onView: (view: Published
     }
   }
   function forget() {
-    [meKey, claimKey, tokenKey].forEach(key => localStorage.removeItem(key(code())));
+    [meKey, claimKey].forEach(key => sessionStorage.removeItem(key(code())));
+    localStorage.removeItem(tokenKey(code()));
     setChosen(null);
     setClaim(null);
     setReportToken(null);

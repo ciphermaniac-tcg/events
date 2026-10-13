@@ -8,6 +8,43 @@
  * is acceptable for the low-stakes endpoints that use it.
  */
 
+/** Cloudflare supplies the address; IPv6 interface rotation must share one /64 bucket. */
+export function rateLimitAddress(request: Request): string {
+  const address = request.headers.get('CF-Connecting-IP') ?? 'unknown';
+  if (!address.includes(':')) {
+    return address;
+  }
+  try {
+    if (!/^[0-9a-f:.]+$/i.test(address)) {
+      return 'unknown';
+    }
+    const canonical = new URL(`http://[${address}]/`).hostname.slice(1, -1);
+    const groups = ipv6Groups(canonical);
+    // IPv4-mapped addresses represent individual IPv4 clients, not one shared /64.
+    if (groups.slice(0, 5).every(group => group === 0) && groups[5] === 0xffff) {
+      return groups
+        .slice(6)
+        .flatMap(group => [group >>> 8, group & 255])
+        .join('.');
+    }
+    return `${groups
+      .slice(0, 4)
+      .map(group => group.toString(16))
+      .join(':')}::/64`;
+  } catch {
+    return 'unknown';
+  }
+}
+
+function ipv6Groups(address: string): number[] {
+  const [left, right] = address.split('::');
+  const before = left ? left.split(':') : [];
+  const after = right ? right.split(':') : [];
+  const groups =
+    right === undefined ? before : [...before, ...Array<string>(8 - before.length - after.length).fill('0'), ...after];
+  return groups.map(group => parseInt(group, 16));
+}
+
 interface RateLimitResult {
   allowed: boolean;
   retryAfter?: number;
@@ -25,7 +62,7 @@ export interface RateLimiterOptions {
   windowMs?: number;
   /** Max allowed requests per IP per window (default 5). */
   maxRequests?: number;
-  /** Hard cap on distinct IPs tracked before the store is cleared (default 10k). */
+  /** Hard cap on tracked IPs; overflow leaves existing windows intact (default 10k). */
   maxStoreSize?: number;
   /** Run expiry cleanup every Nth request (default 100). */
   cleanupInterval?: number;
@@ -57,11 +94,10 @@ export function createRateLimiter(options: RateLimiterOptions = {}): RateLimiter
     if (requestCount % cleanupInterval === 0) {
       cleanup();
     }
-    if (store.size > maxStoreSize) {
-      store.clear();
-    }
-
     const existing = store.get(ip);
+    if (!existing && store.size >= maxStoreSize) {
+      return { allowed: true };
+    }
     if (!existing || now - existing.windowStart > windowMs) {
       store.set(ip, { count: 1, windowStart: now });
       return { allowed: true };

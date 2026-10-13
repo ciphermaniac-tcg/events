@@ -425,3 +425,12 @@ test('an account with no email may not apply to organize', async () => {
   assert.deepEqual(applied.json, { error: 'Add an email first', email: true });
   assert.equal(count('applications'), 0);
 });
+
+test('Clerk sign-in cannot return to dot-segment network paths', async () => {
+  await signUp('user_redirect');
+  for (const next of ['/..//evil.test', '/x/..//evil.test', '/%2e%2e//evil.test']) {
+    const { result } = await asClerk({}, async () => post({ token: await sign(claimsFor('user_redirect')), next }));
+    assert.equal(result.status, 302);
+    assert.equal(result.headers.get('Location'), '/');
+  }
+});

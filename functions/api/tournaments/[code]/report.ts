@@ -43,7 +43,7 @@ import {
 import type { PodCategory } from '../../../../shared/tournament/types.js';
 import { applyPending, isSanctioned, type TournamentSettings } from '../../../../shared/tournament/view.js';
 import { readJsonObject } from '../../../lib/api/body.js';
-import { createRateLimiter } from '../../../lib/api/rateLimiter.js';
+import { createRateLimiter, rateLimitAddress } from '../../../lib/api/rateLimiter.js';
 import { jsonError, noContent } from '../../../lib/api/responses.js';
 import { type Context, sameOrigin } from '../../../lib/auth/env.js';
 import { type Access, open, openForStaff, privateJson, publicViewOf } from '../../../lib/tournaments/access.js';
@@ -147,7 +147,7 @@ async function reachable(context: Context<'code'>): Promise<Access | Response> {
   if (!sameOrigin(context.request)) {
     return jsonError('Forbidden', 403);
   }
-  if (!rateLimiter.check(context.request.headers.get('CF-Connecting-IP') ?? 'unknown').allowed) {
+  if (!rateLimiter.check(rateLimitAddress(context.request)).allowed) {
     return jsonError('Too many reports from here. Try again shortly.', 429);
   }
   return open(context);

@@ -37,7 +37,7 @@ export async function onRequestGet({ request, env, params }: Context<'provider'>
       cookies: [clearCookie(request, OAUTH_COOKIE)]
     });
   } catch (error) {
-    console.error('Sign-in failed', error);
+    console.error('Sign-in failed', error instanceof Error ? error.message : 'Unknown error');
     return redirectWithCookies('/settings?signin=failed', [clearCookie(request, OAUTH_COOKIE)]);
   }
 }

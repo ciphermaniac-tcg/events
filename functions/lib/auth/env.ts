@@ -33,5 +33,7 @@ export function param(value: string | string[] | undefined): string {
  */
 export function sameOrigin(request: Request): boolean {
   const origin = request.headers.get('Origin');
-  return origin === null || origin === new URL(request.url).origin;
+  return origin === null
+    ? request.method === 'GET' || request.method === 'HEAD'
+    : origin === new URL(request.url).origin;
 }

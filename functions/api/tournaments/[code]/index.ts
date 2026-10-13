@@ -7,7 +7,7 @@
  * DELETE /api/tournaments/:code — the owner removes the event.
  */
 
-import { createRateLimiter } from '../../../lib/api/rateLimiter.js';
+import { createRateLimiter, rateLimitAddress } from '../../../lib/api/rateLimiter.js';
 import { coalescedRead } from '../../../../shared/coalesce.js';
 import { type JsonRepresentation, jsonRepresentation, revalidatedJson } from '../../../lib/api/revalidation.js';
 import { jsonError, noContent } from '../../../lib/api/responses.js';
@@ -51,7 +51,7 @@ export function _resetRateLimitStore(): void {
 }
 
 export async function onRequestGet(context: Context<'code'>): Promise<Response> {
-  if (!rateLimiter.check(context.request.headers.get('CF-Connecting-IP') ?? 'unknown').allowed) {
+  if (!rateLimiter.check(rateLimitAddress(context.request)).allowed) {
     return jsonError('Too many requests from here. Try again shortly.', 429);
   }
   if (await unchanged(context)) {

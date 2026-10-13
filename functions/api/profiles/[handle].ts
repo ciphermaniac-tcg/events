@@ -9,7 +9,7 @@
 
 import { isHandle, normalizeHandle } from '../../../shared/accounts/handle.js';
 import { historyOf } from '../../lib/accounts/history.js';
-import { createRateLimiter } from '../../lib/api/rateLimiter.js';
+import { createRateLimiter, rateLimitAddress } from '../../lib/api/rateLimiter.js';
 import { jsonError, jsonResponse } from '../../lib/api/responses.js';
 import { type Context, param } from '../../lib/auth/env.js';
 
@@ -30,7 +30,7 @@ const answer = (body: unknown, status = 200) =>
   });
 
 export async function onRequestGet(context: Context<'handle'>): Promise<Response> {
-  if (!rateLimiter.check(context.request.headers.get('CF-Connecting-IP') ?? 'unknown').allowed) {
+  if (!rateLimiter.check(rateLimitAddress(context.request)).allowed) {
     return jsonError('Too many requests from here. Try again shortly.', 429);
   }
   const db = context.env.TOURNAMENT_DB;

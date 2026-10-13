@@ -21,7 +21,7 @@ import {
   openApplicant
 } from '../../lib/accounts/applications.js';
 import { readJsonObject } from '../../lib/api/body.js';
-import { createRateLimiter } from '../../lib/api/rateLimiter.js';
+import { createRateLimiter, rateLimitAddress } from '../../lib/api/rateLimiter.js';
 import { jsonError } from '../../lib/api/responses.js';
 import type { Context } from '../../lib/auth/env.js';
 import { randomToken } from '../../lib/auth/session.js';
@@ -102,7 +102,7 @@ async function attempt(applicant: Applicant, asked: Asked): Promise<Response | n
 }
 
 export async function onRequestPost(context: Context): Promise<Response> {
-  if (!rateLimiter.check(context.request.headers.get('CF-Connecting-IP') ?? 'unknown').allowed) {
+  if (!rateLimiter.check(rateLimitAddress(context.request)).allowed) {
     return jsonError('Too many applications from here. Try again later.', 429);
   }
   let applicant = await openApplicant(context);

@@ -12,7 +12,7 @@ import { birthYearOfDate, oldEnoughForAccount } from '../../../shared/accounts/a
 import { birthDateOfYear } from '../../../shared/tournament/divisions.js';
 import { readJsonObject } from '../../lib/api/body.js';
 import { jsonError } from '../../lib/api/responses.js';
-import { clearCookie, cookie, readCookie, SESSION_COOKIE, SIGNUP_COOKIE } from '../../lib/auth/cookies.js';
+import { clearCookie, cookie, readCookie, safeNext, SESSION_COOKIE, SIGNUP_COOKIE } from '../../lib/auth/cookies.js';
 import { type Context, sameOrigin } from '../../lib/auth/env.js';
 import { createSession, SESSION_SECONDS, upsertUser } from '../../lib/auth/session.js';
 import { rejectSignup } from '../../lib/auth/rejection.js';
@@ -53,5 +53,8 @@ export async function onRequestPost({ request, env }: Context): Promise<Response
   }
   const userId = await upsertUser(db, held.profile, birthDateOfYear(year));
   const session = await createSession(db, userId);
-  return answer(200, { next: held.next }, [cleared, cookie(request, SESSION_COOKIE, session, SESSION_SECONDS)]);
+  return answer(200, { next: safeNext(held.next) }, [
+    cleared,
+    cookie(request, SESSION_COOKIE, session, SESSION_SECONDS)
+  ]);
 }

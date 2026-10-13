@@ -7,7 +7,10 @@
 # are left out of HSTS until each is known to serve HTTPS alone.
 /*
   Strict-Transport-Security: max-age=31536000
-  Content-Security-Policy: frame-ancestors 'self'
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-QUMDXc2T8El/3wP0uUFa1E+/ba1el1zBEtwOUk4+5Hk=' 'sha256-LseA4eeqkInM1lz93tn4qEimtMee7c6WSt7yeGqYoCQ=' https://clerk.ciphermaniac.com https://challenges.cloudflare.com https://*.protect.clerk.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self'; connect-src 'self' https://r2.ciphermaniac.com https://events-data.ciphermaniac.com https://clerk.ciphermaniac.com https://*.protect.clerk.com https://clerk-telemetry.com https://*.clerk-telemetry.com; frame-src https://challenges.cloudflare.com https://*.protect.clerk.com; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'self'
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=()
   X-Frame-Options: SAMEORIGIN
 
 # Account and organizer pages stay out of search. /host itself is the

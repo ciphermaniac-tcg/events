@@ -48,7 +48,7 @@ import {
   type TournamentSettings
 } from '../../../../shared/tournament/view.js';
 import { readJsonObject } from '../../../lib/api/body.js';
-import { createRateLimiter } from '../../../lib/api/rateLimiter.js';
+import { createRateLimiter, rateLimitAddress } from '../../../lib/api/rateLimiter.js';
 import { jsonError, noContent } from '../../../lib/api/responses.js';
 import { type Context, sameOrigin } from '../../../lib/auth/env.js';
 import { sha256 } from '../../../lib/auth/session.js';
@@ -184,7 +184,15 @@ async function ownList(access: Access, request: Request): Promise<DecklistRow | 
   const details = detailsFrom(request, isSanctioned(access.row));
   const token = new URL(request.url).searchParams.get('token') ?? '';
   const account = details && matchingAccount(access, details)?.id;
-  if (!details || !(token || account)) {
+  if (!details) {
+    return token
+      ? access.db
+          .prepare('SELECT * FROM decklists WHERE code = ? AND owner_token = ? ORDER BY submitted_at DESC LIMIT 1')
+          .bind(access.row.code, await sha256(token))
+          .first<DecklistRow>()
+      : null;
+  }
+  if (!(token || account)) {
     return null;
   }
   const row = await access.db
@@ -444,10 +452,9 @@ export function _resetRateLimitStore(): void {
 }
 
 function limited(context: Context<'code'>): boolean {
-  const address = context.request.headers.get('CF-Connecting-IP') ?? 'unknown';
+  const address = rateLimitAddress(context.request);
   const code = codeOf(context);
-  const forEvent = eventLimiter.check(`${code}:${address}`).allowed;
-  return !(addressLimiter.check(address).allowed && forEvent);
+  return !(addressLimiter.check(address).allowed && eventLimiter.check(`${code}:${address}`).allowed);
 }
 
 /** A token the device made for itself, when it sent one that looks like one. */
@@ -530,10 +537,7 @@ async function withdraw(access: Access, details: Details, held: string): Promise
   const { db, row } = access;
   const account = matchingAccount(access, details) ?? NO_ACCOUNT;
   const deleted = await db
-    .prepare(
-      'DELETE FROM decklists WHERE code = ? AND user_id = ? ' +
-        `AND (owner_token IS NULL OR owner_token = ? OR account = ${account.sql})`
-    )
+    .prepare(`DELETE FROM decklists WHERE code = ? AND user_id = ? AND (owner_token = ? OR account = ${account.sql})`)
     .bind(row.code, identityKey(details, isSanctioned(row)), held ? await sha256(held) : '', ...account.values)
     .run();
   return rowsChanged(deleted) === 1;

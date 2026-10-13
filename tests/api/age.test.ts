@@ -466,3 +466,26 @@ test('an end that loses its race to another write deletes no cards', async () =>
   assert.deepEqual(((await swept.json()) as { ended: string[] }).ended, [], 'no longer idle, so not ended');
   assert.notEqual(decks()['950'], '', 'and the cards stay for the deck checks still to come');
 });
+
+test('age completion sanitizes return paths saved before the redirect fix', async () => {
+  const started = await login.onRequestGet({
+    request: request('/api/auth/login/dev?name=New&gate=1'),
+    env,
+    params: { provider: 'dev' }
+  });
+  const cookie = (started.headers.get('Set-Cookie') ?? '').split(';')[0];
+  const db = env.TOURNAMENT_DB as ReturnType<typeof sqliteD1>;
+  db.raw.prepare("UPDATE pending_signups SET next = '//evil.test'").run();
+  const response = await hit(
+    ageCheck.onRequestPost as Handler,
+    '/api/auth/age',
+    {},
+    {
+      method: 'POST',
+      cookie,
+      body: { birthDate: '1990-01-01' }
+    }
+  );
+  assert.equal(response.status, 200);
+  assert.equal(response.json.next, '/');
+});

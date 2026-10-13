@@ -10,7 +10,11 @@ export function readCookie(request: Request, name: string): string | null {
   for (const part of header.split(';')) {
     const [key, ...value] = part.trim().split('=');
     if (key === name) {
-      return decodeURIComponent(value.join('='));
+      try {
+        return decodeURIComponent(value.join('='));
+      } catch {
+        return null;
+      }
     }
   }
   return null;
@@ -41,8 +45,12 @@ export function safeNext(next: string | null): string {
   if (!next?.startsWith('/')) {
     return '/';
   }
-  const url = new URL(next, BASE);
-  return url.origin === BASE ? `${url.pathname}${url.search}${url.hash}` : '/';
+  try {
+    const url = new URL(next, BASE);
+    return url.origin === BASE && !url.pathname.startsWith('//') ? `${url.pathname}${url.search}${url.hash}` : '/';
+  } catch {
+    return '/';
+  }
 }
 
 /** A 302 that also sets (or clears) cookies. */

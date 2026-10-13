@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import test from 'node:test';
 
 const headers = readFileSync(new URL('../../static/_headers', import.meta.url), 'utf8');
@@ -88,7 +89,7 @@ test('matching Pages rules merge values unless explicitly detached', () => {
 test('every page is HTTPS-only and refuses to be framed by another site', () => {
   for (const path of ['/', '/settings', '/host/ABC123', '/t/ABC123', '/assets/app-hash.js']) {
     assert.equal(headerValue(path, 'Strict-Transport-Security'), 'max-age=31536000', path);
-    assert.equal(headerValue(path, 'Content-Security-Policy'), "frame-ancestors 'self'", path);
+    assert.ok(headerValue(path, 'Content-Security-Policy').includes("frame-ancestors 'self'"), path);
     assert.equal(headerValue(path, 'X-Frame-Options'), 'SAMEORIGIN', path);
   }
 });
@@ -110,4 +111,25 @@ test('account and organizer pages stay out of search, public pages do not', () =
   for (const path of ['/', '/host', '/t/ABC123', '/u/reese', '/stores/s1', '/privacy', '/terms', '/cards']) {
     assert.equal(headerValue(path, 'X-Robots-Tag'), '', path);
   }
+});
+
+test('security policy blocks untrusted scripts and pins each bootstrap hash', () => {
+  const policy = headerValue('/', 'Content-Security-Policy');
+  assert.ok(policy.startsWith("default-src 'self'; script-src 'self' "));
+  const scripts = policy.split(';').find(directive => directive.trim().startsWith('script-src '));
+  assert.ok(!scripts.includes("'unsafe-inline'"));
+  assert.ok(!scripts.includes("'unsafe-eval'"));
+  const html = readFileSync(new URL('../../index.html', import.meta.url), 'utf8');
+  const bootstrap = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)];
+  assert.equal(bootstrap.length, 2);
+  for (const [, script] of bootstrap) {
+    const hash = createHash('sha256').update(script).digest('base64');
+    assert.ok(scripts.includes(`'sha256-${hash}'`));
+  }
+  for (const directive of ["object-src 'none'", "base-uri 'none'", "form-action 'self'"]) {
+    assert.ok(policy.includes(directive));
+  }
+  assert.equal(headerValue('/', 'X-Content-Type-Options'), 'nosniff');
+  assert.equal(headerValue('/', 'Referrer-Policy'), 'strict-origin-when-cross-origin');
+  assert.equal(headerValue('/', 'Permissions-Policy'), 'camera=(), microphone=(), geolocation=()');
 });

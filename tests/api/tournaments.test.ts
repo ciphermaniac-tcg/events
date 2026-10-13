@@ -836,7 +836,15 @@ test('decklists come in only while open, and decks show as the visibility settin
 });
 
 test('sign-in only ever returns to a path on this site', async () => {
-  for (const next of ['/\t/evil.example', '//evil.example', 'https://evil.example', '/\\evil.example']) {
+  for (const next of [
+    '/\t/evil.example',
+    '//evil.example',
+    'https://evil.example',
+    '/\\evil.example',
+    '/..//evil.example',
+    '/x/..//evil.example',
+    '/%2e%2e//evil.example'
+  ]) {
     const response = await login.onRequestGet({
       request: request(`/api/auth/login/dev?name=x&next=${encodeURIComponent(next)}`),
       env,
@@ -1469,6 +1477,10 @@ test('staff unlock a list for a player on a new device, who then takes it over',
     cookie: owner
   });
   assert.equal(unlocked.status, 204);
+  const anonymousDelete = await hit(decklists.onRequestDelete as Handler, '/decklists?popId=7373', at(code), {
+    method: 'DELETE'
+  });
+  assert.equal(anonymousDelete.status, 409, 'unlocking grants no anonymous withdrawal');
   const newPhone = await submitAs(code, profile, { deck: '60 Basic {W} Energy SVE 3' });
   assert.equal(newPhone.status, 200);
   assert.equal((await submitAs(code, profile)).status, 409, 'and it is locked to the new device');
@@ -3078,4 +3090,61 @@ test('a refused opening pairing persists the started event without a new round',
   assert.equal(persisted.settings!.stage, 4);
   assert.equal(persisted.pods[0]!.rounds.length, 0);
   assert.ok(persisted.players.every(p => p.byes === 1 && p.starter));
+});
+
+test('missing or opaque Origin cannot sign out an authenticated account', async () => {
+  const cookie = await signIn('Player');
+  for (const origin of [null, 'null']) {
+    const response = await hit(
+      logout.onRequestPost as Handler,
+      '/api/auth/logout',
+      {},
+      { method: 'POST', cookie, origin }
+    );
+    assert.equal(response.status, 403);
+    assert.ok((await hit(me.onRequestGet as Handler, '/api/me', {}, { cookie })).json.user);
+  }
+});
+
+test('poisoned sign-in cookies fail closed and are cleared by callback or replaced by login', async () => {
+  const response = await callback.onRequestGet({
+    request: request('/api/auth/callback/google?state=s&code=c', {
+      cookie: 'cm_oauth=%'
+    }),
+    env,
+    params: { provider: 'google' }
+  });
+  assert.equal(response.status, 302);
+  assert.equal(response.headers.get('Location'), '/settings?signin=failed');
+  assert.match(response.headers.get('Set-Cookie') ?? '', /cm_oauth=;.*Max-Age=0/);
+  const current = await hit(me.onRequestGet as Handler, '/api/me', {}, { cookie: 'cm_session=%' });
+  assert.equal(current.status, 200);
+  assert.equal(current.json.user, null);
+  const loginResponse = await login.onRequestGet({
+    request: request('/api/auth/login/dev?name=Recovered', {
+      cookie: 'cm_session=%'
+    }),
+    env,
+    params: { provider: 'dev' }
+  });
+  assert.equal(loginResponse.status, 302);
+  const cookie = (loginResponse.headers.get('Set-Cookie') ?? '').split(';')[0];
+  assert.ok((await hit(me.onRequestGet as Handler, '/api/me', {}, { cookie })).json.user);
+});
+
+test('a decklist token alone recovers the list without persisting its player details', async () => {
+  const owner = await signIn('Organizer', 'organizer');
+  const code = await newSwiss(owner);
+  await settle(code, owner, { decklists: 'open' });
+  const profile = { popId: '7373', firstName: 'Ren', lastName: 'Aoki', birthDate: '02/27/2001' };
+  const submitted = await submitAs(code, profile);
+  const token = submitted.json.token as string;
+  const recovered = await hit(decklists.onRequestGet as Handler, `/decklists?token=${token}`, at(code));
+  assert.equal(recovered.status, 200);
+  assert.equal(recovered.json.mine.popId, profile.popId);
+  assert.equal(recovered.json.mine.deck, LIST.deck);
+  const stranger = await hit(decklists.onRequestGet as Handler, '/decklists?token=unrelated-token', at(code));
+  assert.equal(stranger.json.mine, null);
+  const absent = await hit(decklists.onRequestGet as Handler, '/decklists', at(code));
+  assert.equal(absent.json.mine, null);
 });

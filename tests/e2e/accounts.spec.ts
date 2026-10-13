@@ -1011,8 +1011,13 @@ test('a signed-in player saves the POP ID their decklist went in under to their 
     locked: true
   };
   const saved: unknown[] = [];
+  const reads: URLSearchParams[] = [];
   await page.addInitScript(
-    ([key, value]) => localStorage.setItem(key, value),
+    ([key, value]) => {
+      if (localStorage.getItem(key) === null) {
+        localStorage.setItem(key, value);
+      }
+    },
     [`cm-decklist:${code}`, JSON.stringify({ profile, token: 'kept' })]
   );
   await page.route(`**/tournaments/v1/${code}.json`, route =>
@@ -1029,15 +1034,28 @@ test('a signed-in player saves the POP ID their decklist went in under to their 
       return route.fulfill({ json: { user: { ...ME, popId: null }, providers: [] } });
     }
     if (pathname === `/api/tournaments/${code}/decklists`) {
+      reads.push(new URL(request.url()).searchParams);
       return route.fulfill({ json: { mine } });
     }
     return route.fulfill({ json: { ...published, viewer: { role: null, me: null, via: null, signedIn: true } } });
   });
   await page.goto(`/t/${code}?tab=decklist`);
+  await expect
+    .poll(() => page.evaluate(key => localStorage.getItem(key), `cm-decklist:${code}`))
+    .toBe(JSON.stringify({ token: 'kept' }));
+  expect(await page.evaluate(key => sessionStorage.getItem(key), `cm-decklist:${code}`)).toBe(JSON.stringify(profile));
   await page.getByRole('button', { name: 'Save to my account' }).click();
   await expect(page.locator('.tm-known').getByRole('status')).toHaveText('Saved');
   await expect(page.getByRole('button', { name: 'Save to my account' })).toHaveCount(0);
   expect(saved).toEqual([profile]);
+  await page.evaluate(() => sessionStorage.clear());
+  await page.reload();
+  await expect(page.getByRole('button', { name: 'Save to my account' })).toBeVisible();
+  expect(reads.at(-1)?.get('token')).toBe('kept');
+  expect(reads.at(-1)?.get('popId')).toBeFalsy();
+  expect(await page.evaluate(key => localStorage.getItem(key), `cm-decklist:${code}`)).toBe(
+    JSON.stringify({ token: 'kept' })
+  );
 });
 
 /**
