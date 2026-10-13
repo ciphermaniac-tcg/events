@@ -360,10 +360,37 @@ test('starting an event pairs every pod and the event list counts its rounds', a
       const row = await loadTournament(database, code);
       assert.equal(row!.tournament.info.eventType, eventType);
       assert.equal(row!.tournament.settings!.mode, mode);
+      assert.equal(row!.tournament.info.finalsRoundTime, eventType === 'prerelease' ? 30 : 75);
       assert.equal(row!.tournament.players[0]!.scheduledSwissRounds, rounds);
       assert.match(writeTdf(row!.tournament), new RegExp(`mode="${mode}"`));
     }
   });
+});
+
+test('V27 mode time ranges are accepted at their boundaries and refused outside them', async () => {
+  const owner = await signIn('Organizer', 'organizer');
+  const store = await storeOf(owner);
+  const make = (eventType: string, roundTime: number) =>
+    hit(
+      tournaments.onRequestPost as Handler,
+      '/api/tournaments',
+      {},
+      {
+        method: 'POST',
+        cookie: owner,
+        body: { mode: 'swiss', name: 'Synthetic', eventType, roundTime, store, settings: { sanctioned: false } }
+      }
+    );
+  for (const [kind, minimum] of [
+    ['local', 10],
+    ['prerelease', 20]
+  ] as const) {
+    assert.equal((await make(kind, minimum)).status, 201);
+    assert.equal((await make(kind, 90)).status, 201);
+    assert.equal((await make(kind, minimum - 1)).status, 400);
+    assert.equal((await make(kind, 91)).status, 400);
+    assert.equal((await make(kind, 200)).status, 400);
+  }
 });
 
 test('Prerelease API continuation writes stage 7 and early conclusion writes stage 8', async () => {

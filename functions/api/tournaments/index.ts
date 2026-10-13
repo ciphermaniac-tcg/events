@@ -16,7 +16,7 @@ import { canRunCommunityEvents } from '../../../shared/accounts/roles.js';
 import { dateIn } from '../../../shared/accounts/stores.js';
 import { CREATIONS_PER_DAY, eventDay, organizerToday } from '../../../shared/tournament/limits.js';
 import { sanctionedMinutesError } from '../../../shared/tournament/structure.js';
-import { emptyTournament } from '../../../shared/tournament/create.js';
+import { emptyTournament, eventTimeLimits } from '../../../shared/tournament/create.js';
 import { tomDateTime } from '../../../shared/tournament/divisions.js';
 import { withSiteClocks } from '../../../shared/tournament/tomClock.js';
 import { readTournament } from '../../../shared/tournament/validate.js';
@@ -80,6 +80,14 @@ const SANCTION_ID_RE = /^\d{2}-\d{2}-\d{6}$/;
 const isMinutes = (value: unknown): value is number =>
   typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= 180;
 
+function validModeMinutes(type: EventType, value: unknown): boolean {
+  if (value === undefined || type === 'cup' || type === 'challenge') {
+    return true;
+  }
+  const range = eventTimeLimits(type);
+  return isMinutes(value) && value >= range.minimum && value <= range.maximum;
+}
+
 /**
  * A Swiss event from the setup's answers: a name, and optionally the round
  * length, the kind of event and the settings to start with. Its pods follow
@@ -89,12 +97,16 @@ const isMinutes = (value: unknown): value is number =>
  */
 function swissFrom(body: Body): Tournament | null {
   const name = typeof body.name === 'string' ? body.name.trim().slice(0, 120) : '';
+  const kind = EVENT_TYPES.includes(body.eventType as EventType) ? (body.eventType as EventType) : undefined;
+  if (!validModeMinutes(kind ?? 'cup', body.roundTime)) {
+    return null;
+  }
   // TOM wants a start date in the file; today's stands in until the organizer sets one.
   const info = {
     name,
     startDate: tomDateTime(new Date()).slice(0, 10),
     ...(isMinutes(body.roundTime) ? { roundTime: body.roundTime } : {}),
-    ...(EVENT_TYPES.includes(body.eventType as EventType) ? { eventType: body.eventType as EventType } : {})
+    ...(kind ? { eventType: kind } : {})
   };
   return name ? emptyTournament(info) : null;
 }
