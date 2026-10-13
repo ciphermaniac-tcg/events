@@ -15,7 +15,7 @@ export function TermsPage() {
     document.title = pageTitle('Terms of Service');
   });
   return (
-    <div class='tm-page tm-narrow'>
+    <div class='tm-page tm-narrow tm-legal-page'>
       <TournamentHero title='Terms of Service' meta='Last updated October 12, 2026' />
       <div class='prose tm-legal'>
         <p>

@@ -7,8 +7,14 @@
 .tm-narrow {
   max-width: 640px;
 }
+/* Center the legal pages' reading column, including their title and trail. */
+.tm-legal-page {
+  margin-inline: auto;
+}
 /* The privacy policy and terms read as one column; their headings get the room a paragraph doesn't. */
 .tm-legal > .tm-subhead {
+  font-size: var(--text-xl);
+  line-height: 1.3;
   margin-top: var(--space-3);
 }
 .tm-welcome-legal {

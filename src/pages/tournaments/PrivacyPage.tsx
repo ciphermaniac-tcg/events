@@ -16,7 +16,7 @@ export function PrivacyPage() {
     document.title = pageTitle('Privacy Policy');
   });
   return (
-    <div class='tm-page tm-narrow'>
+    <div class='tm-page tm-narrow tm-legal-page'>
       <TournamentHero title='Privacy Policy' meta='Last updated October 12, 2026' />
       <div class='prose tm-legal'>
         <p>
