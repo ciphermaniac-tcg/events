@@ -124,3 +124,9 @@ test('event detail edits hold Local and Prerelease round times to their V27 rang
   }
   assert.ok(applyCommand(registered('cup', 4), { type: 'updateInfo', info: { roundTime: 180 } }, ctx).ok);
 });
+
+test('a new Local event suggests 30-minute Swiss rounds', () => {
+  const { info } = emptyTournament({ name: 'Synthetic', eventType: 'local' });
+  assert.equal(info.roundTime, 30);
+  assert.equal(info.finalsRoundTime, 75);
+});
