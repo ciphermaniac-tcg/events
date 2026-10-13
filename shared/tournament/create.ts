@@ -1,6 +1,6 @@
 /** A new Swiss event with no players yet. */
 
-import { wizardControls } from './wizard.js';
+import { WIZARD_MAXIMUM_MINUTES, WIZARD_MINIMUM_MINUTES } from './wizard.js';
 import type { EventType, Tournament, TournamentInfo } from './types.js';
 
 export const DEFAULT_ROUND_MINUTES = 30;
@@ -28,8 +28,10 @@ export function emptyTournament(info: Partial<TournamentInfo> & { name: string }
 /** V27-1 input limits for Custom and Prerelease; existing site limits for other kinds. */
 export function eventTimeLimits(type: EventType): { minimum: number; maximum: number } {
   if (type === 'local' || type === 'prerelease') {
-    const controls = wizardControls({ settings: { mode: type === 'local' ? 'CUSTOM' : 'PRERELEASE', type: 2 } });
-    return { minimum: controls.swissMinutes.minimum, maximum: controls.swissMinutes.maximum };
+    return {
+      minimum: WIZARD_MINIMUM_MINUTES[type === 'local' ? 'CUSTOM' : 'PRERELEASE'],
+      maximum: WIZARD_MAXIMUM_MINUTES
+    };
   }
   return { minimum: 1, maximum: 180 };
 }

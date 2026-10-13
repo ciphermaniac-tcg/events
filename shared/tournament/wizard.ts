@@ -8,6 +8,10 @@ export interface WizardControls {
   finalsMinutes: { value: number; minimum: number; maximum: number; enabled: boolean };
 }
 
+/** V27-1: the shortest round each mode's wizard accepts; every mode allows up to 90 minutes. */
+export const WIZARD_MINIMUM_MINUTES = { CUSTOM: 10, PRERELEASE: 20, LEAGUECHALLENGE: 30, TCG1DAY: 30 } as const;
+export const WIZARD_MAXIMUM_MINUTES = 90;
+
 /** V27-1: initial controls, before the organizer chooses a cut or edits a time. */
 export function wizardControls(
   t: { settings?: Pick<TournamentSettings, 'mode' | 'type'> },
@@ -17,13 +21,14 @@ export function wizardControls(
   const type = t.settings?.type ?? 2;
   const prerelease = mode === 'PRERELEASE';
   const cut = mode === 'CUSTOM' ? type === 3 : mode === 'TCG1DAY';
-  const minimum = { CUSTOM: 10, PRERELEASE: 20, LEAGUECHALLENGE: 30, TCG1DAY: 30 }[mode];
+  const minimum = WIZARD_MINIMUM_MINUTES[mode];
+  const maximum = WIZARD_MAXIMUM_MINUTES;
   const round = stored.round ?? 30;
   return {
     topCut: { selected: cut, enabled: true },
     thirdPlace: { selected: false, enabled: type === 1 },
     lessSwiss: { selected: false, enabled: false },
-    swissMinutes: { value: prerelease ? Math.max(30, round) : round, minimum, maximum: 90, enabled: true },
-    finalsMinutes: { value: stored.finals ?? (prerelease ? 30 : 75), minimum, maximum: 90, enabled: cut }
+    swissMinutes: { value: prerelease ? Math.max(30, round) : round, minimum, maximum, enabled: true },
+    finalsMinutes: { value: stored.finals ?? (prerelease ? 30 : 75), minimum, maximum, enabled: cut }
   };
 }
