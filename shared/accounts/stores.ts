@@ -140,6 +140,28 @@ function link(value: string | null): string | null {
   }
 }
 
+/** Empty removes the link; store Discord links must lead to a Discord invite. */
+export function readDiscordInvite(value: string | null): string | null {
+  if (!value) {
+    return value;
+  }
+  try {
+    const url = new URL(value);
+    if (Math.max(value.length, url.href.length) > STORE_LIMITS.url) {
+      return null;
+    }
+    if (url.protocol !== 'https:' || url.username || url.password || url.port) {
+      return null;
+    }
+    if (url.hostname === 'discord.gg') {
+      return /^\/[A-Za-z0-9_-]+\/?$/u.test(url.pathname) ? url.href : null;
+    }
+    return url.hostname === 'discord.com' && /^\/invite\/[A-Za-z0-9_-]+\/?$/u.test(url.pathname) ? url.href : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Whether `zone` is a time zone this runtime knows: formatting with it throws when it is not. */
 export function isTimeZone(zone: string): boolean {
   try {
@@ -161,7 +183,7 @@ export function readStoreDetails(value: unknown): StoreDetails | null {
     postal: text(body, 'postal', L.postal),
     country: text(body, 'country', 2)?.toUpperCase() ?? null,
     website: link(text(body, 'website', L.url)),
-    discord: link(text(body, 'discord', L.url)),
+    discord: readDiscordInvite(text(body, 'discord', L.url)),
     phone: text(body, 'phone', L.phone),
     email: text(body, 'email', L.email),
     details: text(body, 'details', L.details)

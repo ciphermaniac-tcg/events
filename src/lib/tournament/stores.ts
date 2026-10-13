@@ -5,14 +5,15 @@
  * listing as the setup it fills, an invite as a link).
  */
 
-import type {
-  GivenRole,
-  LeagueNight,
-  NightException,
-  Relationship,
-  StoreApplication,
-  StoreDetails,
-  StoreRole
+import {
+  type GivenRole,
+  type LeagueNight,
+  type NightException,
+  readDiscordInvite,
+  type Relationship,
+  type StoreApplication,
+  type StoreDetails,
+  type StoreRole
 } from '../../../shared/accounts/stores';
 import type {
   LeagueFound,
@@ -276,8 +277,8 @@ export function detailsProblems(details: StoreDetails): Partial<Record<keyof Sto
   if (link(details.website)) {
     problems.website = 'Starts with https://';
   }
-  if (link(details.discord)) {
-    problems.discord = 'Starts with https://';
+  if (readDiscordInvite(details.discord.trim()) === null) {
+    problems.discord = 'Enter a Discord invite URL';
   }
   if (details.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(details.email.trim())) {
     problems.email = 'Not an email address';

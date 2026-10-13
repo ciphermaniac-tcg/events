@@ -245,3 +245,18 @@ test('past events fall under their months in the order given, and a count names 
   ]);
   assert.deepEqual([playersWord(1), playersWord(22)], ['1 player', '22 players']);
 });
+
+test('Discord invite validation agrees between the form and the server', () => {
+  const details = { ...emptyDetails(), name: 'Store', address: '1 Main St' };
+  for (const discord of ['', ' https://discord.gg/store ', 'https://discord.com/invite/store']) {
+    assert.equal(detailsProblems({ ...details, discord }).discord, undefined);
+  }
+  for (const discord of [
+    'https://store.example',
+    'https://discord.gg.evil.test/store',
+    'https://discord.com/channels/123',
+    'https://user@discord.gg/store'
+  ]) {
+    assert.equal(detailsProblems({ ...details, discord }).discord, 'Enter a Discord invite URL');
+  }
+});

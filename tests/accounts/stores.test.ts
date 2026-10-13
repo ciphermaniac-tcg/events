@@ -6,6 +6,7 @@ import test from 'node:test';
 import {
   dateIn,
   isTimeZone,
+  readDiscordInvite,
   readExceptions,
   readLeagueId,
   readNights,
@@ -102,4 +103,60 @@ test('a time zone is one the runtime knows; a date is the store’s own', () => 
   const lateSaturdayInTexas = Date.parse('2026-10-04T03:30:00Z');
   assert.equal(dateIn('America/Chicago', lateSaturdayInTexas), '2026-10-03');
   assert.equal(dateIn('UTC', lateSaturdayInTexas), '2026-10-04');
+});
+
+test('store Discord links accept only HTTPS invites on the exact Discord hosts', () => {
+  const { details } = storeApplication();
+  for (const discord of [
+    '',
+    'https://discord.gg/abc',
+    'https://discord.gg/my-store/',
+    'https://discord.com/invite/AbC_123',
+    'https://discord.com/invite/code/?event=123',
+    'https://DISCORD.GG/AbC'
+  ]) {
+    assert.equal(readStoreDetails({ ...details, discord })?.discord, discord ? new URL(discord).href : '');
+  }
+  assert.equal(
+    readStoreDetails({ ...details, discord: '  https://discord.gg/abc  ' })?.discord,
+    'https://discord.gg/abc'
+  );
+  for (const discord of [
+    'https://example.com/invite/abc',
+    'http://discord.gg/abc',
+    'https://discord.gg.evil.test/abc',
+    'https://evil.test/discord.gg/abc',
+    'https://discord.gg@evil.test/abc',
+    'https://user:password@discord.gg/abc',
+    'https://user@discord.gg/abc',
+    'https://discord.gg:8443/abc',
+    'https://discord.gg/',
+    'https://discord.com/abc',
+    'https://discord.com/invite/',
+    'https://discord.com/channels/123/456',
+    'https://discord.gg/abc/extra',
+    'https://discord.gg/a%2fb',
+    'https://discord.gg/abc%0a',
+    `https://discord.gg/${'a'.repeat(300)}`,
+    'not a URL'
+  ]) {
+    assert.equal(readStoreDetails({ ...details, discord }), null, discord);
+  }
+  assert.equal(readStoreDetails({ ...details, discord: 7 }), null);
+  assert.equal(readStoreDetails({ ...details, website: 'https://store.example' })?.website, 'https://store.example');
+});
+
+test('Discord invite parsing canonicalizes saved links and rejects oversized and missing input', () => {
+  assert.equal(readDiscordInvite('https:discord.gg/abc'), 'https://discord.gg/abc');
+  assert.equal(readDiscordInvite('https://DISCORD.GG/abc'), 'https://discord.gg/abc');
+  assert.equal(readDiscordInvite(`https://discord.gg/${'a'.repeat(300)}`), null);
+  assert.equal(readDiscordInvite(null), null);
+  assert.equal(readDiscordInvite(`https://discord.gg/abc?${'é'.repeat(130)}`), null);
+  const canonical = readDiscordInvite('https://DISCORD.GG/abc?ref=é');
+  assert.ok(canonical);
+  assert.equal(readDiscordInvite(canonical), canonical);
+  assert.equal(
+    readStoreDetails({ ...storeApplication().details, discord: 'https:discord.gg/abc' })?.discord,
+    'https://discord.gg/abc'
+  );
 });

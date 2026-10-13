@@ -9,7 +9,7 @@
 import { byMonth, playersWord } from './storeHistory';
 import { A } from '@solidjs/router';
 import { createEffect, createResource, For, Show } from 'solid-js';
-import { dateIn, managesStore } from '../../../shared/accounts/stores';
+import { dateIn, managesStore, readDiscordInvite } from '../../../shared/accounts/stores';
 import type { PastEvent, PublicStore, StoreEvent } from '../../../shared/accounts/types';
 import { Skeleton } from '../../components/Skeleton';
 import { errorText } from '../../lib/tournament/api';
@@ -45,7 +45,7 @@ function Where(props: { store: PublicStore }) {
   const links = () =>
     [
       { href: props.store.website, label: bareLink(props.store.website) },
-      { href: props.store.discord, label: 'Discord' }
+      { href: readDiscordInvite(props.store.discord) ?? '', label: 'Discord' }
     ].filter(link => link.href);
   return (
     <div class='tm-storepage-where'>

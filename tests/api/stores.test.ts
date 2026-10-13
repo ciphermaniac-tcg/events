@@ -1071,3 +1071,31 @@ test('same-millisecond publication reads the current database after acquiring it
     mock.timers.reset();
   }
 });
+
+test('store updates reject non-Discord invite links without changing the saved link', async () => {
+  const { manager, store } = await staffedStore();
+  const app = storeApplication();
+  const save = (discord: string) =>
+    hit(
+      storeRoute.onRequestPatch as Handler,
+      `/api/stores/${store}`,
+      { id: store },
+      {
+        method: 'PATCH',
+        cookie: manager,
+        body: { details: { ...app.details, discord }, timeZone: app.timeZone }
+      }
+    );
+  const discord = 'https://discord.com/invite/store-123';
+  assert.equal((await save(discord)).status, 200);
+  for (const invalid of [
+    'https://example.com/invite/store-123',
+    'https://discord.gg.evil.test/store-123',
+    'https://discord.com/channels/123/456'
+  ]) {
+    assert.equal((await save(invalid)).status, 400);
+  }
+  const stored = await hit(storeRoute.onRequestGet as Handler, `/api/stores/${store}`, { id: store });
+  assert.equal(stored.json.store.discord, discord);
+  assert.equal((await save('')).status, 200, 'the link can still be removed');
+});

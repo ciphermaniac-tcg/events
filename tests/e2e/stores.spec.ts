@@ -786,3 +786,20 @@ test('each league night keeps its fields on one line, and stacks them whole on a
     await expect(night.locator('input').first()).toHaveCSS('font-size', width <= 640 ? '16px' : '14px');
   }
 });
+
+test('public store links hide legacy non-Discord URLs and canonicalize Discord invites', async ({ page }) => {
+  await mock(page, { user: null, role: null });
+  let discord = 'https://example.com/invite/store';
+  await page.route('**/api/stores/store-1', route =>
+    route.fulfill({ json: { store: { ...STORE, discord }, role: null } })
+  );
+  await page.goto('/stores/store-1');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(STORE.name);
+  await expect(page.getByRole('link', { name: 'Discord', exact: true })).toHaveCount(0);
+  discord = 'https:discord.gg/combatpower';
+  await page.reload();
+  await expect(page.getByRole('link', { name: 'Discord', exact: true })).toHaveAttribute(
+    'href',
+    'https://discord.gg/combatpower'
+  );
+});
