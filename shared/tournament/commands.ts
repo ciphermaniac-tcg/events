@@ -8,6 +8,7 @@ import {
   podded
 } from './legacyCommands.js';
 import { lifecycleDocument } from './lifecycleImport.js';
+import { concludePrerelease, finalPodRound, prereleaseChoiceAvailable } from './lifecycleWorkflow.js';
 import { applyLifecycleOperation } from './lifecycle.js';
 import type { LifecycleOperation } from './lifecycleTypes.js';
 import { divisionLookup } from './divisions.js';
@@ -61,6 +62,10 @@ function translated(t: Tournament, command: Command, ctx: CommandContext): Lifec
           }
         : { type: 'register', players: [player] };
     },
+    concludePrerelease: () => ({
+      type: 'concludePrerelease',
+      pod: (command as Extract<Command, { type: 'concludePrerelease' }>).pod
+    }),
     startTopCut: () => ({ type: 'topCut', pod: (command as Extract<Command, { type: 'startTopCut' }>).pod }),
     reportResult: () => reported(t, command as Extract<Command, { type: 'reportResult' }>, ctx)
   };
@@ -106,15 +111,43 @@ function checkedCutDivisions(
 }
 
 function optionalPrereleaseRound(t: Tournament, command: Command, ctx: CommandContext): Tournament {
-  if (command.type !== 'pairRound' || t.settings?.mode !== 'PRERELEASE') {
+  if (!['pairRound', 'concludePrerelease'].includes(command.type) || t.settings?.mode !== 'PRERELEASE') {
     return t;
   }
-  const round = latestRound(t.pods.find(p => p.category === command.pod));
-  if (!round || round.kind !== 'swiss' || !countsComplete(round)) {
+  const category = (command as Extract<Command, { type: 'pairRound' }>).pod;
+  const pod = t.pods.find(p => p.category === category);
+  const round = latestRound(pod);
+  if (!round || !countsComplete(round) || round.stage === 8) {
     return t;
   }
-  const result = applyLifecycleOperation(t, { type: 'playAnotherRound', pod: command.pod }, ctx);
-  return result.tournament;
+  const viewed = applyLifecycleOperation(t, { type: 'viewRecords', pod: category }, ctx).tournament;
+  return command.type === 'pairRound' && pod && prereleaseChoiceAvailable(viewed, pod)
+    ? applyLifecycleOperation(viewed, { type: 'playAnotherRound', pod: category }, ctx).tournament
+    : viewed;
+}
+
+function automaticPrereleaseConclusion(
+  result: ReturnType<typeof applyLifecycleOperation>,
+  t: Tournament,
+  command: Command,
+  ctx: CommandContext
+): ReturnType<typeof applyLifecycleOperation> {
+  if (result.ok || command.type !== 'pairRound' || t.settings?.mode !== 'PRERELEASE') {
+    return result;
+  }
+  const pod = t.pods.find(p => p.category === command.pod);
+  const round = latestRound(pod);
+  if (!pod || !round || !countsComplete(round) || round.stage === 8 || finalPodRound(t, pod, round)) {
+    return result;
+  }
+  return {
+    ok: true,
+    tournament: concludePrerelease(
+      result.tournament,
+      { type: 'concludePrerelease', pod: command.pod, afterPairingFailure: true },
+      ctx
+    )
+  };
 }
 
 function preparedCut(
@@ -275,7 +308,7 @@ export function applyCommand(t: Tournament, command: Command, ctx: CommandContex
       return legacyChange(document, command, ctx);
     }
     const result = applyLifecycleOperation(prepared, operation, ctx);
-    return commandResult(result, prepared);
+    return commandResult(automaticPrereleaseConclusion(result, prepared, command, ctx), prepared);
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : 'The command could not complete' };
   }

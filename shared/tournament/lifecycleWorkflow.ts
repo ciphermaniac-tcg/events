@@ -1,7 +1,14 @@
 import { divisionLookup } from './divisions.js';
 import { enteredResults, playoffPaired, survivorList } from './lifecycleSurvivors.js';
 import type { LifecycleContext, LifecycleOperation } from './lifecycleTypes.js';
-import { checkedStage, countsComplete, fullRoundSeconds, latestRound, regularRounds } from './rounds.js';
+import {
+  checkedStage,
+  countsComplete,
+  fullRoundSeconds,
+  latestRound,
+  regularRounds,
+  schedulePlayers
+} from './rounds.js';
 import { DIVISIONS, type Match, type Pod, type Round, type Tournament } from './types.js';
 
 export function selectedPods(t: Tournament, category: Pod['category'] | undefined): Pod[] {
@@ -43,7 +50,7 @@ type WorkflowOperation = Extract<
 >;
 
 export function finalPodRound(t: Tournament, pod: Pod, round: Round): boolean {
-  return countsComplete(round) && scheduledFinal(t, pod, round);
+  return countsComplete(round) && (pod.prereleaseConcluded === true || scheduledFinal(t, pod, round));
 }
 
 /** The pod's last scheduled round, its cut finished, whatever its results: completion then finishes the pod. */
@@ -52,6 +59,49 @@ export function scheduledFinal(t: Tournament, pod: Pod, round: Round): boolean {
     return finalCut(t, pod, round);
   }
   return round.number >= regularRounds(t, pod) && (t.settings?.type !== 3 || pod.cut === 0);
+}
+
+/** V27-2: an unfinished pod can be concluded from round 3, before standings acknowledgment. */
+export function prereleaseChoiceAvailable(t: Tournament, pod: Pod): boolean {
+  const last = latestRound(pod);
+  return Boolean(
+    t.settings?.mode === 'PRERELEASE' &&
+    last &&
+    last.number >= 3 &&
+    countsComplete(last) &&
+    (last.stage ?? 0) < 8 &&
+    !finalPodRound(t, pod, last)
+  );
+}
+
+export function concludePrerelease(
+  t: Tournament,
+  op: Extract<LifecycleOperation, { type: 'concludePrerelease' }>,
+  ctx: LifecycleContext
+): Tournament {
+  const pods = selectedPods(t, op.pod);
+  if (
+    t.settings?.mode !== 'PRERELEASE' ||
+    pods.some(pod => !conclusionAllowed(t, pod, op.afterPairingFailure ?? false))
+  ) {
+    throw new Error('This pod cannot be concluded early');
+  }
+  const viewed = workflow(t, { type: 'viewStandings', pod: op.pod }, ctx);
+  return schedulePlayers(
+    replacePods(
+      viewed,
+      viewed.pods
+        .filter(pod => pods.some(p => p.category === pod.category))
+        .map(pod => ({ ...pod, prereleaseConcluded: true }))
+    )
+  );
+}
+
+function conclusionAllowed(t: Tournament, pod: Pod, automatic: boolean): boolean {
+  const last = latestRound(pod);
+  return Boolean(
+    last && countsComplete(last) && (last.stage ?? 0) >= 6 && (automatic || prereleaseChoiceAvailable(t, pod))
+  );
 }
 
 function finalCut(t: Tournament, pod: Pod, round: Round): boolean {

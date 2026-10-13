@@ -217,6 +217,7 @@ function podSettings(o: Obj): Partial<Pod> {
   return {
     ...(o.stage === undefined ? {} : { stage: int(o.stage, 0, 2) as 0 | 1 | 2 }),
     ...(o.subgroupCount === undefined ? {} : { subgroupCount: int(o.subgroupCount, 1, 16) }),
+    ...(o.prereleaseConcluded === undefined ? {} : { prereleaseConcluded: o.prereleaseConcluded === true }),
     ...(o.additionalRounds === undefined ? {} : { additionalRounds: int(o.additionalRounds, 0, 1) }),
     ...(o.blockedRanges === undefined
       ? {}

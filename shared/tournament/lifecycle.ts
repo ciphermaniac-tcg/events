@@ -10,7 +10,14 @@ import { packRepairTables, packTables, prepareTables } from './lifecycleTables.j
 import type { LifecycleContext, LifecycleOperation, LifecycleResult } from './lifecycleTypes.js';
 import { reopenResult } from './lifecycleReopen.js';
 import { checkedSurvivors, confirmedSurvivors } from './lifecycleSurvivors.js';
-import { finalPodRound, recordResults, replacePods, selectedPods, workflow } from './lifecycleWorkflow.js';
+import {
+  concludePrerelease,
+  finalPodRound,
+  recordResults,
+  replacePods,
+  selectedPods,
+  workflow
+} from './lifecycleWorkflow.js';
 import { writeTdf } from './tdf.js';
 import { countsComplete, latestRound, regularRounds, savedStages, wasFinalized } from './rounds.js';
 import type { Match, Round, Tournament } from './types.js';
@@ -139,7 +146,25 @@ type Handlers = {
 
 function completedPod(t: Tournament, pod: Tournament['pods'][number]): boolean {
   const last = latestRound(pod);
-  return Boolean(last && (last.stage ?? 0) >= 5 && (t.settings?.mode === 'PRERELEASE' || finalPodRound(t, pod, last)));
+  return Boolean(last && (last.stage ?? 0) >= 5 && finalPodRound(t, pod, last));
+}
+
+function handledConclusion(
+  t: Tournament,
+  op: Extract<LifecycleOperation, { type: 'concludePrerelease' }>,
+  ctx: LifecycleContext
+): Tournament {
+  if (!op.afterPairingFailure) {
+    return concludePrerelease(t, op, ctx);
+  }
+  const attempted = applyLifecycleOperation(t, { type: 'pair', pod: op.pod }, ctx);
+  const appended = attempted.tournament.pods.some(
+    pod => pod.rounds.length > (t.pods.find(p => p.category === pod.category)?.rounds.length ?? 0)
+  );
+  if (appended) {
+    throw new Error('The next pairing produced a round');
+  }
+  return concludePrerelease(attempted.tournament, op, ctx);
 }
 
 const handlers: Handlers = {
@@ -162,6 +187,7 @@ const handlers: Handlers = {
   reenter: (t, op, ctx) => reenterEntrant(t, op, ctx),
   late: (t, op, ctx) => lateEntrant(t, op, ctx),
   topCut: (t, op, ctx) => startedCut(t, op.pod, ctx),
+  concludePrerelease: (t, op, ctx) => handledConclusion(t, op, ctx),
   finish: t => {
     if (!t.settings || t.pods.some(p => !completedPod(t, p))) {
       throw new Error('Report every result before finishing');

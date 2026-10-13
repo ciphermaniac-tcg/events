@@ -199,6 +199,9 @@ function checkedSwissRepair(last: ReturnType<typeof latestRound>, terminal: bool
 
 export function validateSwissRound(t: Tournament, pod: Pod, repair: boolean, terminal: boolean): void {
   const last = latestRound(pod);
+  if (pod.prereleaseConcluded) {
+    throw new PairingError('This Prerelease pod is concluded');
+  }
   if (repair) {
     checkedSwissRepair(last, terminal);
     return;

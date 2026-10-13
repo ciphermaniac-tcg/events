@@ -75,6 +75,7 @@ const SHAPES: { [T in Command['type']]: (body: Obj) => boolean } = {
   undropPlayer: body => isStr(body.id, 20),
   setFixedTable: body => isStr(body.id, 20) && (body.table === null || isInt(body.table)),
   pairRound: body => isPod(body.pod),
+  concludePrerelease: body => isPod(body.pod),
   repairRound: body => isPod(body.pod) && typeof body.keepReported === 'boolean',
   deleteRound: body => isPod(body.pod),
   startClock: body => isPod(body.pod),

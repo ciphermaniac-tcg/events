@@ -38,6 +38,7 @@ export type LifecycleOperation =
   | { type: 'late'; player: NewPlayer; markLate: boolean; forcedLoss: boolean; timestamp: string }
   | { type: 'topCut'; pod?: PodCategory }
   | { type: 'reload'; pod?: PodCategory; seconds?: number }
+  | { type: 'concludePrerelease'; pod?: PodCategory; afterPairingFailure?: boolean }
   | { type: 'finish' };
 
 /** Only nondeterministic choices can be supplied. Tables, stages and outcomes remain engine decisions. */

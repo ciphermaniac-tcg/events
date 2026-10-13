@@ -158,6 +158,8 @@ export interface Pod {
   stage?: 0 | 1 | 2;
   subgroupCount?: number;
   additionalRounds?: number;
+  /** V27-2: session-only pod conclusion; never inferred from stage 8 or written to TDF. */
+  prereleaseConcluded?: boolean;
   blockedRanges?: { start: number; end: number }[];
   /**
    * Legacy storage and read-only division views: the original combined pod.

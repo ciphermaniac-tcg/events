@@ -4,6 +4,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { emptyTournament } from '../../shared/tournament/create.ts';
+import { wizardControls } from '../../shared/tournament/wizard.ts';
 import { applyLifecycleOperation } from '../../shared/tournament/lifecycle.ts';
 import type { LifecycleContext, LifecycleOperation, RecordedChoices } from '../../shared/tournament/lifecycleTypes.ts';
 import { activeIds, fullRoundSeconds, latestRound, regularRounds } from '../../shared/tournament/rounds.ts';
@@ -344,8 +345,8 @@ function operationOf(op: FixtureOperation, t: Tournament): LifecycleOperation {
     }),
     configure: () => ({
       type: 'configure',
-      eventType: op.type as 1 | 2 | 3,
-      cut: op.cut!,
+      eventType: op.wizardPreset ? t.settings!.type : (op.type as 1 | 2 | 3),
+      cut: op.cut ?? 0,
       divisionCuts: Object.fromEntries(
         (op.divisionCuts ?? '')
           .split(',')
@@ -355,16 +356,20 @@ function operationOf(op: FixtureOperation, t: Tournament): LifecycleOperation {
             return [categories[division!], size];
           })
       ),
-      flights: op.flights!,
-      lessSwiss: op.lessSwiss!,
-      additionalRounds: op.additionalRounds!,
-      thirdPlace: op.thirdPlace!,
-      manualTables: op.manualTables!,
+      flights: op.flights ?? 1,
+      lessSwiss: op.lessSwiss ?? false,
+      additionalRounds: op.additionalRounds ?? 0,
+      thirdPlace: op.thirdPlace ?? false,
+      manualTables: op.manualTables ?? false,
       blockedRanges: blockedRanges(op),
       overflowTableStart: op.overflowTable,
       wizard: op.wizard,
-      roundMinutes: op.roundMinutes ?? 30,
-      finalMinutes: op.finalMinutes ?? 75
+      roundMinutes: op.roundMinutes ?? wizardControls(t, { round: op.wizardInitialRoundMinutes }).swissMinutes.value,
+      finalMinutes:
+        op.finalMinutes ??
+        (op.wizardPreset === undefined
+          ? 75
+          : wizardControls(t, { finals: op.wizardInitialFinalMinutes }).finalsMinutes.value)
     }),
     start: () => ({ type: 'start' }),
     pair: () => ({ type: 'pair', pod, repair: op.repair }),
@@ -375,6 +380,7 @@ function operationOf(op: FixtureOperation, t: Tournament): LifecycleOperation {
     'view-records': () => ({ type: 'viewRecords', pod }),
     'view-standings': () => ({ type: 'viewStandings', pod }),
     'play-another-round': () => ({ type: 'playAnotherRound', pod }),
+    'conclude-prerelease': () => ({ type: 'concludePrerelease', pod, afterPairingFailure: op.afterPairingFailure }),
     drop: () => ({
       type: 'drop',
       id: String(op.player),
@@ -464,6 +470,12 @@ function applyReplayOperation(
   op: FixtureOperation,
   ctx: LifecycleContext
 ): ReturnType<typeof applyLifecycleOperation> {
+  if (op.wizardControls) {
+    assert.deepEqual(
+      wizardControls(t, { round: op.wizardInitialRoundMinutes, finals: op.wizardInitialFinalMinutes }),
+      op.wizardControls
+    );
+  }
   if (op.op === 'probe-finish') {
     const result = applyLifecycleOperation(t, operationOf(op, t), ctx);
     return { ...result, tournament: t };
@@ -637,6 +649,10 @@ function sampledClocks(scenario: FixtureScenario, op: FixtureOperation, state: R
 }
 
 function savedCheckpoint(scenario: FixtureScenario, op: FixtureOperation, state: ReplayState, options: ReplayOptions) {
+  if (op.scheduledRounds !== undefined) {
+    const pod = state.tournament.pods.find(p => p.category === categories[op.pod!])!;
+    assert.equal(regularRounds(state.tournament, pod), op.scheduledRounds);
+  }
   const actual = writeTdf(state.tournament, { now: state.sampled ?? now + 24 * 60 * 60 * 1000 });
   if (options.outputDirectory) {
     const directory = join(options.outputDirectory, scenario.id);

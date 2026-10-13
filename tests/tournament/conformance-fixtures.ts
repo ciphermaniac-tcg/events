@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { zstdDecompressSync } from 'node:zlib';
+import type { WizardControls } from '../../shared/tournament/wizard.ts';
 
 const archive = resolve('tests/fixtures/tom-conformance/tom-1.86.0-conformance-v25.tar.zst');
 export const fixtureCache = resolve('.cache/tom-1.86.0-v25');
@@ -133,6 +134,12 @@ export interface FixtureOperation {
   failedSaveFixture?: string;
   failedSaveSha256?: string;
   wizard?: boolean;
+  wizardPreset?: boolean;
+  wizardInitialRoundMinutes?: number;
+  wizardInitialFinalMinutes?: number;
+  wizardControls?: WizardControls;
+  scheduledRounds?: number;
+  afterPairingFailure?: boolean;
   disqualified_name_order?: { category: number; players: number[] }[];
 }
 export interface FixtureScenario {
@@ -183,6 +190,26 @@ export function loadScenarios(): FixtureScenario[] {
   assert.equal(
     scenarios.reduce((count, s) => count + s.operations.length, 0),
     13937
+  );
+  return [...scenarios, ...loadV27Scenarios()];
+}
+
+export function loadV27Scenarios(): FixtureScenario[] {
+  const expected = 'a99968228e38b9dd5295aeaf82fef2d5498ad78de843ae76f77ee9361dea4b54';
+  const bytes = readFileSync(resolve('tests/fixtures/tom-conformance/tom-1.86.0-conformance-v27.tar.zst'));
+  assert.equal(digest(bytes), expected, 'The original v27 archive must remain unchanged');
+  const cache = resolve('.cache/tom-1.86.0-v27');
+  const marker = join(cache, '.archive-sha256');
+  if (!existsSync(marker) || readFileSync(marker, 'utf8') !== expected) {
+    extractTar(zstdDecompressSync(bytes), cache, /^conformance-v27\/(?:[a-z0-9_./-]*|SPEC\.md|PAIRING\.md)$/);
+    writeFileSync(marker, expected);
+  }
+  const root = join(cache, 'conformance-v27');
+  const scenarios = scenarioIds(root).map(id => readScenario(root, id));
+  assert.equal(scenarios.length, 16, 'Never silently drop v27 scenarios');
+  assert.equal(
+    scenarios.reduce((count, s) => count + s.operations.length, 0),
+    171
   );
   return scenarios;
 }

@@ -11,6 +11,7 @@
  * round rather than waiting for the next one.
  */
 
+import { eventTimeLimits } from './create.js';
 import { addToFlight } from './flights.js';
 import { type ExtensionCommand, setTimeExtension } from './timeExtensions.js';
 import { divisionFor, divisionLookup, parseTomDate, seasonOf, yearOnlyBirthDate } from './divisions.js';
@@ -94,6 +95,7 @@ export type Command =
     }
   | { type: 'swapPlayers'; pod: PodCategory; a: string; b: string }
   | { type: 'startTopCut'; pod: PodCategory; size: number; division?: Division; playoff3rd4th?: boolean }
+  | { type: 'concludePrerelease'; pod: PodCategory }
   | { type: 'updateInfo'; info: Partial<Pick<TournamentInfo, EditableInfo>> };
 
 export type EditableInfo =
@@ -751,8 +753,9 @@ function updateInfo(
     return fail('The event needs a name');
   }
   const minutes = [next.roundTime, next.finalsRoundTime];
-  if (minutes.some(value => !Number.isInteger(value) || value < 1 || value > 180)) {
-    return fail('Round times are whole minutes, up to 180');
+  const limits = eventTimeLimits(eventTypeOf({ info: next }));
+  if (minutes.some(value => !Number.isInteger(value) || value < limits.minimum || value > limits.maximum)) {
+    return fail(`Round times are whole minutes, from ${limits.minimum} to ${limits.maximum}`);
   }
   const short = ctx.sanctioned ? sanctionedMinutesError(next) : null;
   if (short) {
@@ -802,6 +805,7 @@ const HANDLERS: Handlers = {
   reportResult: (t, c, ctx) => reportResult(t, c, ctx),
   swapPlayers: (t, c) => swapPlayers(t, c.pod, c.a, c.b),
   startTopCut: (t, c, ctx) => startTopCut(t, c, ctx),
+  concludePrerelease: () => fail('Only Prerelease events can conclude a pod early'),
   updateInfo: (t, c, ctx) => updateInfo(t, c.info, ctx)
 };
 

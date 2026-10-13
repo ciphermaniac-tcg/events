@@ -69,6 +69,9 @@ function divisionCutsPaired(row: TournamentRow, pod: Pod): boolean {
 }
 
 function stagesComplete(row: TournamentRow, pod: Pod): boolean {
+  if (pod.prereleaseConcluded) {
+    return true;
+  }
   if (pod.cutOf) {
     return cutComplete(pod);
   }

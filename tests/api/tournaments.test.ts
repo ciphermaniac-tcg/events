@@ -64,7 +64,7 @@ import { apiCalls, type Handler, ORIGIN, request } from '../__utils__/apiCalls.t
 import { at, eventCalls } from '../__utils__/eventCalls.ts';
 import { storeApplication } from '../__utils__/storeApplication.ts';
 import { countingTrips, racing, sqliteD1 } from '../__utils__/sqliteD1.ts';
-import { context, generatedEvent } from '../tournament/conformance-generated.ts';
+import { completed, context, generatedEvent, operated } from '../tournament/conformance-generated.ts';
 import { type MainSiteData, serveMainSiteData } from '../__utils__/mainSiteData.ts';
 
 /** Every scalar in a JSON value, keys included, for asserting what a public copy never carries. */
@@ -388,17 +388,20 @@ test('Prerelease API continuation writes stage 7 and early conclusion writes sta
       assert.equal(reported.status, 200);
     }
   };
+  for (let i = 0; i < 3; i += 1) {
+    await reportRound();
+    assert.equal((await send(code, owner, { type: 'pairRound', pod: 'masters' })).status, 200);
+  }
+  assert.equal((await loadTournament(db, code))!.tournament.pods[0]!.rounds[2]!.stage, 7);
   await reportRound();
-  assert.equal((await send(code, owner, { type: 'pairRound', pod: 'masters' })).status, 200);
-  assert.equal((await loadTournament(db, code))!.tournament.pods[0]!.rounds[0]!.stage, 7);
-  await reportRound();
+  assert.equal((await send(code, owner, { type: 'concludePrerelease', pod: 'masters' })).status, 200);
   assert.equal((await settle(code, owner, { finished: true })).status, 200);
   const row = (await loadTournament(db, code))!;
   assert.equal(row.tournament.pods[0]!.rounds.at(-1)!.stage, 8);
   assert.equal(row.tournament.settings!.stage, 5);
   assert.equal((await settle(code, owner, { finished: false })).status, 200);
   assert.equal((await send(code, owner, { type: 'pairRound', pod: 'masters' })).status, 200);
-  assert.match(writeTdf(row.tournament, { finalized: true }), /<round number="2" type="2" stage="8" >/);
+  assert.match(writeTdf(row.tournament, { finalized: true }), /<round number="4" type="2" stage="8" >/);
 });
 
 test('who starts an event of their own: a Community organizer or an Admin; a revoked one still runs its own', async () => {
@@ -2227,6 +2230,30 @@ test('idle candidates exclude empty pods, unpaired divisions and updates at the 
   db.raw.prepare('UPDATE tournaments SET updated_at = ? WHERE code = ?').run(before, atCutoff);
   assert.deepEqual(await loadIdle(db, before, 10), []);
   assert.deepEqual((await sweep()).json.ended, [], 'no unpaired event is finished');
+});
+
+test('V27 idle completion recognizes a concluded Prerelease pod before its original maximum', async () => {
+  const owner = await signIn('Organizer', 'organizer');
+  const code = await newEvent(owner, { eventType: 'prerelease' });
+  const ctx = context(11);
+  const base = generatedEvent(9, ctx, { additionalRounds: 0 });
+  let t: Tournament = {
+    ...base,
+    info: { ...base.info, eventType: 'prerelease' },
+    settings: { ...base.settings!, mode: 'PRERELEASE' }
+  };
+  t = operated(t, { type: 'start' }, ctx);
+  for (let i = 0; i < 3; i += 1) {
+    t = operated(completed(t, ctx), { type: 'viewRecords' }, ctx);
+    if (i < 2) {
+      t = operated(t, { type: 'pair' }, ctx);
+    }
+  }
+  t = operated(t, { type: 'concludePrerelease', pod: 'masters' }, ctx);
+  const db = env.TOURNAMENT_DB as ReturnType<typeof sqliteD1>;
+  db.raw.prepare('UPDATE tournaments SET state = ? WHERE code = ?').run(JSON.stringify(t), code);
+  age(code, 3 * HOUR);
+  assert.deepEqual((await sweep()).json.ended, [code]);
 });
 
 test('capped sweeps process oldest events first, break ties by code and drain remaining candidates', async () => {

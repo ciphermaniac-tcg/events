@@ -90,13 +90,37 @@ test('event kind changes update both TOM mode and structure, including imported 
   }
 });
 
-test('Prerelease another round saves stage 7; early standings saves 8 and can finish', () => {
-  const t = completed(command(registered('prerelease'), { type: 'pairRound', pod: 'masters' }), ctx);
+test('Prerelease another round saves stage 7 from round 3; early conclusion saves 8', () => {
+  let t = command(registered('prerelease'), { type: 'pairRound', pod: 'masters' });
+  for (let i = 1; i <= 3; i += 1) {
+    t = completed(t, ctx);
+    if (i < 3) {
+      t = command(t, { type: 'pairRound', pod: 'masters' });
+    }
+  }
   const next = command(t, { type: 'pairRound', pod: 'masters' });
-  assert.equal(next.pods[0]!.rounds[0]!.stage, 7);
-  assert.match(writeTdf(next), /<round number="1" type="2" stage="7" >/);
-  const ended = operated(operated(t, { type: 'viewStandings' }, ctx), { type: 'finish' }, ctx);
-  assert.equal(ended.pods[0]!.rounds[0]!.stage, 8);
+  assert.equal(next.pods[0]!.rounds[2]!.stage, 7);
+  assert.match(writeTdf(next), /<round number="3" type="2" stage="7" >/);
+  const ended = operated(command(t, { type: 'concludePrerelease', pod: 'masters' }), { type: 'finish' }, ctx);
+  assert.equal(ended.pods[0]!.rounds[2]!.stage, 8);
   assert.equal(ended.settings!.stage, 5);
-  assert.match(writeTdf(ended, { finalized: true }), /<round number="1" type="2" stage="8" >/);
+  assert.match(writeTdf(ended, { finalized: true }), /<round number="3" type="2" stage="8" >/);
+});
+
+test('event detail edits hold Local and Prerelease round times to their V27 ranges', () => {
+  for (const [eventType, minimum] of [
+    ['local', 10],
+    ['prerelease', 20]
+  ] as const) {
+    const t = registered(eventType, 4);
+    const edit = (roundTime: number) => applyCommand(t, { type: 'updateInfo', info: { roundTime } }, ctx);
+    assert.ok(edit(minimum).ok);
+    assert.ok(edit(90).ok);
+    for (const outside of [minimum - 1, 91]) {
+      const result = edit(outside);
+      assert.equal(result.ok, false);
+      assert.equal(result.ok ? '' : result.error, `Round times are whole minutes, from ${minimum} to 90`);
+    }
+  }
+  assert.ok(applyCommand(registered('cup', 4), { type: 'updateInfo', info: { roundTime: 180 } }, ctx).ok);
 });

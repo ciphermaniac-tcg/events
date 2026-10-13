@@ -15,7 +15,6 @@ import {
 } from '../../../../shared/tournament/view.js';
 import { applyLifecycleOperation } from '../../../../shared/tournament/lifecycle.js';
 import { lifecycleDocument } from '../../../../shared/tournament/lifecycleImport.js';
-import { countsComplete, latestRound } from '../../../../shared/tournament/rounds.js';
 import { commandContext } from '../../../lib/tournaments/commandContext.js';
 import type { D1Like } from '../../../lib/types.js';
 import { readJsonBody } from '../../../lib/api/body.js';
@@ -70,14 +69,16 @@ function concludedPrerelease(row: TournamentRow, settings: TournamentSettings) {
     return {};
   }
   if (!settings.finished) {
-    return { tournament: { ...tournament, settings: { ...tournament.settings, stage: 4 as const } } };
-  }
-  if (tournament.pods.some(pod => !countsComplete(latestRound(pod)))) {
-    return 'Report every result before finishing';
+    return {
+      tournament: {
+        ...tournament,
+        settings: { ...tournament.settings, stage: 4 as const },
+        pods: tournament.pods.map(({ prereleaseConcluded: _ended, ...pod }) => pod)
+      }
+    };
   }
   const ctx = commandContext(tournament, undefined, settings.sanctioned);
-  const viewed = applyLifecycleOperation(tournament, { type: 'viewStandings' }, ctx);
-  const finished = applyLifecycleOperation(viewed.tournament, { type: 'finish' }, ctx);
+  const finished = applyLifecycleOperation(tournament, { type: 'finish' }, ctx);
   return finished.ok ? { tournament: finished.tournament } : finished.error!;
 }
 

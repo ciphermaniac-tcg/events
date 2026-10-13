@@ -3,6 +3,7 @@ import { emptyTournament } from './create.js';
 import { divisionLookup, parseTomDate, seasonOf } from './divisions.js';
 import { dealFlights, validFlightCount } from './flights.js';
 import type { LifecycleContext, LifecycleOperation } from './lifecycleTypes.js';
+import { importedEventType } from './structure.js';
 import { regularRounds, schedulePlayers } from './rounds.js';
 import { shuffled } from './random.js';
 import { type Division, DIVISIONS, isDivision, type Player, type Pod, type Tournament } from './types.js';
@@ -107,7 +108,9 @@ function configuredInfo(t: Tournament, op: ConfigureOperation, ctx: LifecycleCon
     ...t.info,
     roundTime: op.roundMinutes,
     finalsRoundTime: op.finalMinutes,
-    eventType: op.eventType === 3 ? ('cup' as const) : ('challenge' as const)
+    eventType:
+      importedEventType(t.settings!.mode, String(op.eventType)).eventType ??
+      (op.eventType === 3 ? ('cup' as const) : ('challenge' as const))
   };
   const dated = parseTomDate(info.startDate);
   return podded({ ...t, info }, dated ? seasonOf(dated) : ctx.season);

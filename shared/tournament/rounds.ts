@@ -360,6 +360,14 @@ export function swissAttendance(pod: Pod): number {
  * with TOM's.
  */
 export function regularRounds(tournament: Tournament, pod: Pod): number {
+  // V27-2: a concluded pod's count becomes its current round; a combined pod keeps its scheduled count.
+  if (pod.prereleaseConcluded && pod.category !== 'junior-senior' && pod.category !== 'senior-masters') {
+    return latestRound(pod)?.number ?? 0;
+  }
+  return ordinaryRounds(tournament, pod);
+}
+
+function ordinaryRounds(tournament: Tournament, pod: Pod): number {
   const { settings } = tournament;
   const count = scheduledAttendance(tournament, pod);
   const type = settings ? (settings.type === 3 ? 'cup' : 'challenge') : eventTypeOf(tournament);
