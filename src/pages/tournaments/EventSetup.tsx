@@ -13,7 +13,7 @@
 
 import { createSignal, For, Show, untrack } from 'solid-js';
 import type { Listing } from '../../../shared/accounts/types';
-import { DEFAULT_ROUND_MINUTES } from '../../../shared/tournament/create';
+import { DEFAULT_ROUND_MINUTES, eventTimeLimits } from '../../../shared/tournament/create';
 import { SANCTIONED } from '../../../shared/tournament/structure';
 import type { EventType } from '../../../shared/tournament/types';
 import type { DecklistMode, DeckVisibility, TournamentSettings } from '../../../shared/tournament/view';
@@ -85,6 +85,7 @@ export function EventSetup(props: {
   const own = () => !props.runAs.find(option => option.id === runAs())?.sanctions;
   const sanctioned = () => !own() && sanctionedChoice();
   const selectedEventType = () => (own() && !['local', 'prerelease'].includes(eventType()) ? 'local' : eventType());
+  const timeLimits = () => eventTimeLimits(selectedEventType());
   const needsName = () => swiss() && !name().trim();
   const needsPlayTools = () => (swiss() ? sanctioned() : props.tdfSanctioned);
   const shortRounds = () => swiss() && sanctioned() && roundTime() < SANCTIONED.minutes;
@@ -249,8 +250,8 @@ export function EventSetup(props: {
               id='setup-minutes'
               class='tm-input tm-set-minutes'
               type='number'
-              min={sanctioned() ? SANCTIONED.minutes : 1}
-              max='180'
+              min={sanctioned() ? Math.max(SANCTIONED.minutes, timeLimits().minimum) : timeLimits().minimum}
+              max={timeLimits().maximum}
               value={roundTime()}
               onInput={e => setRoundTime(Number(e.currentTarget.value))}
             />

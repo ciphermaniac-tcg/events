@@ -7,6 +7,8 @@
  */
 
 import { createSignal, For, Show } from 'solid-js';
+import { finalPodRound, prereleaseChoiceAvailable } from '../../../shared/tournament/lifecycleWorkflow';
+import { latestRound } from '../../../shared/tournament/rounds';
 import { TOP_CUT_SIZES } from '../../../shared/tournament/structure';
 import { type Division, DIVISION_LABELS, type Pod } from '../../../shared/tournament/types';
 import { type Manage, saveSettings } from '../../lib/tournament/api';
@@ -17,7 +19,7 @@ import { Modal } from './Modal';
 import { OptionsMenu } from './OptionsMenu';
 
 /** Which of a Swiss round's ends the plan calls for: another round until its rounds are played, then the cut or the end. */
-export type RoundEnd = 'pair' | 'cut' | 'end';
+export type RoundEnd = 'pair' | 'cut' | 'end' | 'conclude';
 
 const CUT_LABEL = 'Start top cut';
 const END_LABEL = 'End event';
@@ -180,23 +182,41 @@ export function RoundEndSplit(props: {
 }) {
   const [dialog, setDialog] = createSignal<'cut' | 'end' | null>(null);
   const open = () => props.cuts.filter(c => !c.started);
+  const allDone = () =>
+    props.manage.tournament.pods.every(pod => {
+      const round = latestRound(pod);
+      return round && finalPodRound(props.manage.tournament, pod, round);
+    });
   const steps = (): { end: RoundEnd; label: string }[] => [
-    ...(props.swissOver ? [] : [{ end: 'pair' as const, label: props.label }]),
+    ...(props.swissOver || props.pod.prereleaseConcluded ? [] : [{ end: 'pair' as const, label: props.label }]),
+    ...(prereleaseChoiceAvailable(props.manage.tournament, props.pod)
+      ? [{ end: 'conclude' as const, label: 'Conclude pod' }]
+      : []),
     ...(props.canCut ? [{ end: 'cut' as const, label: CUT_LABEL }] : []),
-    { end: 'end' as const, label: END_LABEL }
+    ...(props.manage.tournament.settings?.mode !== 'PRERELEASE' || allDone()
+      ? [{ end: 'end' as const, label: END_LABEL }]
+      : [])
   ];
-  const main = () => steps().find(s => s.end === props.step) ?? steps()[0];
+  const main = () =>
+    steps().find(s => s.end === props.step) ?? steps()[0] ?? { end: 'conclude' as const, label: 'Pod concluded' };
   const others = () => steps().filter(s => s.end !== main().end);
   const take = (end: RoundEnd) => {
     if (end === 'pair') {
       void props.state.send({ type: 'pairRound', pod: props.pod.category });
+    } else if (end === 'conclude') {
+      void props.state.send({ type: 'concludePrerelease', pod: props.pod.category });
     } else {
       setDialog(end);
     }
   };
   return (
     <span class='tm-split'>
-      <button type='button' class='btn btn-primary' disabled={props.state.busy()} onClick={() => take(main().end)}>
+      <button
+        type='button'
+        class='btn btn-primary'
+        disabled={props.state.busy() || steps().length === 0}
+        onClick={() => take(main().end)}
+      >
         {main().label}
       </button>
       <Show when={others().length > 0}>

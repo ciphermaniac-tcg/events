@@ -210,6 +210,43 @@ test('after the planned rounds the step is the top cut, set in a dialog, with an
   await expect.poll(() => sent.at(-1)).toMatchObject({ type: 'startTopCut', size: 8, playoff3rd4th: true });
 });
 
+function prerelease(rounds: number): Tournament {
+  let t = event(9, 0, false);
+  t = { ...t, info: { ...t.info, eventType: 'prerelease', finalsRoundTime: 30 } };
+  for (let i = 0; i < rounds; i += 1) {
+    t = reportAll(run(t, { type: 'pairRound', pod: 'masters' }));
+  }
+  return t;
+}
+
+test('Prerelease offers per-pod conclusion from round 3 @mobile', async ({ page }) => {
+  const t = prerelease(3);
+  const sent = await mockConsole(page, t, settingsOf({}), [], true);
+  const step = page.locator('.tm-split');
+  await step.getByRole('button', { name: 'Other next steps' }).click();
+  await expect(step.getByRole('button', { name: 'End event', exact: true })).toHaveCount(0);
+  await step.getByRole('button', { name: 'Conclude pod', exact: true }).click();
+  await expect.poll(() => sent.at(-1)).toEqual({ type: 'concludePrerelease', pod: 'masters' });
+  await expect(step.getByRole('button', { name: 'End event', exact: true })).toBeVisible();
+});
+
+test('Prerelease before round 3 has no early conclusion; its stored short time is raised on opening settings', async ({
+  page
+}) => {
+  const t = prerelease(2);
+  t.info.roundTime = 20;
+  await mockConsole(page, t, settingsOf({}));
+  await page.getByRole('button', { name: 'Other next steps' }).click();
+  await expect(page.getByRole('button', { name: 'Conclude pod', exact: true })).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  await page.getByRole('tab', { name: 'Settings', exact: true }).click();
+  await expect(page.locator('#info-round')).toHaveValue('30');
+  await expect(page.locator('#info-round')).toHaveAttribute('min', '20');
+  await expect(page.locator('#info-round')).toHaveAttribute('max', '90');
+  await expect(page.locator('#info-finals')).toBeDisabled();
+  await expect(page.locator('#info-finals')).toHaveValue('30');
+});
+
 test('ending the event from the next step asks first, in a dialog', async ({ page }) => {
   await mockConsole(page, event(16, 5, false), settingsOf({}));
   const step = page.locator('.tm-split');

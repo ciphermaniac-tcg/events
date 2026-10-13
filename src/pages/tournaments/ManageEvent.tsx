@@ -164,7 +164,9 @@ function RoundEndStep(props: {
   const open = () => props.cuts.filter(c => !c.started);
   // A League Challenge plays Swiss rounds only.
   const canCut = () =>
-    eventTypeOf(props.manage.tournament) !== 'challenge' && (props.step === 'cut' || open().some(c => c.active >= 4));
+    !props.pod.prereleaseConcluded &&
+    eventTypeOf(props.manage.tournament) !== 'challenge' &&
+    (props.step === 'cut' || open().some(c => c.active >= 4));
   return (
     <Show
       when={props.ready}
@@ -214,7 +216,12 @@ function Hero(props: { state: ManageState; manage: Manage; pod: Pod | undefined;
   const plan = () =>
     props.pod
       ? {
-          rounds: plannedRounds(props.pod, props.manage.settings.roundCap, eventTypeOf(props.manage.tournament)),
+          rounds: plannedRounds(
+            props.pod,
+            props.manage.settings.roundCap,
+            eventTypeOf(props.manage.tournament),
+            props.manage.tournament
+          ),
           cut:
             cuts()
               .filter(c => !c.started)

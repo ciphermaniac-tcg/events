@@ -10,6 +10,7 @@
 
 import { useNavigate } from '@solidjs/router';
 import { createResource, createSignal, For, type JSX, Show } from 'solid-js';
+import { eventTimeLimits } from '../../../shared/tournament/create';
 import { eventTypeOf, recommendedStructure, SANCTIONED } from '../../../shared/tournament/structure';
 import type { EventType } from '../../../shared/tournament/types';
 import { swissAttendance } from '../../../shared/tournament/rounds';
@@ -79,10 +80,14 @@ function recommendedRounds(manage: Manage, type: EventType): number | undefined 
 function EventDetails(props: { state: ManageState; manage: Manage }) {
   const info = () => props.manage.tournament.info;
   const [name, setName] = createSignal(info().name);
-  const [roundTime, setRoundTime] = createSignal(info().roundTime);
+  const [roundTime, setRoundTime] = createSignal(
+    info().eventType === 'prerelease' ? Math.max(30, info().roundTime) : info().roundTime
+  );
   const [finals, setFinals] = createSignal(info().finalsRoundTime);
   const [eventType, setEventType] = createSignal(eventTypeOf({ info: info() }));
-  const minMinutes = () => (isSanctioned(props.manage) ? SANCTIONED.minutes : 1);
+  const timeLimits = () => eventTimeLimits(eventType());
+  const minMinutes = () =>
+    isSanctioned(props.manage) ? Math.max(SANCTIONED.minutes, timeLimits().minimum) : timeLimits().minimum;
   // eslint-disable-next-line solid/reactivity -- the form edits a copy taken when it opens; saving replaces the event
   const [roundCap, setRoundCap] = createSignal(props.manage.settings.roundCap);
   const infoDirty = () =>
@@ -119,7 +124,7 @@ function EventDetails(props: { state: ManageState; manage: Manage }) {
           class='tm-input tm-set-minutes'
           type='number'
           min={minMinutes()}
-          max='180'
+          max={timeLimits().maximum}
           value={roundTime()}
           onInput={e => setRoundTime(Number(e.currentTarget.value))}
         />
@@ -127,10 +132,11 @@ function EventDetails(props: { state: ManageState; manage: Manage }) {
       <SettingRow label='Top cut round minutes' for='info-finals'>
         <input
           id='info-finals'
+          disabled={['local', 'prerelease'].includes(eventType()) && props.manage.tournament.settings?.type !== 3}
           class='tm-input tm-set-minutes'
           type='number'
           min={minMinutes()}
-          max='180'
+          max={timeLimits().maximum}
           value={finals()}
           onInput={e => setFinals(Number(e.currentTarget.value))}
         />

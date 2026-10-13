@@ -213,8 +213,10 @@ export function roundCapOf(event: { mode: TournamentMode; settings: TournamentSe
  * The Swiss rounds a pod plans: Play! Pokémon's number for its attendance
  * (see swissAttendance), held to the event's cap when it sets one.
  */
-export function plannedRounds(pod: Pod, roundCap: number, type: EventType): number {
-  const { rounds } = recommendedStructure(swissAttendance(pod), type);
+export function plannedRounds(pod: Pod, roundCap: number, type: EventType, tournament?: Tournament): number {
+  const rounds = tournament?.settings
+    ? regularRounds(tournament, pod)
+    : recommendedStructure(swissAttendance(pod), type).rounds;
   return roundCap > 0 ? Math.min(roundCap, rounds) : rounds;
 }
 
@@ -337,7 +339,7 @@ export function eventStatus(
     progress,
     false,
     clock,
-    event.roundCap === null ? null : plannedRounds(pod, event.roundCap, eventTypeOf(tournament))
+    event.roundCap === null ? null : plannedRounds(pod, event.roundCap, eventTypeOf(tournament), tournament)
   );
 }
 

@@ -421,6 +421,9 @@ for (const [eventType, label] of [
     await page.getByRole('textbox', { name: 'Event name' }).fill('Synthetic');
     const kinds = page.getByRole('tablist', { name: 'Event type', exact: true });
     await kinds.getByRole('tab', { name: label, exact: true }).click();
+    await expect(page.locator('#setup-minutes')).toHaveAttribute('min', eventType === 'local' ? '10' : '20');
+    await expect(page.locator('#setup-minutes')).toHaveAttribute('max', '90');
+    await page.locator('#setup-minutes').fill(eventType === 'local' ? '10' : '20');
     await expect(kinds.getByRole('tab', { name: label, exact: true })).toHaveAttribute('aria-selected', 'true');
     await page.getByRole('button', { name: 'Create event' }).click();
     await expect(page.locator('.tm-error')).toHaveText('Fixture submission');
