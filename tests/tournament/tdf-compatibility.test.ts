@@ -124,8 +124,9 @@ test('a new League Challenge is written as TOM writes one: root and Swiss rounds
 test('new files contain TOM event, roster, round, standings, and top-cut fields', () => {
   const tournament = parseTdf(fixture('tom-184-mixed-drop.tdf'));
   delete tournament.passthrough;
-  // A Custom event in TOM, which writes type 2 as a Challenge does: read as a Cup.
-  assert.equal(tournament.info.eventType, undefined);
+  // Custom imports retain their mode; this test exercises a new Cup's generated fields.
+  assert.equal(tournament.info.eventType, 'local');
+  tournament.info.eventType = 'cup';
   tournament.pods[0]!.cut = 4;
   const written = writeTdf(tournament, { finalized: true });
   const root = parseXml(written);

@@ -343,6 +343,64 @@ test('starting an event pairs every pod and the event list counts its rounds', a
   assert.equal(list.json.tournaments[0].rounds, 2);
 });
 
+(
+  [
+    ['local', 'CUSTOM', 4],
+    ['prerelease', 'PRERELEASE', 6]
+  ] as const
+).forEach(([eventType, mode, rounds]) => {
+  test(`${eventType} creation and pairing persist its TOM mode for stores and community organizers`, async () => {
+    const owner = await signIn('Organizer', 'organizer');
+    const communityOwner = await signIn('Community', 'community');
+    const database = env.TOURNAMENT_DB as NonNullable<TournamentEnv['TOURNAMENT_DB']>;
+    for (const cookie of [owner, communityOwner]) {
+      const code = await newEvent(cookie, { eventType });
+      await addPlayers(code, cookie, 13);
+      assert.equal((await send(code, cookie, { type: 'pairRound', pod: 'masters' })).status, 200);
+      const row = await loadTournament(database, code);
+      assert.equal(row!.tournament.info.eventType, eventType);
+      assert.equal(row!.tournament.settings!.mode, mode);
+      assert.equal(row!.tournament.players[0]!.scheduledSwissRounds, rounds);
+      assert.match(writeTdf(row!.tournament), new RegExp(`mode="${mode}"`));
+    }
+  });
+});
+
+test('Prerelease API continuation writes stage 7 and early conclusion writes stage 8', async () => {
+  const owner = await signIn('Organizer', 'organizer');
+  const code = await newEvent(owner, { eventType: 'prerelease' });
+  await addPlayers(code, owner, 13);
+  assert.equal((await send(code, owner, { type: 'pairRound', pod: 'masters' })).status, 200);
+  assert.equal((await settle(code, owner, { finished: true })).status, 400);
+  const db = env.TOURNAMENT_DB as NonNullable<TournamentEnv['TOURNAMENT_DB']>;
+  const reportRound = async () => {
+    const row = (await loadTournament(db, code))!;
+    const pod = row.tournament.pods[0]!;
+    const round = pod.rounds.at(-1)!;
+    for (const match of round.matches.filter(m => m.p2 !== null && m.outcome === 'pending')) {
+      const reported = await send(code, owner, {
+        type: 'reportResult',
+        pod: pod.category,
+        round: round.number,
+        ...match,
+        outcome: 'p1'
+      });
+      assert.equal(reported.status, 200);
+    }
+  };
+  await reportRound();
+  assert.equal((await send(code, owner, { type: 'pairRound', pod: 'masters' })).status, 200);
+  assert.equal((await loadTournament(db, code))!.tournament.pods[0]!.rounds[0]!.stage, 7);
+  await reportRound();
+  assert.equal((await settle(code, owner, { finished: true })).status, 200);
+  const row = (await loadTournament(db, code))!;
+  assert.equal(row.tournament.pods[0]!.rounds.at(-1)!.stage, 8);
+  assert.equal(row.tournament.settings!.stage, 5);
+  assert.equal((await settle(code, owner, { finished: false })).status, 200);
+  assert.equal((await send(code, owner, { type: 'pairRound', pod: 'masters' })).status, 200);
+  assert.match(writeTdf(row.tournament, { finalized: true }), /<round number="2" type="2" stage="8" >/);
+});
+
 test('who starts an event of their own: a Community organizer or an Admin; a revoked one still runs its own', async () => {
   const create = (cookie: string) =>
     hit(

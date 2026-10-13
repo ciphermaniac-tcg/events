@@ -191,19 +191,16 @@ export interface Pod {
   divisionCounts?: Partial<Record<Division, number>>;
 }
 
-/**
- * The kind of local event, which sets its structure: a League Challenge plays
- * Swiss rounds only, a League Cup Swiss rounds then a top cut, each on its own
- * attendance table (Tournament Rules Handbook §5.5.6). TOM writes a Challenge
- * with root and Swiss round type 2, a Cup with 3.
- */
-export type EventType = 'challenge' | 'cup';
+/** The event mode; Local provisionally uses Custom, with cuts chosen separately. */
+export type EventType = 'challenge' | 'cup' | 'local' | 'prerelease';
 
-export const EVENT_TYPES: readonly EventType[] = ['cup', 'challenge'];
+export const EVENT_TYPES: readonly EventType[] = ['cup', 'challenge', 'local', 'prerelease'];
 
 export const EVENT_TYPE_LABELS: Record<EventType, string> = {
   cup: 'League Cup',
-  challenge: 'League Challenge'
+  challenge: 'League Challenge',
+  local: 'Local',
+  prerelease: 'Prerelease'
 };
 
 export interface TournamentInfo {

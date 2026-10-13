@@ -362,12 +362,12 @@ export function swissAttendance(pod: Pod): number {
 export function regularRounds(tournament: Tournament, pod: Pod): number {
   const { settings } = tournament;
   const count = scheduledAttendance(tournament, pod);
-  const type = settings?.type === 2 ? 'challenge' : eventTypeOf(tournament);
+  const type = settings ? (settings.type === 3 ? 'cup' : 'challenge') : eventTypeOf(tournament);
   const { rounds } = recommendedStructure(count, type);
   // One less Swiss round is a type 3 setting; a type 2 event saves it but plays every round.
   const fewer = settings?.lessSwiss && settings.type === 3 && rounds >= 4 ? 1 : 0;
   // V22-2: the two Prerelease rounds belong to the type 2 column only.
-  const prerelease = settings?.mode === 'PRERELEASE' && settings.type !== 3 ? 2 : 0;
+  const prerelease = settings?.mode === 'PRERELEASE' && settings.type === 2 ? 2 : 0;
   return rounds - fewer + prerelease + (pod.additionalRounds ?? 0);
 }
 

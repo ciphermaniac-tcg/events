@@ -106,12 +106,13 @@ function EventDetails(props: { state: ManageState; manage: Manage }) {
       <SettingRow label='Event name' for='info-name'>
         <input id='info-name' class='tm-input' value={name()} onInput={e => setName(e.currentTarget.value)} />
       </SettingRow>
-      {/* An event no store runs is of no Play! Pokémon kind, unless it was sanctioned before stores existed. */}
-      <Show when={props.manage.store !== null || isSanctioned(props.manage)}>
-        <SettingRow label='Event type'>
-          <EventTypeSwitch value={eventType()} onChange={setEventType} />
-        </SettingRow>
-      </Show>
+      <SettingRow label='Event type'>
+        <EventTypeSwitch
+          value={eventType()}
+          types={props.manage.store === null && !isSanctioned(props.manage) ? ['local', 'prerelease'] : undefined}
+          onChange={setEventType}
+        />
+      </SettingRow>
       <SettingRow label='Swiss round minutes' for='info-round'>
         <input
           id='info-round'

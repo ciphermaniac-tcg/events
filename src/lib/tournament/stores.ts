@@ -194,7 +194,7 @@ export function listingFill(listing: Listing): ListingFill {
     startsAt: listing.time ? `${listing.date}T${listing.time}` : '',
     sanctionId: listing.sanctionId,
     sanctioned,
-    eventType: listing.kind === 'challenge' ? 'challenge' : 'cup'
+    eventType: listing.kind
   };
 }
 

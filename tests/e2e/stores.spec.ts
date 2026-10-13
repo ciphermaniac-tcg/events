@@ -710,14 +710,14 @@ test('an event run under the account’s own name offers no listings', async ({ 
   expect(asks.filter(a => a.path.endsWith('/listings'))).toHaveLength(1);
 });
 
-test('an unsanctioned store’s event offers no listings, no sanctioned switch and no event type', async ({ page }) => {
+test('an unsanctioned store’s event offers Local and Prerelease without listings or sanctioning', async ({ page }) => {
   const asks = await mock(page, { user: { ...ME, stores: [{ ...MY_STORE, leagueId: null }] } });
   await page.goto('/');
   await page.getByRole('button', { name: 'Start an event' }).click();
   await expect(page.getByRole('textbox', { name: 'Event name' })).toBeVisible();
   await expect(page.getByRole('group', { name: 'On pokemon.com' })).toHaveCount(0);
   await expect(page.locator('.tm-set-row', { hasText: 'Sanctioned' })).toHaveCount(0);
-  await expect(page.locator('.tm-set-row', { hasText: 'Event type' })).toHaveCount(0);
+  await expect(page.getByRole('tablist', { name: 'Event type', exact: true })).toBeVisible();
   expect(asks.filter(a => a.path.endsWith('/listings'))).toHaveLength(0);
 });
 

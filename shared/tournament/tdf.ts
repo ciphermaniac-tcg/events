@@ -46,11 +46,10 @@ import {
   thirdPlaceMatch,
   undecidedThirdPlaceGroups
 } from './standings.js';
-import { eventTypeOf, recommendedStructure } from './structure.js';
+import { defaultRootAttrs, eventTypeOf, importedEventType, recommendedStructure } from './structure.js';
 import {
   type Division,
   DIVISIONS,
-  type EventType,
   isDivision,
   type Match,
   type Outcome,
@@ -97,22 +96,7 @@ const STAGE_FINAL = '8';
 const FINALIZED = '5';
 const FINISHED_STAGES = new Set(['5', STAGE_FINISHED, STAGE_FINAL]);
 
-/** TOM's root and Swiss round type, and its mode, for each kind of event. */
-const EVENT_CODES: Record<EventType, { type: string; mode: string }> = {
-  cup: { type: '3', mode: 'TCG1DAY' },
-  challenge: { type: '2', mode: 'LEAGUECHALLENGE' }
-};
-
-/** What a new file says about itself: TOM 1.86, a League Cup or League Challenge. */
-export function defaultRootAttrs(type: EventType, configured = true): [string, string][] {
-  return [
-    ['type', configured ? EVENT_CODES[type].type : '2'],
-    ['stage', '1'],
-    ['version', '1.86'],
-    ['gametype', 'TRADING_CARD_GAME'],
-    ['mode', EVENT_CODES[type].mode]
-  ];
-}
+export { defaultRootAttrs } from './structure.js';
 
 // ---------- reading ----------
 
@@ -174,13 +158,13 @@ const int = (value: string, fallback = 0) => {
 
 /**
  * TOM's mode names the kind of event; its type (2 or 3) only says whether
- * Swiss rounds lead to a cut, and Custom and Prerelease events write 2 too.
- * A League Challenge saved with a cut follows the type 3 rules.
+ * Swiss rounds lead to a cut. Custom and Prerelease retain their event kind
+ * independently of the saved structure.
  */
 function readInfo(data: XmlElement | undefined, mode: string, type: string | undefined): TournamentInfo {
   const organizer = child(data, 'organizer');
   return {
-    ...(mode === EVENT_CODES.challenge.mode && type !== '3' ? { eventType: 'challenge' as const } : {}),
+    ...importedEventType(mode, type),
     name: childText(data, 'name'),
     sanctionId: childText(data, 'id'),
     city: childText(data, 'city'),
@@ -766,7 +750,7 @@ interface PodSave {
 
 function writePodRounds(t: Tournament, pod: Pod, save: PodSave): string[] {
   const { finalized, now, preserveClock } = save;
-  const swissType = rootValue(t, 'type') ?? EVENT_CODES[eventTypeOf(t)].type;
+  const swissType = rootValue(t, 'type') ?? new Map(defaultRootAttrs(eventTypeOf(t))).get('type')!;
   const swiss = pod.rounds.filter(r => r.kind === 'swiss');
   const hasCut = pod.rounds.some(r => r.kind === 'elimination');
   const lastSwiss = hasCut || swiss.length >= plannedSwiss(t, pod) ? swiss.at(-1)?.number : undefined;

@@ -410,6 +410,24 @@ test('sanctioned setup requires Play! Tools confirmation; local setup skips it @
   await expect(confirmation).not.toBeChecked();
 });
 
+for (const [eventType, label] of [
+  ['local', 'Local'],
+  ['prerelease', 'Prerelease']
+] as const) {
+  test(`${label} setup sends the selected kind @mobile`, async ({ page }) => {
+    const submissions = await mockOrganizer(page);
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Start an event' }).click();
+    await page.getByRole('textbox', { name: 'Event name' }).fill('Synthetic');
+    const kinds = page.getByRole('tablist', { name: 'Event type', exact: true });
+    await kinds.getByRole('tab', { name: label, exact: true }).click();
+    await expect(kinds.getByRole('tab', { name: label, exact: true })).toHaveAttribute('aria-selected', 'true');
+    await page.getByRole('button', { name: 'Create event' }).click();
+    await expect(page.locator('.tm-error')).toHaveText('Fixture submission');
+    expect(submissions).toEqual([expect.objectContaining({ eventType, name: 'Synthetic' })]);
+  });
+}
+
 test('a TOM sanction ID shows an unchecked confirmation; an unsanctioned file skips it', async ({ page }) => {
   await mockOrganizer(page);
   // Use the upload fallback, so the test supplies a file without an OS picker.

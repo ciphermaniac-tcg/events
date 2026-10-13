@@ -164,7 +164,7 @@ function RoundEndStep(props: {
   const open = () => props.cuts.filter(c => !c.started);
   // A League Challenge plays Swiss rounds only.
   const canCut = () =>
-    eventTypeOf(props.manage.tournament) === 'cup' && (props.step === 'cut' || open().some(c => c.active >= 4));
+    eventTypeOf(props.manage.tournament) !== 'challenge' && (props.step === 'cut' || open().some(c => c.active >= 4));
   return (
     <Show
       when={props.ready}

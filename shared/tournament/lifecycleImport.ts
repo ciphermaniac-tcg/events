@@ -1,5 +1,5 @@
 import { divisionLookup } from './divisions.js';
-import { eventTypeOf } from './structure.js';
+import { defaultRootAttrs, eventTypeOf } from './structure.js';
 import { hasStarted } from './rounds.js';
 import { DIVISIONS, isDivision, type Pod, type Tournament, type TournamentSettings } from './types.js';
 import { attr, children, parseXml } from './xml.js';
@@ -29,7 +29,7 @@ function importedSettings(t: Tournament, attrs: ReadonlyMap<string, string>, mod
   const extra = t.passthrough?.extraData ?? [];
   const fallbackStage = hasStarted(t) ? 4 : t.pods.length ? 3 : 1;
   return {
-    type: Number(attrs.get('type') ?? (eventTypeOf(t) === 'challenge' ? 2 : 3)) as 1 | 2 | 3,
+    type: Number(attrs.get('type') ?? new Map(defaultRootAttrs(eventTypeOf(t))).get('type')) as 1 | 2 | 3,
     mode: mode as TournamentSettings['mode'],
     stage: Number(attrs.get('stage') ?? fallbackStage) as TournamentSettings['stage'],
     lessSwiss: extraValue(extra, 'lessswiss') === 'true',
@@ -85,7 +85,7 @@ export function lifecycleDocument(t: Tournament): Tournament {
     return t;
   }
   const attrs = new Map(t.passthrough?.rootAttrs ?? []);
-  const mode = attrs.get('mode') ?? (eventTypeOf(t) === 'challenge' ? 'LEAGUECHALLENGE' : 'TCG1DAY');
+  const mode = attrs.get('mode') ?? new Map(defaultRootAttrs(eventTypeOf(t))).get('mode')!;
   if (!supported(attrs, mode)) {
     return t;
   }

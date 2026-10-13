@@ -18,13 +18,14 @@ const DECKLIST_OPTIONS: { value: DecklistMode; label: string }[] = [
   { value: 'open', label: 'Open' }
 ];
 
-const EVENT_TYPE_OPTIONS = EVENT_TYPES.map(value => ({ value, label: EVENT_TYPE_LABELS[value] }));
-
-/** A League Cup or a League Challenge, which sets the rounds and whether there is a top cut. */
-export function EventTypeSwitch(props: { value: EventType; onChange: (value: EventType) => void }) {
-  return (
-    <Segmented options={EVENT_TYPE_OPTIONS} selected={props.value} onSelect={props.onChange} ariaLabel='Event type' />
-  );
+/** The event kind, which sets its mode and initial round structure. */
+export function EventTypeSwitch(props: {
+  value: EventType;
+  types?: readonly EventType[] | undefined;
+  onChange: (value: EventType) => void;
+}) {
+  const options = () => (props.types ?? EVENT_TYPES).map(value => ({ value, label: EVENT_TYPE_LABELS[value] }));
+  return <Segmented options={options()} selected={props.value} onSelect={props.onChange} ariaLabel='Event type' />;
 }
 
 /** Whether the event takes decklists, and if it does, whether players can send one now. */

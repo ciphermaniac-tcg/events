@@ -13,6 +13,10 @@ import {
   sanctionedSettingsError,
   type TournamentSettings
 } from '../../../../shared/tournament/view.js';
+import { applyLifecycleOperation } from '../../../../shared/tournament/lifecycle.js';
+import { lifecycleDocument } from '../../../../shared/tournament/lifecycleImport.js';
+import { countsComplete, latestRound } from '../../../../shared/tournament/rounds.js';
+import { commandContext } from '../../../lib/tournaments/commandContext.js';
 import type { D1Like } from '../../../lib/types.js';
 import { readJsonBody } from '../../../lib/api/body.js';
 import { jsonError } from '../../../lib/api/responses.js';
@@ -55,6 +59,28 @@ function changedSettings(change: unknown, row: TournamentRow, sanctionable: bool
   return invalid ?? { ...next, idle: false };
 }
 
+/** An early Prerelease conclusion acknowledges standings at stage 8 (SPEC 3.6). */
+function concludedPrerelease(row: TournamentRow, settings: TournamentSettings) {
+  const tournament = lifecycleDocument(row.tournament);
+  if (
+    row.mode !== 'swiss' ||
+    settings.finished === row.settings.finished ||
+    tournament.settings?.mode !== 'PRERELEASE'
+  ) {
+    return {};
+  }
+  if (!settings.finished) {
+    return { tournament: { ...tournament, settings: { ...tournament.settings, stage: 4 as const } } };
+  }
+  if (tournament.pods.some(pod => !countsComplete(latestRound(pod)))) {
+    return 'Report every result before finishing';
+  }
+  const ctx = commandContext(tournament, undefined, settings.sanctioned);
+  const viewed = applyLifecycleOperation(tournament, { type: 'viewStandings' }, ctx);
+  const finished = applyLifecycleOperation(viewed.tournament, { type: 'finish' }, ctx);
+  return finished.ok ? { tournament: finished.tournament } : finished.error!;
+}
+
 export async function onRequestPut(context: Context<'code'>): Promise<Response> {
   const access = await openForStaff(context);
   if (access instanceof Response) {
@@ -72,7 +98,11 @@ export async function onRequestPut(context: Context<'code'>): Promise<Response> 
   }
   const outcome = await mutate(access.db, access.row, row => {
     const settings = changedSettings(change, row, sanctionable);
-    return typeof settings === 'string' ? settings : { settings, ...dayChange(row, settings) };
+    if (typeof settings === 'string') {
+      return settings;
+    }
+    const conclusion = concludedPrerelease(row, settings);
+    return typeof conclusion === 'string' ? conclusion : { settings, ...dayChange(row, settings), ...conclusion };
   });
   return answerStaff(context, access, outcome);
 }

@@ -11,8 +11,8 @@ import { lifecycleDocument } from './lifecycleImport.js';
 import { applyLifecycleOperation } from './lifecycle.js';
 import type { LifecycleOperation } from './lifecycleTypes.js';
 import { divisionLookup } from './divisions.js';
-import { eventTypeOf, SANCTIONED } from './structure.js';
-import { latestRound } from './rounds.js';
+import { defaultRootAttrs, eventTypeOf, SANCTIONED } from './structure.js';
+import { countsComplete, latestRound } from './rounds.js';
 import { DIVISIONS, type Tournament } from './types.js';
 
 export {
@@ -105,6 +105,18 @@ function checkedCutDivisions(
   }
 }
 
+function optionalPrereleaseRound(t: Tournament, command: Command, ctx: CommandContext): Tournament {
+  if (command.type !== 'pairRound' || t.settings?.mode !== 'PRERELEASE') {
+    return t;
+  }
+  const round = latestRound(t.pods.find(p => p.category === command.pod));
+  if (!round || round.kind !== 'swiss' || !countsComplete(round)) {
+    return t;
+  }
+  const result = applyLifecycleOperation(t, { type: 'playAnotherRound', pod: command.pod }, ctx);
+  return result.tournament;
+}
+
 function preparedCut(
   t: Tournament,
   command: Extract<Command, { type: 'startTopCut' }>,
@@ -135,7 +147,7 @@ function preparedCut(
     )
   };
   const changed = { ...pod, cut: command.size, divisionCuts, playoff3rd4th: command.playoff3rd4th ?? false };
-  return { ...t, pods: t.pods.map(p => (p === pod ? changed : p)) };
+  return { ...t, settings: { ...t.settings!, type: 3 }, pods: t.pods.map(p => (p === pod ? changed : p)) };
 }
 
 function checkedStart(t: Tournament, command: Command, ctx: CommandContext): void {
@@ -168,10 +180,9 @@ function legacyChange(t: Tournament, command: Command, ctx: CommandContext): Com
     settings.autoTables = false;
   }
   if (command.type === 'updateInfo' && command.info.eventType) {
-    settings.type = command.info.eventType === 'cup' ? 3 : 2;
-    if (settings.mode !== 'CUSTOM' && settings.mode !== 'PRERELEASE') {
-      settings.mode = settings.type === 3 ? 'TCG1DAY' : 'LEAGUECHALLENGE';
-    }
+    const attrs = new Map(defaultRootAttrs(command.info.eventType));
+    settings.type = Number(attrs.get('type')) as 2 | 3;
+    settings.mode = attrs.get('mode') as typeof settings.mode;
   }
   const pods = registrationPods(t, { ...next, settings }).map(pod => {
     const old = t.pods.find(p => p.category === pod.category);
@@ -243,7 +254,7 @@ function registersBeforeStart(t: Tournament, command: Command): boolean {
 
 export function applyCommand(t: Tournament, command: Command, ctx: CommandContext): CommandResult {
   const imported = t.settings || t.passthrough || command.type === 'pairRound' ? lifecycleDocument(t) : t;
-  const document = prepareRegistration(imported, command, ctx);
+  const document = optionalPrereleaseRound(prepareRegistration(imported, command, ctx), command, ctx);
   if (!document.settings) {
     return applyLegacyCommand(t, command, ctx);
   }

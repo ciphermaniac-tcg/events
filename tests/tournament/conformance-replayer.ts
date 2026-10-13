@@ -1,3 +1,4 @@
+import { importedEventType } from '../../shared/tournament/structure.ts';
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -327,7 +328,7 @@ function operationOf(op: FixtureOperation, t: Tournament): LifecycleOperation {
         startDate: '10/01/2026',
         roundTime: 0,
         finalsRoundTime: 0,
-        eventType: op.type === 3 ? 'cup' : 'challenge'
+        ...importedEventType(op.mode ?? '', String(op.type))
       }
     }),
     'add-players': () => ({

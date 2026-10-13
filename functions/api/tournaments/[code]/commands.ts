@@ -19,14 +19,15 @@ import type { TournamentRow } from '../../../lib/tournaments/store.js';
 
 /**
  * The command as this event takes it: a Community organizer's event is of no
- * Play! Pokémon kind, and holds the date its start time names, so an edit to
- * either is left out.
+ * Cup or Challenge, and holds the date its start time names. Local and
+ * Prerelease choices are retained.
  */
 function forEvent(command: Command, row: TournamentRow): Command {
   if (command.type !== 'updateInfo' || row.communityDay === null) {
     return command;
   }
-  const { eventType: _kind, startDate: _date, ...info } = command.info;
+  const { startDate: _date, eventType, ...rest } = command.info;
+  const info = eventType === 'local' || eventType === 'prerelease' ? { ...rest, eventType } : rest;
   return { ...command, info };
 }
 

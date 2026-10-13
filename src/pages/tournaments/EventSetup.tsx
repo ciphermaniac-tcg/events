@@ -84,6 +84,7 @@ export function EventSetup(props: {
   /** Run under the account's own name or an unsanctioned store's: never sanctioned. */
   const own = () => !props.runAs.find(option => option.id === runAs())?.sanctions;
   const sanctioned = () => !own() && sanctionedChoice();
+  const selectedEventType = () => (own() && !['local', 'prerelease'].includes(eventType()) ? 'local' : eventType());
   const needsName = () => swiss() && !name().trim();
   const needsPlayTools = () => (swiss() ? sanctioned() : props.tdfSanctioned);
   const shortRounds = () => swiss() && sanctioned() && roundTime() < SANCTIONED.minutes;
@@ -124,7 +125,7 @@ export function EventSetup(props: {
     props.onCreate({
       name: name().trim(),
       roundTime: roundTime(),
-      eventType: eventType(),
+      eventType: selectedEventType(),
       store: runAs(),
       today: localToday(),
       ...(from ? { sanctionId: from.sanctionId } : {}),
@@ -236,11 +237,13 @@ export function EventSetup(props: {
           />
         </SettingRow>
         <Show when={swiss()}>
-          <Show when={!own()}>
-            <SettingRow label='Event type'>
-              <EventTypeSwitch value={eventType()} onChange={setEventType} />
-            </SettingRow>
-          </Show>
+          <SettingRow label='Event type'>
+            <EventTypeSwitch
+              value={selectedEventType()}
+              types={own() ? ['local', 'prerelease'] : undefined}
+              onChange={setEventType}
+            />
+          </SettingRow>
           <SettingRow label='Swiss round minutes' for='setup-minutes'>
             <input
               id='setup-minutes'

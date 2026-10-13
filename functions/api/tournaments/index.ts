@@ -144,10 +144,13 @@ type Running =
       Partial<Pick<NewTournament, 'tournament' | 'settings'>>)
   | Response;
 
-/**
- * The account's own event: a Swiss event, never sanctioned and of no Play!
- * Pokémon kind, and for a Community organizer within its limits.
- */
+/** Local and Prerelease choices remain available without sanctioning. */
+function unsanctionedInfo(info: Tournament['info']): Tournament['info'] {
+  const { eventType, ...rest } = info;
+  return eventType === 'local' || eventType === 'prerelease' ? { ...rest, eventType } : rest;
+}
+
+/** The account's own event is never sanctioned and stays within Community limits. */
 function ownEvent(user: User, read: NewEvent): Running {
   if (!canRunCommunityEvents(user.role)) {
     // `apply` tells the page to offer a way in rather than the message alone.
@@ -156,7 +159,7 @@ function ownEvent(user: User, read: NewEvent): Running {
   if (read.mode === 'tom' || read.askedSanctioned) {
     return jsonError('Only a store runs sanctioned events', 403);
   }
-  const { eventType: _kind, ...info } = read.tournament.info;
+  const info = unsanctionedInfo(read.tournament.info);
   const unsanctioned = { tournament: { ...read.tournament, info }, settings: { ...read.settings, sanctioned: false } };
   if (user.role === 'admin') {
     return { ...unsanctioned, storeId: null, communityDay: null, admission: null };
@@ -220,7 +223,7 @@ function unsanctionedStoreEvent(user: User, read: NewEvent, place: StorePlace, s
     return jsonError('An unsanctioned store runs unsanctioned events only', 403);
   }
   const tournament = storeInfo(user, read, place);
-  const { eventType: _kind, ...info } = tournament.info;
+  const info = unsanctionedInfo(tournament.info);
   return {
     tournament: { ...tournament, info },
     settings: { ...read.settings, sanctioned: false },

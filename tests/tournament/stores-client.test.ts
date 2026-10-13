@@ -125,7 +125,9 @@ test('a Cup or Challenge listing fills a sanctioned event of its kind; others ca
   });
   assert.equal(listingFill(listing('challenge')).eventType, 'challenge');
   assert.equal(listingFill(listing('prerelease')).sanctioned, false);
+  assert.equal(listingFill(listing('prerelease')).eventType, 'prerelease');
   assert.equal(listingFill(listing('local')).sanctioned, false);
+  assert.equal(listingFill(listing('local')).eventType, 'local');
   assert.equal(listingFill(listing('cup', '')).startsAt, '');
 });
 
