@@ -3,12 +3,16 @@
 
 /* A public profile's head: the account's picture beside its name. */
 .tm-hero.tm-profile-hero {
-  align-items: center;
+  flex-wrap: nowrap;
+  align-items: flex-start;
   justify-content: flex-start;
-  gap: 14px;
+  gap: var(--space-4);
+  padding-bottom: 0;
+  margin-bottom: var(--space-5);
+  border-bottom: none;
 }
 .tm-profile-hero .tm-status {
-  margin-bottom: 0;
+  margin: 0;
 }
 
 /* The house rows, with hairlines between events rather than the stripe: an

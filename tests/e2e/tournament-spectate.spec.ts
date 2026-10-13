@@ -49,6 +49,24 @@ async function mockApi(page: Page) {
   });
 }
 
+test('a cold event load resolves named archetype icons without opening a deck picker @mobile', async ({ page }) => {
+  await mockApi(page);
+  await page.route('**/archetype-icons.json', route =>
+    route.fulfill({ json: { 'Gardevoir ex': ['gardevoir', 'kirlia'] } })
+  );
+  await page.route('**/pokemon-sprites/gen9/*.png', route =>
+    route.fulfill({
+      contentType: 'image/png',
+      body: readFileSync(new URL('../../static/img/substitute.png', import.meta.url))
+    })
+  );
+  await page.goto(`/t/${CODE}`);
+  const deck = page.locator('.tm-deck[title="Gardevoir ex"]').first();
+  await expect(deck.locator('img')).toHaveCount(2);
+  await expect(deck.locator('img').first()).toHaveAttribute('src', /\/gardevoir\.png$/);
+  await expect(deck.locator('img').last()).toHaveAttribute('src', /\/kirlia\.png$/);
+});
+
 test('a spectator narrows the pairings to the tables playing, one deck, or the players they follow @mobile', async ({
   page
 }) => {

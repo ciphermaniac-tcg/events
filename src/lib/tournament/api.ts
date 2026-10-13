@@ -7,10 +7,12 @@
 import type { ExportPart, WipePart } from '../../../shared/accounts/myData';
 import type { AccountRole } from '../../../shared/accounts/roles';
 import type { HistoryEntry, MyStore, PublicProfile } from '../../../shared/accounts/types';
+import type { ProfileLinks, ProfilePreferences } from '../../../shared/accounts/profile';
 import type { Command } from '../../../shared/tournament/commands';
 import { tomDateTime } from '../../../shared/tournament/divisions';
 import type { PlayerClaim } from '../../../shared/tournament/identify';
 import type { PlayerProfile } from '../../../shared/tournament/profile';
+import type { ReturningPlayer } from '../../../shared/tournament/returningPlayers';
 import type { PlayerResult, ShownMatch } from '../../../shared/tournament/reports';
 import type { EventType, PodCategory, Tournament } from '../../../shared/tournament/types';
 import {
@@ -129,7 +131,10 @@ export const deleteAccount = (confirm: string) => call<null>('/api/me', json('DE
 export const signOut = () => call<null>('/api/auth/logout', { method: 'POST' });
 
 /** The signed-in account's History, newest first. */
-export const fetchHistory = () => call<{ entries: HistoryEntry[] }>('/api/history');
+export const fetchHistory = () => call<Pick<PublicProfile, 'entries' | 'activity'>>('/api/history');
+export const fetchProfilePreferences = () => call<ProfilePreferences>('/api/me/profile');
+export const saveProfileLinks = (links: ProfileLinks) =>
+  call<{ links: ProfileLinks }>('/api/me/profile', json('PUT', { links }));
 
 /** A public profile by its username; not found while its account keeps it off. */
 export const fetchProfile = (handle: string) => call<PublicProfile>(`/api/profiles/${encodeURIComponent(handle)}`);
@@ -227,6 +232,11 @@ export function fetchManage(code: string, since?: number) {
 /** Sends one command, stamped with the venue's clock (see functions/lib/tournaments/commandContext.ts). */
 export const sendCommand = (code: string, command: Command) =>
   call<Manage>(`${base(code)}/commands`, json('POST', { command, localTime: tomDateTime(new Date()) }));
+
+export const findReturningPlayers = (code: string, query: string, signal: AbortSignal) =>
+  call<{ players: ReturningPlayer[] }>(`${base(code)}/players?${new URLSearchParams({ q: query })}`, {
+    signal: AbortSignal.any([signal, AbortSignal.timeout(15_000)])
+  });
 
 /** A TOM event's next round, paired over the copy `revision` names, for the console to write into TOM's file. */
 export const pairNextRound = (code: string, pod: PodCategory, revision: string) =>

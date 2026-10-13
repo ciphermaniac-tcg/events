@@ -5,7 +5,6 @@
  * public one show the same thing from the same data.
  */
 
-import { secondsLeft } from '../../../shared/tournament/commands';
 import {
   isDisputed,
   isLocked,
@@ -33,6 +32,7 @@ import {
   latestRound,
   livePods,
   regularRounds,
+  secondsLeft,
   swissAttendance
 } from '../../../shared/tournament/rounds';
 import { ordinal } from '../format';
@@ -487,8 +487,8 @@ export function currentMatchOf(
 }
 
 /** m:ss, with a minus once time is up. */
-export function clockLabel(round: Round, now: number): string {
-  const left = secondsLeft(round, now);
+export function clockLabel(round: Round, now: number, extraSeconds = 0): string {
+  const left = secondsLeft(round, now) + extraSeconds;
   const sign = left < 0 ? '-' : '';
   const abs = Math.abs(left);
   return `${sign}${Math.floor(abs / 60)}:${String(abs % 60).padStart(2, '0')}`;

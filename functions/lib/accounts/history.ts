@@ -12,7 +12,8 @@
  */
 
 import { type Badge, badgesOf, type CountedKey, isCountedGrant } from '../../../shared/accounts/achievements.js';
-import type { HistoryEntry, PublicProfile } from '../../../shared/accounts/types.js';
+import type { HistoryEntry, OrganizerActivity, PublicProfile } from '../../../shared/accounts/types.js';
+import { readProfileLinks } from '../../../shared/accounts/profile.js';
 import { parseTomDate } from '../../../shared/tournament/divisions.js';
 import { DEFAULT_SETTINGS } from '../../../shared/tournament/view.js';
 import { firstRow } from '../d1.js';
@@ -81,7 +82,10 @@ function statements(db: D1Like, whose: Whose): D1Statement[] {
   const { from, where, values } = accountSql(whose);
   return [
     db
-      .prepare(`SELECT ${PROFILE_NAME} AS name, u.handle AS handle, u.avatar AS avatar FROM ${from} WHERE ${where}`)
+      .prepare(
+        `SELECT ${PROFILE_NAME} AS name, u.handle AS handle, u.avatar AS avatar, ` +
+          `(SELECT links FROM profile_preferences WHERE user_id = u.id) AS links FROM ${from} WHERE ${where}`
+      )
       .bind(...values),
     // By POP ID: the index holds sanctioned events only.
     db
@@ -108,8 +112,20 @@ function statements(db: D1Like, whose: Whose): D1Statement[] {
       .bind(...values),
     db
       .prepare(`SELECT a.badge, a.count FROM ${from} JOIN account_badges a ON a.user_id = u.id WHERE ${where}`)
-      .bind(...values)
+      .bind(...values),
+    organizerStatement(db, from, where, values)
   ];
+}
+
+function organizerStatement(db: D1Like, from: string, where: string, values: unknown[]): D1Statement {
+  return db
+    .prepare(
+      `SELECT ${entryColumns('NULL')}, CASE WHEN t.owner_id = u.id THEN 'organized' ELSE 'staffed' END AS role, ` +
+        `s.id AS store_id, s.name AS store_name FROM ${from} JOIN tournaments t ON t.code IN ` +
+        '(SELECT code FROM tournaments WHERE owner_id = u.id UNION SELECT code FROM staff WHERE user_id = u.id) ' +
+        `LEFT JOIN stores s ON s.id = t.store_id WHERE ${where} ORDER BY t.updated_at DESC LIMIT ${MAX_ENTRIES}`
+    )
+    .bind(...values);
 }
 
 type Read = { results?: unknown[] } | undefined;
@@ -157,6 +173,27 @@ const entryOf = (row: EntryRow & { key: string }): HistoryEntry => ({
 /** When the event is, to sort by: its start time, or else its date, as text that sorts. */
 const whenOf = (row: EntryRow) => row.starts_at || (parseTomDate(row.start_date ?? '')?.toISOString() ?? '');
 
+interface ActivityRow extends EntryRow {
+  role: OrganizerActivity['role'];
+  store_id: string | null;
+  store_name: string | null;
+}
+
+function organizerEntries(read: Read): OrganizerActivity[] {
+  return ((read?.results ?? []) as ActivityRow[])
+    .sort((a, b) => whenOf(b).localeCompare(whenOf(a)) || b.updated_at - a.updated_at)
+    .map(row => ({
+      code: row.code,
+      name: row.name ?? '',
+      startDate: row.start_date ?? '',
+      startsAt: row.starts_at ?? '',
+      format: row.format ?? DEFAULT_SETTINGS.format,
+      status: statusOf(row),
+      role: row.role,
+      store: row.store_id ? { id: row.store_id, name: row.store_name ?? '' } : null
+    }));
+}
+
 /**
  * The entries, one per event, newest first: by start, then by last change.
  * An event in both lists (only while its sanctioned setting changes) shows
@@ -176,17 +213,25 @@ function merged(rows: EntryRow[]): HistoryEntry[] {
 
 /** The account's name, username, picture and History; null when no account is there (signed out, or no such profile). */
 export async function historyOf(db: D1Like, whose: Whose): Promise<PublicProfile | null> {
-  const [account, byPopId, byClaim, ran, granted] = await db.batch(statements(db, whose));
-  const found = firstRow<{ name: string; handle: string; avatar: string | null }>(account);
+  const [account, byPopId, byClaim, ran, granted, activity] = await db.batch(statements(db, whose));
+  const found = firstRow<{
+    name: string;
+    handle: string;
+    avatar: string | null;
+    links: string | null;
+  }>(account);
   if (!found) {
     return null;
   }
   const rows = [...((byPopId?.results ?? []) as EntryRow[]), ...((byClaim?.results ?? []) as EntryRow[])];
+  const entries = merged(rows);
   return {
     name: found.name,
     handle: found.handle,
     avatar: found.avatar,
-    entries: merged(rows),
-    badges: badgesFrom(rows, ran, granted)
+    entries,
+    badges: badgesFrom(rows, ran, granted),
+    links: readProfileLinks(JSON.parse(found.links ?? '{}')) ?? {},
+    activity: organizerEntries(activity)
   };
 }

@@ -5,15 +5,24 @@
  * run events is here rather than on the page, since few accounts want it.
  */
 
-import { A } from '@solidjs/router';
+import { A, useNavigate } from '@solidjs/router';
 import { createSignal, onCleanup, onMount, Show } from 'solid-js';
 import { isAdmin } from '../../../shared/accounts/roles';
 import { canCreateEvents } from '../../../shared/accounts/stores';
-import type { Me } from '../../lib/tournament/api';
+import { type Me, signOut } from '../../lib/tournament/api';
+import { refreshSession } from './session';
 import '../../styles/pages/tournament-account-menu.css';
 
 export function AccountMenu(props: { user: Me; pending: number }) {
+  const navigate = useNavigate();
   const [open, setOpen] = createSignal(false);
+  const close = () => setOpen(false);
+  async function leave() {
+    close();
+    await signOut().catch(() => undefined);
+    await refreshSession();
+    navigate('/');
+  }
   let root: HTMLDivElement | undefined;
   const admin = () => isAdmin(props.user.role);
   const apply = () => !canCreateEvents(props.user.role, props.user.stores);
@@ -58,12 +67,18 @@ export function AccountMenu(props: { user: Me; pending: number }) {
             <span class='muted'>@{props.user.handle}</span>
           </p>
           <Show when={props.user.publicProfile}>
-            <A href={`/u/${props.user.handle}`}>Public profile</A>
+            <A onClick={close} href={`/u/${props.user.handle}`}>
+              Public profile
+            </A>
           </Show>
-          <A href='/history'>History</A>
-          <A href='/settings'>Settings</A>
+          <A onClick={close} href='/history'>
+            History
+          </A>
+          <A onClick={close} href='/settings'>
+            Settings
+          </A>
           <Show when={admin()}>
-            <A href='/admin'>
+            <A onClick={close} href='/admin'>
               Admin
               <Show when={props.pending > 0}>
                 <span class='tm-dash-count'>{props.pending}</span>
@@ -71,10 +86,13 @@ export function AccountMenu(props: { user: Me; pending: number }) {
             </A>
           </Show>
           <Show when={apply()}>
-            <A class='tm-acct-quiet' href='/apply'>
+            <A onClick={close} class='tm-acct-quiet' href='/apply'>
               Apply to organize
             </A>
           </Show>
+          <button type='button' class='tm-acct-out' onClick={() => void leave()}>
+            Sign out
+          </button>
         </div>
       </Show>
     </div>

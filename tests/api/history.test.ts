@@ -353,7 +353,7 @@ test('an account’s History lists the sanctioned events its POP ID plays in, as
   await settle(code, owner, { format: 'Expanded', startsAt: '2026-10-10T11:00' });
   await addPlayers(code, owner, 4);
   const player = await signIn('Player');
-  assert.deepEqual((await historyOf(player)).json, { entries: [] });
+  assert.deepEqual((await historyOf(player)).json, { entries: [], activity: [] });
   await saveProfile(player, '901');
   const [entry] = (await historyOf(player)).json.entries as HistoryEntry[];
   assert.deepEqual(entry, {

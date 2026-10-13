@@ -82,6 +82,7 @@ function stillClear(db: D1Like, user: User, deleting: boolean): D1Statement {
 /** The player profile goes, and with its POP ID the players the account was at events as it, as a new POP ID would. */
 function profileWrites(db: D1Like, user: User): D1Statement[] {
   return [
+    db.prepare('DELETE FROM profile_preferences WHERE user_id = ?').bind(user.id),
     db
       .prepare('DELETE FROM report_devices WHERE user_id = ?1 AND player_id = (SELECT pop_id FROM users WHERE id = ?1)')
       .bind(user.id),
@@ -113,6 +114,7 @@ function eventWrites(db: D1Like, user: User): D1Statement[] {
     .bind(user.id);
   return [
     hide,
+    db.prepare("UPDATE profile_preferences SET pins = '[]' WHERE user_id = ?").bind(user.id),
     db.prepare(`UPDATE report_devices SET user_id = NULL WHERE user_id = ? AND code IN (${ENDED})`).bind(user.id),
     db.prepare(`UPDATE decklists SET account = NULL WHERE account = ? AND code IN (${ENDED})`).bind(user.id)
   ];
@@ -188,7 +190,8 @@ const ACCOUNT_TABLES = [
   'handle_changes',
   'duplicate_emails_backup',
   'history_hidden',
-  'account_badges'
+  'account_badges',
+  'profile_preferences'
 ];
 
 /** Where an admin's id stays on what it decided; with the account gone it names no one, so it goes too. */

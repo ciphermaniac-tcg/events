@@ -8,7 +8,8 @@
  */
 
 import { fullRoundSeconds } from './rounds.js';
-import type { Pod, Round, Tournament } from './types.js';
+import { keepTimeExtensions } from './timeExtensions.js';
+import type { Match, Pod, Round, Tournament } from './types.js';
 
 const roundKey = (pod: Pod, round: Round) => `${pod.category}|${round.number}`;
 
@@ -23,6 +24,7 @@ export function withSiteClocks(file: Tournament, held: Tournament | null): Tourn
     const kept = clocks.get(roundKey(pod, round));
     return {
       ...round,
+      matches: keepTimeExtensions(round, kept),
       timeLeft: kept?.timeLeft ?? fullRoundSeconds(file, round.kind),
       startTime: kept?.startTime ?? '',
       clockStartedAt: kept?.clockStartedAt ?? null,
@@ -32,7 +34,9 @@ export function withSiteClocks(file: Tournament, held: Tournament | null): Tourn
   return { ...file, pods: file.pods.map(pod => ({ ...pod, rounds: pod.rounds.map(round => timed(pod, round)) })) };
 }
 
-type BareRound = Omit<Round, 'timeLeft' | 'startTime' | 'clockStartedAt' | 'startedAt'>;
+type BareRound = Omit<Round, 'timeLeft' | 'startTime' | 'clockStartedAt' | 'startedAt' | 'matches'> & {
+  matches: Omit<Match, 'timeExtension'>[];
+};
 type Unclocked = Omit<Tournament, 'pods'> & { pods: (Omit<Pod, 'rounds'> & { rounds: BareRound[] })[] };
 
 /** The event without its clocks: what a TOM file and the site's copy are compared on. */
@@ -43,6 +47,9 @@ export function withoutClocks(tournament: Tournament): Unclocked {
     clockStartedAt: _at,
     startedAt: _started,
     ...round
-  }: Round): BareRound => round;
+  }: Round): BareRound => ({
+    ...round,
+    matches: round.matches.map(({ timeExtension: _extension, ...match }) => match)
+  });
   return { ...tournament, pods: tournament.pods.map(pod => ({ ...pod, rounds: pod.rounds.map(bare) })) };
 }

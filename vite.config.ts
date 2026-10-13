@@ -34,23 +34,22 @@ export default defineConfig({
               includeDependenciesRecursively: false
             },
             {
-              // Share event models and helpers instead of repeating exports across route chunks. The TOM
+              // Share the shell, controls and event helpers so route chunks do not repeat their wrappers. The TOM
               // file reader and writer stay out: only organizer pages load them, the download on demand. So
               // does the Clerk sign-in client, which only the sign-in box uses.
               name: 'tournament',
-              test: /(?:shared[\\/]tournament[\\/](?!tdf\.|xml\.)|src[\\/]lib[\\/]tournament[\\/](?!admin|applications|clerk|exportTdf))/,
+              priority: 1,
+              test: /(?:src[\\/]components[\\/]|src[\\/]main\.tsx$|tournaments[\\/](Field|FormatSelect|SettingControls|OptionsMenu|Modal|ConfirmAction)\.tsx$|shared[\\/]tournament[\\/](?!tdf\.|xml\.)|src[\\/]lib[\\/]tournament[\\/](?!admin|applications|clerk|exportTdf))/,
               includeDependenciesRecursively: true
             },
             // The Swiss engine runs in the browser only for the /host home page's sample event. Its own
             // chunk keeps it off every page that shares event helpers.
             {
               name: 'pairing',
-              priority: 1,
+              priority: 2,
               test: /shared[\\/]tournament[\\/](?:pairing|random)\.|src[\\/]lib[\\/]tournament[\\/]sampleEvent\./,
               includeDependenciesRecursively: false
-            },
-            // These controls share Solid helpers and are used together in event forms.
-            { name: 'form', priority: 1, test: /tournaments[\\/](Field|FormatSelect|SettingControls)\.tsx$/ }
+            }
           ]
         }
       }

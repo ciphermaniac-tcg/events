@@ -110,6 +110,8 @@ const QUERIED: Queried[] = [
     sql: 'SELECT pop_id, first_name, last_name, birth_date FROM users WHERE id = ?1'
   },
   { title: 'Username', part: 'username', sql: 'SELECT handle AS username FROM users WHERE id = ?1' },
+  { title: 'Profile links', part: 'profile', sql: 'SELECT links FROM profile_preferences WHERE user_id = ?1' },
+  { title: 'Pinned results', part: 'events', sql: 'SELECT pins FROM profile_preferences WHERE user_id = ?1' },
   {
     title: 'Username changes in the last day',
     part: 'username',

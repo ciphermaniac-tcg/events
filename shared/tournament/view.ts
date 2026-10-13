@@ -279,6 +279,7 @@ export function publicTournament(tournament: Tournament, keys: Record<string, st
       ...round,
       matches: round.matches.map(match => ({
         ...match,
+        ...(match.timeExtension ? { timeExtension: { seconds: match.timeExtension.seconds, reason: '' } } : {}),
         p1: key(match.p1),
         p2: match.p2 === null ? null : key(match.p2)
       }))

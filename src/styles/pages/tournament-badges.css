@@ -2,11 +2,34 @@
    each in its tier's color, held badges in ink. */
 
 .tm-badges {
+  position: relative;
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 2px;
   margin-top: var(--space-2);
+}
+.tm-badges[hidden] {
+  display: none;
+}
+.tm-badges > * {
+  flex-shrink: 0;
+}
+.tm-badge-measure {
+  position: absolute;
+  visibility: hidden;
+  display: flex;
+  pointer-events: none;
+}
+.tm-badge-measure-icon {
+  width: 28px;
+}
+.tm-badge-measure-rule {
+  width: 1px;
+}
+.tm-badge-measure-more {
+  padding-inline: var(--space-2);
+  font-size: var(--text-sm);
 }
 
 .tm-badge-tier-1 {

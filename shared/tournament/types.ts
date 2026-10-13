@@ -113,6 +113,8 @@ export interface Match {
   outcome: Outcome;
   /** When the result was entered, as TOM writes it. */
   timestamp: string;
+  /** Site-managed extra time measured from the round clock; the reason is staff-only. */
+  timeExtension?: { seconds: number; reason: string };
 }
 
 export type RoundKind = 'swiss' | 'elimination';

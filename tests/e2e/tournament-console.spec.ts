@@ -80,7 +80,8 @@ async function mockConsole(
   page: Page,
   tournament: Tournament,
   settings: TournamentSettings,
-  reports: readonly PlayerReport[] = []
+  reports: readonly PlayerReport[] = [],
+  apply = false
 ) {
   const sent: Command[] = [];
   const decks: unknown[] = [];
@@ -118,7 +119,12 @@ async function mockConsole(
       return url.searchParams.has('since') ? route.fulfill({ status: 204 }) : route.fulfill({ json: manage });
     }
     if (url.pathname === `/api/tournaments/${CODE}/commands`) {
-      sent.push((route.request().postDataJSON() as { command: Command }).command);
+      const { command } = route.request().postDataJSON() as { command: Command };
+      sent.push(command);
+      if (apply) {
+        manage.tournament = run(manage.tournament, command);
+        manage.version += 1;
+      }
       return route.fulfill({ json: manage });
     }
     if (url.pathname === `/api/tournaments/${CODE}/decks`) {
@@ -524,7 +530,7 @@ test('900px and under a table opens a sheet of its results, and a press there re
   await rows.first().click();
   const sheet = page.getByRole('dialog', { name: `Result, table ${table?.table}` });
   await expect(sheet).toBeVisible();
-  await expect(sheet.getByRole('button')).toHaveText([/ wins$/, / wins$/, 'Tie', 'Double loss', 'Cancel']);
+  await expect(sheet.getByRole('button')).toHaveText(['...', / wins$/, / wins$/, 'Tie', 'Double loss', 'Cancel']);
   await page.keyboard.press('Escape');
   await expect(sheet).toHaveCount(0);
   const chevron = rows.first().getByRole('button', { name: `Enter the result of table ${table?.table}` });
@@ -616,4 +622,194 @@ test('organizer pairing rows stay compact and keep separate yellow player hover 
     await expect(row.locator('.tm-result.is-asking')).toHaveCSS('background-color', 'rgb(255, 219, 88)');
     await page.getByRole('button', { name: 'Cancel', exact: true }).click();
   }
+});
+
+test('first-name predictions fill the selected profile without registering it @mobile', async ({ page }) => {
+  const sent = await mockConsole(page, event(0, 0, false), settingsOf({ sanctioned: true }));
+  await page.route(`**/api/tournaments/${CODE}/players?*`, route =>
+    route.fulfill({
+      json: {
+        players: [{ firstName: 'Alex', lastName: 'Morgan', popId: '1234567', birthYear: 1998 }]
+      }
+    })
+  );
+  const first = page.getByRole('combobox', { name: 'First name', exact: true });
+  await first.fill('Al');
+  const option = page.getByRole('option', { name: 'Alex Morgan 1234567' });
+  await expect(option).toBeVisible();
+  await first.press('ArrowDown');
+  await first.press('Enter');
+  await expect(first).toHaveValue('Alex');
+  await expect(page.getByLabel('Last name', { exact: true })).toHaveValue('Morgan');
+  await expect(page.getByLabel('Player ID', { exact: true })).toHaveValue('1234567');
+  await expect(page.getByLabel('Birth year', { exact: true })).toHaveValue('1998');
+  expect(sent).toHaveLength(0);
+  await expect(option).toHaveCount(0);
+  await page.getByRole('button', { name: 'Add player', exact: true }).click();
+  await expect
+    .poll(() => sent[0])
+    .toMatchObject({
+      type: 'addPlayer',
+      player: {
+        firstName: 'Alex',
+        lastName: 'Morgan',
+        id: '1234567',
+        birthDate: '02/27/1998'
+      }
+    });
+  await expect(first).toBeFocused();
+  await expect(first).toHaveValue('');
+});
+
+test('predictions allow pointer selection and Escape keeps a new player’s typed name @mobile', async ({ page }) => {
+  const sent = await mockConsole(page, event(0, 0, false), settingsOf({}));
+  await page.route(`**/api/tournaments/${CODE}/players?*`, route =>
+    route.fulfill({
+      json: {
+        players: [{ firstName: 'Alex', lastName: 'Morgan', popId: '', birthYear: null }]
+      }
+    })
+  );
+  const first = page.getByRole('combobox', { name: 'First name', exact: true });
+  await first.fill('Al');
+  await page.getByRole('option', { name: 'Alex Morgan', exact: true }).click();
+  await expect(first).toHaveValue('Alex');
+  await expect(page.getByLabel('Last name', { exact: true })).toHaveValue('Morgan');
+  await first.fill('Alfred');
+  await expect(page.getByRole('listbox', { name: 'Returning players' })).toBeVisible();
+  await first.press('Escape');
+  await expect(page.getByRole('listbox', { name: 'Returning players' })).toHaveCount(0);
+  await expect(first).toHaveValue('Alfred');
+  await page.getByLabel('Last name', { exact: true }).fill('Newplayer');
+  await page.getByRole('button', { name: 'Add player', exact: true }).click();
+  await expect
+    .poll(() => sent[0])
+    .toMatchObject({ type: 'addPlayer', player: { firstName: 'Alfred', lastName: 'Newplayer' } });
+});
+
+test('failed predictions still allow manual registration', async ({ page }) => {
+  const sent = await mockConsole(page, event(0, 0, false), settingsOf({}));
+  await page.route(`**/api/tournaments/${CODE}/players?*`, route =>
+    route.fulfill({ status: 503, json: { error: 'Unavailable' } })
+  );
+  await page.getByRole('combobox', { name: 'First name', exact: true }).fill('New');
+  await expect(page.getByText('Player suggestions unavailable')).toBeVisible();
+  await page.getByLabel('Last name', { exact: true }).fill('Player');
+  await page.getByRole('button', { name: 'Add player', exact: true }).click();
+  await expect
+    .poll(() => sent[0])
+    .toMatchObject({ type: 'addPlayer', player: { firstName: 'New', lastName: 'Player' } });
+});
+async function openExtension(page: Page, table: number) {
+  if ((page.viewportSize()?.width ?? 1000) <= 900) {
+    await page
+      .locator('.tm-matches tbody tr:not(.tm-group-row)')
+      .filter({ has: page.locator('.tm-table-num', { hasText: String(table) }) })
+      .first()
+      .click();
+  }
+  await page.getByRole('button', { name: `More for table ${table}`, exact: true }).click();
+  await page.getByRole('button', { name: 'Time extension', exact: true }).click();
+  return page.getByRole('dialog', { name: `Time extension, table ${table}`, exact: true });
+}
+
+test('table extensions use the match menu and support editing and removal @mobile', async ({ page }) => {
+  const t = event(4, 0, true);
+  const round = t.pods[0]!.rounds[0]!;
+  round.timeLeft = -120;
+  round.startTime = '10/10/2026 12:00:00';
+  const { table } = round.matches[0]!;
+  const sent = await mockConsole(page, t, settingsOf({}), [], true);
+  let editor = await openExtension(page, table);
+  await editor.getByLabel('Extra minutes').fill('5');
+  await editor.getByLabel('Reason', { exact: true }).fill('Judge call');
+  await editor.getByRole('button', { name: 'Save extension', exact: true }).click();
+  await expect(editor).toHaveCount(0);
+  await expect
+    .poll(() => sent[0])
+    .toMatchObject({ type: 'setTimeExtension', table, seconds: 300, reason: 'Judge call' });
+  await expect(page.getByRole('timer', { name: `Time left at table ${table}`, exact: true })).toHaveText(' · 3:00');
+  const row = page
+    .locator('.tm-matches tbody tr')
+    .filter({ has: page.getByRole('timer', { name: `Time left at table ${table}`, exact: true }) });
+  await expect(row.locator('.tm-extension')).toContainText('+5 min');
+  editor = await openExtension(page, table);
+  await expect(editor.getByLabel('Extra minutes')).toHaveValue('5');
+  await expect(editor.getByLabel('Reason', { exact: true })).toHaveValue('Judge call');
+  await editor.getByLabel('Extra minutes').fill('10');
+  await editor.getByRole('button', { name: 'Save extension', exact: true }).click();
+  await expect.poll(() => sent[1]).toMatchObject({ type: 'setTimeExtension', seconds: 600 });
+  await expect(page.getByRole('timer', { name: `Time left at table ${table}`, exact: true })).toHaveText(' · 8:00');
+  editor = await openExtension(page, table);
+  await editor.getByRole('button', { name: 'Remove extension', exact: true }).click();
+  await expect.poll(() => sent[2]).toMatchObject({ type: 'setTimeExtension', seconds: 0, reason: '' });
+  await expect(page.locator('.tm-extension')).toHaveCount(0);
+  expect(t.pods[0]!.rounds[0]!.timeLeft).toBe(-120);
+});
+
+test('canceling or failing an extension keeps the result unchanged @mobile', async ({ page }) => {
+  const t = event(4, 0, true);
+  const { table } = t.pods[0]!.rounds[0]!.matches[0]!;
+  const sent = await mockConsole(page, t, settingsOf({}));
+  let editor = await openExtension(page, table);
+  await editor.getByLabel('Extra minutes').fill('5');
+  await editor.getByRole('button', { name: 'Cancel', exact: true }).click();
+  expect(sent).toHaveLength(0);
+  editor = await openExtension(page, table);
+  await page.route(`**/api/tournaments/${CODE}/commands`, route =>
+    route.fulfill({ status: 400, json: { error: 'This match has changed; reload the round' } })
+  );
+  await editor.getByLabel('Extra minutes').fill('5');
+  await editor.getByRole('button', { name: 'Save extension', exact: true }).click();
+  await expect(editor).toBeVisible();
+  await expect(editor.getByRole('alert')).toHaveText('This match has changed; reload the round');
+  await expect(page.locator('.tm-extension')).toHaveCount(0);
+});
+
+test('a player’s personal clock includes their table extension @mobile', async ({ page }) => {
+  const t = event(4, 0, true);
+  const round = t.pods[0]!.rounds[0]!;
+  round.timeLeft = -120;
+  round.startTime = '10/10/2026 12:00:00';
+  const match = round.matches[0]!;
+  match.timeExtension = { seconds: 300, reason: 'Staff note' };
+  const keys = assignKeys(t, {});
+  const view: TournamentView = {
+    code: CODE,
+    mode: 'swiss',
+    version: 3,
+    updatedAt: 0,
+    tournament: publicTournament(t, keys),
+    pending: [],
+    reports: [],
+    divisions: publicDivisions(t, keys, Date.UTC(2026, 9, 10)),
+    decks: {},
+    settings: settingsOf({}),
+    viewer: { role: null, me: keys[match.p1]!, via: 'claim', signedIn: true }
+  };
+  await page.route('**/api/**', route => {
+    const url = new URL(route.request().url());
+    if (url.pathname === '/api/me') {
+      return route.fulfill({ json: { user: null, providers: [] } });
+    }
+    return url.searchParams.has('since') ? route.fulfill({ status: 204 }) : route.fulfill({ json: view });
+  });
+  await page.goto(`/t/${CODE}`);
+  await expect(page.getByRole('timer', { name: 'Time left at your table', exact: true })).toHaveText('3:00');
+  await expect(page.getByText('Staff note', { exact: true })).toHaveCount(0);
+});
+
+test('Escape closes the extension menu before the mobile result sheet @mobileOnly', async ({ page }) => {
+  await mockConsole(page, event(4, 0, true), settingsOf({}));
+  await page.locator('.tm-matches tbody tr:not(.tm-group-row)').first().click();
+  const sheet = page.getByRole('dialog', { name: 'Result, table 1', exact: true });
+  const more = sheet.getByRole('button', { name: 'More for table 1', exact: true });
+  await more.click();
+  await expect(sheet.getByRole('button', { name: 'Time extension', exact: true })).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(sheet).toBeVisible();
+  await expect(more).toBeFocused();
+  await expect(sheet.getByRole('button', { name: 'Time extension', exact: true })).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  await expect(sheet).toHaveCount(0);
 });

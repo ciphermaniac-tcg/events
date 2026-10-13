@@ -33,15 +33,25 @@ function pendingChange(row: TournamentRow, command: Extract<Command, { type: 're
 }
 
 /** What a TOM-run event takes from the site: results for TOM, and the round clock, which the site runs. */
-const TOM_COMMANDS: ReadonlySet<Command['type']> = new Set(['reportResult', 'startClock', 'stopClock', 'adjustClock']);
+const TOM_COMMANDS: ReadonlySet<Command['type']> = new Set([
+  'reportResult',
+  'startClock',
+  'stopClock',
+  'adjustClock',
+  'setTimeExtension'
+]);
 
 /** The changes `command` makes, or why it cannot run. */
 export function commandChanges(row: TournamentRow, command: Command, localTime: unknown): Changes | string {
+  if (command.type === 'setTimeExtension' && row.settings.finished) {
+    return 'Reopen the event before changing time extensions';
+  }
   if (row.mode === 'tom' && !TOM_COMMANDS.has(command.type)) {
     return 'TOM runs this event; make that change in TOM';
   }
   const apply = row.mode === 'tom' && command.type !== 'reportResult' ? applySiteClock : applyCommand;
-  const result = apply(row.tournament, command, commandContext(row.tournament, localTime, isSanctioned(row)));
+  const source = commandSource(row, command);
+  const result = apply(source, command, commandContext(row.tournament, localTime, isSanctioned(row)));
   if (!result.ok) {
     return result.tournament ? { tournament: result.tournament, refusal: result.error } : result.error;
   }
@@ -52,6 +62,12 @@ export function commandChanges(row: TournamentRow, command: Command, localTime: 
       : { tournament: withSiteClocks(row.tournament, result.tournament) };
   }
   return { tournament: result.tournament };
+}
+
+function commandSource(row: TournamentRow, command: Command): Tournament {
+  return row.mode === 'tom' && command.type === 'setTimeExtension'
+    ? applyPending(row.tournament, row.pending)
+    : row.tournament;
 }
 
 /**

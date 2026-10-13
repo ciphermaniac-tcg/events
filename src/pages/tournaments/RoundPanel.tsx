@@ -41,6 +41,8 @@ import {
 } from '../../lib/tournament/present';
 import type { ManageState } from './manageState';
 import { OptionsMenu } from './OptionsMenu';
+import { ExtensionClock } from './ExtensionClock';
+import type { ExtensionSelection } from './TimeExtensionDialog';
 import { RoundPicker, RoundStepper } from './RoundStepper';
 import { MatchTable } from './MatchTable';
 import { ChampionLine, ClockControls, DeleteRound, RepairControl } from './RoundControls';
@@ -49,6 +51,7 @@ import { ChampionLine, ClockControls, DeleteRound, RepairControl } from './Round
 const CutBracket = lazy(() => import('./Bracket').then(m => ({ default: m.CutBracket })));
 // The sheet results take where rows are narrow; a desktop console never opens it.
 const ResultSheet = lazy(() => import('./ResultSheet').then(m => ({ default: m.ResultSheet })));
+const TimeExtensionDialog = lazy(() => import('./TimeExtensionDialog').then(m => ({ default: m.TimeExtensionDialog })));
 
 interface Asking {
   table: number;
@@ -73,6 +76,7 @@ interface ResultProps {
   onAccept: (outcome: Outcome) => void;
   onRecord: () => void;
   onKeep: () => void;
+  onTimeExtension?: () => void;
   /** Where rows are too narrow for their controls: the result opens the table's sheet instead. */
   onOpen?: () => void;
 }
@@ -162,6 +166,9 @@ function Result(props: ResultProps) {
               <Show when={shown().unconfirmed}>
                 <span class='tm-result-sub'> not in TOM yet</span>
               </Show>
+              <Show when={props.match.timeExtension}>
+                <ExtensionClock match={props.match} round={props.round} playing={open()} />
+              </Show>
             </span>
             <Show when={props.onOpen && !props.locked}>
               <button
@@ -177,14 +184,21 @@ function Result(props: ResultProps) {
               </button>
             </Show>
             <span class='tm-result-acts' classList={{ 'is-locked': props.locked || Boolean(props.onOpen) }}>
-              <Show when={!elimination()}>
+              <Show when={!elimination() || props.onTimeExtension}>
                 <OptionsMenu name={`table ${String(props.match.table)}`} busy={props.locked} closeOnSelect>
-                  <button type='button' class='tm-menu-item' onClick={() => props.onReport('tie')}>
-                    Tie
-                  </button>
-                  <button type='button' class='tm-menu-item' onClick={() => props.onReport('double-loss')}>
-                    Double loss
-                  </button>
+                  <Show when={!elimination()}>
+                    <button type='button' class='tm-menu-item' onClick={() => props.onReport('tie')}>
+                      Tie
+                    </button>
+                    <button type='button' class='tm-menu-item' onClick={() => props.onReport('double-loss')}>
+                      Double loss
+                    </button>
+                  </Show>
+                  <Show when={props.onTimeExtension}>
+                    <button type='button' class='tm-menu-item' onClick={() => props.onTimeExtension?.()}>
+                      Time extension
+                    </button>
+                  </Show>
                 </OptionsMenu>
               </Show>
               <span class='tm-result-slot'>
@@ -365,6 +379,7 @@ function TableSheet(props: {
   reports: readonly PlayerReport[];
   onPick: (outcome: Outcome) => void;
   onClose: () => void;
+  onTimeExtension?: () => void;
 }) {
   const outcome = () => props.sent ?? shownOutcome(props.match, props.pod, props.round, props.manage.pending).outcome;
   return (
@@ -380,6 +395,7 @@ function TableSheet(props: {
         lone={loneReport(props.reports)}
         onPick={outcome => props.onPick(outcome)}
         onClose={() => props.onClose()}
+        onTimeExtension={props.onTimeExtension}
       />
     </Suspense>
   );
@@ -476,6 +492,7 @@ export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod
     () => props.pod
   );
   const [asking, setAsking] = createSignal<Asking | null>(null);
+  const [extension, setExtension] = createSignal<ExtensionSelection | null>(null);
   /**
    * Results sent and not answered yet, by match: each row shows its own until
    * the answer lands or fails. The panel outlives a switch to another division
@@ -520,6 +537,17 @@ export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod
     shownOutcome(match, props.pod, r, props.manage.pending).outcome === 'pending'
       ? reportsFor(roundReports().get(match.table) ?? NO_REPORTS, props.pod.category, r.number, match)
       : NO_REPORTS;
+  const canExtend = (match: Match, r: Round) =>
+    isLatest() &&
+    !props.locked &&
+    !props.manage.settings.finished &&
+    match.p2 !== null &&
+    shownOutcome(match, props.pod, r, props.manage.pending).outcome === 'pending';
+  function editExtension(match: Match, r: Round) {
+    closeSheet();
+    props.state.clearError();
+    setExtension({ pod: props.pod.category, round: r.number, match });
+  }
   // A new round, or another division, starts on its current round again.
   createEffect(on([() => latest()?.number, () => props.pod.category], () => setPicked(null), { defer: true }));
 
@@ -629,6 +657,7 @@ export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod
                     onRecord={() => record(match)}
                     onAccept={outcome => send(match, outcome)}
                     onOpen={opens() ? () => openSheet(match) : undefined}
+                    onTimeExtension={canExtend(match, r()) ? () => editExtension(match, r()) : undefined}
                     onKeep={() => {
                       setAsking(null);
                       backToFilter();
@@ -708,12 +737,20 @@ export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod
                       send(picked, outcome, false);
                     }}
                     onClose={closeSheet}
+                    onTimeExtension={canExtend(match(), r()) ? () => editExtension(match(), r()) : undefined}
                   />
                 )}
               </Show>
             </section>
           );
         }}
+      </Show>
+      <Show when={extension()} keyed>
+        {selection => (
+          <Suspense>
+            <TimeExtensionDialog state={props.state} selection={selection} onClose={() => setExtension(null)} />
+          </Suspense>
+        )}
       </Show>
     </div>
   );

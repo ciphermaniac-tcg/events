@@ -6,6 +6,8 @@
 
 import type { EventType, Tournament, TournamentInfo } from './types.js';
 
+export const TOP_CUT_SIZES = [2, 4, 8, 16, 32] as const;
+
 type Table = readonly (readonly [max: number, rounds: number, cut: number])[];
 
 /** Tournament Rules Handbook §5.5.6, rev. September 1, 2026, by competitors per age division. */

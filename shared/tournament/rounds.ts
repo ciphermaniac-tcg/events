@@ -12,6 +12,7 @@ import {
   DIVISIONS,
   isDivision,
   type Match,
+  type Player,
   type Pod,
   type PodCategory,
   type Round,
@@ -21,6 +22,22 @@ import {
 /** The pod's current round: the last one paired. */
 export function latestRound(pod: Pod | undefined): Round | undefined {
   return pod?.rounds.at(-1);
+}
+
+/** Seconds left on the site's round clock, including time after it expires. */
+export function secondsLeft(round: Round, now: number): number {
+  const running = round.clockStartedAt != null ? Math.floor((now - round.clockStartedAt) / 1000) : 0;
+  return round.timeLeft - running;
+}
+
+/** Whether a dropped player can return before the next pairing has settled. */
+export function canUndrop(t: Tournament, player: Pick<Player, 'id' | 'droppedAfter'>): boolean {
+  if (!t.settings || player.droppedAfter === null) {
+    return player.droppedAfter === (latestRound(podOf(t, player.id))?.number ?? 0);
+  }
+  const round = latestRound(t.pods.find(p => p.playerIds.includes(player.id)));
+  const missed = (round?.number ?? 0) - player.droppedAfter;
+  return missed - ((round?.stage ?? 4) < 4 ? 1 : 0) <= 1;
 }
 
 /**

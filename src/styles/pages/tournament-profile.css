@@ -1,0 +1,105 @@
+.tm-profile-hero .tm-hero-text {
+  flex: 1;
+  min-width: 0;
+}
+.tm-profile-hero .tm-avatar {
+  width: 72px;
+  height: 72px;
+  flex: none;
+  font-size: var(--text-xl);
+}
+.tm-profile-name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: var(--space-3);
+}
+.tm-profile-links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  margin: var(--space-1) 0 0 -5px;
+}
+.tm-profile-hero .tm-badges {
+  margin: var(--space-3) 0 0 -5px;
+}
+.tm-profile-links:empty {
+  display: none;
+}
+.tm-profile-links a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  min-width: 28px;
+  color: var(--accent-ink);
+  border-radius: var(--radius-sm);
+}
+.tm-profile-links a:hover {
+  background: var(--surface-2);
+}
+.tm-social-icon {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  flex: none;
+  background: currentColor;
+  mask-size: contain;
+  mask-repeat: no-repeat;
+  mask-position: center;
+}
+.tm-profile-history {
+  display: grid;
+  gap: var(--space-3);
+}
+.tm-profile-history .tabs {
+  margin-bottom: 0;
+}
+.tm-profile-history .tm-hist th.tm-hist-deck {
+  width: 200px;
+}
+.tm-organizer-activity .data td {
+  height: 64px;
+  border-bottom-color: var(--rule);
+  font-size: var(--text-base);
+}
+.tm-profile-links-form {
+  display: grid;
+  gap: var(--space-4);
+  max-width: 560px;
+}
+.tm-profile-form-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+@media (max-width: 640px) {
+  .tm-profile-history .tm-hist th.tm-hist-deck {
+    width: 0;
+  }
+  .tm-organizer-activity .data :is(th, td) {
+    padding-inline: var(--space-2);
+  }
+  .tm-organizer-activity .data td {
+    height: auto;
+    padding-block: var(--space-3);
+  }
+  .tm-profile-page .tm-profile-hero {
+    display: grid;
+    grid-template-columns: 56px minmax(0, 1fr);
+    gap: var(--space-3);
+    margin-bottom: var(--space-3);
+  }
+  .tm-profile-hero .tm-avatar {
+    width: 56px;
+    height: 56px;
+  }
+  .tm-profile-links a {
+    min-height: 44px;
+    min-width: 40px;
+  }
+  .tm-profile-links {
+    margin: 0 0 0 -11px;
+  }
+}

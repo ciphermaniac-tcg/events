@@ -14,8 +14,7 @@
 import { useSearchParams } from '@solidjs/router';
 import { createMemo, createSignal, For, Show } from 'solid-js';
 import { divisionFor, eventSeason } from '../../../shared/tournament/divisions';
-import { canUndrop } from '../../../shared/tournament/commands';
-import { hasPlayed, hasStarted, joinedLate, playerPod, podOf } from '../../../shared/tournament/rounds';
+import { canUndrop, hasPlayed, hasStarted, joinedLate, playerPod, podOf } from '../../../shared/tournament/rounds';
 import { DIVISION_LABELS, type Player, playerName, type Tournament } from '../../../shared/tournament/types';
 import { decksEnabled, isSanctioned } from '../../../shared/tournament/view';
 import { type Manage, releaseReporter } from '../../lib/tournament/api';
@@ -29,12 +28,13 @@ import { Field } from './Field';
 import type { ManageState } from './manageState';
 import { birthDateFor } from './ProfileFields';
 import { Squares } from './Squares';
+import { ReturningPlayerField } from './ReturningPlayerField';
 
 /**
  * A new player: a name, and at a sanctioned event their Player ID and birth
  * year. Once added, the first name takes focus again for the next in line.
  */
-function AddPlayer(props: { state: ManageState; sanctioned: boolean; late: boolean }) {
+function AddPlayer(props: { state: ManageState; code: string; sanctioned: boolean; late: boolean }) {
   let firstInput: HTMLInputElement | undefined;
   const [first, setFirst] = createSignal('');
   const [last, setLast] = createSignal('');
@@ -63,12 +63,17 @@ function AddPlayer(props: { state: ManageState; sanctioned: boolean; late: boole
     <form class='tm-box tm-add-player' aria-label='Add a player' onSubmit={event => void submit(event)}>
       <div class='tm-box-bar tm-add-row'>
         <Field id='add-first' label='First name'>
-          <input
-            id='add-first'
+          <ReturningPlayerField
+            code={props.code}
             ref={el => (firstInput = el)}
-            class='tm-input'
             value={first()}
-            onInput={e => setFirst(e.currentTarget.value)}
+            onInput={setFirst}
+            onPick={player => {
+              setFirst(player.firstName);
+              setLast(player.lastName);
+              setPopId(player.popId);
+              setYear(player.birthYear === null ? '' : String(player.birthYear));
+            }}
           />
         </Field>
         <Field id='add-last' label='Last name'>
@@ -324,7 +329,7 @@ export function PlayersPanel(props: { state: ManageState; manage: Manage }) {
   return (
     <div class='tm-panel'>
       <Show when={swiss()}>
-        <AddPlayer state={props.state} sanctioned={sanctioned()} late={started()} />
+        <AddPlayer state={props.state} code={props.manage.code} sanctioned={sanctioned()} late={started()} />
       </Show>
       <section class='tm-box'>
         <div class='tm-box-bar'>

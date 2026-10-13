@@ -2010,3 +2010,11 @@ tr.is-in .tm-place {
     background: transparent;
   }
 }
+
+.tm-extension {
+  display: block;
+  color: var(--accent-ink);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  white-space: nowrap;
+}

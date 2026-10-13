@@ -1,0 +1,5 @@
+CREATE TABLE IF NOT EXISTS profile_preferences (
+  user_id TEXT PRIMARY KEY,
+  links TEXT NOT NULL DEFAULT '{}',
+  pins TEXT NOT NULL DEFAULT '[]'
+) WITHOUT ROWID;

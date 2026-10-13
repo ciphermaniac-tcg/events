@@ -12,6 +12,7 @@
  */
 
 import { addToFlight } from './flights.js';
+import { type ExtensionCommand, setTimeExtension } from './timeExtensions.js';
 import { divisionFor, divisionLookup, parseTomDate, seasonOf, yearOnlyBirthDate } from './divisions.js';
 import { type Pairing, PairingError, pairSwiss, pairTopCut, sortSwissPairings } from './pairing.js';
 import { categoryFor, divisionsOf, poddingFor } from './podding.js';
@@ -35,10 +36,11 @@ import {
   regularRounds,
   roundComplete,
   seatPairings,
+  secondsLeft,
   toMatches
 } from './rounds.js';
 import { swissStandings } from './standings.js';
-import { eventTypeOf, SANCTIONED, sanctionedMinutesError } from './structure.js';
+import { eventTypeOf, SANCTIONED, sanctionedMinutesError, TOP_CUT_SIZES } from './structure.js';
 import {
   type Division,
   DIVISION_LABELS,
@@ -66,6 +68,7 @@ export interface NewPlayer {
 }
 
 export type Command =
+  | ExtensionCommand
   | { type: 'addPlayer'; player: NewPlayer }
   | { type: 'editPlayer'; id: string; firstName: string; lastName: string; birthDate: string }
   | { type: 'removePlayer'; id: string }
@@ -113,7 +116,7 @@ export type CommandResult =
 const fail = (error: string): CommandResult => ({ ok: false, error });
 const done = (tournament: Tournament): CommandResult => ({ ok: true, tournament });
 
-export const TOP_CUT_SIZES = [2, 4, 8, 16, 32] as const;
+export { secondsLeft } from './rounds.js';
 
 function findPod(tournament: Tournament, category: PodCategory): Pod | undefined {
   return tournament.pods.find(pod => pod.category === category);
@@ -568,7 +571,13 @@ function swapPlayers(tournament: Tournament, category: PodCategory, a: string, b
     return fail('Both players must be in unreported matches or the bye');
   }
   const swap = (id: string | null) => (id === a ? b : id === b ? a : id);
-  const matches = round.matches.map(m => (seats.includes(m) ? { ...m, p1: swap(m.p1) ?? m.p1, p2: swap(m.p2) } : m));
+  const matches = round.matches.map(m => {
+    if (!seats.includes(m)) {
+      return m;
+    }
+    const { timeExtension: _extension, ...match } = m;
+    return { ...match, p1: swap(m.p1) ?? m.p1, p2: swap(m.p2) };
+  });
   return done(withPod(tournament, withRound(pod, { ...round, matches })));
 }
 
@@ -579,12 +588,6 @@ function clock(tournament: Tournament, category: PodCategory, change: (round: Ro
     return fail('There is no round to time');
   }
   return done(withPod(tournament, withRound(pod, change(round))));
-}
-
-/** Seconds left on a round's clock at `now`. */
-export function secondsLeft(round: Round, now: number): number {
-  const running = round.clockStartedAt != null ? Math.floor((now - round.clockStartedAt) / 1000) : 0;
-  return round.timeLeft - running;
 }
 
 function startClock(tournament: Tournament, category: PodCategory, ctx: CommandContext): CommandResult {
@@ -771,6 +774,10 @@ type Handlers = {
 };
 
 const HANDLERS: Handlers = {
+  setTimeExtension: (t, c) => {
+    const result = setTimeExtension(t, c);
+    return typeof result === 'string' ? fail(result) : done(result);
+  },
   addPlayer: (t, c, ctx) => addPlayer(t, c.player, ctx),
   editPlayer: (t, c, ctx) =>
     updatePlayer(t, c.id, p => ({

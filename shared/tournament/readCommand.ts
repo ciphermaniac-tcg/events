@@ -5,6 +5,7 @@
  */
 
 import type { Command, EditableInfo, NewPlayer } from './commands.js';
+import { EXTENSION_REASON_MAX, MAX_EXTENSION_SECONDS } from './timeExtensions.js';
 import { EVENT_TYPES, type EventType, isDivision, type Outcome, POD_CATEGORIES, type PodCategory } from './types.js';
 
 type Obj = Record<string, unknown>;
@@ -56,6 +57,16 @@ function infoPatch(value: unknown): Obj | null {
 
 /** Field checks per command type; each returns whether the body has that command's shape. */
 const SHAPES: { [T in Command['type']]: (body: Obj) => boolean } = {
+  setTimeExtension: body =>
+    isPod(body.pod) &&
+    isInt(body.round) &&
+    isInt(body.table) &&
+    isStr(body.p1, 20) &&
+    isStr(body.p2, 20) &&
+    isInt(body.seconds) &&
+    body.seconds >= 0 &&
+    body.seconds <= MAX_EXTENSION_SECONDS &&
+    isStr(body.reason, EXTENSION_REASON_MAX),
   addPlayer: body => newPlayer(body.player) !== null,
   editPlayer: body => isStr(body.id, 20) && isStr(body.firstName) && isStr(body.lastName) && isStr(body.birthDate, 20),
   removePlayer: body => isStr(body.id, 20),

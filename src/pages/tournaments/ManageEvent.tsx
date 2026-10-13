@@ -56,7 +56,6 @@ import { createManage, type ManageState } from './manageState';
 import '../../styles/pages/tournament-console.css';
 import { ClockControls } from './RoundControls';
 import { EndEventStep, type RoundEnd, RoundEndSplit } from './NextStep';
-import { RoundPanel } from './RoundPanel';
 import { SignIn } from './SignIn';
 import { createTomLink, type FileWrite, type TomLink, TomNextStep, TomStrip } from './TomSyncPanel';
 import { Trail } from './Trail';
@@ -69,6 +68,7 @@ const DecklistsPanel = lazy(() => import('./DecklistsPanel').then(m => ({ defaul
 const PlayersPanel = lazy(() => import('./PlayersPanel').then(m => ({ default: m.PlayersPanel })));
 const StandingsTable = lazy(() => import('./StandingsTable').then(m => ({ default: m.StandingsTable })));
 const EventPanel = lazy(() => import('./EventPanel').then(m => ({ default: m.EventPanel })));
+const RoundPanel = lazy(() => import('./RoundPanel').then(m => ({ default: m.RoundPanel })));
 
 type Tab = 'round' | 'players' | 'standings' | 'decklists' | 'event';
 

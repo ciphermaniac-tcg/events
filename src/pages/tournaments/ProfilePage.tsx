@@ -13,18 +13,16 @@ import { resolved } from '../../lib/resource';
 import { Avatar } from './Avatar';
 import { Badges } from './Badges';
 import { Trail } from './Trail';
-import { createShownCount, HistoryList } from './HistoryList';
+import { ProfileHistory } from './ProfileHistory';
+import { ProfileLinks } from './ProfileLinks';
 import { pageTitle } from '../../lib/title';
 import { ErrorState } from '../../components/ErrorState';
-
-const eventCount = (n: number) => `${n} event${n === 1 ? '' : 's'}`;
 
 const missing = (error: unknown) => error instanceof ApiError && error.status === 404;
 
 export function ProfilePage(props: { handle: string }) {
   const [profile, { refetch }] = createResource(() => props.handle, fetchProfile);
   const shown = () => resolved(profile);
-  const count = createShownCount();
   createEffect(() => {
     const name = shown()?.name;
     if (name) {
@@ -32,7 +30,7 @@ export function ProfilePage(props: { handle: string }) {
     }
   });
   return (
-    <div class='tm-page'>
+    <div class='tm-page tm-profile-page'>
       <Show
         when={!missing(profile.error)}
         fallback={
@@ -69,22 +67,15 @@ export function ProfilePage(props: { handle: string }) {
               <section class='tm-hero tm-profile-hero'>
                 <Avatar name={p().name} src={p().avatar} />
                 <div class='tm-hero-text'>
-                  <h1>{p().name}</h1>
-                  <p class='tm-status muted'>
-                    <Show when={p().name !== p().handle}>
-                      {p().handle}
-                      <span class='dot' aria-hidden='true'>
-                        {' · '}
-                      </span>
-                    </Show>
-                    {eventCount(count.shown(p().entries))}
-                  </p>
+                  <div class='tm-profile-name'>
+                    <h1>{p().name}</h1>
+                    <p class='tm-status muted'>@{p().handle}</p>
+                  </div>
                   <Badges badges={p().badges ?? []} />
+                  <ProfileLinks links={p().links ?? {}} />
                 </div>
               </section>
-              <Show when={p().entries.length > 0} fallback={<p class='muted tm-empty'>No events yet</p>}>
-                <HistoryList entries={p().entries} onGone={count.onGone} />
-              </Show>
+              <ProfileHistory entries={p().entries} activity={p().activity} />
             </>
           )}
         </Show>

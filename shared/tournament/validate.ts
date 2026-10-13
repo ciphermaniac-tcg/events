@@ -8,6 +8,7 @@
 
 import { yearOnlyBirthDate } from './divisions.js';
 import { normalizeCutPods } from './rounds.js';
+import { EXTENSION_REASON_MAX, MAX_EXTENSION_SECONDS } from './timeExtensions.js';
 import {
   EVENT_TYPES,
   type Match,
@@ -160,8 +161,14 @@ function match(value: unknown): Match {
     p1: str(o.p1, 20),
     p2: o.p2 === null ? null : str(o.p2, 20),
     outcome: oneOf(o.outcome, OUTCOMES),
-    timestamp: str(o.timestamp, 40)
+    timestamp: str(o.timestamp, 40),
+    ...(o.timeExtension === undefined ? {} : { timeExtension: extension(o.timeExtension) })
   };
+}
+
+function extension(value: unknown): NonNullable<Match['timeExtension']> {
+  const o = obj(value);
+  return { seconds: int(o.seconds, 1, MAX_EXTENSION_SECONDS), reason: str(o.reason, EXTENSION_REASON_MAX) };
 }
 
 function round(value: unknown): Round {

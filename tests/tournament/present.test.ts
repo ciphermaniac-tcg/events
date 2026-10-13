@@ -173,6 +173,7 @@ test('the clock counts down and past zero', () => {
   const running = { ...round2, timeLeft: 90, clockStartedAt: 0 };
   assert.equal(clockLabel(running, 30_000), '1:00');
   assert.equal(clockLabel(running, 95_000), '-0:05');
+  assert.equal(clockLabel(running, 95_000, 300), '4:55');
 });
 
 test('the deck breakdown counts players and decided matches', () => {

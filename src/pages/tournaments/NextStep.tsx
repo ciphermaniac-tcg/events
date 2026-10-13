@@ -7,7 +7,7 @@
  */
 
 import { createSignal, For, Show } from 'solid-js';
-import { TOP_CUT_SIZES } from '../../../shared/tournament/commands';
+import { TOP_CUT_SIZES } from '../../../shared/tournament/structure';
 import { type Division, DIVISION_LABELS, type Pod } from '../../../shared/tournament/types';
 import { type Manage, saveSettings } from '../../lib/tournament/api';
 import type { DivisionCut } from '../../lib/tournament/present';

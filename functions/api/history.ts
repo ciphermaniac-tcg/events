@@ -24,7 +24,7 @@ export async function onRequestGet({ request, env }: Context): Promise<Response>
   }
   const history = await readHistory(db, session, async () => {
     const found = await historyOf(db, { session, now: Date.now() });
-    return found ? jsonRepresentation({ entries: found.entries }) : null;
+    return found ? jsonRepresentation({ entries: found.entries, activity: found.activity }) : null;
   });
   return history ? revalidatedJson(request, history) : jsonError('Sign in first', 401);
 }

@@ -11,6 +11,8 @@ import { createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import type { Match, Outcome, Round } from '../../../shared/tournament/types';
 import { RESULT_WORDS } from '../../lib/tournament/present';
 import { DeckIcons } from './DeckIcons';
+import { OptionsMenu } from './OptionsMenu';
+import { ExtensionClock } from './ExtensionClock';
 
 /** Table-level results, besides either player winning; an elimination match has neither. */
 const EVEN: { outcome: Outcome; label: string }[] = [
@@ -32,6 +34,7 @@ export function ResultSheet(props: {
   lone: Outcome | null;
   onPick: (outcome: Outcome) => void;
   onClose: () => void;
+  onTimeExtension?: () => void;
 }) {
   const [ready, setReady] = createSignal(false);
   let sheet: HTMLDivElement | undefined;
@@ -52,7 +55,7 @@ export function ResultSheet(props: {
     const { overflow } = root.style;
     root.style.overflow = 'hidden';
     const key = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
+      if (event.key === 'Escape' && !sheet?.querySelector('.tm-more > button[aria-expanded="true"]')) {
         event.preventDefault();
         event.stopPropagation();
         props.onClose();
@@ -115,6 +118,13 @@ export function ResultSheet(props: {
       >
         <div class='tm-sheet-top'>
           <strong>Table {props.match.table}</strong>
+          <Show when={props.onTimeExtension}>
+            <OptionsMenu name={`table ${props.match.table}`} closeOnSelect>
+              <button type='button' class='tm-menu-item' onClick={() => props.onTimeExtension?.()}>
+                Time extension
+              </button>
+            </OptionsMenu>
+          </Show>
           <span
             class='tm-result-label'
             classList={{ 'is-open': props.outcome === 'pending' }}
@@ -124,6 +134,9 @@ export function ResultSheet(props: {
           </span>
         </div>
         <div class='tm-sheet-seats'>
+          <Show when={props.match.timeExtension}>
+            <ExtensionClock match={props.match} round={props.round} playing={props.outcome === 'pending'} />
+          </Show>
           {seat(props.match.p1, 'p1')}
           {seat(props.match.p2, 'p2')}
         </div>

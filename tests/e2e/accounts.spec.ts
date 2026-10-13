@@ -240,7 +240,8 @@ test('a public profile shows the name and History read-only, and an unknown addr
   const rows = page.locator('.tm-hist tbody tr.is-link');
   await expect(rows).toHaveCount(2);
   // The count is the rows shown: an entry whose copy has nobody under its key leaves both.
-  await expect(page.locator('.tm-profile-hero .tm-status')).toHaveText('mary.j · 2 events');
+  await expect(page.locator('.tm-profile-hero .tm-status')).toHaveText('@mary.j');
+  await expect(page.getByRole('tab', { name: 'Playing · 2' })).toBeVisible();
   await expect(rows.first().locator('.tm-hist-place')).toHaveText('1st');
   await expect(page.locator('main').getByRole('button', { name: /Sign in|Save|Remove/ })).toHaveCount(0);
   await page.goto('/u/nobody');
@@ -248,9 +249,7 @@ test('a public profile shows the name and History read-only, and an unknown addr
   expect(errors).toEqual([]);
 });
 
-test('a profile’s badges sit under its name, the first six in the row and the rest behind +N @mobile', async ({
-  page
-}) => {
+test('a profile’s badges fit one line and move into overflow before wrapping @mobile', async ({ page }) => {
   const errors = await mockAccount(page, null);
   await publishCopies(page);
   const badges = [
@@ -268,11 +267,15 @@ test('a profile’s badges sit under its name, the first six in the row and the 
   );
   await page.goto('/u/mary.j');
   const row = page.locator('.tm-profile-hero .tm-badges');
-  await expect(row.locator('.tm-badge')).toHaveCount(6);
+  await expect(row.locator('.tm-badge')).toHaveCount(8);
   await expect(row.locator('.tm-badge-rule')).toHaveCount(1);
   const played = row.getByRole('note', { name: 'Played 25 events' });
   await played.click();
   await expect(played.getByRole('tooltip')).toBeVisible();
+  await row.evaluate(element => {
+    element.style.width = '225px';
+  });
+  await expect(row.locator('.tm-badge')).toHaveCount(6);
   const more = row.getByRole('button', { name: '2 more badges' });
   await expect(more).toHaveText('+2');
   await more.click();
@@ -280,6 +283,124 @@ test('a profile’s badges sit under its name, the first six in the row and the 
   await page.keyboard.press('Escape');
   await expect(row.locator('.tm-badge-list')).toHaveCount(0);
   await expect(more).toBeFocused();
+  await row.evaluate(element => {
+    element.style.width = '300px';
+  });
+  await expect(row.locator('.tm-badge')).toHaveCount(8);
+  await expect(row.locator('.tm-badge-more')).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+test('profile tabs show organizer activity and icon-only social links @mobile', async ({ page }) => {
+  const errors = await mockAccount(page, null);
+  await publishCopies(page);
+  await page.route('**/api/profiles/**', route =>
+    route.fulfill({
+      json: {
+        name: 'Mary Jackson',
+        handle: 'mary.j',
+        avatar: null,
+        entries: ENTRIES,
+        pins: ['CUP001'],
+        links: {
+          ciphermaniac: 'https://ciphermaniac.com/players/45677',
+          facebook: 'https://facebook.com/mary',
+          instagram: 'https://instagram.com/mary',
+          twitter: 'https://x.com/mary',
+          metafy: 'https://metafy.gg/@mary'
+        },
+        activity: [
+          {
+            code: 'HOST01',
+            name: 'Hosted Cup',
+            startDate: '10/03/2026',
+            startsAt: '',
+            format: 'Standard',
+            status: 'finished',
+            role: 'organized',
+            store: { id: 'store-1', name: 'Fixture Games' }
+          }
+        ]
+      }
+    })
+  );
+  await page.goto('/u/mary.j');
+  await expect(page.getByRole('region', { name: 'Pinned results' })).toHaveCount(0);
+  await expect(page.getByRole('navigation', { name: 'Profile links' }).locator('.tm-social-icon')).toHaveCount(5);
+  await expect(page.getByRole('link', { name: 'Metafy', exact: true })).toHaveAttribute(
+    'href',
+    'https://metafy.gg/@mary'
+  );
+  await expect(page.getByRole('navigation', { name: 'Profile links' }).locator('a')).toHaveText(['', '', '', '', '']);
+  const masks = await page
+    .locator('.tm-social-icon')
+    .evaluateAll(elements => elements.map(element => getComputedStyle(element).maskImage));
+  expect(masks[0]).toContain('/logo.svg');
+  expect(masks.slice(1).every(mask => mask.includes('/img/socials/'))).toBe(true);
+  await expect
+    .poll(() =>
+      page.evaluate(async () => {
+        const urls = [
+          '/logo.svg',
+          '/img/socials/facebook.svg',
+          '/img/socials/instagram.svg',
+          '/img/socials/twitter.svg',
+          '/img/socials/metafy.svg'
+        ];
+        return Promise.all(urls.map(async url => (await fetch(url)).ok));
+      })
+    )
+    .toEqual([true, true, true, true, true]);
+  await expect(page.locator('.tm-profile-hero .tm-status')).toHaveText('@mary.j');
+  await page.getByRole('tab', { name: 'Organizing · 1' }).click();
+  await expect(page.getByRole('tabpanel', { name: 'Organizing' })).toContainText('Hosted Cup');
+  await expect(page.getByRole('link', { name: 'Hosted Cup' })).toHaveAttribute('href', '/t/HOST01');
+  await expect(page.getByRole('link', { name: 'Fixture Games' })).toHaveAttribute('href', '/stores/store-1');
+  await expect(page.getByRole('button', { name: /^Pin |^Unpin |^Move / })).toHaveCount(0);
+  await page.getByRole('tab', { name: /Playing/ }).click();
+  await expect(page.getByRole('tabpanel', { name: 'Playing' })).toContainText('Fixture Cup');
+  expect(errors).toEqual([]);
+});
+
+test('owners see read-only history without pin controls, including responses cached before pinning was removed @mobile', async ({
+  page
+}) => {
+  const errors = await mockAccount(page);
+  await publishCopies(page);
+  await page.route('**/api/profiles/**', route =>
+    route.fulfill({ json: { name: ME.name, handle: ME.handle, avatar: null, entries: ENTRIES, pins: ['CUP001'] } })
+  );
+  await page.goto('/u/mary');
+  await expect(page.getByRole('link', { name: 'Edit links' })).toHaveCount(0);
+  await expect(page.getByRole('tab', { name: 'Playing · 2' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Pinned results' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /^Pin |^Unpin |^Move / })).toHaveCount(0);
+  await expect(page.locator('.tm-hist tbody tr.is-link')).toHaveCount(2);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  expect(errors).toEqual([]);
+});
+
+test('profile link settings validate platform URLs and persist Metafy and cleared links @mobile', async ({ page }) => {
+  const errors = await mockAccount(page);
+  let links = { facebook: 'https://facebook.com/mary' } as Record<string, string>;
+  await page.route('**/api/me/profile', route => {
+    if (route.request().method() === 'PUT') {
+      ({ links } = route.request().postDataJSON() as { links: Record<string, string> });
+    }
+    return route.fulfill({ json: { links } });
+  });
+  await page.goto('/settings?section=links');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Profile links');
+  await page.getByRole('textbox', { name: 'Metafy' }).fill('https://evil.test/@mary');
+  await page.getByRole('button', { name: 'Save links' }).click();
+  await expect(page.getByRole('textbox', { name: 'Metafy' })).toHaveAttribute('aria-invalid', 'true');
+  await page.getByRole('textbox', { name: 'Metafy' }).fill('https://metafy.gg/@mary');
+  await page.getByRole('textbox', { name: 'Facebook' }).fill('');
+  await page.getByRole('button', { name: 'Save links' }).click();
+  await expect(page.getByRole('status')).toHaveText('Saved');
+  await page.reload();
+  await expect(page.getByRole('textbox', { name: 'Metafy' })).toHaveValue('https://metafy.gg/@mary');
+  await expect(page.getByRole('textbox', { name: 'Facebook' })).toHaveValue('');
   expect(errors).toEqual([]);
 });
 
@@ -1139,6 +1260,37 @@ test('the dashboard’s account menu holds the account’s pages, and the way to
   await page.goto('/');
   await page.getByRole('button', { name: 'Account' }).click();
   await expect(page.locator('.tm-acct-menu').getByRole('link', { name: 'Apply to organize' })).toHaveCount(0);
+});
+
+test('account selections close the menu and its last action signs out @mobile', async ({ page }) => {
+  await mockDashboard(page, ME);
+  let signedOut = false;
+  await page.route('**/api/me', route =>
+    route.fulfill({ json: { user: signedOut ? null : ME, providers: ['google', 'discord'] } })
+  );
+  await page.route('**/api/auth/logout', route => {
+    expect(route.request().method()).toBe('POST');
+    signedOut = true;
+    return route.fulfill({ json: null });
+  });
+  await page.goto('/history');
+  const account = page.getByRole('button', { name: 'Account', exact: true });
+  const menu = page.locator('.tm-acct-menu');
+  // Selecting the current page must close the menu too.
+  await account.click();
+  await menu.getByRole('link', { name: 'History', exact: true }).click();
+  await expect(account).toHaveAttribute('aria-expanded', 'false');
+  await account.click();
+  await menu.getByRole('link', { name: 'Settings', exact: true }).click();
+  await expect(page).toHaveURL(/\/settings$/);
+  await expect(menu).toHaveCount(0);
+  await account.click();
+  await expect(menu.locator(':scope > :last-child')).toHaveText('Sign out');
+  await menu.getByRole('button', { name: 'Sign out', exact: true }).click();
+  await expect(menu).toHaveCount(0);
+  await expect(page).toHaveURL(/:\d+\/$/);
+  await expect(account).toHaveCount(0);
+  expect(signedOut).toBe(true);
 });
 
 test('an organizer who plays has both tabs, opens on the match being played, and keeps the tab in the address', async ({

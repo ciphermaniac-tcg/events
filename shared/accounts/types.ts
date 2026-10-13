@@ -6,6 +6,7 @@
 import type { Badge } from './achievements.js';
 import type { TournamentMode } from '../tournament/view.js';
 import type { AccountRole } from './roles.js';
+import type { ProfilePreferences } from './profile.js';
 import type {
   GivenRole,
   LeagueNight,
@@ -43,6 +44,20 @@ export interface PublicProfile {
   entries: HistoryEntry[];
   /** Absent from a profile cached before there were badges. */
   badges?: Badge[];
+  /** Optional for public profiles cached before profile preferences were added. */
+  links?: ProfilePreferences['links'];
+  activity?: OrganizerActivity[];
+}
+
+export interface OrganizerActivity {
+  code: string;
+  name: string;
+  startDate: string;
+  startsAt: string;
+  format: string;
+  status: HistoryEntry['status'];
+  role: 'organized' | 'staffed';
+  store: { id: string; name: string } | null;
 }
 
 export type ApplicationStatus = 'pending' | 'approved' | 'rejected';

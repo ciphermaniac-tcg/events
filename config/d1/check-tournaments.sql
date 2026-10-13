@@ -12,3 +12,4 @@ SELECT store FROM applications WHERE 0;
 SELECT key FROM proof_deletions WHERE 0;
 SELECT subject FROM clerk_deletions WHERE 0;
 SELECT user_id, code FROM history_hidden WHERE 0;
+SELECT user_id, links, pins FROM profile_preferences WHERE 0;

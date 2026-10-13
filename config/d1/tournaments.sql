@@ -52,6 +52,13 @@ CREATE UNIQUE INDEX IF NOT EXISTS users_by_handle ON users (handle);
 -- Queries name this expression as written here, or SQLite won't use the index.
 CREATE UNIQUE INDEX IF NOT EXISTS users_by_handle_key ON users (replace(replace(replace(handle, '.', ''), '-', ''), '_', ''));
 
+-- Public profile links and the ordered event codes of up to three pinned results.
+CREATE TABLE IF NOT EXISTS profile_preferences (
+  user_id TEXT PRIMARY KEY,
+  links TEXT NOT NULL DEFAULT '{}',
+  pins TEXT NOT NULL DEFAULT '[]'
+) WITHOUT ROWID;
+
 -- Each change of an account's username, kept a day: an account changes it at
 -- most three times in a day, and a username it let go (`old_key`, as
 -- handleKey gives it) stays its own for that day, so no one else can take it

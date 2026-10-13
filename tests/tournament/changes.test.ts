@@ -11,12 +11,19 @@ const delivered = () =>
     setTimeout(resolve, 20);
   });
 
-test('a change announced in one tab reaches the others watching that event', async () => {
+test('a change announced in one tab reaches the others watching that event', { timeout: 10_000 }, async () => {
   const heard: number[] = [];
-  const stop = onChange('ABC123', version => heard.push(version));
+  let notify = () => {};
+  const delivery = new Promise<void>(resolve => {
+    notify = resolve;
+  });
+  const stop = onChange('ABC123', version => {
+    heard.push(version);
+    notify();
+  });
   const other = onChange('ZZZ999', () => heard.push(-1));
   announceChange('ABC123', 7);
-  await delivered();
+  await delivery;
   stop();
   other();
   announceChange('ABC123', 8);

@@ -1,18 +1,16 @@
 /**
  * A profile's badges (shared/accounts/achievements.ts) in a row under its
  * name: the ones it holds outright, a rule, then the counted ones, each in
- * its tier's color. The first SHOWN sit in the row; the rest wait behind a
+ * its tier's color. Everything that fits sits in the row; the rest wait behind a
  * "+N" that opens them as a list. Each names itself on hover, focus, or tap.
  */
 
-import { createSignal, For, onCleanup, onMount, Show } from 'solid-js';
+import { createEffect, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import type { Badge } from '../../../shared/accounts/achievements';
 import { InfoTip } from '../../components/InfoTip';
+import { visibleBadgeCount } from '../../lib/tournament/badgeOverflow';
 import { BadgeArt } from './badgeArt';
 import '../../styles/pages/tournament-badges.css';
-
-/** How many badges the row shows before the rest go behind "+N". */
-const SHOWN = 6;
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
@@ -96,22 +94,51 @@ function More(props: { badges: Badge[] }) {
 }
 
 export function Badges(props: { badges: Badge[] }) {
-  const shown = () => props.badges.slice(0, SHOWN);
+  const [limit, setLimit] = createSignal(0);
+  let root: HTMLDivElement | undefined;
+  let probe: HTMLSpanElement | undefined;
+  function measure() {
+    if (!root || !probe) {
+      return;
+    }
+    const gap = Number.parseFloat(getComputedStyle(root).columnGap);
+    setLimit(
+      visibleBadgeCount(props.badges, root.clientWidth, {
+        badge: probe.children[0].getBoundingClientRect().width,
+        gap,
+        divider: probe.children[1].getBoundingClientRect().width + 8,
+        more: probe.children[2].getBoundingClientRect().width
+      })
+    );
+  }
+  createEffect(measure);
+  onMount(() => {
+    measure();
+    const observer = new ResizeObserver(measure);
+    if (root) {
+      observer.observe(root);
+    }
+    onCleanup(() => observer.disconnect());
+  });
+  const shown = () => props.badges.slice(0, limit());
   const held = () => shown().filter(badge => !('tier' in badge));
   const counted = () => shown().filter(badge => 'tier' in badge);
-  const rest = () => props.badges.slice(SHOWN);
+  const rest = () => props.badges.slice(limit());
   return (
-    <Show when={props.badges.length > 0}>
-      <div class='tm-badges'>
-        <For each={held()}>{badge => <BadgeIcon badge={badge} />}</For>
-        <Show when={held().length > 0 && counted().length > 0}>
-          <span class='tm-badge-rule' aria-hidden='true' />
-        </Show>
-        <For each={counted()}>{badge => <BadgeIcon badge={badge} />}</For>
-        <Show when={rest().length > 0}>
-          <More badges={rest()} />
-        </Show>
-      </div>
-    </Show>
+    <div class='tm-badges' ref={root} hidden={props.badges.length === 0}>
+      <span class='tm-badge-measure' ref={probe} aria-hidden='true'>
+        <span class='tm-badge-measure-icon' />
+        <span class='tm-badge-measure-rule' />
+        <span class='tm-badge-measure-more'>+{props.badges.length}</span>
+      </span>
+      <For each={held()}>{badge => <BadgeIcon badge={badge} />}</For>
+      <Show when={held().length > 0 && counted().length > 0}>
+        <span class='tm-badge-rule' aria-hidden='true' />
+      </Show>
+      <For each={counted()}>{badge => <BadgeIcon badge={badge} />}</For>
+      <Show when={rest().length > 0}>
+        <More badges={rest()} />
+      </Show>
+    </div>
   );
 }

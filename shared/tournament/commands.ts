@@ -5,7 +5,6 @@ import {
   type CommandContext,
   type CommandResult,
   generatedId,
-  canUndrop as legacyCanUndrop,
   podded
 } from './legacyCommands.js';
 import { lifecycleDocument } from './lifecycleImport.js';
@@ -14,7 +13,7 @@ import type { LifecycleOperation } from './lifecycleTypes.js';
 import { divisionLookup } from './divisions.js';
 import { eventTypeOf, SANCTIONED } from './structure.js';
 import { latestRound } from './rounds.js';
-import { DIVISIONS, type Player, type Tournament } from './types.js';
+import { DIVISIONS, type Tournament } from './types.js';
 
 export {
   type Command,
@@ -22,18 +21,8 @@ export {
   type CommandResult,
   type EditableInfo,
   type NewPlayer,
-  secondsLeft,
-  TOP_CUT_SIZES
+  secondsLeft
 } from './legacyCommands.js';
-
-export function canUndrop(t: Tournament, player: Pick<Player, 'id' | 'droppedAfter'>): boolean {
-  if (!t.settings || player.droppedAfter === null) {
-    return legacyCanUndrop(t, player);
-  }
-  const round = latestRound(t.pods.find(p => p.playerIds.includes(player.id)));
-  const missed = (round?.number ?? 0) - player.droppedAfter;
-  return missed - ((round?.stage ?? 4) < 4 ? 1 : 0) <= 1;
-}
 
 function translated(t: Tournament, command: Command, ctx: CommandContext): LifecycleOperation | undefined {
   const translations: Partial<Record<Command['type'], () => LifecycleOperation>> = {

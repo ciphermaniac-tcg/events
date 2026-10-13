@@ -45,6 +45,7 @@ import { SignIn } from './SignIn';
 import { Trail } from './Trail';
 import { MAIN_SITE } from '../../lib/constants';
 import { pageTitle } from '../../lib/title';
+import { ProfileLinksForm } from './ProfileLinksForm';
 
 /**
  * Takes in the fields one save changed, and only those: each answer carries
@@ -69,6 +70,7 @@ const SECTIONS = [
   { id: 'profile', label: 'Player profile' },
   { id: 'username', label: 'Username' },
   { id: 'history', label: 'History' },
+  { id: 'links', label: 'Profile links' },
   { id: 'organizer', label: 'Organizer' },
   { id: 'data', label: 'Your data' }
 ] as const;
@@ -174,6 +176,9 @@ function SignedIn(props: { user: Me; providers: readonly Provider[] }) {
           </Pane>
           <Pane of='history' current={section()} opened={opened()}>
             <HistorySection user={props.user} />
+          </Pane>
+          <Pane of='links' current={section()} opened={opened()}>
+            <ProfileLinksForm />
           </Pane>
           <Pane of='organizer' current={section()} opened={opened()}>
             <OrganizerSection user={props.user} />

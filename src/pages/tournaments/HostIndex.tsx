@@ -48,6 +48,7 @@ import { latestValue } from '../../lib/resource';
 import { eventStatus, roundCapOf } from '../../lib/tournament/present';
 import type { MyApplication, MyStore } from '../../../shared/accounts/types';
 import { ApplicantLine } from './ApplicantStatus';
+import { Skeleton } from '../../components/Skeleton';
 import { EventSetup, type RunAs, type Setup } from './EventSetup';
 import { ErrorLine } from './Field';
 import { TournamentHero } from './Hero';
@@ -412,7 +413,7 @@ export function HostIndex() {
   const opened = (code: string) => navigate(`/host/${code}`);
   return (
     <div class='tm-page'>
-      <Show when={current()}>
+      <Show when={current()} fallback={<Skeleton height='200px' />}>
         {s => (
           <Show when={s().user} fallback={<HostHome offer={s()} />}>
             {user => (

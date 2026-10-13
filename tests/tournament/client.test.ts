@@ -19,6 +19,7 @@ import {
   fetchManage,
   fetchMyDecklist,
   fetchProfile,
+  fetchProfilePreferences,
   fetchPublished,
   fetchSession,
   fetchStaff,
@@ -35,6 +36,7 @@ import {
   rotateStaffToken,
   saveHandle,
   saveProfile,
+  saveProfileLinks,
   saveSettings,
   sendCommand,
   setDeck,
@@ -67,6 +69,16 @@ interface Sent {
 
 const realFetch = globalThis.fetch;
 let sent: Sent[] = [];
+
+test('profile preferences read and save profile links', async () => {
+  answer(200, { links: {} });
+  assert.deepEqual(await fetchProfilePreferences(), { links: {} });
+  await saveProfileLinks({ metafy: 'https://metafy.gg/@reese' });
+  assert.deepEqual(sent, [
+    { url: '/api/me/profile', method: 'GET', body: undefined },
+    { url: '/api/me/profile', method: 'PUT', body: { links: { metafy: 'https://metafy.gg/@reese' } } }
+  ]);
+});
 
 function answer(status: number, body: unknown) {
   globalThis.fetch = (async (url: string, init: RequestInit = {}) => {
