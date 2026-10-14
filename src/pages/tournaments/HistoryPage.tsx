@@ -4,14 +4,13 @@
  * first (see HistoryList). Signed out, one box to sign in.
  */
 
+import { SessionGate } from './SessionGate';
 import { createResource, onMount, Show } from 'solid-js';
-import { Skeleton } from '../../components/Skeleton';
-import { errorText, fetchHistory, type SignInOffer } from '../../lib/tournament/api';
-import { latestValue, resolved } from '../../lib/resource';
-import { ErrorLine } from './Field';
+import { fetchHistory, type SignInOffer } from '../../lib/tournament/api';
+import { resolved } from '../../lib/resource';
+import { ResourceFallback } from './Field';
 import { TournamentHero } from './Hero';
 import { ProfileHistory } from './ProfileHistory';
-import { session } from './session';
 import { SignIn } from './SignIn';
 import { pageTitle } from '../../lib/title';
 
@@ -39,17 +38,7 @@ function MyHistory() {
   return (
     <>
       <TournamentHero title='History' tab='playing' />
-      <Show
-        when={entries()}
-        fallback={
-          <Show when={history.error} fallback={<Skeleton height='160px' />}>
-            <ErrorLine message={errorText(history.error)} />
-            <button type='button' class='btn btn-secondary tm-small' onClick={() => void refetch()}>
-              Retry
-            </button>
-          </Show>
-        }
-      >
+      <Show when={entries()} fallback={<ResourceFallback resource={history} onRetry={() => void refetch()} small />}>
         {list => <ProfileHistory entries={list().entries} activity={list().activity} />}
       </Show>
     </>
@@ -57,19 +46,18 @@ function MyHistory() {
 }
 
 export function HistoryPage() {
-  const current = () => latestValue(session);
   onMount(() => {
     document.title = pageTitle('History');
   });
   return (
     <div class='tm-page'>
-      <Show when={current()}>
+      <SessionGate>
         {s => (
           <Show when={s().user} fallback={<SignedOut offer={s()} />}>
             <MyHistory />
           </Show>
         )}
-      </Show>
+      </SessionGate>
     </div>
   );
 }

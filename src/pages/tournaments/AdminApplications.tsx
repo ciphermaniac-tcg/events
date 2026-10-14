@@ -21,7 +21,7 @@ import { recountApplications } from './pendingApplications';
 import { dayOf } from '../../lib/tournament/applications';
 import { RELATIONSHIP_LABELS, STORE_ROLE_WORDS } from '../../lib/tournament/stores';
 import { resolved } from '../../lib/resource';
-import { ErrorLine } from './Field';
+import { ErrorLine, RetryError } from './Field';
 import '../../styles/pages/tournament-admin.css';
 
 const STATUSES: { value: ApplicationStatus; label: string }[] = [
@@ -199,12 +199,9 @@ export function AdminApplications() {
       <Show
         when={resolved(list)}
         fallback={
-          <Show when={list.error} fallback={<Skeleton height='160px' />}>
+          <Show when={list.state === 'errored'} fallback={<Skeleton height='160px' />}>
             <div class='tm-box-bar'>
-              <ErrorLine message={errorText(list.error)} />
-              <button type='button' class='btn btn-secondary tm-small' onClick={() => void refetch()}>
-                Retry
-              </button>
+              <RetryError error={list.error} onRetry={() => void refetch()} small />
             </div>
           </Show>
         }

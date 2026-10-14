@@ -9,7 +9,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { RELOAD_GUARD_MS, shouldReloadAfterPreloadError } from '../../src/lib/preloadRecovery.ts';
+import {
+  installPreloadRecovery,
+  isRecoveringPreload,
+  RELOAD_GUARD_MS,
+  shouldReloadAfterPreloadError
+} from '../../src/lib/preloadRecovery.ts';
 
 const NOW = 1_800_000_000_000;
 
@@ -26,4 +31,46 @@ test('a preload failure reloads unless the last reload was within the guard wind
   for (const [name, lastReload, expected] of cases) {
     assert.equal(shouldReloadAfterPreloadError(lastReload, NOW), expected, name);
   }
+});
+
+test('only an accepted recovery marks the boundary as loading before reloading', t => {
+  const original = Object.getOwnPropertyDescriptor(globalThis, 'window');
+  const remembered = new Map<string, string>([['cm:preload-reload', String(NOW - 1000)]]);
+  const target = new EventTarget();
+  let reloads = 0;
+  let recoveringAtReload = false;
+  const browser = Object.assign(target, {
+    sessionStorage: {
+      getItem: (key: string) => remembered.get(key) ?? null,
+      setItem: (key: string, value: string) => remembered.set(key, value)
+    },
+    location: {
+      reload() {
+        reloads += 1;
+        recoveringAtReload = isRecoveringPreload();
+      }
+    }
+  });
+  Object.defineProperty(globalThis, 'window', { value: browser, configurable: true });
+  t.after(() => {
+    if (original) {
+      Object.defineProperty(globalThis, 'window', original);
+    } else {
+      Reflect.deleteProperty(globalThis, 'window');
+    }
+  });
+  t.mock.method(Date, 'now', () => NOW);
+  installPreloadRecovery();
+  const blocked = new Event('vite:preloadError', { cancelable: true });
+  target.dispatchEvent(blocked);
+  assert.equal(blocked.defaultPrevented, false);
+  assert.equal(isRecoveringPreload(), false);
+  assert.equal(reloads, 0);
+  remembered.clear();
+  const accepted = new Event('vite:preloadError', { cancelable: true });
+  target.dispatchEvent(accepted);
+  assert.equal(accepted.defaultPrevented, true);
+  assert.equal(reloads, 1);
+  assert.equal(recoveringAtReload, true);
+  assert.equal(remembered.get('cm:preload-reload'), String(NOW));
 });

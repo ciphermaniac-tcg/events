@@ -80,14 +80,14 @@ export function TournamentsPage() {
         <Match when={location.pathname.startsWith('/stores/')}>
           <StoreRoutes />
         </Match>
-        <Match when={location.pathname.startsWith('/u/') && params.handle}>
-          {handle => <ProfilePage handle={handle().toLowerCase()} />}
+        <Match when={location.pathname.startsWith('/u/') && params.handle} keyed>
+          {handle => <ProfilePage handle={handle.toLowerCase()} />}
         </Match>
-        <Match when={location.pathname.startsWith('/t/') && code()}>
-          <PublicEvent code={code()} session={latestValue(session)} />
+        <Match when={location.pathname.startsWith('/t/') && code()} keyed>
+          {eventCode => <PublicEvent code={eventCode} session={latestValue(session)} />}
         </Match>
-        <Match when={location.pathname.startsWith('/host/') && code()}>
-          <ManageEvent code={code()} />
+        <Match when={location.pathname.startsWith('/host/') && code()} keyed>
+          {eventCode => <ManageEvent code={eventCode} />}
         </Match>
       </Switch>
     </div>

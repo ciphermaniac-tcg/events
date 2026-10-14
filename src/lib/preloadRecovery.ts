@@ -20,6 +20,11 @@ export const RELOAD_GUARD_MS = 30_000;
 
 const RELOAD_GUARD_KEY = 'cm:preload-reload';
 
+let recovering = false;
+
+/** A prevented import can still fail in its caller before the reload finishes. */
+export const isRecoveringPreload = (): boolean => recovering;
+
 /**
  * Whether a preload failure should reload the page.
  *
@@ -60,6 +65,7 @@ export function installPreloadRecovery(): void {
       return;
     }
     event.preventDefault();
+    recovering = true;
     store?.setItem(RELOAD_GUARD_KEY, String(Date.now()));
     window.location.reload();
   });

@@ -5,6 +5,7 @@ import { Skeleton } from './components/Skeleton';
 import { ErrorState } from './components/ErrorState';
 import { SiteHead } from './components/SiteHead';
 import { useScrollRestoration } from './lib/scrollRestore';
+import { isRecoveringPreload } from './lib/preloadRecovery';
 
 /**
  * Fallback while a lazy route chunk downloads on a cold load (page data never
@@ -40,6 +41,9 @@ export const App: ParentComponent = props => {
       <main class='page'>
         <ErrorBoundary
           fallback={(err, reset) => {
+            if (isRecoveringPreload()) {
+              return <ChunkFallback />;
+            }
             // The detail is for whoever debugs it, not for the page.
             console.error(err);
             return (

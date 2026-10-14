@@ -56,6 +56,9 @@ export function createManage(code: () => string): ManageState {
   }
 
   async function load(): Promise<boolean> {
+    if (!data()) {
+      setLoadError(null);
+    }
     try {
       const shown = data();
       const next = await fetchManage(code(), shown?.code === code() ? shown.version : undefined);

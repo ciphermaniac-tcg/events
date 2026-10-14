@@ -11,21 +11,24 @@ import { TournamentHero } from './Hero';
 import { NotFoundPage } from '../NotFoundPage';
 import { session } from './session';
 import { pageTitle } from '../../lib/title';
+import { SessionGate } from './SessionGate';
 
 export function AdminPage() {
   const current = () => latestValue(session);
   const admin = () => isAdmin(current()?.user?.role ?? null);
   createEffect(() => {
-    document.title = pageTitle(admin() ? 'Admin' : 'Page not found');
+    document.title = pageTitle(current() ? (admin() ? 'Admin' : 'Page not found') : undefined);
   });
   return (
     <div class='tm-page tm-admin'>
-      <Show when={current()}>
-        <Show when={admin()} fallback={<NotFoundPage />}>
-          <TournamentHero title='Admin' />
-          <AdminSections param='tab' />
-        </Show>
-      </Show>
+      <SessionGate>
+        {() => (
+          <Show when={admin()} fallback={<NotFoundPage />}>
+            <TournamentHero title='Admin' />
+            <AdminSections param='tab' />
+          </Show>
+        )}
+      </SessionGate>
     </div>
   );
 }

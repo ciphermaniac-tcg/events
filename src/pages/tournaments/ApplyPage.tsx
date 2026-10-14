@@ -10,19 +10,19 @@
  * the rows again from there. Signed out, one box to sign in.
  */
 
+import { SessionGate } from './SessionGate';
 import { A, useNavigate, useSearchParams } from '@solidjs/router';
 import { createResource, createSignal, type JSX, onMount, Show, untrack } from 'solid-js';
 import { canJoinCommunity } from '../../../shared/accounts/roles';
 import type { MyApplication } from '../../../shared/accounts/types';
-import { Skeleton } from '../../components/Skeleton';
 import { errorText, type Me, type SignInOffer } from '../../lib/tournament/api';
 import { applicantStage, fetchApplication } from '../../lib/tournament/applications';
 import { joinCommunity } from '../../lib/tournament/stores';
 import { latestValue } from '../../lib/resource';
 import { ApplicantStatus, createSessionCatchUp } from './ApplicantStatus';
-import { ErrorLine } from './Field';
+import { ErrorLine, ResourceFallback } from './Field';
 import { TournamentHero } from './Hero';
-import { refreshSession, session } from './session';
+import { refreshSession } from './session';
 import { SignIn } from './SignIn';
 import { StoreApplicationForm } from './StoreApplicationForm';
 import '../../styles/pages/tournament-store-apply.css';
@@ -163,17 +163,7 @@ function Applying(props: { user: Me }) {
   return (
     <>
       <TournamentHero title={TITLE} />
-      <Show
-        when={current()}
-        fallback={
-          <Show when={state.error} fallback={<Skeleton height='160px' />}>
-            <ErrorLine message={errorText(state.error)} />
-            <button type='button' class='btn btn-secondary tm-small' onClick={() => void refetch()}>
-              Retry
-            </button>
-          </Show>
-        }
-      >
+      <Show when={current()} fallback={<ResourceFallback resource={state} onRetry={() => void refetch()} small />}>
         {s => (
           <div class='tm-apply'>
             <Show when={stage() !== 'none' && stage() !== 'community'}>
@@ -238,19 +228,18 @@ function Applying(props: { user: Me }) {
 }
 
 export function ApplyPage() {
-  const current = () => latestValue(session);
   onMount(() => {
     document.title = pageTitle(TITLE);
   });
   return (
     <div class='tm-page tm-narrow tm-apply-page'>
-      <Show when={current()}>
+      <SessionGate>
         {s => (
           <Show when={s().user} fallback={<SignedOut offer={s()} />}>
             {user => <Applying user={user()} />}
           </Show>
         )}
-      </Show>
+      </SessionGate>
     </div>
   );
 }

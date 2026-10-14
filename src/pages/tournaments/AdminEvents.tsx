@@ -9,11 +9,9 @@ import { A } from '@solidjs/router';
 import { createResource, For, Show } from 'solid-js';
 import type { AdminEvent } from '../../../shared/accounts/types';
 import { parseTomDate } from '../../../shared/tournament/divisions';
-import { Skeleton } from '../../components/Skeleton';
 import { fetchAllEvents } from '../../lib/tournament/admin';
-import { errorText } from '../../lib/tournament/api';
 import { resolved } from '../../lib/resource';
-import { ErrorLine } from './Field';
+import { ResourceFallback } from './Field';
 
 const dateOf = (startDate: string) =>
   parseTomDate(startDate)?.toLocaleDateString(undefined, { dateStyle: 'medium', timeZone: 'UTC' }) ?? '';
@@ -47,17 +45,7 @@ function EventRow(props: { event: AdminEvent }) {
 export function AdminEvents() {
   const [list, { refetch }] = createResource(() => fetchAllEvents().then(answer => answer.events));
   return (
-    <Show
-      when={resolved(list)}
-      fallback={
-        <Show when={list.error} fallback={<Skeleton height='160px' />}>
-          <ErrorLine message={errorText(list.error)} />
-          <button type='button' class='btn btn-secondary tm-small' onClick={() => void refetch()}>
-            Retry
-          </button>
-        </Show>
-      }
-    >
+    <Show when={resolved(list)} fallback={<ResourceFallback resource={list} onRetry={() => void refetch()} small />}>
       {events => (
         <section class='tm-box'>
           <Show when={events().length > 0} fallback={<p class='tm-empty muted'>No events yet</p>}>

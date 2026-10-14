@@ -9,12 +9,11 @@
 import { A } from '@solidjs/router';
 import { MAIN_SITE } from '../../lib/constants';
 import { createResource, For, type Resource, Show } from 'solid-js';
-import { Skeleton } from '../../components/Skeleton';
-import { errorText, type HistoryEntry } from '../../lib/tournament/api';
+import { type HistoryEntry } from '../../lib/tournament/api';
 import { loadEntry } from '../../lib/tournament/historyCopies';
 import { resolved } from '../../lib/resource';
 import { DeckIcons } from './DeckIcons';
-import { ErrorLine } from './Field';
+import { ResourceFallback } from './Field';
 import { HistoryList } from './HistoryList';
 
 /** How many finished events the tab shows before sending the rest to /history. */
@@ -113,14 +112,7 @@ export function PlayingTab(props: { history: Resource<HistoryEntry[]>; onRetry: 
   return (
     <Show
       when={entries()}
-      fallback={
-        <Show when={props.history.error} fallback={<Skeleton height='160px' />}>
-          <ErrorLine message={errorText(props.history.error)} />
-          <button type='button' class='btn btn-secondary tm-small' onClick={() => props.onRetry()}>
-            Retry
-          </button>
-        </Show>
-      }
+      fallback={<ResourceFallback resource={props.history} onRetry={() => props.onRetry()} small />}
     >
       {list => (
         <Show when={list().length > 0} fallback={<Welcome />}>

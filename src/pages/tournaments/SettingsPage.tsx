@@ -11,7 +11,9 @@
  * sign in.
  */
 
-import { A, useNavigate, useSearchParams } from '@solidjs/router';
+import { SessionGate } from './SessionGate';
+import { SignOutButton } from './SignOutButton';
+import { A, useSearchParams } from '@solidjs/router';
 import { createEffect, createMemo, createResource, createSignal, For, type JSX, on, Show, untrack } from 'solid-js';
 import { displayName, HANDLE_MAX, handleProblem, normalizeHandle } from '../../../shared/accounts/handle';
 import type { PlayerProfile } from '../../../shared/tournament/profile';
@@ -26,19 +28,17 @@ import {
   saveProfile,
   setProfileName,
   setPublicProfile,
-  type SignInOffer,
-  signOut
+  type SignInOffer
 } from '../../lib/tournament/api';
 import { applicantStage, fetchApplication } from '../../lib/tournament/applications';
 import { latestValue } from '../../lib/resource';
-import { Skeleton } from '../../components/Skeleton';
 import { ApplicantStatus } from './ApplicantStatus';
 import { OrganizerRoles } from './OrganizerRoles';
 import { Avatar } from './Avatar';
 import { MyData } from './MyData';
-import { ErrorLine } from './Field';
+import { ErrorLine, ResourceFallback } from './Field';
 import { emptyProfile, ProfileFields, profileProblems } from './ProfileFields';
-import { refreshSession, session, setSession } from './session';
+import { session, setSession } from './session';
 import { SettingRow, Toggle } from './SettingControls';
 import { SettingInfo } from './SettingInfo';
 import { SignIn } from './SignIn';
@@ -108,20 +108,6 @@ function Identity(props: { user: Me; providers: readonly Provider[] }) {
   );
 }
 
-function SignOut() {
-  const navigate = useNavigate();
-  async function leave() {
-    await signOut().catch(() => undefined);
-    await refreshSession();
-    navigate('/');
-  }
-  return (
-    <button type='button' class='btn btn-ghost tm-settings-out' onClick={() => void leave()}>
-      Sign out
-    </button>
-  );
-}
-
 /** One section, mounted once opened and hidden while another shows, so its unsaved edits survive the switch. */
 function Pane(props: { of: Section; current: Section; opened: ReadonlySet<Section>; children: JSX.Element }) {
   return (
@@ -164,7 +150,7 @@ function SignedIn(props: { user: Me; providers: readonly Provider[] }) {
               )}
             </For>
           </nav>
-          <SignOut />
+          <SignOutButton class='btn btn-ghost tm-settings-out' />
         </div>
         <div class='tm-side-content tm-settings-body'>
           <h1 class='tm-settings-title'>{label()}</h1>
@@ -436,14 +422,7 @@ function OrganizerSection(props: { user: Me }) {
     <section>
       <Show
         when={current() !== undefined}
-        fallback={
-          <Show when={state.error} fallback={<Skeleton height='58px' />}>
-            <ErrorLine message={errorText(state.error)} />
-            <button type='button' class='btn btn-secondary tm-small' onClick={() => void refetch()}>
-              Retry
-            </button>
-          </Show>
-        }
+        fallback={<ResourceFallback resource={state} onRetry={() => void refetch()} height='58px' small />}
       >
         <div class='tm-organizer'>
           <Show when={status()}>
@@ -496,13 +475,13 @@ export function SettingsPage() {
           That account is already linked to another user.
         </p>
       </Show>
-      <Show when={current()}>
+      <SessionGate>
         {s => (
           <Show when={s().user} fallback={<SignedOut offer={s()} next={returnTo(params.next)} />}>
             {user => <SignedIn user={user()} providers={s().providers} />}
           </Show>
         )}
-      </Show>
+      </SessionGate>
     </div>
   );
 }

@@ -5,24 +5,18 @@
  * run events is here rather than on the page, since few accounts want it.
  */
 
-import { A, useNavigate } from '@solidjs/router';
+import { A } from '@solidjs/router';
 import { createSignal, onCleanup, onMount, Show } from 'solid-js';
 import { isAdmin } from '../../../shared/accounts/roles';
 import { canCreateEvents } from '../../../shared/accounts/stores';
-import { type Me, signOut } from '../../lib/tournament/api';
-import { refreshSession } from './session';
+import type { Me } from '../../lib/tournament/api';
+import { SignOutButton } from './SignOutButton';
 import '../../styles/pages/tournament-account-menu.css';
 
 export function AccountMenu(props: { user: Me; pending: number }) {
-  const navigate = useNavigate();
   const [open, setOpen] = createSignal(false);
   const close = () => setOpen(false);
-  async function leave() {
-    close();
-    await signOut().catch(() => undefined);
-    await refreshSession();
-    navigate('/');
-  }
+  const logout = <SignOutButton class='tm-acct-out' onError={() => setOpen(true)} />;
   let root: HTMLDivElement | undefined;
   const admin = () => isAdmin(props.user.role);
   const apply = () => !canCreateEvents(props.user.role, props.user.stores);
@@ -90,9 +84,7 @@ export function AccountMenu(props: { user: Me; pending: number }) {
               Apply to organize
             </A>
           </Show>
-          <button type='button' class='tm-acct-out' onClick={() => void leave()}>
-            Sign out
-          </button>
+          {logout}
         </div>
       </Show>
     </div>

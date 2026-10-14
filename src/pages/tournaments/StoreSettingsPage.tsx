@@ -8,6 +8,7 @@
  * page; signed out, one box to sign in.
  */
 
+import { SessionGate } from './SessionGate';
 import { A, useSearchParams } from '@solidjs/router';
 import { createEffect, createResource, createSignal, For, type JSX, Show, untrack } from 'solid-js';
 import {
@@ -32,7 +33,7 @@ import { latestValue } from '../../lib/resource';
 import { ErrorLine } from './Field';
 import { TournamentHero } from './Hero';
 import { NightExceptions, WeeklyNights } from './LeagueNights';
-import { refreshSession, session } from './session';
+import { refreshSession } from './session';
 import { SignIn } from './SignIn';
 import { StoreFields } from './StoreFields';
 import { StoreStaff } from './StoreStaff';
@@ -345,13 +346,13 @@ function SignedOut(props: { offer: SignInOffer; id: string }) {
 export function StoreSettingsPage(props: { id: string }) {
   return (
     <div class='tm-page tm-store-settings-page'>
-      <Show when={latestValue(session)}>
+      <SessionGate>
         {s => (
           <Show when={s().user} fallback={<SignedOut offer={s()} id={props.id} />}>
             <Settings id={props.id} />
           </Show>
         )}
-      </Show>
+      </SessionGate>
     </div>
   );
 }

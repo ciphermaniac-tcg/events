@@ -4,6 +4,7 @@
  * says so. Signed out, sign-in comes back here.
  */
 
+import { SessionGate } from './SessionGate';
 import { A, useNavigate, useSearchParams } from '@solidjs/router';
 import { createEffect, createSignal, Show, untrack } from 'solid-js';
 import { errorText } from '../../lib/tournament/api';
@@ -48,7 +49,7 @@ export function StoreJoinPage() {
       <Show when={!error()}>
         <TournamentHero title={TITLE} />
       </Show>
-      <Show when={latestValue(session)}>
+      <SessionGate>
         {s => (
           <Show
             when={s().user}
@@ -81,7 +82,7 @@ export function StoreJoinPage() {
             </Show>
           </Show>
         )}
-      </Show>
+      </SessionGate>
     </div>
   );
 }

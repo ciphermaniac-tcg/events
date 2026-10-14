@@ -1,4 +1,6 @@
-import { type JSX, Show } from 'solid-js';
+import { type JSX, type Resource, Show } from 'solid-js';
+import { errorText } from '../../lib/tournament/api';
+import { Skeleton } from '../../components/Skeleton';
 
 /** A labelled form control with an optional error line, the house form row. */
 export function Field(props: { id: string; label: string; error?: string | undefined; children: JSX.Element }) {
@@ -24,6 +26,34 @@ export function ErrorLine(props: { message: string | null | undefined }) {
       <p class='tm-error' role='alert'>
         {props.message}
       </p>
+    </Show>
+  );
+}
+
+export function RetryError(props: { error: unknown; onRetry: () => void; small?: boolean }) {
+  return (
+    <>
+      <ErrorLine message={errorText(props.error)} />
+      <button
+        type='button'
+        class={props.small ? 'btn btn-secondary tm-small' : 'btn btn-secondary'}
+        onClick={() => props.onRetry()}
+      >
+        Retry
+      </button>
+    </>
+  );
+}
+
+export function ResourceFallback(props: {
+  resource: Resource<unknown>;
+  onRetry: () => void;
+  height?: string;
+  small?: boolean;
+}) {
+  return (
+    <Show when={props.resource.state === 'errored'} fallback={<Skeleton height={props.height ?? '160px'} />}>
+      <RetryError error={props.resource.error} onRetry={() => props.onRetry()} small={props.small} />
     </Show>
   );
 }

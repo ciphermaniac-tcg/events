@@ -20,7 +20,7 @@ import {
 import { ApiError, deleteAccount, errorText, exportData, type Me, wipeData } from '../../lib/tournament/api';
 import { ErrorLine } from './Field';
 import { Modal } from './Modal';
-import { refreshSession } from './session';
+import { clearSession } from './session';
 import { SettingRow } from './SettingControls';
 import '../../styles/pages/tournament-store-apply.css';
 import '../../styles/pages/tournament-my-data.css';
@@ -268,7 +268,7 @@ function DeleteDialog(props: { open: boolean; handle: string; onClose: () => voi
     setError(null);
     try {
       await deleteAccount(typed());
-      await refreshSession();
+      clearSession();
       navigate('/');
     } catch (err) {
       setError(err);

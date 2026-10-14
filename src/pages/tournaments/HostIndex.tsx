@@ -48,12 +48,12 @@ import { latestValue } from '../../lib/resource';
 import { eventStatus, roundCapOf } from '../../lib/tournament/present';
 import type { MyApplication, MyStore } from '../../../shared/accounts/types';
 import { ApplicantLine } from './ApplicantStatus';
-import { Skeleton } from '../../components/Skeleton';
 import { EventSetup, type RunAs, type Setup } from './EventSetup';
 import { ErrorLine } from './Field';
 import { TournamentHero } from './Hero';
 import { refreshSession, session } from './session';
 import { pageTitle } from '../../lib/title';
+import { SessionGate } from './SessionGate';
 
 const loadDashboard = () => import('./Dashboard');
 const loadHostHome = () => import('./HostHome');
@@ -63,8 +63,8 @@ const HostHome = lazy(() => loadHostHome().then(m => ({ default: m.HostHome })))
 // Which of the two the root shows waits on who is signed in. Ask for both while
 // that answer is on its way, rather than one after it.
 if (window.location.pathname === '/') {
-  void loadDashboard();
-  void loadHostHome();
+  void loadDashboard().catch(() => undefined);
+  void loadHostHome().catch(() => undefined);
 }
 
 const shortDate = (startDate: string) =>
@@ -406,14 +406,13 @@ function Organizer(props: {
 
 export function HostIndex() {
   const navigate = useNavigate();
-  const current = () => latestValue(session);
   onMount(() => {
     document.title = pageTitle();
   });
   const opened = (code: string) => navigate(`/host/${code}`);
   return (
     <div class='tm-page'>
-      <Show when={current()} fallback={<Skeleton height='200px' />}>
+      <SessionGate>
         {s => (
           <Show when={s().user} fallback={<HostHome offer={s()} />}>
             {user => (
@@ -426,7 +425,7 @@ export function HostIndex() {
             )}
           </Show>
         )}
-      </Show>
+      </SessionGate>
     </div>
   );
 }

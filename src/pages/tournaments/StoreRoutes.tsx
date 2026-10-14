@@ -21,8 +21,12 @@ export function StoreRoutes() {
       <Match when={location.pathname === '/stores/join'}>
         <StoreJoinPage />
       </Match>
-      <Match when={location.pathname.endsWith('/settings') && params.id}>{id => <StoreSettingsPage id={id()} />}</Match>
-      <Match when={params.id}>{id => <StorePage id={id()} />}</Match>
+      <Match when={location.pathname.endsWith('/settings') && params.id} keyed>
+        {id => <StoreSettingsPage id={id} />}
+      </Match>
+      <Match when={params.id} keyed>
+        {id => <StorePage id={id} />}
+      </Match>
     </Switch>
   );
 }

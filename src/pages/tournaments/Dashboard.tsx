@@ -38,6 +38,7 @@ import { createSessionCatchUp } from './ApplicantStatus';
 import { PlayingTab } from './PlayingTab';
 import '../../styles/pages/tournament-dashboard.css';
 import { pageTitle } from '../../lib/title';
+import { ResourceFallback } from './Field';
 
 export type Tab = 'playing' | 'organizing';
 
@@ -154,7 +155,7 @@ export function Dashboard(props: {
   organizing: (events: readonly TournamentSummary[], application: Resource<MyApplication | null>) => JSX.Element;
 }) {
   const [params, setParams] = useSearchParams<{ tab?: string; new?: string; section?: string }>();
-  const [events] = createResource(() => listTournaments().then(answer => answer.tournaments));
+  const [events, { refetch: retryEvents }] = createResource(() => listTournaments().then(answer => answer.tournaments));
   const [history, { refetch }] = createResource(() => fetchHistory().then(answer => answer.entries));
   const admin = () => isAdmin(props.user.role);
 
@@ -178,7 +179,7 @@ export function Dashboard(props: {
 
   const shown = (): Shown[] => [
     { tab: 'playing', count: playingNow() },
-    ...(organizes() ? [{ tab: 'organizing' as const, count: runningNow() }] : [])
+    ...(organizes() || events.error ? [{ tab: 'organizing' as const, count: runningNow() }] : [])
   ];
   const adminLink = () => (admin() ? pendingApplications() : null);
   // The tab strip shows with a choice to make: two tabs, or one beside Admin.
@@ -199,7 +200,9 @@ export function Dashboard(props: {
       setOpening(untrack(fallbackTab));
     }
   });
-  const tab = (): Tab | null => shown().find(s => s.tab === params.tab)?.tab ?? opening();
+  const tab = (): Tab | null =>
+    shown().find(s => s.tab === params.tab)?.tab ??
+    (opening() === null ? null : (shown().find(s => s.tab === opening())?.tab ?? 'playing'));
   // The Admin tab moved to /admin; an old address for it goes there, its section with it.
   const navigate = useNavigate();
   createEffect(() => {
@@ -234,7 +237,14 @@ export function Dashboard(props: {
               <Match when={open() === 'playing'}>
                 <PlayingTab history={history} onRetry={() => void refetch()} />
               </Match>
-              <Match when={open() === 'organizing'}>{props.organizing(latestValue(events) ?? [], application)}</Match>
+              <Match when={open() === 'organizing'}>
+                <Show
+                  when={latestValue(events)}
+                  fallback={<ResourceFallback resource={events} onRetry={() => void retryEvents()} height='200px' />}
+                >
+                  {list => props.organizing(list(), application)}
+                </Show>
+              </Match>
             </Switch>
           </div>
         </div>

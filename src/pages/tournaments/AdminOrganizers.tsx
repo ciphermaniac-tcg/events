@@ -7,13 +7,12 @@
 
 import { createResource, createSignal, For, Show } from 'solid-js';
 import type { RoleHolder } from '../../../shared/accounts/types';
-import { Skeleton } from '../../components/Skeleton';
 import { errorText } from '../../lib/tournament/api';
 import { fetchRoleHolders, ROLE_WORDS, setOrganizerAccess } from '../../lib/tournament/admin';
 import { dayOf } from '../../lib/tournament/applications';
 import { resolved } from '../../lib/resource';
 import { ConfirmAction } from './ConfirmAction';
-import { ErrorLine } from './Field';
+import { ErrorLine, ResourceFallback } from './Field';
 
 const eventCount = (n: number) => `${n} event${n === 1 ? '' : 's'}`;
 
@@ -78,17 +77,7 @@ export function AdminOrganizers() {
   const [list, { refetch, mutate }] = createResource(() => fetchRoleHolders().then(answer => answer.accounts));
   const changed = (account: RoleHolder) => mutate(prev => prev?.map(row => (row.id === account.id ? account : row)));
   return (
-    <Show
-      when={resolved(list)}
-      fallback={
-        <Show when={list.error} fallback={<Skeleton height='160px' />}>
-          <ErrorLine message={errorText(list.error)} />
-          <button type='button' class='btn btn-secondary tm-small' onClick={() => void refetch()}>
-            Retry
-          </button>
-        </Show>
-      }
-    >
+    <Show when={resolved(list)} fallback={<ResourceFallback resource={list} onRetry={() => void refetch()} small />}>
       {accounts => (
         <section class='tm-box'>
           <Show when={accounts().length > 0} fallback={<p class='tm-empty muted'>No organizers yet</p>}>

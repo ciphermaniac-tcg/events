@@ -50,6 +50,8 @@ import {
 } from '../../lib/tournament/present';
 import { session } from './session';
 import { latestValue } from '../../lib/resource';
+import { Skeleton } from '../../components/Skeleton';
+import { SessionGate } from './SessionGate';
 import { ErrorLine } from './Field';
 import { lookOnReturn, schedulePolls } from '../../lib/tournament/viewPoll';
 import { createManage, type ManageState } from './manageState';
@@ -569,18 +571,30 @@ export function ManageEvent(props: { code: string }) {
   });
 
   return (
-    <Show
-      when={user()}
-      fallback={
-        <Show when={latestValue(session)}>
-          {s => <SignIn offer={s()} next={`/host/${props.code}${params.invite ? `?invite=${params.invite}` : ''}`} />}
+    <SessionGate>
+      {s => (
+        <Show
+          when={user()}
+          fallback={
+            <SignIn offer={s()} next={`/host/${props.code}${params.invite ? `?invite=${params.invite}` : ''}`} />
+          }
+        >
+          <ErrorLine message={joinError()} />
+          <Show
+            when={state.data()}
+            fallback={
+              <Show when={state.loadError()} fallback={<Skeleton height='240px' />}>
+                <Refused message={state.loadError()?.message} name={user()?.name} />
+                <button type='button' class='btn btn-secondary' onClick={() => void state.load()}>
+                  Retry
+                </button>
+              </Show>
+            }
+          >
+            {manage => <Console state={state} manage={manage()} />}
+          </Show>
         </Show>
-      }
-    >
-      <ErrorLine message={joinError()} />
-      <Show when={state.data()} fallback={<Refused message={state.loadError()?.message} name={user()?.name} />}>
-        {manage => <Console state={state} manage={manage()} />}
-      </Show>
-    </Show>
+      )}
+    </SessionGate>
   );
 }
