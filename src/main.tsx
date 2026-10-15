@@ -14,7 +14,6 @@ import { TournamentsPage } from './pages/TournamentsPage';
 import { installPreloadRecovery } from './lib/preloadRecovery';
 import { initTheme } from './lib/theme';
 import { initEventMemory } from './lib/tournament/sessionMemory';
-import { loadArchetypeIconMap } from './lib/data/archetypes';
 
 // A deploy replaces every content-hashed chunk, so a tab that predates it will
 // fail the next lazy route's preload. Recover before any route can hit it.
@@ -28,8 +27,6 @@ if (!rootEl) {
 // Before render: an attribute swap after first paint is a visible flash.
 initTheme();
 initEventMemory();
-
-loadArchetypeIconMap().catch(error => console.warn(error));
 
 render(
   () => (

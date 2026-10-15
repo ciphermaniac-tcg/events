@@ -8,7 +8,9 @@
  * carries its version, and a publish replaces only an older copy, and only
  * the copy it looked at: R2 refuses the write if another landed in between,
  * and the publish looks again. The copy up only ever moves forward, a burst
- * of writes puts up what it can skip, and nothing asks the database.
+ * of writes puts up what it can skip, and nothing asks the database. Within
+ * one isolate a burst goes further: an event publishes one copy at a time,
+ * and only the newest row waiting is built and put up next (see publishView).
  *
  * A publish can also land after the event was deleted. Deleting takes the
  * copy down after the row, so a publish that lands on a copy still up is
@@ -66,11 +68,7 @@ async function putOver(bucket: PublishBucket, row: TournamentRow, body: string):
   return held ? 'up' : 'landed';
 }
 
-export async function publishView(env: PublishEnv, row: TournamentRow): Promise<void> {
-  const bucket = env.EVENTS_DATA;
-  if (!bucket) {
-    return;
-  }
+async function publishOnce(env: PublishEnv, bucket: PublishBucket, row: TournamentRow): Promise<void> {
   const view: PublishedView = publicViewOf(row);
   const body = JSON.stringify(view);
   try {
@@ -89,6 +87,71 @@ export async function publishView(env: PublishEnv, row: TournamentRow): Promise<
   }
   // A copy left up could stay stale; without one, the page asks the API.
   await unpublishView(bucket, row.code);
+}
+
+interface Pending {
+  env: PublishEnv;
+  row: TournamentRow;
+}
+
+/** One event's publishing in this isolate: `offer` a row to it, and `done` is when all it took is up. */
+interface Drain {
+  offer: (pending: Pending) => void;
+  done: Promise<void>;
+}
+
+/** Publishes `first`, then the newest row offered meanwhile, until none waits; then `finish`. */
+function drain(bucket: PublishBucket, first: Pending, finish: () => void): Drain {
+  let newest = first.row.version;
+  let waiting: Pending | null = first;
+  const take = () => {
+    const next = waiting;
+    waiting = null;
+    return next;
+  };
+  // Let go in the same step that finds nothing waiting, so no row is offered to a drain that has stopped.
+  const run = async () => {
+    try {
+      for (let next = take(); next; next = take()) {
+        await publishOnce(next.env, bucket, next.row);
+      }
+    } finally {
+      finish();
+    }
+  };
+  const offer = (pending: Pending) => {
+    if (pending.row.version > newest) {
+      newest = pending.row.version;
+      waiting = pending;
+    }
+  };
+  return { offer, done: run() };
+}
+
+/** Each bucket's drains, by event code. */
+const drains = new WeakMap<PublishBucket, Map<string, Drain>>();
+
+/**
+ * Publishes `row`. While this isolate is already publishing the event, the
+ * row waits its turn instead, and a newer row waiting takes its place: a
+ * burst of changes builds and puts up the newest it has, not every one.
+ * Resolves once the copy up is this row's or newer, or the publish failed.
+ */
+export function publishView(env: PublishEnv, row: TournamentRow): Promise<void> {
+  const bucket = env.EVENTS_DATA;
+  if (!bucket) {
+    return Promise.resolve();
+  }
+  const byCode = drains.get(bucket) ?? new Map<string, Drain>();
+  drains.set(bucket, byCode);
+  const running = byCode.get(row.code);
+  if (running) {
+    running.offer({ env, row });
+    return running.done;
+  }
+  const started = drain(bucket, { env, row }, () => byCode.delete(row.code));
+  byCode.set(row.code, started);
+  return started.done;
 }
 
 /** A copy put where there was none may belong to an event deleted meanwhile. */

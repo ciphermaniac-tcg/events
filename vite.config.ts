@@ -18,6 +18,7 @@ export default defineConfig({
     emptyOutDir: true,
     target: 'es2022',
     minify: 'terser',
+    terserOptions: { compress: { passes: 2 } },
     sourcemap: false,
     rollupOptions: {
       output: {
@@ -38,9 +39,10 @@ export default defineConfig({
               // file reader and writer stay out: only organizer pages load them, the download on demand. So
               // does the Clerk sign-in client, which only the sign-in box uses, and the zoned event times and
               // players' requests, which only the event page and the Players tab show, and setup's drafts.
+              // The format picker too: it carries every past format's archetypes, for setup and settings alone.
               name: 'tournament',
               priority: 1,
-              test: /(?:src[\\/]components[\\/]|src[\\/]main\.tsx$|tournaments[\\/](Field|FormatSelect|SettingControls|OptionsMenu|Modal|ConfirmAction)\.tsx$|shared[\\/]tournament[\\/](?!tdf\.|xml\.|eventTime\.|requests\.)|src[\\/]lib[\\/]tournament[\\/](?!admin|applications|clerk|exportTdf|setupDraft))/,
+              test: /(?:src[\\/]components[\\/]|src[\\/]main\.tsx$|tournaments[\\/](Field|SettingControls|OptionsMenu|Modal|ConfirmAction)\.tsx$|shared[\\/]tournament[\\/](?!tdf\.|xml\.|eventTime\.|requests\.)|src[\\/]lib[\\/]tournament[\\/](?!admin|applications|clerk|exportTdf|setupDraft))/,
               includeDependenciesRecursively: true
             },
             // The Swiss engine runs in the browser only for the /host home page's sample event. Its own

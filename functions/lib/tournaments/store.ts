@@ -62,6 +62,8 @@ export interface TournamentRow {
   communityDay: string | null;
   /** The highest round each pod has ever paired; only ever rises (see shared/tournament/corrections.ts). */
   pairedThrough?: PairedThrough;
+  /** The account the organizer named head judge (see headJudge.ts); null for none. */
+  headJudge?: string | null;
 }
 
 interface RawRow {
@@ -82,6 +84,7 @@ interface RawRow {
   store_id: string | null;
   community_day: string | null;
   paired_through?: string | null;
+  head_judge?: string | null;
 }
 
 function legacyMatchKeys<T extends MatchKey>(tournament: Tournament, keys: T[]): T[] {
@@ -111,7 +114,8 @@ function fromRaw(raw: RawRow): TournamentRow {
     storeId: raw.store_id ?? null,
     communityDay: raw.community_day ?? null,
     // Raised to the rounds the event holds now, so an event saved before the column existed starts there.
-    pairedThrough: pairedThrough(JSON.parse(raw.paired_through ?? '{}') as PairedThrough, tournament)
+    pairedThrough: pairedThrough(JSON.parse(raw.paired_through ?? '{}') as PairedThrough, tournament),
+    headJudge: raw.head_judge ?? null
   };
 }
 
@@ -355,7 +359,8 @@ export async function createTournament(db: D1Like, input: NewTournament): Promis
     if (rowsChanged(results[admission.length + 1]) === 1) {
       const empty = { pending: [], reports: [], requests: [], decks: {} };
       const made = { code, ownerId, mode, tournament, settings, keys, staffToken, version: 1, updatedAt: now };
-      return { ...made, ...empty, storeId, communityDay, lastImportAt, pairedThrough: pairedThrough({}, tournament) };
+      const paired = pairedThrough({}, tournament);
+      return { ...made, ...empty, storeId, communityDay, lastImportAt, pairedThrough: paired, headJudge: null };
     }
   }
   throw new Error('Could not find a free tournament code');

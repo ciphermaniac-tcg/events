@@ -17,7 +17,7 @@ import { createRenderEffect, lazy, Match, onCleanup, Switch } from 'solid-js';
 import '../styles/pages/tournament.css';
 import '../styles/pages/tournament-organizer.css';
 import { latestValue } from '../lib/resource';
-import { preloadPublished } from '../lib/tournament/api';
+import { preloadManage, preloadPublished } from '../lib/tournament/api';
 import { session } from './tournaments/session';
 
 const SettingsPage = lazy(() => import('./tournaments/SettingsPage').then(m => ({ default: m.SettingsPage })));
@@ -38,6 +38,11 @@ const StoreRoutes = lazy(() => import('./tournaments/StoreRoutes').then(m => ({ 
 const opened = /^\/t\/(\w+)/.exec(window.location.pathname)?.[1];
 if (opened) {
   preloadPublished(opened.toUpperCase());
+}
+// The console the same way. An invite link joins the staff before the event is read (see ManageEvent), so it waits.
+const managed = /^\/host\/(\w+)/.exec(window.location.pathname)?.[1];
+if (managed && !new URLSearchParams(window.location.search).has('invite')) {
+  preloadManage(managed.toUpperCase());
 }
 
 export function TournamentsPage() {

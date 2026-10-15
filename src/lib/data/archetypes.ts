@@ -25,12 +25,10 @@ export async function fetchArchetypes(tournament: string = ONLINE): Promise<Arch
 }
 
 const [archetypeIconMap, setArchetypeIconMap] = createSignal(new Map<string, string[]>());
+const [iconMapSettled, setIconMapSettled] = createSignal(false);
+let iconMapAsked = false;
 
-/** Load mutable metadata from the same R2 origin as tournament reports. */
-export async function loadArchetypeIconMap(
-  fetchIcons: () => Promise<unknown> = () => fetchJson<unknown>('/assets/archetype-icons.json')
-): Promise<void> {
-  const value = await fetchIcons();
+function parseIconMap(value: unknown): Map<string, string[]> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw new Error('Invalid archetype icon map');
   }
@@ -44,7 +42,30 @@ export async function loadArchetypeIconMap(
     }
     map.set(normalizeArchetypeKey(label), slugs as string[]);
   }
-  setArchetypeIconMap(map);
+  return map;
+}
+
+/** Load mutable metadata from the same R2 origin as tournament reports. */
+export async function loadArchetypeIconMap(
+  fetchIcons: () => Promise<unknown> = () => fetchJson<unknown>('/assets/archetype-icons.json')
+): Promise<void> {
+  iconMapAsked = true;
+  try {
+    setArchetypeIconMap(parseIconMap(await fetchIcons()));
+  } finally {
+    setIconMapSettled(true);
+  }
+}
+
+/**
+ * Whether the icon map has answered, read or failed; reactive. The first ask
+ * loads it, so a page that draws no deck never reads it.
+ */
+export function archetypeIconMapSettled(): boolean {
+  if (!iconMapAsked) {
+    loadArchetypeIconMap().catch(error => console.warn(error));
+  }
+  return iconMapSettled();
 }
 
 /** Every archetype label the icon map names; far more than any one tournament's index. */

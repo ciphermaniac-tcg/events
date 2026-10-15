@@ -7,7 +7,7 @@
  */
 
 import { createSignal } from 'solid-js';
-import { getArchetypeIconMap, resolveArchetypeIcons } from './data';
+import { archetypeIconMapSettled, getArchetypeIconMap, resolveArchetypeIcons } from './data';
 
 type Species = typeof import('../../shared/pokemon/species');
 
@@ -34,11 +34,12 @@ export function loadedSpecies(): Species | undefined {
 
 /**
  * The deck's own sprites, the icon map's, or, for a deck named for one Pokémon
- * alone, that Pokémon's, drawn once the Pokémon have loaded.
+ * alone, that Pokémon's, drawn once the Pokémon have loaded. The Pokémon wait
+ * for the icon map, loaded with the first deck drawn: it names most decks.
  */
 export function deckIcons(deck: { label: string; icons?: string[] }): string[] {
   const icons = resolveArchetypeIcons(deck, getArchetypeIconMap());
-  if (icons.length > 0) {
+  if (icons.length > 0 || !archetypeIconMapSettled()) {
     return icons;
   }
   // A chunk that fails to load leaves the deck without a sprite, as before there were any.

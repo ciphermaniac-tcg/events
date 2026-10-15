@@ -9,6 +9,7 @@
  */
 
 import { expect, type Page, test } from '@playwright/test';
+import { chunkOf } from './build-manifest';
 
 import { applyCommand, type Command } from '../../shared/tournament/commands';
 import type { PlayerReport } from '../../shared/tournament/reports';
@@ -317,6 +318,40 @@ test('a past round takes no results and says so, with the way back to the curren
   await page.getByRole('button', { name: 'Current round' }).click();
   await expect(page.getByRole('combobox', { name: 'Round' })).toHaveValue('2');
   await expect(page.getByRole('button', { name: /^Report / }).first()).toBeVisible();
+});
+
+test('a past round’s table extensions show their minutes and keep no timer', async ({ page }) => {
+  // Counts the one-second timers alive, as every ticking clock starts one.
+  await page.addInitScript(() => {
+    const live = new Set<number>();
+    const start = window.setInterval.bind(window);
+    const stop = window.clearInterval.bind(window);
+    Object.assign(window, {
+      liveSecondTimers: () => live.size,
+      setInterval: (handler: TimerHandler, delay?: number, ...rest: unknown[]) => {
+        const id = start(handler, delay, ...rest);
+        if (delay === 1000) {
+          live.add(id);
+        }
+        return id;
+      },
+      clearInterval: (id?: number) => {
+        live.delete(id ?? -1);
+        stop(id);
+      }
+    });
+  });
+  const t = event(64, 1, true);
+  for (const match of t.pods[0]!.rounds[0]!.matches) {
+    match.timeExtension = { seconds: 180, reason: 'Judge call' };
+  }
+  await mockConsole(page, t, settingsOf({}));
+  const timers = () =>
+    page.evaluate(() => (window as unknown as { liveSecondTimers: () => number }).liveSecondTimers());
+  await page.getByRole('button', { name: 'Previous round' }).click();
+  await expect(page.locator('.tm-extension')).toHaveCount(32);
+  await expect(page.locator('.tm-extension').first()).toHaveText('+3 min');
+  expect(await timers()).toBeLessThan(4);
 });
 
 test('a past round stays shown when a colleague’s result changes the event, and a new round shows itself', async ({
@@ -1289,4 +1324,58 @@ test('staff see a drop request on the Players tab and confirm it by its ID in on
   expect(sent).toHaveLength(0);
   await expect(requests).toContainText('Confirmed · Organizer');
   await expect(page.getByRole('tab', { name: 'Players', exact: true })).toBeVisible();
+});
+
+test('a cold console asks for the event while its own code is on the way, and its Pairings code before the event lands', async ({
+  page
+}) => {
+  await mockConsole(page, event(8, 0, true), settingsOf({}));
+  await expect(page.getByRole('button', { name: 'Report Player' }).first()).toBeVisible();
+  const asked: string[] = [];
+  page.on('request', request => asked.push(new URL(request.url()).pathname));
+  const read = `/api/tournaments/${CODE}/manage`;
+  const roundPanel = chunkOf('src/pages/tournaments/RoundPanel.tsx');
+  // Each held until what must not wait on it is asked for. (Routing turns the browser's cache off.)
+  await page.route(`**/${chunkOf('src/pages/tournaments/ManageEvent.tsx')}`, async route => {
+    await expect.poll(() => asked.includes(read)).toBe(true);
+    await route.continue();
+  });
+  await page.route(`**${read}`, async route => {
+    await expect.poll(() => asked.some(path => path.endsWith(roundPanel))).toBe(true);
+    await route.fallback();
+  });
+  await page.goto(`/host/${CODE}`);
+  await expect(page.getByRole('button', { name: 'Report Player' }).first()).toBeVisible();
+  expect(asked.filter(path => path === read)).toHaveLength(1);
+});
+
+test('a signed-out visitor to a console is offered sign-in, back to the console', async ({ page }) => {
+  await page.route('**/api/**', route => {
+    const url = new URL(route.request().url());
+    return url.pathname === '/api/me'
+      ? route.fulfill({ json: { user: null, providers: ['google'] } })
+      : route.fulfill({ status: 401, json: { error: 'Sign in to run this event' } });
+  });
+  await page.goto(`/host/${CODE}`);
+  const google = page.locator('.tm-sso-google');
+  await expect(google).toBeVisible();
+  expect(decodeURIComponent((await google.getAttribute('href')) ?? '')).toContain(`/host/${CODE}`);
+});
+
+test('an invite link joins the staff before the console reads the event', async ({ page }) => {
+  await mockConsole(page, event(8, 0, true), settingsOf({}));
+  await expect(page.getByRole('button', { name: 'Report Player' }).first()).toBeVisible();
+  const order: string[] = [];
+  await page.route('**/api/tournaments/**', route => {
+    const step = `${route.request().method()} ${new URL(route.request().url()).pathname}`;
+    order.push(step);
+    return step === `POST /api/tournaments/${CODE}/staff`
+      ? route.fulfill({ json: { role: 'staff' } })
+      : route.fallback();
+  });
+  await page.goto(`/host/${CODE}?invite=staff-token`);
+  await expect(page.getByRole('button', { name: 'Report Player' }).first()).toBeVisible();
+  await expect
+    .poll(() => order.slice(0, 2))
+    .toEqual([`POST /api/tournaments/${CODE}/staff`, `GET /api/tournaments/${CODE}/manage`]);
 });

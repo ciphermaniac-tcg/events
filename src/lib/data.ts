@@ -8,6 +8,7 @@
  */
 
 export {
+  archetypeIconMapSettled,
   fetchArchetypeLabels,
   fetchOnlineArchetypes,
   getArchetypeIconMap,

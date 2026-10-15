@@ -59,7 +59,6 @@ import { createManage, type ManageState } from './manageState';
 import '../../styles/pages/tournament-console.css';
 import { ClockControls } from './RoundControls';
 import { EndEventStep, type RoundEnd, RoundEndSplit } from './NextStep';
-import { SignIn } from './SignIn';
 import { createTomLink, type FileWrite, type TomLink, TomNextStep, TomStrip } from './TomSyncPanel';
 import { Trail } from './Trail';
 import { pageTitle } from '../../lib/title';
@@ -72,7 +71,12 @@ const PenaltiesPanel = lazy(() => import('./PenaltiesPanel').then(m => ({ defaul
 const PlayersPanel = lazy(() => import('./PlayersPanel').then(m => ({ default: m.PlayersPanel })));
 const StandingsTable = lazy(() => import('./StandingsTable').then(m => ({ default: m.StandingsTable })));
 const EventPanel = lazy(() => import('./EventPanel').then(m => ({ default: m.EventPanel })));
-const RoundPanel = lazy(() => import('./RoundPanel').then(m => ({ default: m.RoundPanel })));
+// Asked for now, beside the event, rather than once the event has arrived; a failure is the tab's to show.
+const roundPanel = import('./RoundPanel');
+roundPanel.catch(() => undefined);
+const RoundPanel = lazy(() => roundPanel.then(m => ({ default: m.RoundPanel })));
+// Only a signed-out visitor sees it, and the console waited on it before it could ask for the event.
+const SignIn = lazy(() => import('./SignIn').then(m => ({ default: m.SignIn })));
 
 type Tab = 'round' | 'players' | 'standings' | 'decklists' | 'penalties' | 'event';
 

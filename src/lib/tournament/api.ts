@@ -222,9 +222,25 @@ export function preloadPublished(code: string): void {
 export const fetchView = (code: string, since?: number) =>
   call<TournamentView | null>(since ? `${base(code)}?since=${since}` : base(code));
 
+let earlyManage: { code: string; read: Promise<Manage | null> } | null = null;
+
+/**
+ * Starts reading the console's copy while the console's code is still loading,
+ * as `preloadPublished` does for the public page; the console's first
+ * `fetchManage` takes this read, and its refusal too.
+ */
+export function preloadManage(code: string): void {
+  const read = call<Manage | null>(`${base(code)}/manage`);
+  // The console takes the refusal when it asks; until then it is nobody's to report.
+  read.catch(() => undefined);
+  earlyManage = { code, read };
+}
+
 /** The console's copy, or null when it has not changed since `since`. */
 export function fetchManage(code: string, since?: number) {
-  return call<Manage | null>(since ? `${base(code)}/manage?since=${since}` : `${base(code)}/manage`);
+  const started = since === undefined && earlyManage?.code === code ? earlyManage.read : null;
+  earlyManage = null;
+  return started ?? call<Manage | null>(since ? `${base(code)}/manage?since=${since}` : `${base(code)}/manage`);
 }
 
 /** Sends one command, stamped with the venue's clock (see functions/lib/tournaments/commandContext.ts). */

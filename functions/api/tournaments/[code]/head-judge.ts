@@ -10,27 +10,14 @@
 import { readJsonObject } from '../../../lib/api/body.js';
 import { jsonError } from '../../../lib/api/responses.js';
 import type { Context } from '../../../lib/auth/env.js';
-import {
-  type Access,
-  answerMiss,
-  askerOf,
-  openForOwner,
-  openForStaffRead,
-  privateJson
-} from '../../../lib/tournaments/access.js';
-import { headJudgeOf, setHeadJudge } from '../../../lib/tournaments/headJudge.js';
-import { staffAccounts } from '../../../lib/tournaments/staffRecords.js';
+import { answerMiss, askerOf, openForOwner, openForStaffRead, privateJson } from '../../../lib/tournaments/access.js';
+import { setHeadJudge, staffContext } from '../../../lib/tournaments/headJudge.js';
 
 const ONLY_ORGANIZER = 'Only the organizer can name the head judge';
 
-async function answer(access: Access): Promise<Response> {
-  const [headJudge, staff] = await Promise.all([headJudgeOf(access), staffAccounts(access)]);
-  return privateJson({ headJudge, staff });
-}
-
 export async function onRequestGet(context: Context<'code'>): Promise<Response> {
   const access = await openForStaffRead(context);
-  return access instanceof Response ? access : answer(access);
+  return access instanceof Response ? access : privateJson(await staffContext(access));
 }
 
 export async function onRequestPut(context: Context<'code'>): Promise<Response> {
@@ -42,8 +29,8 @@ export async function onRequestPut(context: Context<'code'>): Promise<Response> 
   if (userId !== null && typeof userId !== 'string') {
     return jsonError('Say who the head judge is', 400);
   }
-  if (await setHeadJudge(access.db, access.row.code, userId, askerOf(access))) {
-    return answer(access);
-  }
-  return answerMiss(access, () => jsonError('The head judge must be on this event’s staff', 400), ONLY_ORGANIZER);
+  const named = await setHeadJudge(access.db, access.row.code, userId, askerOf(access));
+  return named
+    ? privateJson(named)
+    : answerMiss(access, () => jsonError('The head judge must be on this event’s staff', 400), ONLY_ORGANIZER);
 }

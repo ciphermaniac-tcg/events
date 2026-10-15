@@ -144,7 +144,8 @@ export function serializeElement(element: XmlElement): string {
 
 function indent(xml: string, depth: number): string {
   const tabs = '\t'.repeat(depth);
-  return tabs + xml.replace(/\n/g, `\n${tabs}`);
+  // Most elements are one line; only a nested one has lines to shift.
+  return xml.includes('\n') ? tabs + xml.replace(/\n/g, `\n${tabs}`) : tabs + xml;
 }
 
 function extras(element: XmlElement | undefined, known: ReadonlySet<string>): [string, string][] {

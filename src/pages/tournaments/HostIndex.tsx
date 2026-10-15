@@ -32,7 +32,6 @@ import {
 import { canRunCommunityEvents } from '../../../shared/accounts/roles';
 import { canCreateEvents, managesStore } from '../../../shared/accounts/stores';
 import { parseTomDate } from '../../../shared/tournament/divisions';
-import { parseTdf } from '../../../shared/tournament/tdf';
 import type { Tournament } from '../../../shared/tournament/types';
 import {
   ApiError,
@@ -195,20 +194,22 @@ function LinkTdf(props: {
   onRead: (tournament: Tournament, handle: TdfHandle | null) => void;
   onError: (message: string) => void;
 }) {
-  function read(text: string, handle: TdfHandle | null) {
+  async function read(text: string, handle: TdfHandle | null) {
     try {
+      // On the first pick: the home page is every visitor's landing, and few of them open a .tdf.
+      const { parseTdf } = await import('./tdfReader');
       props.onRead(parseTdf(text), handle);
     } catch (err) {
       props.onError(errorText(err));
     }
   }
   async function readFile(file: File) {
-    read(await file.text(), null);
+    await read(await file.text(), null);
   }
   async function link() {
     try {
       const handle = await pickTdf();
-      read(await (await handle.getFile()).text(), handle);
+      await read(await (await handle.getFile()).text(), handle);
     } catch (err) {
       if (!(err instanceof DOMException && err.name === 'AbortError')) {
         props.onError(errorText(err));

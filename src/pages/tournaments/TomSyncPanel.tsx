@@ -26,7 +26,7 @@
 
 import { createSignal, onCleanup, onMount, Show } from 'solid-js';
 import { revisionOf } from '../../../shared/tournament/revision';
-import { parseTdf } from '../../../shared/tournament/tdf';
+import { parseTdf } from './tdfReader';
 import type { PodCategory, Tournament } from '../../../shared/tournament/types';
 import { ApiError, errorText, type Manage, pairNextRound, syncTournament } from '../../lib/tournament/api';
 import { tdfFilename, tdfText } from '../../lib/tournament/exportTdf';

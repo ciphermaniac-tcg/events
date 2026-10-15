@@ -22,9 +22,9 @@
   <link rel="preconnect" href="https://r2.ciphermaniac.com">
   <link rel="preconnect" href="https://r2.limitlesstcg.net">
 
-  <!-- Inter is self-hosted (see src/styles/fonts.css). Only the heading weight
-       is critical; body weights can load through CSS without competing with data. -->
-  <link rel="preload" as="font" type="font/woff2" href="/fonts/inter-latin-700.woff2" crossorigin>
+  <!-- Inter is self-hosted (see src/styles/fonts.css): one variable file draws every
+       weight, so preloading it brings the headings and the body text together. -->
+  <link rel="preload" as="font" type="font/woff2" href="/fonts/inter-latin-var.woff2" crossorigin>
 </head>
 <body>
   <!-- Theme before first paint. main.tsx sets the same attribute (lib/theme.ts),

@@ -494,6 +494,8 @@ CREATE TABLE IF NOT EXISTS clerk_sessions_used (
   session_id TEXT PRIMARY KEY,
   used_at INTEGER NOT NULL
 ) WITHOUT ROWID;
+-- For the sweep of those kept past their day.
+CREATE INDEX IF NOT EXISTS clerk_sessions_used_by_time ON clerk_sessions_used (used_at);
 
 -- When each Clerk user's password last changed, as far as we know (ms); only
 -- ever moved forward. Sessions proven before it end, and none is made.
@@ -516,6 +518,7 @@ CREATE TABLE IF NOT EXISTS password_resets (
   claimed_at INTEGER
 ) WITHOUT ROWID;
 CREATE INDEX IF NOT EXISTS password_resets_by_subject ON password_resets (subject, created_at);
+CREATE INDEX IF NOT EXISTS password_resets_by_expiry ON password_resets (expires_at);
 
 -- Rate limits on password reset: a row per request an address (its hash)
 -- made, or per code an account was sent, kept an hour.
@@ -525,6 +528,7 @@ CREATE TABLE IF NOT EXISTS reset_reservations (
   at INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS reset_reservations_by_key ON reset_reservations (scope, key, at);
+CREATE INDEX IF NOT EXISTS reset_reservations_by_time ON reset_reservations (at);
 CREATE TABLE IF NOT EXISTS display_presets (
   store_id TEXT NOT NULL,
   id TEXT NOT NULL,

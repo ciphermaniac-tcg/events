@@ -35,6 +35,7 @@ import {
   listTournaments,
   lookupPlayer,
   pairNextRound,
+  preloadManage,
   preloadPublished,
   recordDeckCheck,
   recordPenaltyNote,
@@ -325,6 +326,24 @@ test('a published view asked for ahead of its page is read once, and only for th
   globalThis.fetch = (() => Promise.reject(new Error('offline'))) as unknown as typeof fetch;
   preloadPublished('ABC');
   assert.equal(await fetchPublished('ABC'), null, 'a read that failed ahead of the page is an unreadable file');
+});
+
+test('a console copy asked for ahead of its page is read once, and only for that event', async () => {
+  answer(200, { code: 'ABC', version: 3 });
+  preloadManage('ABC');
+  assert.deepEqual(await fetchManage('ABC'), { code: 'ABC', version: 3 });
+  assert.equal(sent.length, 1, 'the console takes the read already under way');
+  await fetchManage('ABC');
+  assert.equal(sent.length, 2, 'and reads afresh from then on');
+  preloadManage('ABC');
+  await fetchManage('ABC', 3);
+  assert.equal(sent.at(-1)?.url, '/api/tournaments/ABC/manage?since=3', 'a look for changes is never answered early');
+  preloadManage('ABC');
+  await fetchManage('XYZ');
+  assert.equal(sent.at(-1)?.url, '/api/tournaments/XYZ/manage', 'another event is not answered with this one');
+  answer(401, { error: 'Sign in to run this event' });
+  preloadManage('ABC');
+  await assert.rejects(fetchManage('ABC'), (error: unknown) => error instanceof ApiError && error.status === 401);
 });
 
 test('History is the account’s own, and a finished event’s copy may come from the browser’s cache', async () => {

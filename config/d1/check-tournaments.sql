@@ -26,3 +26,6 @@ SELECT subject, changed_at FROM clerk_password_cutoffs WHERE 0;
 SELECT auth_at FROM sessions WHERE 0;
 SELECT token_hash, subject, code_hash, attempts, expires_at, claimed_at FROM password_resets WHERE 0;
 SELECT at FROM reset_reservations INDEXED BY reset_reservations_by_key WHERE scope = '' AND key = '' LIMIT 0;
+SELECT session_id FROM clerk_sessions_used INDEXED BY clerk_sessions_used_by_time WHERE used_at < 0 LIMIT 0;
+SELECT token_hash FROM password_resets INDEXED BY password_resets_by_expiry WHERE expires_at <= 0 LIMIT 0;
+SELECT key FROM reset_reservations INDEXED BY reset_reservations_by_time WHERE at <= 0 LIMIT 0;
