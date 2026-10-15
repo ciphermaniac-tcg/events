@@ -1,35 +1,16 @@
 /**
- * POST /api/tournaments/:code/report — a player says who they are: { popId,
- * birthYear } at a sanctioned event (the year must fit the player's birth
- * date on the event's list, and a player with none on it asks staff; past
- * five wrong years the Player ID is refused a while, see attempts.ts), or { lastName, firstName? } at an unsanctioned one.
- * Alone, that answers with their public key and the event, so the page can
- * follow their pairings; any event takes it, as it is how a player marks
- * themselves. With { result } ('win', 'loss' or 'tie') it also reports their
- * current match (see shared/tournament/reports.ts), where player reporting
- * is on and the event has not ended; { match: { pod, round, table } } names
- * the match the page showed, and a report for one that is no longer current
- * is refused. Either way,
- * results whose reports have agreed and locked are written in first, so a
- * player asking again once their window closes sees the result stand.
- *
- * Nobody signs in for this, as a player at the table has no time to. Knowing
- * a player's Player ID or name finds their table, but a player knows their
- * opponent's too, so reporting also takes the token the first device to say
- * who the player is was given (see lib/tournaments/reporters.ts): nobody can
- * report for both seats of a match. Staff can override any result, and
- * release a player's device (DELETE, { player }) when they change phones.
- *
- * A player who is signed in may be the player as their account as well:
- * the one whose POP ID it holds, or at an unsanctioned event the one it says
- * it is, which links the event to the account (see accountFor). The account
- * then reports from any of its devices without the token, and the answer
- * says `linked`. An account is one player per event: naming another while
- * linked is refused (409) with the linked player's public key.
+ * POST /api/tournaments/:code/report — lookup:true returns surname candidates without claiming a seat.
+ * Reporting identity still takes exact normalized names, or a Player ID and birth year at sanctioned events.
+ * Current identity claims are unverified: all filed results need staff acceptance.
+ * { expect } names the public key the page chose: a claim that resolves to anyone else is refused before
+ * any seat or account write, so a fuzzy lookup's pick cannot become another player's seat.
+ * With { request }, the reporting device asks staff to drop the player or come over (requests.ts).
+ * GET returns retained filing evidence to staff; DELETE releases a reporting seat.
  */
 
 import { mayBeUnder13, UNDER_13 } from '../../../../shared/accounts/age.js';
 import { birthYear } from '../../../../shared/tournament/divisions.js';
+import { lookupPlayers } from '../../../../shared/tournament/lookup.js';
 import { findPlayer, type PlayerClaim } from '../../../../shared/tournament/identify.js';
 import {
   fileReport,
@@ -40,6 +21,7 @@ import {
   type ShownMatch,
   stillShown
 } from '../../../../shared/tournament/reports.js';
+import { isRequestKind, TOO_SOON } from '../../../../shared/tournament/requests.js';
 import type { PodCategory } from '../../../../shared/tournament/types.js';
 import { applyPending, isSanctioned, type TournamentSettings } from '../../../../shared/tournament/view.js';
 import { readJsonObject } from '../../../lib/api/body.js';
@@ -47,7 +29,6 @@ import { createRateLimiter, rateLimitAddress } from '../../../lib/api/rateLimite
 import { jsonError, noContent } from '../../../lib/api/responses.js';
 import { type Context, sameOrigin } from '../../../lib/auth/env.js';
 import { type Access, open, openForStaff, privateJson, publicViewOf } from '../../../lib/tournaments/access.js';
-import { settled } from '../../../lib/tournaments/answers.js';
 import { publishAfter } from '../../../lib/tournaments/publish.js';
 import {
   type Asker,
@@ -56,9 +37,10 @@ import {
   type Elsewhere,
   releaseReporter
 } from '../../../lib/tournaments/reporters.js';
+import { reportEvidence } from '../../../lib/tournaments/reportHistory.js';
+import { playerRequestChanges } from '../../../lib/tournaments/requests.js';
 import { admitTry, clearFailures, LOCKED_OUT } from '../../../lib/tournaments/attempts.js';
-import { mutateSettled } from '../../../lib/tournaments/results.js';
-import type { Changes, TournamentRow } from '../../../lib/tournaments/store.js';
+import { type Changes, mutate, type TournamentRow } from '../../../lib/tournaments/store.js';
 
 type Body = Record<string, unknown>;
 
@@ -89,6 +71,8 @@ interface Filing {
   result: PlayerResult;
   shown: ShownMatch | undefined;
   device: string;
+  account: string | null;
+  claimedAt: number;
 }
 
 /** The player's report of their open match, or why they cannot report. */
@@ -114,11 +98,7 @@ function closedToReports(settings: TournamentSettings): string | null {
   return settings.finished ? 'This event is over' : null;
 }
 
-/**
- * The report laid over the event's others; the result stands once both
- * players' reports agree and lock. Checked against the row each try reads,
- * so a report that raced the organizer ending the event does not land after.
- */
+/** A report waiting for staff, rechecked against the event on each mutation attempt. */
 function reportChanges(row: TournamentRow, filing: Filing): Changes | string {
   const closed = closedToReports(row.settings);
   if (closed) {
@@ -126,7 +106,12 @@ function reportChanges(row: TournamentRow, filing: Filing): Changes | string {
   }
   const report = readReport(row, filing);
   const reports = typeof report === 'string' ? report : fileReport(row.reports, report);
-  return typeof reports === 'string' ? reports : { reports };
+  return typeof reports === 'string' || typeof report === 'string'
+    ? String(reports)
+    : {
+        reports,
+        reportEvidence: { report, account: filing.account, claimedAt: filing.claimedAt }
+      };
 }
 
 /**
@@ -197,8 +182,15 @@ async function report(context: Context<'code'>, access: Access, body: Body, who:
   if (!standing.reporter) {
     return jsonError(NOT_REPORTER, 403);
   }
-  const filing = { claim: who.claim, result, shown: shownOf(body.match), device: standing.device ?? '' };
-  const outcome = await mutateSettled(db, row, r => reportChanges(r, filing), body.localTime);
+  const filing = {
+    claim: who.claim,
+    result,
+    shown: shownOf(body.match),
+    device: standing.device ?? '',
+    account: standing.account,
+    claimedAt: standing.claimedAt
+  };
+  const outcome = await mutate(db, row, r => reportChanges(r, filing));
   if ('error' in outcome) {
     return jsonError(outcome.error, outcome.status);
   }
@@ -210,13 +202,42 @@ async function report(context: Context<'code'>, access: Access, body: Body, who:
   });
 }
 
-/** Who the player is, whether this device reports for them, and the event with any due results settled. */
-async function identify(context: Context<'code'>, access: Access, body: Body, id: string) {
+/**
+ * The player asks staff for something ({ request: 'drop' or 'staff' }) or
+ * cancels an open request ({ cancel: true }), from the device that
+ * reports for them, so nobody else can ask on their behalf.
+ */
+async function ask(context: Context<'code'>, access: Access, body: Body, id: string) {
+  const kind = body.request;
+  if (!isRequestKind(kind)) {
+    return jsonError('Not a request', 400);
+  }
   const standing = await standingIn(access, body, id);
   if (standing instanceof Response) {
     return standing;
   }
-  const row = await settled(context, access, body.localTime);
+  if (!standing.reporter) {
+    return jsonError(NOT_REPORTER, 403);
+  }
+  const request = { id: crypto.randomUUID(), player: id, kind, cancel: body.cancel === true, at: Date.now() };
+  const outcome = await mutate(access.db, access.row, row => playerRequestChanges(row, request));
+  if ('error' in outcome) {
+    return jsonError(outcome.error, outcome.error === TOO_SOON ? 429 : outcome.status);
+  }
+  // Asking again for what already stands writes nothing, so there is nothing new to publish.
+  if (outcome.row.version !== access.row.version) {
+    await publishAfter(context, outcome.row);
+  }
+  return privateJson({ key: outcome.row.keys[id] ?? null, view: publicViewOf(outcome.row), ...standingOf(standing) });
+}
+
+/** Exact reporting identity and seat ownership, independent of fuzzy table lookup. */
+async function identify(access: Access, body: Body, id: string) {
+  const standing = await standingIn(access, body, id);
+  if (standing instanceof Response) {
+    return standing;
+  }
+  const { row } = access;
   return privateJson({ key: row.keys[id] ?? null, view: publicViewOf(row), ...standingOf(standing) });
 }
 
@@ -242,12 +263,14 @@ function listedPopId(row: TournamentRow, claim: PlayerClaim): string | null {
   return isSanctioned(row) && row.tournament.players.some(player => player.id === popId) ? popId : null;
 }
 
+const NOT_EXPECTED = 'That isn’t the player this page chose';
+
 /**
  * The player the claim names, or the refusal: no such player, or a Player ID
  * refused for too many wrong birth years (see lib/tournaments/attempts.ts),
  * which a wrong year here counts toward.
  */
-async function checkedClaim(access: Access, claim: PlayerClaim): Promise<{ id: string } | Response> {
+async function checkedClaim(access: Access, claim: PlayerClaim, expect: unknown): Promise<{ id: string } | Response> {
   const { db, row } = access;
   const found = findPlayer(row.tournament, isSanctioned(row), claim);
   if (found.ok && under13(row, found.id)) {
@@ -260,6 +283,9 @@ async function checkedClaim(access: Access, claim: PlayerClaim): Promise<{ id: s
   }
   if (!found.ok) {
     return privateJson({ error: found.error, ambiguous: found.ambiguous === true }, 404);
+  }
+  if (expect !== undefined && row.keys[found.id] !== expect) {
+    return jsonError(NOT_EXPECTED, 404);
   }
   return found;
 }
@@ -280,12 +306,46 @@ export async function onRequestPost(context: Context<'code'>): Promise<Response>
   if (refusal) {
     return jsonError(refusal, 403);
   }
+  if (body.lookup === true) {
+    return lookup(access, body);
+  }
   const claim = claimOf(body);
-  const found = await checkedClaim(access, claim);
+  const found = await checkedClaim(access, claim, body.expect);
   if (found instanceof Response) {
     return found;
   }
+  if (body.request !== undefined) {
+    return ask(context, access, body, found.id);
+  }
   return body.result === undefined
-    ? identify(context, access, body, found.id)
+    ? identify(access, body, found.id)
     : report(context, access, body, { claim, id: found.id });
+}
+
+/** Staff retain the original claims and filed reports for later review, even after a result is accepted. */
+export async function onRequestGet(context: Context<'code'>): Promise<Response> {
+  const access = await openForStaff(context);
+  return access instanceof Response
+    ? access
+    : privateJson({ history: await reportEvidence(access.db, access.row.code) });
+}
+
+/** Read-only table lookup: no seat, token, account link, or identity-attempt side effects. */
+function lookup(access: Access, body: Body): Response {
+  if (body.result !== undefined) {
+    return jsonError('Confirm your reporting identity first', 400);
+  }
+  const { row } = access;
+  const view = publicViewOf(row);
+  // Names as the event publishes them: a near miss must not reveal a surname the public page shortens.
+  const published = new Map(view.tournament.players.map(player => [player.id, player]));
+  const candidates = lookupPlayers(row.tournament.players, {
+    lastName: text(body.lastName) ?? '',
+    firstName: text(body.firstName)
+  }).map(player => {
+    const key = row.keys[player.id] ?? '';
+    const shown = published.get(key);
+    return { key, firstName: shown?.firstName ?? '', lastName: shown?.lastName ?? '' };
+  });
+  return privateJson({ candidates, view });
 }

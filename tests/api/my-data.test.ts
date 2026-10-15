@@ -319,6 +319,7 @@ function rowsUnder(id: string) {
     ['handle_changes', 'user_id'],
     ['staff', 'user_id'],
     ['report_devices', 'user_id'],
+    ['report_history', 'account_id'],
     ['decklists', 'account'],
     ['applications', 'user_id'],
     ['store_members', 'user_id'],

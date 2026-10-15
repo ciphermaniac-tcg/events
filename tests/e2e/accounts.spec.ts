@@ -732,6 +732,11 @@ async function mockEvent(
       return route.fulfill({ json: { user: options.user, providers: ['google', 'discord'] } });
     }
     if (pathname === `/api/tournaments/${code}/report`) {
+      if ((request.postDataJSON() as { lookup?: boolean }).lookup) {
+        const shown = published.tournament.players.find(player => player.id === keys[ash])!;
+        const candidates = [{ key: shown.id, firstName: shown.firstName, lastName: shown.lastName }];
+        return route.fulfill({ json: { candidates, view: published } });
+      }
       if ((options.refuse || !reporter) && (request.postDataJSON() as { result?: string }).result) {
         return route.fulfill({ status: 403, json: { error: 'Someone else is already reporting for this player.' } });
       }
@@ -796,7 +801,7 @@ const showAgain = (page: Page) =>
 const viewReads = (asks: { method: string; path: string }[], code: string) =>
   asks.filter(a => a.method === 'GET' && a.path === `/api/tournaments/${code}`).length;
 
-test('signed in at an unsanctioned event, answering the question links the player, and Not you? undoes it @mobile', async ({
+test('signed in at an unsanctioned event, confirming the reporting player links it, and Not you? undoes it @mobile', async ({
   page
 }) => {
   const { code, asks } = await mockEvent(page, roundOne(false), { sanctioned: false, user: { ...ME, popId: null } });
@@ -805,8 +810,14 @@ test('signed in at an unsanctioned event, answering the question links the playe
   await expect(page.getByRole('button', { name: 'Sign in' })).toHaveCount(0);
   await page.getByLabel('Last name').fill('Ketchum');
   await page.getByRole('button', { name: 'Find my match' }).click();
+  await page.getByRole('button', { name: 'Show table' }).click();
   const who = page.locator('.tm-you-who');
   await expect(who).toContainText('Ash K.');
+  // Finding a table links nothing: only confirming the reporting player does.
+  await expect(who).not.toContainText('Linked to your account');
+  await page.getByRole('button', { name: 'Report result' }).click();
+  await page.getByLabel('Last name').fill('Ketchum');
+  await page.getByRole('button', { name: 'Confirm reporting player' }).click();
   await expect(who).toContainText('Linked to your account');
   await who.getByRole('button', { name: 'Not you?' }).click();
   await page.getByRole('button', { name: 'Unlink' }).click();

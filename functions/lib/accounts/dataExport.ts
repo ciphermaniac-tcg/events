@@ -139,6 +139,12 @@ const QUERIED: Queried[] = [
     sql: `SELECT ${EVENT}, x.code, x.player_id, x.claimed_at FROM report_devices x WHERE x.user_id = ?1 ORDER BY x.claimed_at`
   },
   {
+    title: 'Filed player reports',
+    part: 'events',
+    heading: eventName,
+    sql: `SELECT ${EVENT}, x.code, x.player_id, x.version, json_extract(x.report, '$.pod') AS division, json_extract(x.report, '$.round') AS round, json_extract(x.report, '$.table') AS match_table, json_extract(x.report, '$.device') AS device_hash, json_extract(x.report, '$.outcome') AS outcome, json_extract(x.report, '$.at') AS filed_at, x.claimed_at FROM report_history x WHERE x.account_id = ?1 ORDER BY x.version`
+  },
+  {
     title: 'Events hidden from your history',
     part: 'events',
     heading: eventName,

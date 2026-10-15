@@ -15,6 +15,7 @@ import { SANCTIONED, sanctionedMinutesError } from './structure.js';
 import { type PlayerClaim, shortLastNames } from './identify.js';
 import type { PlayerProfile } from './profile.js';
 import type { PlayerReport } from './reports.js';
+import type { PlayerRequest } from './requests.js';
 import { isOpenMatch, type MatchKey, sameMatch } from './rounds.js';
 import type { Division, Outcome, Pod, Tournament, TournamentInfo } from './types.js';
 
@@ -218,6 +219,8 @@ export interface TournamentView {
   pending: PendingResult[];
   /** Results players reported that are not settled yet, so a player sees where theirs stands. */
   reports: PlayerReport[];
+  /** What players asked staff for, by public key (see requests.ts); absent from views published before requests. */
+  requests?: PlayerRequest[];
   /** Each public key's age division, since the birth dates it comes from stay private. */
   divisions: Record<string, Division>;
   /** Each public key's archetype label, when the organizer's deck visibility allows. */
@@ -450,6 +453,8 @@ export interface Manage {
   tournament: Tournament;
   pending: PendingResult[];
   reports: PlayerReport[];
+  /** Players' requests, with who on staff answered each. */
+  requests?: PlayerRequest[];
   settings: TournamentSettings;
   /** POP ID to archetype label. */
   decks: Record<string, string>;

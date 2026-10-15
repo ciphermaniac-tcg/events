@@ -262,12 +262,19 @@
   padding: var(--space-4) 0 var(--space-3);
   border-bottom: 1px solid var(--rule);
 }
+.tm-sheet-head > div {
+  min-width: 0;
+}
+.tm-sheet-head .btn {
+  flex-shrink: 0;
+}
 .tm-sheet-head h2 {
   display: flex;
   align-items: center;
   gap: var(--space-2);
   margin: 0;
   font-size: var(--text-xl);
+  overflow-wrap: anywhere;
 }
 .tm-sheet-head p {
   margin: 2px 0 0;
@@ -344,7 +351,7 @@
     top: auto;
     left: 0;
     width: auto;
-    max-height: 80dvh;
+    max-height: calc(100dvh - var(--space-4));
     border-left: 0;
     border-top: 1px solid var(--border);
     border-radius: var(--radius-md) var(--radius-md) 0 0;
@@ -369,10 +376,15 @@
   display: contents;
 }
 @media (max-width: 640px) {
-  /* A phone keeps the round and All / Following on one row; search, the deck
-     filter and In progress stay on desktop. */
+  /* Keep the phone search on its own row below round and following controls. */
   .tm-pairings-bar {
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
+  }
+  .tm-pairings-bar > .search {
+    flex: 1 0 100%;
+    min-width: 0;
+    width: 100%;
+    order: 1;
   }
   .tm-pairings-bar > .tm-stepper {
     flex: 1 1 auto;
@@ -382,7 +394,6 @@
     flex: 1;
     min-width: 0;
   }
-  .tm-pairings-bar > .search,
   .tm-spectate > .tm-select,
   .tm-spectate .segmented button[data-value='playing'],
   .tm-spectate .segmented:not(:has([data-value='following'])) {
@@ -444,6 +455,48 @@
   .tm-public-pairings .data tr.is-me td {
     background: none;
   }
+}
+
+@media (max-width: 380px) {
+  .tm-sheet-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .tm-sheet-stats > div:nth-child(3) {
+    border-left: 0;
+  }
+  .tm-sheet-stats > div:nth-child(n + 3) {
+    border-top: 1px solid var(--rule);
+  }
+}
+
+.tm-identify .tm-lookup-status {
+  flex: 1 0 100%;
+  margin: 0;
+}
+/* Kept in the accessibility tree while empty, so its first answer is announced, without taking a row. */
+.tm-identify .tm-lookup-status:empty {
+  position: absolute;
+}
+.tm-identify .tm-lookup-matches {
+  flex: 1 0 100%;
+  display: grid;
+  min-width: 0;
+}
+.tm-lookup-match {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  border-top: 1px solid var(--rule);
+}
+.tm-lookup-match > span {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  overflow-wrap: anywhere;
+}
+.tm-lookup-match .btn {
+  flex: none;
 }
 .tm-logistics {
   margin: 0 0 var(--space-4);

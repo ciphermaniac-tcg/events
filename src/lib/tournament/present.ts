@@ -12,8 +12,7 @@ import {
   oneDevice,
   type PlayerReport,
   type PlayerResult,
-  reportsFor,
-  settles
+  reportsFor
 } from '../../../shared/tournament/reports';
 import {
   bracketMatches,
@@ -692,14 +691,8 @@ export interface ReportState {
   disputed: boolean;
   /** Their report can no longer be changed from the page. */
   locked: boolean;
-  /** The result stands: entered by staff, or reported alike by both and locked. */
+  /** The result stands: accepted or entered by staff. */
   final: boolean;
-  /**
-   * Final by the reports alone, with no result written yet: asking the server
-   * writes it in. A result staff entered, or one a TOM event holds for TOM,
-   * is already written, so there is nothing to ask for.
-   */
-  due: boolean;
 }
 
 const asResult = (outcome: Outcome, seat: 1 | 2): PlayerResult => sideResult(outcome, seat) ?? 'loss';
@@ -716,21 +709,18 @@ export function reportState(
   const seat = match.p1 === me ? 1 : 2;
   const shown = shownOutcome(match, pod, round, pending).outcome;
   if (shown !== 'pending') {
-    return { chosen: asResult(shown, seat), disputed: false, locked: true, final: true, due: false };
+    return { chosen: asResult(shown, seat), disputed: false, locked: true, final: true };
   }
   const forMatch = reportsFor(reports, pod.category, round.number, match);
   const mine = forMatch.find(report => report.by === me);
-  const theirs = forMatch.find(report => report.by !== me);
   if (!mine) {
-    return { chosen: null, disputed: false, locked: false, final: false, due: false };
+    return { chosen: null, disputed: false, locked: false, final: false };
   }
-  const final = settles(mine, theirs, now);
   return {
     chosen: asResult(mine.outcome, seat),
     disputed: isDisputed(forMatch),
     locked: isLocked(mine, now),
-    final,
-    due: final
+    final: false
   };
 }
 

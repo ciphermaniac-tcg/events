@@ -1,6 +1,6 @@
 /**
  * Players reporting their own results: a report can change for a short
- * window and then locks, two agreeing locked reports settle a match, two
+ * window and then locks, all reports need staff acceptance, two
  * differing ones settle nothing, and a result from anywhere clears the
  * reports for that match.
  */
@@ -12,7 +12,6 @@ import { applyCommand, type Command } from '../../shared/tournament/commands.ts'
 import { emptyTournament } from '../../shared/tournament/create.ts';
 import { seededRandom } from '../../shared/tournament/random.ts';
 import {
-  dueResults,
   fileReport,
   isDisputed,
   isLocked,
@@ -25,7 +24,6 @@ import {
   reportableMatch,
   reportedOutcome,
   reportsFor,
-  resultOf,
   stillShown
 } from '../../shared/tournament/reports.ts';
 import type { Match, Pod, Round, Tournament } from '../../shared/tournament/types.ts';
@@ -85,7 +83,7 @@ test('a result is told from either seat', () => {
   assert.equal(reportedOutcome(match, 'b', 'tie'), 'tie');
 });
 
-test('agreeing reports stand once both have locked, and not before', () => {
+test('agreement preserves both reports for staff instead of settling a match', () => {
   const t = paired();
   const [match] = matchesOf(t);
   assert.ok(match?.p2);
@@ -93,28 +91,10 @@ test('agreeing reports stand once both have locked, and not before', () => {
   assert.ok(typeof first !== 'string');
   const both = fileReport(first, report(t, match.p2, 'loss', 10_000));
   assert.ok(typeof both !== 'string');
-  assert.deepEqual(dueResults(both, 10_000 + REPORT_WINDOW_MS - 1), [], 'the later report can still change');
-  const due = dueResults(both, 10_000 + REPORT_WINDOW_MS);
-  assert.equal(due.length, 1, 'one result per match');
-  assert.deepEqual(resultOf(due[0] as PlayerReport), {
-    type: 'reportResult',
-    pod: 'masters',
-    round: 1,
-    table: match.table,
-    p1: match.p1,
-    p2: match.p2,
-    outcome: 'p1'
-  });
-});
-
-test('two ties agree, but two wins are a dispute that never stands on its own', () => {
-  const t = paired();
-  const [match] = matchesOf(t);
-  assert.ok(match?.p2);
-  const ties = [report(t, match.p1, 'tie', 0), report(t, match.p2, 'tie', 0)];
-  assert.equal(dueResults(ties, REPORT_WINDOW_MS)[0]?.outcome, 'tie');
+  assert.deepEqual(pruneReports(t, both), both);
+  assert.equal(isDisputed(both), false);
+  assert.equal(isLocked(both[1]!, 10_000 + REPORT_WINDOW_MS), true);
   const wins = [report(t, match.p1, 'win', 0), report(t, match.p2, 'win', 0)];
-  assert.deepEqual(dueResults(wins, REPORT_WINDOW_MS * 10), []);
   assert.ok(isDisputed(reportsFor(wins, 'masters', 1, match)));
 });
 

@@ -420,9 +420,15 @@ function TabBar(props: { tabs: TabOption[]; selected: Tab; onSelect: (tab: Tab) 
 const hasStarted = (manage: Manage) => manage.tournament.pods.some(p => latestRound(p) !== undefined);
 
 /** The console's tabs: Decklists only while the event takes them, Pairings locked until round 1. */
+/** The Players tab counts the requests waiting on staff, so one is seen from any tab. */
+function withRequests(t: TabOption, manage: Manage): TabOption {
+  const open = (manage.requests ?? []).filter(request => request.status === 'open').length;
+  return t.value === 'players' && open > 0 ? { ...t, label: `${t.label} · ${open}` } : t;
+}
+
 const tabsFor = (manage: Manage): TabOption[] =>
   TABS.filter(t => t.value !== 'decklists' || manage.settings.decklists !== 'off').map(t =>
-    t.value === 'round' && !hasStarted(manage) ? { ...t, locked: PAIRINGS_LOCKED } : t
+    withRequests(t.value === 'round' && !hasStarted(manage) ? { ...t, locked: PAIRINGS_LOCKED } : t, manage)
   );
 
 /** The tab the console opens on: Pairings once the event is running, Players before it. */

@@ -116,7 +116,8 @@ function eventWrites(db: D1Like, user: User): D1Statement[] {
     hide,
     db.prepare("UPDATE profile_preferences SET pins = '[]' WHERE user_id = ?").bind(user.id),
     db.prepare(`UPDATE report_devices SET user_id = NULL WHERE user_id = ? AND code IN (${ENDED})`).bind(user.id),
-    db.prepare(`UPDATE decklists SET account = NULL WHERE account = ? AND code IN (${ENDED})`).bind(user.id)
+    db.prepare(`UPDATE decklists SET account = NULL WHERE account = ? AND code IN (${ENDED})`).bind(user.id),
+    db.prepare(`UPDATE report_history SET account_id = NULL WHERE account_id = ? AND code IN (${ENDED})`).bind(user.id)
   ];
 }
 
@@ -211,6 +212,7 @@ function accountWrites(db: D1Like, user: User): D1Statement[] {
     clerk,
     db.prepare('UPDATE report_devices SET user_id = NULL WHERE user_id = ?').bind(user.id),
     db.prepare('UPDATE decklists SET account = NULL WHERE account = ?').bind(user.id),
+    db.prepare('UPDATE report_history SET account_id = NULL WHERE account_id = ?').bind(user.id),
     ...DECIDED_BY.map(([table, column]) =>
       db.prepare(`UPDATE ${table} SET ${column} = NULL WHERE ${column} = ?`).bind(user.id)
     ),

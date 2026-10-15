@@ -12,6 +12,7 @@ import { expect, type Page, test } from '@playwright/test';
 
 import { applyCommand, type Command } from '../../shared/tournament/commands';
 import type { PlayerReport } from '../../shared/tournament/reports';
+import type { PlayerRequest } from '../../shared/tournament/requests';
 import { emptyTournament } from '../../shared/tournament/create';
 import { seededRandom } from '../../shared/tournament/random';
 import { regularRounds } from '../../shared/tournament/rounds';
@@ -90,9 +91,11 @@ async function mockConsole(
   tournament: Tournament,
   settings: TournamentSettings,
   reports: readonly PlayerReport[] = [],
-  apply = false
+  apply = false,
+  requests: PlayerRequest[] = []
 ) {
   const sent: Command[] = [];
+  const answers: unknown[] = [];
   const decks: unknown[] = [];
   const saved: Partial<TournamentSettings>[] = [];
   const manage = {
@@ -103,6 +106,7 @@ async function mockConsole(
     tournament,
     pending: [],
     reports,
+    requests,
     settings,
     decks: {},
     role: 'owner',
@@ -141,6 +145,15 @@ async function mockConsole(
       decks.push(route.request().postDataJSON());
       return route.fulfill({ json: manage });
     }
+    if (url.pathname === `/api/tournaments/${CODE}/requests`) {
+      const answer = route.request().postDataJSON() as { id: string; status: PlayerRequest['status'] };
+      answers.push(answer);
+      manage.requests = manage.requests.map(request =>
+        request.id === answer.id ? { ...request, status: answer.status, by: 'Organizer', answeredAt: 1 } : request
+      );
+      manage.version += 1;
+      return route.fulfill({ json: manage });
+    }
     if (url.pathname === `/api/tournaments/${CODE}/settings`) {
       const change = route.request().postDataJSON() as Partial<TournamentSettings>;
       saved.push(change);
@@ -151,7 +164,7 @@ async function mockConsole(
     return route.fulfill({ status: 404, json: { error: 'Not found' } });
   });
   await page.goto(`/host/${CODE}`);
-  return Object.assign(sent, { decks, saved });
+  return Object.assign(sent, { decks, saved, answers });
 }
 
 test('a double click on a player records their win without asking', async ({ page }) => {
@@ -927,8 +940,15 @@ test('900px and under a table opens a sheet of its results, and a press there re
   const chevron = rows.first().getByRole('button', { name: `Enter the result of table ${table?.table}` });
   await chevron.click();
   await expect(sheet).toBeFocused();
+  // Only the sheet, and the scrim that closes it, can be reached while it is open.
+  await expect(page.locator('.site-head')).toHaveJSProperty('inert', true);
+  expect(await chevron.evaluate(el => el.closest('[inert]') !== null)).toBe(true);
   await page.keyboard.press('Escape');
   await expect(chevron).toBeFocused();
+  await chevron.click();
+  await page.locator('.tm-result-scrim').click({ position: { x: 10, y: 10 } });
+  await expect(sheet).toHaveCount(0);
+  await expect(page.locator('.site-head')).toHaveJSProperty('inert', false);
   await chevron.click();
   await sheet.getByRole('button', { name: 'Tie' }).click();
   await expect(sheet).toHaveCount(0);
@@ -1205,6 +1225,33 @@ test('Escape closes the extension menu before the mobile result sheet @mobileOnl
   await expect(sheet).toHaveCount(0);
 });
 
+for (const size of [
+  { width: 320, height: 480 },
+  { width: 750, height: 342 },
+  { width: 375, height: 171 }
+]) {
+  test(`result sheet scrolls its body and keeps table and actions reachable at ${size.width}x${size.height}`, async ({
+    page
+  }) => {
+    await page.setViewportSize({ width: 820, height: 1100 });
+    const t = partlyPlayed(8, 0, 0);
+    const sent = await mockConsole(page, t, settingsOf({}));
+    await page.locator('.tm-matches tbody tr:not(.tm-group-row)').first().click();
+    const sheet = page.getByRole('dialog');
+    await expect(sheet).toBeVisible();
+    await expect.poll(() => sheet.evaluate(el => getComputedStyle(el).transform)).toBe('none');
+    await page.setViewportSize(size);
+    await expect(sheet.getByText('Table 1', { exact: true })).toBeInViewport();
+    await expect(sheet.getByRole('button', { name: 'Cancel', exact: true })).toBeInViewport();
+    const bounds = await sheet.boundingBox();
+    expect(bounds!.y).toBeGreaterThanOrEqual(0);
+    expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(size.height);
+    await sheet.getByRole('button', { name: 'Double loss', exact: true }).click();
+    await expect(sheet).toHaveCount(0);
+    expect(sent.at(-1)).toMatchObject({ type: 'reportResult', outcome: 'double-loss' });
+  });
+}
+
 test('an event made before time zones picks one and its venue from Settings', async ({ page }) => {
   const sent = await mockConsole(page, event(8, 0, true), settingsOf({}));
   await page.getByRole('tab', { name: 'Settings' }).click();
@@ -1216,4 +1263,27 @@ test('an event made before time zones picks one and its venue from Settings', as
   await box.getByRole('button', { name: 'Save' }).click();
   await expect.poll(() => sent.saved.at(-1)).toEqual({ timeZone: 'America/Chicago', venue: 'Test Games' });
   await expect(zone.locator('option[value=""]')).toHaveCount(0);
+});
+
+test('staff see a drop request on the Players tab and confirm it by its ID in one request', async ({ page }) => {
+  const t = event(8, 0, true);
+  const player = t.players[0]!;
+  const asked: PlayerRequest = {
+    id: 'request-1',
+    player: player.id,
+    kind: 'drop',
+    at: Date.parse('2026-10-18T17:00:00Z'),
+    status: 'open'
+  };
+  const sent = await mockConsole(page, t, settingsOf({}), [], false, [asked]);
+  const tab = page.getByRole('tab', { name: 'Players · 1' });
+  await tab.click();
+  const requests = page.getByRole('region', { name: 'Player requests' });
+  await expect(requests.getByRole('row', { name: new RegExp(player.lastName) })).toContainText('Drop');
+  await requests.getByRole('button', { name: 'Confirm drop' }).click();
+  await expect.poll(() => sent.answers).toEqual([expect.objectContaining({ id: 'request-1', status: 'accepted' })]);
+  // The server drops the player with the answer; the console sends no separate drop to fail halfway.
+  expect(sent).toHaveLength(0);
+  await expect(requests).toContainText('Confirmed · Organizer');
+  await expect(page.getByRole('tab', { name: 'Players', exact: true })).toBeVisible();
 });

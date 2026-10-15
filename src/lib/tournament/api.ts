@@ -4,6 +4,8 @@
  * show as-is: the functions word their errors for people.
  */
 
+import type { RequestAnswer, RequestKind } from '../../../shared/tournament/requests';
+import { keepBrowserMemory, readBrowserMemory } from './browserMemory';
 import type { ExportPart, WipePart } from '../../../shared/accounts/myData';
 import type { AccountRole } from '../../../shared/accounts/roles';
 import type { HistoryEntry, MyStore, PublicProfile } from '../../../shared/accounts/types';
@@ -216,17 +218,9 @@ export function preloadPublished(code: string): void {
 export const fetchView = (code: string, since?: number) =>
   call<TournamentView | null>(since ? `${base(code)}?since=${since}` : base(code));
 
-/**
- * The console's copy, or null when it has not changed since `since`. The poll
- * can settle players' reports, so it carries the venue's clock as a command
- * does.
- */
+/** The console's copy, or null when it has not changed since `since`. */
 export function fetchManage(code: string, since?: number) {
-  const query = new URLSearchParams({ localTime: tomDateTime(new Date()) });
-  if (since) {
-    query.set('since', String(since));
-  }
-  return call<Manage | null>(`${base(code)}/manage?${query}`);
+  return call<Manage | null>(since ? `${base(code)}/manage?since=${since}` : `${base(code)}/manage`);
 }
 
 /** Sends one command, stamped with the venue's clock (see functions/lib/tournaments/commandContext.ts). */
@@ -288,18 +282,15 @@ const DEVICE_KEY = 'cm-device';
 /**
  * This browser's own ID, made once and kept: the server tells two reports
  * from one device apart from reports from two, and records which device
- * reports for a player. Without storage (a test, a locked-down browser) each
- * call counts as its own device.
+ * reports for a player. Denied persistence uses session storage or page memory,
  */
 function deviceId(): string {
-  const stored = typeof localStorage === 'undefined' ? null : localStorage.getItem(DEVICE_KEY);
+  const stored = readBrowserMemory(DEVICE_KEY, true);
   if (stored) {
     return stored;
   }
   const made = crypto.randomUUID();
-  if (typeof localStorage !== 'undefined') {
-    localStorage.setItem(DEVICE_KEY, made);
-  }
+  keepBrowserMemory(DEVICE_KEY, made, true);
   return made;
 }
 
@@ -314,12 +305,29 @@ export interface PlayerAnswer {
   linked?: boolean;
 }
 
-/** A player says who they are; their public key, to follow their pairings with, and the event as it stands. */
-export const identifyPlayer = (code: string, claim: PlayerClaim, reportToken?: string | null) =>
-  call<PlayerAnswer>(
+export interface LookupCandidate {
+  key: string;
+  firstName: string;
+  lastName: string;
+}
+
+export const lookupPlayer = (code: string, query: { lastName: string; firstName?: string }) =>
+  call<{ candidates: LookupCandidate[]; view: PublishedView }>(
     `${base(code)}/report`,
-    json('POST', { ...claim, reportToken, device: deviceId(), localTime: tomDateTime(new Date()) })
+    json('POST', { ...query, lookup: true })
   );
+
+/** What a player's device sends as them: who they are, what it asks, and its token and ID. */
+const asPlayer = (code: string, claim: PlayerClaim, body: object, reportToken?: string | null) =>
+  call<PlayerAnswer>(`${base(code)}/report`, json('POST', { ...claim, ...body, reportToken, device: deviceId() }));
+
+/**
+ * A player says who they are; their public key, to follow their pairings with, and the event as it stands.
+ * `expect` is the public key the page chose: the server refuses a claim that is anyone else's before it
+ * claims a seat or links an account.
+ */
+export const identifyPlayer = (code: string, claim: PlayerClaim, reportToken?: string | null, expect?: string) =>
+  asPlayer(code, claim, expect === undefined ? {} : { expect }, reportToken);
 
 /** A player reports the match their page shows, with the token of the device that reports for them. */
 export const reportAsPlayer = (
@@ -327,11 +335,19 @@ export const reportAsPlayer = (
   claim: PlayerClaim,
   report: { result: PlayerResult; match: ShownMatch },
   reportToken: string | null
-) =>
-  call<PlayerAnswer>(
-    `${base(code)}/report`,
-    json('POST', { ...claim, ...report, reportToken, device: deviceId(), localTime: tomDateTime(new Date()) })
-  );
+) => asPlayer(code, claim, report, reportToken);
+
+/** A player asks staff to drop them or come over, or cancels an open request, from the device that reports for them. */
+export const askStaff = (
+  code: string,
+  claim: PlayerClaim,
+  ask: { request: RequestKind; cancel?: boolean },
+  reportToken: string | null
+) => asPlayer(code, claim, ask, reportToken);
+
+/** Staff answer a player's request: confirm or decline a drop, or mark a contact done. */
+export const answerRequest = (code: string, answer: { id: string; status: RequestAnswer }) =>
+  call<Manage>(`${base(code)}/requests`, json('PUT', { ...answer, localTime: tomDateTime(new Date()) }));
 
 /** The signed-in account stops being its player at the event: its Claim, or the row its POP ID made. */
 export const leaveEvent = (code: string) => call<null>(`${base(code)}/claim`, { method: 'DELETE' });

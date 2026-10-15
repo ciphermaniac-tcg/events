@@ -11,7 +11,7 @@ import { createEffect, createSignal, For, on, onCleanup, onMount, Show } from 's
 import { percentLabel, recordLabel, type Standing } from '../../../shared/tournament/standings';
 import type { Pod } from '../../../shared/tournament/types';
 import type { TournamentView } from '../../../shared/tournament/view';
-import { keepTabIn } from '../../lib/focusTrap';
+import { inertOutside, keepTabIn } from '../../lib/focusTrap';
 import { matchHistory } from '../../lib/tournament/present';
 import { DeckIcons } from './DeckIcons';
 import { type Identified, IdentifyForm } from './Identify';
@@ -50,6 +50,9 @@ export function PlayerSheet(props: {
   // Focus goes into the sheet, stays there, and goes back to what opened it; Escape closes it.
   const opener = document.activeElement as HTMLElement | null;
   let sheet: HTMLDivElement | undefined;
+  let scrim: HTMLDivElement | undefined;
+  // Only the sheet, and the scrim that closes it, can be reached while it is open.
+  let live: () => void = () => undefined;
   const onKey = (event: KeyboardEvent) => {
     if (event.key === 'Escape') {
       props.onClose();
@@ -62,15 +65,19 @@ export function PlayerSheet(props: {
   onMount(() => {
     document.addEventListener('keydown', onKey);
     document.documentElement.style.overflow = 'hidden';
+    if (sheet) {
+      live = inertOutside(sheet, scrim ? [scrim] : []);
+    }
   });
   onCleanup(() => {
     document.removeEventListener('keydown', onKey);
     document.documentElement.style.overflow = overflow;
+    live();
     opener?.focus();
   });
   return (
     <>
-      <div class='tm-scrim' aria-hidden='true' onClick={() => props.onClose()} />
+      <div ref={scrim} class='tm-scrim' aria-hidden='true' onClick={() => props.onClose()} />
       <div ref={sheet} class='tm-sheet' role='dialog' aria-modal='true' aria-labelledby='tm-sheet-title'>
         <div class='tm-sheet-head'>
           <div>
@@ -154,6 +161,19 @@ export function PlayerSheet(props: {
               </tbody>
             </table>
           </div>
+          <Show when={proving()}>
+            <IdentifyForm
+              view={props.view}
+              idPrefix='sheet'
+              submitLabel='Confirm'
+              expect={props.playerId}
+              autofocus
+              onFound={found => {
+                setProving(false);
+                props.onIdentified(found);
+              }}
+            />
+          </Show>
         </div>
         <div class='tm-sheet-foot'>
           <button
@@ -180,17 +200,9 @@ export function PlayerSheet(props: {
                 </button>
               }
             >
-              <IdentifyForm
-                view={props.view}
-                idPrefix='sheet'
-                submitLabel='Confirm'
-                expect={props.playerId}
-                autofocus
-                onFound={found => {
-                  setProving(false);
-                  props.onIdentified(found);
-                }}
-              />
+              <button type='button' class='btn btn-ghost' onClick={() => setProving(false)}>
+                Cancel
+              </button>
             </Show>
           </Show>
         </div>

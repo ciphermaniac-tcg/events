@@ -1,0 +1,128 @@
+/**
+ * The player's requests to staff, under their match: to drop, or for
+ * someone to come over, each with where it stands. Nothing changes until
+ * staff answer (see shared/tournament/requests.ts); an open request can be
+ * taken back. Only the device that reports for the player asks.
+ */
+
+import { createSignal, For, Show } from 'solid-js';
+import type { PlayerClaim } from '../../../shared/tournament/identify';
+import { isLive, type PlayerRequest, type RequestKind, requestOf } from '../../../shared/tournament/requests';
+import type { PublishedView, TournamentView } from '../../../shared/tournament/view';
+import { ApiError, askStaff, errorText } from '../../lib/tournament/api';
+import { ConfirmAction } from './ConfirmAction';
+import { ErrorLine } from './Field';
+
+/** What each kind's button says and how its request reads once made. */
+const KINDS: { kind: RequestKind; ask: string; status: (request: PlayerRequest) => string }[] = [
+  {
+    kind: 'drop',
+    ask: 'Request drop',
+    status: request =>
+      ({ open: 'Drop requested', accepted: 'Drop confirmed', declined: 'Drop declined', done: '', cancelled: '' })[
+        request.status
+      ]
+  },
+  {
+    kind: 'staff',
+    ask: 'Contact staff',
+    status: request => (request.status === 'open' ? 'Staff contact requested' : 'Staff responded')
+  }
+];
+
+const timeOf = (at: number | undefined) =>
+  at === undefined ? '' : ` · ${new Date(at).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}`;
+
+export function PlayerRequests(props: {
+  view: TournamentView;
+  me: string;
+  claim: PlayerClaim;
+  reportToken: string | null;
+  onView: (view: PublishedView) => void;
+  onStale: () => void;
+}) {
+  const [busy, setBusy] = createSignal(false);
+  const [error, setError] = createSignal<string | null>(null);
+  const requests = () => props.view.requests ?? [];
+  const dropped = () => props.view.tournament.players.find(player => player.id === props.me)?.droppedAfter !== null;
+
+  async function send(request: RequestKind, cancel = false) {
+    setBusy(true);
+    setError(null);
+    try {
+      props.onView((await askStaff(props.view.code, props.claim, { request, cancel }, props.reportToken)).view);
+    } catch (err) {
+      setError(errorText(err));
+      // No longer this device's player to ask for.
+      if (err instanceof ApiError && (err.status === 403 || err.status === 409)) {
+        props.onStale();
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /** Whether the kind's button shows: no open request, and a drop only while still playing. */
+  const askable = (kind: RequestKind, request: PlayerRequest | undefined) =>
+    request?.status !== 'open' && !(kind === 'drop' && (dropped() || request?.status === 'accepted'));
+
+  return (
+    <div class='tm-you-panel tm-you-requests'>
+      <For each={KINDS}>
+        {entry => {
+          // A cancelled request reads as none: the player may ask again once its cooldown passes.
+          const request = () => {
+            const made = requestOf(requests(), props.me, entry.kind);
+            return isLive(made) ? made : undefined;
+          };
+          return (
+            <>
+              <Show when={request()}>
+                {made => (
+                  <span class='tm-you-request' role='status'>
+                    {entry.status(made())}
+                    <span class='muted'>{timeOf(made().answeredAt ?? made().at)}</span>
+                    <Show when={made().status === 'open'}>
+                      <button
+                        type='button'
+                        class='btn btn-ghost tm-small'
+                        disabled={busy()}
+                        onClick={() => void send(entry.kind, true)}
+                      >
+                        Cancel request
+                      </button>
+                    </Show>
+                  </span>
+                )}
+              </Show>
+              <Show when={askable(entry.kind, request())}>
+                <Show
+                  when={entry.kind === 'drop'}
+                  fallback={
+                    <button
+                      type='button'
+                      class='btn btn-secondary tm-small'
+                      disabled={busy()}
+                      onClick={() => void send(entry.kind)}
+                    >
+                      {entry.ask}
+                    </button>
+                  }
+                >
+                  <ConfirmAction
+                    label={entry.ask}
+                    class='btn btn-secondary tm-small'
+                    question='Ask staff to drop you?'
+                    confirmLabel='Ask staff'
+                    onConfirm={() => void send(entry.kind)}
+                  />
+                </Show>
+              </Show>
+            </>
+          );
+        }}
+      </For>
+      <ErrorLine message={error()} />
+    </div>
+  );
+}

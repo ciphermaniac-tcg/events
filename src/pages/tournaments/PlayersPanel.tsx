@@ -34,6 +34,7 @@ import { EditPlayerDialog } from './EditPlayer';
 import { Field } from './Field';
 import type { ManageState } from './manageState';
 import { birthDateFor } from './ProfileFields';
+import { StaffRequests } from './StaffRequests';
 import { Squares } from './Squares';
 import { ReturningPlayerField } from './ReturningPlayerField';
 
@@ -366,6 +367,7 @@ export function PlayersPanel(props: { state: ManageState; manage: Manage }) {
       <Show when={swiss() && !props.manage.settings.finished}>
         <AddPlayer state={props.state} code={props.manage.code} sanctioned={sanctioned()} late={started()} />
       </Show>
+      <StaffRequests state={props.state} manage={props.manage} />
       <section class='tm-box'>
         <div class='tm-box-bar'>
           <input

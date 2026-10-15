@@ -64,6 +64,7 @@ function legacyRemoval(db: D1Like, userId: string) {
     .bind(userId);
   const applications = db.prepare(`DELETE FROM applications WHERE user_id IN ${target}`).bind(userId);
   const decks = db.prepare(`DELETE FROM decklists WHERE account IN ${target}`).bind(userId);
+  const filings = db.prepare(`UPDATE report_history SET account_id = NULL WHERE account_id IN ${target}`).bind(userId);
   const scrub = db
     .prepare(
       'UPDATE users SET email = NULL, avatar = NULL, pop_id = NULL, first_name = NULL, last_name = NULL, ' +
@@ -75,6 +76,7 @@ function legacyRemoval(db: D1Like, userId: string) {
     waits,
     applications,
     decks,
+    filings,
     ...deletes.map(table => db.prepare(`DELETE FROM ${table} WHERE user_id IN ${target}`).bind(userId)),
     scrub
   ];

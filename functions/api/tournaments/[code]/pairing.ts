@@ -14,7 +14,6 @@ import { readJsonObject } from '../../../lib/api/body.js';
 import { jsonError } from '../../../lib/api/responses.js';
 import type { Context } from '../../../lib/auth/env.js';
 import { openForStaff, privateJson } from '../../../lib/tournaments/access.js';
-import { settled } from '../../../lib/tournaments/answers.js';
 import { tomNextRound } from '../../../lib/tournaments/results.js';
 
 export async function onRequestPost(context: Context<'code'>): Promise<Response> {
@@ -30,8 +29,7 @@ export async function onRequestPost(context: Context<'code'>): Promise<Response>
   if (command?.type !== 'pairRound' || typeof value.base !== 'string') {
     return jsonError('Not a round to pair', 400);
   }
-  // Results the players' reports have settled count, as they would for any command.
-  const row = await settled(context, access, value.localTime);
+  const { row } = access;
   if ((await revisionOf(row.tournament)) !== value.base) {
     return jsonError('The site has a different copy of this event. Reconnect the file TOM is using.', 409);
   }

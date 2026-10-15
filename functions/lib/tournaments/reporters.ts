@@ -31,6 +31,9 @@ export interface Claim {
   device: string | null;
   /** Whether the player is the asking account's at this event. */
   linked: boolean;
+  /** Original claimant metadata, captured before a seat can be released or replaced. */
+  account: string | null;
+  claimedAt: number;
 }
 
 /** The answer when the asking account is already another player at this event: that player's ID. */
@@ -52,6 +55,7 @@ interface Refusal {
 }
 
 interface ClaimRow {
+  claimed_at: number;
   token_hash: string;
   device: string;
   user_id: string | null;
@@ -79,7 +83,7 @@ type Standing = Claim | Elsewhere | typeof STALE;
 
 const readSeat = ({ db, code, playerId }: Seat) =>
   db
-    .prepare('SELECT token_hash, device, user_id FROM report_devices WHERE code = ? AND player_id = ?')
+    .prepare('SELECT token_hash, device, user_id, claimed_at FROM report_devices WHERE code = ? AND player_id = ?')
     .bind(code, playerId);
 
 /** The player the seat's account holds here, read in a batch with a write so a race lost to it shows. */
@@ -188,7 +192,14 @@ async function standingFor(seat: Seat, row: ClaimRow, asker: Asker): Promise<Sta
   const holder = tokenHeld || recovered;
   const linked = await linkedAs(seat, row, holder);
   return typeof linked === 'boolean'
-    ? { token: recovered ? String(asker.device) : null, reporter: holder || linked, device: row.device, linked }
+    ? {
+        token: recovered ? String(asker.device) : null,
+        reporter: holder || linked,
+        device: row.device,
+        linked,
+        account: linked ? seat.account : row.user_id,
+        claimedAt: row.claimed_at
+      }
     : linked;
 }
 
@@ -249,7 +260,14 @@ async function claim(seat: Seat, asker: Asker): Promise<Standing> {
   // Whoever's hash is stored claimed them: this request, or a device that got there first.
   const row = firstRow<ClaimRow>(stored);
   if (row?.token_hash === hash) {
-    return { token, reporter: true, device: row.device, linked: row.user_id !== null };
+    return {
+      token,
+      reporter: true,
+      device: row.device,
+      linked: row.user_id !== null,
+      account: row.user_id,
+      claimedAt: row.claimed_at
+    };
   }
   // Nothing stored and the account free: the event changed since the read.
   return elsewhere(seat, held) ?? (row ? standingFor(seat, row, asker) : STALE);

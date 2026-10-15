@@ -45,6 +45,7 @@ function legacyAccount() {
       "INSERT INTO handle_changes VALUES ('legacy', 1, 'old-child-name', 'child-handle', 'rename');" +
       "INSERT INTO report_devices VALUES ('CODE', '123', 'token', 'device', 1, 'legacy');" +
       "INSERT INTO staff VALUES ('CODE', 'legacy', 1);" +
+      "INSERT INTO report_history VALUES ('CODE', 2, '123', '{}', 'legacy', 1);" +
       'INSERT INTO applications (id, user_id, status, pop_id, first_name, last_name, explanation, created_at, store) ' +
       "VALUES ('application', 'legacy', 'pending', '123', 'Child', 'Name', 'private note', 1, '{}');" +
       'INSERT INTO decklists (code, user_id, pop_id, first_name, last_name, birth_date, deck, submitted_at, account) VALUES ' +
@@ -97,6 +98,8 @@ test('legacy rejection forgets account PII and submissions while preserving the 
     assert.equal(count(table), 0, table);
   }
   assert.equal(count('decklists'), 1, 'another player’s submission survives');
+  const filing = db().raw.prepare('SELECT account_id AS account FROM report_history').get();
+  assert.equal(filing?.account, null, 'the filing stays as evidence, unlinked from the account');
   assert.equal(db().raw.prepare("SELECT role FROM store_members WHERE user_id = 'legacy'").get()?.role, 'manager');
 });
 

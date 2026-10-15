@@ -8,7 +8,9 @@ import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
 
 import {
+  answerRequest,
   ApiError,
+  askStaff,
   call,
   createFromTdf,
   createSwiss,
@@ -29,6 +31,7 @@ import {
   leaveEvent,
   linkUrl,
   listTournaments,
+  lookupPlayer,
   pairNextRound,
   preloadPublished,
   removeStaff,
@@ -165,9 +168,8 @@ test('every call goes to its endpoint with its body', async () => {
   await fetchMyDecklist('ABC', { popId: '', firstName: 'Ann', lastName: 'Lee' }, 'tok');
   await fetchStaff('ABC');
   await removeStaff('ABC', 'u-1');
-  const clockless = (url: string) => url.replace(/localTime=[^&]*&?/, '').replace(/\?$/, '');
   assert.deepEqual(
-    sent.map(s => `${s.method} ${clockless(s.url)}`),
+    sent.map(s => `${s.method} ${s.url}`),
     [
       'GET /api/me',
       'PUT /api/me',
@@ -191,8 +193,6 @@ test('every call goes to its endpoint with its body', async () => {
       'DELETE /api/tournaments/ABC/staff?user=u-1'
     ]
   );
-  const poll = new URL(sent[7]?.url ?? '', 'https://cm.test').searchParams.get('localTime') ?? '';
-  assert.match(poll, /^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}:\d{2}$/, 'a poll can settle reports, so it carries the clock');
   const decklist = sent[15]?.body as { localTime: string };
   assert.match(decklist.localTime, /^\d{2}\/\d{2}\/\d{4} /, 'a list can add its submitter, so it carries the clock');
   const command = sent[8]?.body as { localTime: string };
@@ -200,7 +200,7 @@ test('every call goes to its endpoint with its body', async () => {
   assert.deepEqual(sent[3]?.body, { mode: 'swiss', name: 'Cup', roundTime: 30 });
 });
 
-test('a player identifies and reports through one endpoint, stamped with the venue clock', async () => {
+test('a player identifies and reports through one endpoint, carrying no clock since nothing settles there', async () => {
   answer(200, { key: '4' });
   await identifyPlayer('ABC', { lastName: 'Oak' });
   const match = { pod: 'masters' as const, round: 2, table: 5 };
@@ -209,25 +209,45 @@ test('a player identifies and reports through one endpoint, stamped with the ven
     sent.map(s => `${s.method} ${s.url}`),
     ['POST /api/tournaments/ABC/report', 'POST /api/tournaments/ABC/report']
   );
-  const identified = sent[0]?.body as { lastName: string; localTime: string };
+  const identified = sent[0]?.body as { lastName: string; localTime?: string };
   assert.equal(identified.lastName, 'Oak');
-  assert.match(
-    identified.localTime,
-    /^\d{2}\/\d{2}\/\d{4} /,
-    'identifying can settle a result, so it carries the clock too'
-  );
+  assert.equal(identified.localTime, undefined);
   const reported = sent[1]?.body as {
     popId: string;
     result: string;
     match: unknown;
-    localTime: string;
+    localTime?: string;
     reportToken: string;
   };
   assert.deepEqual([reported.popId, reported.result, reported.reportToken], ['12', 'win', 'seat-token']);
   assert.deepEqual(reported.match, match, 'names the match the page showed');
   const devices = sent.map(s => (s.body as { device?: string }).device);
   assert.ok(devices.every(Boolean), 'each carries a device ID (a fresh one each here, with no storage to keep it)');
-  assert.match(reported.localTime, /^\d{2}\/\d{2}\/\d{4} /);
+  assert.equal(reported.localTime, undefined);
+});
+
+test('a player asks staff from the reporting endpoint, and staff answer at the requests endpoint', async () => {
+  answer(200, { key: '4' });
+  await askStaff('ABC', { popId: '12' }, { request: 'drop' }, 'seat-token');
+  await askStaff('ABC', { popId: '12' }, { request: 'drop', cancel: true }, 'seat-token');
+  await answerRequest('ABC', { id: 'r1', status: 'done' });
+  assert.deepEqual(
+    sent.map(s => `${s.method} ${s.url}`),
+    ['POST /api/tournaments/ABC/report', 'POST /api/tournaments/ABC/report', 'PUT /api/tournaments/ABC/requests']
+  );
+  assert.deepEqual(
+    sent.slice(0, 2).map(s => {
+      const { popId, request, cancel, reportToken } = s.body as Record<string, unknown>;
+      return { popId, request, cancel, reportToken };
+    }),
+    [
+      { popId: '12', request: 'drop', cancel: undefined, reportToken: 'seat-token' },
+      { popId: '12', request: 'drop', cancel: true, reportToken: 'seat-token' }
+    ]
+  );
+  const answered = sent[2]?.body as { id: string; status: string; localTime: string };
+  assert.deepEqual([answered.id, answered.status], ['r1', 'done']);
+  assert.match(answered.localTime, /^\d{2}\/\d{2}\/\d{4} /, 'a confirmed drop is stamped with the venue clock');
 });
 
 test('a TOM event’s next round is asked for over the copy synced, stamped with the venue clock', async () => {
@@ -485,4 +505,26 @@ test('handle persistence rejects a transaction that aborts after its put succeed
   } finally {
     delete (globalThis as { indexedDB?: unknown }).indexedDB;
   }
+});
+
+test('table lookup sends no seat claim, device credential, or reporting result', async () => {
+  const sent: Record<string, unknown>[] = [];
+  globalThis.fetch = (async (_url: string, init: RequestInit = {}) => {
+    sent.push(JSON.parse(String(init.body)) as Record<string, unknown>);
+    return Response.json({ candidates: [], view: {} });
+  }) as typeof fetch;
+  await lookupPlayer('ABC', { lastName: 'Perker', firstName: 'Piter' });
+  assert.deepEqual(sent, [{ lookup: true, lastName: 'Perker', firstName: 'Piter' }]);
+});
+
+test('confirming a looked-up player sends the key the page chose, so the server refuses anyone else', async () => {
+  const sent: Record<string, unknown>[] = [];
+  globalThis.fetch = (async (_url: string, init: RequestInit = {}) => {
+    sent.push(JSON.parse(String(init.body)) as Record<string, unknown>);
+    return Response.json({ key: 'k-4' });
+  }) as typeof fetch;
+  await identifyPlayer('ABC', { lastName: 'Parker' }, undefined, 'k-4');
+  await identifyPlayer('ABC', { lastName: 'Parker' });
+  assert.equal(sent[0]?.expect, 'k-4');
+  assert.equal('expect' in (sent[1] ?? {}), false, 'a plain identify names no expected player');
 });

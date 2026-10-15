@@ -15,14 +15,14 @@
  */
 
 import { ordinal } from '../../lib/format';
-import { createEffect, createSignal, For, lazy, Match, Show, Suspense, Switch } from 'solid-js';
+import { createSignal, For, lazy, Match, Show, Suspense, Switch } from 'solid-js';
 import type { PlayerClaim } from '../../../shared/tournament/identify';
 import type { PlayerResult } from '../../../shared/tournament/reports';
 import { recordLabel, sideResult } from '../../../shared/tournament/standings';
 import { hasStarted, podOf, withSwiss } from '../../../shared/tournament/rounds';
 import type { Pod, Round, Match as TableMatch } from '../../../shared/tournament/types';
-import { isSanctioned, type PublishedView, type TournamentView } from '../../../shared/tournament/view';
-import { ApiError, errorText, identifyPlayer, reportAsPlayer, type SignInOffer } from '../../lib/tournament/api';
+import { type PublishedView, type TournamentView } from '../../../shared/tournament/view';
+import { ApiError, errorText, reportAsPlayer, type SignInOffer } from '../../lib/tournament/api';
 import {
   currentMatchOf,
   divisionHeading,
@@ -37,6 +37,7 @@ import { ConfirmAction } from './ConfirmAction';
 import { ErrorLine } from './Field';
 import { type Identified, IdentifyForm } from './Identify';
 import { createNow } from './now';
+import { PlayerRequests } from './PlayerRequests';
 
 // Loaded on asking: most players never sign in from here, and Settings has these already.
 const SignIn = lazy(() => import('./SignIn').then(m => ({ default: m.SignIn })));
@@ -46,8 +47,8 @@ const SAID: Record<PlayerResult, string> = { win: 'won', loss: 'lost', tie: 'tie
 const NOT_REPORTER = 'Someone else is already reporting for this player. Ask staff if that’s wrong.';
 
 const NOTES = {
-  open: 'You and your opponent both report. When the two reports match, the result counts.',
-  reported: 'You can change your report until the timer runs out. After that it waits for your opponent’s.',
+  open: 'Staff must accept your result.',
+  reported: 'Waiting for staff acceptance.',
   disputed: 'Your reports don’t match. If you pressed the wrong one, change it. Otherwise, find a judge.',
   /** Once the report is locked there is nothing to change: only the judge is left. */
   disputedLocked: 'Your reports don’t match. Find a judge.'
@@ -104,17 +105,18 @@ function SignInHere(props: { code: string; offer: SignInOffer }) {
   );
 }
 
-/** "Which player are you?", where players report and a round is on. */
+/** Surname lookup is available independently of reporting permission or account identity. */
 function WhichPlayer(props: Props) {
-  const sanctioned = () => isSanctioned(props.view);
   return (
     <section class='tm-box tm-you tm-you-ask' aria-label='Your match'>
       <h2 class='tm-you-q'>Which player are you?</h2>
-      <IdentifyForm view={props.view} idPrefix='report' submitLabel='Find my match' onFound={props.onIdentified} />
-      <p class='tm-you-note muted'>
-        Enter your {sanctioned() ? 'Player ID' : 'last name'} to see your table and report your result. This phone will
-        remember you.
-      </p>
+      <IdentifyForm
+        view={props.view}
+        idPrefix='lookup'
+        submitLabel='Find my match'
+        lookup
+        onFound={props.onIdentified}
+      />
       <Show when={!props.signedIn}>
         <SignInHere code={props.view.code} offer={props.offer} />
       </Show>
@@ -128,14 +130,13 @@ const CHOICES: { result: PlayerResult; label: string }[] = [
   { result: 'tie', label: 'Tie' }
 ];
 
-/** The viewer's report of their match: where it stands, sending it, and settling it once both agree. */
+/** The viewer's report of their match: where it stands and sending it; staff accept it. */
 function createReport(props: Props & { me: string }, found: () => Found | null) {
   const now = createNow();
   /** The answer on its way to the server: its button reads as pressed from the press, not from the reply. */
   const [sending, setSending] = createSignal<PlayerResult | null>(null);
   const busy = () => sending() !== null;
   const [error, setError] = createSignal<string | null>(null);
-  const [settling, setSettling] = createSignal(false);
   const state = () => {
     const f = found();
     return props.claim && f && f.match.p2 !== null
@@ -165,31 +166,13 @@ function createReport(props: Props & { me: string }, found: () => Found | null) 
     }
   }
 
-  async function settle(claim: PlayerClaim) {
-    setSettling(true);
-    const answer = await identifyPlayer(props.view.code, claim, props.reportToken).catch(() => null);
-    if (answer) {
-      props.onView(answer.view);
-    }
-    // Clocks differ by a second or two; if the server did not settle it yet, ask again shortly.
-    setTimeout(() => setSettling(false), 5000);
-  }
-
-  // Once both reports agree and lock, asking again writes the result in, so it shows as it stands.
-  createEffect(() => {
-    const { claim } = props;
-    if (claim && state()?.due && !settling()) {
-      void settle(claim);
-    }
-  });
-
   return { state, busy, sending, error, send };
 }
 
 type Report = ReturnType<typeof createReport>;
 
 /** The answers, what the report is waiting on, and the line that explains it. */
-function ReportPanel(props: { report: Report; found: Found; opponent: string }) {
+function ReportPanel(props: { report: Report; found: Found }) {
   const s = () => props.report.state();
   const choices = () => (props.found.round.kind === 'elimination' ? CHOICES.filter(c => c.result !== 'tie') : CHOICES);
   const status = () => {
@@ -200,7 +183,7 @@ function ReportPanel(props: { report: Report; found: Found; opponent: string }) 
     if (state.disputed) {
       return 'Reports don’t match';
     }
-    return state.locked ? 'Report locked' : `Waiting on ${props.opponent}`;
+    return 'Waiting for staff';
   };
   const note = () => {
     const state = s();
@@ -271,7 +254,7 @@ function MatchLine(props: Props & { me: string; found: Found; report: Report; op
   const names = () => namesById(props.view.tournament);
   const opponent = () => (props.found.match.p1 === props.me ? props.found.match.p2 : props.found.match.p1);
   const result = () => decided(props.report, props.found, props.me, props.view);
-  const canReport = () => Boolean(props.report.state()) && props.reports && !props.open;
+  const canReport = () => props.view.settings.playerReporting && !props.open && (props.reports || !props.claim);
   return (
     <Show
       when={opponent()}
@@ -342,7 +325,7 @@ function placeOf(view: TournamentView, me: string) {
   return rows.find(row => row.playerId === me) ?? null;
 }
 
-function MatchBox(props: Props & { me: string }) {
+function MatchBox(props: Props & { me: string; askAs: PlayerClaim | null }) {
   const [open, setOpen] = createSignal(false);
   const found = () => (props.view.settings.finished ? null : currentMatchOf(props.view.tournament, props.me));
   // Props go through whole: spreading them into an object would read them once and lose later updates.
@@ -358,6 +341,8 @@ function MatchBox(props: Props & { me: string }) {
     const state = report.state();
     return !props.reports && state !== null && !state.final;
   };
+  /** A looked-up player asked to report: the exact claim comes first. */
+  const confirming = () => open() && !props.claim && found() !== null;
   const division = () => divisionHeading(props.view.divisions[props.me] ?? null);
   return (
     <section class='tm-box tm-you' aria-label='Your match'>
@@ -386,7 +371,13 @@ function MatchBox(props: Props & { me: string }) {
           <Match when={found()}>
             {/* A dispute opens the panel on its own, so Report result goes whenever the panel shows. */}
             {f => (
-              <MatchLine {...props} found={f()} report={report} open={Boolean(panel())} onOpen={() => setOpen(true)} />
+              <MatchLine
+                {...props}
+                found={f()}
+                report={report}
+                open={Boolean(panel()) || confirming()}
+                onOpen={() => setOpen(true)}
+              />
             )}
           </Match>
         </Switch>
@@ -394,16 +385,33 @@ function MatchBox(props: Props & { me: string }) {
       <Show when={followsOnly()}>
         <p class='tm-you-panel tm-you-note muted'>{NOT_REPORTER}</p>
       </Show>
-      <Show when={panel() && found()}>
-        {f => (
-          <ReportPanel
-            report={report}
-            found={f()}
-            opponent={
-              namesById(props.view.tournament)
-                .get((f().match.p1 === props.me ? f().match.p2 : f().match.p1) ?? '')
-                ?.split(' ')[0] ?? 'your opponent'
-            }
+      <Show when={confirming()}>
+        <div class='tm-you-panel'>
+          <IdentifyForm
+            view={props.view}
+            idPrefix='report'
+            submitLabel='Confirm reporting player'
+            expect={props.me}
+            onFound={found => {
+              setOpen(true);
+              props.onIdentified(found);
+            }}
+          />
+          <button type='button' class='btn btn-ghost' onClick={() => setOpen(false)}>
+            Cancel
+          </button>
+        </div>
+      </Show>
+      <Show when={panel() && found()}>{f => <ReportPanel report={report} found={f()} />}</Show>
+      <Show when={!props.view.settings.finished && props.askAs}>
+        {claim => (
+          <PlayerRequests
+            view={props.view}
+            me={props.me}
+            claim={claim()}
+            reportToken={props.reportToken}
+            onView={props.onView}
+            onStale={props.onStale}
           />
         )}
       </Show>
@@ -461,23 +469,27 @@ function WhoLine(props: Props & { me: string; division: string }) {
   );
 }
 
-/**
- * The viewer's match once the page knows who they are. Where players report
- * and a round is on, it first asks; elsewhere, a player marks themselves
- * from their player sheet (proving it the same way) and nothing shows until
- * they do.
- */
+/** The selected player's table, or read-only surname lookup until a player is selected. */
 export function YourMatch(props: Props) {
   const reporting = () => props.view.settings.playerReporting;
-  const live = () => !props.view.settings.finished && hasStarted(props.view.tournament);
-  // An account that is the player needs no proof from this device to be shown its table.
-  const known = () => props.me !== null && (props.claim !== null || props.view.viewer.me === props.me);
+  // Lookup is enough to show a table; reporting still needs a separate claim.
+  const known = () => props.me !== null;
   return (
     <Switch>
-      <Match when={reporting() && live() && !known()}>
+      <Match when={!known()}>
         <WhichPlayer {...props} />
       </Match>
-      <Match when={props.me}>{me => <MatchBox {...props} me={me()} claim={reporting() ? props.claim : null} />}</Match>
+      <Match when={props.me}>
+        {/* Requests go from the device that holds the player's seat, reporting or not. */}
+        {me => (
+          <MatchBox
+            {...props}
+            me={me()}
+            claim={reporting() ? props.claim : null}
+            askAs={props.reports ? props.claim : null}
+          />
+        )}
+      </Match>
     </Switch>
   );
 }

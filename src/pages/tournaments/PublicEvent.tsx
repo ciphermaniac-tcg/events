@@ -9,6 +9,7 @@
  * screen, and `?stream=table&table=N` one table's overlay for a stream.
  */
 
+import { keepBrowserMemory, readBrowserMemory } from '../../lib/tournament/browserMemory';
 import { A, useSearchParams } from '@solidjs/router';
 import { createEffect, createMemo, createResource, createSignal, For, lazy, onCleanup, onMount, Show } from 'solid-js';
 import { hasStarted, latestRound, livePods, playerPod, podOf, regularRounds } from '../../../shared/tournament/rounds';
@@ -243,7 +244,7 @@ const tokenKey = (code: string) => `cm-tournament-report:${code}`;
 
 function storedClaim(code: string): PlayerClaim | null {
   try {
-    return JSON.parse(sessionStorage.getItem(claimKey(code)) ?? 'null') as PlayerClaim | null;
+    return JSON.parse(readBrowserMemory(claimKey(code)) ?? 'null') as PlayerClaim | null;
   } catch {
     return null;
   }
@@ -251,12 +252,7 @@ function storedClaim(code: string): PlayerClaim | null {
 
 /** Sets or clears a remembered value. */
 function keep(key: string, value: string | null) {
-  const storage = key.startsWith('cm-tournament-report:') ? localStorage : sessionStorage;
-  if (value) {
-    storage.setItem(key, value);
-  } else {
-    storage.removeItem(key);
-  }
+  keepBrowserMemory(key, value, key.startsWith('cm-tournament-report:'));
 }
 
 /**
@@ -298,17 +294,17 @@ function createMe(view: () => TournamentView, events: { onView: (view: Published
   const code = () => view().code;
   const stored = storedClaim(code());
   const [claim, setClaim] = createSignal(stored);
-  const [chosen, setChosen] = createSignal(stored ? sessionStorage.getItem(meKey(code())) : null);
-  const [reportToken, setReportToken] = createSignal(stored ? localStorage.getItem(tokenKey(code())) : null);
+  const [chosen, setChosen] = createSignal(readBrowserMemory(meKey(code())));
+  const [reportToken, setReportToken] = createSignal(stored ? readBrowserMemory(tokenKey(code()), true) : null);
   /** The player whose seat the account holds, as the server last answered; no token goes with that. */
   const [accountSeat, setAccountSeat] = createSignal<string | null>(null);
   function identified(found: Identified) {
     keep(meKey(code()), found.key);
-    keep(claimKey(code()), JSON.stringify(found.claim));
+    keep(claimKey(code()), found.lookup ? null : JSON.stringify(found.claim));
     setChosen(found.key);
-    setClaim(found.claim);
+    setClaim(found.lookup ? null : found.claim);
     // A new token when this device just became the one that reports; none kept when another device is.
-    const token = found.reportToken ?? (found.reporter === false ? null : reportToken());
+    const token = found.reportToken ?? (found.lookup || found.reporter === false ? null : reportToken());
     keep(tokenKey(code()), token);
     setReportToken(token);
     setAccountSeat(found.linked && found.reporter ? found.key : null);
@@ -319,8 +315,7 @@ function createMe(view: () => TournamentView, events: { onView: (view: Published
     }
   }
   function forget() {
-    [meKey, claimKey].forEach(key => sessionStorage.removeItem(key(code())));
-    localStorage.removeItem(tokenKey(code()));
+    [meKey, claimKey, tokenKey].forEach(key => keep(key(code()), null));
     setChosen(null);
     setClaim(null);
     setReportToken(null);
@@ -346,15 +341,15 @@ function createMe(view: () => TournamentView, events: { onView: (view: Published
       void claimNow(said);
     }
   });
-  // What this device proved counts only for the player the account is, when it is one.
-  const own = () => !view().viewer.me || chosen() === view().viewer.me;
-  // A device that never said who the player is says what the account's player answers with.
-  const ownClaim = () => (own() ? claim() : null) ?? view().viewer.claim ?? null;
-  const ownToken = () => (own() ? reportToken() : null);
-  const me = () => view().viewer.me ?? chosen();
+  // A confirmed selection stays the displayed target even when another account player signs in.
+  const selected = () => chosen() !== null;
+  const looking = () => selected() && claim() === null;
+  const me = () => chosen() ?? view().viewer.me;
+  const ownClaim = () => (selected() ? claim() : (view().viewer.claim ?? null));
+  const ownToken = () => (selected() ? reportToken() : null);
   const accountReports = () => {
     const { viewer } = view();
-    return viewer.me !== null && (accountSeat() === viewer.me || viewer.via === 'claim');
+    return viewer.me !== null && viewer.me === me() && (accountSeat() === viewer.me || viewer.via === 'claim');
   };
   // The player the account last stepped as (see accountStep): it steps again as another, or once a report is refused.
   const [stepped, setStepped] = createSignal<string | null>(null);
@@ -370,7 +365,7 @@ function createMe(view: () => TournamentView, events: { onView: (view: Published
     me,
     claim: ownClaim,
     reportToken: ownToken,
-    reports: () => ownToken() !== null || accountReports(),
+    reports: () => !looking() && (ownToken() !== null || accountReports()),
     identified,
     forget,
     /** A report was refused: the account's seat may have gone to another device since it last asked. */

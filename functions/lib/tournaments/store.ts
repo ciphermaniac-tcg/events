@@ -25,11 +25,13 @@ import {
   type TournamentSummary
 } from '../../../shared/tournament/view.js';
 import { type PlayerReport, pruneReports } from '../../../shared/tournament/reports.js';
+import { type PlayerRequest, withRequestIds } from '../../../shared/tournament/requests.js';
 import { randomToken, sessionHash, sessionUserQuery, type User, userFromRow, type UserRow } from '../auth/session.js';
 import { displayNameSql } from '../accounts/handles.js';
 import { firstRow, rowsChanged } from '../d1.js';
 import type { D1Like, D1Statement } from '../types.js';
 import { deleteWrites, firstIndexWrites, rosterWrites } from './rosterWrites.js';
+import { type ReportEvidence, reportEvidenceWrites } from './reportHistory.js';
 import { winWrites } from './winWrites.js';
 
 export interface TournamentRow {
@@ -41,6 +43,8 @@ export interface TournamentRow {
   pending: PendingResult[];
   /** Results players reported and staff have not settled (see shared/tournament/reports.ts). */
   reports: PlayerReport[];
+  /** What players asked staff for (see shared/tournament/requests.ts). */
+  requests: PlayerRequest[];
   settings: TournamentSettings;
   keys: Record<string, string>;
   /** POP ID to archetype label. */
@@ -62,6 +66,7 @@ interface RawRow {
   state: string;
   pending: string;
   reports: string;
+  requests: string;
   settings: string;
   player_keys: string;
   decks: string;
@@ -89,6 +94,7 @@ function fromRaw(raw: RawRow): TournamentRow {
     tournament: normalizeCutPods(tournament),
     pending: legacyMatchKeys(tournament, JSON.parse(raw.pending) as PendingResult[]),
     reports: legacyMatchKeys(tournament, JSON.parse(raw.reports) as PlayerReport[]),
+    requests: withRequestIds(JSON.parse(raw.requests) as PlayerRequest[]),
     settings: storedSettings(JSON.parse(raw.settings) as Record<string, unknown>),
     keys: JSON.parse(raw.player_keys) as Record<string, string>,
     decks: JSON.parse(raw.decks) as Record<string, string>,
@@ -358,7 +364,7 @@ export async function createTournament(db: D1Like, input: NewTournament): Promis
       });
     checkCreationAdmission(results, input, attempt);
     if (rowsChanged(results[admission.length + 1]) === 1) {
-      const empty = { pending: [], reports: [], decks: {} };
+      const empty = { pending: [], reports: [], requests: [], decks: {} };
       const made = { code, ownerId, mode, tournament, settings, keys, staffToken, version: 1, updatedAt: now };
       return { ...made, ...empty, storeId, communityDay, lastImportAt };
     }
@@ -408,6 +414,9 @@ export interface Changes {
   tournament?: Tournament;
   pending?: PendingResult[];
   reports?: PlayerReport[];
+  requests?: PlayerRequest[];
+  /** Claimant evidence for a successful player filing, kept in the same transaction. */
+  reportEvidence?: Omit<ReportEvidence, 'version'>;
   settings?: TournamentSettings;
   decks?: Record<string, string>;
   /** A Community organizer's event moving to another day (see dayChange). */
@@ -452,7 +461,8 @@ function reportsAfter(row: TournamentRow, changes: Changes): PlayerReport[] {
 function changedRow(row: TournamentRow, changes: Changes): TournamentRow {
   // The keys as saved, so a player added by this change is already under a public key.
   const keys = changes.tournament ? assignKeys(changes.tournament, row.keys) : row.keys;
-  return { ...row, ...changes, keys, reports: reportsAfter(row, changes) };
+  const { reportEvidence: _evidence, ...state } = changes;
+  return { ...row, ...state, keys, reports: reportsAfter(row, changes) };
 }
 
 /** The columns a change writes, and their values: only what it changed. */
@@ -466,6 +476,7 @@ function columnsFor(changes: Changes, next: TournamentRow): [string, string][] {
     ['pending', pending && JSON.stringify(pending)],
     ['settings', settings && JSON.stringify(settings)],
     ['decks', decks && JSON.stringify(decks)],
+    ['requests', changes.requests && JSON.stringify(changes.requests)],
     // Reports follow the results and the reporting setting, so any of those rewrites them.
     ['reports', (changes.reports ?? tournament ?? pending ?? settings) && JSON.stringify(next.reports)]
   ];
@@ -495,8 +506,9 @@ async function saveTournament(db: D1Like, row: TournamentRow, input: Changes): P
     )
     .bind(...columns.map(([, value]) => value), updatedAt, row.code, row.version);
   const ending = next.settings.finished && !row.settings.finished ? [minorCardsCut(db, row, updatedAt)] : [];
+  const evidence = changes.reportEvidence ? reportEvidenceWrites(db, row, changes.reportEvidence) : [];
   const after = [...ending, ...winWrites(db, row, next)];
-  const results = await db.batch([...roster, update, ...after]);
+  const results = await db.batch([...roster, ...evidence, update, ...after]);
   const saved = results.at(-1 - after.length);
   return rowsChanged(saved) === 1 ? { ...next, version: row.version + 1, updatedAt } : null;
 }
@@ -569,6 +581,10 @@ async function tryChange(
   if (typeof changes === 'string') {
     return { error: changes, status: 400 };
   }
+  // A change that changes nothing writes nothing: no new version, nothing to publish.
+  if (Object.keys(changes).length === 0) {
+    return { row };
+  }
   const saved = await saveTournament(db, row, changes).catch((error: unknown) => {
     if (error instanceof TooLarge) {
       return error;
@@ -590,7 +606,6 @@ async function tryChange(
 /** What the console's polls check before anything else: whether the copy they hold still stands. */
 export interface TournamentHead {
   version: number;
-  reports: PlayerReport[];
   /** Whether the request's session belongs to the event's organizer or one of its staff. */
   staff: boolean;
 }
@@ -599,15 +614,15 @@ export interface TournamentHead {
 export async function loadHead(db: D1Like, code: string, request: Request): Promise<TournamentHead | null> {
   const raw = await db
     .prepare(
-      'SELECT version, reports, EXISTS (SELECT 1 FROM sessions WHERE sessions.token_hash = ? ' +
+      'SELECT version, EXISTS (SELECT 1 FROM sessions WHERE sessions.token_hash = ? ' +
         'AND sessions.expires_at > ? AND ((tournaments.store_id IS NULL AND sessions.user_id = tournaments.owner_id) OR EXISTS ' +
         '(SELECT 1 FROM staff WHERE staff.code = tournaments.code AND staff.user_id = sessions.user_id) OR EXISTS ' +
         '(SELECT 1 FROM store_members m WHERE m.store_id = tournaments.store_id AND m.user_id = sessions.user_id))) ' +
         'AS staff FROM tournaments WHERE code = ?'
     )
     .bind((await sessionHash(request)) ?? '', Date.now(), code)
-    .first<{ version: number; reports: string; staff: number }>();
-  return raw && { version: raw.version, reports: JSON.parse(raw.reports) as PlayerReport[], staff: raw.staff === 1 };
+    .first<{ version: number; staff: number }>();
+  return raw && { version: raw.version, staff: raw.staff === 1 };
 }
 
 export async function isStaffMember(db: D1Like, code: string, userId: string): Promise<boolean> {

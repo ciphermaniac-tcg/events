@@ -3,8 +3,9 @@
  * (900px and under, see RoundPanel): a table is pressed, and this sheet rises
  * with its players and every result it can take as full-size buttons. A
  * press records at once, since opening the sheet was the first step; a lone
- * report is offered first, as Accept is in a wide row. Focus starts on the
- * sheet, stays in it, and goes back to what opened it.
+ * report is offered as Accept among the actions, as in a wide row. The body
+ * scrolls while the table and actions stay put. Focus starts on the sheet,
+ * stays in it, and goes back to what opened it.
  */
 
 import { createSignal, For, onCleanup, onMount, Show } from 'solid-js';
@@ -13,6 +14,7 @@ import { RESULT_WORDS } from '../../lib/tournament/present';
 import { DeckIcons } from './DeckIcons';
 import { OptionsMenu } from './OptionsMenu';
 import { ExtensionClock } from './ExtensionClock';
+import { inertOutside, keepTabIn } from '../../lib/focusTrap';
 
 /** Table-level results, besides either player winning; an elimination match has neither. */
 const EVEN: { outcome: Outcome; label: string }[] = [
@@ -38,6 +40,7 @@ export function ResultSheet(props: {
 }) {
   const [ready, setReady] = createSignal(false);
   let sheet: HTMLDivElement | undefined;
+  let scrim: HTMLDivElement | undefined;
   const name = (id: string | null) => (id ? (props.names.get(id) ?? id) : '');
   // Full names: two players can share a first name, and the buttons must never read alike.
   const winners = (): { outcome: Outcome; label: string }[] => [
@@ -59,35 +62,23 @@ export function ResultSheet(props: {
         event.preventDefault();
         event.stopPropagation();
         props.onClose();
-      } else if (event.key === 'Tab') {
-        keepFocus(event);
+      } else if (sheet) {
+        keepTabIn(sheet, event);
       }
     };
     document.addEventListener('keydown', key, true);
+    // Only the sheet, and the scrim that closes it, can be reached while it is open.
+    const live = sheet ? inertOutside(sheet, scrim ? [scrim] : []) : () => undefined;
     onCleanup(() => {
       document.removeEventListener('keydown', key, true);
       root.style.overflow = overflow;
+      live();
       opener?.focus();
     });
     // The sheet itself takes focus, not its first button: a stray Enter must not record a result.
     sheet?.focus();
     requestAnimationFrame(() => setReady(true));
   });
-
-  /** Tab stays inside the sheet while it is open. */
-  function keepFocus(event: KeyboardEvent) {
-    const buttons = [...(sheet?.querySelectorAll<HTMLButtonElement>('button') ?? [])];
-    const first = buttons[0];
-    const last = buttons.at(-1);
-    const at = document.activeElement;
-    if (event.shiftKey && (at === first || at === sheet)) {
-      event.preventDefault();
-      last?.focus();
-    } else if (!event.shiftKey && at === last) {
-      event.preventDefault();
-      first?.focus();
-    }
-  }
 
   const seat = (id: string | null, seatOutcome: Outcome) => (
     <Show when={id}>
@@ -106,7 +97,7 @@ export function ResultSheet(props: {
 
   return (
     <>
-      <div class='tm-result-scrim' onClick={() => props.onClose()} />
+      <div ref={scrim} class='tm-result-scrim' onClick={() => props.onClose()} />
       <div
         ref={sheet}
         class='tm-result-sheet'
@@ -133,42 +124,46 @@ export function ResultSheet(props: {
             {standing()}
           </span>
         </div>
-        <div class='tm-sheet-seats'>
-          <Show when={props.match.timeExtension}>
-            <ExtensionClock match={props.match} round={props.round} playing={props.outcome === 'pending'} />
-          </Show>
-          {seat(props.match.p1, 'p1')}
-          {seat(props.match.p2, 'p2')}
+        <div class='tm-result-sheet-body'>
+          <div class='tm-sheet-seats'>
+            <Show when={props.match.timeExtension}>
+              <ExtensionClock match={props.match} round={props.round} playing={props.outcome === 'pending'} />
+            </Show>
+            {seat(props.match.p1, 'p1')}
+            {seat(props.match.p2, 'p2')}
+          </div>
+          <div class='tm-sheet-choices'>
+            <For each={choices()}>
+              {choice => (
+                <button
+                  type='button'
+                  class='btn btn-secondary'
+                  aria-pressed={props.outcome === choice.outcome}
+                  onClick={() => props.onPick(choice.outcome)}
+                >
+                  {choice.label}
+                </button>
+              )}
+            </For>
+          </div>
         </div>
-        <Show when={props.lone}>
-          {lone => (
-            <button type='button' class='btn btn-primary tm-sheet-accept' onClick={() => props.onPick(lone())}>
-              Accept {RESULT_WORDS[lone()]}
-            </button>
-          )}
-        </Show>
-        <div class='tm-sheet-choices'>
-          <For each={choices()}>
-            {choice => (
-              <button
-                type='button'
-                class='btn btn-secondary'
-                aria-pressed={props.outcome === choice.outcome}
-                onClick={() => props.onPick(choice.outcome)}
-              >
-                {choice.label}
+        <div class='tm-result-sheet-actions'>
+          <Show when={props.lone}>
+            {lone => (
+              <button type='button' class='btn btn-primary tm-sheet-accept' onClick={() => props.onPick(lone())}>
+                Accept {RESULT_WORDS[lone()]}
               </button>
             )}
-          </For>
-        </div>
-        <Show when={props.outcome !== 'pending'}>
-          <button type='button' class='btn btn-ghost tm-sheet-clear' onClick={() => props.onPick('pending')}>
-            Clear result
+          </Show>
+          <Show when={props.outcome !== 'pending'}>
+            <button type='button' class='btn btn-ghost tm-sheet-clear' onClick={() => props.onPick('pending')}>
+              Clear result
+            </button>
+          </Show>
+          <button type='button' class='btn btn-ghost tm-sheet-close' onClick={() => props.onClose()}>
+            Cancel
           </button>
-        </Show>
-        <button type='button' class='btn btn-ghost tm-sheet-close' onClick={() => props.onClose()}>
-          Cancel
-        </button>
+        </div>
       </div>
     </>
   );

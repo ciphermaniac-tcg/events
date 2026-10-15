@@ -2,12 +2,10 @@
  * Results players report themselves, from the event's page.
  *
  * Each player in a match says how it went, and can change their mind for a
- * short window before their report locks. When both reports agree and both
- * have locked, the result stands, as if staff had entered it. When they
+ * short window before their report locks. Every report needs staff acceptance, even when both reports agree. When they
  * disagree, neither counts: the match stays open and shows as disputed until
  * staff enter the result, which settles it either way. One report alone
- * waits for the opponent, and staff can take it as it is. Two agreeing
- * reports sent from one device never settle on their own: staff look first.
+ * waits for the opponent, and staff can take it as it is. Device IDs and account sign-in do not independently verify a reporting seat.
  */
 
 import { divisionsOf } from './podding.js';
@@ -128,30 +126,6 @@ export function fileReport(reports: readonly PlayerReport[], report: PlayerRepor
 export const oneDevice = (a: Pick<PlayerReport, 'device'>, b: Pick<PlayerReport, 'device'>): boolean =>
   a.device !== undefined && a.device === b.device;
 
-/**
- * Whether a match's two reports settle it at `now`: they say the same, both
- * have locked, and they came from two devices. The player's page asks this
- * too, so it calls a result settled exactly when the server will write it.
- */
-export function settles(report: PlayerReport, other: PlayerReport | undefined, now: number): boolean {
-  return (
-    other?.outcome === report.outcome && isLocked(report, now) && isLocked(other, now) && !oneDevice(report, other)
-  );
-}
-
-/** One report from each match whose two reports settle it: those results now stand. */
-export function dueResults(reports: readonly PlayerReport[], now: number): PlayerReport[] {
-  return reports.filter(
-    report =>
-      report.by === report.p1 &&
-      settles(
-        report,
-        reports.find(r => sameMatch(r, report) && r.by === report.p2),
-        now
-      )
-  );
-}
-
 /** The reports filed for one match. */
 export function reportsFor(reports: readonly PlayerReport[], pod: PodCategory, round: number, match: Match) {
   return match.p2 === null
@@ -204,10 +178,4 @@ export function publicReports(reports: readonly PlayerReport[], keys: Record<str
     const { device: _device, ...rest } = report;
     return { ...rest, ...publicDevice(reports, report), p1: key(report.p1), p2: key(report.p2), by: key(report.by) };
   });
-}
-
-/** The result a settled report stands for, as the command staff would send. */
-export function resultOf(report: PlayerReport) {
-  const { pod, round, table, p1, p2, outcome } = report;
-  return { type: 'reportResult' as const, pod, round, table, p1, p2, outcome };
 }

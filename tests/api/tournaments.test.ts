@@ -1252,7 +1252,7 @@ test('a decklist never gives an account a Player ID or birth year, and refreshes
   assert.deepEqual([refreshed.popId, refreshed.firstName, refreshed.birthDate], ['6161', 'Linda', '02/27/2001']);
 });
 
-test('players report their own results: agreement stands once locked, disagreement waits for staff', async () => {
+test('players report their own results: agreement and disagreement both wait for staff', async () => {
   const owner = await signIn('Organizer', 'organizer');
   mock.timers.enable({ apis: ['Date'], now: Date.now() });
   const code = await newSwiss(owner);
@@ -1288,10 +1288,23 @@ test('players report their own results: agreement stands once locked, disagreeme
   await p2.report('loss');
 
   mock.timers.tick(REPORT_WINDOW_MS);
-  assert.match((await p2.report('win')).json.error, /already has a result/);
+  assert.match((await p2.report('win')).json.error, /locked/);
   const settled = await playerSays(code, { popId: first.p1 });
-  assert.deepEqual(settled.json.view.reports, []);
-  assert.equal(settled.json.view.tournament.pods[0].rounds[0].matches[0].outcome, 'p1', 'once locked, it stands');
+  assert.equal(settled.json.view.reports.length, 2);
+  assert.equal(
+    settled.json.view.tournament.pods[0].rounds[0].matches[0].outcome,
+    'pending',
+    'agreement still needs staff'
+  );
+  await send(code, owner, {
+    type: 'reportResult',
+    pod: 'masters',
+    round: 1,
+    table: first.table,
+    p1: first.p1,
+    p2: first.p2,
+    outcome: 'p1'
+  });
 
   const s1 = await phoneOf(code, second.p1);
   const s2 = await phoneOf(code, second.p2);
@@ -1343,7 +1356,7 @@ test('players report their own results: agreement stands once locked, disagreeme
   assert.equal((await playerSays(code, { popId: '0000000' })).status, 404, 'a Player ID not in the event finds nobody');
 });
 
-test('a result the console poll settles is stamped with the venue clock the poll sent', async () => {
+test('a console poll never settles agreeing unverified reports; staff acceptance stamps the venue clock', async () => {
   const owner = await signIn('Organizer', 'organizer');
   mock.timers.enable({ apis: ['Date'], now: Date.now() });
   const code = await newSwiss(owner);
@@ -1351,18 +1364,22 @@ test('a result the console poll settles is stamped with the venue clock the poll
   const paired = await send(code, owner, { type: 'pairRound', pod: 'masters' });
   const [match] = paired.json.tournament.pods[0].rounds[0].matches;
   await settle(code, owner, { playerReporting: true });
-  const { version } = (await hit(manage.onRequestGet as Handler, '/manage', at(code), { cookie: owner })).json;
   await (await phoneOf(code, match.p1)).report('win');
   await (await phoneOf(code, match.p2)).report('loss');
-  mock.timers.tick(REPORT_WINDOW_MS);
-  const polled = await hit(
-    manage.onRequestGet as Handler,
-    `/manage?since=${version}&localTime=${encodeURIComponent('10/10/2026 18:30:00')}`,
-    at(code),
-    { cookie: owner }
-  );
-  const settledMatch = polled.json.tournament.pods[0].rounds[0].matches[0];
-  assert.deepEqual([settledMatch.outcome, settledMatch.timestamp], ['p1', '10/10/2026 18:30:00']);
+  mock.timers.tick(REPORT_WINDOW_MS * 100);
+  const polled = await hit(manage.onRequestGet as Handler, '/manage', at(code), { cookie: owner });
+  assert.equal(polled.json.tournament.pods[0].rounds[0].matches[0].outcome, 'pending');
+  assert.equal(polled.json.reports.length, 2);
+  const accepted = await send(code, owner, {
+    type: 'reportResult',
+    pod: 'masters',
+    round: 1,
+    table: match.table,
+    p1: match.p1,
+    p2: match.p2,
+    outcome: 'p1'
+  });
+  assert.equal(accepted.json.tournament.pods[0].rounds[0].matches[0].outcome, 'p1');
 });
 
 test('players cannot report once the event has ended', async () => {
@@ -1547,7 +1564,7 @@ test('an unsanctioned event finds players by last name, asking for a first name 
   assert.equal(byId.status, 404, 'no Player IDs at an unsanctioned event');
 });
 
-test('at a TOM event an agreed report becomes a pending result for TOM', async () => {
+test('at a TOM event an agreed report needs staff acceptance before becoming pending for TOM', async () => {
   const owner = await signIn('Organizer', 'organizer');
   mock.timers.enable({ apis: ['Date'], now: Date.now() });
   const tdf = parseTdf(readFileSync(new URL('../fixtures/tdf/challenge-midevent.tdf', import.meta.url), 'utf8'));
@@ -1569,13 +1586,27 @@ test('at a TOM event an agreed report becomes a pending result for TOM', async (
   const { version } = both.json.view;
   assert.ok(version > 0, 'the console polls with the version it holds');
   mock.timers.tick(REPORT_WINDOW_MS);
-  const agreed = (await hit(manage.onRequestGet as Handler, `/manage?since=${version}`, at(code), {
+  assert.equal(
+    (await hit(manage.onRequestGet as Handler, `/manage?since=${version}`, at(code), { cookie: owner })).status,
+    204
+  );
+  const agreed = (await hit(manage.onRequestGet as Handler, '/manage', at(code), {
     cookie: owner
   })) as {
     json: { pending: { outcome: string }[]; tournament: TournamentView['tournament'] };
   };
-  assert.equal(agreed.json.pending.length, 1, 'the console’s next look settles it');
-  assert.equal(agreed.json.pending[0]?.outcome, 'tie');
+  assert.equal(agreed.json.pending.length, 0, 'agreement does not settle automatically');
+  const accepted = await send(code, owner, {
+    type: 'reportResult',
+    pod: both.json.view.reports[0].pod,
+    round: both.json.view.reports[0].round,
+    table: both.json.view.reports[0].table,
+    p1: '7200001',
+    p2: '7200004',
+    outcome: 'tie'
+  });
+  assert.equal(accepted.status, 200);
+  assert.equal(accepted.json.pending[0]?.outcome, 'tie');
   const table = agreed.json.tournament.pods[0]?.rounds[1]?.matches.find(m => m.table === 1);
   assert.equal(table?.outcome, 'pending', 'TOM’s copy is untouched');
 });
@@ -1651,6 +1682,35 @@ test('a player with no account submits a list, reads it back with its device tok
     body: { ...LIST, profile }
   });
   assert.equal(foreign.status, 403, 'another site’s page cannot submit for a player');
+});
+
+test('a submitter is checked again as the event stands when written: added meanwhile, or closed meanwhile', async () => {
+  const owner = await signIn('Organizer', 'organizer');
+  const inner = env.TOURNAMENT_DB as ReturnType<typeof sqliteD1>;
+  const code = await newSwiss(owner);
+  await settle(code, owner, { decklists: 'open' });
+  const ada = { popId: '5151', firstName: 'Ada', lastName: 'Byron', birthDate: '02/27/1990' };
+  env.TOURNAMENT_DB = racing(inner, 'UPDATE tournaments SET', () => {
+    const player = { id: ada.popId, firstName: ada.firstName, lastName: ada.lastName, birthDate: ada.birthDate };
+    inner.raw
+      .prepare(
+        "UPDATE tournaments SET state = json_insert(state, '$.players[#]', json(?)), version = version + 1 WHERE code = ?"
+      )
+      .run(JSON.stringify(player), code);
+  });
+  assert.equal((await submitAs(code, ada)).json.registration, 'matched', 'staff added them while the list was sent');
+
+  env.TOURNAMENT_DB = inner;
+  const later = await newSwiss(owner);
+  await settle(later, owner, { decklists: 'open' });
+  env.TOURNAMENT_DB = racing(inner, 'UPDATE tournaments SET', () => {
+    inner.raw
+      .prepare(
+        "UPDATE tournaments SET settings = json_set(settings, '$.finished', json('true')), version = version + 1 WHERE code = ?"
+      )
+      .run(later);
+  });
+  assert.equal((await submitAs(later, ada)).json.registration, 'not-added', 'the event closed while the list was sent');
 });
 
 test('a submitter is only added to an open Swiss event, and an unsanctioned one by name', async () => {

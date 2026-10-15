@@ -1,7 +1,7 @@
 -- Read-only preflight. Missing columns, tables or indexes stop deployment.
 SELECT age_checked_at, handle, profile_name FROM users WHERE 0;
 SELECT token_hash, profile, expires_at FROM pending_signups WHERE 0;
-SELECT store_id, community_day, last_import_at FROM tournaments INDEXED BY tournaments_one_community_day
+SELECT store_id, community_day, last_import_at, requests FROM tournaments INDEXED BY tournaments_one_community_day
  WHERE community_day IS NOT NULL LIMIT 0;
 SELECT id FROM stores INDEXED BY stores_by_league WHERE league_id IS NOT NULL LIMIT 0;
 SELECT user_id, role FROM store_members WHERE 0;
@@ -13,3 +13,4 @@ SELECT key FROM proof_deletions WHERE 0;
 SELECT subject FROM clerk_deletions WHERE 0;
 SELECT user_id, code FROM history_hidden WHERE 0;
 SELECT user_id, links, pins FROM profile_preferences WHERE 0;
+SELECT code, version, player_id, report, account_id, claimed_at FROM report_history WHERE 0;

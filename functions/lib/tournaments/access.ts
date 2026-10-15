@@ -19,6 +19,7 @@ import {
 } from '../../../shared/tournament/view.js';
 import { birthYear } from '../../../shared/tournament/divisions.js';
 import { publicReports } from '../../../shared/tournament/reports.js';
+import { publicRequests } from '../../../shared/tournament/requests.js';
 import { jsonError, jsonResponse } from '../api/responses.js';
 import { type Context, param, sameOrigin } from '../auth/env.js';
 import type { User } from '../auth/session.js';
@@ -106,6 +107,7 @@ export function publicViewOf(row: TournamentRow): PublishedView {
     tournament: publicTournament(row.tournament, row.keys, !isSanctioned(row)),
     pending: publicPending(row.pending, row.keys),
     reports: publicReports(row.reports, row.keys),
+    requests: publicRequests(row.requests, row.keys),
     divisions: publicDivisions(row.tournament, row.keys, Date.now()),
     decks: decksVisible(row.settings) ? publicDecks(row.decks, row.keys) : {},
     settings: row.settings
@@ -158,6 +160,7 @@ export function manageView(access: StaffAccess): Manage {
     tournament: row.tournament,
     pending: row.pending,
     reports: row.reports,
+    requests: row.requests,
     settings: row.settings,
     decks: row.decks,
     role,

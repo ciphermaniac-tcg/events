@@ -57,8 +57,8 @@ import { type Access, codeOf, open, openForStaff, privateJson } from '../../../l
 import { archetypeLabel } from '../../../lib/tournaments/decks.js';
 import { admitTry, clearFailures, forgive, LOCKED_OUT } from '../../../lib/tournaments/attempts.js';
 import { publishAfter } from '../../../lib/tournaments/publish.js';
-import { commandChanges, mutateSettled } from '../../../lib/tournaments/results.js';
-import type { TournamentRow } from '../../../lib/tournaments/store.js';
+import { commandChanges } from '../../../lib/tournaments/results.js';
+import { mutate, type TournamentRow } from '../../../lib/tournaments/store.js';
 
 interface DecklistRow {
   /** The submitter's identity key (see identityKey). */
@@ -408,19 +408,14 @@ async function register(
   };
   // Checked again against the event as it is when written: a second submission
   // may have added them meanwhile, or the organizer closed the event.
-  const outcome = await mutateSettled(
-    access.db,
-    row,
-    current => {
-      if (decklistPlayer(current.tournament, profile, isSanctioned(current)) !== undefined) {
-        return ALREADY_IN;
-      }
-      return current.settings.finished
-        ? 'The event is closed'
-        : commandChanges(current, { type: 'addPlayer', player }, submission.localTime);
-    },
-    submission.localTime
-  );
+  const outcome = await mutate(access.db, row, current => {
+    if (decklistPlayer(current.tournament, profile, isSanctioned(current)) !== undefined) {
+      return ALREADY_IN;
+    }
+    return current.settings.finished
+      ? 'The event is closed'
+      : commandChanges(current, { type: 'addPlayer', player }, submission.localTime);
+  });
   if ('error' in outcome) {
     return { registration: outcome.error === ALREADY_IN ? 'matched' : 'not-added', row };
   }

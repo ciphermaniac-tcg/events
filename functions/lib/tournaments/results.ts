@@ -1,6 +1,5 @@
 /**
- * What one organizer action changes in the stored event, shared by the staff
- * commands endpoint and the players' own reports once they agree and lock.
+ * What one organizer action changes in the stored event, used by staff commands. Player reports require staff acceptance.
  *
  * A Swiss event applies the command to the document. A TOM-run event takes
  * results and the round clock: TOM owns its pairings, so a result entered here
@@ -10,14 +9,12 @@
 
 import { applyCommand as applySiteClock } from '../../../shared/tournament/legacyCommands.js';
 import { applyCommand, type Command } from '../../../shared/tournament/commands.js';
-import { dueResults, resultOf } from '../../../shared/tournament/reports.js';
 import { isOpenMatch } from '../../../shared/tournament/rounds.js';
 import { withSiteClocks } from '../../../shared/tournament/tomClock.js';
 import type { PodCategory, Tournament } from '../../../shared/tournament/types.js';
 import { applyPending, isSanctioned, prunePending, withPending } from '../../../shared/tournament/view.js';
-import type { D1Like } from '../types.js';
 import { commandContext } from './commandContext.js';
-import { type Changes, mutate, type TournamentRow } from './store.js';
+import { type Changes, type TournamentRow } from './store.js';
 
 /**
  * A result for TOM to take in. Only an open match takes one: TOM's own result
@@ -101,52 +98,4 @@ export function tomNextRound(row: TournamentRow, pod: PodCategory, localTime: un
   const context = commandContext(row.tournament, localTime, isSanctioned(row));
   const result = applyCommand(tournament, { type: 'pairRound', pod }, context);
   return result.ok ? result.tournament : result.error;
-}
-
-/**
- * The results players' reports settle by `now`: every match whose two reports
- * agree and have locked, entered as staff would. Null when none is due.
- */
-export function settledChanges(row: TournamentRow, now: number, localTime?: unknown): Changes | null {
-  const due = row.settings.finished ? [] : dueResults(row.reports, now);
-  if (due.length === 0) {
-    return null;
-  }
-  let current = row;
-  let changes: Changes = {};
-  for (const report of due) {
-    const next = commandChanges(current, resultOf(report), localTime);
-    if (typeof next !== 'string') {
-      changes = { ...changes, ...next };
-      current = { ...current, ...next };
-    }
-  }
-  return changes;
-}
-
-/**
- * As `mutate`, with any results the players' reports have settled written in
- * the same change. Nothing runs on a timer, so a result stands at the first
- * write or read after both reports lock (see settleIfDue).
- */
-export function mutateSettled(
-  db: D1Like,
-  read: TournamentRow,
-  change: (row: TournamentRow) => Changes | string,
-  localTime?: unknown
-) {
-  return mutate(db, read, row => {
-    const settled = settledChanges(row, Date.now(), localTime) ?? {};
-    const next = change({ ...row, ...settled });
-    return typeof next === 'string' ? next : { ...settled, ...next };
-  });
-}
-
-/** Writes the settled results when any are due; the row as it now stands. */
-export async function settleIfDue(db: D1Like, row: TournamentRow, localTime?: unknown): Promise<TournamentRow> {
-  if (row.settings.finished || dueResults(row.reports, Date.now()).length === 0) {
-    return row;
-  }
-  const outcome = await mutateSettled(db, row, () => ({}), localTime);
-  return 'error' in outcome ? row : outcome.row;
 }

@@ -140,7 +140,9 @@ CREATE TABLE IF NOT EXISTS tournaments (
   -- owner by the index below: one event per date. NULL for a store's event
   -- and an Admin's.
   community_day TEXT,
-  last_import_at INTEGER
+  last_import_at INTEGER,
+  -- What players asked staff for from the event's page (shared/tournament/requests.ts).
+  requests TEXT NOT NULL DEFAULT '[]'
 );
 CREATE INDEX IF NOT EXISTS tournaments_of_store ON tournaments (store_id) WHERE store_id IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS tournaments_one_community_day ON tournaments (owner_id, community_day)
@@ -193,13 +195,9 @@ CREATE TABLE IF NOT EXISTS decklists (
   PRIMARY KEY (code, user_id)
 ) WITHOUT ROWID;
 
--- Which device reports for a player at an event where players report their
--- own results. The first device to say who the player is claims them: it
--- keeps a token whose SHA-256 is `token_hash`, and only that token files a
--- report as them, so nobody can report for both seats of a match by knowing
--- the opponent's Player ID. `device` is the SHA-256 of an ID the browser
--- keeps; two agreeing reports from one device go to staff rather than
--- settling. Staff remove a row to let another device claim the player.
+-- Reporting tokens contain seat submissions; caller-supplied device IDs and
+-- sign-in do not verify who holds a seat. All player results need staff acceptance.
+-- Staff release a row when a player changes phones.
 CREATE TABLE IF NOT EXISTS report_devices (
   code TEXT NOT NULL,
   player_id TEXT NOT NULL,
@@ -400,4 +398,16 @@ CREATE TABLE IF NOT EXISTS display_presets (
   options TEXT NOT NULL,
   PRIMARY KEY (store_id, id),
   UNIQUE (store_id, name)
+) WITHOUT ROWID;
+
+-- Every report a player filed, as filed, with the account and seat claim time
+-- behind it: staff review disputes from it after a result is accepted.
+CREATE TABLE IF NOT EXISTS report_history (
+  code TEXT NOT NULL,
+  version INTEGER NOT NULL,
+  player_id TEXT NOT NULL,
+  report TEXT NOT NULL,
+  account_id TEXT,
+  claimed_at INTEGER,
+  PRIMARY KEY (code, version, player_id)
 ) WITHOUT ROWID;
