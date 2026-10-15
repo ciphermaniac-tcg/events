@@ -21,7 +21,7 @@ export interface Identified {
   view: PublishedView;
   /** The token to keep, when this device just became the one that reports for the player. */
   reportToken?: string;
-  /** False when another device reports for them. */
+  /** Whether this device reports for them: false for a lookup. */
   reporter?: boolean;
   /** Whether the player is the signed-in account's at this event. */
   linked?: boolean;

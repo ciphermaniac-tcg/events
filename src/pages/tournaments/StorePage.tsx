@@ -9,12 +9,11 @@
 import { byMonth, playersWord } from './storeHistory';
 import { A } from '@solidjs/router';
 import { createEffect, createResource, For, Show } from 'solid-js';
-import { dateIn, managesStore, readDiscordInvite } from '../../../shared/accounts/stores';
+import { addressOf, dateIn, managesStore, readDiscordInvite } from '../../../shared/accounts/stores';
 import type { PastEvent, PublicStore, StoreEvent } from '../../../shared/accounts/types';
 import { Skeleton } from '../../components/Skeleton';
 import { errorText } from '../../lib/tournament/api';
 import {
-  addressOf,
   bareLink,
   byWeek,
   clock,

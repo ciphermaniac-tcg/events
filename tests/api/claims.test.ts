@@ -69,6 +69,10 @@ async function casualEvent() {
   return { owner, code, idOf };
 }
 
+/** The public key of the one player by `lastName`, as table lookup finds them: claiming nobody. */
+const keyOf = async (code: string, lastName: string) =>
+  (await playerSays(code, { lookup: true, lastName })).json.candidates[0].key as string;
+
 /** Pairs round 1, and the match `id` plays in it. */
 async function pair(code: string, owner: string, id: string) {
   const paired = await send(code, owner, { type: 'pairRound', pod: 'masters' });
@@ -87,7 +91,7 @@ test('saying who you are while signed in at an unsanctioned event is a Claim', a
 
   const gary = await signIn('Gary');
   const imposter = await playerSays(code, { lastName: 'Ketchum', device: 'gary-phone' }, { cookie: gary });
-  assert.deepEqual([imposter.json.reporter, imposter.json.linked], [false, false], 'first come');
+  assert.equal(imposter.status, 409, 'first come');
   const anonymous = await playerSays(code, { lastName: 'Oak', device: 'gary-phone' });
   assert.deepEqual([anonymous.json.reporter, anonymous.json.linked], [true, false], 'signed out is a device only');
 });
@@ -127,7 +131,7 @@ test('a device that came first keeps the player from a signed-in account', async
   await playerSays(code, { lastName: 'Ketchum', device: 'someone' });
   const ash = await signIn('Ash');
   const said = await playerSays(code, { lastName: 'Ketchum', device: 'ash-phone' }, { cookie: ash });
-  assert.deepEqual([said.json.reporter, said.json.linked], [false, false]);
+  assert.equal(said.status, 409);
   assert.deepEqual(holders(code), { [idOf('Ketchum')]: null });
 });
 
@@ -138,7 +142,7 @@ test('a device that said who it was before signing in becomes the account’s Cl
   const ash = await signIn('Ash');
   const token = before.json.reportToken as string;
   const without = await playerSays(code, { lastName: 'Ketchum', device: 'ash-laptop' }, { cookie: ash });
-  assert.equal(without.json.linked, false, 'another device of the account, without the token, is not the claimer');
+  assert.equal(without.status, 409, 'another device of the account, without the token, is not the claimer');
   const upgraded = await playerSays(
     code,
     { lastName: 'Ketchum', device: 'ash-phone', reportToken: token },
@@ -189,7 +193,13 @@ test('a finished event takes no new Claim', async () => {
   assert.deepEqual(holders(code), { [idOf('Ketchum')]: null });
 });
 
-const profileOf = (popId: string) => ({ popId, firstName: 'Player', lastName: '0', birthDate: '02/27/1990' });
+/** The profile of the player addPlayers lists under `popId`: the same name and birth year. */
+const profileOf = (popId: string) => ({
+  popId,
+  firstName: 'Player',
+  lastName: String(Number(popId) - 900),
+  birthDate: '02/27/1990'
+});
 
 test('at a sanctioned event an account is the player whose POP ID it holds, and only while it holds it', async () => {
   const owner = await signIn('Organizer', 'organizer');
@@ -284,6 +294,54 @@ test('at a sanctioned event the account is the player whose POP ID it holds, wit
   assert.equal(listed.me, (await playerSays(code, { popId: '901' })).json.key);
   await send(code, owner, { type: 'removePlayer', id: '901' });
   assert.deepEqual(pick((await view(code, player)).viewer), { me: null, via: null, signedIn: true }, 'off the list');
+});
+
+test('at a sanctioned event only a POP ID, name and birth year that all agree make the account the player', async () => {
+  const owner = await signIn('Organizer', 'organizer');
+  const code = await newSwiss(owner);
+  await addPlayers(code, owner, 2);
+  const player = await signIn('Player');
+  const key = await keyOf(code, '1');
+  const put = (body: Record<string, string>) =>
+    hit(me.onRequestPut as Handler, '/api/me', {}, { method: 'PUT', cookie: player, body });
+  const who = async () => {
+    const { me: shown, via, suggest } = (await view(code, player)).viewer;
+    return [shown, via, suggest];
+  };
+  await put({ ...profileOf('901'), lastName: 'Someone' });
+  assert.deepEqual(await who(), [null, null, undefined], 'another name: nobody, and nothing asked');
+  await put({ ...profileOf('901'), birthDate: '02/27/1991' });
+  assert.deepEqual(await who(), [null, null, undefined], 'another birth year: nobody, and nothing asked');
+  await put({ ...profileOf('901'), lastName: 'Someone' });
+  const proved = await playerSays(code, { popId: '901', device: 'phone' }, { cookie: player });
+  assert.equal(proved.json.linked, true);
+  assert.deepEqual(await who(), [key, 'pop', undefined], 'proving it by hand makes it so');
+  await hit(claim.onRequestDelete as Handler, '/claim', at(code), { method: 'DELETE', cookie: player });
+  await put(profileOf('901'));
+  assert.deepEqual(await who(), [key, 'pop', undefined], 'all agree: no question');
+});
+
+test('at an unsanctioned event an account is offered the player its name is near', async () => {
+  const { code } = await casualEvent();
+  const ash = await signIn('Ash');
+  const key = await keyOf(code, 'Ketchum');
+  const named = (first: string, last: string) =>
+    raw().prepare("UPDATE users SET first_name = ?, last_name = ? WHERE handle = 'ash'").run(first, last);
+  assert.equal((await view(code, ash)).viewer.suggest, undefined, 'no name, no guess');
+  named('ash', 'KETCHUM');
+  assert.deepEqual((await view(code, ash)).viewer.suggest, {
+    key,
+    claim: { firstName: 'ash', lastName: 'KETCHUM' }
+  });
+  named('Ash', 'Ketchun');
+  assert.deepEqual((await view(code, ash)).viewer.suggest, { key }, 'a near miss only finds the table');
+  named('Misty', 'Oak');
+  assert.equal((await view(code, ash)).viewer.suggest, undefined, 'nobody near');
+  named('Ash', 'Ketchum');
+  const said = await playerSays(code, { firstName: 'Ash', lastName: 'Ketchum', device: 'ash-phone' }, { cookie: ash });
+  assert.equal(said.json.linked, true, 'saying yes is the Claim');
+  const claimed = (await view(code, ash)).viewer;
+  assert.deepEqual([claimed.me, claimed.via, claimed.suggest], [key, 'claim', undefined]);
 });
 
 test('the event page tells an account what its player answers with, so a device that never asked can report', async () => {
@@ -472,7 +530,7 @@ test('a device’s claim becomes the account’s only while that device still ho
     { lastName: 'Ketchum', device: 'ash-phone', reportToken: before.json.reportToken },
     { cookie: ash }
   );
-  assert.equal(said.json.linked, false);
+  assert.equal(said.status, 409);
   assert.deepEqual(holders(code), { [idOf('Ketchum')]: null }, 'the other device’s claim stays its own');
 });
 
@@ -501,7 +559,7 @@ test('an account whose other request claimed another player first is told so, no
   ahead(CLAIM_WRITE, () => holdAs(code, idOf('Oak'), id));
   const lost = await playerSays(code, { lastName: 'Ketchum', device: 'ash-phone' }, { cookie: ash });
   assert.equal(lost.status, 409);
-  assert.equal(lost.json.linkedKey, (await playerSays(code, { lastName: 'Oak' })).json.key);
+  assert.equal(lost.json.linkedKey, await keyOf(code, 'Oak'));
   assert.deepEqual(holders(code), { [idOf('Oak')]: id }, 'Ash is still free');
 });
 
@@ -517,7 +575,7 @@ test('a device’s claim the account would take is refused when the account took
     { cookie: ash }
   );
   assert.equal(lost.status, 409);
-  assert.equal(lost.json.linkedKey, (await playerSays(code, { lastName: 'Oak' })).json.key);
+  assert.equal(lost.json.linkedKey, await keyOf(code, 'Oak'));
   assert.equal(holders(code)[idOf('Ketchum')], null);
 });
 
@@ -623,7 +681,7 @@ test('a device that claims the player between the read and the write keeps them'
   const ash = await signIn('Ash');
   ahead(CLAIM_WRITE, () => holdAs(code, idOf('Ketchum'), null));
   const said = await playerSays(code, { lastName: 'Ketchum', device: 'ash-phone' }, { cookie: ash });
-  assert.deepEqual([said.status, said.json.reporter, said.json.linked], [200, false, false]);
+  assert.equal(said.status, 409);
   assert.deepEqual(holders(code), { [idOf('Ketchum')]: null });
 });
 

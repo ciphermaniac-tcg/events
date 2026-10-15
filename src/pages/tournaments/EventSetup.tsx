@@ -8,7 +8,9 @@
  * events more than one way picks who runs this one first: one of its stores,
  * or itself, whose events are never sanctioned and so ask nothing about it.
  * A store's Swiss event can start from one of its pokemon.com listings (see
- * ListingPicker), which fills in the name, start, kind and sanction ID.
+ * ListingPicker), which fills in the name, start, kind and sanction ID, so
+ * whether it is sanctioned and its kind are not asked. A store's event is
+ * played at the store, whose name and address the server gives it.
  */
 
 import { For, Show, untrack } from 'solid-js';
@@ -124,16 +126,20 @@ export function EventSetup(props: {
     }
   });
   const swiss = () => props.mode === 'swiss';
+  /** Run by a store, which is where it is played. */
+  const atStore = () => runAs() !== null;
   const logistics = (): Logistics => ({
     timeZone: zone() || (props.runAs.find(option => option.id === runAs())?.timeZone ?? browserZone()),
     checkInAt: checkInAt(),
-    venue: venue(),
-    address: address()
+    venue: atStore() ? '' : venue(),
+    address: atStore() ? '' : address()
   });
   const setLogistics = { timeZone: setZone, checkInAt: setCheckInAt, venue: setVenue, address: setAddress };
   /** Run under the account's own name or an unsanctioned store's: never sanctioned. */
   const own = () => !props.runAs.find(option => option.id === runAs())?.sanctions;
   const sanctioned = () => !own() && sanctionedChoice();
+  /** The listing it starts from, which says whether it is sanctioned and its kind; none run as the account's own. */
+  const listed = () => (own() ? null : listing());
   const selectedEventType = () => (own() && !['local', 'prerelease'].includes(eventType()) ? 'local' : eventType());
   const timeLimits = () => eventTimeLimits(selectedEventType());
   const needsName = () => swiss() && !name().trim();
@@ -184,7 +190,7 @@ export function EventSetup(props: {
     if (cannotCreate()) {
       return;
     }
-    const from = own() ? null : listing();
+    const from = listed();
     props.onCreate({
       name: name().trim(),
       roundTime: Number(roundTime()),
@@ -238,33 +244,13 @@ export function EventSetup(props: {
             </SettingRow>
           )}
         </Show>
-        <Show when={swiss() && !own()}>
+        <Show when={swiss() && !own() && !listed()}>
           <SettingRow label='Sanctioned'>
             <Toggle label='Sanctioned' value={sanctioned()} on='Yes' off='No' onChange={setSanctionedTo} />
           </SettingRow>
         </Show>
         <Show when={needsPlayTools()}>
-          <SettingRow label='Play! Tools'>
-            <div class='tm-field'>
-              <div class='tm-set-inline'>
-                <a href='https://play-tools.pokemon.com/' target='_blank' rel='noopener noreferrer'>
-                  Play! Tools
-                </a>
-                <a href='https://play-tools.pokemon.com/guide' target='_blank' rel='noopener noreferrer'>
-                  Sanctioning guide
-                </a>
-              </div>
-              <label class='tm-check'>
-                <input
-                  type='checkbox'
-                  required
-                  checked={playToolsConfirmed()}
-                  onChange={e => setPlayToolsConfirmed(e.currentTarget.checked)}
-                />
-                I’ve created this event in Play! Tools
-              </label>
-            </div>
-          </SettingRow>
+          <PlayToolsRow confirmed={playToolsConfirmed()} onConfirm={setPlayToolsConfirmed} />
         </Show>
         <SettingRow label='Format' for='setup-format'>
           <FormatSelect id='setup-format' value={format()} onChange={setFormat} />
@@ -278,15 +264,22 @@ export function EventSetup(props: {
             onInput={e => setStartsAt(e.currentTarget.value)}
           />
         </SettingRow>
-        <LogisticsRows id='setup' value={logistics()} onChange={(key, value) => setLogistics[key](value)} />
+        <LogisticsRows
+          id='setup'
+          value={logistics()}
+          place={!atStore()}
+          onChange={(key, value) => setLogistics[key](value)}
+        />
         <Show when={swiss()}>
-          <SettingRow label='Event type'>
-            <EventTypeSwitch
-              value={selectedEventType()}
-              types={own() ? ['local', 'prerelease'] : undefined}
-              onChange={setEventType}
-            />
-          </SettingRow>
+          <Show when={!listed()}>
+            <SettingRow label='Event type'>
+              <EventTypeSwitch
+                value={selectedEventType()}
+                types={own() ? ['local', 'prerelease'] : undefined}
+                onChange={setEventType}
+              />
+            </SettingRow>
+          </Show>
           <SettingRow label='Swiss round minutes' for='setup-minutes'>
             <input
               id='setup-minutes'
@@ -332,6 +325,33 @@ export function EventSetup(props: {
       />
       <ErrorLine message={props.error} />
     </form>
+  );
+}
+
+/** Where a sanctioned event is created first, and the organizer's word that they have. */
+function PlayToolsRow(props: { confirmed: boolean; onConfirm: (value: boolean) => void }) {
+  return (
+    <SettingRow label='Play! Tools'>
+      <div class='tm-field'>
+        <div class='tm-set-inline'>
+          <a href='https://play-tools.pokemon.com/' target='_blank' rel='noopener noreferrer'>
+            Play! Tools
+          </a>
+          <a href='https://play-tools.pokemon.com/guide' target='_blank' rel='noopener noreferrer'>
+            Sanctioning guide
+          </a>
+        </div>
+        <label class='tm-check'>
+          <input
+            type='checkbox'
+            required
+            checked={props.confirmed}
+            onChange={e => props.onConfirm(e.currentTarget.checked)}
+          />
+          I’ve created this event in Play! Tools
+        </label>
+      </div>
+    </SettingRow>
   );
 }
 

@@ -114,7 +114,7 @@ export interface AdminEvent {
   /** The account that made it. */
   owner: string;
   players: number;
-  /** MM/DD/YYYY, as TOM writes it; '' when unset. */
+  /** The day it is on, MM/DD/YYYY as TOM writes it: its start time's, else its .tdf date; '' when neither. */
   startDate: string;
   finished: boolean;
   /** Rounds paired across its pods: 0 before round 1. */
@@ -130,6 +130,11 @@ export interface FoundAccount {
   popId: string | null;
   role: AccountRole | null;
   createdAt: number;
+}
+
+/** An account in the admin page's list of every account: one found, with its username. */
+export interface AdminUser extends FoundAccount {
+  handle: string;
 }
 
 /** A store as its members and admins see it (shared/accounts/stores.ts). */

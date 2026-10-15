@@ -9,6 +9,7 @@ import type { AccountRole } from '../../../shared/accounts/roles';
 import type {
   AdminApplication,
   AdminEvent,
+  AdminUser,
   ApplicationStatus,
   FoundAccount,
   RoleHolder
@@ -41,6 +42,9 @@ export const setOrganizerAccess = (id: string, role: 'community' | 'revoked') =>
 
 /** Every event on the site, the last changed first. */
 export const fetchAllEvents = () => call<{ events: AdminEvent[] }>('/api/admin/events');
+
+/** Every account on the site, the newest first. */
+export const fetchAllUsers = () => call<{ users: AdminUser[] }>('/api/admin/users');
 
 /**
  * What a lookup's text is: a POP ID (up to ten digits), an email (it has an

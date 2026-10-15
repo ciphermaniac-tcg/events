@@ -73,6 +73,12 @@ export interface StoreDetails {
   details: string;
 }
 
+/** An address on one line: street, city, region and postal code as there are. */
+export function addressOf(store: Pick<StoreDetails, 'address' | 'city' | 'region' | 'postal'>): string {
+  const place = [store.city, [store.region, store.postal].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+  return [store.address, place].filter(Boolean).join(', ');
+}
+
 /** Where the store is, for the locator and its clock. */
 export interface StorePlace {
   lat: number;

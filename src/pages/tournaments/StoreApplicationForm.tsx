@@ -12,6 +12,7 @@
 import { createSignal, For, Show } from 'solid-js';
 import { EXPLANATION_MAX } from '../../../shared/accounts/applications';
 import {
+  addressOf,
   type LeagueNight,
   readLeagueId,
   type Relationship,
@@ -21,7 +22,6 @@ import {
 import type { LeagueFound, MyApplication } from '../../../shared/accounts/types';
 import { ApiError, errorText } from '../../lib/tournament/api';
 import {
-  addressOf,
   browserZone,
   cleanDetails,
   detailsFromLeague,

@@ -5,6 +5,7 @@
  * { expect } names the public key the page chose: a claim that resolves to anyone else is refused before
  * any seat or account write, so a fuzzy lookup's pick cannot become another player's seat.
  * With { request }, the reporting device asks staff to drop the player or come over (requests.ts).
+ * A claim another device holds is refused, so one device is the player at a time.
  * GET returns retained filing evidence to staff; DELETE releases a reporting seat.
  */
 
@@ -231,11 +232,21 @@ async function ask(context: Context<'code'>, access: Access, body: Body, id: str
   return privateJson({ key: outcome.row.keys[id] ?? null, view: publicViewOf(outcome.row), ...standingOf(standing) });
 }
 
-/** Exact reporting identity and seat ownership, independent of fuzzy table lookup. */
+const CLAIMED = 'Another device already claimed this player. Ask staff if that’s wrong.';
+
+/**
+ * Exact reporting identity and seat ownership, independent of fuzzy table
+ * lookup. One device is the player at a time: another that says it is them
+ * is refused, short of being the account the player is, until staff release
+ * the player. It can still look up their table.
+ */
 async function identify(access: Access, body: Body, id: string) {
   const standing = await standingIn(access, body, id);
   if (standing instanceof Response) {
     return standing;
+  }
+  if (!standing.reporter) {
+    return jsonError(CLAIMED, 409);
   }
   const { row } = access;
   return privateJson({ key: row.keys[id] ?? null, view: publicViewOf(row), ...standingOf(standing) });

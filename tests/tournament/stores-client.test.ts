@@ -11,9 +11,9 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { afterEach, test } from 'node:test';
 
+import { addressOf } from '../../shared/accounts/stores.ts';
 import type { LeagueFound, Listing } from '../../shared/accounts/types.ts';
 import {
-  addressOf,
   bareLink,
   blankNight,
   byWeek,

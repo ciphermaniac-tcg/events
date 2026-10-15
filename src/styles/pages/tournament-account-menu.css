@@ -63,9 +63,11 @@
   color: var(--fg);
   font-size: var(--text-body);
 }
+/* Sign out reads as one of the links, underline and all. */
 .tm-acct-menu a:hover,
 .tm-acct-menu button:hover {
   background: var(--bg);
+  text-decoration: underline;
 }
 @media (pointer: coarse) {
   .tm-acct-menu a,
@@ -80,15 +82,4 @@
   border-radius: 0;
   color: var(--muted);
   font-size: var(--text-base);
-}
-
-.tm-acct-menu .tm-acct-out {
-  margin-top: var(--space-1);
-  border: 0;
-  border-top: 1px solid var(--rule);
-  border-radius: 0;
-  background: transparent;
-  font-family: inherit;
-  text-align: left;
-  cursor: pointer;
 }

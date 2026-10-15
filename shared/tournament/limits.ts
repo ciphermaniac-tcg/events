@@ -21,6 +21,9 @@ export function eventDay(startsAt: string, today: string): string {
   return ISO_DAY_RE.test(day) ? day : today;
 }
 
+/** YYYY-MM-DD as TOM writes a date, MM/DD/YYYY. */
+export const tomDate = (day: string) => `${day.slice(5, 7)}/${day.slice(8, 10)}/${day.slice(0, 4)}`;
+
 /**
  * The organizer's date, as their browser sent it (YYYY-MM-DD): taken when it
  * is within a day of the server's, as every time zone's date is; the server's

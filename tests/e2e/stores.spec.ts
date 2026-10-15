@@ -696,7 +696,10 @@ test('a store event starts from a listing, which fills the setup and sends its s
   await expect(page.getByRole('textbox', { name: 'Event name' })).toHaveValue('Combat Power League Cup');
   await expect(page.getByLabel('Starts')).toHaveValue('2099-10-11T11:00');
   await expect(page.locator('.tm-set-row', { hasText: 'Sanction ID' })).toContainText('26-10-007710');
-  await expect(page.getByRole('radio', { name: 'League Cup', exact: true })).toHaveAttribute('aria-checked', 'true');
+  await expect(page.locator('.tm-set-row', { hasText: 'Sanction ID' })).toContainText('League Cup');
+  // The listing says it is sanctioned, and what kind it is: neither is asked.
+  await expect(page.getByRole('radiogroup', { name: 'Sanctioned', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('radiogroup', { name: 'Event type', exact: true })).toHaveCount(0);
   await expect(page.getByRole('checkbox', { name: /created this event in Play! Tools/ })).toBeChecked();
   await page.getByRole('button', { name: 'Create event' }).click();
   await expect(page).toHaveURL(/\/host\/NEW001/);
@@ -719,6 +722,8 @@ test('Not listed here keeps what was typed and sends no sanction ID', async ({ p
   await expect(page.locator('.tm-set-row', { hasText: 'Sanction ID' })).toContainText('Local');
   await picker.getByRole('radio', { name: 'Not listed here' }).check();
   await expect(page.locator('.tm-set-row', { hasText: 'Sanction ID' })).toHaveCount(0);
+  await expect(page.getByRole('radiogroup', { name: 'Sanctioned', exact: true })).toBeVisible();
+  await expect(page.getByRole('radiogroup', { name: 'Event type', exact: true })).toBeVisible();
   await expect(page.getByRole('textbox', { name: 'Event name' })).toHaveValue('Combat Power Locals');
   await page.getByRole('button', { name: 'Create event' }).click();
   await expect(page).toHaveURL(/\/host\/NEW001/);

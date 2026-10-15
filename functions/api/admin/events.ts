@@ -1,10 +1,11 @@
 /**
  * GET /api/admin/events — every event on the site, stores' and those run
  * under an account's own name alike, the last changed first: who runs it,
- * how far along it is and how many play.
+ * the day it is on, how far along it is and how many play.
  */
 
 import type { AdminEvent } from '../../../shared/accounts/types.js';
+import { eventDay, tomDate } from '../../../shared/tournament/limits.js';
 import { displayNameSql } from '../../lib/accounts/handles.js';
 import { openForAdmin } from '../../lib/auth/admin.js';
 import type { Context } from '../../lib/auth/env.js';
@@ -22,10 +23,21 @@ interface EventRow {
   owner: string | null;
   players: number | null;
   start_date: string | null;
+  starts_at: string | null;
   finished: number | null;
   rounds: number | null;
   updated_at: number;
 }
+
+/**
+ * The day the event is on: the day its start time names, which the organizer
+ * can change, else its .tdf date, which for an event made here is the day it
+ * was made.
+ */
+const dayOf = (row: EventRow): string => {
+  const day = eventDay(row.starts_at ?? '', '');
+  return day ? tomDate(day) : (row.start_date ?? '');
+};
 
 const eventOf = (row: EventRow): AdminEvent => ({
   code: row.code,
@@ -33,7 +45,7 @@ const eventOf = (row: EventRow): AdminEvent => ({
   store: row.store_id === null ? null : { id: row.store_id, name: row.store_name ?? '' },
   owner: row.owner ?? '',
   players: row.players ?? 0,
-  startDate: row.start_date ?? '',
+  startDate: dayOf(row),
   finished: row.finished === 1,
   rounds: row.rounds ?? 0,
   updatedAt: row.updated_at
@@ -42,7 +54,8 @@ const eventOf = (row: EventRow): AdminEvent => ({
 const QUERY =
   "SELECT t.code, json_extract(t.state, '$.info.name') AS name, t.store_id, s.name AS store_name, " +
   `${displayNameSql('u')} AS owner, json_array_length(t.state, '$.players') AS players, ` +
-  "json_extract(t.state, '$.info.startDate') AS start_date, json_extract(t.settings, '$.finished') AS finished, " +
+  "json_extract(t.state, '$.info.startDate') AS start_date, json_extract(t.settings, '$.startsAt') AS starts_at, " +
+  "json_extract(t.settings, '$.finished') AS finished, " +
   `${pairedRounds('t.state')} AS rounds, t.updated_at FROM tournaments t ` +
   'LEFT JOIN stores s ON s.id = t.store_id LEFT JOIN users u ON u.id = t.owner_id ' +
   `ORDER BY t.updated_at DESC LIMIT ${MAX_EVENTS}`;

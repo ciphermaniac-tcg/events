@@ -305,8 +305,8 @@ function createMe(view: () => TournamentView, events: { onView: (view: Published
     keep(claimKey(code()), found.lookup ? null : JSON.stringify(found.claim));
     setChosen(found.key);
     setClaim(found.lookup ? null : found.claim);
-    // A new token when this device just became the one that reports; none kept when another device is.
-    const token = found.reportToken ?? (found.lookup || found.reporter === false ? null : reportToken());
+    // A new token when this device just became the one that reports; none kept for a lookup.
+    const token = found.reportToken ?? (found.lookup ? null : reportToken());
     keep(tokenKey(code()), token);
     setReportToken(token);
     setAccountSeat(found.linked && found.reporter ? found.key : null);
@@ -468,7 +468,7 @@ function OpenPlayer(props: {
           names={props.names}
           records={records()}
           decks={props.view.decks}
-          isMe={props.me === props.id}
+          me={props.me}
           following={props.following.has(props.id)}
           onFollow={() => props.onFollow(props.id)}
           onIdentified={props.onIdentified}

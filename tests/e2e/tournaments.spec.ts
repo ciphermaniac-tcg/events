@@ -118,7 +118,117 @@ test('the public page shows the round, finds a player and opens their history @m
   await sheet.getByRole('button', { name: 'Close' }).click();
   await expect(page.locator('.tm-you-big')).toHaveText(/Table\s*2/);
   await expect(page.locator('.tm-you-who')).toContainText('Hedy Lamarr');
+  // Known now, the viewer is not offered to be anyone else.
+  await page.getByRole('searchbox', { name: 'Find a player' }).fill('');
+  await page
+    .locator('.tm-matches')
+    .getByRole('button', { name: /Mary Jackson/ })
+    .first()
+    .click();
+  await expect(sheet).toContainText('Mary Jackson');
+  await expect(sheet.getByRole('button', { name: 'This is me' })).toHaveCount(0);
+  await expect(sheet.getByRole('button', { name: 'This isn’t me' })).toHaveCount(0);
   expect(errors).toEqual([]);
+});
+
+test('a player another device already claimed is refused, and the sheet says why', async ({ page }) => {
+  await mockApi(page);
+  await page.route(`**/api/tournaments/${CODE}/report`, route =>
+    route.fulfill({
+      status: 409,
+      json: { error: 'Another device already claimed this player. Ask staff if that’s wrong.' }
+    })
+  );
+  await page.goto(`/t/${CODE}`);
+  await page
+    .locator('.tm-matches')
+    .getByRole('button', { name: /Hedy Lamarr/ })
+    .first()
+    .click();
+  const sheet = page.getByRole('dialog');
+  await sheet.getByRole('button', { name: 'This is me' }).click();
+  await sheet.getByLabel('Player ID').fill(tdf.players.find(p => p.lastName === 'Lamarr')?.id ?? '');
+  await sheet.getByLabel('Birth year').fill(yearOf('Lamarr'));
+  await sheet.getByRole('button', { name: 'Confirm' }).click();
+  await expect(sheet.locator('.tm-error')).toHaveText(
+    'Another device already claimed this player. Ask staff if that’s wrong.'
+  );
+  await expect(sheet.getByRole('button', { name: 'This isn’t me' })).toHaveCount(0);
+});
+
+/** The name Hedy Lamarr's account answers with, exactly hers. */
+const HEDY = { firstName: 'Hedy', lastName: 'Lamarr' };
+
+/**
+ * An unsanctioned event as a signed-in account sees it whose name is near
+ * Hedy Lamarr's: exactly hers, which yes claims her with, or a near miss.
+ */
+function suggestedView(exact: boolean): TournamentView {
+  const hedy = tdf.players.find(p => p.lastName === 'Lamarr')!;
+  const suggest = { key: keys[hedy.id]!, ...(exact ? { claim: HEDY } : {}) };
+  return {
+    ...VIEW,
+    settings: { ...VIEW.settings, sanctioned: false },
+    viewer: { role: null, me: null, via: null, signedIn: true, suggest }
+  };
+}
+
+test('an account that looks to be a player is asked, and yes claims them', async ({ page }) => {
+  const hedy = tdf.players.find(p => p.lastName === 'Lamarr')!;
+  const view = suggestedView(true);
+  await mockApi(page, view);
+  const asked: Record<string, unknown>[] = [];
+  await page.route(`**/api/tournaments/${CODE}/report`, route => {
+    asked.push(route.request().postDataJSON() as Record<string, unknown>);
+    const { viewer: _viewer, ...published } = view;
+    return route.fulfill({ json: { key: keys[hedy.id], view: published, reporter: true, reportToken: 'token' } });
+  });
+  await page.goto(`/t/${CODE}`);
+  const box = page.getByRole('region', { name: 'Your match' });
+  await expect(box.getByRole('heading', { name: 'Is this you?' })).toBeVisible();
+  await expect(box.locator('.tm-lookup-match')).toContainText('Hedy Lamarr');
+  await expect(box.getByLabel('Last name', { exact: true })).toHaveCount(0);
+  await box.getByRole('button', { name: 'That’s me' }).click();
+  await expect(page.locator('.tm-you-who')).toContainText('Hedy Lamarr');
+  expect(asked).toEqual([expect.objectContaining({ ...HEDY, expect: keys[hedy.id] })]);
+});
+
+test('yes to a player whose name is only near the account’s shows their table', async ({ page }) => {
+  await mockApi(page, suggestedView(false));
+  const asked: unknown[] = [];
+  await page.route(`**/api/tournaments/${CODE}/report`, route => {
+    asked.push(route.request().postDataJSON());
+    return route.fulfill({ status: 500, json: { error: 'Not asked' } });
+  });
+  await page.goto(`/t/${CODE}`);
+  await page.getByRole('button', { name: 'That’s me' }).click();
+  await expect(page.locator('.tm-you-big')).toHaveText(/Table\s*2/);
+  await expect(page.getByRole('button', { name: 'Report result' })).toHaveCount(0);
+  expect(asked).toEqual([]);
+});
+
+test('yes to a player another device holds shows their table, and reporting stays theirs', async ({ page }) => {
+  await mockApi(page, suggestedView(true));
+  await page.route(`**/api/tournaments/${CODE}/report`, route =>
+    route.fulfill({
+      status: 409,
+      json: { error: 'Another device already claimed this player. Ask staff if that’s wrong.' }
+    })
+  );
+  await page.goto(`/t/${CODE}`);
+  await page.getByRole('button', { name: 'That’s me' }).click();
+  await expect(page.locator('.tm-you-big')).toHaveText(/Table\s*2/);
+  await expect(page.locator('.tm-you-who')).toContainText('Hedy Lamarr');
+});
+
+test('no to a suggested player goes back to asking which player, and is remembered', async ({ page }) => {
+  await mockApi(page, suggestedView(false));
+  await page.goto(`/t/${CODE}`);
+  await page.getByRole('button', { name: 'Not me' }).click();
+  await expect(page.getByRole('heading', { name: 'Which player are you?' })).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'Which player are you?' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Is this you?' })).toHaveCount(0);
 });
 
 test('retrying a lost identify response restores reporting and remembers the recovered token', async ({ page }) => {
@@ -1444,21 +1554,21 @@ test('a remembered lookup keeps its target when reporting is confirmed beside an
   expect(reports[0]).toMatchObject({ popId: selectedPlayer.id, reportToken: 'selected-token', result: 'win' });
 });
 
-test('setup asks where and when, starting in the store’s zone, and keeps the answers', async ({ page }) => {
+test('setup asks when, starting in the store’s zone, and keeps the answers; the store is where', async ({ page }) => {
   const submissions = await mockOrganizer(page);
   await page.goto('/');
   await page.getByRole('button', { name: 'Start an event' }).click();
   const zone = page.getByRole('combobox', { name: 'Time zone' });
   await expect(zone).toHaveValue('America/Chicago');
+  await expect(page.getByRole('textbox', { name: 'Venue' })).toHaveCount(0);
+  await expect(page.getByRole('textbox', { name: 'Address' })).toHaveCount(0);
   await page.getByRole('textbox', { name: 'Event name' }).fill('Sunday Cup');
-  await page.getByRole('textbox', { name: 'Venue' }).fill('Test Games');
-  await page.getByRole('textbox', { name: 'Address' }).fill('100 Main Street');
   await page.locator('#setup-check-in').fill('2026-10-18T11:30');
   await zone.selectOption('Europe/London');
   await page.getByRole('button', { name: 'Cancel', exact: true }).click();
   await page.reload();
   await page.getByRole('button', { name: 'Start an event' }).click();
-  await expect(page.getByRole('textbox', { name: 'Venue' })).toHaveValue('Test Games');
+  await expect(page.locator('#setup-check-in')).toHaveValue('2026-10-18T11:30');
   await expect(zone).toHaveValue('Europe/London');
   await page.getByRole('button', { name: 'Create event' }).click();
   await expect(page.locator('.tm-error')).toHaveText('Fixture submission');
@@ -1466,8 +1576,8 @@ test('setup asks where and when, starting in the store’s zone, and keeps the a
     expect.objectContaining({
       settings: expect.objectContaining({
         timeZone: 'Europe/London',
-        venue: 'Test Games',
-        address: '100 Main Street',
+        venue: '',
+        address: '',
         checkInAt: '2026-10-18T11:30'
       })
     })

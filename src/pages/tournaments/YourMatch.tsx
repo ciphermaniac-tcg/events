@@ -38,6 +38,7 @@ import { ErrorLine } from './Field';
 import { type Identified, IdentifyForm } from './Identify';
 import { createNow } from './now';
 import { PlayerRequests } from './PlayerRequests';
+import { pendingSuggestion, SuggestedPlayer } from './SuggestedPlayer';
 
 // Loaded on asking: most players never sign in from here, and Settings has these already.
 const SignIn = lazy(() => import('./SignIn').then(m => ({ default: m.SignIn })));
@@ -105,20 +106,46 @@ function SignInHere(props: { code: string; offer: SignInOffer }) {
   );
 }
 
-/** Surname lookup is available independently of reporting permission or account identity. */
+/**
+ * Surname lookup is available independently of reporting permission or
+ * account identity. A signed-in account that looks to be one of the players
+ * is asked about them first (see SuggestedPlayer).
+ */
 function WhichPlayer(props: Props) {
+  // Read again on each new copy of the event; No hides that player at once.
+  const [declined, setDeclined] = createSignal<string | null>(null);
+  const suggest = () => {
+    const found = pendingSuggestion(props.view);
+    return found?.key === declined() ? undefined : found;
+  };
   return (
     <section class='tm-box tm-you tm-you-ask' aria-label='Your match'>
-      <h2 class='tm-you-q'>Which player are you?</h2>
-      <IdentifyForm
-        view={props.view}
-        idPrefix='lookup'
-        submitLabel='Find my match'
-        lookup
-        onFound={props.onIdentified}
-      />
-      <Show when={!props.signedIn}>
-        <SignInHere code={props.view.code} offer={props.offer} />
+      <Show
+        when={suggest()}
+        fallback={
+          <>
+            <h2 class='tm-you-q'>Which player are you?</h2>
+            <IdentifyForm
+              view={props.view}
+              idPrefix='lookup'
+              submitLabel='Find my match'
+              lookup
+              onFound={props.onIdentified}
+            />
+            <Show when={!props.signedIn}>
+              <SignInHere code={props.view.code} offer={props.offer} />
+            </Show>
+          </>
+        }
+      >
+        {found => (
+          <SuggestedPlayer
+            view={props.view}
+            suggest={found()}
+            onIdentified={props.onIdentified}
+            onDeclined={() => setDeclined(found().key)}
+          />
+        )}
       </Show>
     </section>
   );

@@ -9,7 +9,7 @@ import { expect, type Page } from '@playwright/test';
 import { test } from './network-guard';
 
 import type { AccountRole } from '../../shared/accounts/roles';
-import type { AdminApplication, FoundAccount, RoleHolder } from '../../shared/accounts/types';
+import type { AdminApplication, AdminUser, FoundAccount, RoleHolder } from '../../shared/accounts/types';
 
 const ADMIN = {
   id: 'reese',
@@ -67,6 +67,19 @@ const FOUND: FoundAccount = {
   role: null,
   createdAt: DAY
 };
+
+const USERS: AdminUser[] = [
+  { ...FOUND, handle: 'mary' },
+  {
+    id: 'reese',
+    name: 'Reese',
+    handle: 'reese',
+    email: 'reese@example.com',
+    popId: null,
+    role: 'admin',
+    createdAt: DAY
+  }
+];
 
 interface Asked {
   method: string;
@@ -145,6 +158,9 @@ async function mockAdmin(page: Page, user: typeof ADMIN | null = ADMIN, decidedE
     }
     if (url.pathname === '/api/admin/events') {
       return route.fulfill({ json: { events: EVENTS } });
+    }
+    if (url.pathname === '/api/admin/users') {
+      return route.fulfill({ json: { users: USERS } });
     }
     if (url.pathname === '/api/admin/accounts') {
       return route.fulfill({ json: { accounts: url.searchParams.get('popId') === '404' ? [] : [FOUND] } });
@@ -316,6 +332,19 @@ test('an Admin sees every event, a store’s and a community one, each opening i
   await expect(rows.nth(1)).toContainText('Sam Lee');
   await expect(rows.nth(1)).toContainText('Finished');
   await expect(rows.nth(1).getByRole('link', { name: 'Park Meetup' })).toHaveAttribute('href', '/t/def456');
+});
+
+test('an Admin sees every account, and finds one by what they type', async ({ page }) => {
+  await mockAdmin(page);
+  await page.goto('/admin?tab=users');
+  const rows = page.locator('.tm-admin-users tbody tr');
+  await expect(rows).toHaveCount(2);
+  await expect(rows.nth(0)).toContainText('mary@example.com');
+  await expect(rows.nth(0)).toContainText('7200001');
+  await expect(rows.nth(1)).toContainText('Admin');
+  await page.getByLabel('Find a user').fill('7200001');
+  await expect(rows).toHaveCount(1);
+  await expect(rows.nth(0)).toContainText('Mary');
 });
 
 test('the dashboard links an Admin to the admin page, and the old Admin tab address goes there', async ({ page }) => {

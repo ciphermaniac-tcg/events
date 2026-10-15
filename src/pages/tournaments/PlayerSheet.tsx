@@ -4,7 +4,8 @@
  * the opponent's record and the result. A side sheet on desktop, a bottom
  * sheet on a phone. It is also where a player marks themselves, proving it
  * with their Player ID or last name, so the page can lead with their table
- * from then on, and where a spectator follows them.
+ * from then on, and where a spectator follows them. A viewer the page
+ * already knows as a player is not offered to be another.
  */
 
 import { createEffect, createSignal, For, on, onCleanup, onMount, Show } from 'solid-js';
@@ -28,7 +29,8 @@ export function PlayerSheet(props: {
   /** Each player's record so far. */
   records: Map<string, string>;
   decks: Record<string, string>;
-  isMe: boolean;
+  /** The viewer's own player, once the page knows them. */
+  me: string | null;
   /** Whether this device follows the player, for the pairings' Following filter. */
   following: boolean;
   onFollow: () => void;
@@ -184,14 +186,12 @@ export function PlayerSheet(props: {
           >
             {props.following ? 'Following' : 'Follow'}
           </button>
-          <Show
-            when={!props.isMe}
-            fallback={
-              <button type='button' class='btn btn-ghost' onClick={() => props.onForget()}>
-                This isn’t me
-              </button>
-            }
-          >
+          <Show when={props.me === props.playerId}>
+            <button type='button' class='btn btn-ghost' onClick={() => props.onForget()}>
+              This isn’t me
+            </button>
+          </Show>
+          <Show when={props.me === null}>
             <Show
               when={proving()}
               fallback={

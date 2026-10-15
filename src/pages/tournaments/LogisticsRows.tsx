@@ -1,7 +1,8 @@
 /**
  * Where and when players gather, as settings rows: the event's own time
  * zone, which its start and check-in are read in, check-in, and the venue.
- * Setup and the console's Event tab share them.
+ * Setup and the console's Event tab share them; setup leaves the venue out
+ * for a store's event, which is played at the store.
  */
 
 import { For, Show } from 'solid-js';
@@ -23,6 +24,8 @@ export function LogisticsRows(props: {
   /** The prefix of the rows' control ids. */
   id: string;
   value: Logistics;
+  /** Whether to ask for the venue and its address. */
+  place?: boolean;
   onChange: (key: keyof Logistics, value: string) => void;
 }) {
   return (
@@ -52,24 +55,26 @@ export function LogisticsRows(props: {
           onInput={e => props.onChange('checkInAt', e.currentTarget.value)}
         />
       </SettingRow>
-      <SettingRow label='Venue' for={`${props.id}-venue`}>
-        <input
-          id={`${props.id}-venue`}
-          class='tm-input'
-          maxLength={SETTINGS_LIMITS.venue}
-          value={props.value.venue}
-          onInput={e => props.onChange('venue', e.currentTarget.value)}
-        />
-      </SettingRow>
-      <SettingRow label='Address' for={`${props.id}-address`}>
-        <input
-          id={`${props.id}-address`}
-          class='tm-input'
-          maxLength={SETTINGS_LIMITS.address}
-          value={props.value.address}
-          onInput={e => props.onChange('address', e.currentTarget.value)}
-        />
-      </SettingRow>
+      <Show when={props.place ?? true}>
+        <SettingRow label='Venue' for={`${props.id}-venue`}>
+          <input
+            id={`${props.id}-venue`}
+            class='tm-input'
+            maxLength={SETTINGS_LIMITS.venue}
+            value={props.value.venue}
+            onInput={e => props.onChange('venue', e.currentTarget.value)}
+          />
+        </SettingRow>
+        <SettingRow label='Address' for={`${props.id}-address`}>
+          <input
+            id={`${props.id}-address`}
+            class='tm-input'
+            maxLength={SETTINGS_LIMITS.address}
+            value={props.value.address}
+            onInput={e => props.onChange('address', e.currentTarget.value)}
+          />
+        </SettingRow>
+      </Show>
     </>
   );
 }

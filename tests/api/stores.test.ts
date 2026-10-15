@@ -279,8 +279,24 @@ test('a store’s people start its events, sanctioned or not, from TOM or not; o
     [info.city, info.state, info.country, info.startDate, info.sanctionId, info.organizerPopId, info.organizerName],
     ['San Antonio', 'TX', 'US', '11/15/2026', '26-11-000123', '555', 'Mia Lee']
   );
-  assert.equal(JSON.parse(row.settings).sanctioned, true);
+  const settings = JSON.parse(row.settings);
+  assert.equal(settings.sanctioned, true);
+  const shop = raw().prepare('SELECT name, address, postal FROM stores WHERE id = ?').get(store) as Record<
+    string,
+    string
+  >;
+  assert.deepEqual(
+    [settings.venue, settings.address],
+    [shop.name, [shop.address, 'San Antonio', `TX ${shop.postal}`.trim()].filter(Boolean).join(', ')],
+    'played at the store'
+  );
   assert.deepEqual([row.store_id, row.community_day], [store, null], 'a store’s events hold no date');
+  const elsewhereVenue = await create(manager, { store, settings: { startsAt: '2026-11-16T19:00', venue: 'Library' } });
+  const venueOf = (code: string) =>
+    JSON.parse(
+      (raw().prepare('SELECT settings FROM tournaments WHERE code = ?').get(code) as { settings: string }).settings
+    ).venue as string;
+  assert.equal(venueOf(elsewhereVenue.json.code), 'Library', 'a venue named in setup stands');
   assert.equal((await create(manager, { store, settings: { startsAt: '2026-11-15T19:00' } })).status, 201);
   const tdf = parseTdf(readFileSync(new URL('../fixtures/tdf/challenge-midevent.tdf', import.meta.url), 'utf8'));
   assert.equal((await create(manager, { store, mode: 'tom', tournament: tdf })).status, 201);

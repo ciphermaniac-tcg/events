@@ -1135,7 +1135,7 @@ test('a device recovers a reporting seat after its identify response is lost', a
   // different device's ID recovers the reserved seat.
   for (const stranger of [{}, { device: crypto.randomUUID() }]) {
     const refused = await playerSays(code, { popId: match.p1, ...stranger });
-    assert.equal(refused.json.reporter, false);
+    assert.equal(refused.status, 409);
     assert.equal(refused.json.reportToken, undefined);
   }
   const recovered = await playerSays(code, { popId: match.p1, device });
@@ -1155,7 +1155,7 @@ test('a device recovers a reporting seat after its identify response is lost', a
   await hit(report.onRequestDelete as Handler, `/?player=${match.p1}`, at(code), { method: 'DELETE', cookie: owner });
   await playerSays(code, { popId: match.p1, device: crypto.randomUUID() });
   const released = await playerSays(code, { popId: match.p1, device, reportToken: recovered.json.reportToken });
-  assert.equal(released.json.reporter, false, 'the old device cannot recover a seat staff gave to another phone');
+  assert.equal(released.status, 409, 'the old device cannot recover a seat staff gave to another phone');
 });
 
 test('an event starts with the settings its setup chose', async () => {
@@ -1276,7 +1276,11 @@ test('players report their own results: agreement and disagreement both wait for
   const forged = await playerSays(code, { popId: first.p2, result: 'loss', device: `phone-${first.p1}` });
   assert.equal(forged.status, 403, 'knowing the opponent’s Player ID does not report for them');
   const later = await playerSays(code, { popId: first.p2, device: 'another-phone' });
-  assert.deepEqual([later.json.reporter, later.json.reportToken], [false, undefined], 'a second device only follows');
+  assert.deepEqual(
+    [later.status, later.json.error, later.json.reportToken],
+    [409, 'Another device already claimed this player. Ask staff if that’s wrong.', undefined],
+    'one device is the player at a time'
+  );
   const one = await p1.report('win');
   assert.equal(one.json.view.reports.length, 1);
   const named = one.json.view.reports.flatMap((r: { p1: string; p2: string; by: string }) => [r.p1, r.p2, r.by]);
@@ -1290,7 +1294,7 @@ test('players report their own results: agreement and disagreement both wait for
 
   mock.timers.tick(REPORT_WINDOW_MS);
   assert.match((await p2.report('win')).json.error, /locked/);
-  const settled = await playerSays(code, { popId: first.p1 });
+  const settled = await playerSays(code, { popId: first.p1, device: `phone-${first.p1}` });
   assert.equal(settled.json.view.reports.length, 2);
   assert.equal(
     settled.json.view.tournament.pods[0].rounds[0].matches[0].outcome,
@@ -1316,7 +1320,8 @@ test('players report their own results: agreement and disagreement both wait for
   mock.timers.tick(REPORT_WINDOW_MS);
   assert.match((await s2.report('loss')).json.error, /locked/);
   assert.equal(
-    (await playerSays(code, { popId: second.p1 })).json.view.tournament.pods[0].rounds[0].matches[1].outcome,
+    (await playerSays(code, { popId: second.p1, device: `phone-${second.p1}` })).json.view.tournament.pods[0].rounds[0]
+      .matches[1].outcome,
     'pending'
   );
   const staffView = (await hit(manage.onRequestGet as Handler, '/manage', at(code), { cookie: owner })).json;
@@ -1349,7 +1354,7 @@ test('players report their own results: agreement and disagreement both wait for
   assert.equal((await p1.report('win')).json.view.reports.length, 1);
   const off = await settle(code, owner, { playerReporting: false });
   assert.deepEqual(off.json.reports, [], 'turning reporting off drops what was waiting');
-  const marked = await playerSays(code, { popId: first.p1 });
+  const marked = await playerSays(code, { popId: first.p1, device: `phone-${first.p1}` });
   assert.equal(marked.status, 200, 'a player still says who they are with reporting off');
   assert.ok(marked.json.key);
   const refused = await p1.report('win');
@@ -1394,7 +1399,8 @@ test('players cannot report once the event has ended', async () => {
   await settle(code, owner, { finished: true });
   const refused = await phone.report('win');
   assert.deepEqual([refused.status, refused.json.error], [403, 'This event is over']);
-  assert.equal((await playerSays(code, { popId: match.p1 })).status, 200, 'a player can still find their table');
+  const again = await playerSays(code, { popId: match.p1, device: `phone-${match.p1}` });
+  assert.equal(again.status, 200, 'a player can still find their table');
 });
 
 test('an ended event takes no command until it is reopened, and drops its reports', async () => {
@@ -3116,7 +3122,7 @@ const ACCOUNT_STATEMENTS = [
   'UPDATE stores SET nights = ?',
   'UPDATE stores SET status = ?',
   "FROM stores WHERE status = 'active'",
-  'SELECT s.status, s.league_id, s.city, s.region, s.country, s.time_zone FROM store_members m',
+  'SELECT s.status, s.league_id, s.name, s.address, s.city, s.region, s.postal, s.country, s.time_zone',
   'INDEXED BY tournaments_of_store',
   'INSERT OR IGNORE INTO event_creations',
   'DELETE FROM event_creations WHERE owner = ? AND at <= ?',

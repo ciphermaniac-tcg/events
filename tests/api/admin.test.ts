@@ -14,6 +14,7 @@ import { beforeEach, test } from 'node:test';
 import * as accounts from '../../functions/api/admin/accounts.ts';
 import * as adminApplications from '../../functions/api/admin/applications/index.ts';
 import * as adminEvents from '../../functions/api/admin/events.ts';
+import * as adminUsers from '../../functions/api/admin/users.ts';
 import * as decide from '../../functions/api/admin/applications/[id].ts';
 import * as organizers from '../../functions/api/admin/organizers/index.ts';
 import * as organizer from '../../functions/api/admin/organizers/[id].ts';
@@ -158,6 +159,7 @@ test('every admin route answers only an Admin', async () => {
         )
     ],
     ['events', call => hit(adminEvents.onRequestGet as Handler, '/api/admin/events', {}, call)],
+    ['users', call => hit(adminUsers.onRequestGet as Handler, '/api/admin/users', {}, call)],
     ['organizers', call => hit(organizers.onRequestGet as Handler, '/api/admin/organizers', {}, call)],
     [
       'revoke',
@@ -428,7 +430,7 @@ test('the Organizers list holds every account with a role and how many events it
 test('the Events list holds every event, a store’s and an account’s own alike, the last changed first', async () => {
   const admin = await signIn('Admin', 'admin');
   const community = await signIn('Busy', 'community');
-  assert.equal((await createEvent(community, { day: 1 })).status, 201);
+  assert.equal((await createEvent(community, { day: 3 })).status, 201);
   const { cookie: owner, id } = await applied('Owner', '200');
   assert.equal((await decision(admin, id, { decision: 'approve' })).status, 200);
   const store = raw().prepare('SELECT id, name FROM stores').get() as { id: string; name: string };
@@ -436,17 +438,38 @@ test('the Events list holds every event, a store’s and an account’s own alik
   const listed = await hit(adminEvents.onRequestGet as Handler, '/api/admin/events', {}, { cookie: admin });
   assert.equal(listed.status, 200);
   assert.deepEqual(
-    listed.json.events.map((event: { store: unknown; owner: string; players: number; finished: boolean }) => [
-      event.store,
-      event.owner,
-      event.players,
-      event.finished
-    ]),
+    listed.json.events.map(
+      (event: { store: unknown; owner: string; startDate: string; players: number; finished: boolean }) => [
+        event.store,
+        event.owner,
+        event.startDate,
+        event.players,
+        event.finished
+      ]
+    ),
     [
-      [{ id: store.id, name: store.name }, 'Pat Player', 0, false],
-      [null, 'busy', 0, false]
-    ]
+      [{ id: store.id, name: store.name }, 'Pat Player', '11/01/2026', 0, false],
+      [null, 'busy', '11/03/2026', 0, false]
+    ],
+    'each on the day it starts, not the day it was made'
   );
+});
+
+test('the Users list holds every account, the newest first', async () => {
+  const admin = await signIn('Admin', 'admin');
+  const community = await signIn('Busy', 'community');
+  const listed = await hit(adminUsers.onRequestGet as Handler, '/api/admin/users', {}, { cookie: admin });
+  assert.equal(listed.status, 200);
+  const users = listed.json.users as { id: string; handle: string; role: string | null; createdAt: number }[];
+  assert.deepEqual(
+    users.map(user => [user.id, user.handle, user.role]).sort(),
+    [
+      [await idOf(admin), 'admin', 'admin'],
+      [await idOf(community), 'busy', 'community']
+    ].sort()
+  );
+  assert.ok(users[0]!.createdAt >= users[1]!.createdAt, 'the newest first');
+  assert.deepEqual(Object.keys(users[0]!).sort(), ['createdAt', 'email', 'handle', 'id', 'name', 'popId', 'role']);
 });
 
 test('a Community organizer’s access is removed and given back; an Admin’s and a player’s are not one', async () => {

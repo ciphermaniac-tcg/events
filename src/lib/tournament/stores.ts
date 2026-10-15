@@ -226,12 +226,6 @@ export function storeEventWhen(startDate: string, startsAt: string): string {
   return time ? `${date}, ${clock(time)}` : date;
 }
 
-/** An address on one line: street, city, region and postal code as there are. */
-export function addressOf(store: Pick<StoreDetails, 'address' | 'city' | 'region' | 'postal'>): string {
-  const place = [store.city, [store.region, store.postal].filter(Boolean).join(' ')].filter(Boolean).join(', ');
-  return [store.address, place].filter(Boolean).join(', ');
-}
-
 /** A store-entered link shown as people type it, without its scheme. */
 export const bareLink = (url: string) => url.replace(/^https:\/\//, '').replace(/\/$/, '');
 

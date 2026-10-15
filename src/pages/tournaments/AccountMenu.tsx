@@ -16,7 +16,7 @@ import '../../styles/pages/tournament-account-menu.css';
 export function AccountMenu(props: { user: Me; pending: number }) {
   const [open, setOpen] = createSignal(false);
   const close = () => setOpen(false);
-  const logout = <SignOutButton class='tm-acct-out' onError={() => setOpen(true)} />;
+  const logout = <SignOutButton onError={() => setOpen(true)} />;
   let root: HTMLDivElement | undefined;
   const admin = () => isAdmin(props.user.role);
   const apply = () => !canCreateEvents(props.user.role, props.user.stores);

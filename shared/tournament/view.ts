@@ -255,6 +255,14 @@ export interface Viewer {
    * that never asked reports as the player with it.
    */
   claim?: PlayerClaim;
+  /**
+   * At an unsanctioned event, the player the account looks to be by its
+   * name, when it is no player here yet. The page asks; `claim` is what
+   * saying yes answers with, when the name is exact, and without it yes only
+   * looks up their table. A sanctioned event asks nothing: the account is the
+   * player when its POP ID, name and birth year all agree, and nobody else.
+   */
+  suggest?: { key: string; claim?: PlayerClaim };
   signedIn: boolean;
 }
 

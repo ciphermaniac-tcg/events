@@ -1,9 +1,9 @@
 /**
- * The Admin's sections, shared by /admin and the dashboard's Admin tab. Four
+ * The Admin's sections, shared by /admin and the dashboard's Admin tab. Five
  * tabs: Applications (the queue to decide, see AdminApplications), Organizers
  * (every account with a role, and its access, see AdminOrganizers), POP IDs
- * (settling who holds one, see AdminPopIds) and Events (every event on the
- * site, see AdminEvents). The open section is kept in the address under
+ * (settling who holds one, see AdminPopIds), Events (every event on the
+ * site, see AdminEvents) and Users (every account, see AdminUsers). The open section is kept in the address under
  * `param`, so a reload stays on it; the dashboard already uses `tab` for its
  * own tabs.
  */
@@ -15,15 +15,17 @@ import { AdminApplications } from './AdminApplications';
 import { AdminEvents } from './AdminEvents';
 import { AdminOrganizers } from './AdminOrganizers';
 import { AdminPopIds } from './AdminPopIds';
+import { AdminUsers } from './AdminUsers';
 import '../../styles/pages/tournament-admin.css';
 
-type Section = 'applications' | 'organizers' | 'pop-ids' | 'events';
+type Section = 'applications' | 'organizers' | 'pop-ids' | 'events' | 'users';
 
 const SECTIONS: { value: Section; label: string }[] = [
   { value: 'applications', label: 'Applications' },
   { value: 'organizers', label: 'Organizers' },
   { value: 'pop-ids', label: 'POP IDs' },
-  { value: 'events', label: 'Events' }
+  { value: 'events', label: 'Events' },
+  { value: 'users', label: 'Users' }
 ];
 
 export function AdminSections(props: { param: 'tab' | 'section' }) {
@@ -51,6 +53,9 @@ export function AdminSections(props: { param: 'tab' | 'section' }) {
           </Match>
           <Match when={section() === 'events'}>
             <AdminEvents />
+          </Match>
+          <Match when={section() === 'users'}>
+            <AdminUsers />
           </Match>
         </Switch>
       </TabPanel>

@@ -13,14 +13,25 @@
  */
 
 import { canRunCommunityEvents } from '../../../shared/accounts/roles.js';
-import { dateIn } from '../../../shared/accounts/stores.js';
-import { CREATIONS_PER_DAY, eventDay, isRoundMinutes, organizerToday } from '../../../shared/tournament/limits.js';
+import { addressOf, dateIn } from '../../../shared/accounts/stores.js';
+import {
+  CREATIONS_PER_DAY,
+  eventDay,
+  isRoundMinutes,
+  organizerToday,
+  tomDate
+} from '../../../shared/tournament/limits.js';
 import { sanctionedMinutesError } from '../../../shared/tournament/structure.js';
 import { emptyTournament, eventTimeLimits } from '../../../shared/tournament/create.js';
 import { tomDateTime } from '../../../shared/tournament/divisions.js';
 import { withSiteClocks } from '../../../shared/tournament/tomClock.js';
 import { readTournament } from '../../../shared/tournament/validate.js';
-import { DEFAULT_SETTINGS, readSettings, type TournamentSettings } from '../../../shared/tournament/view.js';
+import {
+  DEFAULT_SETTINGS,
+  readSettings,
+  SETTINGS_LIMITS,
+  type TournamentSettings
+} from '../../../shared/tournament/view.js';
 import { readJsonObject } from '../../lib/api/body.js';
 import { jsonError } from '../../lib/api/responses.js';
 import { type Context, sameOrigin } from '../../lib/auth/env.js';
@@ -196,20 +207,26 @@ function ownEvent(user: User, read: NewEvent): Running {
 interface StorePlace {
   status: string;
   league_id: string | null;
+  name: string;
+  address: string;
   city: string;
   region: string;
+  postal: string;
   country: string;
   time_zone: string;
 }
 
-/** The setup's settings, read in the store's time zone when the setup named none. */
-const inStoreZone = (read: NewEvent, place: StorePlace): TournamentSettings => ({
+/**
+ * The setup's settings at the store: read in the store's time zone, and
+ * played at the store, under its name and address, when the setup named
+ * none of its own.
+ */
+const atStore = (read: NewEvent, place: StorePlace): TournamentSettings => ({
   ...read.settings,
-  timeZone: read.settings.timeZone || place.time_zone
+  timeZone: read.settings.timeZone || place.time_zone,
+  venue: read.settings.venue || place.name.slice(0, SETTINGS_LIMITS.venue),
+  address: read.settings.address || addressOf(place).slice(0, SETTINGS_LIMITS.address)
 });
-
-/** YYYY-MM-DD as TOM writes a date, MM/DD/YYYY. */
-const tomDate = (day: string) => `${day.slice(5, 7)}/${day.slice(8, 10)}/${day.slice(0, 4)}`;
 
 /**
  * What a store's Swiss event starts with that the setup does not say: the
@@ -252,7 +269,7 @@ function unsanctionedStoreEvent(user: User, read: NewEvent, place: StorePlace, s
   const info = unsanctionedInfo(tournament.info);
   return {
     tournament: { ...tournament, info },
-    settings: { ...inStoreZone(read, place), sanctioned: false },
+    settings: { ...atStore(read, place), sanctioned: false },
     storeId,
     communityDay: null,
     admission: { owner: `store:${storeId}`, limit: CREATIONS_PER_DAY.community }
@@ -267,7 +284,8 @@ async function storeEvent(where: Where, user: User, read: NewEvent, storeId: str
   const { db, bucket } = where;
   const place = await db
     .prepare(
-      'SELECT s.status, s.league_id, s.city, s.region, s.country, s.time_zone FROM store_members m ' +
+      'SELECT s.status, s.league_id, s.name, s.address, s.city, s.region, s.postal, s.country, s.time_zone ' +
+        'FROM store_members m ' +
         'JOIN stores s ON s.id = m.store_id WHERE m.store_id = ? AND m.user_id = ?'
     )
     .bind(storeId, user.id)
@@ -286,7 +304,7 @@ async function storeEvent(where: Where, user: User, read: NewEvent, storeId: str
   }
   return {
     ...(read.mode === 'swiss' ? { tournament: storeInfo(user, read, place) } : {}),
-    settings: inStoreZone(read, place),
+    settings: atStore(read, place),
     storeId,
     communityDay: null,
     admission: { owner: `store:${storeId}`, limit: CREATIONS_PER_DAY.store }
