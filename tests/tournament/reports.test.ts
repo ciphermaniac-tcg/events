@@ -28,21 +28,9 @@ import {
 } from '../../shared/tournament/reports.ts';
 import type { Match, Pod, Round, Tournament } from '../../shared/tournament/types.ts';
 import { applyPending } from '../../shared/tournament/view.ts';
+import { commandRunner, freshContext } from '../__utils__/commands.ts';
 
-function run(tournament: Tournament, ...commands: Command[]): Tournament {
-  let current = tournament;
-  for (const command of commands) {
-    const result = applyCommand(current, command, {
-      now: 0,
-      localTime: '09/28/2026 10:00:00',
-      season: 2027,
-      random: seededRandom(3)
-    });
-    assert.ok(result.ok, result.ok ? '' : result.error);
-    current = result.tournament;
-  }
-  return current;
-}
+const run = commandRunner(freshContext(3, '09/28/2026 10:00:00'));
 
 const NAMES: [string, string][] = [
   ['Ash', 'Ketchum'],

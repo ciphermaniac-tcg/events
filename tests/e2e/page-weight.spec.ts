@@ -5,7 +5,8 @@
  */
 
 import { readdirSync, readFileSync } from 'node:fs';
-import { expect, type Page, test } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
+import { test } from './network-guard';
 import { chunkOf } from './build-manifest';
 
 import { parseTdf } from '../../shared/tournament/tdf';

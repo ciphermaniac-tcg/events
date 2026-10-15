@@ -2,29 +2,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { readBoundedBytes } from '../../functions/lib/api/bytes.ts';
+import { chunkedRequest } from '../__utils__/chunkedRequest.ts';
 
 const URL = 'https://example.test/api';
 
 const put = (body: BodyInit | null, headers: Record<string, string> = {}) =>
   new Request(URL, { method: 'PUT', body, headers });
 
-/** A chunked body: no Content-Length, and `pulled` counts the chunks actually read. */
-function chunked(chunks: Uint8Array[]): { request: Request; pulled: () => number } {
-  let index = 0;
-  const stream = new ReadableStream<Uint8Array>({
-    pull(controller) {
-      const chunk = chunks[index];
-      if (chunk === undefined) {
-        controller.close();
-        return;
-      }
-      index += 1;
-      controller.enqueue(chunk);
-    }
-  });
-  const request = new Request(URL, { method: 'PUT', body: stream, duplex: 'half' } as RequestInit);
-  return { request, pulled: () => index };
-}
+const chunked = (chunks: Uint8Array[]) => chunkedRequest(URL, 'PUT', chunks);
 
 test('reads a body under or exactly at the cap, in one buffer across chunks', async () => {
   assert.deepEqual(await readBoundedBytes(put(new Uint8Array([1, 2, 3])), 8), {

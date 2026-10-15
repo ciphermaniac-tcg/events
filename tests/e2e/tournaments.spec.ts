@@ -7,7 +7,8 @@
  */
 
 import { readFileSync } from 'node:fs';
-import { expect, type Page, test } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
+import { test } from './network-guard';
 import { deferred } from '../__utils__/deferred';
 import { chunkOf } from './build-manifest';
 
@@ -27,6 +28,7 @@ import {
   publicTournament,
   type TournamentView
 } from '../../shared/tournament/view';
+import { organizerMe } from './console-fixture';
 
 const CODE = 'ABCDEF';
 const tdf = parseTdf(readFileSync(new URL('../fixtures/tdf/challenge-midevent.tdf', import.meta.url), 'utf8'));
@@ -642,13 +644,14 @@ async function tomConsole(
   }: { manage?: unknown; pairing?: (body: unknown) => Answer; following?: boolean } = {}
 ) {
   await page.addInitScript(source => {
-    const file = { modified: 1, lost: false, text: source };
+    const file = { modified: 1, lost: false, text: source, reads: 0 };
     Object.assign(window, {
       tdfFile: file,
       showOpenFilePicker: async () => [
         {
           name: 'event.tdf',
           getFile: async () => {
+            file.reads += 1;
             if (file.lost) {
               throw new DOMException('The file cannot be read', 'NotAllowedError');
             }
@@ -670,18 +673,7 @@ async function tomConsole(
   await page.route('**/api/**', route => {
     const url = new URL(route.request().url());
     if (url.pathname === '/api/me') {
-      const user = { id: 'u1', name: 'Organizer', avatar: null, popId: null, firstName: null, lastName: null };
-      const account = {
-        ...user,
-        birthDate: null,
-        role: 'community',
-        stores: [],
-        handle: 'organizer',
-        publicProfile: false,
-        profileName: 'real',
-        providers: ['dev']
-      };
-      return route.fulfill({ json: { user: account, providers: ['dev'] } });
+      return route.fulfill({ json: organizerMe({ publicProfile: false, profileName: 'real' }) });
     }
     if (url.pathname === `/api/tournaments/${CODE}/manage`) {
       return url.searchParams.has('since') ? route.fulfill({ status: 204 }) : route.fulfill({ json: manage });
@@ -731,8 +723,11 @@ test('a TOM console sends nothing of its file while the event has ended', async 
     file.text = file.text.replace('Fixture Challenge', 'Saved After');
     file.modified = 2;
   });
+  const reads = () => page.evaluate(() => (window as unknown as { tdfFile: { reads: number } }).tdfFile.reads);
+  const before = await reads();
   await page.getByRole('button', { name: 'Refresh .tdf' }).first().click();
-  await page.waitForTimeout(500);
+  // A sync only ever follows a read of the file, and a refresh starts its read as it is clicked.
+  expect(await reads()).toBe(before);
   expect(syncs).toBe(0);
 });
 

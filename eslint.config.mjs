@@ -459,6 +459,23 @@ export default [
     }
   },
   {
+    files: ['tests/e2e/**/*.spec.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: '@playwright/test',
+              importNames: ['test'],
+              message: 'Take test from ./network-guard, which fails a test whose page reaches past the local servers.'
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
     files: ['functions/**/*.ts', 'functions/**/*.js'],
     languageOptions: {
       globals: {

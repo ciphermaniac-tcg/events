@@ -4,7 +4,8 @@
  * with no form left to try again, and a wait that ran out offers sign-in.
  */
 
-import { expect, type Page, test } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
+import { test } from './network-guard';
 
 /** Answers the age check with `status` and `body`, and records the birth date each ask sent. */
 async function mockAgeCheck(page: Page, status: number, body: unknown): Promise<string[]> {

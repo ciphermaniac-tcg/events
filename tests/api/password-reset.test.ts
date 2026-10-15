@@ -250,10 +250,8 @@ test('one code submitted twice at once sets the password once', async () => {
   });
   const { result: both, seen: after } = await services({ users: [PAT], passwordGate }, async () => {
     const racing = [finish(result, code), finish(result, code, 'another new passphrase')];
-    // Both have checked the code by the time Clerk is let answer.
-    await new Promise(resolve => {
-      setTimeout(resolve, 50);
-    });
+    // One claims the code and waits on Clerk; the other is answered meanwhile, having checked it too.
+    await Promise.race(racing);
     open();
     return Promise.all(racing.map(async each => (await each).status));
   });

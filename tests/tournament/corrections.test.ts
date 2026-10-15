@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { applyCommand, type Command } from '../../shared/tournament/commands.ts';
+import type { Command } from '../../shared/tournament/commands.ts';
 import {
   correctableMatch,
   correctedTournament,
@@ -13,26 +13,11 @@ import {
   roundRefusal
 } from '../../shared/tournament/corrections.ts';
 import { emptyTournament } from '../../shared/tournament/create.ts';
-import { seededRandom } from '../../shared/tournament/random.ts';
 import { swissStandings } from '../../shared/tournament/standings.ts';
 import type { Pod, Tournament } from '../../shared/tournament/types.ts';
+import { commandRunner, freshContext } from '../__utils__/commands.ts';
 
-function run(tournament: Tournament, ...commands: Command[]): Tournament {
-  let current = tournament;
-  for (const command of commands) {
-    const result = applyCommand(current, command, {
-      now: 0,
-      localTime: '10/14/2026 18:00:00',
-      season: 2027,
-      random: seededRandom(5)
-    });
-    if (!result.ok) {
-      throw new Error(`${command.type}: ${result.error}`);
-    }
-    current = result.tournament;
-  }
-  return current;
-}
+const run = commandRunner(freshContext(5, '10/14/2026 18:00:00'));
 
 const masters = (t: Tournament) => t.pods.find(pod => pod.category === 'masters') as Pod;
 

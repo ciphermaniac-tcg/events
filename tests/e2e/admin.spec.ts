@@ -5,7 +5,8 @@
  * looking its holder up.
  */
 
-import { expect, type Page, test } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
+import { test } from './network-guard';
 
 import type { AccountRole } from '../../shared/accounts/roles';
 import type { AdminApplication, FoundAccount, RoleHolder } from '../../shared/accounts/types';

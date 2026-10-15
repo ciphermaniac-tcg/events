@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
-import { expect, test } from '@playwright/test';
+import { expect } from '@playwright/test';
+import { test } from './network-guard';
 
 const headers = readFileSync(new URL('../../static/_headers', import.meta.url), 'utf8');
 const policy = headers
@@ -17,7 +18,7 @@ const fixtureOrigin = `http://127.0.0.1:${process.env.E2E_FIXTURE_PORT ?? 4320}`
 test.beforeEach(async ({ page }) => {
   await page.route('**/*', async route => {
     if (!route.request().isNavigationRequest()) {
-      return route.continue();
+      return route.fallback();
     }
     const response = await route.fetch();
     return route.fulfill({

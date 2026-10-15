@@ -4,26 +4,13 @@
  * its final, and the Masters with no cut.
  */
 
-import { applyCommand, type Command } from '../../shared/tournament/commands.ts';
+import type { Command } from '../../shared/tournament/commands.ts';
 import { emptyTournament } from '../../shared/tournament/create.ts';
-import { seededRandom } from '../../shared/tournament/random.ts';
 import { latestRound } from '../../shared/tournament/rounds.ts';
 import type { PodCategory, Tournament } from '../../shared/tournament/types.ts';
+import { commandRunner, freshContext } from './commands.ts';
 
-function run(tournament: Tournament, ...commands: Command[]): Tournament {
-  return commands.reduce((current, command) => {
-    const result = applyCommand(current, command, {
-      now: 0,
-      localTime: '10/10/2026 10:00:00',
-      season: 2027,
-      random: seededRandom(5)
-    });
-    if (!result.ok) {
-      throw new Error(`${command.type}: ${result.error}`);
-    }
-    return result.tournament;
-  }, tournament);
-}
+const run = commandRunner(freshContext(5, '10/10/2026 10:00:00'));
 
 /** Every open match in the pod's current round, won by the first seat. */
 function reportAll(t: Tournament, category: PodCategory): Tournament {

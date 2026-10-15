@@ -7,25 +7,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { applyCommand, type Command } from '../../shared/tournament/commands.ts';
+import type { Command } from '../../shared/tournament/commands.ts';
 import { emptyTournament } from '../../shared/tournament/create.ts';
-import { seededRandom } from '../../shared/tournament/random.ts';
 import { parseTdf } from '../../shared/tournament/tdf.ts';
 import { isGeneratedId, type Tournament } from '../../shared/tournament/types.ts';
 import { tdfFilename, tdfText } from '../../src/lib/tournament/exportTdf.ts';
+import { commandRunner, freshContext } from '../__utils__/commands.ts';
 
-function run(tournament: Tournament, ...commands: Command[]): Tournament {
-  return commands.reduce((current, command) => {
-    const result = applyCommand(current, command, {
-      now: 0,
-      localTime: '10/10/2026 10:00:00',
-      season: 2027,
-      random: seededRandom(5)
-    });
-    assert.ok(result.ok, result.ok ? '' : result.error);
-    return result.tournament;
-  }, tournament);
-}
+const run = commandRunner(freshContext(5, '10/10/2026 10:00:00'));
 
 function reportAll(t: Tournament): Tournament {
   const round = t.pods[0]!.rounds.at(-1)!;

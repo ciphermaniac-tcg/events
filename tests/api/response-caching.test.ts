@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { beforeEach, test } from 'node:test';
+import { beforeEach, mock, test } from 'node:test';
 
 import * as history from '../../functions/api/history.ts';
 import * as event from '../../functions/api/tournaments/[code]/index.ts';
@@ -143,6 +143,20 @@ function heldDatabase(db: D1Like) {
   };
 }
 
+/** Resolves once every session hash begun since the call has settled and the request awaiting it has moved on. */
+function hashesSettled(): () => Promise<void> {
+  const digest = mock.method(crypto.subtle, 'digest');
+  return async () => {
+    let seen = -1;
+    while (seen < digest.mock.callCount()) {
+      seen = digest.mock.callCount();
+      await Promise.allSettled(digest.mock.calls.map(call => call.result));
+      await new Promise(setImmediate);
+    }
+    digest.mock.restore();
+  };
+}
+
 test('bursts share reads and serialization, but receive independently consumable responses', async () => {
   const owner = await signIn('Organizer', 'organizer');
   const code = await newSwiss(owner);
@@ -150,14 +164,13 @@ test('bursts share reads and serialization, but receive independently consumable
     const etag = validator(await get(target, owner));
     const held = heldDatabase(env.TOURNAMENT_DB as D1Like);
     env.TOURNAMENT_DB = held.db;
+    const hashed = hashesSettled();
     const calls = Array.from({ length: 8 }, (_, index) =>
       get(target, `${owner}; unrelated=${index}`, index === 0 ? etag : undefined)
     );
     await held.started;
-    // Let the other crypto operations enter the pending read before releasing it.
-    await new Promise<void>(resolve => {
-      setTimeout(resolve, 30);
-    });
+    // Every other caller has hashed its session and joined the pending read before it is released.
+    await hashed();
     held.release();
     const responses = await Promise.all(calls);
     assert.equal(held.trips(), 1);

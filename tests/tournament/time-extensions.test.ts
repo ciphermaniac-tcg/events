@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { applyCommand, type Command } from '../../shared/tournament/commands.ts';
+import { applyCommand } from '../../shared/tournament/commands.ts';
 import { emptyTournament } from '../../shared/tournament/create.ts';
 import { seededRandom } from '../../shared/tournament/random.ts';
 import { readCommand } from '../../shared/tournament/readCommand.ts';
@@ -11,13 +11,10 @@ import { withSiteClocks } from '../../shared/tournament/tomClock.ts';
 import type { Match, Tournament } from '../../shared/tournament/types.ts';
 import { readTournament } from '../../shared/tournament/validate.ts';
 import { assignKeys, publicTournament } from '../../shared/tournament/view.ts';
+import { commandRunner } from '../__utils__/commands.ts';
 
 const ctx = { now: 1_000, localTime: '10/10/2026 12:00:00', season: 2027, random: seededRandom(1) };
-function run(t: Tournament, command: Command): Tournament {
-  const result = applyCommand(t, command, ctx);
-  assert.ok(result.ok, result.ok ? '' : result.error);
-  return result.tournament;
-}
+const run = commandRunner(ctx);
 function event(): Tournament {
   let t = emptyTournament({ name: 'Extensions' });
   for (let i = 0; i < 4; i += 1) {

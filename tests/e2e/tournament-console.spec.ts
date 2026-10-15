@@ -8,14 +8,14 @@
  * The event is built with the same shared commands the functions apply.
  */
 
-import { expect, type Page, test } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
 import { chunkOf } from './build-manifest';
+import { test } from './network-guard';
 
-import { applyCommand, type Command } from '../../shared/tournament/commands';
+import type { Command } from '../../shared/tournament/commands';
 import type { PlayerReport } from '../../shared/tournament/reports';
 import type { PlayerRequest } from '../../shared/tournament/requests';
 import { emptyTournament } from '../../shared/tournament/create';
-import { seededRandom } from '../../shared/tournament/random';
 import { regularRounds } from '../../shared/tournament/rounds';
 import type { Match, Tournament } from '../../shared/tournament/types';
 import {
@@ -26,21 +26,9 @@ import {
   type TournamentSettings,
   type TournamentView
 } from '../../shared/tournament/view';
+import { organizerMe, runCommands } from './console-fixture';
 
 const CODE = 'SWISS2';
-
-function run(tournament: Tournament, ...commands: Command[]): Tournament {
-  let current = tournament;
-  for (const command of commands) {
-    const ctx = { now: 0, localTime: '09/29/2026 10:00:00', season: 2027, random: seededRandom(3) };
-    const result = applyCommand(current, command, ctx);
-    if (!result.ok) {
-      throw new Error(`${command.type}: ${result.error}`);
-    }
-    current = result.tournament;
-  }
-  return current;
-}
 
 /** Every open table of the latest round won by the player at seat one. */
 function reportAll(t: Tournament): Tournament {
@@ -55,7 +43,7 @@ function reportAll(t: Tournament): Tournament {
       ...m,
       outcome: 'p1'
     }));
-  return run(t, ...reports);
+  return runCommands(t, ...reports);
 }
 
 /** The first table of the latest round. */
@@ -73,11 +61,11 @@ function event(players: number, rounds: number, paired: boolean): Tournament {
     type: 'addPlayer',
     player: { firstName: `Player${i + 1}`, lastName: 'Test' }
   }));
-  let t = run(emptyTournament({ name: 'Friday League' }), ...adds);
+  let t = runCommands(emptyTournament({ name: 'Friday League' }), ...adds);
   for (let r = 0; r < rounds; r += 1) {
-    t = reportAll(run(t, { type: 'pairRound', pod: 'masters' }));
+    t = reportAll(runCommands(t, { type: 'pairRound', pod: 'masters' }));
   }
-  return paired ? run(t, { type: 'pairRound', pod: 'masters' }) : t;
+  return paired ? runCommands(t, { type: 'pairRound', pod: 'masters' }) : t;
 }
 
 const settingsOf = (patch: Partial<TournamentSettings>): TournamentSettings => ({
@@ -117,18 +105,7 @@ async function mockConsole(
   await page.route('**/api/**', route => {
     const url = new URL(route.request().url());
     if (url.pathname === '/api/me') {
-      const user = { id: 'u1', name: 'Organizer', avatar: null, popId: null, firstName: null, lastName: null };
-      const account = {
-        ...user,
-        birthDate: null,
-        role: 'community',
-        stores: [],
-        handle: 'organizer',
-        publicProfile: false,
-        profileName: 'real',
-        providers: ['dev']
-      };
-      return route.fulfill({ json: { user: account, providers: ['dev'] } });
+      return route.fulfill({ json: organizerMe({ publicProfile: false, profileName: 'real' }) });
     }
     if (url.pathname === `/api/tournaments/${CODE}/manage`) {
       return url.searchParams.has('since') ? route.fulfill({ status: 204 }) : route.fulfill({ json: manage });
@@ -137,7 +114,7 @@ async function mockConsole(
       const { command } = route.request().postDataJSON() as { command: Command };
       sent.push(command);
       if (apply) {
-        manage.tournament = run(manage.tournament, command);
+        manage.tournament = runCommands(manage.tournament, command);
         manage.version += 1;
       }
       return route.fulfill({ json: manage });
@@ -202,7 +179,7 @@ test('a result shows in its row while it is on its way, and its answer is not re
   });
   await page.route(`**/api/tournaments/${CODE}/commands`, async route => {
     await held;
-    const tournament = run(t, { type: 'reportResult', pod: 'masters', round: 1, ...table, outcome: 'p1' });
+    const tournament = runCommands(t, { type: 'reportResult', pod: 'masters', round: 1, ...table, outcome: 'p1' });
     const manage = { code: CODE, mode: 'swiss', version: 4, updatedAt: 0, tournament, pending: [], reports: [] };
     return route.fulfill({
       json: { ...manage, settings: settingsOf({}), decks: {}, role: 'owner', staffToken: 'invite', store: 'store-1' }
@@ -253,7 +230,7 @@ test('a result the server does not take stays in its row as not saved, and Retry
     tries.push(command);
     return tries.length === 1
       ? route.fulfill({ status: 503, json: { error: 'Busy; try again' } })
-      : route.fulfill({ json: manageOf(run(t, command), 4) });
+      : route.fulfill({ json: manageOf(runCommands(t, command), 4) });
   });
   await rowOf(page, match).locator('.tm-seat-link').first().dblclick();
   const unsaved = rowOf(page, match).getByRole('group', { name: 'Result not saved' });
@@ -272,7 +249,7 @@ test('a retry reads the event first and sends nothing when the result had landed
   await mockConsole(page, t, settingsOf({}));
   // Loaded first, so the first read is the console's own and not the one below.
   await expect(rowOf(page, match)).toBeVisible();
-  const landed = run(t, { type: 'reportResult', pod: 'masters', round: 1, ...match, outcome: 'p1' });
+  const landed = runCommands(t, { type: 'reportResult', pod: 'masters', round: 1, ...match, outcome: 'p1' });
   const tries: Command[] = [];
   let saved = false;
   await page.route(`**/api/tournaments/${CODE}/commands`, route => {
@@ -388,13 +365,19 @@ test('a past round stays shown when a colleague’s result changes the event, an
     await answered;
   };
   const match = t.pods[0]!.rounds[1]!.matches.find(m => m.p2 !== null)!;
-  const reported = run(t, { type: 'reportResult', pod: 'masters', round: 2, ...match, outcome: 'p1' } as Command);
+  const reported = runCommands(t, {
+    type: 'reportResult',
+    pod: 'masters',
+    round: 2,
+    ...match,
+    outcome: 'p1'
+  } as Command);
   await later(reported, 4);
   await look();
   await expect(picker).toHaveValue('1');
 
   await page.unroute('**/manage?since=*');
-  await later(run(reportAll(reported), { type: 'pairRound', pod: 'masters' }), 5);
+  await later(runCommands(reportAll(reported), { type: 'pairRound', pod: 'masters' }), 5);
   await look();
   await expect(picker).toHaveValue('3');
 });
@@ -441,7 +424,7 @@ function prerelease(rounds: number): Tournament {
   let t = event(9, 0, false);
   t = { ...t, info: { ...t.info, eventType: 'prerelease', finalsRoundTime: 30 } };
   for (let i = 0; i < rounds; i += 1) {
-    t = reportAll(run(t, { type: 'pairRound', pod: 'masters' }));
+    t = reportAll(runCommands(t, { type: 'pairRound', pod: 'masters' }));
   }
   return t;
 }
@@ -508,7 +491,7 @@ test('ending from Settings with tables open lists them and ends the event early'
 });
 
 test('an ended event locks its results, round controls and roster until it is reopened', async ({ page }) => {
-  const t = run(event(4, 0, true), {
+  const t = runCommands(event(4, 0, true), {
     type: 'reportResult',
     pod: 'masters',
     round: 1,
@@ -536,7 +519,7 @@ test('an ended event locks its results, round controls and roster until it is re
 });
 
 test('clearing a result confirms as Clear', async ({ page }) => {
-  const t = run(event(4, 0, true), {
+  const t = runCommands(event(4, 0, true), {
     type: 'reportResult',
     pod: 'masters',
     round: 1,
@@ -812,7 +795,7 @@ test('the big screen marks who won each finished table', async ({ page }) => {
   if (!first) {
     throw new Error('no table');
   }
-  t = run(t, { type: 'reportResult', pod: 'masters', round: 1, ...first, outcome: 'p2' });
+  t = runCommands(t, { type: 'reportResult', pod: 'masters', round: 1, ...first, outcome: 'p2' });
   const keys = assignKeys(t, {});
   const view: TournamentView = {
     code: CODE,
@@ -868,11 +851,11 @@ test('a division cut stays in the shared pod and pairs the next bracket round', 
     type: 'addPlayer',
     player: { firstName: `Player${i + 1}`, lastName: 'Test', birthDate: `02/27/${year}` }
   }));
-  let t = run(emptyTournament({ name: 'Friday League' }), ...adds);
+  let t = runCommands(emptyTournament({ name: 'Friday League' }), ...adds);
   for (let pod = t.pods[0]; pod && pod.rounds.length < regularRounds(t, pod); pod = t.pods[0]) {
-    t = reportAll(run(t, { type: 'pairRound', pod: 'mixed' }));
+    t = reportAll(runCommands(t, { type: 'pairRound', pod: 'mixed' }));
   }
-  t = run(t, { type: 'startTopCut', pod: 'mixed', size: 4, division: 'senior' });
+  t = runCommands(t, { type: 'startTopCut', pod: 'mixed', size: 4, division: 'senior' });
   await mockConsole(page, t, settingsOf({}));
   await expect(page.getByRole('radiogroup', { name: 'Division' })).toHaveCount(0);
   await expect(page.locator('.tm-hero')).toContainText('Semifinals');

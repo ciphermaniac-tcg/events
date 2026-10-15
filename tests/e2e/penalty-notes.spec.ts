@@ -6,31 +6,19 @@
  * deck checks in among the notes when asked.
  */
 
-import { expect, type Page, type Route, test } from '@playwright/test';
+import { expect, type Page, type Route } from '@playwright/test';
+import { test } from './network-guard';
 import { deferred } from '../__utils__/deferred';
 
-import { applyCommand, type Command } from '../../shared/tournament/commands';
+import type { Command } from '../../shared/tournament/commands';
 import { emptyTournament } from '../../shared/tournament/create';
 import type { DeckCheckEntry } from '../../shared/tournament/deckChecks';
 import type { PenaltyNoteEntry } from '../../shared/tournament/penaltyNotes';
-import { seededRandom } from '../../shared/tournament/random';
 import type { Tournament } from '../../shared/tournament/types';
 import { DEFAULT_SETTINGS } from '../../shared/tournament/view';
+import { organizerMe, runCommands } from './console-fixture';
 
 const CODE = 'PEN001';
-
-function run(tournament: Tournament, ...commands: Command[]): Tournament {
-  let current = tournament;
-  for (const command of commands) {
-    const ctx = { now: 0, localTime: '09/29/2026 10:00:00', season: 2027, random: seededRandom(3) };
-    const result = applyCommand(current, command, ctx);
-    if (!result.ok) {
-      throw new Error(`${command.type}: ${result.error}`);
-    }
-    current = result.tournament;
-  }
-  return current;
-}
 
 const adds: Command[] = ['Ada', 'Ben', 'Cy', 'Di'].map(firstName => ({
   type: 'addPlayer',
@@ -97,9 +85,7 @@ function manageRoute(route: Route, tournament: Tournament, decklists: 'off' | 'c
 }
 
 function meRoute(route: Route) {
-  const user = { id: 'u1', name: 'Organizer', avatar: null, popId: null, firstName: null, lastName: null };
-  const account = { ...user, birthDate: null, role: 'community', stores: [], handle: 'organizer', providers: ['dev'] };
-  return route.fulfill({ json: { user: account, providers: ['dev'] } });
+  return route.fulfill({ json: organizerMe() });
 }
 
 /**
@@ -157,13 +143,13 @@ async function mockConsole(
 }
 
 test('the Penalties tab waits for round 1 to be paired', async ({ page }) => {
-  await mockConsole(page, run(emptyTournament({ name: 'Friday League' }), ...adds));
+  await mockConsole(page, runCommands(emptyTournament({ name: 'Friday League' }), ...adds));
   await expect(page.getByRole('tab', { name: 'Players' })).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByRole('tab', { name: 'Penalties' })).toHaveAttribute('aria-disabled', 'true');
 });
 
 test('a penalty note is recorded, edited and removed, and changes nothing else', async ({ page }) => {
-  const t = run(emptyTournament({ name: 'Friday League' }), ...adds, { type: 'pairRound', pod: 'masters' });
+  const t = runCommands(emptyTournament({ name: 'Friday League' }), ...adds, { type: 'pairRound', pod: 'masters' });
   const ada = t.players.find(player => player.firstName === 'Ada')?.id;
   const writes = await mockConsole(page, t);
   const form = page.locator('.tm-penalty-form');
@@ -251,7 +237,7 @@ test('a note saved while the next is typed keeps the next, as does removing a no
 });
 
 test('deck checks read in among the notes when the event takes decklists', async ({ page }) => {
-  const t = run(emptyTournament({ name: 'Friday League' }), ...adds, { type: 'pairRound', pod: 'masters' });
+  const t = runCommands(emptyTournament({ name: 'Friday League' }), ...adds, { type: 'pairRound', pod: 'masters' });
   await mockConsole(page, t, 'closed');
   const form = page.locator('.tm-penalty-form');
   await form.getByLabel('Player').selectOption({ label: 'Ben Test' });

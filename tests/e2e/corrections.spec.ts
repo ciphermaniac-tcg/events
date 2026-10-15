@@ -7,29 +7,17 @@
  * are told who can, and a round past the window says why it is locked.
  */
 
-import { expect, type Page, type Route, test } from '@playwright/test';
+import { expect, type Page, type Route } from '@playwright/test';
+import { test } from './network-guard';
 
-import { applyCommand, type Command } from '../../shared/tournament/commands';
+import type { Command } from '../../shared/tournament/commands';
 import { correctedTournament, type CorrectionEntry } from '../../shared/tournament/corrections';
 import { emptyTournament } from '../../shared/tournament/create';
-import { seededRandom } from '../../shared/tournament/random';
 import type { Tournament } from '../../shared/tournament/types';
 import { DEFAULT_SETTINGS } from '../../shared/tournament/view';
+import { organizerMe, runCommands } from './console-fixture';
 
 const CODE = 'FIX001';
-
-function run(tournament: Tournament, ...commands: Command[]): Tournament {
-  let current = tournament;
-  for (const command of commands) {
-    const ctx = { now: 0, localTime: '09/29/2026 10:00:00', season: 2027, random: seededRandom(3) };
-    const result = applyCommand(current, command, ctx);
-    if (!result.ok) {
-      throw new Error(`${command.type}: ${result.error}`);
-    }
-    current = result.tournament;
-  }
-  return current;
-}
 
 /** Every two-player match of the latest round won by its first seat. */
 function reportAll(t: Tournament): Tournament {
@@ -45,7 +33,7 @@ function reportAll(t: Tournament): Tournament {
       p2: m.p2,
       outcome: 'p1'
     }));
-  return run(t, ...reports);
+  return runCommands(t, ...reports);
 }
 
 const NAMES = ['Ada', 'Ben', 'Cy', 'Di', 'Eve', 'Flo', 'Gus', 'Hal'];
@@ -54,17 +42,15 @@ const NAMES = ['Ada', 'Ben', 'Cy', 'Di', 'Eve', 'Flo', 'Gus', 'Hal'];
 function inRound2(): Tournament {
   const adds = NAMES.map((firstName): Command => ({ type: 'addPlayer', player: { firstName, lastName: 'Test' } }));
   const played = reportAll(
-    run(emptyTournament({ name: 'Friday League' }), ...adds, { type: 'pairRound', pod: 'masters' })
+    runCommands(emptyTournament({ name: 'Friday League' }), ...adds, { type: 'pairRound', pod: 'masters' })
   );
-  return run(played, { type: 'pairRound', pod: 'masters' });
+  return runCommands(played, { type: 'pairRound', pod: 'masters' });
 }
 
 type Body = Record<string, unknown>;
 
 function meRoute(route: Route) {
-  const user = { id: 'u1', name: 'Organizer', avatar: null, popId: null, firstName: null, lastName: null };
-  const account = { ...user, birthDate: null, role: 'community', stores: [], handle: 'organizer', providers: ['dev'] };
-  return route.fulfill({ json: { user: account, providers: ['dev'] } });
+  return route.fulfill({ json: organizerMe() });
 }
 
 /** The console's API, correcting the event as the functions do; every correction sent is recorded. */
@@ -186,7 +172,7 @@ test('staff who cannot approve are told who can, and get no correction to make',
 });
 
 test('a round past the window says why it is locked', async ({ page }) => {
-  await mockConsole(page, run(reportAll(inRound2()), { type: 'pairRound', pod: 'masters' }), 'organizer');
+  await mockConsole(page, runCommands(reportAll(inRound2()), { type: 'pairRound', pod: 'masters' }), 'organizer');
   await page.getByRole('button', { name: 'Previous round' }).click();
   await expect(
     page.getByText('Round 1 can no longer be corrected. Its records locked when round 3 was paired.')

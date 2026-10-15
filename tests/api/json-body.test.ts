@@ -2,29 +2,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { readJsonBody } from '../../functions/lib/api/body.ts';
+import { chunkedRequest } from '../__utils__/chunkedRequest.ts';
 
 const URL = 'https://example.test/api';
 
 const post = (body: BodyInit, headers: Record<string, string> = {}) =>
   new Request(URL, { method: 'POST', body, headers });
 
-/** A chunked body: no Content-Length, and `pulled` counts the chunks actually read. */
-function chunked(chunks: Uint8Array[]): { request: Request; pulled: () => number } {
-  let index = 0;
-  const stream = new ReadableStream<Uint8Array>({
-    pull(controller) {
-      const chunk = chunks[index];
-      if (chunk === undefined) {
-        controller.close();
-        return;
-      }
-      index += 1;
-      controller.enqueue(chunk);
-    }
-  });
-  const request = new Request(URL, { method: 'POST', body: stream, duplex: 'half' } as RequestInit);
-  return { request, pulled: () => index };
-}
+const chunked = (chunks: Uint8Array[]) => chunkedRequest(URL, 'POST', chunks);
 
 test('parses a body under or exactly at the cap', async () => {
   assert.deepEqual(await readJsonBody(post('{"a":[1,2]}'), 64), { ok: true, value: { a: [1, 2] } });

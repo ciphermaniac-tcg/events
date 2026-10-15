@@ -1,3 +1,5 @@
+import { matchesGlob } from 'node:path';
+
 /** Added line numbers from a zero-context, single-file Git diff. */
 export function addedLines(diff) {
   const result = new Set();
@@ -33,4 +35,13 @@ export function changedLineCoverage(lines, coverage) {
  */
 export function resolveBase(configured, resolves) {
   return [configured, 'HEAD^'].find(resolves) ?? null;
+}
+
+/**
+ * Whether a repository path is in the coverage scope `.c8rc.json` sets with
+ * its `include` and `exclude` globs: such a file is measured, so one missing
+ * from the report was never instrumented rather than left out on purpose.
+ */
+export function inCoverageScope(file, { include, exclude }) {
+  return include.some(glob => matchesGlob(file, glob)) && !exclude.some(glob => matchesGlob(file, glob));
 }

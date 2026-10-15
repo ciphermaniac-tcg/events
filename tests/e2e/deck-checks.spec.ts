@@ -5,30 +5,18 @@
  * locked, and an opened list records, edits and removes its player's checks.
  */
 
-import { expect, type Page, test } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
+import { test } from './network-guard';
 import { deferred } from '../__utils__/deferred';
 
-import { applyCommand, type Command } from '../../shared/tournament/commands';
+import type { Command } from '../../shared/tournament/commands';
 import { emptyTournament } from '../../shared/tournament/create';
 import type { DeckCheckEntry } from '../../shared/tournament/deckChecks';
-import { seededRandom } from '../../shared/tournament/random';
 import type { Tournament } from '../../shared/tournament/types';
 import { DEFAULT_SETTINGS } from '../../shared/tournament/view';
+import { organizerMe, runCommands } from './console-fixture';
 
 const CODE = 'CHECK1';
-
-function run(tournament: Tournament, ...commands: Command[]): Tournament {
-  let current = tournament;
-  for (const command of commands) {
-    const ctx = { now: 0, localTime: '09/29/2026 10:00:00', season: 2027, random: seededRandom(3) };
-    const result = applyCommand(current, command, ctx);
-    if (!result.ok) {
-      throw new Error(`${command.type}: ${result.error}`);
-    }
-    current = result.tournament;
-  }
-  return current;
-}
 
 /** Four players at an unsanctioned event, round 1 paired, and the first one's list in. */
 function pairedEvent(): Tournament {
@@ -36,7 +24,7 @@ function pairedEvent(): Tournament {
     type: 'addPlayer',
     player: { firstName: `Player${i + 1}`, lastName: 'Test' }
   }));
-  return run(emptyTournament({ name: 'Friday League' }), ...adds, { type: 'pairRound', pod: 'masters' });
+  return runCommands(emptyTournament({ name: 'Friday League' }), ...adds, { type: 'pairRound', pod: 'masters' });
 }
 
 const LIST = {
@@ -88,16 +76,7 @@ async function mockConsole(page: Page, tournament: Tournament, held: Promise<voi
     const request = route.request();
     const url = new URL(request.url());
     if (url.pathname === '/api/me') {
-      const user = { id: 'u1', name: 'Organizer', avatar: null, popId: null, firstName: null, lastName: null };
-      const account = {
-        ...user,
-        birthDate: null,
-        role: 'community',
-        stores: [],
-        handle: 'organizer',
-        providers: ['dev']
-      };
-      return route.fulfill({ json: { user: account, providers: ['dev'] } });
+      return route.fulfill({ json: organizerMe() });
     }
     if (url.pathname === `/api/tournaments/${CODE}/manage`) {
       return url.searchParams.has('since') ? route.fulfill({ status: 204 }) : route.fulfill({ json: manage });

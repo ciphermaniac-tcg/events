@@ -1,4 +1,5 @@
-import { expect, type Page, test } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
+import { test } from './network-guard';
 import { deferred } from '../__utils__/deferred';
 import { chunkOf } from './build-manifest';
 

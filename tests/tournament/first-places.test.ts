@@ -4,7 +4,6 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
-import { applyCommand, type Command } from '../../shared/tournament/commands.ts';
 import { emptyTournament } from '../../shared/tournament/create.ts';
 import { seededRandom } from '../../shared/tournament/random.ts';
 import { latestRound } from '../../shared/tournament/rounds.ts';
@@ -12,14 +11,11 @@ import { swissStandings } from '../../shared/tournament/standings.ts';
 import { firstPlaces, parseTdf } from '../../shared/tournament/tdf.ts';
 import type { Tournament } from '../../shared/tournament/types.ts';
 import { champions } from '../../src/lib/tournament/present.ts';
+import { commandRunner, pendingResults } from '../__utils__/commands.ts';
 
 const ctx = { now: Date.UTC(2026, 9, 4), localTime: '10/04/2026 10:00:00', season: 2027, random: seededRandom(7) };
 
-function run(t: Tournament, c: Command): Tournament {
-  const result = applyCommand(t, c, ctx);
-  assert.ok(result.ok, result.ok ? '' : result.error);
-  return result.tournament;
-}
+const run = commandRunner(ctx);
 
 function field(years: string[]): Tournament {
   return years.reduce(
@@ -33,16 +29,7 @@ function field(years: string[]): Tournament {
 }
 
 /** Every open match in each pod's latest round goes to its first seat. */
-function complete(t: Tournament): Tournament {
-  let result = t;
-  for (const pod of t.pods) {
-    const round = latestRound(pod)!;
-    for (const m of round.matches.filter(m => m.outcome === 'pending')) {
-      result = run(result, { type: 'reportResult', pod: pod.category, round: round.number, ...m, outcome: 'p1' });
-    }
-  }
-  return result;
-}
+const complete = (t: Tournament): Tournament => run(t, ...t.pods.flatMap(pod => pendingResults(pod)));
 
 test('an event with no top cut is won by whoever leads the Swiss standings', () => {
   let t = complete(run(field(['1990', '1990', '1990', '1990']), { type: 'pairRound', pod: 'masters' }));

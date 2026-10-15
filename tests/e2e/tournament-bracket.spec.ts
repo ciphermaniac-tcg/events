@@ -6,11 +6,11 @@
  * commands the functions apply.
  */
 
-import { expect, type Page, test } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
+import { test } from './network-guard';
 
-import { applyCommand, type Command } from '../../shared/tournament/commands';
+import type { Command } from '../../shared/tournament/commands';
 import { emptyTournament } from '../../shared/tournament/create';
-import { seededRandom } from '../../shared/tournament/random';
 import { regularRounds } from '../../shared/tournament/rounds';
 import type { Tournament } from '../../shared/tournament/types';
 import {
@@ -20,21 +20,9 @@ import {
   publicTournament,
   type TournamentView
 } from '../../shared/tournament/view';
+import { organizerMe, runCommands } from './console-fixture';
 
 const CODE = 'BRACKT';
-
-function run(tournament: Tournament, ...commands: Command[]): Tournament {
-  let current = tournament;
-  for (const command of commands) {
-    const ctx = { now: 0, localTime: '09/29/2026 10:00:00', season: 2027, random: seededRandom(3) };
-    const result = applyCommand(current, command, ctx);
-    if (!result.ok) {
-      throw new Error(`${command.type}: ${result.error}`);
-    }
-    current = result.tournament;
-  }
-  return current;
-}
 
 /** Every open table of the latest round won by the player at seat one. */
 function reportAll(t: Tournament): Tournament {
@@ -42,7 +30,7 @@ function reportAll(t: Tournament): Tournament {
   const reports: Command[] = (round?.matches ?? [])
     .filter(m => m.p2 !== null && m.outcome === 'pending')
     .map(m => ({ type: 'reportResult', pod: 'masters', round: round?.number ?? 0, ...m, outcome: 'p1' }));
-  return run(t, ...reports);
+  return runCommands(t, ...reports);
 }
 
 /** Sixteen players through their scheduled Swiss rounds and the quarterfinals of a top 8, the semifinals not paired yet. */
@@ -51,11 +39,11 @@ function quarterfinalsPlayed(): Tournament {
     type: 'addPlayer',
     player: { firstName: `Player${i + 1}`, lastName: 'Test' }
   }));
-  let t = run(emptyTournament({ name: 'Bracket Cup' }), ...adds);
+  let t = runCommands(emptyTournament({ name: 'Bracket Cup' }), ...adds);
   for (let pod = t.pods[0]; pod && pod.rounds.length < regularRounds(t, pod); pod = t.pods[0]) {
-    t = reportAll(run(t, { type: 'pairRound', pod: 'masters' }));
+    t = reportAll(runCommands(t, { type: 'pairRound', pod: 'masters' }));
   }
-  return reportAll(run(t, { type: 'startTopCut', pod: 'masters', size: 8 }));
+  return reportAll(runCommands(t, { type: 'startTopCut', pod: 'masters', size: 8 }));
 }
 
 const SETTINGS = { ...DEFAULT_SETTINGS, sanctioned: false };
@@ -109,8 +97,8 @@ test('the public page shows the top cut as a table, or as a bracket kept in its 
 });
 
 test('a Swiss round offers no bracket', async ({ page }) => {
-  let t = run(emptyTournament({ name: 'Swiss Only' }));
-  t = run(
+  let t = runCommands(emptyTournament({ name: 'Swiss Only' }));
+  t = runCommands(
     t,
     ...Array.from({ length: 8 }, (_, i): Command => ({
       type: 'addPlayer',
@@ -156,18 +144,7 @@ test('the console looks at the top cut as a bracket, and enters results in the t
   await page.route('**/api/**', route => {
     const url = new URL(route.request().url());
     if (url.pathname === '/api/me') {
-      const user = { id: 'u1', name: 'Organizer', avatar: null, popId: null, firstName: null, lastName: null };
-      const account = {
-        ...user,
-        birthDate: null,
-        role: 'community',
-        stores: [],
-        handle: 'organizer',
-        publicProfile: false,
-        profileName: 'real',
-        providers: ['dev']
-      };
-      return route.fulfill({ json: { user: account, providers: ['dev'] } });
+      return route.fulfill({ json: organizerMe({ publicProfile: false, profileName: 'real' }) });
     }
     if (url.pathname === `/api/tournaments/${CODE}/manage`) {
       return url.searchParams.has('since') ? route.fulfill({ status: 204 }) : route.fulfill({ json: manage });

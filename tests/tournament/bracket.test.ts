@@ -7,47 +7,20 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { applyCommand, type Command } from '../../shared/tournament/commands.ts';
+import type { Command } from '../../shared/tournament/commands.ts';
 import { emptyTournament } from '../../shared/tournament/create.ts';
-import { seededRandom } from '../../shared/tournament/random.ts';
 import type { Pod, Round, Tournament } from '../../shared/tournament/types.ts';
 import type { PendingResult } from '../../shared/tournament/view.ts';
 import { type Bracket, buildBracket, cutSeeds } from '../../src/lib/tournament/bracket.ts';
+import { commandRunner, freshContext, pendingResults } from '../__utils__/commands.ts';
 
-function run(tournament: Tournament, ...commands: Command[]): Tournament {
-  return commands.reduce((current, command) => {
-    const result = applyCommand(current, command, {
-      now: 0,
-      localTime: '10/10/2026 10:00:00',
-      season: 2027,
-      random: seededRandom(5)
-    });
-    assert.ok(result.ok, result.ok ? '' : `${command.type}: ${result.error}`);
-    return result.tournament;
-  }, tournament);
-}
+const run = commandRunner(freshContext(5, '10/10/2026 10:00:00'));
 
 const pod = (t: Tournament): Pod => t.pods[0] as Pod;
 const latest = (t: Tournament): Round => pod(t).rounds.at(-1) as Round;
 
 /** Every open match in the current round won by its first seat, the higher seed in a top cut. */
-function reportAll(t: Tournament): Tournament {
-  const r = latest(t);
-  return run(
-    t,
-    ...r.matches
-      .filter(m => m.outcome === 'pending')
-      .map((m): Command => ({
-        type: 'reportResult',
-        pod: 'masters',
-        round: r.number,
-        table: m.table,
-        p1: m.p1,
-        p2: m.p2,
-        outcome: 'p1'
-      }))
-  );
-}
+const reportAll = (t: Tournament): Tournament => run(t, ...pendingResults(pod(t)));
 
 /** Sixteen players through five Swiss rounds, then a top cut of `size`. */
 function cutOf(size: number, playoff3rd4th = false): Tournament {

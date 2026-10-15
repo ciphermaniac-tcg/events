@@ -10,7 +10,8 @@
  */
 
 import { readFileSync } from 'node:fs';
-import { expect, type Page, type Route, test } from '@playwright/test';
+import { expect, type Page, type Route } from '@playwright/test';
+import { test } from './network-guard';
 
 import type { AccountRole } from '../../shared/accounts/roles';
 import type { HistoryEntry } from '../../shared/accounts/types';

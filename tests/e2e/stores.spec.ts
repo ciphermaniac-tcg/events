@@ -6,7 +6,8 @@
  * link, and starting a store's event from its pokemon.com listings.
  */
 
-import { expect, type Page, test } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
+import { test } from './network-guard';
 import { deferred } from '../__utils__/deferred';
 
 import type { AccountRole } from '../../shared/accounts/roles';

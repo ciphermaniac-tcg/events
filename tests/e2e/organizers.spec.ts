@@ -5,7 +5,8 @@
  * fields are covered in stores.spec.ts.
  */
 
-import { expect, type Page, test } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
+import { test } from './network-guard';
 
 import type { AccountRole } from '../../shared/accounts/roles';
 import type { ApplicationState, MyApplication, MyStore } from '../../shared/accounts/types';

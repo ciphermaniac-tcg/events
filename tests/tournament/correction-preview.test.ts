@@ -1,24 +1,13 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { applyCommand, type Command } from '../../shared/tournament/commands.ts';
+import type { Command } from '../../shared/tournament/commands.ts';
 import { emptyTournament } from '../../shared/tournament/create.ts';
-import { seededRandom } from '../../shared/tournament/random.ts';
 import type { Pod, Tournament } from '../../shared/tournament/types.ts';
 import { correctionPreview, standingChanges } from '../../src/lib/tournament/corrections.ts';
+import { commandRunner, freshContext } from '../__utils__/commands.ts';
 
-function run(tournament: Tournament, ...commands: Command[]): Tournament {
-  let current = tournament;
-  for (const command of commands) {
-    const ctx = { now: 0, localTime: '10/14/2026 18:00:00', season: 2027, random: seededRandom(5) };
-    const result = applyCommand(current, command, ctx);
-    if (!result.ok) {
-      throw new Error(`${command.type}: ${result.error}`);
-    }
-    current = result.tournament;
-  }
-  return current;
-}
+const run = commandRunner(freshContext(5, '10/14/2026 18:00:00'));
 
 const masters = (t: Tournament) => t.pods.find(pod => pod.category === 'masters') as Pod;
 

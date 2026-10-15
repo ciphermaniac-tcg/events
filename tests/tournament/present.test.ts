@@ -10,9 +10,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test, { describe } from 'node:test';
 
-import { applyCommand, type Command } from '../../shared/tournament/commands.ts';
+import type { Command } from '../../shared/tournament/commands.ts';
 import { emptyTournament } from '../../shared/tournament/create.ts';
-import { seededRandom } from '../../shared/tournament/random.ts';
 import { cutPodOf } from '../../shared/tournament/rounds.ts';
 import { recommendedStructure } from '../../shared/tournament/structure.ts';
 import { parseTdf } from '../../shared/tournament/tdf.ts';
@@ -54,23 +53,13 @@ import {
   statusParts,
   unseated
 } from '../../src/lib/tournament/present.ts';
+import { commandRunner, freshContext } from '../__utils__/commands.ts';
 
 const CHALLENGE = parseTdf(readFileSync(new URL('../fixtures/tdf/challenge-midevent.tdf', import.meta.url), 'utf8'));
 const pod = CHALLENGE.pods[0] as Pod;
 const round2 = pod.rounds[1] as Round;
 
-function run(tournament: Tournament, ...commands: Command[]): Tournament {
-  return commands.reduce((current, command) => {
-    const result = applyCommand(current, command, {
-      now: 0,
-      localTime: '10/10/2026 10:00:00',
-      season: 2027,
-      random: seededRandom(3)
-    });
-    assert.ok(result.ok, result.ok ? '' : result.error);
-    return result.tournament;
-  }, tournament);
-}
+const run = commandRunner(freshContext(3, '10/10/2026 10:00:00'));
 
 const NO_ROUND = { round: undefined, tables: 0, open: 0, champion: null, label: '', next: '' };
 

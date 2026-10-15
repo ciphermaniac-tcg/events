@@ -21,20 +21,13 @@ import { writeTdf } from '../../shared/tournament/tdf.ts';
 import { joinedLate, playerPod, podOf, regularRounds } from '../../shared/tournament/rounds.ts';
 import { bracketMatches, placeFinals, swissStandings, thirdPlaceMatch } from '../../shared/tournament/standings.ts';
 import type { Pod, Round, Tournament } from '../../shared/tournament/types.ts';
+import { commandRunner, pendingResults } from '../__utils__/commands.ts';
 
 function context(seed = 1, now = 1_000_000): CommandContext {
   return { now, localTime: '09/28/2026 10:00:00', season: 2027, random: seededRandom(seed) };
 }
 
-function run(tournament: Tournament, ...commands: Command[]): Tournament {
-  let current = tournament;
-  for (const command of commands) {
-    const result = applyCommand(current, command, context(current.players.length + 7));
-    assert.ok(result.ok, `${command.type}: ${result.ok ? '' : result.error}`);
-    current = result.tournament;
-  }
-  return current;
-}
+const run = commandRunner(current => context(current.players.length + 7));
 
 function attempt(tournament: Tournament, command: Command): string {
   const result = applyCommand(tournament, command, context());
@@ -54,21 +47,7 @@ function withPlayers(count: number): Tournament {
 }
 
 /** Reports every open match in the current round as a win for player one. */
-function reportAll(t: Tournament): Tournament {
-  const r = round(t);
-  const reports: Command[] = r.matches
-    .filter(m => m.outcome === 'pending')
-    .map(m => ({
-      type: 'reportResult',
-      pod: pod(t).category,
-      round: r.number,
-      table: m.table,
-      p1: m.p1,
-      p2: m.p2,
-      outcome: 'p1'
-    }));
-  return run(t, ...reports);
-}
+const reportAll = (t: Tournament): Tournament => run(t, ...pendingResults(pod(t)));
 
 function cutReady(t: Tournament): Tournament {
   let next = reportAll(t);

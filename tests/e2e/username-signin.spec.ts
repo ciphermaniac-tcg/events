@@ -10,7 +10,8 @@
  * what went wrong when Clerk refuses.
  */
 
-import { expect, type Page, test } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
+import { test } from './network-guard';
 
 const KEY = `pk_test_${Buffer.from('clerk.cm.test$').toString('base64')}`;
 const SCRIPT = 'https://clerk.cm.test/npm/@clerk/clerk-js@6/dist/clerk.browser.js';

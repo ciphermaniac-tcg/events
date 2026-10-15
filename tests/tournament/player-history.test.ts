@@ -8,9 +8,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test, { describe } from 'node:test';
 
-import { applyCommand, type Command } from '../../shared/tournament/commands.ts';
+import type { Command } from '../../shared/tournament/commands.ts';
 import { emptyTournament } from '../../shared/tournament/create.ts';
-import { seededRandom } from '../../shared/tournament/random.ts';
 import { parseTdf } from '../../shared/tournament/tdf.ts';
 import type { Pod, Tournament } from '../../shared/tournament/types.ts';
 import {
@@ -25,21 +24,11 @@ import {
 import { eventDay, playerResult, readEntry } from '../../src/lib/tournament/history.ts';
 import { firstRoundTime, namesById, podStandings } from '../../src/lib/tournament/present.ts';
 import { juniorsCutApart } from '../__utils__/divisionCuts.ts';
+import { commandRunner, freshContext } from '../__utils__/commands.ts';
 
 const CHALLENGE = parseTdf(readFileSync(new URL('../fixtures/tdf/challenge-midevent.tdf', import.meta.url), 'utf8'));
 
-function run(tournament: Tournament, ...commands: Command[]): Tournament {
-  return commands.reduce((current, command) => {
-    const result = applyCommand(current, command, {
-      now: 0,
-      localTime: '10/10/2026 10:00:00',
-      season: 2027,
-      random: seededRandom(3)
-    });
-    assert.ok(result.ok, result.ok ? '' : result.error);
-    return result.tournament;
-  }, tournament);
-}
+const run = commandRunner(freshContext(3, '10/10/2026 10:00:00'));
 
 test('an event’s day: the organizer’s start time, else TOM’s date, with the year only outside this one', () => {
   const thisYear = new Date().getFullYear();

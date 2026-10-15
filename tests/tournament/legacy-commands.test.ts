@@ -19,20 +19,13 @@ import {
 import { emptyTournament } from '../../shared/tournament/create.ts';
 import { seededRandom } from '../../shared/tournament/random.ts';
 import { isGeneratedId, type Pod, type Round, type Tournament } from '../../shared/tournament/types.ts';
+import { commandRunner } from '../__utils__/commands.ts';
 
 function context(now = 1_000_000, localTime = '09/28/2026 10:00:00'): CommandContext {
   return { now, localTime, season: 2027, random: seededRandom(3) };
 }
 
-function run(tournament: Tournament, ...commands: Command[]): Tournament {
-  let current = tournament;
-  for (const command of commands) {
-    const result = applyCommand(current, command, context());
-    assert.ok(result.ok, `${command.type}: ${result.ok ? '' : result.error}`);
-    current = result.tournament;
-  }
-  return current;
-}
+const run = commandRunner(() => context(), applyCommand);
 
 function refusal(tournament: Tournament, command: Command, ctx = context()): string {
   const result = applyCommand(tournament, command, ctx);

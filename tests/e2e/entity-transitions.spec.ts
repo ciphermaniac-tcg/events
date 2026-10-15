@@ -1,4 +1,5 @@
-import { expect, type Page, test } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
+import { test } from './network-guard';
 import type { PublicProfile, PublicStore } from '../../shared/accounts/types';
 import { emptyTournament } from '../../shared/tournament/create';
 import { DEFAULT_SETTINGS, type Manage, type TournamentView } from '../../shared/tournament/view';
@@ -377,8 +378,12 @@ for (const failure of [
     await page.route('**/api/tournaments/FIRST/manage*', route =>
       failure.status ? route.fulfill({ status: failure.status, json: { error: 'Unavailable' } }) : route.abort()
     );
-    await page.clock.fastForward(failure.status === 401 ? 15_000 : 45_000);
-    await expect(page.getByText(failure.label, { exact: true })).toBeVisible();
+    // The last good poll schedules the next one as its answer is taken, which can land after a single jump;
+    // jumping on until the failure shows reaches that poll wherever it was scheduled.
+    await expect(async () => {
+      await page.clock.fastForward(failure.status === 401 ? 15_000 : 45_000);
+      await expect(page.getByText(failure.label, { exact: true })).toBeVisible({ timeout: 1_000 });
+    }).toPass();
     await expect(page.getByText(/Last updated/)).toBeVisible();
     await expect(page.getByText(/not updating/)).toBeVisible();
     await page.route('**/api/tournaments/FIRST/manage*', route => route.fulfill({ status: 204 }));

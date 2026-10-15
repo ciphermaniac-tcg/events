@@ -3,7 +3,8 @@
  * the age check a new sign-up waits on links to both before any account exists.
  */
 
-import { expect, test } from '@playwright/test';
+import { expect } from '@playwright/test';
+import { test } from './network-guard';
 
 test.beforeEach(async ({ page }) => {
   await page.route('**/api/**', async route => {

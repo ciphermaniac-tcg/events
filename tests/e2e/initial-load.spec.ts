@@ -1,4 +1,5 @@
-import { expect, type Page, test } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
+import { test } from './network-guard';
 import type { Me } from '../../src/lib/tournament/api';
 import { deferred } from '../__utils__/deferred';
 

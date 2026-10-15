@@ -3,26 +3,15 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { applyCommand, type Command } from '../../shared/tournament/commands.ts';
+import type { Command } from '../../shared/tournament/commands.ts';
 import { emptyTournament } from '../../shared/tournament/create.ts';
-import { seededRandom } from '../../shared/tournament/random.ts';
 import { latestRound } from '../../shared/tournament/rounds.ts';
 import type { Tournament } from '../../shared/tournament/types.ts';
 import type { PendingResult } from '../../shared/tournament/view.ts';
 import { screenPhase } from '../../src/lib/tournament/screen.ts';
+import { commandRunner, freshContext } from '../__utils__/commands.ts';
 
-function run(tournament: Tournament, ...commands: Command[]): Tournament {
-  return commands.reduce((current, command) => {
-    const result = applyCommand(current, command, {
-      now: 0,
-      localTime: '10/10/2026 10:00:00',
-      season: 2027,
-      random: seededRandom(3)
-    });
-    assert.ok(result.ok, result.ok ? '' : result.error);
-    return result.tournament;
-  }, tournament);
-}
+const run = commandRunner(freshContext(3, '10/10/2026 10:00:00'));
 
 const adds: Command[] = ['Ada', 'Ben', 'Cy', 'Dee'].map(firstName => ({
   type: 'addPlayer',
