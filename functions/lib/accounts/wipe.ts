@@ -216,6 +216,12 @@ function accountWrites(db: D1Like, user: User): D1Statement[] {
     // The deck checks it made or wrote down stay with their events, naming no one.
     db.prepare('UPDATE deck_checks SET checker_id = NULL WHERE checker_id = ?').bind(user.id),
     db.prepare('UPDATE deck_checks SET recorded_by = NULL WHERE recorded_by = ?').bind(user.id),
+    // As do the penalty notes it gave or wrote down.
+    db.prepare('UPDATE penalty_notes SET judge_id = NULL WHERE judge_id = ?').bind(user.id),
+    db.prepare('UPDATE penalty_notes SET recorded_by = NULL WHERE recorded_by = ?').bind(user.id),
+    // The corrections it approved stay with their events, naming no one, and it judges nothing more.
+    db.prepare('UPDATE result_corrections SET approved_by = NULL WHERE approved_by = ?').bind(user.id),
+    db.prepare('UPDATE tournaments SET head_judge = NULL WHERE head_judge = ?').bind(user.id),
     ...DECIDED_BY.map(([table, column]) =>
       db.prepare(`UPDATE ${table} SET ${column} = NULL WHERE ${column} = ?`).bind(user.id)
     ),

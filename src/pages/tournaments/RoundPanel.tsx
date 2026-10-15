@@ -50,6 +50,7 @@ import { RoundPicker, RoundStepper } from './RoundStepper';
 import { MatchTable } from './MatchTable';
 import { ChampionLine, ClockControls, DeleteRound, RepairControl } from './RoundControls';
 import { createResultEntry } from './resultEntry';
+import { type CorrectableCell, CorrectableResult, createRoundCorrections } from './Corrections';
 
 // Decks are named now and then, not every round, so their picker loads when first asked for.
 const CutBracket = lazy(() => import('./Bracket').then(m => ({ default: m.CutBracket })));
@@ -87,6 +88,8 @@ interface ResultProps {
   onTimeExtension?: () => void;
   /** Where rows are too narrow for their controls: the result opens the table's sheet instead. */
   onOpen?: () => void;
+  /** A past Swiss round's result, which can only be corrected (see Corrections.tsx); null otherwise. */
+  past: CorrectableCell | null;
 }
 
 /** The second press a result takes, in its row, so a slip of the finger is not a result. */
@@ -258,6 +261,17 @@ function StandingResult(props: ResultProps) {
 function Result(props: ResultProps) {
   return (
     <Show when={props.match.p2 !== null} fallback={<div class='tm-result' />}>
+      <Show when={props.past} fallback={<LiveResult {...props} />}>
+        {past => <CorrectableResult match={props.match} round={props.round} cell={past()} />}
+      </Show>
+    </Show>
+  );
+}
+
+/** A result that can still be entered or changed from its row. */
+function LiveResult(props: ResultProps) {
+  return (
+    <>
       <Show
         when={props.asking}
         fallback={
@@ -268,7 +282,7 @@ function Result(props: ResultProps) {
       >
         {asking => <ConfirmResult {...props} asking={asking()} />}
       </Show>
-    </Show>
+    </>
   );
 }
 
@@ -546,14 +560,15 @@ function roundCounts(round: Round | undefined, pod: Pod, pending: Manage['pendin
 
 /**
  * A round before the latest takes no results: the server takes them for the
- * latest round only, and correcting an earlier one is not offered yet.
+ * latest round only. `text` says instead whether the round can be corrected
+ * (see Corrections.tsx).
  */
-function PastNote(props: { past: string | null; onCurrent: () => void }) {
+function PastNote(props: { past: string | null; text: string | null; onCurrent: () => void }) {
   return (
     <Show when={props.past}>
       {past => (
         <div class='tm-strip is-note' role='status'>
-          <span>{past()} is read-only. Results are entered in the current round.</span>
+          <span>{props.text ?? `${past()} is read-only. Results are entered in the current round.`}</span>
           <span class='tm-grow' />
           <button type='button' class='btn btn-secondary tm-small' onClick={() => props.onCurrent()}>
             Current round
@@ -571,6 +586,8 @@ function RoundNotes(props: {
   ended: boolean;
   /** The round shown, by name, when it is not the latest. */
   past: string | null;
+  /** What the note above a past round says, when not the plain read-only note (see pastNote). */
+  pastText: string | null;
   onCurrent: () => void;
   /** The names of the players a re-pair would seat, joined. */
   waiting: string;
@@ -579,7 +596,10 @@ function RoundNotes(props: {
 }) {
   return (
     <>
-      <Show when={props.ended} fallback={<PastNote past={props.past} onCurrent={props.onCurrent} />}>
+      <Show
+        when={props.ended}
+        fallback={<PastNote past={props.past} text={props.pastText} onCurrent={props.onCurrent} />}
+      >
         <EndedNote />
       </Show>
       <NotSeated state={props.state} pod={props.pod} names={props.waiting} />
@@ -628,6 +648,7 @@ export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod
     const r = round();
     return r && !isLatest() ? roundLabel(r, props.pod) : null;
   };
+  const fixes = createRoundCorrections(props, pastLabel);
   // Each division's champion, Masters first, once every final in the pod is decided.
   const winners = createMemo(() => champions(latest(), props.pod));
   const winner = () => winners()[0]?.id ?? null;
@@ -709,6 +730,7 @@ export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod
         pod={props.pod}
         ended={ended()}
         past={pastLabel()}
+        pastText={fixes.note(round())}
         onCurrent={() => setPicked(null)}
         waiting={waiting()
           .map(id => names().get(id) ?? id)
@@ -761,6 +783,7 @@ export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod
                     onAccept={outcome => send(match, outcome)}
                     onOpen={opens() ? () => openSheet(match) : undefined}
                     onTimeExtension={canExtend(match, r()) ? () => editExtension(match, r()) : undefined}
+                    past={fixes.cell(match, r())}
                     onKeep={() => {
                       setAsking(null);
                       backToFilter();
@@ -771,6 +794,7 @@ export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod
               <Show when={shown().length === 0}>
                 <p class='muted tm-empty'>No tables match.</p>
               </Show>
+              {fixes.log(r(), names())}
             </>
           );
           return (
@@ -848,6 +872,7 @@ export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod
           );
         }}
       </Show>
+      {fixes.dialog(names(), next => props.state.take(next))}
       <Show when={extension()} keyed>
         {selection => (
           <Suspense>

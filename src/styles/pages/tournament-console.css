@@ -674,6 +674,158 @@
 .tm-console .tm-list-deck-check {
   white-space: nowrap;
 }
+/* A past round's corrections, under its tables (Corrections.tsx). */
+.tm-console .tm-corrections {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.tm-console .tm-corrections > li {
+  display: grid;
+  gap: 2px;
+  padding: var(--space-2) 14px;
+  border-top: 1px solid var(--rule);
+  font-size: var(--text-sm);
+}
+.tm-console .tm-result-label .tm-flag {
+  vertical-align: 0;
+}
+/* The correction dialog: wider than the console's other dialogs for the standings it previews. */
+.tm-modal.tm-correction {
+  width: min(620px, 100vw - 32px);
+}
+.tm-correction-field {
+  display: grid;
+  gap: var(--space-1);
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+.tm-correction-field .segmented {
+  flex-wrap: wrap;
+  justify-self: start;
+}
+.tm-correction-who {
+  margin: 0;
+  font-size: var(--text-sm);
+}
+.tm-correction-changes h4 {
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-base);
+}
+.tm-correction-diff {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+.tm-correction-diff th {
+  padding: var(--space-1) var(--space-2) var(--space-1) 0;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  text-align: left;
+}
+.tm-correction-diff td {
+  padding: 6px var(--space-2) 6px 0;
+  border-bottom: 1px solid var(--rule);
+}
+.tm-correction-diff .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.tm-correction-lines {
+  display: grid;
+  gap: var(--space-1);
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-sm);
+}
+@media (max-width: 640px) {
+  /* OWP is the column a phone gives up; place and record say the change. */
+  .tm-correction-diff th:last-child,
+  .tm-correction-diff td:last-child {
+    display: none;
+  }
+}
+/* The Penalties tab: the form that records a note across the top, then the log. */
+.tm-console .tm-penalty-form {
+  display: grid;
+  flex: 1;
+  grid-template-columns: minmax(160px, 1.4fr) minmax(110px, 0.6fr) minmax(160px, 1fr) minmax(140px, 1fr);
+  gap: var(--space-2) var(--space-3);
+  align-items: end;
+}
+.tm-console .tm-penalty-form label {
+  display: grid;
+  gap: var(--space-1);
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+.tm-console .tm-penalty-notes {
+  grid-column: 1 / -2;
+}
+.tm-console .tm-penalty-wide {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: var(--text-sm);
+}
+.tm-console .tm-penalty-round {
+  width: auto;
+}
+.tm-console .tm-penalty-deciding {
+  color: var(--negative);
+}
+.tm-console .tm-penalty-log td {
+  height: auto;
+  padding-block: 10px;
+}
+.tm-console .table-wrap .tm-penalty-log td {
+  white-space: nowrap;
+}
+.tm-console .table-wrap .tm-penalty-log .tm-penalty-text {
+  min-width: 220px;
+  white-space: normal;
+}
+@media (max-width: 640px) {
+  .tm-console .tm-penalty-form {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .tm-console .tm-penalty-notes {
+    grid-column: 1 / -1;
+  }
+  .tm-console .tm-penalty-log,
+  .tm-console .tm-penalty-log tbody,
+  .tm-console .tm-penalty-log td {
+    display: block;
+  }
+  .tm-console .tm-penalty-log thead {
+    display: none;
+  }
+  /* A line per entry: round and player, what was given and by whom, the notes, who wrote it down. */
+  .tm-console .tm-penalty-log tr {
+    display: grid;
+    grid-template-columns: 32px minmax(0, 1fr) auto;
+    gap: 2px var(--space-2);
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--rule);
+  }
+  /* Past the console's fixed row height, which a stacked line would otherwise take for each of its parts. */
+  .tm-console .data.tm-penalty-log td {
+    width: auto;
+    height: auto !important;
+    padding: 0;
+    border: 0;
+    text-align: left;
+  }
+  .tm-console .tm-penalty-log td:nth-child(n + 4) {
+    grid-column: 2 / -1;
+  }
+  .tm-console .table-wrap .tm-penalty-log .tm-penalty-text {
+    min-width: 0;
+  }
+}
 @media (max-width: 760px) {
   .tm-console .tm-check-split {
     grid-template-columns: minmax(0, 1fr);

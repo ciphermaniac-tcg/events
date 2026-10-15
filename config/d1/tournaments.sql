@@ -142,7 +142,10 @@ CREATE TABLE IF NOT EXISTS tournaments (
   community_day TEXT,
   last_import_at INTEGER,
   -- What players asked staff for from the event's page (shared/tournament/requests.ts).
-  requests TEXT NOT NULL DEFAULT '[]'
+  requests TEXT NOT NULL DEFAULT '[]',
+  -- The account on the event's staff that may approve a result correction as
+  -- the organizer may (shared/tournament/corrections.ts); NULL for none.
+  head_judge TEXT
 );
 CREATE INDEX IF NOT EXISTS tournaments_of_store ON tournaments (store_id) WHERE store_id IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS tournaments_one_community_day ON tournaments (owner_id, community_day)
@@ -222,6 +225,65 @@ CREATE TABLE IF NOT EXISTS deck_checks (
 CREATE UNIQUE INDEX IF NOT EXISTS deck_checks_replaced ON deck_checks (code, replaces) WHERE replaces IS NOT NULL;
 CREATE INDEX IF NOT EXISTS deck_checks_by_checker ON deck_checks (checker_id) WHERE checker_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS deck_checks_by_recorder ON deck_checks (recorded_by) WHERE recorded_by IS NOT NULL;
+
+-- Penalty notes staff record during an event (shared/tournament/penaltyNotes.ts),
+-- a staff record shaped as deck_checks is: append-only, an edit a new
+-- row whose `replaces` names the row it edits and a removal one with `removed`
+-- set, each with the account that wrote it (`recorded_by`) and when. A row is
+-- replaced at most once. The judge is a staff account (`judge_id`,
+-- `judge_name` '') or a name typed in (`judge_id` NULL); a deleted account
+-- leaves both empty, and `recorded_by` NULL. A note issues nothing: no result,
+-- drop or standing reads this table.
+CREATE TABLE IF NOT EXISTS penalty_notes (
+  code TEXT NOT NULL,
+  id TEXT NOT NULL,
+  player_id TEXT NOT NULL,
+  player_name TEXT NOT NULL,
+  round INTEGER NOT NULL,
+  judge_id TEXT,
+  judge_name TEXT NOT NULL,
+  penalty TEXT NOT NULL CHECK (
+    penalty IN ('caution', 'warning', 'double-prize', 'quadruple-prize', 'game-loss', 'match-loss', 'disqualification')
+  ),
+  notes TEXT NOT NULL,
+  recorded_by TEXT,
+  recorded_at INTEGER NOT NULL,
+  replaces TEXT,
+  removed INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (code, id)
+) WITHOUT ROWID;
+CREATE UNIQUE INDEX IF NOT EXISTS penalty_notes_replaced ON penalty_notes (code, replaces) WHERE replaces IS NOT NULL;
+CREATE INDEX IF NOT EXISTS penalty_notes_by_judge ON penalty_notes (judge_id) WHERE judge_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS penalty_notes_by_recorder ON penalty_notes (recorded_by) WHERE recorded_by IS NOT NULL;
+
+-- Result corrections (shared/tournament/corrections.ts).
+-- One row per correction, written in the same batch as the event it changes
+-- and only where that write lands (`version` is the event's version after
+-- it). Rows are only added. `approved_by` is the approving account, NULL once
+-- it is deleted; `role` says as what it approved, and `alone` that the
+-- organizer approved with no head judge named. `during` is the round being
+-- played at the time, always the corrected round's next.
+CREATE TABLE IF NOT EXISTS result_corrections (
+  code TEXT NOT NULL,
+  id TEXT NOT NULL,
+  version INTEGER NOT NULL,
+  pod TEXT NOT NULL,
+  round INTEGER NOT NULL,
+  table_no INTEGER NOT NULL,
+  p1 TEXT NOT NULL,
+  p2 TEXT NOT NULL,
+  from_outcome TEXT NOT NULL,
+  to_outcome TEXT NOT NULL,
+  note TEXT NOT NULL,
+  approved_by TEXT,
+  role TEXT NOT NULL CHECK (role IN ('organizer', 'head-judge')),
+  alone INTEGER NOT NULL,
+  during INTEGER NOT NULL,
+  recorded_at INTEGER NOT NULL,
+  PRIMARY KEY (code, id)
+) WITHOUT ROWID;
+CREATE INDEX IF NOT EXISTS result_corrections_by_approver ON result_corrections (approved_by)
+  WHERE approved_by IS NOT NULL;
 
 -- Reporting tokens contain seat submissions; caller-supplied device IDs and
 -- sign-in do not verify who holds a seat. All player results need staff acceptance.

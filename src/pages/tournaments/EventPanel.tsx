@@ -21,9 +21,11 @@ import {
   call,
   deleteTournament,
   errorText,
+  fetchHeadJudge,
   fetchStaff,
   json,
   type Manage,
+  nameHeadJudge,
   removeStaff,
   rotateStaffToken,
   saveSettings
@@ -341,6 +343,7 @@ function Finish(props: { state: ManageState; manage: Manage }) {
 
 function StaffInvite(props: { state: ManageState; manage: Manage }) {
   const [copied, setCopied] = createSignal(false);
+  const [removals, setRemovals] = createSignal(0);
   // Blurred until pressed, so the link stays off a screen being shared or projected.
   const [revealed, setRevealed] = createSignal(false);
   function rotate() {
@@ -401,9 +404,48 @@ function StaffInvite(props: { state: ManageState; manage: Manage }) {
             />
           </span>
         </SettingRow>
-        <StaffList manage={props.manage} />
+        <StaffList manage={props.manage} onRemove={() => setRemovals(removals() + 1)} />
+        <HeadJudge manage={props.manage} removals={removals()} />
       </div>
     </section>
+  );
+}
+
+/**
+ * The head judge, from the event's staff: they may approve a result
+ * correction as the organizer may (see Corrections.tsx). Asked for again as
+ * the staff changes, since one removed from it is head judge no more.
+ */
+function HeadJudge(props: { manage: Manage; removals: number }) {
+  const [choice, { mutate }] = createResource(
+    () => `${props.manage.code} ${props.manage.staffToken ?? ''} ${props.removals}`,
+    () => fetchHeadJudge(props.manage.code)
+  );
+  const [error, setError] = createSignal<string | null>(null);
+  async function name(userId: string) {
+    setError(null);
+    const { code } = props.manage;
+    await nameHeadJudge(code, userId || null)
+      .then(mutate)
+      .catch(err => setError(errorText(err)));
+  }
+  return (
+    <SettingRow label='Head judge' for='head-judge' note='May approve result corrections'>
+      <span class='tm-set-inline'>
+        <select
+          id='head-judge'
+          class='tm-select'
+          value={latestValue(choice)?.headJudge?.id ?? ''}
+          onChange={e => void name(e.currentTarget.value)}
+        >
+          <option value=''>None</option>
+          <For each={latestValue(choice)?.staff ?? []}>
+            {member => <option value={member.id}>{member.name}</option>}
+          </For>
+        </select>
+        <ErrorLine message={error()} />
+      </span>
+    </SettingRow>
   );
 }
 
@@ -414,7 +456,7 @@ const joinedOn = (at: number) => new Date(at).toLocaleDateString(undefined, { mo
  * in, and when, so a link that went further than meant shows; each of them
  * can be removed.
  */
-function StaffList(props: { manage: Manage }) {
+function StaffList(props: { manage: Manage; onRemove: () => void }) {
   // A new link removes everyone, so the list is asked for again with each one. The key is a
   // string: an object made afresh from each copy of the event would ask again after every result.
   const [staff, { mutate }] = createResource(
@@ -427,6 +469,7 @@ function StaffList(props: { manage: Manage }) {
     const result = await removeStaff(props.manage.code, id).catch(() => null);
     if (result) {
       mutate(result.staff);
+      props.onRemove();
     }
   }
   return (

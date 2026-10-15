@@ -68,22 +68,25 @@ import { pageTitle } from '../../lib/title';
 // the others load when opened (decklists are read before the event, the
 // players and settings tabs mostly before it too, standings between rounds).
 const DecklistsPanel = lazy(() => import('./DecklistsPanel').then(m => ({ default: m.DecklistsPanel })));
+const PenaltiesPanel = lazy(() => import('./PenaltiesPanel').then(m => ({ default: m.PenaltiesPanel })));
 const PlayersPanel = lazy(() => import('./PlayersPanel').then(m => ({ default: m.PlayersPanel })));
 const StandingsTable = lazy(() => import('./StandingsTable').then(m => ({ default: m.StandingsTable })));
 const EventPanel = lazy(() => import('./EventPanel').then(m => ({ default: m.EventPanel })));
 const RoundPanel = lazy(() => import('./RoundPanel').then(m => ({ default: m.RoundPanel })));
 
-type Tab = 'round' | 'players' | 'standings' | 'decklists' | 'event';
+type Tab = 'round' | 'players' | 'standings' | 'decklists' | 'penalties' | 'event';
 
 type TabOption = { value: Tab; label: string; locked?: string };
 
 const PAIRINGS_LOCKED = 'Pairings open once round 1 starts.';
+const PENALTIES_LOCKED = 'Penalty notes open once round 1 is paired.';
 
 const TABS: TabOption[] = [
   { value: 'round', label: 'Pairings' },
   { value: 'players', label: 'Players' },
   { value: 'standings', label: 'Standings' },
   { value: 'decklists', label: 'Decklists' },
+  { value: 'penalties', label: 'Penalties' },
   { value: 'event', label: 'Settings' }
 ];
 
@@ -376,6 +379,11 @@ const TAB_ICONS: Record<Tab, JSX.Element> = {
       <path d='M9 8h6M9 12h6M9 16h4' />
     </svg>
   ),
+  penalties: (
+    <svg viewBox='0 0 24 24' aria-hidden='true'>
+      <path d='M5 21V4M5 4h12l-2.5 4.5L17 13H5' />
+    </svg>
+  ),
   event: (
     <svg viewBox='0 0 24 24' aria-hidden='true'>
       <circle cx='12' cy='12' r='3' />
@@ -419,17 +427,21 @@ function TabBar(props: { tabs: TabOption[]; selected: Tab; onSelect: (tab: Tab) 
 /** Whether any pod has a round paired: until then the Pairings tab has nothing to show. */
 const hasStarted = (manage: Manage) => manage.tournament.pods.some(p => latestRound(p) !== undefined);
 
-/** The console's tabs: Decklists only while the event takes them, Pairings locked until round 1. */
 /** The Players tab counts the requests waiting on staff, so one is seen from any tab. */
 function withRequests(t: TabOption, manage: Manage): TabOption {
   const open = (manage.requests ?? []).filter(request => request.status === 'open').length;
   return t.value === 'players' && open > 0 ? { ...t, label: `${t.label} · ${open}` } : t;
 }
 
+/** Until round 1 is paired, Pairings has nothing to show and a penalty has no round to be noted in. */
+const UNTIL_STARTED: Partial<Record<Tab, string>> = { round: PAIRINGS_LOCKED, penalties: PENALTIES_LOCKED };
+
+/** The console's tabs: Decklists only while the event takes them, Pairings and Penalties locked until round 1. */
 const tabsFor = (manage: Manage): TabOption[] =>
-  TABS.filter(t => t.value !== 'decklists' || manage.settings.decklists !== 'off').map(t =>
-    withRequests(t.value === 'round' && !hasStarted(manage) ? { ...t, locked: PAIRINGS_LOCKED } : t, manage)
-  );
+  TABS.filter(t => t.value !== 'decklists' || manage.settings.decklists !== 'off').map(t => {
+    const locked = hasStarted(manage) ? undefined : UNTIL_STARTED[t.value];
+    return withRequests(locked ? { ...t, locked } : t, manage);
+  });
 
 /** The tab the console opens on: Pairings once the event is running, Players before it. */
 const defaultTab = (manage: Manage): Tab => (hasStarted(manage) ? 'round' : 'players');
@@ -500,6 +512,9 @@ function Console(props: { state: ReturnType<typeof createManage>; manage: Manage
         </Show>
         <Show when={tab() === 'decklists'}>
           <DecklistsPanel state={props.state} manage={props.manage} />
+        </Show>
+        <Show when={tab() === 'penalties'}>
+          <PenaltiesPanel manage={props.manage} />
         </Show>
         <Show when={tab() === 'event'}>
           <EventPanel state={props.state} manage={props.manage} />

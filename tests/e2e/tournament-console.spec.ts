@@ -141,6 +141,9 @@ async function mockConsole(
       }
       return route.fulfill({ json: manage });
     }
+    if (url.pathname === `/api/tournaments/${CODE}/corrections`) {
+      return route.fulfill({ json: { corrections: [], headJudge: null, approver: 'organizer' } });
+    }
     if (url.pathname === `/api/tournaments/${CODE}/decks`) {
       decks.push(route.request().postDataJSON());
       return route.fulfill({ json: manage });
@@ -303,10 +306,10 @@ test('a failed result can be discarded, and the row reads as it stands', async (
   await expect(rowOf(page, match).locator('.tm-result-label')).toHaveText('In progress');
 });
 
-test('a past round is read-only and says so, with the way back to the current one', async ({ page }) => {
+test('a past round takes no results and says so, with the way back to the current one', async ({ page }) => {
   const sent = await mockConsole(page, event(8, 1, true), settingsOf({}));
   await page.getByRole('button', { name: 'Previous round' }).click();
-  await expect(page.getByText('Round 1 is read-only. Results are entered in the current round.')).toBeVisible();
+  await expect(page.getByText('Round 1 can be corrected until round 3 is paired.')).toBeVisible();
   await expect(page.getByRole('button', { name: /^Report / })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Clear' })).toBeHidden();
   await page.locator('.tm-seat-link').first().dblclick();

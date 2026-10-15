@@ -12,6 +12,9 @@ import type { HistoryEntry, MyStore, PublicProfile } from '../../../shared/accou
 import type { ProfileLinks, ProfilePreferences } from '../../../shared/accounts/profile';
 import type { Command } from '../../../shared/tournament/commands';
 import type { DeckCheckEntry, DeckChecker, DeckCheckInput } from '../../../shared/tournament/deckChecks';
+import type { PenaltyJudge, PenaltyNoteEntry, PenaltyNoteInput } from '../../../shared/tournament/penaltyNotes';
+import type { ApproverRole, CorrectionEntry, CorrectionRequest } from '../../../shared/tournament/corrections';
+import type { StaffAccount } from '../../../shared/tournament/staffRecords';
 import { tomDateTime } from '../../../shared/tournament/divisions';
 import type { PlayerClaim } from '../../../shared/tournament/identify';
 import type { PlayerProfile } from '../../../shared/tournament/profile';
@@ -408,6 +411,50 @@ export const recordDeckCheck = (
 
 export const removeDeckCheck = (code: string, id: string) =>
   call<DeckCheckRecord>(`${base(code)}/deck-checks?${new URLSearchParams({ id }).toString()}`, { method: 'DELETE' });
+
+/** Every entry in the event's penalty note record, with the staff a note may name as its judge. */
+export interface PenaltyNoteRecord {
+  entries: PenaltyNoteEntry[];
+  judges: PenaltyJudge[];
+}
+
+export const fetchPenaltyNotes = (code: string) => call<PenaltyNoteRecord>(`${base(code)}/penalty-notes`);
+
+/** Records a note, or with `replaces` an edit of one; answers with the whole record. */
+export const recordPenaltyNote = (
+  code: string,
+  note: Omit<PenaltyNoteInput, 'judge'> & ({ judgeId: string } | { judgeName: string })
+) => call<PenaltyNoteRecord>(`${base(code)}/penalty-notes`, json('POST', note));
+
+export const removePenaltyNote = (code: string, id: string) =>
+  call<PenaltyNoteRecord>(`${base(code)}/penalty-notes?${new URLSearchParams({ id }).toString()}`, {
+    method: 'DELETE'
+  });
+
+/** The event's result corrections, its head judge, and as what the viewer may approve one (null: they may not). */
+export interface CorrectionRecord {
+  corrections: CorrectionEntry[];
+  headJudge: StaffAccount | null;
+  approver: ApproverRole | null;
+}
+
+export const fetchCorrections = (code: string) => call<CorrectionRecord>(`${base(code)}/corrections`);
+
+/** Corrects a result on the event as `version` was; answers with the event. */
+export const correctResult = (code: string, request: CorrectionRequest) =>
+  call<Manage>(`${base(code)}/corrections`, json('POST', { ...request, localTime: tomDateTime(new Date()) }));
+
+/** The event's head judge, and the staff accounts that could be named. */
+export interface HeadJudgeChoice {
+  headJudge: StaffAccount | null;
+  staff: StaffAccount[];
+}
+
+export const fetchHeadJudge = (code: string) => call<HeadJudgeChoice>(`${base(code)}/head-judge`);
+
+/** The organizer names the head judge, or with null names none. */
+export const nameHeadJudge = (code: string, userId: string | null) =>
+  call<HeadJudgeChoice>(`${base(code)}/head-judge`, json('PUT', { userId }));
 
 /** Staff unlock a list, so the player can send it again from another device. */
 export const unlockDecklist = (code: string, owner: Pick<PlayerProfile, 'popId' | 'firstName' | 'lastName'>) =>

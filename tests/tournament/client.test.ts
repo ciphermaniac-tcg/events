@@ -21,6 +21,7 @@ import {
   fetchHistory,
   fetchManage,
   fetchMyDecklist,
+  fetchPenaltyNotes,
   fetchProfile,
   fetchProfilePreferences,
   fetchPublished,
@@ -36,7 +37,9 @@ import {
   pairNextRound,
   preloadPublished,
   recordDeckCheck,
+  recordPenaltyNote,
   removeDeckCheck,
+  removePenaltyNote,
   removeStaff,
   reportAsPlayer,
   rotateStaffToken,
@@ -96,6 +99,19 @@ test('deck checks are read, recorded and removed by the event', async () => {
     { url: '/api/tournaments/ABC/deck-checks', method: 'GET', body: undefined },
     { url: '/api/tournaments/ABC/deck-checks', method: 'POST', body: { ...check, checkerId: 'u1' } },
     { url: '/api/tournaments/ABC/deck-checks?id=e+1', method: 'DELETE', body: undefined }
+  ]);
+});
+
+test('penalty notes are read, recorded and removed by the event', async () => {
+  answer(200, { entries: [], judges: [] });
+  await fetchPenaltyNotes('ABC');
+  const note = { playerId: 'p1', round: 2, penalty: 'warning' as const, notes: 'Extra card drawn', replaces: null };
+  await recordPenaltyNote('ABC', { ...note, judgeName: 'Sam' });
+  await removePenaltyNote('ABC', 'n 1');
+  assert.deepEqual(sent, [
+    { url: '/api/tournaments/ABC/penalty-notes', method: 'GET', body: undefined },
+    { url: '/api/tournaments/ABC/penalty-notes', method: 'POST', body: { ...note, judgeName: 'Sam' } },
+    { url: '/api/tournaments/ABC/penalty-notes?id=n+1', method: 'DELETE', body: undefined }
   ]);
 });
 

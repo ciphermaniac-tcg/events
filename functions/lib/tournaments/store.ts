@@ -31,6 +31,7 @@ import { displayNameSql } from '../accounts/handles.js';
 import { firstRow, rowsChanged } from '../d1.js';
 import type { D1Like, D1Statement } from '../types.js';
 import { deleteWrites, firstIndexWrites, rosterWrites } from './rosterWrites.js';
+import { type CorrectionWrite, correctionWrites } from './corrections.js';
 import { type ReportEvidence, reportEvidenceWrites } from './reportHistory.js';
 import { winWrites } from './winWrites.js';
 
@@ -417,6 +418,8 @@ export interface Changes {
   requests?: PlayerRequest[];
   /** Claimant evidence for a successful player filing, kept in the same transaction. */
   reportEvidence?: Omit<ReportEvidence, 'version'>;
+  /** A result correction's audit entry, written only where the event's own write lands (see corrections.ts). */
+  correction?: CorrectionWrite;
   settings?: TournamentSettings;
   decks?: Record<string, string>;
   /** A Community organizer's event moving to another day (see dayChange). */
@@ -461,7 +464,7 @@ function reportsAfter(row: TournamentRow, changes: Changes): PlayerReport[] {
 function changedRow(row: TournamentRow, changes: Changes): TournamentRow {
   // The keys as saved, so a player added by this change is already under a public key.
   const keys = changes.tournament ? assignKeys(changes.tournament, row.keys) : row.keys;
-  const { reportEvidence: _evidence, ...state } = changes;
+  const { reportEvidence: _evidence, correction: _correction, ...state } = changes;
   return { ...row, ...state, keys, reports: reportsAfter(row, changes) };
 }
 
@@ -506,7 +509,10 @@ async function saveTournament(db: D1Like, row: TournamentRow, input: Changes): P
     )
     .bind(...columns.map(([, value]) => value), updatedAt, row.code, row.version);
   const ending = next.settings.finished && !row.settings.finished ? [minorCardsCut(db, row, updatedAt)] : [];
-  const evidence = changes.reportEvidence ? reportEvidenceWrites(db, row, changes.reportEvidence) : [];
+  const evidence = [
+    ...(changes.reportEvidence ? reportEvidenceWrites(db, row, changes.reportEvidence) : []),
+    ...(changes.correction ? correctionWrites(db, row, changes.correction) : [])
+  ];
   const after = [...ending, ...winWrites(db, row, next)];
   const results = await db.batch([...roster, ...evidence, update, ...after]);
   const saved = results.at(-1 - after.length);
@@ -571,8 +577,12 @@ export async function mutate(
   }
 }
 
-/** One read-change-write; null when another write got there first. */
-async function tryChange(
+/**
+ * One read-change-write, never tried again from a fresh read: for a change
+ * staff approved against the event as they saw it. Null when another write
+ * got there first.
+ */
+export async function tryChange(
   db: D1Like,
   row: TournamentRow,
   change: (row: TournamentRow) => Changes | string
