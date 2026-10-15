@@ -284,6 +284,14 @@ function handledOperation(t: Tournament, op: LifecycleOperation, ctx: LifecycleC
   return checkedSurvivors(handled);
 }
 
+/** A pairing or top cut that left every pod with the rounds it had. */
+function pairedNothing(t: Tournament, tournament: Tournament, op: LifecycleOperation): boolean {
+  return (
+    (op.type === 'topCut' || (op.type === 'pair' && !op.repair)) &&
+    tournament.pods.every(p => p.rounds.length === t.pods.find(old => old.category === p.category)?.rounds.length)
+  );
+}
+
 /** Applies one organizer operation atomically; refusals carry the persisted state. */
 export function applyLifecycleOperation(t: Tournament, op: LifecycleOperation, ctx: LifecycleContext): LifecycleResult {
   try {
@@ -300,10 +308,7 @@ export function applyLifecycleOperation(t: Tournament, op: LifecycleOperation, c
       throw new Error('The tournament is complete');
     }
     const tournament = handledOperation(t, op, ctx);
-    if (
-      (op.type === 'topCut' || (op.type === 'pair' && !op.repair)) &&
-      tournament.pods.every(p => p.rounds.length === t.pods.find(old => old.category === p.category)?.rounds.length)
-    ) {
+    if (pairedNothing(t, tournament, op)) {
       return { ok: false, tournament, error: 'No eligible qualifiers can form another round' };
     }
     const ordered = recordedDisqualifiedOrder(withRecordedOrders(restoredRecords(t, tournament), ctx), op, ctx);

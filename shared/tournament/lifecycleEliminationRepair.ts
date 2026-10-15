@@ -9,7 +9,8 @@ import {
   bracketPairings,
   bracketPlayers,
   nextBracket,
-  playoffCandidates
+  playoffCandidates,
+  seatsOf
 } from './lifecycleElimination.js';
 import { playoffPlayers, survivorList, twoSeatLosers } from './lifecycleSurvivors.js';
 import { createdStage, finishedAtRepair, momentRange, repairedStage, repairStamp } from './lifecyclePairing.js';
@@ -32,8 +33,6 @@ interface Repaired {
   pod: Pod;
   players: Player[];
 }
-
-const seatsOf = (pairings: readonly Pairing[]) => pairings.flatMap(p => (p.p2 === null ? [p.p1] : [p.p1, p.p2]));
 
 /** V16-3: a terminal repair attempt is refused at stages 4 and 5, the ordinary repair once the round started. */
 function checkedRepair(round: Round | undefined, ctx: LifecycleContext): Round {

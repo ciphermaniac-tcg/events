@@ -182,3 +182,15 @@ test('a request stored before requests had IDs stays answerable, and keeps its I
   assert.notEqual(await droppedAfter(), null);
   assert.equal(stored()[0]?.id, read?.id, 'the answer wrote the ID with it');
 });
+
+test('staff answer only with an answer some request takes', async () => {
+  const { ask, answer, shown } = await eventWithPhone();
+  await ask({ request: 'drop' });
+  const id = (await shown('drop'))?.id;
+  for (const status of ['open', 'cancelled', 'maybe', 1, null]) {
+    const refused = await answer({ id, status });
+    assert.deepEqual([refused.status, refused.json.error], [400, 'Not an answer to a request'], String(status));
+  }
+  assert.equal((await answer({ id, status: 'done' })).status, 400, 'a drop is confirmed or declined, not done');
+  assert.equal((await answer({ id, status: 'declined' })).status, 200);
+});

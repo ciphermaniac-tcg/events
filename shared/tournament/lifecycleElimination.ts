@@ -9,7 +9,7 @@ import {
 } from './lifecycleSurvivors.js';
 import type { LifecycleContext } from './lifecycleTypes.js';
 import { seatElimination } from './lifecyclePairing.js';
-import { newRound, replacePods, selectedPods } from './lifecycleWorkflow.js';
+import { newRound, podFlights, replacePods, selectedPods } from './lifecycleWorkflow.js';
 import { type Pairing, PairingError, pairNextElimination, pairTopCut } from './pairing.js';
 import { countsComplete, latestRound, regularRounds } from './rounds.js';
 import { headToHeadCycles, type Standing, swissStandings } from './standings.js';
@@ -35,12 +35,6 @@ export function bracketPlayers(
   return players.map(p =>
     orderOf.has(p.id) ? { ...p, order: orderOf.get(p.id)!, ...(writeSeed ? { seed: seedOf.get(p.id)! } : {}) } : p
   );
-}
-
-type Flight = NonNullable<Pod['flights']>[number];
-
-function podFlights(pod: Pod): Flight[] {
-  return pod.flights?.length ? pod.flights : [{ number: 1, playerIds: pod.playerIds }];
 }
 
 /** V18-1: each flight is its own bracket, seeded in the order the saved flight lists its members. */
@@ -337,7 +331,7 @@ export function nextElimination(t: Tournament, category: PodCategory | undefined
   return { ...replacePods(t, pods), players };
 }
 
-const seatsOf = (pairings: readonly Pairing[]) => pairings.flatMap(p => (p.p2 === null ? [p.p1] : [p.p1, p.p2]));
+export const seatsOf = (pairings: readonly Pairing[]) => pairings.flatMap(p => (p.p2 === null ? [p.p1] : [p.p1, p.p2]));
 
 export const bracketPairings = (bracket: Bracket): Pairing[] =>
   bracket.playoff ? [...bracket.pairings, bracket.playoff] : bracket.pairings;

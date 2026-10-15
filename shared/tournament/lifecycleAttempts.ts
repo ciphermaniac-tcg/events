@@ -5,7 +5,7 @@
 
 import { FlightFailure, flightField, swissRound, validateSwissRound } from './lifecyclePairing.js';
 import type { LifecycleContext } from './lifecycleTypes.js';
-import { replacePods, selectedPods } from './lifecycleWorkflow.js';
+import { podFlights, replacePods, selectedPods } from './lifecycleWorkflow.js';
 import { PairingError } from './pairing.js';
 import { latestRound, pairingHistory } from './rounds.js';
 import type { Pod, PodCategory, Round, Tournament } from './types.js';
@@ -31,11 +31,6 @@ export class RetriedRound extends Error {
 export function attemptCount(pod: Pod): number {
   return 1 + Math.max(0, Math.ceil(Math.log2(Math.max(pod.playerIds.length, 1))) - 2);
 }
-
-type Flight = NonNullable<Pod['flights']>[number];
-
-const podFlights = (pod: Pod): Flight[] =>
-  pod.flights?.length ? pod.flights : [{ number: 1, playerIds: pod.playerIds }];
 
 /** The first flight left with nobody to pair once its holders receive their assigned byes. */
 function emptiedFlight(t: Tournament, pod: Pod, number: number, ctx: LifecycleContext): number | undefined {

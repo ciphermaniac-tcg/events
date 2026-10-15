@@ -65,10 +65,7 @@
   box-shadow: inset 0 -1px 0 var(--rule);
   color: var(--muted);
   font-size: var(--text-xs);
-  font-weight: 600;
-  letter-spacing: var(--tracking-micro);
   text-align: left;
-  text-transform: uppercase;
 }
 /* The table number is what the room calls out: the largest figure in the row. */
 .tm-console .tm-matches .data td.tm-table-col {
@@ -421,19 +418,13 @@
     align-items: center;
     gap: var(--space-1) var(--space-3);
   }
-}
-@media (max-width: 640px) {
   .tm-console .tm-matches .tm-result-acts {
     margin-left: auto;
     gap: var(--space-2);
   }
-}
-@media (max-width: 640px) {
   .tm-console .tm-matches .tm-result-slot {
     min-width: 0;
   }
-}
-@media (max-width: 640px) {
   .tm-console .tm-matches .tm-result.is-asking .tm-result-label {
     flex-basis: 100%;
     white-space: normal;
@@ -490,8 +481,6 @@
   .tm-console .tm-add-row .tm-field:nth-child(n + 3) {
     flex: 1 1 100%;
   }
-}
-@media (max-width: 640px) {
   .tm-console .tm-add-row .btn {
     width: 100%;
     justify-content: center;
@@ -504,13 +493,9 @@
   .tm-console .tm-roster td {
     display: block;
   }
-}
-@media (max-width: 900px) {
   .tm-console .tm-roster thead {
     display: none;
   }
-}
-@media (max-width: 900px) {
   .tm-console .tm-roster tr {
     display: grid;
     grid-template-columns: minmax(0, 1fr) max-content;
@@ -523,62 +508,42 @@
     gap: var(--space-2) var(--space-3);
     padding: var(--space-3) 14px;
   }
-}
-@media (max-width: 900px) {
   .tm-console .tm-roster td {
     padding: 0;
     border: 0;
     height: auto;
     min-width: 0;
   }
-}
-@media (max-width: 900px) {
   .tm-console .tm-roster .tm-who {
     grid-area: who;
     min-width: 0;
   }
-}
-@media (max-width: 900px) {
   .tm-console .tm-roster :is(.tm-who-sub, .tm-name) {
     white-space: normal;
   }
-}
-@media (max-width: 900px) {
   .tm-console .tm-roster .tm-rounds-cell {
     grid-area: rounds;
   }
-}
-@media (max-width: 900px) {
   .tm-console .tm-roster .tm-deck-cell {
     grid-area: deck;
   }
-}
-@media (max-width: 900px) {
   .tm-console .tm-roster .tm-extra-col {
     grid-area: actions;
     width: auto;
     text-align: left;
   }
-}
-@media (max-width: 900px) {
   .tm-console .tm-roster td.tm-extra-col > .tm-row-actions {
     flex-wrap: wrap;
     justify-content: flex-start;
     margin-left: calc(-1 * var(--space-2));
   }
-}
-@media (max-width: 900px) {
   .tm-console .tm-roster td.tm-extra-col .btn {
     min-width: 0;
   }
-}
-@media (max-width: 900px) {
   .tm-console .tm-roster .tm-rounds-cell:empty,
   .tm-console .tm-roster .tm-extra-col:empty {
     display: none;
   }
-}
-@media (max-width: 900px) {
   .tm-console .tm-roster .tm-confirm-label {
     white-space: normal;
   }
@@ -659,7 +624,9 @@
   align-items: end;
 }
 .tm-console .tm-check-form label,
-.tm-console .tm-check-field {
+.tm-console .tm-check-field,
+.tm-correction-field,
+.tm-console .tm-penalty-form label {
   display: grid;
   gap: var(--space-1);
   font-size: var(--text-sm);
@@ -693,12 +660,6 @@
 /* The correction dialog: wider than the console's other dialogs for the standings it previews. */
 .tm-modal.tm-correction {
   width: min(620px, 100vw - 32px);
-}
-.tm-correction-field {
-  display: grid;
-  gap: var(--space-1);
-  font-size: var(--text-sm);
-  color: var(--muted);
 }
 .tm-correction-field .segmented {
   flex-wrap: wrap;
@@ -756,12 +717,6 @@
   grid-template-columns: minmax(160px, 1.4fr) minmax(110px, 0.6fr) minmax(160px, 1fr) minmax(140px, 1fr);
   gap: var(--space-2) var(--space-3);
   align-items: end;
-}
-.tm-console .tm-penalty-form label {
-  display: grid;
-  gap: var(--space-1);
-  font-size: var(--text-sm);
-  color: var(--muted);
 }
 .tm-console .tm-penalty-notes {
   grid-column: 1 / -2;
@@ -839,13 +794,9 @@
   .tm-console .tm-lists td {
     display: block;
   }
-}
-@media (max-width: 640px) {
   .tm-console .tm-lists thead {
     display: none;
   }
-}
-@media (max-width: 640px) {
   .tm-console .tm-lists tr:not(.tm-expansion) {
     display: grid;
     grid-template-columns: 44px minmax(0, 1fr);
@@ -853,8 +804,6 @@
     padding: 10px 14px;
     border-bottom: 1px solid var(--rule);
   }
-}
-@media (max-width: 640px) {
   .tm-console .table-wrap .tm-lists td {
     padding: 0;
     border: 0;
@@ -862,30 +811,20 @@
     min-width: 0;
     white-space: normal;
   }
-}
-@media (max-width: 640px) {
   .tm-console .tm-lists .tm-list-sprite {
     grid-row: span 3;
   }
-}
-@media (max-width: 640px) {
   .tm-console .tm-lists .tm-list-when {
     width: auto;
   }
-}
-@media (max-width: 640px) {
   .tm-console .tm-lists .tm-extra-col {
     grid-column: 2;
     width: auto;
   }
-}
-@media (max-width: 640px) {
   .tm-console .tm-lists .tm-extra-col .tm-row-actions {
     flex-wrap: wrap;
     margin-left: calc(-1 * var(--space-2));
   }
-}
-@media (max-width: 640px) {
   .tm-console .tm-list-columns {
     padding-left: 0;
   }
@@ -916,11 +855,6 @@
 .tm-console .tm-result-label.is-reported {
   color: var(--muted);
   font-weight: 500;
-}
-.tm-console .tm-result-label.is-problem,
-.tm-console .tm-problem,
-.tm-console .tm-problems {
-  color: var(--negative);
 }
 .tm-console .tm-pending-mark {
   width: 24px;
@@ -964,18 +898,12 @@
   .tm-console .tm-matches .data tbody tr:not(.tm-group-row, .is-confirming):hover {
     background: color-mix(in srgb, var(--fg) 12%, var(--surface));
   }
-}
-@media (hover: hover) {
   .tm-console .tm-seat-link:hover {
     background: color-mix(in srgb, var(--fg) 25%, var(--surface));
   }
-}
-@media (hover: hover) {
   .tm-console .tm-seat-link:hover .tm-record {
     color: var(--fg);
   }
-}
-@media (hover: hover) {
   .tm-console .tm-matches tr.is-confirming .tm-seat-link:hover {
     background: color-mix(in srgb, var(--accent-fill) 45%, var(--surface));
     color: var(--fg);
@@ -1086,13 +1014,9 @@
   .tm-console .tm-matches .data td {
     padding-block: 4px;
   }
-}
-@media (min-width: 901px) {
   .tm-console .tm-roster .tm-who {
     width: 100%;
   }
-}
-@media (min-width: 901px) {
   .tm-console .tm-roster .tm-deck-cell {
     width: 424px;
     min-width: 424px;
@@ -1134,33 +1058,23 @@
     grid-template-columns: max-content max-content;
     justify-content: space-between;
   }
-}
-@media (min-width: 901px) {
   .tm-console .tm-matches .tm-result-acts {
     margin-left: 0;
     white-space: nowrap;
   }
-}
-@media (min-width: 901px) {
   .tm-console .tm-matches .tm-result-acts .btn {
     white-space: nowrap;
   }
-}
-@media (min-width: 901px) {
   .tm-console .tm-matches .tm-result.is-asking,
   .tm-console .tm-matches .tm-result.is-unsaved {
     grid-template-columns: minmax(0, 1fr);
     gap: 8px;
   }
-}
-@media (min-width: 901px) {
   .tm-console .tm-matches .tm-result.is-asking .tm-result-label {
     min-width: 0;
     line-height: 1.4;
     overflow-wrap: anywhere;
   }
-}
-@media (min-width: 901px) {
   .tm-console .tm-matches .tm-result.is-asking .tm-result-acts,
   .tm-console .tm-matches .tm-result.is-unsaved .tm-result-acts {
     justify-content: flex-start;
@@ -1171,8 +1085,6 @@
   .tm-console .tm-matches table.data {
     table-layout: fixed;
   }
-}
-@media (min-width: 901px) and (max-width: 1100px) {
   .tm-console .tm-matches.has-extra th.tm-extra-col {
     width: max(240px, calc(var(--text-body) * 16));
   }
@@ -1190,13 +1102,9 @@
   .tm-console .tm-roster td {
     height: auto !important;
   }
-}
-@media (max-width: 900px) {
   .tm-console .tm-result {
     padding: 0;
   }
-}
-@media (max-width: 900px) {
   .tm-console .tm-seat-link {
     min-height: 36px;
   }
@@ -1206,29 +1114,19 @@
     white-space: normal;
     overflow-wrap: anywhere;
   }
-}
-@media (max-width: 640px) {
   .tm-console .tm-standings .tm-cut-line .muted {
     display: block;
     margin-top: 4px;
   }
-}
-@media (max-width: 640px) {
   .tm-console .tm-set-row:has(.tm-staff-list) .tm-set-label {
     min-height: 0;
   }
-}
-@media (max-width: 640px) {
   .tm-console .tm-lists td {
     height: auto !important;
   }
-}
-@media (max-width: 640px) {
   .tm-console .tm-lists .tm-list-columns {
     padding: 12px 14px;
   }
-}
-@media (max-width: 640px) {
   .tm-console .tm-matches .data tr:not(.tm-group-row) {
     grid-template-columns: minmax(0, 1fr) auto;
     grid-template-areas:

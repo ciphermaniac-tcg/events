@@ -18,6 +18,7 @@
   "exclude": [
     "**/*.d.ts",
     "shared/**/types.ts",
+    "shared/tournament/commandTypes.ts",
     "shared/tournament/lifecycleTypes.ts",
     "functions/**/types.ts",
     "src/types/**",

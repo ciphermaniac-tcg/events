@@ -38,7 +38,7 @@ import { MAX_DECKLIST_CHARS, parseDecklist } from '../../../../shared/tournament
 import { birthYearFits, decklistMatcher, decklistPlayer, fullNameKey } from '../../../../shared/tournament/identify.js';
 import { mayBeMinor, mayBeUnder13, UNDER_13 } from '../../../../shared/accounts/age.js';
 import { birthYear, yearOnlyBirthDate } from '../../../../shared/tournament/divisions.js';
-import { type PlayerProfile, readProfile } from '../../../../shared/tournament/profile.js';
+import { isPopId, type PlayerProfile, readProfile } from '../../../../shared/tournament/profile.js';
 import {
   type Decklist,
   decklistsLocked,
@@ -126,7 +126,7 @@ function detailsFrom(request: Request, sanctioned: boolean): Details | null {
     firstName: query.get('firstName') ?? '',
     lastName: query.get('lastName') ?? ''
   };
-  const complete = sanctioned ? /^\d{1,10}$/.test(details.popId) : Boolean(details.firstName && details.lastName);
+  const complete = sanctioned ? isPopId(details.popId) : Boolean(details.firstName && details.lastName);
   return complete ? details : null;
 }
 

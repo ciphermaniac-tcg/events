@@ -9,13 +9,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { applyCommand as applyLifecycle } from '../../shared/tournament/commands.ts';
-import {
-  applyCommand,
-  canUndrop,
-  type Command,
-  type CommandContext,
-  generatedId
-} from '../../shared/tournament/legacyCommands.ts';
+import type { Command, CommandContext } from '../../shared/tournament/commandTypes.ts';
+import { applyCommand, canUndrop, generatedId } from '../../shared/tournament/legacyCommands.ts';
 import { emptyTournament } from '../../shared/tournament/create.ts';
 import { seededRandom } from '../../shared/tournament/random.ts';
 import { isGeneratedId, type Pod, type Round, type Tournament } from '../../shared/tournament/types.ts';

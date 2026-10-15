@@ -7,18 +7,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import {
-  applyCommand,
-  type Command,
-  type CommandContext,
-  type NewPlayer,
-  secondsLeft
-} from '../../shared/tournament/commands.ts';
+import { applyCommand, type Command, type CommandContext, type NewPlayer } from '../../shared/tournament/commands.ts';
 import { DEFAULT_ROUND_MINUTES, emptyTournament } from '../../shared/tournament/create.ts';
 import { readCommand } from '../../shared/tournament/readCommand.ts';
 import { seededRandom } from '../../shared/tournament/random.ts';
 import { writeTdf } from '../../shared/tournament/tdf.ts';
-import { joinedLate, playerPod, podOf, regularRounds } from '../../shared/tournament/rounds.ts';
+import { joinedLate, playerPod, podOf, regularRounds, secondsLeft } from '../../shared/tournament/rounds.ts';
 import { bracketMatches, placeFinals, swissStandings, thirdPlaceMatch } from '../../shared/tournament/standings.ts';
 import type { Pod, Round, Tournament } from '../../shared/tournament/types.ts';
 import { commandRunner, pendingResults } from '../__utils__/commands.ts';

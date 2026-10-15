@@ -1,8 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { LIST_MAX_HEIGHT, placeComboList } from '../../src/utils/comboListPlacement.ts';
-import type { Rect } from '../../src/utils/hoverPreviewPlacement.ts';
+import { LIST_MAX_HEIGHT, placeComboList, type Rect } from '../../src/utils/comboListPlacement.ts';
 
 const BAND = { top: 0, height: 800 };
 

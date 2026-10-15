@@ -62,6 +62,10 @@ export const isRequestKind = (value: unknown): value is RequestKind => REQUEST_K
 export const isAnswerFor = (kind: RequestKind, value: unknown): value is RequestAnswer =>
   ANSWERS[kind].includes(value as RequestAnswer);
 
+/** Whether `value` answers a request of some kind. */
+export const isAnswer = (value: unknown): value is RequestAnswer =>
+  REQUEST_KINDS.some(kind => isAnswerFor(kind, value));
+
 const same = (request: PlayerRequest, player: string, kind: RequestKind) =>
   request.player === player && request.kind === kind;
 

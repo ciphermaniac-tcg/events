@@ -3,12 +3,16 @@
  *
  * The list floats in the top layer so a table that clips its overflow (every
  * `.table-wrap` does) cannot cut it off, which leaves it to be placed by hand
- * against the field it belongs to. Kept pure, rects in and coordinates out, as
- * the card hover preview's is.
+ * against the field it belongs to. Kept pure, rects in and coordinates out.
  * @module utils/comboListPlacement
  */
 
-import type { Rect } from './hoverPreviewPlacement';
+export interface Rect {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
 
 /** The part of the layout viewport that can be seen, e.g. above a phone's keyboard. */
 export interface Band {

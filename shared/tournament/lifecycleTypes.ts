@@ -1,4 +1,4 @@
-import type { CommandContext, NewPlayer } from './legacyCommands.js';
+import type { CommandContext, NewPlayer } from './commandTypes.js';
 import type { Match, Pod, PodCategory, Tournament, TournamentInfo, TournamentSettings } from './types.js';
 
 export type LifecycleOperation =

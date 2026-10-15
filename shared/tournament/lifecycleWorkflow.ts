@@ -19,6 +19,12 @@ export function selectedPods(t: Tournament, category: Pod['category'] | undefine
   return pods;
 }
 
+type Flight = NonNullable<Pod['flights']>[number];
+
+export function podFlights(pod: Pod): Flight[] {
+  return pod.flights?.length ? pod.flights : [{ number: 1, playerIds: pod.playerIds }];
+}
+
 export function replacePods(t: Tournament, pods: Pod[]): Tournament {
   const changed = new Map(pods.map(p => [p.category, p]));
   return { ...t, pods: t.pods.map(p => changed.get(p.category) ?? p) };

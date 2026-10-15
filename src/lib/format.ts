@@ -1,59 +1,3 @@
-import type { TournamentParticipant } from '../types';
-
-/**
- * Format a participant's W-L(-T) record.
- *
- * Default: full `W-L-T`, and `'—'` when wins/losses/ties are all absent.
- * `compact`: omits a zero tie count (`W-L`), and returns `null` when both wins
- * and losses are absent (ties alone don't count) — the shape storyline copy
- * expects so callers can branch on truthiness.
- */
-export function formatRecord(p: TournamentParticipant, opts?: { compact?: boolean }): string | null {
-  const w = p.wins ?? null;
-  const l = p.losses ?? null;
-  const t = p.ties ?? null;
-  if (opts?.compact) {
-    if (w === null && l === null) {
-      return null;
-    }
-    return `${w ?? 0}-${l ?? 0}${t ? `-${t}` : ''}`;
-  }
-  if (w === null && l === null && t === null) {
-    return '—';
-  }
-  return `${w ?? 0}-${l ?? 0}-${t ?? 0}`;
-}
-
-/**
- * Win percentage (0–100) from a W/L record, ties excluded, or null when
- * unplayed. Whole numbers: the player pages show this in table rows and stat
- * feet, and a tenth of a percent is noise at any sample size we publish.
- */
-export function winPercent(wins: number, losses: number): number | null {
-  const denom = wins + losses;
-  return denom ? Math.round((wins / denom) * 100) : null;
-}
-
-/** {@link winPercent} as a display string, em dash when unplayed. */
-export function winPercentLabel(wins: number, losses: number): string {
-  const pct = winPercent(wins, losses);
-  return pct == null ? '—' : `${pct}%`;
-}
-
-/**
- * {@link shortDate}'s month and day as separate strings, for layouts that
- * stack them (the home page's date column on phones). Null for a missing or
- * invalid date, so the caller picks its own placeholder.
- */
-export function shortDateParts(d: Date | null): { month: string; day: string } | null {
-  if (!d || Number.isNaN(d.getTime())) {
-    return null;
-  }
-  const parts = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).formatToParts(d);
-  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find(p => p.type === type)?.value ?? '';
-  return { month: part('month'), day: part('day') };
-}
-
 const ORDINAL_SUFFIX = ['th', 'st', 'nd', 'rd'] as const;
 
 /**
@@ -79,9 +23,4 @@ export function ordinal(n: number): string {
     return '—';
   }
   return `${Math.trunc(n)}${ordinalSuffix(n)}`;
-}
-
-/** {@link ordinal} for a nullable placement, em dash when unplaced. */
-export function placementLabel(placement: number | null | undefined): string {
-  return placement == null ? '—' : ordinal(placement);
 }

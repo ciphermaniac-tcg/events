@@ -7,17 +7,6 @@ export function noContent(): Response {
   return new Response(null, { status: 204, headers: { 'Cache-Control': 'no-store' } });
 }
 
-export function jsonSuccess<T>(data: T, status = 200): Response {
-  return jsonResponse(data, { status });
-}
-
-export function textError(message: string, status: number): Response {
-  return new Response(message, {
-    status,
-    headers: { 'Content-Type': 'text/plain', 'Cache-Control': 'no-store' }
-  });
-}
-
 export interface JsonResponseOptions {
   status?: number;
   /** Value for the Cache-Control header. Omitted entirely when unset. */
@@ -43,30 +32,4 @@ export function jsonResponse(body: unknown, options: JsonResponseOptions = {}): 
     status,
     headers: { ...finalHeaders, ...headers }
   });
-}
-
-export interface CorsPreflightOptions {
-  /** Response status (default 204). Some routes historically use 200. */
-  status?: number;
-  /** Access-Control-Allow-Headers value; pass null to omit the header. */
-  allowHeaders?: string | null;
-  /** Access-Control-Max-Age value in seconds; omitted when unset. */
-  maxAge?: number;
-  /** Allowed origin (default '*'). */
-  origin?: string;
-}
-
-export function corsPreflight(methods: string, options: CorsPreflightOptions = {}): Response {
-  const { status = 204, allowHeaders = 'Content-Type', maxAge, origin = '*' } = options;
-  const headers: Record<string, string> = {
-    'Access-Control-Allow-Origin': origin,
-    'Access-Control-Allow-Methods': methods
-  };
-  if (allowHeaders) {
-    headers['Access-Control-Allow-Headers'] = allowHeaders;
-  }
-  if (maxAge !== undefined) {
-    headers['Access-Control-Max-Age'] = String(maxAge);
-  }
-  return new Response(null, { status, headers });
 }

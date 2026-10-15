@@ -1,12 +1,6 @@
 /** Organizer commands share the lifecycle used by TOM conformance replay. */
-import {
-  applyCommand as applyLegacyCommand,
-  type Command,
-  type CommandContext,
-  type CommandResult,
-  generatedId,
-  podded
-} from './legacyCommands.js';
+import type { Command, CommandContext, CommandResult } from './commandTypes.js';
+import { applyCommand as applyLegacyCommand, generatedId, podded } from './legacyCommands.js';
 import { lifecycleDocument } from './lifecycleImport.js';
 import { concludePrerelease, finalPodRound, prereleaseChoiceAvailable } from './lifecycleWorkflow.js';
 import { applyLifecycleOperation } from './lifecycle.js';
@@ -16,14 +10,7 @@ import { defaultRootAttrs, eventTypeOf, SANCTIONED } from './structure.js';
 import { countsComplete, hasStarted, latestRound } from './rounds.js';
 import { DIVISIONS, type Tournament } from './types.js';
 
-export {
-  type Command,
-  type CommandContext,
-  type CommandResult,
-  type EditableInfo,
-  type NewPlayer,
-  secondsLeft
-} from './legacyCommands.js';
+export type { Command, CommandContext, CommandResult, EditableInfo, NewPlayer } from './commandTypes.js';
 
 function translated(t: Tournament, command: Command, ctx: CommandContext): LifecycleOperation | undefined {
   const translations: Partial<Record<Command['type'], () => LifecycleOperation>> = {
@@ -335,6 +322,9 @@ function registersBeforeStart(t: Tournament, command: Command): boolean {
   return command.type === 'addPlayer' && t.settings!.stage < 4;
 }
 
+/** Commands on an imported document that still take the legacy handlers, checked in this order. */
+const LEGACY_ROUTES = [registersBeforeStart, additionalDivisionCut, resumesClock];
+
 const refused = (error: unknown): CommandResult => ({
   ok: false,
   error: error instanceof Error ? error.message : 'The command could not complete'
@@ -354,13 +344,7 @@ export function applyCommand(t: Tournament, command: Command, ctx: CommandContex
   }
   try {
     checkedStart(document, command, ctx);
-    if (registersBeforeStart(document, command)) {
-      return legacyChange(document, command, ctx);
-    }
-    if (additionalDivisionCut(document, command)) {
-      return legacyChange(document, command, ctx);
-    }
-    if (resumesClock(document, command)) {
+    if (LEGACY_ROUTES.some(route => route(document, command))) {
       return legacyChange(document, command, ctx);
     }
     const prepared = command.type === 'startTopCut' ? preparedCut(document, command, ctx) : document;
