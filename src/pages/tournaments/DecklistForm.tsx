@@ -14,6 +14,11 @@
  * list is in at a sanctioned event, the account can take its POP ID ("Save
  * to my account"): sending a list never sets one, since a list may be sent
  * for a friend. An account that owns its list sees it on any of its devices.
+ *
+ * Once submission closes, or round 1 is paired and every list is locked, the
+ * form gives way to a receipt: the list as it was sent, read-only. A list
+ * that cannot be read is said to be so, with a retry, and never taken for
+ * none: until the device knows whether a list is in, nothing is sent over it.
  */
 
 import { createEffect, createMemo, createResource, createSignal, For, Show, untrack } from 'solid-js';
@@ -38,6 +43,7 @@ import { ErrorLine } from './Field';
 import { birthYearOf, emptyProfile, ProfileFields, profileProblems } from './ProfileFields';
 import { session, setSession } from './session';
 import { MAIN_SITE } from '../../lib/constants';
+import { recall, remember } from './decklistMemory';
 
 interface FormProps {
   code: string;
@@ -52,37 +58,13 @@ interface FormProps {
    * account's with it, and no token.
    */
   owner: ListOwner | null;
+  /** Whether players can send a list now; when not, the page shows the receipt. */
+  open: boolean;
+  /** Round 1 is paired, which locks every list (see decklistsLocked). */
+  locked: boolean;
 }
 
 type ListOwner = Pick<PlayerProfile, 'popId' | 'firstName' | 'lastName'>;
-
-/** Who sent this device's list, and the token that reads it back. */
-interface Remembered {
-  profile: PlayerProfile | null;
-  token: string;
-}
-
-const memoryKey = (code: string) => `cm-decklist:${code}`;
-
-function recall(code: string): Remembered | null {
-  try {
-    const held = JSON.parse(localStorage.getItem(memoryKey(code)) ?? 'null') as { token: string } | null;
-    const profile = JSON.parse(sessionStorage.getItem(memoryKey(code)) ?? 'null') as PlayerProfile | null;
-    return held?.token ? { profile, token: held.token } : null;
-  } catch {
-    return null;
-  }
-}
-
-function remember(code: string, value: Remembered | null) {
-  if (value) {
-    localStorage.setItem(memoryKey(code), JSON.stringify({ token: value.token }));
-    sessionStorage.setItem(memoryKey(code), JSON.stringify(value.profile));
-  } else {
-    sessionStorage.removeItem(memoryKey(code));
-    localStorage.removeItem(memoryKey(code));
-  }
-}
 
 /** This device's list, by the details and token it kept; on a device that kept none, the account's own. */
 async function loadMine([code, owner]: readonly [string, ListOwner | null]): Promise<Decklist | null> {
@@ -106,9 +88,12 @@ const REGISTRATION_WORDS: Record<Registration, (name: string) => string> = {
 
 /** Where the list stands, built from what the server said: sent when, and whether they are in the event. */
 function statusLine(mine: Decklist | null, registration: Registration | null, count: string, problems: number) {
-  if (!mine) {
-    return `${count}${problems ? ` · ${problems} problem${problems === 1 ? '' : 's'}` : ''} · Not submitted`;
-  }
+  return mine
+    ? submittedLine(mine, registration)
+    : `${count}${problems ? ` · ${problems} problem${problems === 1 ? '' : 's'}` : ''} · Not submitted`;
+}
+
+function submittedLine(mine: Decklist, registration: Registration | null) {
   const name = `${mine.firstName} ${mine.lastName}`;
   const where = registration
     ? REGISTRATION_WORDS[registration](name)
@@ -138,15 +123,47 @@ function missing(profile: PlayerProfile, deck: string, sanctioned: boolean): str
   return `Add your ${needed.length ? `${needed.join(', ')} and ${last}` : last}`;
 }
 
-/** The form's state and what it can do, apart from how it is drawn. */
-function createDecklistForm(props: FormProps) {
+/** Whether the device knows its list yet: still reading it, the read failed, or known (a list, or none). */
+type ListState = 'loading' | 'failed' | 'known';
+
+/** The asker's own list as the server has it, read once for the form and the receipt alike. */
+function createMyList(props: FormProps) {
   // eslint-disable-next-line solid/reactivity -- read once for the event the page opened on
   const kept = recall(props.code);
   // Read again only for another owner, not for every new copy of the event the props come from; a device's own list has none.
   const whose = createMemo(() => [props.code, kept ? null : props.owner] as const, undefined, {
     equals: (a, b) => a[0] === b[0] && a[1] === b[1]
   });
-  const [mine, { mutate }] = createResource(whose, loadMine);
+  const [mine, { mutate, refetch }] = createResource(whose, loadMine);
+  const state = (): ListState => {
+    if (mine.error) {
+      return 'failed';
+    }
+    return mine.state === 'ready' || mine.state === 'refreshing' ? 'known' : 'loading';
+  };
+  return {
+    kept,
+    whose,
+    mine,
+    mutate,
+    state,
+    retry: () => void refetch(),
+    current: () => latestValue(mine) ?? null
+  };
+}
+
+type MyList = ReturnType<typeof createMyList>;
+
+/** What a list not known yet says, in the status bar and beside the Submit it holds back. */
+const UNKNOWN: Record<ListState, string | null> = {
+  loading: 'Checking for your decklist…',
+  failed: 'Your decklist could not be loaded',
+  known: null
+};
+
+/** The form's state and what it can do, apart from how it is drawn. */
+function createDecklistForm(props: FormProps, list: MyList) {
+  const { kept, whose, mine, mutate, current } = list;
   const [profile, setProfile] = createSignal<PlayerProfile>(kept?.profile ?? emptyProfile(latestValue(session)?.user));
   const [known, setKnown] = createSignal(kept?.profile != null);
   const [deck, setDeck] = createSignal('');
@@ -156,14 +173,17 @@ function createDecklistForm(props: FormProps) {
   const [registration, setRegistration] = createSignal<Registration | null>(null);
   const [error, setError] = createSignal<string | null>(null);
   const parsed = () => parseDecklist(deck());
-  const current = () => latestValue(mine) ?? null;
 
-  function fill(list: Decklist) {
-    setDeck(list.deck);
-    setArchetype(list.archetype);
+  /** Who sent the list: the device knows them from it. */
+  function fillWho(list: Decklist) {
     const { popId, firstName, lastName, birthDate } = list;
     setProfile({ popId, firstName, lastName, birthDate });
     setKnown(true);
+  }
+  function fill(list: Decklist) {
+    setDeck(list.deck);
+    setArchetype(list.archetype);
+    fillWho(list);
   }
   /** Another owner's list is another player's: the form starts again from it, or from nothing. */
   function startAgain(list: Decklist | null) {
@@ -179,6 +199,7 @@ function createDecklistForm(props: FormProps) {
     }
   }
   // The list the device sent fills the form, until the player starts changing it; another owner's, once it is read.
+  // One read late (a retry after a failed read) still says who sent it, under a draft begun meanwhile.
   let filledFor = untrack(whose);
   createEffect(() => {
     const existing = current();
@@ -188,6 +209,8 @@ function createDecklistForm(props: FormProps) {
       startAgain(existing);
     } else if (existing && !touched()) {
       fill(existing);
+    } else if (existing && !untrack(known)) {
+      fillWho(existing);
     }
   });
 
@@ -288,6 +311,8 @@ function createDecklistForm(props: FormProps) {
     error,
     parsed,
     needs: () => missing(profile(), deck(), props.sanctioned),
+    /** Why nothing may be sent yet: a list there may be is not read, and sending would replace it unseen. */
+    waiting: () => UNKNOWN[list.state()],
     unchanged: () => current() !== null && !touched(),
     setProfile: (value: PlayerProfile) => edit(() => setProfile(value)),
     setDeck: (value: string) => edit(() => setDeck(value)),
@@ -407,7 +432,8 @@ function Foot(props: { form: DecklistState }) {
   const f = () => props.form;
   const problems = () => f().parsed().problems.length;
   const label = () => (f().current() ? 'Update decklist' : 'Submit decklist');
-  const reason = () => f().needs() ?? (f().unchanged() ? 'No changes to send' : null);
+  const reason = () => f().waiting() ?? f().needs() ?? (f().unchanged() ? 'No changes to send' : null);
+  const held = () => f().sending() || f().unchanged() || f().waiting() !== null;
   return (
     <div class='tm-box-bar tm-decklist-foot'>
       <Show
@@ -416,7 +442,7 @@ function Foot(props: { form: DecklistState }) {
           <button
             type='button'
             class='btn btn-primary'
-            disabled={f().sending() || f().needs() !== null || f().unchanged()}
+            disabled={held() || f().needs() !== null}
             onClick={() => void f().send()}
           >
             {label()}
@@ -428,7 +454,7 @@ function Foot(props: { form: DecklistState }) {
           label={label()}
           question={`Submit with ${problems()} problem${problems() === 1 ? '' : 's'}?`}
           confirmLabel='Submit'
-          disabled={f().sending() || f().unchanged()}
+          disabled={held()}
           onConfirm={() => void f().send()}
         />
       </Show>
@@ -455,16 +481,56 @@ function Foot(props: { form: DecklistState }) {
   );
 }
 
-export function DecklistForm(props: FormProps) {
-  const form = createDecklistForm(props);
+/** Where the list stands: being read, unreadable (with a retry), or what the server said of it. */
+function ListStatus(props: { list: MyList; known: () => string }) {
+  const failed = () => props.list.state() === 'failed';
+  return (
+    <div class='tm-box-bar tm-decklist-status'>
+      <strong role={failed() ? 'alert' : undefined}>{UNKNOWN[props.list.state()] ?? props.known()}</strong>
+      <Show when={failed()}>
+        <button type='button' class='btn btn-secondary tm-small' onClick={() => props.list.retry()}>
+          Retry
+        </button>
+      </Show>
+    </div>
+  );
+}
+
+/** The list as it was sent, read-only, once players can no longer change it. */
+function Receipt(props: FormProps & { list: MyList }) {
+  const known = () => {
+    const mine = props.list.current();
+    return mine ? submittedLine(mine, null) : 'No decklist submitted';
+  };
+  return (
+    <section class='tm-box tm-decklist-form'>
+      <ListStatus list={props.list} known={known} />
+      <Show when={props.list.current()}>
+        {mine => (
+          <div class='tm-box-bar'>
+            <Show when={mine().deck} fallback={<span class='muted'>Cards deleted after the event</span>}>
+              <pre class='tm-decklist-sent'>{mine().deck}</pre>
+            </Show>
+          </div>
+        )}
+      </Show>
+      <p class='tm-box-bar muted'>{props.locked ? 'Decklists locked after round 1' : 'Submission closed'}</p>
+    </section>
+  );
+}
+
+function OpenForm(props: FormProps & { list: MyList }) {
+  // eslint-disable-next-line solid/reactivity -- the form is made once, for the list it was given
+  const form = createDecklistForm(props, props.list);
   const decks = createDeckOptions(() => props.format);
   const count = () => `${form.parsed().total} card${form.parsed().total === 1 ? '' : 's'}`;
   return (
     <form class='tm-box tm-decklist-form' onSubmit={event => event.preventDefault()}>
-      <div class='tm-box-bar tm-decklist-status'>
-        <strong>{statusLine(form.current(), form.registration(), count(), form.parsed().problems.length)}</strong>
-      </div>
-      <Show when={!form.known()}>
+      <ListStatus
+        list={props.list}
+        known={() => statusLine(form.current(), form.registration(), count(), form.parsed().problems.length)}
+      />
+      <Show when={!form.known() && props.list.state() === 'known'}>
         <p class='tm-box-bar muted'>No account needed. Not registered yet? Submitting adds you.</p>
       </Show>
       <Show when={form.registration() === 'not-added'}>
@@ -498,5 +564,14 @@ export function DecklistForm(props: FormProps) {
         </p>
       </Show>
     </form>
+  );
+}
+
+export function DecklistForm(props: FormProps) {
+  const list = createMyList(props);
+  return (
+    <Show when={props.open} fallback={<Receipt {...props} list={list} />}>
+      <OpenForm {...props} list={list} />
+    </Show>
   );
 }

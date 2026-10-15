@@ -444,9 +444,9 @@ test('an end that loses its race to another write deletes no cards', async () =>
   const owner = await signIn('Organizer', 'organizer');
   // Seventeen plays in Masters, so one pod holds all four.
   const code = await eventWith(owner, [YEAR - 17, ADULT, ADULT - 1, ADULT - 2]);
+  assert.equal((await submit(code, '950', YEAR - 17)).status, 200);
   const paired = await send(code, owner, { type: 'pairRound', pod: 'masters' });
   assert.equal(paired.status, 200, JSON.stringify(paired.json));
-  assert.equal((await submit(code, '950', YEAR - 17)).status, 200);
   const db = env.TOURNAMENT_DB as ReturnType<typeof sqliteD1>;
   // Abandoned a week and more: the sweep would end it.
   db.raw.prepare('UPDATE tournaments SET updated_at = ? WHERE code = ?').run(Date.now() - 8 * 24 * 3600 * 1000, code);

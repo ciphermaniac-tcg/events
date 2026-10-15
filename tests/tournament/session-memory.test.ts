@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { initEventMemory, migrateEventMemory } from '../../src/lib/tournament/sessionMemory.ts';
+import { holdsDecklist, initEventMemory, migrateEventMemory } from '../../src/lib/tournament/sessionMemory.ts';
 
 function storage(entries: Record<string, string> = {}): Storage {
   const values = new Map(Object.entries(entries));
@@ -71,4 +71,29 @@ test('migration tolerates unusable storage and malformed legacy deck credentials
   assert.equal(persistent.getItem('cm-decklist:first'), JSON.stringify({ token: 'deck token' }));
   assert.equal(persistent.getItem('cm-decklist:invalid'), null);
   assert.doesNotThrow(() => initEventMemory(), 'initialization tolerates an environment without browser storage');
+});
+
+test('a device holds a decklist for the events whose token it keeps, and none when storage is off', () => {
+  const held = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+  try {
+    Object.defineProperty(globalThis, 'localStorage', {
+      configurable: true,
+      value: storage({ 'cm-decklist:SENT1': JSON.stringify({ token: 'kept' }) })
+    });
+    assert.equal(holdsDecklist('SENT1'), true);
+    assert.equal(holdsDecklist('OTHER1'), false);
+    Object.defineProperty(globalThis, 'localStorage', {
+      configurable: true,
+      get: () => {
+        throw new Error('Storage is disabled');
+      }
+    });
+    assert.equal(holdsDecklist('SENT1'), false);
+  } finally {
+    if (held) {
+      Object.defineProperty(globalThis, 'localStorage', held);
+    } else {
+      delete (globalThis as { localStorage?: Storage }).localStorage;
+    }
+  }
 });

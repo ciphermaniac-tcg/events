@@ -16,6 +16,7 @@ import {
   createSwiss,
   deleteTournament,
   exportData,
+  fetchDeckChecks,
   fetchDecklists,
   fetchHistory,
   fetchManage,
@@ -34,6 +35,8 @@ import {
   lookupPlayer,
   pairNextRound,
   preloadPublished,
+  recordDeckCheck,
+  removeDeckCheck,
   removeStaff,
   reportAsPlayer,
   rotateStaffToken,
@@ -80,6 +83,19 @@ test('profile preferences read and save profile links', async () => {
   assert.deepEqual(sent, [
     { url: '/api/me/profile', method: 'GET', body: undefined },
     { url: '/api/me/profile', method: 'PUT', body: { links: { metafy: 'https://metafy.gg/@reese' } } }
+  ]);
+});
+
+test('deck checks are read, recorded and removed by the event', async () => {
+  answer(200, { entries: [], checkers: [] });
+  await fetchDeckChecks('ABC');
+  const check = { playerId: 'p1', round: 2, result: 'fail' as const, notes: 'Four Iono', replaces: null };
+  await recordDeckCheck('ABC', { ...check, checkerId: 'u1' });
+  await removeDeckCheck('ABC', 'e 1');
+  assert.deepEqual(sent, [
+    { url: '/api/tournaments/ABC/deck-checks', method: 'GET', body: undefined },
+    { url: '/api/tournaments/ABC/deck-checks', method: 'POST', body: { ...check, checkerId: 'u1' } },
+    { url: '/api/tournaments/ABC/deck-checks?id=e+1', method: 'DELETE', body: undefined }
   ]);
 });
 

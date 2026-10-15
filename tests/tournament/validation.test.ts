@@ -188,8 +188,15 @@ test('decklists are off, open or closed, and rounds are capped at up to fifteen'
   for (const bad of [-1, 16, 2.5, '3']) {
     assert.equal(readSettings({ roundCap: bad }, DEFAULT_SETTINGS), null);
   }
-  assert.equal(decklistsOpen({ decklists: 'open' }), true);
-  assert.equal(decklistsOpen({ decklists: 'closed' }), false);
+  const tournament = emptyTournament({ name: 'x' });
+  assert.equal(decklistsOpen({ settings: { decklists: 'open' }, tournament }), true);
+  assert.equal(decklistsOpen({ settings: { decklists: 'closed' }, tournament }), false);
+  const started = { ...tournament, startedAt: 1 };
+  assert.equal(
+    decklistsOpen({ settings: { decklists: 'open' }, tournament: started }),
+    false,
+    'locked once round 1 is paired'
+  );
 });
 
 test('settings stored before decklists could be turned off keep their switch', () => {

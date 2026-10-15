@@ -595,23 +595,90 @@
 .tm-console .tm-list-check {
   min-width: 120px;
 }
+/* In line with the name above it, past the deck icon's column. */
 .tm-console .tm-list-columns {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: var(--space-3) var(--space-5);
   padding: var(--space-2) 0 var(--space-2) 52px;
 }
-.tm-console .tm-list-head {
+/* An opened list with deck checks: the list on the left, the player's checks and the form on the right. */
+.tm-console .tm-check-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-5);
+  padding: var(--space-2) 0 var(--space-2) 52px;
+}
+.tm-console .tm-lists .tm-check-split .tm-list-columns {
+  padding: 0;
+}
+.tm-console .tm-check-side h4 {
   margin: 0 0 var(--space-1);
   font-size: var(--text-base);
-  font-weight: 600;
 }
-.tm-console .tm-list-cards {
+.tm-console .tm-check-side h4:not(:first-child) {
+  margin-top: var(--space-4);
+}
+.tm-console .tm-check-list,
+.tm-console .tm-check-earlier {
   list-style: none;
   margin: 0;
   padding: 0;
   font-size: var(--text-sm);
-  line-height: 1.6;
+}
+.tm-console .tm-check-list > li {
+  padding-block: var(--space-2);
+  border-bottom: 1px solid var(--rule);
+}
+.tm-console .tm-check-list > li:last-child {
+  border-bottom: 0;
+}
+.tm-console .tm-check-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+}
+.tm-console .tm-check-notes,
+.tm-console .tm-check-meta {
+  margin: 0;
+}
+.tm-console .tm-check-earlier {
+  margin-top: var(--space-1);
+  padding-left: var(--space-3);
+  border-left: 2px solid var(--rule);
+}
+.tm-console .tm-check-pass {
+  color: var(--positive);
+}
+.tm-console .tm-check-fail {
+  color: var(--negative);
+}
+.tm-console .tm-check-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: var(--space-2) var(--space-3);
+  align-items: end;
+}
+.tm-console .tm-check-form label,
+.tm-console .tm-check-field {
+  display: grid;
+  gap: var(--space-1);
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+.tm-console .tm-check-wide {
+  grid-column: 1 / -1;
+}
+.tm-console .tm-check-field .segmented {
+  justify-self: start;
+}
+.tm-console .tm-list-deck-check {
+  white-space: nowrap;
+}
+@media (max-width: 760px) {
+  .tm-console .tm-check-split {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 12px 14px;
+  }
 }
 @media (max-width: 640px) {
   .tm-console .tm-lists,

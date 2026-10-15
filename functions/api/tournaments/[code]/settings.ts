@@ -10,6 +10,7 @@
 import {
   type DeckVisibility,
   readSettings,
+  type Role,
   sanctionedSettingsError,
   type TournamentSettings
 } from '../../../../shared/tournament/view.js';
@@ -26,6 +27,12 @@ import { dayChange, mutate, type TournamentRow } from '../../../lib/tournaments/
 
 /** How soon each setting shows decks to players: higher is sooner. */
 const OPENNESS: Record<DeckVisibility, number> = { off: 0, after: 1, always: 2 };
+
+const SOONER = 'Only the organizer can show decks sooner';
+
+/** Whether the settings show decks sooner than the row does, which only the organizer may. */
+const showsSooner = (role: Role, row: TournamentRow, next: TournamentSettings) =>
+  role !== 'owner' && OPENNESS[next.deckVisibility] > OPENNESS[row.settings.deckVisibility];
 
 /**
  * Whether the row's event may become sanctioned: it is a store's, and the
@@ -94,16 +101,19 @@ export async function onRequestPut(context: Context<'code'>): Promise<Response> 
   if (typeof next === 'string') {
     return jsonError(next, 400);
   }
-  if (access.role !== 'owner' && OPENNESS[next.deckVisibility] > OPENNESS[access.row.settings.deckVisibility]) {
-    return jsonError('Only the organizer can show decks sooner', 403);
-  }
+  // Judged against the event as each try finds it: decks the organizer hid meanwhile are not staff's to show again.
   const outcome = await mutate(access.db, access.row, row => {
     const settings = changedSettings(change, row, sanctionable);
     if (typeof settings === 'string') {
       return settings;
     }
+    if (showsSooner(access.role, row, settings)) {
+      return SOONER;
+    }
     const conclusion = concludedPrerelease(row, settings);
     return typeof conclusion === 'string' ? conclusion : { settings, ...dayChange(row, settings), ...conclusion };
   });
-  return answerStaff(context, access, outcome);
+  return 'error' in outcome && outcome.error === SOONER
+    ? jsonError(SOONER, 403)
+    : answerStaff(context, access, outcome);
 }

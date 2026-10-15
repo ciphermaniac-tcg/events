@@ -11,6 +11,7 @@ import type { AccountRole } from '../../../shared/accounts/roles';
 import type { HistoryEntry, MyStore, PublicProfile } from '../../../shared/accounts/types';
 import type { ProfileLinks, ProfilePreferences } from '../../../shared/accounts/profile';
 import type { Command } from '../../../shared/tournament/commands';
+import type { DeckCheckEntry, DeckChecker, DeckCheckInput } from '../../../shared/tournament/deckChecks';
 import { tomDateTime } from '../../../shared/tournament/divisions';
 import type { PlayerClaim } from '../../../shared/tournament/identify';
 import type { PlayerProfile } from '../../../shared/tournament/profile';
@@ -390,6 +391,23 @@ export const withdrawDecklist = (
   owner: Pick<PlayerProfile, 'popId' | 'firstName' | 'lastName'>,
   token: string | null
 ) => call<null>(`${base(code)}/decklists?${listOwner(owner, token ?? undefined)}`, { method: 'DELETE' });
+
+/** Every entry in the event's deck check record, with the staff a check may name as its checker. */
+export interface DeckCheckRecord {
+  entries: DeckCheckEntry[];
+  checkers: DeckChecker[];
+}
+
+export const fetchDeckChecks = (code: string) => call<DeckCheckRecord>(`${base(code)}/deck-checks`);
+
+/** Records a check, or with `replaces` an edit of one; answers with the whole record. */
+export const recordDeckCheck = (
+  code: string,
+  check: Omit<DeckCheckInput, 'checker'> & ({ checkerId: string } | { checkerName: string })
+) => call<DeckCheckRecord>(`${base(code)}/deck-checks`, json('POST', check));
+
+export const removeDeckCheck = (code: string, id: string) =>
+  call<DeckCheckRecord>(`${base(code)}/deck-checks?${new URLSearchParams({ id }).toString()}`, { method: 'DELETE' });
 
 /** Staff unlock a list, so the player can send it again from another device. */
 export const unlockDecklist = (code: string, owner: Pick<PlayerProfile, 'popId' | 'firstName' | 'lastName'>) =>

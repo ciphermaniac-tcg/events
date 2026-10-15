@@ -17,6 +17,7 @@ import { recordLabel, swissStandings } from '../../../shared/tournament/standing
 import { type Pod, POD_CATEGORIES, type PodCategory, type Round } from '../../../shared/tournament/types';
 import type { PlayerClaim } from '../../../shared/tournament/identify';
 import {
+  decklistsLocked,
   decklistsOpen,
   decksEnabled,
   isSanctioned,
@@ -40,6 +41,7 @@ import { ordinal } from '../../lib/format';
 import { latestValue } from '../../lib/resource';
 import { onChange } from '../../lib/tournament/changes';
 import { shared } from '../../lib/tournament/share';
+import { holdsDecklist } from '../../lib/tournament/sessionMemory';
 import { readFollowing, toggleFollowing } from '../../lib/tournament/spectate';
 import {
   askOnReturn,
@@ -373,12 +375,24 @@ function createMe(view: () => TournamentView, events: { onView: (view: Published
   };
 }
 
-function tabsFor(view: TournamentView): { value: Tab; label: string }[] {
+/**
+ * The decklist tab: the form while players can send a list, and once they
+ * cannot, the receipt for a viewer who may have one (a device that sent one,
+ * or an account that is a player here).
+ */
+function decklistTab(view: TournamentView, mayHaveList: boolean): { value: Tab; label: string }[] {
+  if (decklistsOpen(view)) {
+    return [{ value: 'decklist', label: 'Submit decklist' }];
+  }
+  return view.settings.decklists !== 'off' && mayHaveList ? [{ value: 'decklist', label: 'My decklist' }] : [];
+}
+
+function tabsFor(view: TournamentView, mayHaveList: boolean): { value: Tab; label: string }[] {
   return [
     { value: 'pairings', label: 'Pairings' },
     { value: 'standings', label: 'Standings' },
     ...(Object.keys(view.decks).length ? [{ value: 'decks' as const, label: 'Decks' }] : []),
-    ...(decklistsOpen(view.settings) ? [{ value: 'decklist' as const, label: 'Submit decklist' }] : [])
+    ...decklistTab(view, mayHaveList)
   ];
 }
 
@@ -538,8 +552,6 @@ function EventBody(props: {
   const round = createMemo(() => pod()?.rounds.find(r => r.number === roundChoice()) ?? latestRound(pod()));
   const names = createMemo(() => namesById(props.view.tournament));
   const divisionOf = (id: string) => props.view.divisions[id] ?? 'masters';
-  const tabs = createMemo(() => tabsFor(props.view));
-  const tab = () => pickTab(tabs(), params.tab, props.view);
   // A memo: the bar is drawn from it, and a bar drawn again on every new copy drops the search mid-word.
   const started = createMemo(() => hasStarted(props.view.tournament));
   // Whose list the account owns (see DecklistForm): the same owner in a new copy of the event reads nothing again.
@@ -555,6 +567,9 @@ function EventBody(props: {
     null,
     { equals: (a, b) => JSON.stringify(a) === JSON.stringify(b) }
   );
+
+  const tabs = createMemo(() => tabsFor(props.view, listOwner() !== null || holdsDecklist(props.view.code)));
+  const tab = () => pickTab(tabs(), params.tab, props.view);
 
   const bar = (withRounds: boolean, withSearch = true) => (
     <>
@@ -662,6 +677,8 @@ function EventBody(props: {
             format={props.view.settings.format}
             sanctioned={isSanctioned(props.view)}
             owner={listOwner()}
+            open={decklistsOpen(props.view)}
+            locked={decklistsLocked(props.view)}
           />
         </Show>
       </TabPanel>

@@ -2020,6 +2020,30 @@ test('only the organizer shows decks sooner; staff can still hide them', async (
   assert.equal((await put(helper, 'after')).status, 200, 'but can hide them');
 });
 
+test('staff cannot show decks again that the organizer hid while their change was on its way', async () => {
+  const { owner, code, helper } = await withHelper();
+  await settle(code, owner, { deckVisibility: 'after' });
+  const db = env.TOURNAMENT_DB as ReturnType<typeof sqliteD1>;
+  // The organizer's hide lands between the staff change's read and its write, so the write tries again.
+  env.TOURNAMENT_DB = racing(db, 'UPDATE tournaments SET', () =>
+    db.raw
+      .prepare(
+        "UPDATE tournaments SET settings = json_set(settings, '$.deckVisibility', 'off'), version = version + 1 " +
+          'WHERE code = ?'
+      )
+      .run(code)
+  );
+  const shown = await hit(settings.onRequestPut as Handler, '/settings', at(code), {
+    method: 'PUT',
+    cookie: helper,
+    body: { deckVisibility: 'after', format: 'Expanded' }
+  });
+  assert.deepEqual([shown.status, shown.json.error], [403, 'Only the organizer can show decks sooner']);
+  env.TOURNAMENT_DB = db;
+  const after = await loadTournament(db, code);
+  assert.deepEqual([after?.settings.deckVisibility, after?.settings.format], ['off', 'Standard']);
+});
+
 /** Every statement the functions prepare from here on, in order. */
 function recordSql(): string[] {
   const db = env.TOURNAMENT_DB as NonNullable<TournamentEnv['TOURNAMENT_DB']>;

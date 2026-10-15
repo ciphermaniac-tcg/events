@@ -1,6 +1,18 @@
 /** Remove persistent player details while keeping the credentials that recover their lists and seats. */
 const PROFILE_KEYS = ['cm-tournament-player:', 'cm-tournament-me:'];
 
+/** Where a device keeps the token for the decklist it sent to an event, by the event's code. */
+export const DECKLIST_KEY = 'cm-decklist:';
+
+/** Whether this device sent a list to the event, and keeps the token that reads it back. */
+export function holdsDecklist(code: string): boolean {
+  try {
+    return localStorage.getItem(DECKLIST_KEY + code) !== null;
+  } catch {
+    return false;
+  }
+}
+
 function keepProfile(key: string, value: string, session: Storage): void {
   try {
     if (session.getItem(key) === null) {
@@ -33,7 +45,7 @@ export function migrateEventMemory(persistent: Storage, session: Storage): void 
     if (key === null) {
       continue;
     }
-    if (key.startsWith('cm-decklist:')) {
+    if (key.startsWith(DECKLIST_KEY)) {
       migrateDeck(key, persistent, session);
     } else if (PROFILE_KEYS.some(prefix => key.startsWith(prefix))) {
       const value = persistent.getItem(key);

@@ -16,7 +16,7 @@ import { type PlayerClaim, shortLastNames } from './identify.js';
 import type { PlayerProfile } from './profile.js';
 import type { PlayerReport } from './reports.js';
 import type { PlayerRequest } from './requests.js';
-import { isOpenMatch, type MatchKey, sameMatch } from './rounds.js';
+import { hasStarted, isOpenMatch, type MatchKey, sameMatch } from './rounds.js';
 import type { Division, Outcome, Pod, Tournament, TournamentInfo } from './types.js';
 
 export type TournamentMode = 'swiss' | 'tom';
@@ -190,9 +190,22 @@ export function storedSettings(stored: Record<string, unknown>): TournamentSetti
   return { ...DEFAULT_SETTINGS, ...(current as Partial<TournamentSettings>) };
 }
 
-/** Whether players can send a decklist now. */
-export function decklistsOpen(settings: Pick<TournamentSettings, 'decklists'>): boolean {
-  return settings.decklists === 'open';
+/**
+ * Whether the event's lists are locked: once any division's round 1 is
+ * paired, nobody sends, replaces or withdraws one, whatever the open or
+ * closed switch says. The lists then stand as what deck checks are held to.
+ * Their owners still read them, and staff read them all.
+ */
+export function decklistsLocked(event: { tournament: Tournament }): boolean {
+  return hasStarted(event.tournament);
+}
+
+/** Whether players can send a decklist now: submission is open, and round 1 is not yet paired. */
+export function decklistsOpen(event: {
+  settings: Pick<TournamentSettings, 'decklists'>;
+  tournament: Tournament;
+}): boolean {
+  return event.settings.decklists === 'open' && !decklistsLocked(event);
 }
 
 /** Whether players are known by Player ID and birth year: a TOM event always is. */

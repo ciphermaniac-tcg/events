@@ -41,11 +41,11 @@ import { birthYear, yearOnlyBirthDate } from '../../../../shared/tournament/divi
 import { type PlayerProfile, readProfile } from '../../../../shared/tournament/profile.js';
 import {
   type Decklist,
+  decklistsLocked,
   decklistsOpen,
   decksEnabled,
   isSanctioned,
-  type Registration,
-  type TournamentSettings
+  type Registration
 } from '../../../../shared/tournament/view.js';
 import { readJsonObject } from '../../../lib/api/body.js';
 import { createRateLimiter, rateLimitAddress } from '../../../lib/api/rateLimiter.js';
@@ -58,7 +58,7 @@ import { archetypeLabel } from '../../../lib/tournaments/decks.js';
 import { admitTry, clearFailures, forgive, LOCKED_OUT } from '../../../lib/tournaments/attempts.js';
 import { publishAfter } from '../../../lib/tournaments/publish.js';
 import { commandChanges } from '../../../lib/tournaments/results.js';
-import { mutate, type TournamentRow } from '../../../lib/tournaments/store.js';
+import { loadTournament, mutate, pairedRounds, type TournamentRow } from '../../../lib/tournaments/store.js';
 
 interface DecklistRow {
   /** The submitter's identity key (see identityKey). */
@@ -163,6 +163,19 @@ function matchingAccount(access: Access, details: Details): ListAccount | null {
       }
     : null;
 }
+
+/**
+ * A write's guard that the event (bound as its code) still takes lists as the
+ * write lands: submission open (an event stored before decklists could be
+ * turned off keeps its open switch, see storedSettings) and no round paired
+ * (see decklistsLocked). A close or a round 1 since the request read the
+ * event refuses the write all the same.
+ */
+const STILL_TAKING =
+  'EXISTS (SELECT 1 FROM tournaments WHERE code = ? AND ' +
+  "coalesce(json_extract(settings, '$.decklists'), " +
+  "CASE WHEN json_extract(settings, '$.decklistsOpen') THEN 'open' END) = 'open' " +
+  `AND json_extract(state, '$.startedAt') IS NULL AND (${pairedRounds('state')}) = 0)`;
 
 /** No account: a write names none, and no list's account matches it. */
 const NO_ACCOUNT: ListAccount = { id: '', sql: 'NULL', values: [] };
@@ -340,7 +353,8 @@ async function store(access: Access, submission: Submission, tokenHash: string, 
     .prepare(
       'INSERT INTO decklists (code, user_id, pop_id, first_name, last_name, birth_date, deck, archetype, submitted_at, ' +
         `owner_token, account) SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ${account.sql} ` +
-        "WHERE ? = 0 OR NOT EXISTS (SELECT 1 FROM tournaments WHERE code = ? AND coalesce(json_extract(settings, '$.finished'), 0) = 1) " +
+        "WHERE (? = 0 OR NOT EXISTS (SELECT 1 FROM tournaments WHERE code = ? AND coalesce(json_extract(settings, '$.finished'), 0) = 1)) " +
+        `AND ${STILL_TAKING} ` +
         'ON CONFLICT (code, user_id) DO UPDATE SET ' +
         'pop_id = excluded.pop_id, first_name = excluded.first_name, last_name = excluded.last_name, ' +
         'birth_date = excluded.birth_date, deck = excluded.deck, archetype = excluded.archetype, ' +
@@ -365,6 +379,7 @@ async function store(access: Access, submission: Submission, tokenHash: string, 
       tokenHash,
       ...account.values,
       minor,
+      access.row.code,
       access.row.code,
       held,
       held
@@ -432,13 +447,15 @@ async function register(
 const eventLimiter = createRateLimiter({ windowMs: 10 * 60 * 1000, maxRequests: 150 });
 const addressLimiter = createRateLimiter({ windowMs: 10 * 60 * 1000, maxRequests: 400 });
 
-/** Why a list cannot be sent or withdrawn now: the event takes none, or not any more. */
-function notTaking(settings: TournamentSettings): Response {
-  return jsonError(
-    settings.decklists === 'off' ? 'This event does not take decklists' : 'Decklist submission is closed',
-    403
-  );
+/** Why a list cannot be sent or withdrawn now: the event takes none, round 1 is paired, or submission is closed. */
+function notTaking(row: TournamentRow): Response {
+  if (row.settings.decklists === 'off') {
+    return jsonError('This event does not take decklists', 403);
+  }
+  return jsonError(decklistsLocked(row) ? LOCKED_AFTER_ROUND_1 : 'Decklist submission is closed', 403);
 }
+
+const LOCKED_AFTER_ROUND_1 = 'Decklists are locked once round 1 is paired';
 
 /** @internal exposed for tests */
 export function _resetRateLimitStore(): void {
@@ -466,8 +483,8 @@ export async function onRequestPut(context: Context<'code'>): Promise<Response> 
   if (access instanceof Response) {
     return access;
   }
-  if (!decklistsOpen(access.row.settings)) {
-    return notTaking(access.row.settings);
+  if (!decklistsOpen(access.row)) {
+    return notTaking(access.row);
   }
   const read = await readSubmission(context.request, isSanctioned(access.row));
   if (typeof read === 'string') {
@@ -485,7 +502,7 @@ export async function onRequestPut(context: Context<'code'>): Promise<Response> 
   const landed = await store(access, submission, await sha256(token), now);
   await guard.stored(landed);
   if (!landed) {
-    return jsonError(LOCKED, 409);
+    return refusedWrite(access);
   }
   const { registration, row } = await register(context, access, submission);
   const { profile, deck, archetype } = submission;
@@ -507,8 +524,8 @@ export async function onRequestDelete(context: Context<'code'>): Promise<Respons
   if (access instanceof Response) {
     return access;
   }
-  if (!decklistsOpen(access.row.settings)) {
-    return notTaking(access.row.settings);
+  if (!decklistsOpen(access.row)) {
+    return notTaking(access.row);
   }
   const details = detailsFrom(context.request, isSanctioned(access.row));
   if (!details) {
@@ -517,7 +534,7 @@ export async function onRequestDelete(context: Context<'code'>): Promise<Respons
   const key = identityKey(details, isSanctioned(access.row));
   const held = new URL(context.request.url).searchParams.get('token') ?? '';
   if (!(await withdraw(access, details, held)) && (await listExists(access.db, access.row.code, key))) {
-    return jsonError(LOCKED, 409);
+    return refusedWrite(access);
   }
   return noContent();
 }
@@ -532,10 +549,25 @@ async function withdraw(access: Access, details: Details, held: string): Promise
   const { db, row } = access;
   const account = matchingAccount(access, details) ?? NO_ACCOUNT;
   const deleted = await db
-    .prepare(`DELETE FROM decklists WHERE code = ? AND user_id = ? AND (owner_token = ? OR account = ${account.sql})`)
-    .bind(row.code, identityKey(details, isSanctioned(row)), held ? await sha256(held) : '', ...account.values)
+    .prepare(
+      'DELETE FROM decklists WHERE code = ? AND user_id = ? ' +
+        `AND (owner_token = ? OR account = ${account.sql}) AND ${STILL_TAKING}`
+    )
+    .bind(
+      row.code,
+      identityKey(details, isSanctioned(row)),
+      held ? await sha256(held) : '',
+      ...account.values,
+      row.code
+    )
     .run();
   return rowsChanged(deleted) === 1;
+}
+
+/** Why a write to a list did not land: the event stopped taking lists meanwhile, or the list is another device's. */
+async function refusedWrite(access: Access): Promise<Response> {
+  const now = await loadTournament(access.db, access.row.code);
+  return now && !decklistsOpen(now) ? notTaking(now) : jsonError(LOCKED, 409);
 }
 
 async function listExists(db: Access['db'], code: string, key: string): Promise<boolean> {

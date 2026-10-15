@@ -213,6 +213,9 @@ function accountWrites(db: D1Like, user: User): D1Statement[] {
     db.prepare('UPDATE report_devices SET user_id = NULL WHERE user_id = ?').bind(user.id),
     db.prepare('UPDATE decklists SET account = NULL WHERE account = ?').bind(user.id),
     db.prepare('UPDATE report_history SET account_id = NULL WHERE account_id = ?').bind(user.id),
+    // The deck checks it made or wrote down stay with their events, naming no one.
+    db.prepare('UPDATE deck_checks SET checker_id = NULL WHERE checker_id = ?').bind(user.id),
+    db.prepare('UPDATE deck_checks SET recorded_by = NULL WHERE recorded_by = ?').bind(user.id),
     ...DECIDED_BY.map(([table, column]) =>
       db.prepare(`UPDATE ${table} SET ${column} = NULL WHERE ${column} = ?`).bind(user.id)
     ),

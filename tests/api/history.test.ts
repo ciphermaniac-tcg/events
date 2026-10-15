@@ -89,16 +89,10 @@ test('players staff add at a sanctioned event are indexed, and one they remove i
   assert.deepEqual(indexed(code), ['900', '902'], 'a rename changes nothing');
 });
 
-test('a late arrival after round 1 and a player added by decklist are indexed', async () => {
+test('a player added by decklist and a late arrival after round 1 are indexed', async () => {
   const owner = await signIn('Organizer', 'organizer');
   const code = await newSwiss(owner);
   await addPlayers(code, owner, 4);
-  await send(code, owner, { type: 'pairRound', pod: 'masters' });
-  await send(code, owner, {
-    type: 'addPlayer',
-    player: { firstName: 'Late', lastName: 'Arrival', id: '999', birthDate: '02/27/1990' }
-  });
-  assert.deepEqual(indexed(code), ['900', '901', '902', '903', '999']);
   await settle(code, owner, { decklists: 'open' });
   const sent = await hit(decklists.onRequestPut as Handler, '/decklists', at(code), {
     method: 'PUT',
@@ -110,6 +104,12 @@ test('a late arrival after round 1 and a player added by decklist are indexed', 
   assert.equal(sent.json.registration, 'added');
   await inStep(code);
   assert.ok(indexed(code).includes('4242'));
+  await send(code, owner, { type: 'pairRound', pod: 'masters' });
+  await send(code, owner, {
+    type: 'addPlayer',
+    player: { firstName: 'Late', lastName: 'Arrival', id: '999', birthDate: '02/27/1990' }
+  });
+  assert.deepEqual(indexed(code).sort(), ['4242', '900', '901', '902', '903', '999']);
 });
 
 test('turning sanctioned off takes an event’s players out of the index, and on again puts them back', async () => {

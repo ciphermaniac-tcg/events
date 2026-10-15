@@ -26,9 +26,9 @@ import {
   Switch
 } from 'solid-js';
 import { birthYear } from '../../../shared/tournament/divisions';
-import { type DeckSection, parseDecklist } from '../../../shared/tournament/decklist';
+import { latestRoundOf } from '../../../shared/tournament/staffRecords';
 import { decklistMatcher } from '../../../shared/tournament/identify';
-import { decklistsOpen, decksEnabled, isSanctioned } from '../../../shared/tournament/view';
+import { decklistsLocked, decklistsOpen, decksEnabled, isSanctioned } from '../../../shared/tournament/view';
 import {
   type Decklist,
   fetchDecklists,
@@ -40,14 +40,11 @@ import {
 import { latestValue } from '../../lib/resource';
 import { shared } from '../../lib/tournament/share';
 import { ConfirmAction } from './ConfirmAction';
+import { DecklistColumns } from './DecklistColumns';
+import { createDeckChecks, type DeckChecks, DeckCheckSide, LastCheck } from './DeckChecks';
+import { session } from './session';
 import { DeckIcons } from './DeckIcons';
 import type { ManageState } from './manageState';
-
-const SECTIONS: { section: DeckSection; label: string }[] = [
-  { section: 'pokemon', label: 'Pokémon' },
-  { section: 'trainer', label: 'Trainer' },
-  { section: 'energy', label: 'Energy' }
-];
 
 const submittedAt = (at: number) =>
   new Date(at).toLocaleString(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' });
@@ -58,44 +55,6 @@ function notEnteredReason(manage: Manage): string {
     return 'Roster is TOM’s';
   }
   return manage.settings.finished ? 'Event closed' : 'Not on the player list';
-}
-
-/** The list as it was pasted, laid out by section with each section's count. */
-function ListColumns(props: { deck: string }) {
-  const parsed = () => parseDecklist(props.deck);
-  return (
-    <div class='tm-list-columns'>
-      <For each={SECTIONS}>
-        {s => {
-          const cards = () => parsed().cards.filter(card => card.section === s.section);
-          return (
-            <div>
-              <p class='tm-list-head'>
-                {s.label}: {cards().reduce((sum, card) => sum + card.count, 0)}
-              </p>
-              <ul class='tm-list-cards'>
-                <For each={cards()}>
-                  {card => (
-                    <li>
-                      {card.count} {card.name} {card.set} {card.number}
-                    </li>
-                  )}
-                </For>
-              </ul>
-            </div>
-          );
-        }}
-      </For>
-      <Show when={parsed().unread.length > 0}>
-        <div>
-          <p class='tm-list-head'>Not read</p>
-          <ul class='tm-list-cards tm-problem'>
-            <For each={parsed().unread}>{line => <li>{line}</li>}</For>
-          </ul>
-        </div>
-      </Show>
-    </div>
-  );
 }
 
 /** Finds the player a list belongs to (see decklistMatcher). */
@@ -109,6 +68,8 @@ interface RowProps {
   open: boolean;
   onToggle: () => void;
   onChanged: () => void;
+  /** The event's deck checks, once round 1 is paired and there can be any; null before. */
+  checks: DeckChecks | null;
 }
 
 function DecklistRow(props: RowProps) {
@@ -187,6 +148,13 @@ function DecklistRow(props: RowProps) {
             <span class='tm-problem'>{props.list.problems.join('; ')}</span>
           </Show>
         </td>
+        <Show when={props.checks}>
+          {checks => (
+            <td class='tm-list-deck-check'>
+              <LastCheck checks={checks()} playerId={playerId()} />
+            </td>
+          )}
+        </Show>
         <td class='tm-extra-col'>
           <span class='tm-row-actions'>
             <button
@@ -208,7 +176,7 @@ function DecklistRow(props: RowProps) {
                 Use their deck
               </button>
             </Show>
-            <Show when={props.list.locked}>
+            <Show when={props.list.locked && !decklistsLocked(props.manage)}>
               <ConfirmAction
                 label='Unlock'
                 question='Let another device send this list?'
@@ -221,8 +189,20 @@ function DecklistRow(props: RowProps) {
       </tr>
       <Show when={props.open}>
         <tr class='tm-expansion'>
-          <td colSpan={5}>
-            <ListColumns deck={props.list.deck} />
+          <td colSpan={props.checks ? 6 : 5}>
+            <Show when={props.checks && playerId()} keyed fallback={<DecklistColumns deck={props.list.deck} />}>
+              {id => (
+                <div class='tm-check-split'>
+                  <DecklistColumns deck={props.list.deck} />
+                  <DeckCheckSide
+                    checks={props.checks as DeckChecks}
+                    playerId={id}
+                    latestRound={latestRoundOf(props.manage.tournament, id)}
+                    me={latestValue(session)?.user?.id ?? null}
+                  />
+                </div>
+              )}
+            </Show>
           </td>
         </tr>
       </Show>
@@ -257,6 +237,14 @@ function ordered(lists: readonly Decklist[], playerOf: PlayerOf): Decklist[] {
 /** How often the tab looks for new lists while it is open. */
 const LISTS_REFRESH_MS = 30_000;
 
+/** Whether players can send lists: open, closed by staff, or locked since round 1 was paired (see decklistsLocked). */
+function submissionWord(accepting: boolean, locked: boolean): string {
+  if (locked) {
+    return 'Locked after round 1';
+  }
+  return accepting ? 'Submission open' : 'Submission closed';
+}
+
 /** What stands in for the table with no lists to show: loading, a failed load, or none sent yet. */
 function NoLists(props: { loading: boolean; failed: boolean; onRetry: () => void }) {
   return (
@@ -281,7 +269,10 @@ export function DecklistsPanel(props: { state: ManageState; manage: Manage }) {
     () => props.manage.code,
     code => fetchDecklists(code).then(result => result.decklists)
   );
-  const accepting = () => decklistsOpen(props.manage.settings);
+  const accepting = () => decklistsOpen(props.manage);
+  const locked = () => decklistsLocked(props.manage);
+  // Deck checks are read once round 1 is paired, before which there can be none.
+  const checks = createMemo(() => (locked() ? createDeckChecks(() => props.manage.code) : null));
   /** Looks for new lists, keeping the rows of the lists that did not change. A failed look keeps the lists shown. */
   const look = () =>
     void fetchDecklists(props.manage.code)
@@ -332,15 +323,17 @@ export function DecklistsPanel(props: { state: ManageState; manage: Manage }) {
     <div class='tm-panel'>
       <section class='tm-box'>
         <div class='tm-box-bar'>
-          <strong>{accepting() ? 'Submission open' : 'Submission closed'}</strong>
+          <strong>{submissionWord(accepting(), locked())}</strong>
           <span class='muted tm-num'>{counts()}</span>
           <A class='tm-bar-link' href={`/t/${props.manage.code}?tab=decklist`}>
             Submit decklist page
           </A>
           <span class='tm-grow' />
-          <button type='button' class='btn btn-secondary tm-small' disabled={props.state.busy()} onClick={toggle}>
-            {accepting() ? 'Close submission' : 'Open submission'}
-          </button>
+          <Show when={!locked()}>
+            <button type='button' class='btn btn-secondary tm-small' disabled={props.state.busy()} onClick={toggle}>
+              {accepting() ? 'Close submission' : 'Open submission'}
+            </button>
+          </Show>
         </div>
         <div class='tm-box-bar'>
           <input
@@ -366,6 +359,9 @@ export function DecklistsPanel(props: { state: ManageState; manage: Manage }) {
                   <th>Player</th>
                   <th>Submitted</th>
                   <th>Check</th>
+                  <Show when={checks()}>
+                    <th>Last deck check</th>
+                  </Show>
                   <th>
                     <span class='sr-only'>Actions</span>
                   </th>
@@ -382,6 +378,7 @@ export function DecklistsPanel(props: { state: ManageState; manage: Manage }) {
                       open={open() === key(list)}
                       onToggle={() => setOpen(open() === key(list) ? null : key(list))}
                       onChanged={() => void refetch()}
+                      checks={checks()}
                     />
                   )}
                 </For>

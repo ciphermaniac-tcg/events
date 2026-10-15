@@ -1219,6 +1219,95 @@ test('a list whose owner changes while the form is being edited shows the new ow
   ]);
 });
 
+/**
+ * An event whose device kept the list it sent, with decklist settings
+ * `settings`; its list reads back through `answer`, given which read this is and the list.
+ */
+async function mockKeptList(
+  page: Page,
+  settings: Partial<PublishedView['settings']>,
+  answer: (read: number, list: unknown) => { status: number; json: unknown }
+) {
+  const code = 'DECKS3';
+  const t = run(emptyTournament({ name: 'Cup' }));
+  const published: PublishedView = {
+    code,
+    mode: 'swiss',
+    version: 1,
+    updatedAt: 0,
+    tournament: publicTournament(t, assignKeys(t, {})),
+    pending: [],
+    reports: [],
+    divisions: {},
+    decks: {},
+    settings: { ...DEFAULT_SETTINGS, ...settings }
+  };
+  const profile = { popId: '1001', firstName: 'Mary', lastName: 'Jackson', birthDate: '02/27/1995' };
+  await page.addInitScript(([key, value]) => localStorage.setItem(key, value), [
+    `cm-decklist:${code}`,
+    JSON.stringify({ token: 'kept' })
+  ] as const);
+  await page.route(`**/tournaments/v1/${code}.json`, route =>
+    route.fulfill({ json: published, headers: { 'access-control-allow-origin': '*' } })
+  );
+  let reads = 0;
+  await page.route('**/api/**', route => {
+    const { pathname } = new URL(route.request().url());
+    if (pathname === '/api/me') {
+      return route.fulfill({ json: { user: null, providers: [] } });
+    }
+    if (pathname === `/api/tournaments/${code}/decklists`) {
+      reads += 1;
+      return route.fulfill(answer(reads, list));
+    }
+    return route.fulfill({ json: { ...published, viewer: { role: null, me: null, via: null, signedIn: false } } });
+  });
+  const list = {
+    ...profile,
+    deck: '4 Iono PAL 185\n56 Basic {G} Energy SVE 1',
+    archetype: null,
+    submittedAt: 0,
+    problems: [],
+    registered: true,
+    fromList: false,
+    locked: true
+  };
+  return { code };
+}
+
+test('once submission closes, the device that sent a list reads it back, read-only', async ({ page }) => {
+  const { code } = await mockKeptList(page, { decklists: 'closed' }, (_, list) => ({
+    status: 200,
+    json: { mine: list }
+  }));
+  await page.goto(`/t/${code}`);
+  await page.getByRole('tab', { name: 'My decklist' }).click();
+  await expect(page.locator('.tm-decklist-status')).toContainText('Submitted');
+  await expect(page.locator('.tm-decklist-sent')).toHaveText('4 Iono PAL 185\n56 Basic {G} Energy SVE 1');
+  await expect(page.locator('#deck-list')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Withdraw' })).toHaveCount(0);
+  await expect(page.getByText('Submission closed')).toBeVisible();
+});
+
+test('a list that cannot be read says so, keeps the draft, and sends nothing until a retry reads it', async ({
+  page
+}) => {
+  const { code } = await mockKeptList(page, { decklists: 'open' }, (read, list) =>
+    read === 1 ? { status: 500, json: { error: 'Down' } } : { status: 200, json: { mine: list } }
+  );
+  await page.goto(`/t/${code}?tab=decklist`);
+  const status = page.locator('.tm-decklist-status');
+  await expect(status).toContainText('Your decklist could not be loaded');
+  await expect(status).not.toContainText('Not submitted');
+  await page.locator('#deck-list').fill('60 Basic {G} Energy SVE 1');
+  await expect(page.getByRole('button', { name: 'Submit decklist' })).toBeDisabled();
+  await expect(page.locator('.tm-decklist-foot')).toContainText('Your decklist could not be loaded');
+  await status.getByRole('button', { name: 'Retry' }).click();
+  await expect(status).toContainText('Submitted');
+  await expect(page.locator('#deck-list')).toHaveValue('60 Basic {G} Energy SVE 1');
+  await expect(page.getByRole('button', { name: 'Update decklist' })).toBeEnabled();
+});
+
 // ---------- The dashboard (/host signed in) ----------
 
 const SUMMARY = {
