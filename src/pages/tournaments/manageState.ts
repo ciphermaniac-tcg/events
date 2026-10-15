@@ -4,7 +4,8 @@
  * applied optimistically, because the server may pair differently or refuse,
  * and a console that shows what did not happen is worse than a short wait.
  * A result on its way is drawn in its row as sent, not as entered (see
- * RoundPanel), and goes back to open if the server refuses it.
+ * RoundPanel), and stays in its row as not saved if the server refuses it
+ * (see resultEntry).
  */
 
 import { createSignal } from 'solid-js';
@@ -29,6 +30,8 @@ export interface ManageState {
   /** Waits on a request that changes something beside the event, and shows why if it fails; whether it went through. */
   act: (request: Promise<unknown>) => Promise<boolean>;
   send: (command: Command) => Promise<boolean>;
+  /** Shows why something the console tried did not happen, where no request failed to say so. */
+  fail: (message: string) => void;
   clearError: () => void;
 }
 
@@ -106,6 +109,7 @@ export function createManage(code: () => string): ManageState {
     take,
     act,
     send: command => act(sendCommand(code(), command).then(take)),
+    fail: message => setError(message),
     clearError: () => setError(null)
   };
 }

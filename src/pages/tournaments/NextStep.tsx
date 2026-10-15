@@ -6,13 +6,13 @@
  * asks its size and third-place match in a dialog, and ending asks first.
  */
 
-import { createSignal, For, Show } from 'solid-js';
+import { createMemo, createSignal, For, Show } from 'solid-js';
 import { finalPodRound, prereleaseChoiceAvailable } from '../../../shared/tournament/lifecycleWorkflow';
 import { latestRound } from '../../../shared/tournament/rounds';
 import { TOP_CUT_SIZES } from '../../../shared/tournament/structure';
 import { type Division, DIVISION_LABELS, type Pod } from '../../../shared/tournament/types';
 import { type Manage, saveSettings } from '../../lib/tournament/api';
-import type { DivisionCut } from '../../lib/tournament/present';
+import { type DivisionCut, endGaps } from '../../lib/tournament/present';
 import { Segmented } from '../../components/Segmented';
 import type { ManageState } from './manageState';
 import { Modal } from './Modal';
@@ -115,24 +115,53 @@ function CutDialog(props: {
   );
 }
 
-/** Ending the event, asked in a dialog: results change only by reopening it afterwards. */
+/**
+ * Ending the event, asked in a dialog after a review of what it would leave
+ * unplayed (see endGaps): with nothing left it ends as planned, and with
+ * anything left the dialog lists it and the event ends early. Results change
+ * only by reopening it afterwards.
+ */
 function EndDialog(props: { state: ManageState; manage: Manage; open: boolean; onClose: () => void }) {
+  const gaps = createMemo(() => (props.open ? endGaps(props.manage) : []));
+  const early = () => gaps().length > 0;
   function end() {
     const { code } = props.manage;
     props.onClose();
     void props.state.run(() => saveSettings(code, { finished: true }));
   }
   return (
-    <Modal open={props.open} title='End the event?' class='tm-end-dialog' onClose={props.onClose}>
+    <Modal
+      open={props.open}
+      title={early() ? 'End the event early?' : 'End the event?'}
+      class='tm-end-dialog'
+      onClose={props.onClose}
+    >
       <div class='tm-box-bar tm-modal-body'>
+        <Show when={early()}>
+          <ul class='tm-end-gaps'>
+            <For each={gaps()}>
+              {gap => (
+                <li>
+                  <Show when={gap.where}>{where => <strong>{where()}: </strong>}</Show>
+                  {gap.detail}
+                </li>
+              )}
+            </For>
+          </ul>
+        </Show>
         <p class='muted'>The final standings are published. Results can change only by reopening the event.</p>
       </div>
       <div class='tm-box-bar tm-modal-foot'>
         <button type='button' class='btn btn-ghost' onClick={() => props.onClose()}>
           Keep running
         </button>
-        <button type='button' class='btn btn-primary' disabled={props.state.busy()} onClick={end}>
-          {END_LABEL}
+        <button
+          type='button'
+          class={early() ? 'btn btn-secondary tm-danger' : 'btn btn-primary'}
+          disabled={props.state.busy()}
+          onClick={end}
+        >
+          {early() ? 'End early' : END_LABEL}
         </button>
       </div>
     </Modal>

@@ -17,6 +17,7 @@
  * are entered from Players.
  */
 
+import { useSearchParams } from '@solidjs/router';
 import { createEffect, createMemo, createSignal, For, type JSX, lazy, on, onCleanup, Show, Suspense } from 'solid-js';
 import { isDisputed, type PlayerReport, reportsFor } from '../../../shared/tournament/reports';
 import { latestRound, withSwiss } from '../../../shared/tournament/rounds';
@@ -24,6 +25,7 @@ import { DIVISION_LABELS, type Match, type Outcome, type Pod, type Round } from 
 import { Segmented } from '../../components/Segmented';
 import type { Manage } from '../../lib/tournament/api';
 import {
+  type Champion,
   champions,
   filterMatches,
   hasCut,
@@ -33,6 +35,7 @@ import {
   outcomeLabel,
   recordsBefore,
   RESULT_WORDS,
+  roundLabel,
   shownDecks,
   shownOutcome,
   staffReport,
@@ -46,6 +49,7 @@ import type { ExtensionSelection } from './TimeExtensionDialog';
 import { RoundPicker, RoundStepper } from './RoundStepper';
 import { MatchTable } from './MatchTable';
 import { ChampionLine, ClockControls, DeleteRound, RepairControl } from './RoundControls';
+import { createResultEntry } from './resultEntry';
 
 // Decks are named now and then, not every round, so their picker loads when first asked for.
 const CutBracket = lazy(() => import('./Bracket').then(m => ({ default: m.CutBracket })));
@@ -70,12 +74,16 @@ interface ResultProps {
   reports: readonly PlayerReport[];
   /** The result sent for the match and not answered yet. */
   sent: Outcome | undefined;
+  /** The result the server did not take, held in the row until it is retried or discarded. */
+  failed: Outcome | undefined;
   names: Map<string, string>;
   asking: Asking | null;
   onReport: (outcome: Outcome) => void;
   onAccept: (outcome: Outcome) => void;
   onRecord: () => void;
   onKeep: () => void;
+  onRetry: () => void;
+  onDiscard: () => void;
   onTimeExtension?: () => void;
   /** Where rows are too narrow for their controls: the result opens the table's sheet instead. */
   onOpen?: () => void;
@@ -104,10 +112,35 @@ function ConfirmResult(props: ResultProps & { asking: Asking }) {
           ref={el => queueMicrotask(() => el.focus())}
           onClick={() => props.onRecord()}
         >
-          Record
+          {props.asking.outcome === 'pending' ? 'Clear' : 'Record'}
         </button>
         <button type='button' class='btn btn-ghost tm-small' onClick={() => props.onKeep()}>
           Cancel
+        </button>
+      </span>
+    </div>
+  );
+}
+
+/**
+ * A result the server did not take, in its row: what was entered, marked as
+ * not saved, with a retry and a way to drop it. The row's own press opens
+ * its sheet on a narrow screen, so neither button passes its press on.
+ */
+function UnsavedResult(props: ResultProps & { failed: Outcome }) {
+  const press = (event: MouseEvent, action: () => void) => {
+    event.stopPropagation();
+    action();
+  };
+  return (
+    <div class='tm-result is-unsaved' role='group' aria-label='Result not saved'>
+      <span class='tm-result-label is-problem'>Not saved: {outcomeLabel(props.failed, props.match, props.names)}</span>
+      <span class='tm-result-acts'>
+        <button type='button' class='btn btn-secondary tm-small' onClick={e => press(e, props.onRetry)}>
+          Retry
+        </button>
+        <button type='button' class='btn btn-ghost tm-small' onClick={e => press(e, props.onDiscard)}>
+          Discard
         </button>
       </span>
     </div>
@@ -132,12 +165,12 @@ function reportsByTable(reports: readonly PlayerReport[], pod: Pod, round: Round
 }
 
 /**
- * A match's result cell, on one line: what stands (Open, or what the players
- * reported), then the controls in fixed slots so Tie, Double loss and the
- * last slot line up down the column. The last slot is Clear once a result
- * stands, or Accept while one report waits: the two never meet.
+ * What stands for a match, on one line: Open, or what the players reported,
+ * then the controls in fixed slots so Tie, Double loss and the last slot line
+ * up down the column. The last slot is Clear once a result stands, or Accept
+ * while one report waits: the two never meet.
  */
-function Result(props: ResultProps) {
+function StandingResult(props: ResultProps) {
   // A result on its way shows as sent, so the row does not read Open for as long as the answer takes.
   const shown = () =>
     props.sent
@@ -147,80 +180,90 @@ function Result(props: ResultProps) {
   const elimination = () => props.round.kind === 'elimination';
   const report = createMemo(() => staffReport(props.reports, props.match, props.names));
   const lone = () => (props.reports.length > 0 && !isDisputed(props.reports) ? props.reports[0] : undefined);
-  // A bye or a missed round is decided by the pairing itself: nothing to enter,
-  // and the opponent's seat already names it.
-  const decidedByPairing = <div class='tm-result' />;
   return (
-    <Show when={props.match.p2 !== null} fallback={decidedByPairing}>
+    <div class='tm-result'>
+      <span
+        class='tm-result-label'
+        classList={{ 'is-open': open(), 'is-reported': Boolean(report()), 'is-problem': report()?.problem }}
+        title={report()?.detail}
+      >
+        {open() ? (report()?.label ?? 'In progress') : RESULT_WORDS[shown().outcome]}
+        <Show when={report()}>{r => <span class='sr-only'>. {r().detail}</span>}</Show>
+        <Show when={shown().unconfirmed}>
+          <span class='tm-result-sub'> not in TOM yet</span>
+        </Show>
+        <Show when={props.match.timeExtension}>
+          <ExtensionClock match={props.match} round={props.round} playing={open()} />
+        </Show>
+      </span>
+      <Show when={props.onOpen && !props.locked}>
+        <button
+          type='button'
+          class='tm-row-open'
+          aria-label={`${open() ? 'Enter' : 'Change'} the result of table ${props.match.table}`}
+          onClick={event => {
+            event.stopPropagation();
+            props.onOpen?.();
+          }}
+        >
+          ›
+        </button>
+      </Show>
+      <span class='tm-result-acts' classList={{ 'is-locked': props.locked || Boolean(props.onOpen) }}>
+        <Show when={!elimination() || props.onTimeExtension}>
+          <OptionsMenu name={`table ${String(props.match.table)}`} busy={props.locked} closeOnSelect>
+            <Show when={!elimination()}>
+              <button type='button' class='tm-menu-item' onClick={() => props.onReport('tie')}>
+                Tie
+              </button>
+              <button type='button' class='tm-menu-item' onClick={() => props.onReport('double-loss')}>
+                Double loss
+              </button>
+            </Show>
+            <Show when={props.onTimeExtension}>
+              <button type='button' class='tm-menu-item' onClick={() => props.onTimeExtension?.()}>
+                Time extension
+              </button>
+            </Show>
+          </OptionsMenu>
+        </Show>
+        <span class='tm-result-slot'>
+          <Show
+            when={open()}
+            fallback={
+              <button type='button' class='btn btn-ghost tm-small' onClick={() => props.onReport('pending')}>
+                Clear
+              </button>
+            }
+          >
+            <Show when={lone()}>
+              {r => (
+                <button type='button' class='btn tm-small tm-accept' onClick={() => props.onAccept(r().outcome)}>
+                  Accept
+                </button>
+              )}
+            </Show>
+          </Show>
+        </span>
+      </span>
+    </div>
+  );
+}
+
+/**
+ * A match's result cell: nothing for a bye or a missed round, which the
+ * pairing decides; the result asked for, while staff confirm it; a result the
+ * server did not take; or what stands, with its controls.
+ */
+function Result(props: ResultProps) {
+  return (
+    <Show when={props.match.p2 !== null} fallback={<div class='tm-result' />}>
       <Show
         when={props.asking}
         fallback={
-          <div class='tm-result'>
-            <span
-              class='tm-result-label'
-              classList={{ 'is-open': open(), 'is-reported': Boolean(report()), 'is-problem': report()?.problem }}
-              title={report()?.detail}
-            >
-              {open() ? (report()?.label ?? 'In progress') : RESULT_WORDS[shown().outcome]}
-              <Show when={report()}>{r => <span class='sr-only'>. {r().detail}</span>}</Show>
-              <Show when={shown().unconfirmed}>
-                <span class='tm-result-sub'> not in TOM yet</span>
-              </Show>
-              <Show when={props.match.timeExtension}>
-                <ExtensionClock match={props.match} round={props.round} playing={open()} />
-              </Show>
-            </span>
-            <Show when={props.onOpen && !props.locked}>
-              <button
-                type='button'
-                class='tm-row-open'
-                aria-label={`${open() ? 'Enter' : 'Change'} the result of table ${props.match.table}`}
-                onClick={event => {
-                  event.stopPropagation();
-                  props.onOpen?.();
-                }}
-              >
-                ›
-              </button>
-            </Show>
-            <span class='tm-result-acts' classList={{ 'is-locked': props.locked || Boolean(props.onOpen) }}>
-              <Show when={!elimination() || props.onTimeExtension}>
-                <OptionsMenu name={`table ${String(props.match.table)}`} busy={props.locked} closeOnSelect>
-                  <Show when={!elimination()}>
-                    <button type='button' class='tm-menu-item' onClick={() => props.onReport('tie')}>
-                      Tie
-                    </button>
-                    <button type='button' class='tm-menu-item' onClick={() => props.onReport('double-loss')}>
-                      Double loss
-                    </button>
-                  </Show>
-                  <Show when={props.onTimeExtension}>
-                    <button type='button' class='tm-menu-item' onClick={() => props.onTimeExtension?.()}>
-                      Time extension
-                    </button>
-                  </Show>
-                </OptionsMenu>
-              </Show>
-              <span class='tm-result-slot'>
-                <Show
-                  when={open()}
-                  fallback={
-                    <button type='button' class='btn btn-ghost tm-small' onClick={() => props.onReport('pending')}>
-                      Clear
-                    </button>
-                  }
-                >
-                  <Show when={lone()}>
-                    {r => (
-                      <button type='button' class='btn tm-small tm-accept' onClick={() => props.onAccept(r().outcome)}>
-                        Accept
-                      </button>
-                    )}
-                  </Show>
-                </Show>
-              </span>
-            </span>
-          </div>
+          <Show when={props.sent || props.locked ? undefined : props.failed} fallback={<StandingResult {...props} />}>
+            {failed => <UnsavedResult {...props} failed={failed()} />}
+          </Show>
         }
       >
         {asking => <ConfirmResult {...props} asking={asking()} />}
@@ -480,8 +523,83 @@ function NotSeated(props: { state: ManageState; pod: Pod; names: string }) {
   );
 }
 
+/** An ended event's results stand until it is reopened, which Settings offers. */
+function EndedNote() {
+  const [, setParams] = useSearchParams<{ tab?: string }>();
+  return (
+    <div class='tm-strip is-note' role='status'>
+      <span>The event has ended. Reopen it to change results.</span>
+      <span class='tm-grow' />
+      <button type='button' class='btn btn-secondary tm-small' onClick={() => setParams({ tab: 'event' })}>
+        Settings
+      </button>
+    </div>
+  );
+}
+
+/** A round's tables with two players, how many of those are open, and whether any result is in. */
+function roundCounts(round: Round | undefined, pod: Pod, pending: Manage['pending']) {
+  const played = round?.matches.filter(m => m.p2 !== null) ?? [];
+  const open = round ? played.filter(m => shownOutcome(m, pod, round, pending).outcome === 'pending') : [];
+  return { played: played.length, open: open.length, nothingReported: played.every(m => m.outcome === 'pending') };
+}
+
+/**
+ * A round before the latest takes no results: the server takes them for the
+ * latest round only, and correcting an earlier one is not offered yet.
+ */
+function PastNote(props: { past: string | null; onCurrent: () => void }) {
+  return (
+    <Show when={props.past}>
+      {past => (
+        <div class='tm-strip is-note' role='status'>
+          <span>{past()} is read-only. Results are entered in the current round.</span>
+          <span class='tm-grow' />
+          <button type='button' class='btn btn-secondary tm-small' onClick={() => props.onCurrent()}>
+            Current round
+          </button>
+        </div>
+      )}
+    </Show>
+  );
+}
+
+/** The lines above the round: whether the event has ended, who is not seated, and each champion. */
+function RoundNotes(props: {
+  state: ManageState;
+  pod: Pod;
+  ended: boolean;
+  /** The round shown, by name, when it is not the latest. */
+  past: string | null;
+  onCurrent: () => void;
+  /** The names of the players a re-pair would seat, joined. */
+  waiting: string;
+  winners: readonly Champion[];
+  names: Map<string, string>;
+}) {
+  return (
+    <>
+      <Show when={props.ended} fallback={<PastNote past={props.past} onCurrent={props.onCurrent} />}>
+        <EndedNote />
+      </Show>
+      <NotSeated state={props.state} pod={props.pod} names={props.waiting} />
+      <For each={props.winners}>
+        {won => (
+          <ChampionLine
+            label={won.division && props.winners.length > 1 ? `${DIVISION_LABELS[won.division]} champion` : 'Champion'}
+            name={props.names.get(won.id) ?? won.id}
+          />
+        )}
+      </For>
+    </>
+  );
+}
+
 export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod; locked?: boolean }) {
   const tom = () => props.manage.mode === 'tom';
+  const ended = () => props.manage.settings.finished;
+  /** Nothing can be entered: a TOM file to reconnect, an event that has ended, or a round past (see PastNote). */
+  const locked = () => props.locked === true || ended() || !isLatest();
   const latest = () => latestRound(props.pod);
   const [picked, setPicked] = createSignal<number | null>(null);
   const { swapMode, swapPick, toggleSwap, pickForSwap } = createSwap(
@@ -490,13 +608,10 @@ export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod
   );
   const [asking, setAsking] = createSignal<Asking | null>(null);
   const [extension, setExtension] = createSignal<ExtensionSelection | null>(null);
-  /**
-   * Results sent and not answered yet, by match: each row shows its own until
-   * the answer lands or fails. The panel outlives a switch to another division
-   * or round, so a table number alone would show one on another's table.
-   */
-  const [sent, setSent] = createSignal<ReadonlyMap<string, Outcome>>(new Map());
-  const sentKey = (r: Round, match: Match) => `${props.pod.category}|${r.number}|${match.table}|${match.p1}`;
+  const entry = createResultEntry(
+    () => props.state,
+    () => props.pod
+  );
   const [query, setQuery] = createSignal('');
   const [openOnly, setOpenOnly] = createSignal(false);
   let filterInput: HTMLInputElement | undefined;
@@ -506,24 +621,22 @@ export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod
   // Results are entered in the table, so the bracket is only ever a look at the cut.
   const [matchView, setMatchView] = createSignal<MatchView>('table');
   const asBracket = () => cut() && matchView() === 'bracket';
-  const waiting = () => (tom() || latest()?.kind !== 'swiss' ? [] : unseated(props.manage.tournament, props.pod));
+  const waiting = () =>
+    tom() || ended() || latest()?.kind !== 'swiss' ? [] : unseated(props.manage.tournament, props.pod);
   const isLatest = () => round()?.number === latest()?.number;
+  const pastLabel = () => {
+    const r = round();
+    return r && !isLatest() ? roundLabel(r, props.pod) : null;
+  };
   // Each division's champion, Masters first, once every final in the pod is decided.
   const winners = createMemo(() => champions(latest(), props.pod));
   const winner = () => winners()[0]?.id ?? null;
-  const played = () => round()?.matches.filter(m => m.p2 !== null) ?? [];
-  const openCount = () => {
-    const r = round();
-    return r
-      ? played().filter(m => shownOutcome(m, props.pod, r, props.manage.pending).outcome === 'pending').length
-      : 0;
-  };
-  const nothingReported = () => played().every(m => m.outcome === 'pending');
+  const counts = () => roundCounts(round(), props.pod, props.manage.pending);
   /** The round's clock, run from its latest round until there is a champion, TOM's or not. */
   const timed = () => isLatest() && winner() === null;
-  /** The staff controls that act on the round, offered only where its clock is and never for TOM. */
-  const live = () => !tom() && timed();
-  const { opens, inRow, openSheet, sheetMatch, closeSheet } = createRowSheet(() => swapMode() || props.locked === true);
+  /** The staff controls that act on the round, offered only where its clock is, never for TOM, and not once it ends. */
+  const live = () => !tom() && timed() && !ended();
+  const { opens, inRow, openSheet, sheetMatch, closeSheet } = createRowSheet(() => swapMode() || locked());
   const isAsking = (match: Match) => asking()?.table === match.table && asking()?.p1 === match.p1;
   const roundReports = createMemo(() => {
     const r = round();
@@ -535,18 +648,15 @@ export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod
       ? reportsFor(roundReports().get(match.table) ?? NO_REPORTS, props.pod.category, r.number, match)
       : NO_REPORTS;
   const canExtend = (match: Match, r: Round) =>
-    isLatest() &&
-    !props.locked &&
-    !props.manage.settings.finished &&
-    match.p2 !== null &&
-    shownOutcome(match, props.pod, r, props.manage.pending).outcome === 'pending';
+    !locked() && match.p2 !== null && shownOutcome(match, props.pod, r, props.manage.pending).outcome === 'pending';
   function editExtension(match: Match, r: Round) {
     closeSheet();
     props.state.clearError();
     setExtension({ pod: props.pod.category, round: r.number, match });
   }
-  // A new round, or another division, starts on its current round again.
-  createEffect(on([() => latest()?.number, () => props.pod.category], () => setPicked(null), { defer: true }));
+  // A new round, or another division, starts on its current round again; other changes keep the round shown.
+  const turn = createMemo(() => `${props.pod.category} ${latest()?.number ?? 0}`);
+  createEffect(on(turn, () => setPicked(null), { defer: true }));
 
   const shown = createMemo(() => {
     const r = round();
@@ -570,23 +680,19 @@ export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod
     filterInput?.select();
   }
 
-  /** Sends a result, and hands the filter back for the next table. */
-  /** `refocus`: hand the filter back for the next table; not from the sheet, whose screen has no room for a keyboard. */
+  /**
+   * Sends a result. `refocus`: hand the filter back for the next table; not
+   * from the sheet, whose screen has no room for a keyboard.
+   */
   function send(match: Match, outcome: Outcome, refocus = true) {
     const r = round();
     setAsking(null);
     if (refocus) {
       backToFilter();
     }
-    if (!r) {
-      return;
+    if (r) {
+      entry.send(r, match, outcome);
     }
-    const { table, p1, p2 } = match;
-    const key = sentKey(r, match);
-    setSent(matches => new Map(matches).set(key, outcome));
-    void props.state
-      .send({ type: 'reportResult', pod: props.pod.category, round: r.number, table, p1, p2, outcome })
-      .finally(() => setSent(matches => new Map([...matches].filter(([sentMatch]) => sentMatch !== key))));
   }
 
   function record(match: Match) {
@@ -598,21 +704,18 @@ export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod
 
   return (
     <div class='tm-panel'>
-      <NotSeated
+      <RoundNotes
         state={props.state}
         pod={props.pod}
-        names={waiting()
+        ended={ended()}
+        past={pastLabel()}
+        onCurrent={() => setPicked(null)}
+        waiting={waiting()
           .map(id => names().get(id) ?? id)
           .join(', ')}
+        winners={winners()}
+        names={names()}
       />
-      <For each={winners()}>
-        {won => (
-          <ChampionLine
-            label={won.division && winners().length > 1 ? `${DIVISION_LABELS[won.division]} champion` : 'Champion'}
-            name={names().get(won.id) ?? won.id}
-          />
-        )}
-      </For>
       <Show when={round()} fallback={<p class='muted'>No rounds yet.</p>}>
         {r => {
           // The room's tables with result entry; also what a cut shows when it cannot be drawn as a bracket.
@@ -637,17 +740,20 @@ export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod
                     : match => shownOutcome(match, props.pod, r(), props.manage.pending).outcome === 'pending'
                 }
                 confirming={asking()}
-                sent={match => sent().get(sentKey(r(), match))}
+                sent={match => entry.sentFor(r(), match) ?? entry.failedFor(r(), match)}
                 tag={(match, id) => staffReport(openReports(match, r()), match, names())?.tags.get(id) ?? null}
                 extra={match => (
                   <Result
-                    locked={props.locked ?? false}
+                    locked={locked()}
                     match={match}
                     pod={props.pod}
                     round={r()}
                     manage={props.manage}
                     reports={openReports(match, r())}
-                    sent={sent().get(sentKey(r(), match))}
+                    sent={entry.sentFor(r(), match)}
+                    failed={entry.failedFor(r(), match)}
+                    onRetry={() => void entry.retry(r(), match)}
+                    onDiscard={() => entry.discard(r(), match)}
                     names={names()}
                     asking={isAsking(match) ? asking() : null}
                     onReport={o => report(match, o)}
@@ -683,10 +789,10 @@ export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod
                 tom={tom()}
                 live={live()}
                 timed={timed()}
-                played={played().length}
-                open={openCount()}
+                played={counts().played}
+                open={counts().open}
                 waiting={waiting().length > 0}
-                nothingReported={nothingReported()}
+                nothingReported={counts().nothingReported}
                 swapMode={swapMode()}
                 openOnly={openOnly()}
                 onOpenOnly={setOpenOnly}
@@ -725,7 +831,7 @@ export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod
                     round={r()}
                     match={match()}
                     names={names()}
-                    sent={sent().get(sentKey(r(), match()))}
+                    sent={entry.sentFor(r(), match())}
                     reports={openReports(match(), r())}
                     onPick={outcome => {
                       // Read before closing: the sheet's match is gone once it closes.

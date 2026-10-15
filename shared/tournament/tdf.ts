@@ -1069,7 +1069,8 @@ export interface WriteOptions {
   divisionOf?: (id: string) => Division;
 }
 
-function hasPendingMatches(t: Tournament): boolean {
+/** Whether any match still waits on a result, which a finalized file cannot have. */
+export function hasPendingMatches(t: Tournament): boolean {
   return t.pods.some(p => p.rounds.some(r => r.matches.some(m => m.outcome === 'pending')));
 }
 

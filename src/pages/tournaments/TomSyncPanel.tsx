@@ -147,7 +147,8 @@ export function createTomLink(props: { manage: () => Manage; onSynced: (answer?:
 
   async function tick(force = false) {
     const current = handle();
-    if (!current || state() !== 'watching') {
+    // An ended event takes no copy of the file (see sync.ts); once reopened, the next look reads what TOM saved meanwhile.
+    if (!current || state() !== 'watching' || props.manage().settings.finished) {
       return;
     }
     if (reading) {

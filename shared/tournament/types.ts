@@ -271,6 +271,12 @@ export interface TdfPassthrough {
   standings?: { xml: string; state: string };
 }
 
+/**
+ * Whether an ID is one the site made for a player who gave no Player ID (see
+ * generatedId in legacyCommands.ts): a stand-in, not an ID anyone was issued.
+ */
+export const isGeneratedId = (id: string): boolean => /^9\d{9}$/.test(id);
+
 export function playerName(player: Pick<Player, 'firstName' | 'lastName'>): string {
   return `${player.firstName} ${player.lastName}`.trim();
 }

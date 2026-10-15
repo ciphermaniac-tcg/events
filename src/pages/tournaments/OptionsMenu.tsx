@@ -19,6 +19,7 @@ function menuEvents(root: () => HTMLElement | undefined, close: () => void, plac
 export function OptionsMenu(props: {
   name: string;
   staff?: boolean;
+  /** Any item closes the menu; without it, only one marked data-closes-menu does. */
   closeOnSelect?: boolean;
   busy?: boolean;
   /** The trigger's look, name and face, when it is not the row's "..." (a split button's caret). */
@@ -77,7 +78,8 @@ export function OptionsMenu(props: {
       classList={{ 'tm-staff-more': props.staff }}
       onClick={event => {
         event.stopPropagation();
-        if (props.closeOnSelect && (event.target as Element).closest('.tm-menu-item')) {
+        const item = (event.target as Element).closest('.tm-menu-item');
+        if (item && (props.closeOnSelect || item.hasAttribute('data-closes-menu'))) {
           close();
         }
       }}

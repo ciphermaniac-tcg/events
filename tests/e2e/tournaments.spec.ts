@@ -678,10 +678,35 @@ async function tomConsole(
   }
 }
 
+const synced = () => ({ status: 200, json: { ...tomManage(), version: 5, revision: 'next' } });
+
 test('a TOM console stops following its file when another copy was synced over it', async ({ page }) => {
   await tomConsole(page, () => ({ status: 409, json: { error: 'The site has a different copy of this event.' } }));
   await expect(page.getByText('The site has a different copy of this event.')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Reconnect event.tdf' })).toBeVisible();
+});
+
+test('a TOM console sends nothing of its file while the event has ended', async ({ page }) => {
+  let syncs = 0;
+  await tomConsole(
+    page,
+    () => {
+      syncs += 1;
+      return synced();
+    },
+    {
+      manage: { ...tomManage(), settings: { ...DEFAULT_SETTINGS, finished: true } }
+    }
+  );
+  await expect(page.getByRole('button', { name: 'Refresh .tdf' }).first()).toBeVisible();
+  await page.evaluate(() => {
+    const file = (window as unknown as { tdfFile: { text: string; modified: number } }).tdfFile;
+    file.text = file.text.replace('Fixture Challenge', 'Saved After');
+    file.modified = 2;
+  });
+  await page.getByRole('button', { name: 'Refresh .tdf' }).first().click();
+  await page.waitForTimeout(500);
+  expect(syncs).toBe(0);
 });
 
 test('a TOM console holds off results when the browser takes back the file', async ({ page }) => {
@@ -692,8 +717,6 @@ test('a TOM console holds off results when the browser takes back the file', asy
   });
   await expect(page.getByRole('button', { name: 'Reconnect event.tdf' })).toBeVisible();
 });
-
-const synced = () => ({ status: 200, json: { ...tomManage(), version: 5, revision: 'next' } });
 
 test('a TOM console gives up on a sync that hangs and sends the file again', async ({ page }) => {
   await page.clock.install();

@@ -141,7 +141,7 @@ function newPod(category: PodCategory): Pod {
   return { category, playerIds: [], rounds: [], cut: 0, playoff3rd4th: false, startingTable: 1 };
 }
 
-/** A local ID for a player without a POP ID; TOM wants digits, so it is digits. */
+/** A local ID for a player without a POP ID; TOM wants digits, so it is digits (see isGeneratedId). */
 export function generatedId(tournament: Tournament, random: Random): string {
   const taken = new Set(tournament.players.map(p => p.id));
   let id = '';

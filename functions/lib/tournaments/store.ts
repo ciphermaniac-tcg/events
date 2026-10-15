@@ -430,10 +430,12 @@ export function dayChange(row: TournamentRow, settings: TournamentSettings): Pic
 /**
  * The reports a change leaves: its own, or the row's less any whose match it
  * settled or took away, since a result from staff settles a disputed match.
- * Turning player reporting off drops them all.
+ * Turning player reporting off drops them all, as does ending the event, whose
+ * results no report settles.
  */
 function reportsAfter(row: TournamentRow, changes: Changes): PlayerReport[] {
-  if (!(changes.settings ?? row.settings).playerReporting) {
+  const settings = changes.settings ?? row.settings;
+  if (!settings.playerReporting || settings.finished) {
     return [];
   }
   const reports = changes.reports ?? row.reports;

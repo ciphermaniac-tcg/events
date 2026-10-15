@@ -11,9 +11,9 @@ import { lifecycleDocument } from './lifecycleImport.js';
 import { concludePrerelease, finalPodRound, prereleaseChoiceAvailable } from './lifecycleWorkflow.js';
 import { applyLifecycleOperation } from './lifecycle.js';
 import type { LifecycleOperation } from './lifecycleTypes.js';
-import { divisionLookup } from './divisions.js';
+import { birthYear, divisionFor, divisionLookup } from './divisions.js';
 import { defaultRootAttrs, eventTypeOf, SANCTIONED } from './structure.js';
-import { countsComplete, latestRound } from './rounds.js';
+import { countsComplete, hasStarted, latestRound } from './rounds.js';
 import { DIVISIONS, type Tournament } from './types.js';
 
 export {
@@ -194,6 +194,56 @@ function checkedStart(t: Tournament, command: Command, ctx: CommandContext): voi
   }
 }
 
+/** A birth year a player can have: four digits, no later than the season the event is in. */
+function readableBirthYear(birthDate: string | undefined, season: number): boolean {
+  const year = birthYear(birthDate ?? '');
+  return year !== null && year >= 1900 && year <= season;
+}
+
+/**
+ * A sanctioned event admits a player only with their Player ID, which Play!
+ * Pokémon reports results under, and their birth year, which places them in
+ * their division; without it they would quietly play as Masters.
+ */
+function checkedAdmission(command: Command, ctx: CommandContext): void {
+  if (command.type !== 'addPlayer' || !ctx.sanctioned) {
+    return;
+  }
+  if (!command.player.id?.trim()) {
+    throw new Error('All players need Player IDs.');
+  }
+  if (!readableBirthYear(command.player.birthDate, ctx.season)) {
+    throw new Error(NEEDS_YEAR);
+  }
+}
+
+const NEEDS_YEAR = 'A sanctioned event needs each player’s birth year';
+
+/**
+ * A correction keeps the player where they play: a sanctioned event's player
+ * keeps a birth year, and once round 1 is paired, a birth year that would move
+ * them to another division is refused, since their pod, standings and top cut
+ * are already that division's.
+ */
+function checkedCorrection(t: Tournament, command: Command, ctx: CommandContext): void {
+  if (command.type !== 'editPlayer') {
+    return;
+  }
+  if (ctx.sanctioned && !command.birthDate.trim()) {
+    throw new Error(NEEDS_YEAR);
+  }
+  const player = t.players.find(p => p.id === command.id);
+  // Only a year being changed is judged, so a name is still corrected beside an old year from a file.
+  const newYear = birthYear(command.birthDate) !== birthYear(player?.birthDate ?? '');
+  if (newYear && command.birthDate.trim() && !readableBirthYear(command.birthDate, ctx.season)) {
+    throw new Error('Birth year invalid');
+  }
+  const moves = player && divisionFor(player.birthDate, ctx.season) !== divisionFor(command.birthDate, ctx.season);
+  if (moves && hasStarted(t)) {
+    throw new Error('Play has started, so their birth year cannot change their division');
+  }
+}
+
 function additionalDivisionCut(t: Tournament, command: Command): boolean {
   if (command.type !== 'startTopCut' || !command.division) {
     return false;
@@ -285,7 +335,18 @@ function registersBeforeStart(t: Tournament, command: Command): boolean {
   return command.type === 'addPlayer' && t.settings!.stage < 4;
 }
 
+const refused = (error: unknown): CommandResult => ({
+  ok: false,
+  error: error instanceof Error ? error.message : 'The command could not complete'
+});
+
 export function applyCommand(t: Tournament, command: Command, ctx: CommandContext): CommandResult {
+  try {
+    checkedAdmission(command, ctx);
+    checkedCorrection(t, command, ctx);
+  } catch (error) {
+    return refused(error);
+  }
   const imported = t.settings || t.passthrough || command.type === 'pairRound' ? lifecycleDocument(t) : t;
   const document = optionalPrereleaseRound(prepareRegistration(imported, command, ctx), command, ctx);
   if (!document.settings) {
@@ -310,6 +371,6 @@ export function applyCommand(t: Tournament, command: Command, ctx: CommandContex
     const result = applyLifecycleOperation(prepared, operation, ctx);
     return commandResult(automaticPrereleaseConclusion(result, prepared, command, ctx), prepared);
   } catch (error) {
-    return { ok: false, error: error instanceof Error ? error.message : 'The command could not complete' };
+    return refused(error);
   }
 }

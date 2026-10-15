@@ -9,10 +9,16 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { applyCommand as applyLifecycle } from '../../shared/tournament/commands.ts';
-import { applyCommand, canUndrop, type Command, type CommandContext } from '../../shared/tournament/legacyCommands.ts';
+import {
+  applyCommand,
+  canUndrop,
+  type Command,
+  type CommandContext,
+  generatedId
+} from '../../shared/tournament/legacyCommands.ts';
 import { emptyTournament } from '../../shared/tournament/create.ts';
 import { seededRandom } from '../../shared/tournament/random.ts';
-import type { Pod, Round, Tournament } from '../../shared/tournament/types.ts';
+import { isGeneratedId, type Pod, type Round, type Tournament } from '../../shared/tournament/types.ts';
 
 function context(now = 1_000_000, localTime = '09/28/2026 10:00:00'): CommandContext {
   return { now, localTime, season: 2027, random: seededRandom(3) };
@@ -361,4 +367,15 @@ test('a top cut seeds and brackets the Swiss leaders, with a playoff for third f
   assert.equal(pod(next).playoff3rd4th, true);
   assert.equal(latest(next).kind, 'elimination');
   assert.equal(latest(next).matches.length, 2);
+});
+
+test('an ID the site makes for a player without one reads as made, and an issued Player ID does not', () => {
+  const t = emptyTournament({ name: 'Night' });
+  const random = seededRandom(9);
+  for (let i = 0; i < 20; i += 1) {
+    assert.ok(isGeneratedId(generatedId(t, random)));
+  }
+  for (const issued of ['1234567', '7200001', '99', '9123']) {
+    assert.equal(isGeneratedId(issued), false, issued);
+  }
 });

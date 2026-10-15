@@ -37,6 +37,7 @@ import {
   swissAttendance
 } from '../../../shared/tournament/rounds';
 import { ordinal } from '../format';
+import { divisionLookup } from '../../../shared/tournament/divisions';
 import { eventTypeOf, recommendedStructure } from '../../../shared/tournament/structure';
 import {
   type Division,
@@ -252,6 +253,71 @@ export function nextStep(progress: PodProgress, finished: boolean, plan: SwissPl
   return plan && swiss && round.number >= plan.rounds
     ? { kind: 'decide', label, cut: plan.cut, ...waiting }
     : { kind: 'pair', label, ...waiting };
+}
+
+/**
+ * The Swiss rounds and top cut a pod plans: its attendance's rounds held to
+ * the event's cap, and the cut of the last division left to cut (Masters
+ * where it plays), as the console's next step offers it first.
+ */
+export function swissPlanOf(tournament: Tournament, pod: Pod, roundCap: number): SwissPlan {
+  const cut =
+    divisionCuts(tournament, pod, divisionLookup(tournament))
+      .filter(c => !c.started)
+      .at(-1)?.cut ?? 0;
+  return { rounds: plannedRounds(pod, roundCap, eventTypeOf(tournament), tournament), cut };
+}
+
+/** What a pod has left to play when the event ends: `where` names the pod while the event has several. */
+export interface EndGap {
+  where: string | null;
+  detail: string;
+}
+
+interface EndingEvent {
+  tournament: Tournament;
+  pending: readonly PendingResult[];
+  mode: TournamentMode;
+  settings: TournamentSettings;
+}
+
+/** What a step still to take says in an ending's review; null for none. */
+function stepGap(step: NextStep): string | null {
+  if (step.kind === 'pair') {
+    return `Next: ${step.label}`;
+  }
+  return step.kind === 'decide' && step.cut > 0 ? 'Top cut not played' : null;
+}
+
+/** What one pod has left: no round at all, open tables, or (on the site) a round or cut its plan still calls for. */
+function podGap(event: EndingEvent, pod: Pod): string | null {
+  const progress = podProgress(pod, event.pending);
+  if (!progress.round) {
+    return 'No rounds played';
+  }
+  if (progress.open > 0) {
+    return `${progress.label}: ${progress.open} ${tablesWord(progress.open, progress.round.kind)} open`;
+  }
+  // TOM decides a TOM event's rounds, so only its open tables are the site's to know.
+  return event.mode === 'tom'
+    ? null
+    : stepGap(nextStep(progress, false, swissPlanOf(event.tournament, pod, event.settings.roundCap)));
+}
+
+/**
+ * What ending the event now would leave unplayed, for every End to review
+ * before it asks: none when every pod has played out its plan. An event with
+ * gaps can still be ended, as one cut short.
+ */
+export function endGaps(event: EndingEvent): EndGap[] {
+  const pods = livePods(event.tournament);
+  if (!pods.some(pod => pod.rounds.length > 0)) {
+    return [{ where: null, detail: 'No rounds played' }];
+  }
+  return pods.flatMap(pod => {
+    const detail = podGap(event, pod);
+    return detail ? [{ where: pods.length > 1 ? podLabel(pod) : null, detail }] : [];
+  });
 }
 
 /** "Round 2 of 5" while a Swiss round is within the plan's `rounds`; the round's own name past it or without one. */

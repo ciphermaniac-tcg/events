@@ -41,10 +41,23 @@ const TOM_COMMANDS: ReadonlySet<Command['type']> = new Set([
   'setTimeExtension'
 ]);
 
+/** Why a finished event takes no command: its results stand until the organizer reopens it. */
+export const FINISHED_REFUSAL = 'The event has ended; reopen it to make changes';
+
+/**
+ * What a finished event still takes: its name and round lengths, which change
+ * no result. Its date or kind would (the date sets the season, and with it
+ * every player's division), so they wait for a reopening like the rest.
+ */
+const ENDED_DETAILS: ReadonlySet<string> = new Set(['name', 'roundTime', 'finalsRoundTime']);
+
+const takesOnceEnded = (command: Command) =>
+  command.type === 'updateInfo' && Object.keys(command.info).every(key => ENDED_DETAILS.has(key));
+
 /** The changes `command` makes, or why it cannot run. */
 export function commandChanges(row: TournamentRow, command: Command, localTime: unknown): Changes | string {
-  if (command.type === 'setTimeExtension' && row.settings.finished) {
-    return 'Reopen the event before changing time extensions';
+  if (row.settings.finished && !takesOnceEnded(command)) {
+    return FINISHED_REFUSAL;
   }
   if (row.mode === 'tom' && !TOM_COMMANDS.has(command.type)) {
     return 'TOM runs this event; make that change in TOM';
@@ -78,6 +91,9 @@ function commandSource(row: TournamentRow, command: Command): Tournament {
  * Round 1 is TOM's, which pods the field.
  */
 export function tomNextRound(row: TournamentRow, pod: PodCategory, localTime: unknown): Tournament | string {
+  if (row.settings.finished) {
+    return FINISHED_REFUSAL;
+  }
   if (!row.tournament.pods.find(p => p.category === pod)?.rounds.length) {
     return 'Pair round 1 in TOM';
   }
@@ -92,7 +108,7 @@ export function tomNextRound(row: TournamentRow, pod: PodCategory, localTime: un
  * agree and have locked, entered as staff would. Null when none is due.
  */
 export function settledChanges(row: TournamentRow, now: number, localTime?: unknown): Changes | null {
-  const due = dueResults(row.reports, now);
+  const due = row.settings.finished ? [] : dueResults(row.reports, now);
   if (due.length === 0) {
     return null;
   }
@@ -128,7 +144,7 @@ export function mutateSettled(
 
 /** Writes the settled results when any are due; the row as it now stands. */
 export async function settleIfDue(db: D1Like, row: TournamentRow, localTime?: unknown): Promise<TournamentRow> {
-  if (dueResults(row.reports, Date.now()).length === 0) {
+  if (row.settings.finished || dueResults(row.reports, Date.now()).length === 0) {
     return row;
   }
   const outcome = await mutateSettled(db, row, () => ({}), localTime);

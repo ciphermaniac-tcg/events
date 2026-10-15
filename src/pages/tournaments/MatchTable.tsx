@@ -10,7 +10,7 @@
  * site's live pairings do, so the opponent is never behind a sideways scroll.
  */
 
-import { createMemo, For, Index, type JSX, Show } from 'solid-js';
+import { createMemo, createSignal, For, Index, type JSX, Show } from 'solid-js';
 import { sortMatches } from '../../../shared/tournament/rounds';
 import type { Match, Outcome, Pod, Round } from '../../../shared/tournament/types';
 import type { PendingResult } from '../../../shared/tournament/view';
@@ -165,7 +165,35 @@ function grouped(
     : [{ label: null, matches: sorted }];
 }
 
+const matchKey = (match: Match) => `${match.table}|${match.p1}`;
+
+/**
+ * Which group each table is in, held while a mouse is over the tables: a
+ * result entered there moves its table to Done only once the pointer leaves,
+ * so the table under it is still the one it was. A table that turns up while
+ * held, as the filter changes, takes its group as usual.
+ */
+function createHeldGroups(props: MatchTableProps) {
+  const [held, setHeld] = createSignal<ReadonlyMap<string, boolean> | null>(null);
+  const shown = createMemo(() => {
+    const live = props.inProgress;
+    const groups = held();
+    return grouped(props.matches, live && groups ? match => groups.get(matchKey(match)) ?? live(match) : live);
+  });
+  return {
+    shown,
+    hold: (event: PointerEvent) => {
+      const live = props.inProgress;
+      if (live && event.pointerType === 'mouse') {
+        setHeld(new Map(props.matches.map(match => [matchKey(match), live(match)])));
+      }
+    },
+    release: () => setHeld(null)
+  };
+}
+
 export function MatchTable(props: MatchTableProps) {
+  const groups = createHeldGroups(props);
   const records = createMemo(() =>
     recordsSoFar(props.pod, props.round, match => shownOutcome(match, props.pod, props.round, props.pending).outcome)
   );
@@ -173,7 +201,12 @@ export function MatchTable(props: MatchTableProps) {
   const columns = () => 3 + (props.extra || props.status ? 1 : 0);
   const mine = (match: Match) => props.me != null && (match.p1 === props.me || match.p2 === props.me);
   return (
-    <div class='table-wrap tm-matches' classList={{ 'has-extra': Boolean(props.extra), 'has-decks': hasDecks() }}>
+    <div
+      class='table-wrap tm-matches'
+      classList={{ 'has-extra': Boolean(props.extra), 'has-decks': hasDecks() }}
+      onPointerEnter={event => groups.hold(event)}
+      onPointerLeave={() => groups.release()}
+    >
       <table class='data'>
         <thead>
           <tr>
@@ -189,7 +222,7 @@ export function MatchTable(props: MatchTableProps) {
           </tr>
         </thead>
         <tbody>
-          <Index each={grouped(props.matches, props.inProgress)}>
+          <Index each={groups.shown()}>
             {group => (
               <>
                 <Show when={group().label}>

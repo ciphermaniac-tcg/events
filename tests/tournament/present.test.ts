@@ -29,6 +29,7 @@ import {
   deckBreakdown,
   divisionCuts,
   divisionHeading,
+  endGaps,
   eventStatus,
   filterMatches,
   matchHistory,
@@ -210,7 +211,7 @@ test('lists who a re-pair would seat', () => {
   assert.deepEqual(unseated(t, { ...(t.pods[0] as Pod), rounds: [] }), []);
 });
 
-test('exports pending results into the .tdf, finalized once the event closes', () => {
+test('exports pending results into the .tdf, finalized once the event closes with every result in', () => {
   const open = round2.matches[1];
   assert.ok(open);
   const pending = [
@@ -219,7 +220,8 @@ test('exports pending results into the .tdf, finalized once the event closes', (
   const written = tdfText({ tournament: CHALLENGE, pending, finished: false });
   assert.equal(parseTdf(written).pods[0]?.rounds[1]?.matches[1]?.outcome, 'p1');
   assert.match(written, /stage="4"/);
-  assert.throws(() => tdfText({ tournament: CHALLENGE, pending: [], finished: true }), /Enter all match results/);
+  // Ended early, with a match still open: written as it stands, not finalized.
+  assert.doesNotMatch(tdfText({ tournament: CHALLENGE, pending: [], finished: true }), /<standings>/);
   const completed = round2.matches
     .filter(m => m.outcome === 'pending')
     .map(match => ({
@@ -683,4 +685,52 @@ test('combined cut labels and completion use each division bracket instead of to
     }
   };
   assert.equal(champion(final, waiting), null);
+});
+
+describe('endGaps', () => {
+  const players = (n: number): Command[] =>
+    Array.from({ length: n }, (_, i) => ({
+      type: 'addPlayer',
+      player: { firstName: `P${i + 1}`, lastName: 'Test' }
+    }));
+  const challenge = run(emptyTournament({ name: 'Night' }), ...players(8), {
+    type: 'updateInfo',
+    info: { eventType: 'challenge' }
+  });
+  const reportAll = (t: Tournament): Tournament => {
+    const round = t.pods[0]?.rounds.at(-1);
+    return run(
+      t,
+      ...(round?.matches ?? [])
+        .filter(m => m.p2 !== null && m.outcome === 'pending')
+        .map((m): Command => ({ type: 'reportResult', pod: 'masters', round: round!.number, ...m, outcome: 'p1' }))
+    );
+  };
+  const ending = (tournament: Tournament, roundCap = 0, mode: 'swiss' | 'tom' = 'swiss', pending = []) => ({
+    tournament,
+    pending,
+    mode,
+    settings: { ...DEFAULT_SETTINGS, roundCap }
+  });
+
+  test('an event with no round played ends as one never played', () => {
+    assert.deepEqual(endGaps(ending(challenge)), [{ where: null, detail: 'No rounds played' }]);
+  });
+
+  test('names the open tables, counting a result entered on the site', () => {
+    const paired = run(challenge, { type: 'pairRound', pod: 'masters' });
+    assert.deepEqual(endGaps(ending(paired)), [{ where: null, detail: 'Round 1: 4 tables open' }]);
+    const [first] = paired.pods[0]!.rounds[0]!.matches;
+    const entered = { pod: 'masters' as const, round: 1, ...first!, outcome: 'p1' as const, at: 0 };
+    assert.deepEqual(endGaps({ ...ending(paired, 0, 'tom'), pending: [entered] }), [
+      { where: null, detail: 'Round 1: 3 tables open' }
+    ]);
+  });
+
+  test('names the round the plan still calls for, and nothing once it is played', () => {
+    const played = reportAll(run(challenge, { type: 'pairRound', pod: 'masters' }));
+    assert.deepEqual(endGaps(ending(played, 3)), [{ where: null, detail: 'Next: Pair round 2' }]);
+    assert.deepEqual(endGaps(ending(played, 1)), []);
+    assert.deepEqual(endGaps(ending(played, 3, 'tom')), [], 'TOM decides its own rounds');
+  });
 });

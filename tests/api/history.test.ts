@@ -78,7 +78,14 @@ test('players staff add at a sanctioned event are indexed, and one they remove i
   assert.deepEqual(indexed(code), ['900', '901', '902']);
   assert.equal((await remove(code, owner, '901')).status, 200);
   assert.deepEqual(indexed(code), ['900', '902']);
-  await send(code, owner, { type: 'editPlayer', id: '900', firstName: 'Renamed', lastName: 'Player', birthDate: '' });
+  const renamed = await send(code, owner, {
+    type: 'editPlayer',
+    id: '900',
+    firstName: 'Renamed',
+    lastName: 'Player',
+    birthDate: '02/27/1990'
+  });
+  assert.equal(renamed.status, 200);
   assert.deepEqual(indexed(code), ['900', '902'], 'a rename changes nothing');
 });
 
@@ -87,7 +94,10 @@ test('a late arrival after round 1 and a player added by decklist are indexed', 
   const code = await newSwiss(owner);
   await addPlayers(code, owner, 4);
   await send(code, owner, { type: 'pairRound', pod: 'masters' });
-  await send(code, owner, { type: 'addPlayer', player: { firstName: 'Late', lastName: 'Arrival', id: '999' } });
+  await send(code, owner, {
+    type: 'addPlayer',
+    player: { firstName: 'Late', lastName: 'Arrival', id: '999', birthDate: '02/27/1990' }
+  });
   assert.deepEqual(indexed(code), ['900', '901', '902', '903', '999']);
   await settle(code, owner, { decklists: 'open' });
   const sent = await hit(decklists.onRequestPut as Handler, '/decklists', at(code), {
@@ -299,7 +309,10 @@ test('a change that loses the race to the row writes nothing to the index, and o
   assert.deepEqual(indexed(code), ['900', '901'], 'the player it failed to remove is still indexed');
   assert.deepEqual(reporters(code), ['900'], 'and still who they were');
   raceWrites(5);
-  const late = await send(code, owner, { type: 'addPlayer', player: { firstName: 'A', lastName: 'B', id: '950' } });
+  const late = await send(code, owner, {
+    type: 'addPlayer',
+    player: { firstName: 'A', lastName: 'B', id: '950', birthDate: '02/27/1990' }
+  });
   assert.equal(late.status, 409);
   assert.deepEqual(indexed(code), ['900', '901'], 'the player it failed to add is not');
   raceWrites(4);
@@ -412,7 +425,10 @@ test('History follows the player list: removed, added late, by decklist, or by a
   await send(swiss, owner, { type: 'pairRound', pod: 'masters' });
   const late = await signIn('Late');
   await saveProfile(late, '999');
-  await send(swiss, owner, { type: 'addPlayer', player: { firstName: 'Late', lastName: 'Arrival', id: '999' } });
+  await send(swiss, owner, {
+    type: 'addPlayer',
+    player: { firstName: 'Late', lastName: 'Arrival', id: '999', birthDate: '02/27/1990' }
+  });
   assert.deepEqual(await codesOf(late), [swiss]);
 
   const listed = await newSwiss(owner);

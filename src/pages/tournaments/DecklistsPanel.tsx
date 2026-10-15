@@ -197,7 +197,8 @@ function DecklistRow(props: RowProps) {
             >
               {props.open ? 'Hide' : 'View'}
             </button>
-            <Show when={props.manage.mode === 'swiss' && !playerId()}>
+            {/* An ended event's roster stands until it is reopened. */}
+            <Show when={props.manage.mode === 'swiss' && !props.manage.settings.finished && !playerId()}>
               <button type='button' class='btn btn-ghost tm-small' onClick={() => void add()}>
                 Add to event
               </button>

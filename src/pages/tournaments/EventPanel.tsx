@@ -10,7 +10,7 @@
  */
 
 import { useNavigate } from '@solidjs/router';
-import { createResource, createSignal, For, type JSX, Show } from 'solid-js';
+import { createResource, createSignal, For, type JSX, Show, untrack } from 'solid-js';
 import { eventTimeLimits } from '../../../shared/tournament/create';
 import { eventTypeOf, recommendedStructure, SANCTIONED } from '../../../shared/tournament/structure';
 import type { EventType } from '../../../shared/tournament/types';
@@ -31,8 +31,10 @@ import {
 import { latestValue } from '../../lib/resource';
 import { downloadBlob } from '../../lib/download';
 import { ConfirmAction } from './ConfirmAction';
+import { settingsDraft } from './settingsDrafts';
 import { ErrorLine } from './Field';
 import { FormatSelect } from './FormatSelect';
+import { EndEventStep } from './NextStep';
 import { session } from './session';
 import type { ManageState } from './manageState';
 import { DecklistsSwitch, EventTypeSwitch, RoundsSelect } from './SettingChoices';
@@ -82,45 +84,73 @@ function recommendedRounds(manage: Manage, type: EventType): number | undefined 
   return pod && others.length === 0 ? recommendedStructure(swissAttendance(pod), type).rounds : undefined;
 }
 
+/** The event's own details the Event box edits, with its Swiss rounds, which are a setting. */
+interface EventFields {
+  name: string;
+  roundTime: number;
+  finalsRoundTime: number;
+  eventType: EventType;
+  roundCap: number;
+}
+
+const eventFields = (manage: Manage): EventFields => {
+  const { name, roundTime, finalsRoundTime } = manage.tournament.info;
+  return {
+    name,
+    roundTime,
+    finalsRoundTime,
+    eventType: eventTypeOf(manage.tournament),
+    roundCap: manage.settings.roundCap
+  };
+};
+
 function EventDetails(props: { state: ManageState; manage: Manage }) {
-  const info = () => props.manage.tournament.info;
-  const [name, setName] = createSignal(info().name);
-  const [roundTime, setRoundTime] = createSignal(
-    info().eventType === 'prerelease' ? Math.max(30, info().roundTime) : info().roundTime
-  );
-  const [finals, setFinals] = createSignal(info().finalsRoundTime);
-  const [eventType, setEventType] = createSignal(eventTypeOf({ info: info() }));
-  const timeLimits = () => eventTimeLimits(eventType());
+  // eslint-disable-next-line solid/reactivity -- one draft per event, kept across tabs (see settingsDrafts)
+  const draft = settingsDraft<EventFields>(props.manage.code, 'event');
+  const saved = () => eventFields(props.manage);
+  const field = <K extends keyof EventFields>(key: K) => draft.value(key, saved());
+  const set = <K extends keyof EventFields>(key: K, value: EventFields[K]) => draft.set(key, value, saved());
+  // A Prerelease's stored short round time is raised as the box opens.
+  untrack(() => {
+    if (props.manage.tournament.info.eventType === 'prerelease') {
+      set('roundTime', Math.max(30, field('roundTime')));
+    }
+  });
+  const timeLimits = () => eventTimeLimits(field('eventType'));
   const minMinutes = () =>
     isSanctioned(props.manage) ? Math.max(SANCTIONED.minutes, timeLimits().minimum) : timeLimits().minimum;
-  // eslint-disable-next-line solid/reactivity -- the form edits a copy taken when it opens; saving replaces the event
-  const [roundCap, setRoundCap] = createSignal(props.manage.settings.roundCap);
-  const infoDirty = () =>
-    name() !== info().name ||
-    roundTime() !== info().roundTime ||
-    finals() !== info().finalsRoundTime ||
-    eventType() !== eventTypeOf(props.manage.tournament);
-  const capDirty = () => roundCap() !== props.manage.settings.roundCap;
   // The rounds are a setting and the rest the event's own details, so each goes where it is kept.
   async function save() {
     const { code } = props.manage;
-    const details = { name: name(), roundTime: roundTime(), finalsRoundTime: finals(), eventType: eventType() };
-    const saved = !infoDirty() || (await props.state.send({ type: 'updateInfo', info: details }));
-    const cap = roundCap();
-    if (saved && capDirty()) {
-      await props.state.run(() => saveSettings(code, { roundCap: cap }));
+    const { roundCap, ...info } = draft.changes(saved());
+    const sent = Object.keys(info).length === 0 || (await props.state.send({ type: 'updateInfo', info }));
+    if (sent) {
+      draft.forget(info);
+    }
+    if (sent && roundCap !== undefined && (await props.state.run(() => saveSettings(code, { roundCap })))) {
+      draft.forget({ roundCap });
     }
   }
   return (
-    <SettingsBox title='Event' dirty={infoDirty() || capDirty()} busy={props.state.busy()} onSave={() => void save()}>
+    <SettingsBox
+      title='Event'
+      dirty={Object.keys(draft.changes(saved())).length > 0}
+      busy={props.state.busy()}
+      onSave={() => void save()}
+    >
       <SettingRow label='Event name' for='info-name'>
-        <input id='info-name' class='tm-input' value={name()} onInput={e => setName(e.currentTarget.value)} />
+        <input
+          id='info-name'
+          class='tm-input'
+          value={field('name')}
+          onInput={e => set('name', e.currentTarget.value)}
+        />
       </SettingRow>
       <SettingRow label='Event type'>
         <EventTypeSwitch
-          value={eventType()}
+          value={field('eventType')}
           types={props.manage.store === null && !isSanctioned(props.manage) ? ['local', 'prerelease'] : undefined}
-          onChange={setEventType}
+          onChange={value => set('eventType', value)}
         />
       </SettingRow>
       <SettingRow label='Swiss round minutes' for='info-round'>
@@ -130,29 +160,31 @@ function EventDetails(props: { state: ManageState; manage: Manage }) {
           type='number'
           min={minMinutes()}
           max={timeLimits().maximum}
-          value={roundTime()}
-          onInput={e => setRoundTime(Number(e.currentTarget.value))}
+          value={field('roundTime')}
+          onInput={e => set('roundTime', Number(e.currentTarget.value))}
         />
       </SettingRow>
       <SettingRow label='Top cut round minutes' for='info-finals'>
         <input
           id='info-finals'
-          disabled={['local', 'prerelease'].includes(eventType()) && props.manage.tournament.settings?.type !== 3}
+          disabled={
+            ['local', 'prerelease'].includes(field('eventType')) && props.manage.tournament.settings?.type !== 3
+          }
           class='tm-input tm-set-minutes'
           type='number'
           min={minMinutes()}
           max={timeLimits().maximum}
-          value={finals()}
-          onInput={e => setFinals(Number(e.currentTarget.value))}
+          value={field('finalsRoundTime')}
+          onInput={e => set('finalsRoundTime', Number(e.currentTarget.value))}
         />
       </SettingRow>
       <SettingRow label='Swiss rounds' for='info-rounds'>
         <RoundsSelect
           id='info-rounds'
-          value={roundCap()}
-          recommended={recommendedRounds(props.manage, eventType())}
+          value={field('roundCap')}
+          recommended={recommendedRounds(props.manage, field('eventType'))}
           min={isSanctioned(props.manage) ? SANCTIONED.swissRounds : 1}
-          onChange={setRoundCap}
+          onChange={value => set('roundCap', value)}
         />
       </SettingRow>
     </SettingsBox>
@@ -184,21 +216,31 @@ const pickPlayerSettings = (settings: TournamentSettings): PlayerSettings => {
 };
 
 function ForPlayers(props: { state: ManageState; manage: Manage }) {
-  // eslint-disable-next-line solid/reactivity -- the form edits a copy taken when it opens; saving replaces the event
-  const [draft, setDraft] = createSignal<PlayerSettings>(pickPlayerSettings(props.manage.settings));
-  const set = <K extends keyof PlayerSettings>(key: K, value: PlayerSettings[K]) =>
-    setDraft({ ...draft(), [key]: value });
-  const dirty = () => {
-    const saved = pickPlayerSettings(props.manage.settings);
-    return (Object.keys(saved) as (keyof PlayerSettings)[]).some(key => saved[key] !== draft()[key]);
+  // eslint-disable-next-line solid/reactivity -- one draft per event, kept across tabs (see settingsDrafts)
+  const store = settingsDraft<PlayerSettings>(props.manage.code, 'players');
+  const saved = () => pickPlayerSettings(props.manage.settings);
+  // The form's values: each edit, or the event's own where there is none.
+  const draft = () => {
+    const now = saved();
+    return Object.fromEntries(
+      (Object.keys(now) as (keyof PlayerSettings)[]).map(key => [key, store.value(key, now)])
+    ) as unknown as PlayerSettings;
   };
-  function save() {
+  const set = <K extends keyof PlayerSettings>(key: K, value: PlayerSettings[K]) => store.set(key, value, saved());
+  async function save() {
     const { code } = props.manage;
-    const next = draft();
-    void props.state.run(() => saveSettings(code, next));
+    const changes = store.changes(saved());
+    if (await props.state.run(() => saveSettings(code, changes))) {
+      store.forget(changes);
+    }
   }
   return (
-    <SettingsBox title='For players' dirty={dirty()} busy={props.state.busy()} onSave={save}>
+    <SettingsBox
+      title='For players'
+      dirty={Object.keys(store.changes(saved())).length > 0}
+      busy={props.state.busy()}
+      onSave={() => void save()}
+    >
       <SettingRow label='Starts' for='set-start'>
         <input
           id='set-start'
@@ -258,14 +300,14 @@ function Finish(props: { state: ManageState; manage: Manage }) {
       const { tdfFilename, tdfText } = await import('../../lib/tournament/exportTdf');
       downloadBlob(
         new Blob([tdfText({ ...manage, finished: manage.settings.finished })], { type: 'application/xml' }),
-        tdfFilename(manage.tournament)
+        tdfFilename(manage.tournament, manage.version)
       );
       return manage;
     });
   };
-  function setFinished(finished: boolean) {
+  function reopen() {
     const { code } = props.manage;
-    void props.state.run(() => saveSettings(code, { finished }));
+    void props.state.run(() => saveSettings(code, { finished: false }));
   }
   return (
     <section>
@@ -276,34 +318,22 @@ function Finish(props: { state: ManageState; manage: Manage }) {
             <span>{props.manage.settings.finished ? 'Ended' : 'In progress'}</span>
             <Show
               when={props.manage.settings.finished}
-              fallback={
-                <ConfirmAction
-                  class='btn btn-secondary'
-                  label='End event'
-                  question='End the event?'
-                  confirmLabel='End event'
-                  onConfirm={() => setFinished(true)}
-                />
-              }
+              fallback={<EndEventStep state={props.state} manage={props.manage} primary={false} />}
             >
-              <button
-                type='button'
-                class='btn btn-secondary'
-                disabled={props.state.busy()}
-                onClick={() => setFinished(false)}
-              >
+              <button type='button' class='btn btn-secondary' disabled={props.state.busy()} onClick={reopen}>
                 Reopen event
               </button>
             </Show>
           </span>
         </SettingRow>
-        <Show when={isSanctioned(props.manage)}>
-          <SettingRow label='Play! Pokémon file'>
+        <SettingRow label={isSanctioned(props.manage) ? 'Play! Pokémon file' : 'Event file'}>
+          <span class='tm-set-inline'>
             <button type='button' class='btn btn-secondary' onClick={download}>
               Download .tdf
             </button>
-          </SettingRow>
-        </Show>
+            <span class='muted tm-num'>Version {props.manage.version}</span>
+          </span>
+        </SettingRow>
       </div>
     </section>
   );

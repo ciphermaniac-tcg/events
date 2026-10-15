@@ -56,6 +56,15 @@ function reportAll(t: Tournament): Tournament {
   return run(t, ...reports);
 }
 
+/** The first table of the latest round. */
+function firstMatch(t: Tournament): Match {
+  const match = t.pods[0]?.rounds.at(-1)?.matches[0];
+  if (!match) {
+    throw new Error('no table');
+  }
+  return match;
+}
+
 /** An unsanctioned event of `players`, with `rounds` played and one more paired when `paired`. */
 function event(players: number, rounds: number, paired: boolean): Tournament {
   const adds: Command[] = Array.from({ length: players }, (_, i) => ({
@@ -85,6 +94,7 @@ async function mockConsole(
 ) {
   const sent: Command[] = [];
   const decks: unknown[] = [];
+  const saved: Partial<TournamentSettings>[] = [];
   const manage = {
     code: CODE,
     mode: 'swiss',
@@ -131,10 +141,17 @@ async function mockConsole(
       decks.push(route.request().postDataJSON());
       return route.fulfill({ json: manage });
     }
+    if (url.pathname === `/api/tournaments/${CODE}/settings`) {
+      const change = route.request().postDataJSON() as Partial<TournamentSettings>;
+      saved.push(change);
+      manage.settings = { ...manage.settings, ...change };
+      manage.version += 1;
+      return route.fulfill({ json: manage });
+    }
     return route.fulfill({ status: 404, json: { error: 'Not found' } });
   });
   await page.goto(`/host/${CODE}`);
-  return Object.assign(sent, { decks });
+  return Object.assign(sent, { decks, saved });
 }
 
 test('a double click on a player records their win without asking', async ({ page }) => {
@@ -185,6 +202,165 @@ test('a result shows in its row while it is on its way, and its answer is not re
   await expect(first.locator('.tm-pending-mark.is-awaiting')).toHaveCount(0);
   await expect(page.locator('.tm-matches tbody tr[data-kept]:not(.tm-group-row)')).toHaveCount(3);
   expect(reads).toEqual([]);
+});
+
+/** The console's copy of `t`, as a command or a read answers with it. */
+const manageOf = (t: Tournament, version: number) => ({
+  code: CODE,
+  mode: 'swiss',
+  version,
+  updatedAt: 0,
+  tournament: t,
+  pending: [],
+  reports: [],
+  settings: settingsOf({}),
+  decks: {},
+  role: 'owner',
+  staffToken: 'invite',
+  store: 'store-1'
+});
+
+/** The row of `match`, found by its table number. */
+const rowOf = (page: Page, match: Match) =>
+  page
+    .locator('.tm-matches tbody tr:not(.tm-group-row)')
+    .filter({ has: page.locator('td.tm-table-col', { hasText: new RegExp(`^${match.table}$`) }) });
+
+test('a result the server does not take stays in its row as not saved, and Retry sends it again', async ({ page }) => {
+  const t = event(8, 0, true);
+  const match = firstMatch(t);
+  await mockConsole(page, t, settingsOf({}));
+  const tries: Command[] = [];
+  await page.route(`**/api/tournaments/${CODE}/commands`, route => {
+    const { command } = route.request().postDataJSON() as { command: Command };
+    tries.push(command);
+    return tries.length === 1
+      ? route.fulfill({ status: 503, json: { error: 'Busy; try again' } })
+      : route.fulfill({ json: manageOf(run(t, command), 4) });
+  });
+  await rowOf(page, match).locator('.tm-seat-link').first().dblclick();
+  const unsaved = rowOf(page, match).getByRole('group', { name: 'Result not saved' });
+  await expect(unsaved.locator('.tm-result-label')).toHaveText(/^Not saved: .+ wins$/);
+  await expect(rowOf(page, match).locator('.tm-pending-mark.is-awaiting > [aria-hidden]')).toHaveText(['W?', 'L?']);
+  await unsaved.getByRole('button', { name: 'Retry' }).click();
+  await expect.poll(() => tries.length).toBe(2);
+  await expect(rowOf(page, match).locator('.tm-pending-mark.is-awaiting')).toHaveCount(0);
+  await expect(rowOf(page, match).locator('.tm-mark.is-win > [aria-hidden]')).toHaveText('W');
+  expect(tries[1]).toMatchObject({ type: 'reportResult', table: match.table, outcome: 'p1' });
+});
+
+test('a retry reads the event first and sends nothing when the result had landed', async ({ page }) => {
+  const t = event(8, 0, true);
+  const match = firstMatch(t);
+  await mockConsole(page, t, settingsOf({}));
+  // Loaded first, so the first read is the console's own and not the one below.
+  await expect(rowOf(page, match)).toBeVisible();
+  const landed = run(t, { type: 'reportResult', pod: 'masters', round: 1, ...match, outcome: 'p1' });
+  const tries: Command[] = [];
+  let saved = false;
+  await page.route(`**/api/tournaments/${CODE}/commands`, route => {
+    tries.push((route.request().postDataJSON() as { command: Command }).command);
+    // Stored, and the answer lost on its way back.
+    saved = true;
+    return route.abort('connectionreset');
+  });
+  await page.route(`**/api/tournaments/${CODE}/manage*`, route =>
+    saved ? route.fulfill({ json: manageOf(landed, 4) }) : route.fulfill({ status: 204 })
+  );
+  await rowOf(page, match).locator('.tm-seat-link').first().dblclick();
+  const unsaved = rowOf(page, match).getByRole('group', { name: 'Result not saved' });
+  await unsaved.getByRole('button', { name: 'Retry' }).click();
+  // The saved result, not the preview a retry shows while it reads the event.
+  await expect(rowOf(page, match).locator('.tm-pending-mark.is-awaiting')).toHaveCount(0);
+  await expect(rowOf(page, match).locator('.tm-mark.is-win > [aria-hidden]')).toHaveText('W');
+  await expect(unsaved).toHaveCount(0);
+  expect(tries).toHaveLength(1);
+});
+
+test('a failed result can be discarded, and the row reads as it stands', async ({ page }) => {
+  const t = event(8, 0, true);
+  const match = firstMatch(t);
+  await mockConsole(page, t, settingsOf({}));
+  await page.route(`**/api/tournaments/${CODE}/commands`, route =>
+    route.fulfill({ status: 400, json: { error: 'The reported match has changed' } })
+  );
+  await rowOf(page, match).locator('.tm-seat-link').first().dblclick();
+  await expect(page.getByText('The reported match has changed')).toBeVisible();
+  await rowOf(page, match).getByRole('button', { name: 'Discard' }).click();
+  await expect(rowOf(page, match).locator('.tm-result-label')).toHaveText('In progress');
+});
+
+test('a past round is read-only and says so, with the way back to the current one', async ({ page }) => {
+  const sent = await mockConsole(page, event(8, 1, true), settingsOf({}));
+  await page.getByRole('button', { name: 'Previous round' }).click();
+  await expect(page.getByText('Round 1 is read-only. Results are entered in the current round.')).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Report / })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Clear' })).toBeHidden();
+  await page.locator('.tm-seat-link').first().dblclick();
+  expect([...sent]).toEqual([]);
+  await page.getByRole('button', { name: 'Current round' }).click();
+  await expect(page.getByRole('combobox', { name: 'Round' })).toHaveValue('2');
+  await expect(page.getByRole('button', { name: /^Report / }).first()).toBeVisible();
+});
+
+test('a past round stays shown when a colleague’s result changes the event, and a new round shows itself', async ({
+  page
+}) => {
+  const t = event(8, 1, true);
+  await mockConsole(page, t, settingsOf({}));
+  await page.getByRole('button', { name: 'Previous round' }).click();
+  const picker = page.getByRole('combobox', { name: 'Round' });
+  await expect(picker).toHaveValue('1');
+  const later = (tournament: Tournament, version: number) =>
+    page.route('**/manage?since=*', route =>
+      route.fulfill({
+        json: {
+          code: CODE,
+          mode: 'swiss',
+          version,
+          updatedAt: 0,
+          tournament,
+          pending: [],
+          reports: [],
+          requests: [],
+          settings: settingsOf({}),
+          decks: {},
+          role: 'owner',
+          staffToken: 'invite',
+          store: 'store-1'
+        }
+      })
+    );
+  const look = async () => {
+    const answered = page.waitForResponse(response => response.url().includes('/manage?since='));
+    await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+    await answered;
+  };
+  const match = t.pods[0]!.rounds[1]!.matches.find(m => m.p2 !== null)!;
+  const reported = run(t, { type: 'reportResult', pod: 'masters', round: 2, ...match, outcome: 'p1' } as Command);
+  await later(reported, 4);
+  await look();
+  await expect(picker).toHaveValue('1');
+
+  await page.unroute('**/manage?since=*');
+  await later(run(reportAll(reported), { type: 'pairRound', pod: 'masters' }), 5);
+  await look();
+  await expect(picker).toHaveValue('3');
+});
+
+test('a table entered with the mouse keeps its place until the pointer leaves the tables', async ({ page }) => {
+  const t = event(8, 0, true);
+  await mockConsole(page, t, settingsOf({}), [], true);
+  const rows = page.locator('.tm-matches tbody tr:not(.tm-group-row)');
+  const first = firstMatch(t);
+  await expect(rows.first().locator('td.tm-table-col')).toHaveText(String(first.table));
+  await rowOf(page, first).locator('.tm-seat-link').first().dblclick();
+  await expect(rowOf(page, first).locator('.tm-result-label')).toHaveText('1–0');
+  await expect(rows.first().locator('td.tm-table-col')).toHaveText(String(first.table));
+  await expect(page.locator('.tm-group-row')).toHaveCount(0);
+  await page.mouse.move(1, 1);
+  await expect(page.locator('.tm-group-row')).toHaveText(['In progress · 3', 'Done · 1']);
+  await expect(rows.last().locator('td.tm-table-col')).toHaveText(String(first.table));
 });
 
 test('after the planned rounds the step is the top cut, set in a dialog, with another round and the end behind it', async ({
@@ -247,15 +423,81 @@ test('Prerelease before round 3 has no early conclusion; its stored short time i
   await expect(page.locator('#info-finals')).toHaveValue('30');
 });
 
-test('ending the event from the next step asks first, in a dialog', async ({ page }) => {
-  await mockConsole(page, event(16, 5, false), settingsOf({}));
+test('ending the event from the next step asks first, in a dialog that reviews what is left', async ({ page }) => {
+  const sent = await mockConsole(page, event(16, 5, false), settingsOf({}));
   const step = page.locator('.tm-split');
   await step.getByRole('button', { name: 'Other next steps' }).click();
   await step.locator('.tm-menu-item', { hasText: 'End event' }).click();
-  const dialog = page.getByRole('dialog', { name: 'End the event?' });
-  await expect(dialog).toBeVisible();
+  const dialog = page.getByRole('dialog', { name: 'End the event early?' });
+  await expect(dialog.locator('.tm-end-gaps li')).toHaveText(['Top cut not played']);
   await dialog.getByRole('button', { name: 'Keep running' }).click();
   await expect(dialog).toBeHidden();
+  expect(sent.saved).toEqual([]);
+});
+
+test('a capped league that has played its rounds ends as planned', async ({ page }) => {
+  const sent = await mockConsole(page, event(6, 3, false), settingsOf({ roundCap: 3 }));
+  await page.locator('.tm-split > .btn', { hasText: 'End event' }).click();
+  const dialog = page.getByRole('dialog', { name: 'End the event?' });
+  await expect(dialog.locator('.tm-end-gaps')).toHaveCount(0);
+  await dialog.getByRole('button', { name: 'End event' }).click();
+  await expect.poll(() => sent.saved).toEqual([{ finished: true }]);
+  await expect(page.getByText('The event has ended. Reopen it to change results.')).toBeVisible();
+});
+
+test('ending from Settings with tables open lists them and ends the event early', async ({ page }) => {
+  const sent = await mockConsole(page, event(8, 0, true), settingsOf({}));
+  await page.getByRole('tab', { name: 'Settings' }).click();
+  await page.getByRole('button', { name: 'End event' }).click();
+  const dialog = page.getByRole('dialog', { name: 'End the event early?' });
+  await expect(dialog.locator('.tm-end-gaps li')).toHaveText(['Round 1: 4 tables open']);
+  await dialog.getByRole('button', { name: 'End early' }).click();
+  await expect.poll(() => sent.saved).toEqual([{ finished: true }]);
+  await expect(page.getByRole('button', { name: 'Reopen event' })).toBeVisible();
+});
+
+test('an ended event locks its results, round controls and roster until it is reopened', async ({ page }) => {
+  const t = run(event(4, 0, true), {
+    type: 'reportResult',
+    pod: 'masters',
+    round: 1,
+    ...firstMatch(event(4, 0, true)),
+    outcome: 'p1'
+  });
+  const sent = await mockConsole(page, t, settingsOf({ finished: true }));
+  await expect(page.getByText('The event has ended. Reopen it to change results.')).toBeVisible();
+  const rows = page.locator('.tm-matches tbody tr:not(.tm-group-row)');
+  await expect(rows.first()).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Report / })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Clear' })).toBeHidden();
+  await expect(page.getByRole('button', { name: /^More for table/ })).toBeHidden();
+  await expect(page.getByRole('button', { name: 'Delete round' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Swap players' })).toHaveCount(0);
+  await page.locator('.tm-seat-link').first().dblclick();
+  await page.getByRole('tab', { name: 'Players' }).click();
+  await expect(page.getByRole('form', { name: 'Add a player' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Remove' })).toHaveCount(0);
+  expect([...sent]).toEqual([]);
+  await page.getByRole('tab', { name: 'Pairings' }).click();
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  await page.getByRole('button', { name: 'Reopen event' }).click();
+  await expect.poll(() => sent.saved).toEqual([{ finished: false }]);
+});
+
+test('clearing a result confirms as Clear', async ({ page }) => {
+  const t = run(event(4, 0, true), {
+    type: 'reportResult',
+    pod: 'masters',
+    round: 1,
+    ...firstMatch(event(4, 0, true)),
+    outcome: 'p1'
+  });
+  const sent = await mockConsole(page, t, settingsOf({}));
+  await page.getByRole('button', { name: 'Clear' }).first().click();
+  const asking = page.getByRole('group', { name: 'Confirm result' });
+  await expect(asking.locator('.tm-result-label')).toHaveText('Clear the result?');
+  await asking.getByRole('button', { name: 'Clear' }).click();
+  await expect.poll(() => sent.at(-1)).toMatchObject({ type: 'reportResult', outcome: 'pending' });
 });
 
 test('every Swiss round ends with another round as the step, the top cut and the end behind it', async ({ page }) => {
@@ -369,6 +611,91 @@ test('a player row keeps its rarer actions and fixed table under its menu', asyn
   await expect.poll(() => sent.at(-1)).toMatchObject({ type: 'setFixedTable', table: 7 });
   await page.keyboard.press('Escape');
   await expect(menu).toHaveCount(0);
+});
+
+test('a player is corrected from their menu: the name, and a sanctioned event’s birth year', async ({ page }) => {
+  const sent = await mockConsole(page, event(4, 0, true), settingsOf({ sanctioned: true }));
+  await page.getByRole('tab', { name: 'Players' }).click();
+  await expect(page.locator('.tm-who-sub').first()).toContainText('Provisional ID');
+  await page
+    .getByRole('button', { name: /^More for / })
+    .first()
+    .click();
+  await page
+    .getByRole('group', { name: /^More for / })
+    .getByRole('button', { name: 'Edit' })
+    .click();
+  await expect(page.getByRole('group', { name: /^More for / })).toHaveCount(0);
+  const dialog = page.getByRole('dialog', { name: 'Edit player' });
+  await dialog.getByLabel('Last name').fill('Tester');
+  await expect(dialog.getByText('Enter a four-digit year')).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'Save' })).toBeDisabled();
+  await dialog.getByLabel('Birth year').fill('1988');
+  await dialog.getByRole('button', { name: 'Save' }).click();
+  await expect(dialog).toBeHidden();
+  await expect
+    .poll(() => sent.at(-1))
+    .toMatchObject({ type: 'editPlayer', lastName: 'Tester', birthDate: '02/27/1988' });
+});
+
+test('a sanctioned event adds a player only with their Player ID and birth year', async ({ page }) => {
+  const sent = await mockConsole(page, event(4, 0, false), settingsOf({ sanctioned: true }));
+  const form = page.getByRole('form', { name: 'Add a player' });
+  const add = form.getByRole('button', { name: 'Add player' });
+  await form.getByLabel('First name').fill('Sam');
+  await form.getByLabel('Last name').fill('Lee');
+  await form.getByLabel('Birth year').fill('2001');
+  await expect(add).toBeDisabled();
+  await form.getByLabel('Player ID').fill('4242');
+  await form.getByLabel('Birth year').fill('');
+  await expect(add).toBeDisabled();
+  await form.getByLabel('Birth year').fill('2001');
+  await add.click();
+  await expect
+    .poll(() => sent.at(-1))
+    .toMatchObject({ type: 'addPlayer', player: { id: '4242', birthDate: '02/27/2001' } });
+});
+
+test('an unsaved setting survives a switch to another tab', async ({ page }) => {
+  const sent = await mockConsole(page, event(4, 0, true), settingsOf({}));
+  await page.getByRole('tab', { name: 'Settings' }).click();
+  await page.getByLabel('Event description').fill('Doors at nine');
+  await page.getByLabel('Event name').fill('Friday Night League');
+  await page.getByRole('tab', { name: 'Pairings' }).click();
+  await page.getByRole('tab', { name: 'Settings' }).click();
+  await expect(page.getByLabel('Event description')).toHaveValue('Doors at nine');
+  await expect(page.getByLabel('Event name')).toHaveValue('Friday Night League');
+  await expect(page.getByText('Unsaved changes')).toHaveCount(2);
+  await page.getByRole('button', { name: 'Save' }).first().click();
+  await expect.poll(() => sent.at(-1)).toEqual({ type: 'updateInfo', info: { name: 'Friday Night League' } });
+});
+
+test('a colleague’s change shows in an untouched setting, and saving sends only what was edited', async ({ page }) => {
+  const settings = settingsOf({});
+  const sent = await mockConsole(page, event(4, 0, true), settings);
+  await page.getByRole('tab', { name: 'Settings' }).click();
+  const reporting = page.getByRole('radiogroup', { name: 'Mobile result reporting' });
+  await expect(reporting.getByRole('radio', { name: 'Disabled' })).toHaveAttribute('aria-checked', 'true');
+  await page.getByLabel('Event description').fill('Doors at nine');
+  // A colleague turns reporting on; the console's next look brings it in.
+  const changed = { ...manageOf(event(4, 0, true), 9), settings: { ...settings, playerReporting: true } };
+  await page.route(`**/api/tournaments/${CODE}/manage*`, route => route.fulfill({ json: changed }));
+  await page.evaluate(() => window.dispatchEvent(new Event('online')));
+  await expect(reporting.getByRole('radio', { name: 'Enabled' })).toHaveAttribute('aria-checked', 'true');
+  await expect(page.getByLabel('Event description')).toHaveValue('Doors at nine');
+  const box = page.locator('section', { has: page.getByRole('heading', { name: 'For players' }) });
+  await box.getByRole('button', { name: 'Save' }).click();
+  await expect.poll(() => sent.saved).toEqual([{ details: 'Doors at nine' }]);
+});
+
+test('a standalone event downloads its .tdf, named for the version it copies', async ({ page }) => {
+  await mockConsole(page, event(4, 1, false), settingsOf({ sanctioned: false }));
+  await page.getByRole('tab', { name: 'Settings' }).click();
+  const row = page.locator('.tm-set-row', { hasText: 'Event file' });
+  await expect(row.getByText('Version 3')).toBeVisible();
+  const download = page.waitForEvent('download');
+  await row.getByRole('button', { name: 'Download .tdf' }).click();
+  expect((await download).suggestedFilename()).toBe('Friday League v3.tdf');
 });
 
 test('decks are named from Players, and a name the list lacks is taken as typed', async ({ page }) => {
@@ -887,8 +1214,6 @@ test('an event made before time zones picks one and its venue from Settings', as
   await page.getByRole('textbox', { name: 'Venue' }).fill('Test Games');
   const box = page.locator('section', { has: page.getByRole('heading', { name: 'For players' }) });
   await box.getByRole('button', { name: 'Save' }).click();
-  await expect
-    .poll(() => sent.saved.at(-1))
-    .toMatchObject({ timeZone: 'America/Chicago', venue: 'Test Games', address: '', checkInAt: '' });
+  await expect.poll(() => sent.saved.at(-1)).toEqual({ timeZone: 'America/Chicago', venue: 'Test Games' });
   await expect(zone.locator('option[value=""]')).toHaveCount(0);
 });

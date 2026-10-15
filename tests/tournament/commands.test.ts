@@ -578,3 +578,18 @@ test('a combined pod whose players are all one division also starts its top cut 
   assert.equal(round(t).matches.length, 2);
   assert.equal(attempt(t, { type: 'startTopCut', pod: 'mixed', size: 4 }), 'The top cut has started');
 });
+
+test('a name is corrected beside a birth year from a file that could not be entered now', () => {
+  const t = withPlayers(2);
+  const old = { ...t, players: t.players.map((p, i) => (i === 0 ? { ...p, birthDate: '02/27/1850' } : p)) };
+  const edit = (birthDate: string): Command => ({
+    type: 'editPlayer',
+    id: '100',
+    firstName: 'Player',
+    lastName: 'Renamed',
+    birthDate
+  });
+  assert.equal(run(old, edit('02/27/1850')).players[0]?.lastName, 'Renamed');
+  assert.equal(attempt(old, edit('02/27/1851')), 'Birth year invalid');
+  assert.equal(attempt(t, edit('02/27/2030')), 'Birth year invalid');
+});

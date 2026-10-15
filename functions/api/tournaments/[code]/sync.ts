@@ -14,6 +14,9 @@
  * apart from an upload the organizer chose ({ manual: true }), which records
  * the import time.
  *
+ * An ended event takes no new copy until it is reopened: its results stand
+ * as they were when it ended.
+ *
  * The file's round clocks are set aside for the ones the site runs (see
  * shared/tournament/tomClock.ts), so a copy that differs only in its clocks
  * is the copy the site holds.
@@ -35,6 +38,7 @@ import {
   type StaffAccess
 } from '../../../lib/tournaments/access.js';
 import { publishAfter } from '../../../lib/tournaments/publish.js';
+import { FINISHED_REFUSAL } from '../../../lib/tournaments/results.js';
 import { mutate } from '../../../lib/tournaments/store.js';
 
 const CONFLICT = 'The site has a different copy of this event. Reconnect the file TOM is using to replace it.';
@@ -103,15 +107,19 @@ export async function onRequestPut(context: Context<'code'>): Promise<Response> 
   // Besides a sync, only the clock changes a TOM event's document, so a retry after another write finds the copy checked.
   const unclocked = (held: Tournament) => JSON.stringify(withoutClocks(held));
   const checked = unclocked(access.row.tournament);
-  const outcome = await mutate(access.db, access.row, row =>
-    row === access.row || unclocked(row.tournament) === checked
+  // Judged on each try's own read, so an end that lands between the read and the write still holds.
+  const outcome = await mutate(access.db, access.row, row => {
+    if (row.settings.finished) {
+      return FINISHED_REFUSAL;
+    }
+    return row === access.row || unclocked(row.tournament) === checked
       ? {
           tournament: withSiteClocks(tournament, row.tournament),
           pending: prunePending(tournament, row.pending),
           lastImportAt: Date.now()
         }
-      : CONFLICT
-  );
+      : CONFLICT;
+  });
   if ('error' in outcome) {
     return jsonError(outcome.error, outcome.error === CONFLICT ? 409 : outcome.status);
   }

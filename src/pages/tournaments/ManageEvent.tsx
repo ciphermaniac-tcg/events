@@ -39,13 +39,13 @@ import {
   namesById,
   type NextStep,
   nextStep,
-  plannedRounds,
   podLabel,
   podProgress,
   type PodProgress,
   roundStatus,
   shownDecks,
   type SwissPlan,
+  swissPlanOf,
   unseated
 } from '../../lib/tournament/present';
 import { session } from './session';
@@ -215,22 +215,8 @@ function Hero(props: { state: ManageState; manage: Manage; pod: Pod | undefined;
       const round = latestRound(p);
       return p.category !== props.pod?.category && round !== undefined && !roundComplete(round);
     });
-  // The step's cut is the one the top cut control offers first: the last division's left to cut, Masters where it plays.
   const plan = () =>
-    props.pod
-      ? {
-          rounds: plannedRounds(
-            props.pod,
-            props.manage.settings.roundCap,
-            eventTypeOf(props.manage.tournament),
-            props.manage.tournament
-          ),
-          cut:
-            cuts()
-              .filter(c => !c.started)
-              .at(-1)?.cut ?? 0
-        }
-      : null;
+    props.pod ? swissPlanOf(props.manage.tournament, props.pod, props.manage.settings.roundCap) : null;
   /** The lead of the meta line: where the round stands, then what else needs saying about it. */
   const lead = () => {
     const { tom } = props;

@@ -15,7 +15,13 @@ import { useSearchParams } from '@solidjs/router';
 import { createMemo, createSignal, For, Show } from 'solid-js';
 import { divisionFor, eventSeason } from '../../../shared/tournament/divisions';
 import { canUndrop, hasPlayed, hasStarted, joinedLate, playerPod, podOf } from '../../../shared/tournament/rounds';
-import { DIVISION_LABELS, type Player, playerName, type Tournament } from '../../../shared/tournament/types';
+import {
+  DIVISION_LABELS,
+  isGeneratedId,
+  type Player,
+  playerName,
+  type Tournament
+} from '../../../shared/tournament/types';
 import { decksEnabled, isSanctioned } from '../../../shared/tournament/view';
 import { type Manage, releaseReporter } from '../../lib/tournament/api';
 import { matchHistory } from '../../lib/tournament/present';
@@ -24,6 +30,7 @@ import { OptionsMenu } from './OptionsMenu';
 import { ConfirmAction } from './ConfirmAction';
 import { createDeckOptions } from './deckOptions';
 import { DeckPicker } from './DeckPicker';
+import { EditPlayerDialog } from './EditPlayer';
 import { Field } from './Field';
 import type { ManageState } from './manageState';
 import { birthDateFor } from './ProfileFields';
@@ -40,6 +47,8 @@ function AddPlayer(props: { state: ManageState; code: string; sanctioned: boolea
   const [last, setLast] = createSignal('');
   const [popId, setPopId] = createSignal('');
   const [year, setYear] = createSignal('');
+  // A sanctioned event's player is reported to Play! Pokémon under their Player ID and placed by birth year.
+  const identified = () => !props.sanctioned || (popId() !== '' && year().length === 4);
   async function submit(event: Event) {
     event.preventDefault();
     const ok = await props.state.send({
@@ -103,7 +112,7 @@ function AddPlayer(props: { state: ManageState; code: string; sanctioned: boolea
         <button
           type='submit'
           class='btn btn-primary'
-          disabled={props.state.busy() || !first().trim() || !last().trim()}
+          disabled={props.state.busy() || !first().trim() || !last().trim() || !identified()}
         >
           {props.late ? 'Add late player' : 'Add player'}
         </button>
@@ -166,11 +175,16 @@ function FixedTableField(props: { state: ManageState; player: Player }) {
  * player, reporting or not, and there it reads as unlinking them. Staff are
  * not shown which players an account holds.
  */
+const reportsFor = (manage: Manage, player: Player) => manage.settings.playerReporting && player.droppedAfter === null;
+
+/** Whether ReleaseAction has anything to offer for the player. */
+const mayRelease = (manage: Manage, player: Player) => reportsFor(manage, player) || !isSanctioned(manage);
+
 function ReleaseAction(props: { state: ManageState; manage: Manage; player: Player }) {
-  const reporting = () => props.manage.settings.playerReporting && props.player.droppedAfter === null;
+  const reporting = () => reportsFor(props.manage, props.player);
   const name = () => playerName(props.player);
   return (
-    <Show when={reporting() || !isSanctioned(props.manage)}>
+    <Show when={mayRelease(props.manage, props.player)}>
       <ConfirmAction
         label={reporting() ? 'Reset reporting' : 'Unlink account'}
         class='tm-menu-item'
@@ -187,23 +201,35 @@ function ReleaseAction(props: { state: ManageState; manage: Manage; player: Play
  * after it they are dropped). A drop or disqualification can be taken back
  * only until the next round is paired (see undropPlayer in
  * shared/tournament/commands.ts). Staff can also free the player for another
- * device or account (see ReleaseAction).
+ * device or account (see ReleaseAction), which alone stays once the event has
+ * ended: the roster stands with its results until the event is reopened.
  */
 function PlayerActions(props: { state: ManageState; manage: Manage; player: Player }) {
   const send = (type: 'dropPlayer' | 'disqualifyPlayer' | 'undropPlayer' | 'removePlayer') =>
     void props.state.send({ type, id: props.player.id });
   const pod = () => podOf(props.manage.tournament, props.player.id);
   const dropped = () => props.player.droppedAfter;
+  const ended = () => props.manage.settings.finished;
+  const [editing, setEditing] = createSignal(false);
   return (
     <td class='tm-extra-col'>
+      <Show when={editing()}>
+        <EditPlayerDialog
+          state={props.state}
+          player={props.player}
+          sanctioned={isSanctioned(props.manage)}
+          open
+          onClose={() => setEditing(false)}
+        />
+      </Show>
       <span class='tm-row-actions'>
-        <Show when={dropped() !== null && canUndrop(props.manage.tournament, props.player)}>
+        <Show when={!ended() && dropped() !== null && canUndrop(props.manage.tournament, props.player)}>
           <button type='button' class='btn btn-ghost tm-small' onClick={() => send('undropPlayer')}>
             Reinstate
           </button>
         </Show>
         {/* Once paired, a player is dropped rather than removed, so their opponents keep the match. */}
-        <Show when={!hasPlayed(pod(), props.player.id)}>
+        <Show when={!ended() && !hasPlayed(pod(), props.player.id)}>
           <ConfirmAction
             label='Remove'
             question={`Remove ${playerName(props.player)}?`}
@@ -211,26 +237,35 @@ function PlayerActions(props: { state: ManageState; manage: Manage; player: Play
             onConfirm={() => send('removePlayer')}
           />
         </Show>
-        <OptionsMenu name={playerName(props.player)}>
-          <FixedTableField state={props.state} player={props.player} />
-          <Show when={dropped() === null}>
-            <ConfirmAction
-              label='Drop'
-              question={`Drop ${playerName(props.player)}?`}
-              class='tm-menu-item'
-              danger
-              onConfirm={() => send('dropPlayer')}
-            />
-            <ConfirmAction
-              label='Disqualify'
-              question={`Disqualify ${playerName(props.player)}?`}
-              class='tm-menu-item'
-              danger
-              onConfirm={() => send('disqualifyPlayer')}
-            />
-          </Show>
-          <ReleaseAction state={props.state} manage={props.manage} player={props.player} />
-        </OptionsMenu>
+        <Show when={!ended() || mayRelease(props.manage, props.player)}>
+          <OptionsMenu name={playerName(props.player)}>
+            <Show when={!ended()}>
+              <FixedTableField state={props.state} player={props.player} />
+            </Show>
+            <Show when={!ended()}>
+              <button type='button' class='tm-menu-item' data-closes-menu onClick={() => setEditing(true)}>
+                Edit
+              </button>
+            </Show>
+            <Show when={!ended() && dropped() === null}>
+              <ConfirmAction
+                label='Drop'
+                question={`Drop ${playerName(props.player)}?`}
+                class='tm-menu-item'
+                danger
+                onConfirm={() => send('dropPlayer')}
+              />
+              <ConfirmAction
+                label='Disqualify'
+                question={`Disqualify ${playerName(props.player)}?`}
+                class='tm-menu-item'
+                danger
+                onConfirm={() => send('disqualifyPlayer')}
+              />
+            </Show>
+            <ReleaseAction state={props.state} manage={props.manage} player={props.player} />
+          </OptionsMenu>
+        </Show>
       </span>
     </td>
   );
@@ -261,7 +296,7 @@ function PlayerRow(props: RowProps) {
   const sanctioned = () => isSanctioned(props.manage);
   const sub = () =>
     [
-      sanctioned() ? props.player.id : '',
+      sanctioned() ? (isGeneratedId(props.player.id) ? 'Provisional ID' : props.player.id) : '',
       sanctioned() ? DIVISION_LABELS[divisionFor(props.player.birthDate, props.season)] : '',
       props.player.droppedAfter !== null
         ? `${props.player.disqualified ? 'disqualified' : 'dropped'} after round ${props.player.droppedAfter}`
@@ -328,7 +363,7 @@ export function PlayersPanel(props: { state: ManageState; manage: Manage }) {
   };
   return (
     <div class='tm-panel'>
-      <Show when={swiss()}>
+      <Show when={swiss() && !props.manage.settings.finished}>
         <AddPlayer state={props.state} code={props.manage.code} sanctioned={sanctioned()} late={started()} />
       </Show>
       <section class='tm-box'>

@@ -487,7 +487,10 @@ test('a Swiss event pairs, reports, seats a late arrival and hides private field
   await addPlayers(code, owner, 5);
   const paired = await send(code, owner, { type: 'pairRound', pod: 'masters' });
   assert.equal(paired.status, 200);
-  await send(code, owner, { type: 'addPlayer', player: { firstName: 'Late', lastName: 'Arrival', id: '999' } });
+  await send(code, owner, {
+    type: 'addPlayer',
+    player: { firstName: 'Late', lastName: 'Arrival', id: '999', birthDate: '02/27/1990' }
+  });
   const repaired = await send(code, owner, { type: 'repairRound', pod: 'masters', keepReported: true });
   assert.equal(repaired.status, 200);
   const { matches }: { matches: Match[] } = repaired.json.tournament.pods[0].rounds[0];
@@ -539,7 +542,12 @@ test('staff join by invite link, and a new link retires the old one', async () =
   });
   assert.deepEqual(joined.json, { role: 'staff' });
   assert.equal(
-    (await send(code, helper, { type: 'addPlayer', player: { firstName: 'A', lastName: 'B' } })).status,
+    (
+      await send(code, helper, {
+        type: 'addPlayer',
+        player: { firstName: 'A', lastName: 'B', id: '950', birthDate: '02/27/1990' }
+      })
+    ).status,
     200
   );
   const notOwner = await hit(staff.onRequestPost as Handler, '/staff', at(code), {
@@ -603,7 +611,7 @@ test('a TOM event holds site results as pending until the synced file settles th
   assert.match(decided.json.error, /TOM already has a result/);
   assert.equal(reported.json.pending.length, 1);
   assert.equal(reported.json.tournament.pods[0].rounds[1].matches[1].outcome, 'pending', 'TOM’s copy is untouched');
-  assert.match((await send(code, owner, { type: 'pairRound', pod: 'mixed' })).json.error, /TOM runs this event/);
+  assert.match((await send(code, owner, { type: 'pairRound', pod: 'mixed' })).json.error, /make this change in TOM/);
 
   const publicView = await view(code);
   assert.equal(publicView.pending.length, 1);
@@ -753,6 +761,54 @@ function pairNext(code: string, cookie: string, base: string) {
     body: { pod: 'mixed', base, localTime: '10/10/2026 13:00:00' }
   });
 }
+
+test('an ended TOM event takes neither a next round nor a new copy of its file, even one that loses the race to the end', async () => {
+  const owner = await signIn('Organizer', 'organizer');
+  const tdf = parseTdf(readFileSync(new URL('../fixtures/tdf/challenge-midevent.tdf', import.meta.url), 'utf8'));
+  const code = await newTom(owner, tdf);
+  const base = await revisionNow(code, owner);
+  const { matches } = tdf.pods[0]!.rounds[1]!;
+  const decided = {
+    ...tdf,
+    pods: [
+      {
+        ...tdf.pods[0]!,
+        rounds: [
+          tdf.pods[0]!.rounds[0]!,
+          {
+            ...tdf.pods[0]!.rounds[1]!,
+            matches: matches.map(m => (m.p2 && m.outcome === 'pending' ? { ...m, outcome: 'p1' as const } : m))
+          }
+        ]
+      }
+    ]
+  };
+  const syncOf = () =>
+    hit(sync.onRequestPut as Handler, '/sync', at(code), {
+      method: 'PUT',
+      cookie: owner,
+      body: { tournament: decided, base }
+    });
+  const db = env.TOURNAMENT_DB as ReturnType<typeof sqliteD1>;
+  // Another staff member ends the event between this sync's read and its write.
+  env.TOURNAMENT_DB = racing(db, 'UPDATE tournaments SET', () =>
+    db.raw
+      .prepare(
+        "UPDATE tournaments SET settings = json_set(settings, '$.finished', json('true')), version = version + 1 WHERE code = ?"
+      )
+      .run(code)
+  );
+  const raced = await syncOf();
+  env.TOURNAMENT_DB = db;
+  assert.deepEqual([raced.status, raced.json.error], [400, 'The event has ended; reopen it to make changes']);
+  assert.equal(await revisionNow(code, owner), base, 'the file’s copy did not land');
+  const later = await syncOf();
+  assert.deepEqual([later.status, later.json.error], [400, 'The event has ended; reopen it to make changes']);
+  const paired = await pairNext(code, owner, base);
+  assert.deepEqual([paired.status, paired.json.error], [400, 'The event has ended; reopen it to make changes']);
+  await settle(code, owner, { finished: false });
+  assert.equal((await syncOf()).status, 200, 'reopening takes the file again');
+});
 
 test('a TOM event’s next round is paired over the site’s results and lands only with the file', async () => {
   const owner = await signIn('Organizer', 'organizer');
@@ -1018,7 +1074,12 @@ test('a failed publish does not fail the change', async () => {
     const owner = await signIn('Organizer', 'organizer');
     const code = await newSwiss(owner);
     assert.equal(
-      (await send(code, owner, { type: 'addPlayer', player: { firstName: 'A', lastName: 'B' } })).status,
+      (
+        await send(code, owner, {
+          type: 'addPlayer',
+          player: { firstName: 'A', lastName: 'B', id: '950', birthDate: '02/27/1990' }
+        })
+      ).status,
       200
     );
     assert.equal(
@@ -1316,6 +1377,100 @@ test('players cannot report once the event has ended', async () => {
   const refused = await phone.report('win');
   assert.deepEqual([refused.status, refused.json.error], [403, 'This event is over']);
   assert.equal((await playerSays(code, { popId: match.p1 })).status, 200, 'a player can still find their table');
+});
+
+test('an ended event takes no command until it is reopened, and drops its reports', async () => {
+  const owner = await signIn('Organizer', 'organizer');
+  const code = await newSwiss(owner);
+  await addPlayers(code, owner, 4);
+  const paired = await send(code, owner, { type: 'pairRound', pod: 'masters' });
+  const [first, second] = paired.json.tournament.pods[0].rounds[0].matches as Match[];
+  const result = (match: Match, outcome: string) => ({
+    type: 'reportResult',
+    pod: 'masters',
+    round: 1,
+    table: match.table,
+    p1: match.p1,
+    p2: match.p2,
+    outcome
+  });
+  await send(code, owner, result(first!, 'p1'));
+  await settle(code, owner, { playerReporting: true });
+  await (await phoneOf(code, second!.p1)).report('win');
+  const ended = await settle(code, owner, { finished: true });
+  assert.deepEqual(ended.json.reports, [], 'ending drops reports no result will settle');
+  const before = await loadTournament(env.TOURNAMENT_DB!, code);
+  const refused = [
+    result(first!, 'pending'),
+    result(second!, 'p2'),
+    { type: 'deleteRound', pod: 'masters' },
+    { type: 'addPlayer', player: { firstName: 'Late', lastName: 'Comer', id: '999', birthDate: '02/27/1990' } },
+    { type: 'dropPlayer', id: first!.p1 },
+    { type: 'startClock', pod: 'masters' }
+  ];
+  for (const command of refused) {
+    const sent = await send(code, owner, command);
+    assert.deepEqual(
+      [sent.status, sent.json.error],
+      [400, 'The event has ended; reopen it to make changes'],
+      command.type
+    );
+  }
+  const after = await loadTournament(env.TOURNAMENT_DB!, code);
+  assert.deepEqual([after?.version, after?.tournament], [before?.version, before?.tournament]);
+  const renamed = await send(code, owner, { type: 'updateInfo', info: { name: 'Friday Cup', roundTime: 45 } });
+  assert.equal(renamed.json.tournament.info.name, 'Friday Cup', 'its name and round lengths still change');
+  const moved = await send(code, owner, { type: 'updateInfo', info: { name: 'Friday Cup', startDate: '01/01/2030' } });
+  assert.deepEqual([moved.status, moved.json.error], [400, 'The event has ended; reopen it to make changes']);
+  await settle(code, owner, { finished: false });
+  const cleared = await send(code, owner, result(first!, 'pending'));
+  assert.equal(cleared.status, 200, 'reopening is the way back');
+  assert.equal(cleared.json.tournament.pods[0].rounds[0].matches[0].outcome, 'pending');
+});
+
+test('a sanctioned event admits a player only with a Player ID and birth year, and a correction keeps their year and division', async () => {
+  const owner = await signIn('Organizer', 'organizer');
+  const code = await newSwiss(owner);
+  const add = (birthDate?: string) =>
+    send(code, owner, {
+      type: 'addPlayer',
+      player: { firstName: 'Sam', lastName: 'Lee', id: '880', ...(birthDate === undefined ? {} : { birthDate }) }
+    });
+  for (const birthDate of [undefined, '', 'soon', '02/27/2999']) {
+    const refused = await add(birthDate);
+    assert.equal(refused.status, 400, String(birthDate));
+  }
+  assert.equal((await add()).json.error, 'A sanctioned event needs each player’s birth year');
+  const unidentified = await send(code, owner, {
+    type: 'addPlayer',
+    player: { firstName: 'Sam', lastName: 'Lee', birthDate: '02/27/1990' }
+  });
+  assert.deepEqual([unidentified.status, unidentified.json.error], [400, 'All players need Player IDs.']);
+  await addPlayers(code, owner, 4);
+  const edit = (birthDate: string, lastName = '0') =>
+    send(code, owner, { type: 'editPlayer', id: '900', firstName: 'Player', lastName, birthDate });
+  assert.equal((await edit('02/27/2016')).status, 200, 'before round 1 any division');
+  assert.equal((await edit('02/27/1990')).status, 200);
+  await send(code, owner, { type: 'pairRound', pod: 'masters' });
+  const moved = await edit('02/27/2016');
+  assert.deepEqual(
+    [moved.status, moved.json.error],
+    [400, 'Play has started, so their birth year cannot change their division']
+  );
+  const cleared = await edit('');
+  assert.deepEqual([cleared.status, cleared.json.error], [400, 'A sanctioned event needs each player’s birth year']);
+  const corrected = await edit('02/27/1985', 'Zero');
+  assert.equal(corrected.status, 200, 'a year in the same division, and a name, are corrected');
+  const player = corrected.json.tournament.players.find((p: { id: string }) => p.id === '900');
+  assert.deepEqual([player.lastName, player.birthDate], ['Zero', '02/27/1985']);
+});
+
+test('an unsanctioned event admits a player by name alone', async () => {
+  const owner = await signIn('Organizer', 'organizer');
+  const code = await newSwiss(owner);
+  await settle(code, owner, { sanctioned: false });
+  const added = await send(code, owner, { type: 'addPlayer', player: { firstName: 'Casual', lastName: 'Player' } });
+  assert.equal(added.status, 200);
 });
 
 test('a sanctioned event cannot start with rounds under 30 minutes', async () => {
@@ -1616,7 +1771,21 @@ test('at a sanctioned event a player says who they are with the birth year the e
 
   const own = await playerSays(code, { popId: '900', device: 'phone-900' });
   assert.deepEqual([own.status, own.json.reporter], [200, true], 'the thief’s tries claimed no seat');
-  await send(code, owner, { type: 'editPlayer', id: '901', firstName: 'Player', lastName: '1', birthDate: '' });
+  // A player with no year on record, as one from before the site required it; staff can no longer clear one.
+  const cleared = await send(code, owner, {
+    type: 'editPlayer',
+    id: '901',
+    firstName: 'Player',
+    lastName: '1',
+    birthDate: ''
+  });
+  assert.deepEqual([cleared.status, cleared.json.error], [400, 'A sanctioned event needs each player’s birth year']);
+  const db = env.TOURNAMENT_DB as ReturnType<typeof sqliteD1>;
+  const row = await loadTournament(db, code);
+  const players = row!.tournament.players.map(p => (p.id === '901' ? { ...p, birthDate: '' } : p));
+  db.raw
+    .prepare('UPDATE tournaments SET state = ? WHERE code = ?')
+    .run(JSON.stringify({ ...row!.tournament, players }), code);
   for (const birthYear of ['', '1990', '2001']) {
     assert.equal((await playerSays(code, { popId: '901', birthYear })).status, 404, 'no year on record fits none');
   }
@@ -1847,7 +2016,12 @@ test('a join that read the old invite link cannot land after the organizer repla
   env.TOURNAMENT_DB = db;
   assert.equal(joined.status, 403);
   assert.equal(
-    (await send(code, helper, { type: 'addPlayer', player: { firstName: 'A', lastName: 'B' } })).status,
+    (
+      await send(code, helper, {
+        type: 'addPlayer',
+        player: { firstName: 'A', lastName: 'B', id: '950', birthDate: '02/27/1990' }
+      })
+    ).status,
     403
   );
 });
@@ -2104,7 +2278,12 @@ test('the answer to a change does not wait for its publish where the runtime kee
     request: request(`/api/tournaments/${code}/commands`, {
       method: 'POST',
       cookie: owner,
-      body: { command: { type: 'addPlayer', player: { firstName: 'Ash', lastName: 'Ketchum' } } }
+      body: {
+        command: {
+          type: 'addPlayer',
+          player: { firstName: 'Ash', lastName: 'Ketchum', id: '950', birthDate: '02/27/1990' }
+        }
+      }
     }),
     env,
     params: at(code),
@@ -2142,7 +2321,10 @@ test('a staff action waits on the database twice, and an idle console poll once'
     const before = trips();
     assert.equal((await console(cookie, `?since=${version}`)).status, 204);
     assert.equal(trips() - before, 1, 'the poll is one read');
-    const added = await send(code, cookie, { type: 'addPlayer', player: { firstName: 'Late', lastName: cookie } });
+    const added = await send(code, cookie, {
+      type: 'addPlayer',
+      player: { firstName: 'Late', lastName: cookie, id: cookie === owner ? '960' : '961', birthDate: '02/27/1990' }
+    });
     assert.equal(added.status, 200);
     assert.equal(trips() - before, 3, 'the action is one read of the event and who asks, and one write');
   }
@@ -3100,7 +3282,11 @@ function raceWrites(times: number) {
 test('a change beaten to the row by other writes lands on what they left, and gives up only after five tries', async () => {
   const owner = await signIn('Organizer', 'organizer');
   const code = await newSwiss(owner);
-  const add = (lastName: string) => send(code, owner, { type: 'addPlayer', player: { firstName: 'Ash', lastName } });
+  const add = (lastName: string) =>
+    send(code, owner, {
+      type: 'addPlayer',
+      player: { firstName: 'Ash', lastName, id: String(lastName.length), birthDate: '02/27/1990' }
+    });
   raceWrites(4);
   const landed = await add('Ketchum');
   assert.equal(landed.status, 200);
