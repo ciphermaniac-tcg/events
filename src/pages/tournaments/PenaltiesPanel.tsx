@@ -464,12 +464,15 @@ export function PenaltiesPanel(props: { manage: Manage }) {
     setDraft(fresh(latest(), me()));
     setError(null);
   };
-  async function write(request: () => Promise<PenaltyNoteRecord>) {
+  /** Sends a write and takes its answer; the form starts again only if it still holds what `done` says was written. */
+  async function write(request: () => Promise<PenaltyNoteRecord>, done: (now: Draft) => boolean) {
     setSaving(true);
     setError(null);
     try {
       notes.take(await request());
-      reset();
+      if (done(draft())) {
+        reset();
+      }
     } catch (err) {
       setError(errorText(err));
     } finally {
@@ -477,8 +480,9 @@ export function PenaltiesPanel(props: { manage: Manage }) {
     }
   }
   function save() {
-    const { playerId, round: when, judgeId, judgeName, penalty, notes: text, replaces } = draft();
-    const problem = draftProblem(draft());
+    const sent = draft();
+    const { playerId, round: when, judgeId, judgeName, penalty, notes: text, replaces } = sent;
+    const problem = draftProblem(sent);
     if (problem || !penalty) {
       setError(problem);
       return;
@@ -486,7 +490,10 @@ export function PenaltiesPanel(props: { manage: Manage }) {
     const judge = judgeId === SOMEONE_ELSE ? { judgeName } : { judgeId };
     const note = { playerId, round: when, penalty, notes: text, replaces, ...judge };
     const { code } = props.manage;
-    void write(() => recordPenaltyNote(code, note));
+    void write(
+      () => recordPenaltyNote(code, note),
+      now => now === sent
+    );
   }
   return (
     <div class='tm-panel'>
@@ -542,7 +549,10 @@ export function PenaltiesPanel(props: { manage: Manage }) {
             }}
             onRemove={id => {
               const { code } = props.manage;
-              void write(() => removePenaltyNote(code, id));
+              void write(
+                () => removePenaltyNote(code, id),
+                now => now.replaces === id
+              );
             }}
           />
         </LogState>

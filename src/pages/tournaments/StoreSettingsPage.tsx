@@ -85,8 +85,9 @@ function NightsSection(props: { store: PublicStore; onSaved: (store: PublicStore
     const asked = { nights: nights(), exceptions: exceptions() };
     void save.run(async () => {
       const result = await saveLeagueNights(store.id, asked.nights, asked.exceptions);
-      setNights(byWeek(result.nights));
-      setExceptions(result.exceptions);
+      // Edits made while it was on its way stay, to save next.
+      setNights(now => (now === asked.nights ? byWeek(result.nights) : now));
+      setExceptions(now => (now === asked.exceptions ? result.exceptions : now));
       onSaved({ ...store, nights: result.nights, exceptions: result.exceptions });
     });
   }

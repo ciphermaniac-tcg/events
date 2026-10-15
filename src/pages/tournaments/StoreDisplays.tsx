@@ -215,15 +215,23 @@ export function StoreDisplays(props: { storeId: string }) {
   const presets = () => latestValue(read)?.presets ?? [];
   const [draft, setDraft] = createSignal<Draft>(blank());
   const save = createSave();
+  // Which opening of the editor the draft belongs to: a new preset has no ID to tell one from the next.
+  let opening = 0;
   const pick = (id: string) => {
     const preset = presets().find(item => item.id === id);
+    opening += 1;
     setDraft(preset ? draftOf(preset) : blank());
     save.clear();
   };
   const openedWith = () => presets().find(item => item.id === draft().id);
   const dirty = () => JSON.stringify(draft()) !== JSON.stringify(openedWith() ? draftOf(openedWith()!) : blank());
+  /**
+   * Saves `sent` and opens the preset as saved. Edits made while it was on its way stay, now of the
+   * saved preset, and another preset picked or started meanwhile stays as it is.
+   */
   async function send(sent: Draft) {
     const { id, name, options } = sent;
+    const from = opening;
     const where = path(props.storeId);
     const answer = await save.run(() =>
       call<{ preset: DisplayPreset }>(where, json('PUT', { ...(id ? { id } : {}), name: name.trim(), options }))
@@ -235,18 +243,24 @@ export function StoreDisplays(props: { storeId: string }) {
           a.name.localeCompare(b.name)
         )
       }));
-      setDraft(draftOf(preset));
+      if (opening === from) {
+        setDraft(now => (now === sent ? draftOf(preset) : { ...now, id: preset.id }));
+      }
     }
   }
   function submit(event: Event) {
     event.preventDefault();
     void send(draft());
   }
+  /** Deletes a preset; the editor gives way to a new one if it had that preset open. */
   async function remove(id: string) {
     const where = `${path(props.storeId)}?preset=${encodeURIComponent(id)}`;
     if (await save.run(() => call<object>(where, { method: 'DELETE' }))) {
       mutate(prev => ({ presets: (prev?.presets ?? []).filter(item => item.id !== id) }));
-      setDraft(blank());
+      if (draft().id === id) {
+        opening += 1;
+        setDraft(blank());
+      }
       save.clear();
     }
   }

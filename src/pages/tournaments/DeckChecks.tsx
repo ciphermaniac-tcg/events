@@ -23,6 +23,7 @@ import {
   removeDeckCheck
 } from '../../lib/tournament/api';
 import { latestValue } from '../../lib/resource';
+import { Segmented } from '../../components/Segmented';
 import { ConfirmAction } from './ConfirmAction';
 
 /** The event's deck check record, read once for the tab and replaced by each write's answer. */
@@ -37,6 +38,7 @@ export function createDeckChecks(code: () => string) {
         .filter(check => check.playerId === playerId)
         .sort((a, b) => b.round - a.round || b.recordedAt - a.recordedAt),
     checkers: () => latestValue(record)?.checkers ?? [],
+    loading: () => record.loading && !latestValue(record),
     failed: () => Boolean(record.error),
     retry: () => void refetch(),
     take: (next: DeckCheckRecord) => mutate(next)
@@ -59,7 +61,10 @@ function Result(props: { result: DeckCheckResult }) {
 export function LastCheck(props: { checks: DeckChecks; playerId: string | undefined }) {
   const last = () => (props.playerId ? props.checks.of(props.playerId)[0] : undefined);
   return (
-    <Show when={last()} fallback={<span class='muted-cell'>Not checked</span>}>
+    <Show
+      when={last()}
+      fallback={<span class='muted-cell'>{props.checks.loading() || props.checks.failed() ? '' : 'Not checked'}</span>}
+    >
       {check => (
         <span class='tm-nowrap'>
           R{check().round} <Result result={check().result} />
@@ -177,25 +182,6 @@ interface FormProps {
   onCancel: () => void;
 }
 
-function PassFail(props: { value: DeckCheckResult | null; onChange: (value: DeckCheckResult) => void }) {
-  return (
-    <div class='segmented' role='group' aria-label='Result'>
-      <For each={['pass', 'fail'] as const}>
-        {result => (
-          <button
-            type='button'
-            class={`tm-check-${result}${props.value === result ? ' active' : ''}`}
-            aria-pressed={props.value === result}
-            onClick={() => props.onChange(result)}
-          >
-            {RESULT_WORDS[result]}
-          </button>
-        )}
-      </For>
-    </div>
-  );
-}
-
 function CheckForm(props: FormProps) {
   function set(change: Partial<Draft>) {
     props.onChange({ ...props.draft, ...change });
@@ -247,7 +233,15 @@ function CheckForm(props: FormProps) {
       </Show>
       <div class='tm-check-field'>
         <span>Result</span>
-        <PassFail value={props.draft.result} onChange={result => set({ result })} />
+        <Segmented
+          options={(['pass', 'fail'] as const).map(value => ({
+            value,
+            label: <span class={`tm-check-${value}`}>{RESULT_WORDS[value]}</span>
+          }))}
+          selected={props.draft.result}
+          onSelect={result => set({ result })}
+          ariaLabel='Result'
+        />
       </div>
       <label class='tm-check-wide'>
         Notes
@@ -299,12 +293,15 @@ export function DeckCheckSide(props: SideProps) {
     setDraft(fresh(props.latestRound, props.me));
     setError(null);
   };
-  async function write(request: () => Promise<DeckCheckRecord>) {
+  /** Sends a write and takes its answer; the form starts again only if it still holds what `done` says was written. */
+  async function write(request: () => Promise<DeckCheckRecord>, done: (now: Draft) => boolean) {
     setSaving(true);
     setError(null);
     try {
       props.checks.take(await request());
-      reset();
+      if (done(draft())) {
+        reset();
+      }
     } catch (err) {
       setError(errorText(err));
     } finally {
@@ -313,11 +310,15 @@ export function DeckCheckSide(props: SideProps) {
   }
   function remove(id: string) {
     const code = props.checks.code();
-    void write(() => removeDeckCheck(code, id));
+    void write(
+      () => removeDeckCheck(code, id),
+      now => now.replaces === id
+    );
   }
   function save() {
-    const { round, checkerId, checkerName, result, notes, replaces } = draft();
-    const problem = draftProblem(draft());
+    const sent = draft();
+    const { round, checkerId, checkerName, result, notes, replaces } = sent;
+    const problem = draftProblem(sent);
     if (problem || !result) {
       setError(problem);
       return;
@@ -325,7 +326,10 @@ export function DeckCheckSide(props: SideProps) {
     const checker = checkerId === SOMEONE_ELSE ? { checkerName } : { checkerId };
     const check = { playerId: props.playerId, round, result, notes, replaces, ...checker };
     const code = props.checks.code();
-    void write(() => recordDeckCheck(code, check));
+    void write(
+      () => recordDeckCheck(code, check),
+      now => now === sent
+    );
   }
   return (
     <div class='tm-check-side'>
@@ -341,7 +345,10 @@ export function DeckCheckSide(props: SideProps) {
           </p>
         }
       >
-        <Show when={props.checks.of(props.playerId).length} fallback={<p class='muted'>No deck checks yet.</p>}>
+        <Show
+          when={props.checks.of(props.playerId).length}
+          fallback={<p class='muted'>{props.checks.loading() ? 'Loading deck checks…' : 'No deck checks yet.'}</p>}
+        >
           <ul class='tm-check-list'>
             <For each={props.checks.of(props.playerId)}>
               {check => (

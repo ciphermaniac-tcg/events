@@ -1609,6 +1609,34 @@ test('a store event picks its big screen preset on the Settings tab', async ({ p
   await expect(page.locator('section', { hasText: 'Big screen' }).getByText('Unsaved changes')).toHaveCount(0);
 });
 
+test('a big screen preset picked while another saves stays picked, unsaved', async ({ page }) => {
+  await tomConsole(page, () => ({ status: 200, json: tomManage() }), { following: false });
+  const presets = [
+    { id: 'wall', name: 'Wall TV', options: { scale: 1.5, layout: 'alphabetical', pageSeconds: 15 } },
+    { id: 'gym', name: 'Gym TV', options: { scale: 1, layout: 'auto', pageSeconds: 20 } }
+  ];
+  const answer = deferred<void>();
+  await page.route(`**/api/tournaments/${CODE}/display`, async route => {
+    if (route.request().method() !== 'PUT') {
+      return route.fulfill({ json: { presets, selected: null } });
+    }
+    await answer.promise;
+    const display = { ...presets[0], storeId: 'store-1' };
+    return route.fulfill({ json: { ...tomManage(), settings: { ...DEFAULT_SETTINGS, display } } });
+  });
+  await page.getByRole('tab', { name: 'Settings' }).click();
+  const box = page.locator('section', { hasText: 'Big screen' });
+  const select = page.getByLabel('Display preset');
+  await expect(select.locator('option', { hasText: 'Gym TV' })).toHaveCount(1);
+  await select.selectOption('wall');
+  await box.getByRole('button', { name: 'Save' }).click();
+  await select.selectOption('gym');
+  answer.resolve();
+  await expect(box.getByRole('button', { name: 'Save' })).toBeEnabled();
+  await expect(select).toHaveValue('gym');
+  await expect(box.getByText('Unsaved changes')).toBeVisible();
+});
+
 test('a refused big screen preset save keeps the pick unsaved to try again', async ({ page }) => {
   await tomConsole(page, () => ({ status: 200, json: tomManage() }), { following: false });
   const preset = { id: 'wall', name: 'Wall TV', options: { scale: 1.5, layout: 'alphabetical', pageSeconds: 15 } };

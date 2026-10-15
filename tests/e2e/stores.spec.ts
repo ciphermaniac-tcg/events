@@ -7,6 +7,7 @@
  */
 
 import { expect, type Page, test } from '@playwright/test';
+import { deferred } from '../__utils__/deferred';
 
 import type { AccountRole } from '../../shared/accounts/roles';
 import type { GivenRole, StoreRole } from '../../shared/accounts/stores';
@@ -132,6 +133,8 @@ interface Options {
   listings?: Listing[];
   /** Who is in the store; an Owner, Mary as a Manager, and Sam as Staff unless said otherwise. */
   members?: StoreMember[];
+  /** Settles when a save of the league nights is answered; at once unless said otherwise. */
+  nightsAnswered?: Promise<void>;
 }
 
 /** The functions as the pages call them, holding a store's state as they would, and every ask they get. */
@@ -203,6 +206,7 @@ async function mock(page: Page, options: Options = {}) {
     if (key === 'PUT /api/stores/store-1/nights') {
       const sent = body as Pick<PublicStore, 'nights' | 'exceptions'>;
       store = { ...store, ...sent };
+      await options.nightsAnswered;
       return route.fulfill({ json: sent });
     }
     if (key === 'GET /api/stores/store-1/members') {
@@ -451,6 +455,26 @@ test('store settings: league nights and the dates that differ save together', as
     { date: '2099-10-11', nightId: 'sun', time: null, note: 'League Cup' },
     { date: '2099-11-25', nightId: null, time: '17:00', note: 'Holiday' }
   ]);
+});
+
+test('store settings: league nights edited while a save is on its way keep the edit to save next', async ({ page }) => {
+  const answer = deferred<void>();
+  const asks = await mock(page, { user: MANAGER, nightsAnswered: answer.promise });
+  await page.goto('/stores/store-1/settings');
+  const start = page.getByLabel('League night 2 start');
+  await start.fill('18:30');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByRole('button', { name: 'Save' })).toBeDisabled();
+  await start.fill('19:00');
+  answer.resolve();
+  await expect.poll(() => sentTo(asks, 'PUT', '/api/stores/store-1/nights').length).toBe(1);
+  await expect(page.getByRole('button', { name: 'Save' })).toBeEnabled();
+  await expect(start).toHaveValue('19:00');
+  await expect(page.getByRole('status')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByRole('status')).toHaveText('Saved');
+  const sent = sentTo(asks, 'PUT', '/api/stores/store-1/nights') as Pick<PublicStore, 'nights'>[];
+  expect(sent.map(ask => ask.nights.find(night => night.id === 'wed')?.time)).toEqual(['18:30', '19:00']);
 });
 
 test('store settings: removing a night a date named turns the date to every night that day', async ({ page }) => {
@@ -849,4 +873,72 @@ test('store settings: a display preset is made from the room, nudged, saved and 
   await expect(page.getByLabel('Name')).toHaveValue('');
   await expect(page.getByRole('status')).toHaveCount(0);
   expect(sent.find(ask => ask.method === 'DELETE')?.query).toBe('?preset=wall');
+});
+
+test('store settings: a new preset edited while its save is on its way keeps the edit, now of the saved preset', async ({
+  page
+}) => {
+  await mock(page, { user: MANAGER });
+  const answer = deferred<void>();
+  const puts: unknown[] = [];
+  await page.route('**/api/stores/store-1/displays*', async route => {
+    const request = route.request();
+    if (request.method() !== 'PUT') {
+      return route.fulfill({ json: { presets: [] } });
+    }
+    const body = request.postDataJSON() as Record<string, unknown>;
+    puts.push(body);
+    await answer.promise;
+    return route.fulfill({ json: { preset: { id: 'wall', ...body } } });
+  });
+  await page.goto('/stores/store-1/settings?section=displays');
+  const name = page.getByLabel('Name');
+  await name.fill('Combat Power');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByRole('button', { name: 'Save' })).toBeDisabled();
+  await name.fill('Combat Power Wall');
+  answer.resolve();
+  await expect(page.getByRole('radio', { name: 'Combat Power' })).toHaveAttribute('aria-checked', 'true');
+  await expect(name).toHaveValue('Combat Power Wall');
+  await expect(page.getByRole('status')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByRole('status')).toHaveText('Saved');
+  expect(puts).toMatchObject([{ name: 'Combat Power' }, { id: 'wall', name: 'Combat Power Wall' }]);
+});
+
+test('store settings: a new preset started while another saves stays new, and does not overwrite it', async ({
+  page
+}) => {
+  await mock(page, { user: MANAGER });
+  const answer = deferred<void>();
+  const puts: Record<string, unknown>[] = [];
+  await page.route('**/api/stores/store-1/displays*', async route => {
+    const request = route.request();
+    if (request.method() !== 'PUT') {
+      return route.fulfill({ json: { presets: [] } });
+    }
+    const body = request.postDataJSON() as Record<string, unknown>;
+    puts.push(body);
+    if (puts.length === 1) {
+      await answer.promise;
+    }
+    return route.fulfill({ json: { preset: { id: body.id ?? `preset-${puts.length}`, ...body } } });
+  });
+  await page.goto('/stores/store-1/settings?section=displays');
+  const name = page.getByLabel('Name');
+  await name.fill('First preset');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByRole('button', { name: 'Save' })).toBeDisabled();
+  await page.getByRole('button', { name: 'New preset' }).click();
+  await name.fill('Second preset');
+  answer.resolve();
+  await expect(page.getByRole('radio', { name: 'First preset' })).toHaveAttribute('aria-checked', 'false');
+  await expect(name).toHaveValue('Second preset');
+  await expect(page.getByRole('button', { name: 'New preset' })).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByRole('radio', { name: 'Second preset' })).toHaveAttribute('aria-checked', 'true');
+  await expect(page.getByRole('radio', { name: 'First preset' })).toHaveCount(1);
+  expect(puts).toHaveLength(2);
+  expect(puts[1]).not.toHaveProperty('id');
+  expect(puts[1]).toMatchObject({ name: 'Second preset' });
 });

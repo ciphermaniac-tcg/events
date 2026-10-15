@@ -7,6 +7,7 @@
  */
 
 import { expect, type Page, type Route, test } from '@playwright/test';
+import { deferred } from '../__utils__/deferred';
 
 import { applyCommand, type Command } from '../../shared/tournament/commands';
 import { emptyTournament } from '../../shared/tournament/create';
@@ -101,8 +102,16 @@ function meRoute(route: Route) {
   return route.fulfill({ json: { user: account, providers: ['dev'] } });
 }
 
-/** The console's API, with a penalty note record kept as the functions keep it; every write is recorded. */
-async function mockConsole(page: Page, tournament: Tournament, decklists: 'off' | 'closed' = 'off') {
+/**
+ * The console's API, with a penalty note record kept as the functions keep it; every write is recorded,
+ * and answered once `held` settles.
+ */
+async function mockConsole(
+  page: Page,
+  tournament: Tournament,
+  decklists: 'off' | 'closed' = 'off',
+  held: Promise<void> = Promise.resolve()
+) {
   const entries: PenaltyNoteEntry[] = [];
   const writes: { method: string; body: Body | null; id: string | null }[] = [];
   const nameOf = (id: string) => {
@@ -111,7 +120,7 @@ async function mockConsole(page: Page, tournament: Tournament, decklists: 'off' 
   };
   const append = (entry: Omit<PenaltyNoteEntry, 'id' | 'recordedBy' | 'recordedAt'>) =>
     entries.push({ ...entry, id: `n${entries.length + 1}`, recordedBy: 'Organizer', recordedAt: Date.now() });
-  function notesRoute(route: Route) {
+  async function notesRoute(route: Route) {
     const request = route.request();
     if (request.method() === 'POST') {
       const body = request.postDataJSON() as Body;
@@ -125,6 +134,9 @@ async function mockConsole(page: Page, tournament: Tournament, decklists: 'off' 
       if (target) {
         append({ ...target, replaces: target.id, removed: true });
       }
+    }
+    if (request.method() !== 'GET') {
+      await held;
     }
     return route.fulfill({ json: { entries, judges: JUDGES } });
   }
@@ -198,6 +210,44 @@ test('a penalty note is recorded, edited and removed, and changes nothing else',
   await expect(page.getByText('No penalty notes yet.')).toBeVisible();
   expect(writes[2]).toMatchObject({ method: 'DELETE', id: 'n2' });
   expect(writes.every(write => write.method !== 'PUT')).toBe(true);
+});
+
+test('a note saved while the next is typed keeps the next, as does removing a note it does not edit', async ({
+  page
+}) => {
+  const t = runCommands(emptyTournament({ name: 'Friday League' }), ...adds, { type: 'pairRound', pod: 'masters' });
+  const ben = t.players.find(player => player.firstName === 'Ben')?.id ?? '';
+  const answer = deferred<void>();
+  await mockConsole(page, t, 'off', answer.promise);
+  const form = page.locator('.tm-penalty-form');
+  const log = page.locator('.tm-penalty-log');
+  await form.getByLabel('Player').selectOption({ label: 'Ada Test' });
+  await form.getByLabel('Penalty').selectOption({ label: 'Game Loss' });
+  await form.getByRole('button', { name: 'Save note' }).click();
+  await expect(form.getByRole('button', { name: 'Save note' })).toBeDisabled();
+  await form.getByLabel('Player').selectOption({ label: 'Ben Test' });
+  await form.getByLabel('Notes').fill('Slow play, second time.');
+  answer.resolve();
+  await expect(log.locator('tbody tr')).toHaveCount(1);
+  await expect(log).toContainText('Ada Test');
+  await expect(form.getByLabel('Player')).toHaveValue(ben);
+  await expect(form.getByLabel('Notes')).toHaveValue('Slow play, second time.');
+
+  await log.getByRole('button', { name: 'Remove' }).click();
+  await log.getByRole('group', { name: 'Remove this penalty note?' }).getByRole('button', { name: 'Remove' }).click();
+  await expect(page.getByText('No penalty notes yet.')).toBeVisible();
+  await expect(form.getByLabel('Player')).toHaveValue(ben);
+  await expect(form.getByLabel('Notes')).toHaveValue('Slow play, second time.');
+
+  await form.getByLabel('Penalty').selectOption({ label: 'Caution' });
+  await form.getByRole('button', { name: 'Save note' }).click();
+  await expect(form.getByLabel('Player')).toHaveValue('');
+  await log.getByRole('button', { name: 'Edit' }).click();
+  await expect(form.getByLabel('Player')).toHaveValue(ben);
+  await log.getByRole('button', { name: 'Remove' }).click();
+  await log.getByRole('group', { name: 'Remove this penalty note?' }).getByRole('button', { name: 'Remove' }).click();
+  await expect(page.getByText('Record a penalty')).toBeVisible();
+  await expect(form.getByLabel('Player')).toHaveValue('');
 });
 
 test('deck checks read in among the notes when the event takes decklists', async ({ page }) => {

@@ -6,6 +6,7 @@
  */
 
 import { expect, type Page, test } from '@playwright/test';
+import { deferred } from '../__utils__/deferred';
 
 import { applyCommand, type Command } from '../../shared/tournament/commands';
 import { emptyTournament } from '../../shared/tournament/create';
@@ -59,8 +60,11 @@ const CHECKERS = [
 
 type Body = Record<string, unknown>;
 
-/** The console's API, with a deck check record kept as the functions keep it; every write is recorded. */
-async function mockConsole(page: Page, tournament: Tournament) {
+/**
+ * The console's API, with a deck check record kept as the functions keep it; every write is recorded,
+ * and answered once `held` settles.
+ */
+async function mockConsole(page: Page, tournament: Tournament, held: Promise<void> = Promise.resolve()) {
   const entries: DeckCheckEntry[] = [];
   const writes: { method: string; body: Body | null; id: string | null }[] = [];
   const manage = {
@@ -80,7 +84,7 @@ async function mockConsole(page: Page, tournament: Tournament) {
   const append = (entry: Omit<DeckCheckEntry, 'id' | 'recordedBy' | 'recordedAt'>) =>
     entries.push({ ...entry, id: `e${entries.length + 1}`, recordedBy: 'Organizer', recordedAt: Date.now() });
   const record = () => ({ json: { entries, checkers: CHECKERS } });
-  await page.route('**/api/**', route => {
+  await page.route('**/api/**', async route => {
     const request = route.request();
     const url = new URL(request.url());
     if (url.pathname === '/api/me') {
@@ -127,6 +131,9 @@ async function mockConsole(page: Page, tournament: Tournament) {
         append({ ...target, replaces: target.id, removed: true });
       }
     }
+    if (request.method() !== 'GET') {
+      await held;
+    }
     return route.fulfill(record());
   });
   await page.goto(`/host/${CODE}`);
@@ -150,7 +157,12 @@ test('an opened list records, edits and removes its player’s deck checks once 
   await expect(side.getByLabel('Deck checker')).toHaveValue('u1');
   await side.getByRole('button', { name: 'Save check' }).click();
   await expect(side.getByRole('alert')).toHaveText('Choose Pass or Fail');
-  await side.getByRole('button', { name: 'Fail' }).click();
+  // Nothing chosen yet: the first result takes focus, and the arrow keys choose.
+  await expect(side.getByRole('radio', { name: 'Pass' })).toHaveAttribute('tabindex', '0');
+  await side.getByRole('radio', { name: 'Pass' }).focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(side.getByRole('radio', { name: 'Fail' })).toHaveAttribute('aria-checked', 'true');
+  await expect(side.getByRole('radio', { name: 'Fail' })).toBeFocused();
   await side.getByLabel('Notes').fill('Four Iono in the deck, three on the list.');
   await side.getByRole('button', { name: 'Save check' }).click();
   await expect(side.locator('.tm-check-list')).toContainText('R1 · Fail · checked by Organizer');
@@ -168,7 +180,7 @@ test('an opened list records, edits and removes its player’s deck checks once 
   await side.getByRole('button', { name: 'Edit' }).click();
   await side.getByLabel('Deck checker').selectOption({ label: 'Someone else' });
   await side.getByLabel('Name').fill('Head Judge Sam');
-  await side.getByRole('button', { name: 'Pass' }).click();
+  await side.getByRole('radio', { name: 'Pass' }).click();
   await side.getByRole('button', { name: 'Save edit' }).click();
   await expect(side.locator('.tm-check-list')).toContainText('R1 · Pass · checked by Head Judge Sam');
   expect(writes[1]?.body).toMatchObject({ replaces: 'e1', checkerName: 'Head Judge Sam', result: 'pass' });
@@ -179,5 +191,57 @@ test('an opened list records, edits and removes its player’s deck checks once 
   await side.getByRole('group', { name: 'Remove this deck check?' }).getByRole('button', { name: 'Remove' }).click();
   await expect(side).toContainText('No deck checks yet.');
   expect(writes[2]).toMatchObject({ method: 'DELETE', id: 'e2' });
+  await expect(row).toContainText('Not checked');
+});
+
+test('a check saved while the next is typed keeps the next, as does removing a check it does not edit', async ({
+  page
+}) => {
+  const answer = deferred<void>();
+  await mockConsole(page, pairedEvent(), answer.promise);
+  await page.getByRole('tab', { name: 'Decklists' }).click();
+  await page.locator('.tm-lists tbody tr').first().getByRole('button', { name: 'View' }).click();
+  const side = page.locator('.tm-check-side');
+  await side.getByRole('radio', { name: 'Fail' }).click();
+  await side.getByRole('button', { name: 'Save check' }).click();
+  await expect(side.getByRole('button', { name: 'Save check' })).toBeDisabled();
+  await side.getByRole('radio', { name: 'Pass' }).click();
+  await side.getByLabel('Notes').fill('Second look, all in order.');
+  answer.resolve();
+  await expect(side.locator('.tm-check-list')).toContainText('R1 · Fail · checked by Organizer');
+  await expect(side.getByLabel('Notes')).toHaveValue('Second look, all in order.');
+  await expect(side.getByRole('radio', { name: 'Pass' })).toHaveAttribute('aria-checked', 'true');
+
+  await side.getByRole('button', { name: 'Remove' }).click();
+  await side.getByRole('group', { name: 'Remove this deck check?' }).getByRole('button', { name: 'Remove' }).click();
+  await expect(side).toContainText('No deck checks yet.');
+  await expect(side.getByLabel('Notes')).toHaveValue('Second look, all in order.');
+});
+
+test('deck checks on their way read as loading, and ones that could not be read say so, not that none were made', async ({
+  page
+}) => {
+  await mockConsole(page, pairedEvent());
+  const answer = deferred<void>();
+  let reads = 0;
+  await page.route(`**/api/tournaments/${CODE}/deck-checks`, async route => {
+    reads += 1;
+    if (reads === 1) {
+      await answer.promise;
+      return route.fulfill({ status: 503, json: { error: 'Try again shortly' } });
+    }
+    return route.fulfill({ json: { entries: [], checkers: CHECKERS } });
+  });
+  await page.getByRole('tab', { name: 'Decklists' }).click();
+  const row = page.locator('.tm-lists tbody tr').first();
+  await row.getByRole('button', { name: 'View' }).click();
+  const side = page.locator('.tm-check-side');
+  await expect(side).toContainText('Loading deck checks…');
+  await expect(row).not.toContainText('Not checked');
+  answer.resolve();
+  await expect(side).toContainText('Deck checks could not be loaded.');
+  await expect(row).not.toContainText('Not checked');
+  await side.getByRole('button', { name: 'Retry' }).click();
+  await expect(side).toContainText('No deck checks yet.');
   await expect(row).toContainText('Not checked');
 });

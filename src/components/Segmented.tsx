@@ -3,7 +3,7 @@ import { rovingIndex } from './roving';
 
 interface SegmentedProps<T extends string> {
   options: { value: T; label: JSX.Element }[];
-  selected: T;
+  selected: T | null;
   onSelect: (value: T) => void;
   ariaLabel?: string;
   /** Another class beside `segmented`, for where it sits. */

@@ -557,13 +557,14 @@ function BigScreenPreset(props: { state: ManageState; manage: Manage }) {
   };
   function save() {
     const { code } = props.manage;
+    const sent = picked();
     const preset = value() || null;
     void props.state
       .run(() => call<Manage>(displayPath(code), json('PUT', { preset })))
       .then(saved => {
-        // A refused save keeps the pick on screen, unsaved, to try again.
+        // A refused save keeps the pick on screen, unsaved, to try again; so does one picked since it was sent.
         if (saved) {
-          setPicked(null);
+          setPicked(now => (now === sent ? null : now));
         }
       });
   }
