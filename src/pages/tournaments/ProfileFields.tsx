@@ -23,24 +23,46 @@ export function profileProblems(profile: PlayerProfile, sanctioned = true) {
   return errors.birthDate ? { ...errors, birthDate: 'Enter a four-digit year' } : errors;
 }
 
+type Problems = Partial<Record<keyof PlayerProfile, string>>;
+
+/** Each field's id after the form's prefix, in the order the form shows them. */
+const FIELD_IDS: [keyof PlayerProfile, string][] = [
+  ['firstName', 'first'],
+  ['lastName', 'last'],
+  ['popId', 'pop'],
+  ['birthDate', 'year']
+];
+
+/** Moves focus to the first field with a problem, as a save that was refused leaves it. */
+export function focusFirstProblem(idPrefix: string, problems: Problems): void {
+  const first = FIELD_IDS.find(([key]) => problems[key]);
+  if (first) {
+    document.getElementById(`${idPrefix}-${first[1]}`)?.focus();
+  }
+}
+
 /**
  * POP ID, name and birth year: what an organizer's player list knows a player
- * by. An unsanctioned event knows them by name alone.
+ * by. An unsanctioned event knows them by name alone. A field with a problem
+ * is marked invalid and described by it.
  */
 export function ProfileFields(props: {
   idPrefix: string;
   value: PlayerProfile;
   sanctioned?: boolean;
-  errors: Partial<Record<keyof PlayerProfile, string>>;
+  errors: Problems;
   onChange: (profile: PlayerProfile) => void;
 }) {
   const set = (key: keyof PlayerProfile, value: string) => props.onChange({ ...props.value, [key]: value });
   const id = (key: string) => `${props.idPrefix}-${key}`;
+  const problem = (key: keyof PlayerProfile, field: string) =>
+    props.errors[key] ? { 'aria-invalid': true, 'aria-describedby': `${id(field)}-error` } : {};
   return (
     <div class='tm-grid-fields tm-profile-fields'>
       <Field id={id('first')} label='First name' error={props.errors.firstName}>
         <input
           id={id('first')}
+          {...problem('firstName', 'first')}
           class='tm-input'
           autocomplete='given-name'
           value={props.value.firstName}
@@ -50,6 +72,7 @@ export function ProfileFields(props: {
       <Field id={id('last')} label='Last name' error={props.errors.lastName}>
         <input
           id={id('last')}
+          {...problem('lastName', 'last')}
           class='tm-input'
           autocomplete='family-name'
           value={props.value.lastName}
@@ -60,6 +83,7 @@ export function ProfileFields(props: {
         <Field id={id('pop')} label='Player ID' error={props.errors.popId}>
           <input
             id={id('pop')}
+            {...problem('popId', 'pop')}
             class='tm-input'
             inputmode='numeric'
             value={props.value.popId}
@@ -69,6 +93,7 @@ export function ProfileFields(props: {
         <Field id={id('year')} label='Birth year' error={props.errors.birthDate}>
           <input
             id={id('year')}
+            {...problem('birthDate', 'year')}
             class='tm-input'
             inputmode='numeric'
             maxLength={4}

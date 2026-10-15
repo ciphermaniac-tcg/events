@@ -179,6 +179,7 @@ body[data-mode="dark"] {
   --rule: #262422;
   --fg: #ede8e6;
   --muted: #9e9792;
+  --negative: #ff6b6b;
   --accent: #ea1;
   --accent-hover: #fb3;
   --accent-ink: var(--accent);

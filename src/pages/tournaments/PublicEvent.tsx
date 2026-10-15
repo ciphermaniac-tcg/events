@@ -24,7 +24,7 @@ import {
 } from '../../../shared/tournament/view';
 import { Segmented } from '../../components/Segmented';
 import { Skeleton } from '../../components/Skeleton';
-import { Tabs } from '../../components/Tabs';
+import { TabPanel, Tabs } from '../../components/Tabs';
 import {
   ApiError,
   fetchPublished,
@@ -608,57 +608,65 @@ function EventBody(props: {
           props.onWhoAmI();
         }}
       />
-      <Tabs options={tabs()} selected={tab()} onSelect={value => setParams({ tab: value }, { replace: true })} />
-      <Show when={tab() === 'pairings'}>
-        <section class='tm-box tm-public-pairings'>
-          <PublicPairings
-            view={props.view}
-            pod={pod()}
-            round={round()}
-            names={names()}
-            me={me()}
-            query={query()}
-            bar={bar}
-            following={following()}
-            registered={<RegisteredList view={props.view} me={me()} query={query()} onPlayer={setOpen} />}
-            onPlayer={setOpen}
-          />
-          <Show when={started() && deckNote(props.view)}>
-            {note => <p class='tm-box-bar tm-box-note muted'>{note()}</p>}
+      <Tabs
+        id='event'
+        options={tabs()}
+        selected={tab()}
+        onSelect={value => setParams({ tab: value }, { replace: true })}
+        ariaLabel='Event sections'
+      />
+      <TabPanel tabs='event' selected={tab()}>
+        <Show when={tab() === 'pairings'}>
+          <section class='tm-box tm-public-pairings'>
+            <PublicPairings
+              view={props.view}
+              pod={pod()}
+              round={round()}
+              names={names()}
+              me={me()}
+              query={query()}
+              bar={bar}
+              following={following()}
+              registered={<RegisteredList view={props.view} me={me()} query={query()} onPlayer={setOpen} />}
+              onPlayer={setOpen}
+            />
+            <Show when={started() && deckNote(props.view)}>
+              {note => <p class='tm-box-bar tm-box-note muted'>{note()}</p>}
+            </Show>
+          </section>
+        </Show>
+        <Show when={tab() === 'standings' && pod()}>
+          <Show
+            when={started()}
+            fallback={<p class='muted tm-empty'>Standings will show here once round 1 is played.</p>}
+          >
+            <StandingsTable
+              tournament={props.view.tournament}
+              pod={pod()!}
+              names={names()}
+              decks={props.view.decks}
+              divisionOf={divisionOf}
+              me={me()}
+              query={query()}
+              onPlayer={setOpen}
+              bar={bar(false)}
+              note={deckNote(props.view)}
+            />
           </Show>
-        </section>
-      </Show>
-      <Show when={tab() === 'standings' && pod()}>
-        <Show
-          when={started()}
-          fallback={<p class='muted tm-empty'>Standings will show here once round 1 is played.</p>}
-        >
-          <StandingsTable
-            tournament={props.view.tournament}
-            pod={pod()!}
-            names={names()}
-            decks={props.view.decks}
-            divisionOf={divisionOf}
-            me={me()}
-            query={query()}
-            onPlayer={setOpen}
-            bar={bar(false)}
-            note={deckNote(props.view)}
+        </Show>
+        <Show when={tab() === 'decks'}>
+          <DeckStats tournament={props.view.tournament} decks={props.view.decks} />
+        </Show>
+        <Show when={tab() === 'decklist'}>
+          <DecklistForm
+            code={props.view.code}
+            archetypes={decksEnabled(props.view.settings)}
+            format={props.view.settings.format}
+            sanctioned={isSanctioned(props.view)}
+            owner={listOwner()}
           />
         </Show>
-      </Show>
-      <Show when={tab() === 'decks'}>
-        <DeckStats tournament={props.view.tournament} decks={props.view.decks} />
-      </Show>
-      <Show when={tab() === 'decklist'}>
-        <DecklistForm
-          code={props.view.code}
-          archetypes={decksEnabled(props.view.settings)}
-          format={props.view.settings.format}
-          sanctioned={isSanctioned(props.view)}
-          owner={listOwner()}
-        />
-      </Show>
+      </TabPanel>
       <Show when={open()}>
         {id => (
           <OpenPlayer

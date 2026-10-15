@@ -1,6 +1,6 @@
 import { createSignal, Show } from 'solid-js';
 import type { OrganizerActivity as Activity, HistoryEntry } from '../../../shared/accounts/types';
-import { Tabs } from '../../components/Tabs';
+import { TabPanel, Tabs } from '../../components/Tabs';
 import { createShownCount, HistoryList } from './HistoryList';
 import { OrganizerActivity } from './OrganizerActivity';
 import '../../styles/pages/tournament-profile.css';
@@ -11,6 +11,7 @@ export function ProfileHistory(props: { entries: readonly HistoryEntry[]; activi
   return (
     <div class='tm-profile-history'>
       <Tabs
+        id='history'
         options={[
           { value: 'playing', label: `Playing · ${count.shown(props.entries)}` },
           { value: 'organizing', label: `Organizing · ${props.activity?.length ?? 0}` }
@@ -19,13 +20,13 @@ export function ProfileHistory(props: { entries: readonly HistoryEntry[]; activi
         onSelect={setTab}
         ariaLabel='Profile history'
       />
-      <div role='tabpanel' aria-label={tab() === 'playing' ? 'Playing' : 'Organizing'}>
+      <TabPanel tabs='history' selected={tab()}>
         <Show when={tab() === 'playing'} fallback={<OrganizerActivity entries={props.activity ?? []} />}>
           <Show when={props.entries.length} fallback={<p class='muted tm-empty'>No events yet</p>}>
             <HistoryList entries={props.entries} onGone={count.onGone} />
           </Show>
         </Show>
-      </div>
+      </TabPanel>
     </div>
   );
 }

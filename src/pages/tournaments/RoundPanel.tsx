@@ -256,29 +256,26 @@ function RoomFilter(props: { query: string; onQuery: (value: string) => void; re
 /** Every table, or only those still in progress, with how many those are. */
 function ShowTables(props: { openOnly: boolean; open: number; onOpenOnly: (value: boolean) => void }) {
   return (
-    <div class='segmented tm-show-tables' role='tablist' aria-label='Show'>
-      <button
-        type='button'
-        role='tab'
-        class={props.openOnly ? '' : 'active'}
-        aria-selected={!props.openOnly}
-        onClick={() => props.onOpenOnly(false)}
-      >
-        All tables
-      </button>
-      <button
-        type='button'
-        role='tab'
-        class={props.openOnly ? 'active' : ''}
-        aria-selected={props.openOnly}
-        onClick={() => props.onOpenOnly(true)}
-      >
-        In progress
-        <Show when={props.open > 0}>
-          <span class='tm-count'>{props.open}</span>
-        </Show>
-      </button>
-    </div>
+    <Segmented
+      class='tm-show-tables'
+      options={[
+        { value: 'all', label: 'All tables' },
+        {
+          value: 'open',
+          label: (
+            <>
+              In progress
+              <Show when={props.open > 0}>
+                <span class='tm-count'>{props.open}</span>
+              </Show>
+            </>
+          )
+        }
+      ]}
+      selected={props.openOnly ? 'open' : 'all'}
+      onSelect={value => props.onOpenOnly(value === 'open')}
+      ariaLabel='Show'
+    />
   );
 }
 

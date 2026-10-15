@@ -10,7 +10,7 @@
 
 import { useSearchParams } from '@solidjs/router';
 import { Match, Switch } from 'solid-js';
-import { Tabs } from '../../components/Tabs';
+import { TabPanel, Tabs } from '../../components/Tabs';
 import { AdminApplications } from './AdminApplications';
 import { AdminEvents } from './AdminEvents';
 import { AdminOrganizers } from './AdminOrganizers';
@@ -32,25 +32,28 @@ export function AdminSections(props: { param: 'tab' | 'section' }) {
   return (
     <div class='tm-admin'>
       <Tabs
+        id='admin'
         options={SECTIONS}
         selected={section()}
         onSelect={value => setParams({ [props.param]: value }, { replace: true })}
         ariaLabel='Admin sections'
       />
-      <Switch>
-        <Match when={section() === 'applications'}>
-          <AdminApplications />
-        </Match>
-        <Match when={section() === 'organizers'}>
-          <AdminOrganizers />
-        </Match>
-        <Match when={section() === 'pop-ids'}>
-          <AdminPopIds />
-        </Match>
-        <Match when={section() === 'events'}>
-          <AdminEvents />
-        </Match>
-      </Switch>
+      <TabPanel tabs='admin' selected={section()}>
+        <Switch>
+          <Match when={section() === 'applications'}>
+            <AdminApplications />
+          </Match>
+          <Match when={section() === 'organizers'}>
+            <AdminOrganizers />
+          </Match>
+          <Match when={section() === 'pop-ids'}>
+            <AdminPopIds />
+          </Match>
+          <Match when={section() === 'events'}>
+            <AdminEvents />
+          </Match>
+        </Switch>
+      </TabPanel>
     </div>
   );
 }

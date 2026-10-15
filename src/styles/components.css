@@ -245,6 +245,11 @@
   margin: 0;
   margin-inline-start: auto;
 }
+/* A link inside the sentence: its colour alone is too close to the words around it. */
+.site-footer-note a {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
 .site-footer .chip {
   font-size: 12px;
 }

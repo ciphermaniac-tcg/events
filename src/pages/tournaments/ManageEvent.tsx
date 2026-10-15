@@ -31,7 +31,7 @@ import {
 import { eventTypeOf } from '../../../shared/tournament/structure';
 import type { Pod, PodCategory } from '../../../shared/tournament/types';
 import { Segmented } from '../../components/Segmented';
-import { LockedTab, Tabs } from '../../components/Tabs';
+import { LockedTab, TabPanel, Tabs } from '../../components/Tabs';
 import { errorText, joinStaff, type Manage } from '../../lib/tournament/api';
 import {
   type DivisionCut,
@@ -470,7 +470,7 @@ function Console(props: { state: ReturnType<typeof createManage>; manage: Manage
   return (
     <div class='tm-page tm-console' classList={{ 'is-pairings': tab() === 'round' }}>
       <Hero state={props.state} manage={props.manage} pod={pod()} tom={tom} />
-      <Tabs options={tabs()} selected={tab()} onSelect={setTab} ariaLabel='Event sections' />
+      <Tabs id='console' options={tabs()} selected={tab()} onSelect={setTab} ariaLabel='Event sections' />
       <TabBar tabs={tabs()} selected={tab()} onSelect={setTab} />
       <Show when={tom}>{link => <TomStrip link={link()} />}</Show>
       <Show when={pods().length > 1 && (tab() === 'round' || tab() === 'standings')}>
@@ -482,35 +482,37 @@ function Console(props: { state: ReturnType<typeof createManage>; manage: Manage
         />
       </Show>
       <ErrorLine message={props.state.error()} />
-      <Show when={tab() === 'round'}>
-        <Show when={pod()} fallback={<p class='muted'>Add players to start pairing.</p>}>
-          {p => <RoundPanel state={props.state} manage={props.manage} pod={p()} locked={tom?.locked() ?? false} />}
+      <TabPanel tabs='console' selected={tab()}>
+        <Show when={tab() === 'round'}>
+          <Show when={pod()} fallback={<p class='muted'>Add players to start pairing.</p>}>
+            {p => <RoundPanel state={props.state} manage={props.manage} pod={p()} locked={tom?.locked() ?? false} />}
+          </Show>
         </Show>
-      </Show>
-      <Show when={tab() === 'players'}>
-        <PlayersPanel state={props.state} manage={props.manage} />
-      </Show>
-      <Show when={tab() === 'standings'}>
-        <Show when={pod()}>
-          {p => (
-            <StandingsTable
-              tournament={props.manage.tournament}
-              pod={p()}
-              names={names()}
-              decks={shownDecks(props.manage)}
-              divisionOf={divisionOf()}
-              tiebreakers
-              hideCutDecks={props.manage.settings.deckVisibility !== 'always' && !props.manage.settings.finished}
-            />
-          )}
+        <Show when={tab() === 'players'}>
+          <PlayersPanel state={props.state} manage={props.manage} />
         </Show>
-      </Show>
-      <Show when={tab() === 'decklists'}>
-        <DecklistsPanel state={props.state} manage={props.manage} />
-      </Show>
-      <Show when={tab() === 'event'}>
-        <EventPanel state={props.state} manage={props.manage} />
-      </Show>
+        <Show when={tab() === 'standings'}>
+          <Show when={pod()}>
+            {p => (
+              <StandingsTable
+                tournament={props.manage.tournament}
+                pod={p()}
+                names={names()}
+                decks={shownDecks(props.manage)}
+                divisionOf={divisionOf()}
+                tiebreakers
+                hideCutDecks={props.manage.settings.deckVisibility !== 'always' && !props.manage.settings.finished}
+              />
+            )}
+          </Show>
+        </Show>
+        <Show when={tab() === 'decklists'}>
+          <DecklistsPanel state={props.state} manage={props.manage} />
+        </Show>
+        <Show when={tab() === 'event'}>
+          <EventPanel state={props.state} manage={props.manage} />
+        </Show>
+      </TabPanel>
     </div>
   );
 }

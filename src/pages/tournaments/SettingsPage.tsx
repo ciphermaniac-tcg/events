@@ -37,7 +37,7 @@ import { OrganizerRoles } from './OrganizerRoles';
 import { Avatar } from './Avatar';
 import { MyData } from './MyData';
 import { ErrorLine, ResourceFallback } from './Field';
-import { emptyProfile, ProfileFields, profileProblems } from './ProfileFields';
+import { emptyProfile, focusFirstProblem, ProfileFields, profileProblems } from './ProfileFields';
 import { session, setSession } from './session';
 import { SettingRow, Toggle } from './SettingControls';
 import { SettingInfo } from './SettingInfo';
@@ -262,7 +262,9 @@ function Profile(props: { user: Me }) {
   async function save(event: Event) {
     event.preventDefault();
     setTouched(true);
-    if (Object.keys(profileProblems(profile())).length > 0) {
+    const refused = profileProblems(profile());
+    if (Object.keys(refused).length > 0) {
+      focusFirstProblem('settings', refused);
       return;
     }
     setStatus('saving');

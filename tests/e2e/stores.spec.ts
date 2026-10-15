@@ -583,6 +583,7 @@ test('store settings: staff who are not managers are sent to the store page', as
   await page.goto('/stores/store-1/settings');
   await expect(page.getByText('Only this store’s managers can change it.')).toBeVisible();
   await expect(page.getByRole('link', { name: 'Store page' })).toHaveAttribute('href', '/stores/store-1');
+  await expect(page.getByRole('link', { name: 'Store page' })).toHaveCSS('text-decoration-line', 'underline');
   await expect(page.getByRole('navigation', { name: 'Store settings' })).toHaveCount(0);
 });
 
@@ -670,7 +671,7 @@ test('a store event starts from a listing, which fills the setup and sends its s
   await expect(page.getByRole('textbox', { name: 'Event name' })).toHaveValue('Combat Power League Cup');
   await expect(page.getByLabel('Starts')).toHaveValue('2099-10-11T11:00');
   await expect(page.locator('.tm-set-row', { hasText: 'Sanction ID' })).toContainText('26-10-007710');
-  await expect(page.getByRole('tab', { name: 'League Cup' })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('radio', { name: 'League Cup', exact: true })).toHaveAttribute('aria-checked', 'true');
   await expect(page.getByRole('checkbox', { name: /created this event in Play! Tools/ })).toBeChecked();
   await page.getByRole('button', { name: 'Create event' }).click();
   await expect(page).toHaveURL(/\/host\/NEW001/);
@@ -717,7 +718,7 @@ test('an unsanctioned store’s event offers Local and Prerelease without listin
   await expect(page.getByRole('textbox', { name: 'Event name' })).toBeVisible();
   await expect(page.getByRole('group', { name: 'On pokemon.com' })).toHaveCount(0);
   await expect(page.locator('.tm-set-row', { hasText: 'Sanctioned' })).toHaveCount(0);
-  await expect(page.getByRole('tablist', { name: 'Event type', exact: true })).toBeVisible();
+  await expect(page.getByRole('radiogroup', { name: 'Event type', exact: true })).toBeVisible();
   expect(asks.filter(a => a.path.endsWith('/listings'))).toHaveLength(0);
 });
 

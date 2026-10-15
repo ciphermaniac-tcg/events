@@ -88,7 +88,7 @@ test('the public page shows the top cut as a table, or as a bracket kept in its 
   await mockPublic(page, quarterfinalsPlayed());
   await page.goto(`/t/${CODE}`);
   await expect(page.locator('.tm-matches tbody tr')).toHaveCount(4);
-  await page.getByRole('tab', { name: 'Bracket' }).click();
+  await page.getByRole('radio', { name: 'Bracket' }).click();
   await expect(page).toHaveURL(/view=bracket/);
   const bracket = page.getByRole('region', { name: 'Top cut bracket' });
   await expect(bracket.getByRole('heading')).toHaveText(['Quarterfinals', 'Semifinals', 'Final']);
@@ -103,7 +103,7 @@ test('the public page shows the top cut as a table, or as a bracket kept in its 
 
   await page.reload();
   await expect(bracket).toBeVisible();
-  await page.getByRole('tab', { name: 'Table', exact: true }).click();
+  await page.getByRole('radio', { name: 'Table', exact: true }).click();
   await expect(page).not.toHaveURL(/view=/);
   await expect(page.locator('.tm-matches tbody tr')).toHaveCount(4);
 });
@@ -121,7 +121,7 @@ test('a Swiss round offers no bracket', async ({ page }) => {
   await mockPublic(page, t);
   await page.goto(`/t/${CODE}?view=bracket`);
   await expect(page.locator('.tm-matches tbody tr')).toHaveCount(4);
-  await expect(page.getByRole('tab', { name: 'Bracket' })).toHaveCount(0);
+  await expect(page.getByRole('radio', { name: 'Bracket' })).toHaveCount(0);
 });
 
 test('the big screen switches to the bracket with B, and remembers it', async ({ page }) => {
@@ -134,7 +134,7 @@ test('the big screen switches to the bracket with B, and remembers it', async ({
   await expect(page.locator('.tm-screen-tables')).toHaveCount(0);
   await page.reload();
   await expect(bracket).toBeVisible();
-  await expect(page.getByRole('tab', { name: 'Bracket' })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('radio', { name: 'Bracket' })).toHaveAttribute('aria-checked', 'true');
 });
 
 test('the console looks at the top cut as a bracket, and enters results in the table', async ({ page }) => {
@@ -176,9 +176,9 @@ test('the console looks at the top cut as a bracket, and enters results in the t
   });
   await page.goto(`/host/${CODE}`);
   await expect(page.locator('.tm-matches tbody tr')).toHaveCount(4);
-  await page.getByRole('tab', { name: 'Bracket' }).click();
+  await page.getByRole('radio', { name: 'Bracket' }).click();
   await expect(page.getByRole('region', { name: 'Top cut bracket' }).locator('.tm-bracket-col')).toHaveCount(3);
   await expect(page.locator('.tm-matches')).toHaveCount(0);
-  await page.getByRole('tab', { name: 'Table', exact: true }).click();
+  await page.getByRole('radio', { name: 'Table', exact: true }).click();
   await expect(page.locator('.tm-matches tbody tr')).toHaveCount(4);
 });

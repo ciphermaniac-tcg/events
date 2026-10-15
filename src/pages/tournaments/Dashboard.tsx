@@ -29,6 +29,7 @@ import {
 import type { MyApplication } from '../../../shared/accounts/types';
 import { isAdmin } from '../../../shared/accounts/roles';
 import { canCreateEvents } from '../../../shared/accounts/stores';
+import { rovingIndex } from '../../components/roving';
 import { Skeleton } from '../../components/Skeleton';
 import { fetchHistory, listTournaments, type Me, type TournamentSummary } from '../../lib/tournament/api';
 import { applicantStage, fetchApplication } from '../../lib/tournament/applications';
@@ -87,25 +88,11 @@ function TabList(props: {
   let list: HTMLDivElement | undefined;
   const id = (tab: Tab) => `tm-dash-${props.wide ? 'tab' : 'bar'}-${tab}`;
   function key(event: KeyboardEvent) {
-    const steps: Record<string, (i: number, n: number) => number> = {
-      ArrowRight: (i, n) => (i + 1) % n,
-      ArrowLeft: (i, n) => (i + n - 1) % n,
-      Home: () => 0,
-      End: (_i, n) => n - 1
-    };
-    const step = steps[event.key];
-    if (!step) {
-      return;
-    }
-    event.preventDefault();
-    const next =
-      props.shown[
-        step(
-          props.shown.findIndex(s => s.tab === props.tab),
-          props.shown.length
-        )
-      ];
+    const from = props.shown.findIndex(s => s.tab === props.tab);
+    const to = rovingIndex(event.key, from, props.shown.length);
+    const next = to === null ? undefined : props.shown[to];
     if (next) {
+      event.preventDefault();
       props.onSelect(next.tab);
       list?.querySelector<HTMLElement>(`#${id(next.tab)}`)?.focus();
     }
@@ -225,7 +212,8 @@ export function Dashboard(props: {
         <div class='tm-dash' classList={{ 'tm-dash-barred': barred() }}>
           <header class='tm-dash-head'>
             <Show when={barred()} fallback={<h1 class='tm-dash-title'>{LABELS[open()]}</h1>}>
-              <h1 class='tm-dash-title tm-dash-phone'>{LABELS[open()]}</h1>
+              {/* Above a phone's bar the open tab's name heads the page; wider, the tabs say it, and it is read only. */}
+              <h1 class='tm-dash-title tm-dash-phone-title'>{LABELS[open()]}</h1>
               <TabList shown={shown()} tab={open()} onSelect={select} wide admin={adminLink()} />
             </Show>
           </header>

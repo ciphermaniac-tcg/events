@@ -439,18 +439,18 @@ test('Settings: the public profile switch shows its link, and a POP ID clash poi
   await page.goto('/settings?section=history');
   await expect(page.getByRole('link', { name: 'View history' })).toHaveAttribute('href', '/history');
   await expect(page.getByRole('link', { name: 'Admin' })).toHaveCount(0);
-  const profile = page.getByRole('tablist', { name: 'Public profile' });
-  await expect(page.getByRole('tablist', { name: 'Name shown' })).toHaveCount(0);
-  await profile.getByRole('tab', { name: 'Enabled' }).click();
+  const profile = page.getByRole('radiogroup', { name: 'Public profile' });
+  await expect(page.getByRole('radiogroup', { name: 'Name shown' })).toHaveCount(0);
+  await profile.getByRole('radio', { name: 'Enabled' }).click();
   await expect(page.getByRole('link', { name: /\/u\/mary$/ })).toHaveAttribute('href', '/u/mary');
   await expect(page.getByRole('button', { name: 'Copy' })).toBeVisible();
   expect(sent.find(s => s.method === 'PATCH')?.body).toEqual({ publicProfile: true });
-  const shown = page.getByRole('tablist', { name: 'Name shown' });
-  await expect(shown.getByRole('tab', { name: 'Real name' })).toHaveAttribute('aria-selected', 'true');
-  await shown.getByRole('tab', { name: 'Username' }).click();
-  await expect(shown.getByRole('tab', { name: 'Username' })).toHaveAttribute('aria-selected', 'true');
+  const shown = page.getByRole('radiogroup', { name: 'Name shown' });
+  await expect(shown.getByRole('radio', { name: 'Real name' })).toHaveAttribute('aria-checked', 'true');
+  await shown.getByRole('radio', { name: 'Username' }).click();
+  await expect(shown.getByRole('radio', { name: 'Username' })).toHaveAttribute('aria-checked', 'true');
   expect(sent.filter(s => s.method === 'PATCH').at(-1)?.body).toEqual({ profileName: 'handle' });
-  await profile.getByRole('tab', { name: 'Disabled' }).click();
+  await profile.getByRole('radio', { name: 'Disabled' }).click();
   await expect(page.getByRole('button', { name: 'Copy' })).toHaveCount(0);
   await page.getByRole('navigation', { name: 'Settings' }).getByRole('button', { name: 'Player profile' }).click();
   await page.getByRole('button', { name: 'Save profile' }).click();
@@ -479,6 +479,25 @@ test('Settings opens on the player profile, keeps its section in the address, an
   await expect(page.getByLabel('First name')).toHaveValue('Marianne');
 });
 
+test('Settings: a profile save that is refused names each problem on its field and moves focus to the first', async ({
+  page
+}) => {
+  await mockSettings(page, ME);
+  await page.goto('/settings');
+  const first = page.getByLabel('First name');
+  const year = page.getByLabel('Birth year');
+  await expect(first).not.toHaveAttribute('aria-invalid');
+  await first.fill('');
+  await year.fill('19');
+  await page.getByRole('button', { name: 'Save profile' }).click();
+  await expect(first).toBeFocused();
+  await expect(first).toHaveAttribute('aria-invalid', 'true');
+  await expect(first).toHaveAccessibleDescription('Required');
+  await expect(year).toHaveAttribute('aria-invalid', 'true');
+  await expect(year).toHaveAccessibleDescription('Enter a four-digit year');
+  await expect(page.getByLabel('Last name')).not.toHaveAttribute('aria-invalid');
+});
+
 test('Settings: the username is checked as it is typed, saved lowercased, and refused when taken @mobile', async ({
   page
 }) => {
@@ -496,7 +515,7 @@ test('Settings: the username is checked as it is typed, saved lowercased, and re
   await expect(page.getByRole('alert')).toHaveText('That username is taken');
   const nav = page.getByRole('navigation', { name: 'Settings' });
   await nav.getByRole('button', { name: 'History' }).click();
-  await page.getByRole('tablist', { name: 'Public profile' }).getByRole('tab', { name: 'Enabled' }).click();
+  await page.getByRole('radiogroup', { name: 'Public profile' }).getByRole('radio', { name: 'Enabled' }).click();
   await nav.getByRole('button', { name: 'Username' }).click();
   await input.fill('Mary.J');
   await expect(page.getByRole('alert')).toHaveCount(0);
@@ -1318,6 +1337,8 @@ test('an organizer who plays has both tabs, opens on the match being played, and
   await page.goto('/');
   const tabs = page.locator('.tm-dash-tabs');
   await expect(tabs.getByRole('tab')).toHaveText(['Playing1', 'Organizing']);
+  // The tabs name the page on a wide screen; the heading is there for assistive tech all the same.
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Playing');
   await expect(tabs.getByRole('tab', { name: /Playing/ })).toHaveAttribute('aria-selected', 'true');
   await tabs.getByRole('tab', { name: 'Organizing' }).click();
   await expect(page).toHaveURL(/:\d+\/\?tab=organizing$/);

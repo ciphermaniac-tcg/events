@@ -162,6 +162,22 @@ textarea {
   }
 }
 
+/* The first stop for a keyboard: out of sight until it has focus. */
+.skip-link {
+  position: absolute;
+  top: var(--space-2);
+  left: var(--space-2);
+  z-index: 100;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--fg);
+  transform: translateY(-200%);
+}
+.skip-link:focus {
+  transform: none;
+}
+
 /* Visually hidden, still read by assistive tech. */
 .sr-only {
   position: absolute;

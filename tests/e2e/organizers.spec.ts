@@ -577,7 +577,7 @@ test('the new event setup explains player reporting, archetypes and decklists, e
     await expect(tip.getByRole('tooltip')).toContainText(words);
   }
   await expect(
-    page.getByRole('tablist', { name: 'Mobile result reporting' }).getByRole('tab', { selected: true })
+    page.getByRole('radiogroup', { name: 'Mobile result reporting' }).getByRole('radio', { checked: true })
   ).toHaveText('Disabled');
   await expect(page.getByRole('combobox', { name: 'Archetypes', exact: true })).toHaveValue('off');
   await expect(page.getByRole('combobox', { name: 'Archetypes', exact: true }).locator('option:checked')).toHaveText(

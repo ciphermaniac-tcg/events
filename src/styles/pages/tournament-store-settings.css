@@ -29,6 +29,10 @@
 .tm-store-dot {
   margin: 0 var(--space-2);
 }
+.tm-store-refused a {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
 .tm-store-refused {
   font-size: var(--text-body);
 }

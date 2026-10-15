@@ -377,8 +377,8 @@ test('sanctioned setup requires Play! Tools confirmation; local setup skips it @
   await page.getByRole('textbox', { name: 'Event name' }).fill('Tuesday League');
   await expect(create).toBeEnabled();
   await expect(confirmation).toHaveCount(0);
-  const sanctioned = page.getByRole('tablist', { name: 'Sanctioned', exact: true });
-  await sanctioned.getByRole('tab', { name: 'Yes', exact: true }).click();
+  const sanctioned = page.getByRole('radiogroup', { name: 'Sanctioned', exact: true });
+  await sanctioned.getByRole('radio', { name: 'Yes', exact: true }).click();
   await expect(confirmation).not.toBeChecked();
   await expect(create).toBeDisabled();
   await expect(page.getByRole('link', { name: 'Play! Tools', exact: true })).toHaveAttribute(
@@ -396,10 +396,10 @@ test('sanctioned setup requires Play! Tools confirmation; local setup skips it @
   await expect(create).toBeEnabled();
   await confirmation.uncheck();
   await expect(create).toBeDisabled();
-  await sanctioned.getByRole('tab', { name: 'No', exact: true }).click();
+  await sanctioned.getByRole('radio', { name: 'No', exact: true }).click();
   await expect(confirmation).toHaveCount(0);
   await expect(create).toBeEnabled();
-  await sanctioned.getByRole('tab', { name: 'Yes', exact: true }).click();
+  await sanctioned.getByRole('radio', { name: 'Yes', exact: true }).click();
   await confirmation.check();
   await create.click();
   await expect(page.locator('.tm-error')).toHaveText('Fixture submission');
@@ -408,7 +408,7 @@ test('sanctioned setup requires Play! Tools confirmation; local setup skips it @
   ]);
   await page.getByRole('button', { name: 'Cancel', exact: true }).click();
   await page.getByRole('button', { name: 'Start an event' }).click();
-  await sanctioned.getByRole('tab', { name: 'Yes', exact: true }).click();
+  await sanctioned.getByRole('radio', { name: 'Yes', exact: true }).click();
   await expect(confirmation).not.toBeChecked();
 });
 
@@ -421,12 +421,12 @@ for (const [eventType, label] of [
     await page.goto('/');
     await page.getByRole('button', { name: 'Start an event' }).click();
     await page.getByRole('textbox', { name: 'Event name' }).fill('Synthetic');
-    const kinds = page.getByRole('tablist', { name: 'Event type', exact: true });
-    await kinds.getByRole('tab', { name: label, exact: true }).click();
+    const kinds = page.getByRole('radiogroup', { name: 'Event type', exact: true });
+    await kinds.getByRole('radio', { name: label, exact: true }).click();
     await expect(page.locator('#setup-minutes')).toHaveAttribute('min', eventType === 'local' ? '10' : '20');
     await expect(page.locator('#setup-minutes')).toHaveAttribute('max', '90');
     await page.locator('#setup-minutes').fill(eventType === 'local' ? '10' : '20');
-    await expect(kinds.getByRole('tab', { name: label, exact: true })).toHaveAttribute('aria-selected', 'true');
+    await expect(kinds.getByRole('radio', { name: label, exact: true })).toHaveAttribute('aria-checked', 'true');
     await page.getByRole('button', { name: 'Create event' }).click();
     await expect(page.locator('.tm-error')).toHaveText('Fixture submission');
     expect(submissions).toEqual([expect.objectContaining({ eventType, name: 'Synthetic' })]);
@@ -472,11 +472,11 @@ test('the big screen hides the site chrome and shows a QR code to the event', as
 test('the big screen remembers its scroll speed, cycled with S', async ({ page }) => {
   await mockApi(page);
   await page.goto(`/t/${CODE}?screen=1`);
-  await expect(page.getByRole('tab', { name: 'Slow' })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('radio', { name: 'Slow' })).toHaveAttribute('aria-checked', 'true');
   await page.keyboard.press('s');
-  await expect(page.getByRole('tab', { name: 'Moderate' })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('radio', { name: 'Moderate' })).toHaveAttribute('aria-checked', 'true');
   await page.reload();
-  await expect(page.getByRole('tab', { name: 'Moderate' })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('radio', { name: 'Moderate' })).toHaveAttribute('aria-checked', 'true');
 });
 
 test('before round 1 the big screen lists everyone registered by first name, beside the QR code', async ({ page }) => {
@@ -487,6 +487,8 @@ test('before round 1 the big screen lists everyone registered by first name, bes
     .filter(p => p.droppedAfter === null)
     .sort((a, b) => a.firstName.localeCompare(b.firstName) || a.lastName.localeCompare(b.lastName));
   await expect(page.locator('.tm-screen-registered li')).toHaveCount(players.length);
+  // The list scrolls itself, and a keyboard can reach it to scroll it too.
+  await expect(page.getByRole('region', { name: 'Players' })).toHaveAttribute('tabindex', '0');
   await expect(page.locator('.tm-screen-registered li').first()).toHaveText(
     `${players[0]?.firstName} ${players[0]?.lastName}`
   );
@@ -527,6 +529,45 @@ test('the player sheet keeps Tab inside it until it closes', async ({ page }) =>
   }
   await page.keyboard.press('Shift+Tab');
   expect(await sheet.evaluate(el => el.contains(document.activeElement))).toBe(true);
+});
+
+test('a result coming in leaves a reader scrolled down the page where they were', async ({ page }) => {
+  let view = VIEW;
+  await mockApi(page);
+  await publish(page, () => view);
+  await page.goto(`/t/${CODE}`);
+  const rows = page.locator('.tm-matches tbody tr');
+  await expect(rows.filter({ hasText: 'In progress' })).toHaveCount(2);
+  // Room to scroll past the tabs, as a field of hundreds gives.
+  const at = await page.evaluate(() => {
+    document.body.style.paddingBottom = '4000px';
+    window.scrollTo(0, document.documentElement.scrollHeight);
+    return window.scrollY;
+  });
+  const tabs = page.getByRole('tablist', { name: 'Event sections' });
+  await expect(tabs).not.toBeInViewport();
+  view = afterOneResult();
+  await announce(page, view.version);
+  await expect(rows.filter({ hasText: 'In progress' })).toHaveCount(1);
+  // A smooth scroll would have started within a few frames of the redraw.
+  await page.waitForTimeout(500);
+  expect(await page.evaluate(() => window.scrollY)).toBe(at);
+});
+
+test('tabs clipped by a narrow strip bring the one picked into view along it', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 640 });
+  await mockApi(page);
+  await page.goto(`/t/${CODE}`);
+  // Narrower than its tabs, as a phone's strip is once an event has every tab.
+  await page.addStyleTag({ content: '.tabs { max-width: 140px; }' });
+  const all = page.getByRole('tablist', { name: 'Event sections' }).getByRole('tab');
+  const last = all.last();
+  await expect(last).not.toBeInViewport({ ratio: 1 });
+  await all.first().focus();
+  await page.keyboard.press('End');
+  await expect(last).toHaveAttribute('aria-selected', 'true');
+  await expect(last).toBeInViewport({ ratio: 1 });
+  expect(await page.evaluate(() => window.scrollY)).toBe(0);
 });
 
 test('a first load that fails offers Try again, which loads the event', async ({ page }) => {

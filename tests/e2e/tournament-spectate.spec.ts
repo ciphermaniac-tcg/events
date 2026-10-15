@@ -76,28 +76,28 @@ test('a spectator narrows the pairings to the tables playing, one deck, or the p
   await expect(rows).toHaveCount(matches.length);
   if (test.info().project.name === 'mobile') {
     // A phone keeps the round and Following; In progress and the deck filter are desktop's.
-    await expect(page.getByRole('tab', { name: 'In progress' })).toBeHidden();
+    await expect(page.getByRole('radio', { name: 'In progress' })).toBeHidden();
     await expect(page.getByRole('combobox', { name: 'Deck' })).toBeHidden();
   } else {
-    await page.getByRole('tab', { name: 'In progress' }).click();
+    await page.getByRole('radio', { name: 'In progress' }).click();
     await expect(rows).toHaveCount(playing.length);
-    await page.getByRole('tab', { name: 'All', exact: true }).click();
+    await page.getByRole('radio', { name: 'All', exact: true }).click();
     await page.getByRole('combobox', { name: 'Deck' }).selectOption('Gardevoir ex');
     await expect(rows).toHaveCount(1);
     await page.getByRole('combobox', { name: 'Deck' }).selectOption('');
     await expect(rows).toHaveCount(matches.length);
   }
 
-  await expect(page.getByRole('tab', { name: /^Following/ })).toHaveCount(0);
+  await expect(page.getByRole('radio', { name: /^Following/ })).toHaveCount(0);
   await rows.last().getByRole('button').first().click();
   const sheet = page.getByRole('dialog');
   await sheet.getByRole('button', { name: 'Follow' }).click();
   await expect(sheet.getByRole('button', { name: 'Following' })).toHaveAttribute('aria-pressed', 'true');
   await sheet.getByRole('button', { name: 'Close' }).click();
-  await page.getByRole('tab', { name: 'Following 1' }).click();
+  await page.getByRole('radio', { name: 'Following 1' }).click();
   await expect(rows).toHaveCount(1);
   await page.reload();
-  await expect(page.getByRole('tab', { name: 'Following 1' })).toBeVisible();
+  await expect(page.getByRole('radio', { name: 'Following 1' })).toBeVisible();
 });
 
 test('a stream overlay shows one table on a transparent page, and says when it is not in play', async ({ page }) => {

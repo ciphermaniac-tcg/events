@@ -200,10 +200,10 @@ test('after the planned rounds the step is the top cut, set in a dialog, with an
   await page.keyboard.press('Escape');
   await step.getByRole('button', { name: 'Start top cut' }).click();
   const dialog = page.getByRole('dialog', { name: 'Start the top cut' });
-  await expect(dialog.getByRole('tablist', { name: 'Top cut size' }).getByRole('tab', { selected: true })).toHaveText(
-    'Top 4'
-  );
-  await dialog.getByRole('tab', { name: 'Top 8' }).click();
+  await expect(
+    dialog.getByRole('radiogroup', { name: 'Top cut size' }).getByRole('radio', { checked: true })
+  ).toHaveText('Top 4');
+  await dialog.getByRole('radio', { name: 'Top 8' }).click();
   await dialog.getByLabel('Third place match').check();
   await dialog.getByRole('button', { name: 'Start top 8 cut' }).click();
   await expect(dialog).toBeHidden();
@@ -329,9 +329,30 @@ test('before round 1 the console opens on Players, and Pairings says why it is l
   await expect(page.getByRole('tab', { name: 'Players' })).toHaveAttribute('aria-selected', 'true');
   const pairings = page.getByRole('tab', { name: 'Pairings' });
   await expect(pairings).toHaveAttribute('aria-disabled', 'true');
+  await expect(pairings).toHaveAccessibleDescription('Pairings open once round 1 starts.');
   await pairings.click({ force: true });
-  await expect(page.getByRole('tooltip', { name: 'Pairings open once round 1 starts.' })).toBeVisible();
+  await expect(page.locator('.tabs .info-tip-bubble', { hasText: 'Pairings open once round 1 starts.' })).toBeVisible();
   await expect(page.getByRole('tab', { name: 'Players' })).toHaveAttribute('aria-selected', 'true');
+});
+
+test('the console’s tabs move with the arrow keys, pass over a locked one, and name the panel they open', async ({
+  page
+}) => {
+  await mockConsole(page, event(4, 0, false), settingsOf({}));
+  const tabs = page.getByRole('tablist', { name: 'Event sections' }).first();
+  const players = tabs.getByRole('tab', { name: 'Players' });
+  await expect(players).toHaveAttribute('tabindex', '0');
+  await expect(tabs.getByRole('tab', { name: 'Standings' })).toHaveAttribute('tabindex', '-1');
+  await players.focus();
+  await page.keyboard.press('ArrowLeft');
+  await expect(tabs.getByRole('tab', { name: 'Pairings' })).toBeFocused();
+  await expect(players).toHaveAttribute('aria-selected', 'true');
+  await page.keyboard.press('End');
+  const settings = tabs.getByRole('tab', { name: 'Settings' });
+  await expect(settings).toBeFocused();
+  await expect(settings).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('tabpanel', { name: 'Settings' })).toBeVisible();
+  await expect(settings).toHaveAttribute('aria-controls', 'console-panel');
 });
 
 test('a player row keeps its rarer actions and fixed table under its menu', async ({ page }) => {
@@ -475,7 +496,7 @@ test('a division cut stays in the shared pod and pairs the next bracket round', 
   }
   t = run(t, { type: 'startTopCut', pod: 'mixed', size: 4, division: 'senior' });
   await mockConsole(page, t, settingsOf({}));
-  await expect(page.getByRole('tablist', { name: 'Division' })).toHaveCount(0);
+  await expect(page.getByRole('radiogroup', { name: 'Division' })).toHaveCount(0);
   await expect(page.locator('.tm-hero')).toContainText('Semifinals');
   await expect(page.getByRole('button', { name: 'Pair the final' })).toBeDisabled();
   await expect(page.getByRole('button', { name: /^Pair round/ })).toHaveCount(0);
@@ -530,11 +551,17 @@ test('while a round plays, its tables in progress lead under their heading and t
   const rows = box.locator('tbody tr:not(.tm-group-row)');
   await expect(rows.first().locator('.tm-result-label')).toHaveText('In progress');
   await expect(rows.last().locator('.tm-result-label')).toHaveText('1–0');
-  const show = page.getByRole('tablist', { name: 'Show' });
-  await expect(show.getByRole('tab', { name: /In progress/ })).toHaveText('In progress3');
-  await show.getByRole('tab', { name: /In progress/ }).click();
+  const show = page.getByRole('radiogroup', { name: 'Show' });
+  await expect(show.getByRole('radio', { name: /In progress/ })).toHaveText('In progress3');
+  await show.getByRole('radio', { name: /In progress/ }).click();
   await expect(rows).toHaveCount(3);
   await expect(box.locator('.tm-group-row')).toHaveCount(0);
+  // One choice of two: only the chosen one is a tab stop, and the arrows choose the other.
+  await expect(show.getByRole('radio', { name: 'All tables' })).toHaveAttribute('tabindex', '-1');
+  await page.keyboard.press('ArrowLeft');
+  await expect(show.getByRole('radio', { name: 'All tables' })).toBeFocused();
+  await expect(show.getByRole('radio', { name: 'All tables' })).toHaveAttribute('aria-checked', 'true');
+  await expect(rows).toHaveCount(4);
 });
 
 test('the round stepper walks the rounds either side of the picker, and the clock runs from the head', async ({

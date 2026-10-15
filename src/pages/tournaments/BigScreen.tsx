@@ -132,8 +132,11 @@ function createScreenPrefs() {
 
 type Prefs = ReturnType<typeof createScreenPrefs>;
 
-/** A list that scrolls itself at the screen's speed while it overflows. */
-function Scroller(props: { prefs: Prefs; class?: string; children: JSX.Element }) {
+/**
+ * A list that scrolls itself at the screen's speed while it overflows. It can
+ * take focus, under its `label`, so a keyboard can scroll it too.
+ */
+function Scroller(props: { prefs: Prefs; label: string; class?: string; children: JSX.Element }) {
   let el: HTMLDivElement | undefined;
   onMount(() => {
     if (el) {
@@ -141,7 +144,7 @@ function Scroller(props: { prefs: Prefs; class?: string; children: JSX.Element }
     }
   });
   return (
-    <div class={`tm-screen-scroll ${props.class ?? ''}`} ref={el}>
+    <div class={`tm-screen-scroll ${props.class ?? ''}`} ref={el} tabIndex={0} role='region' aria-label={props.label}>
       {props.children}
     </div>
   );
@@ -418,7 +421,7 @@ function PhaseBody(props: {
     <Show
       when={pagedDisplay(props.display, tables(), props.size, props.font)}
       fallback={
-        <Scroller prefs={props.prefs}>
+        <Scroller prefs={props.prefs} label='Pairings'>
           <Matches view={props.view} pods={props.pods} prefs={props.prefs} />
         </Scroller>
       }
@@ -435,7 +438,7 @@ function PhaseBody(props: {
   const views: Record<ScreenPhase, () => JSX.Element> = {
     roster: () => (
       <div class='tm-screen-before'>
-        <Scroller prefs={props.prefs}>
+        <Scroller prefs={props.prefs} label='Players'>
           <Registered view={props.view} />
         </Scroller>
         <Join url={props.url} large>
@@ -452,7 +455,7 @@ function PhaseBody(props: {
       </div>
     ),
     standings: () => (
-      <Scroller prefs={props.prefs}>
+      <Scroller prefs={props.prefs} label='Standings'>
         <Standings view={props.view} pods={props.pods} />
       </Scroller>
     )

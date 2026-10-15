@@ -200,7 +200,7 @@ test('an Admin rejects one, and reads the decided ones by status', async ({ page
   const second = page.locator('.tm-app').nth(1);
   await second.getByRole('button', { name: 'Reject' }).click();
   await expect(second.locator('.tm-flag')).toHaveText('Rejected');
-  await page.getByRole('tablist', { name: 'Status' }).getByRole('tab', { name: 'Rejected' }).click();
+  await page.getByRole('radiogroup', { name: 'Status' }).getByRole('radio', { name: 'Rejected' }).click();
   await expect(page.locator('.tm-app')).toHaveCount(1);
   await expect(page.locator('.tm-app')).toContainText('Not certified');
   const pendingReads = () => adminAsks(asks).filter(a => a.path === '/api/admin/applications?status=pending');

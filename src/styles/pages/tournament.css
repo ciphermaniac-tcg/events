@@ -678,6 +678,11 @@ body[data-mode='dark'] :is(.tm-input, .tm-select) {
   font-size: var(--text-sm);
   font-weight: 600;
 }
+/* A link in an error line: its colour alone is too close to the words around it. */
+.tm-error .tm-link-inline {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
 .tm-small {
   min-height: 30px;
   padding: var(--space-1) var(--space-2);
