@@ -21,7 +21,10 @@ const config: KnipConfig = {
     // Fixture server for the deterministic browser suite: Playwright's
     // `webServer` launches serve-fixtures.ts as a process, so no import graph
     // reaches it.
-    'tests/e2e/serve-fixtures.ts'
+    'tests/e2e/serve-fixtures.ts',
+
+    // Run by session.test.ts in a child process under the browser build of solid-js.
+    'tests/tournament/session.browser.ts'
   ],
 
   project: [
