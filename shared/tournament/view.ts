@@ -10,6 +10,7 @@
 
 import type { DisplaySelection } from './display.js';
 import { divisionFor, eventSeason } from './divisions.js';
+import { isTimeZone, isWallClock } from './timeZone.js';
 import { SANCTIONED, sanctionedMinutesError } from './structure.js';
 import { type PlayerClaim, shortLastNames } from './identify.js';
 import type { PlayerProfile } from './profile.js';
@@ -42,12 +43,22 @@ export interface TournamentSettings {
   display: DisplaySelection | null;
   decklists: DecklistMode;
   deckVisibility: DeckVisibility;
-  /** The organizer's own notes for players: venue, prizes, schedule. */
+  /** The organizer's own notes for players: prizes, schedule, what to bring. */
   details: string;
   /** Standard, Expanded, or whatever the organizer calls it. */
   format: string;
   /** Local date and time, YYYY-MM-DDTHH:mm as a datetime-local input gives it; '' until set. */
   startsAt: string;
+  /** When check-in opens, as `startsAt` says a time; '' for none. */
+  checkInAt: string;
+  /**
+   * The IANA zone the event's times are read in (see eventTime.ts); '' for an
+   * event made before it had one, whose times show as written.
+   */
+  timeZone: string;
+  /** Where it is played: the venue's name and its street address. */
+  venue: string;
+  address: string;
   /** Set when the organizer closes the event; 'after' decks show from then. */
   finished: boolean;
   /** Write inactivity; does not close reporting or reveal post-event decks. */
@@ -74,6 +85,10 @@ export const DEFAULT_SETTINGS: TournamentSettings = {
   details: '',
   format: 'Standard',
   startsAt: '',
+  checkInAt: '',
+  timeZone: '',
+  venue: '',
+  address: '',
   finished: false,
   idle: false,
   // Events made before the choice existed asked for Player IDs, so they stay sanctioned.
@@ -82,11 +97,17 @@ export const DEFAULT_SETTINGS: TournamentSettings = {
   roundCap: 0
 };
 
-export const SETTINGS_LIMITS = { details: 1000, format: 40, archetype: 60, roundCap: 15 } as const;
+export const SETTINGS_LIMITS = {
+  details: 1000,
+  format: 40,
+  archetype: 60,
+  roundCap: 15,
+  venue: 120,
+  address: 200
+} as const;
 
 const VISIBILITIES: readonly DeckVisibility[] = ['always', 'after', 'off'];
 const DECKLIST_MODES: readonly DecklistMode[] = ['off', 'open', 'closed'];
-const STARTS_AT_RE = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2})?$/;
 
 type SettingCheck = (value: unknown) => boolean;
 
@@ -103,7 +124,11 @@ const SETTING_CHECKS: { [K in keyof TournamentSettings]: SettingCheck } = {
   deckVisibility: value => VISIBILITIES.includes(value as DeckVisibility),
   details: value => typeof value === 'string' && value.length <= SETTINGS_LIMITS.details,
   format: value => typeof value === 'string' && value.length <= SETTINGS_LIMITS.format,
-  startsAt: value => typeof value === 'string' && STARTS_AT_RE.test(value)
+  startsAt: value => value === '' || isWallClock(value),
+  checkInAt: value => value === '' || isWallClock(value),
+  timeZone: value => value === '' || isTimeZone(value),
+  venue: value => typeof value === 'string' && value.length <= SETTINGS_LIMITS.venue,
+  address: value => typeof value === 'string' && value.length <= SETTINGS_LIMITS.address
 };
 
 /**
@@ -399,6 +424,8 @@ export type Role = 'owner' | 'staff';
 
 /** One of a user's events, as their list shows it. */
 export interface TournamentSummary {
+  /** The date reserved by this account’s own community event; absent for stores and staff events. */
+  communityDay?: string;
   code: string;
   mode: TournamentMode;
   name: string;
@@ -414,6 +441,8 @@ export interface TournamentSummary {
 
 /** The whole event, as its staff's console holds it. */
 export interface Manage {
+  /** Last successful TOM snapshot import, in epoch milliseconds; unknown for legacy events. */
+  lastImportAt?: number | null;
   code: string;
   mode: TournamentMode;
   version: number;

@@ -445,3 +445,19 @@
     background: none;
   }
 }
+.tm-logistics {
+  margin: 0 0 var(--space-4);
+  border-spacing: 0;
+}
+.tm-logistics th {
+  padding: var(--space-1) var(--space-4) var(--space-1) 0;
+  text-align: left;
+  vertical-align: top;
+  white-space: nowrap;
+}
+.tm-logistics td {
+  padding: var(--space-1) 0;
+}
+.tm-logistics small {
+  display: block;
+}

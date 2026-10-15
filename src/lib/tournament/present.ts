@@ -5,6 +5,7 @@
  * public one show the same thing from the same data.
  */
 
+import { isWallClock } from '../../../shared/tournament/timeZone';
 import {
   isDisputed,
   isLocked,
@@ -751,7 +752,9 @@ export function staffReport(
 
 /** The start of round 1 as a time, when the organizer set one. */
 export const firstRoundTime = (startsAt: string): string | null =>
-  startsAt ? new Date(startsAt).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }) : null;
+  isWallClock(startsAt)
+    ? new Date(startsAt).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+    : null;
 
 /** What put the last player in above the first one out: points, then OWP, then OOWP. */
 export function cutSplit(rows: readonly Standing[], cut: number): string | null {

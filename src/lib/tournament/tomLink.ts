@@ -127,9 +127,12 @@ function openDb(): Promise<IDBDatabase> {
 async function withStore<T>(mode: IDBTransactionMode, run: (store: IDBObjectStore) => IDBRequest<T>): Promise<T> {
   const db = await openDb();
   return new Promise((resolve, reject) => {
-    const request = run(db.transaction(STORE, mode).objectStore(STORE));
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error ?? new Error('IndexedDB request failed'));
+    const transaction = db.transaction(STORE, mode);
+    const request = run(transaction.objectStore(STORE));
+    // Closing waits for the transaction. A failed request aborts it, so the abort carries every failure, a late commit's too.
+    db.close();
+    transaction.oncomplete = () => resolve(request.result);
+    transaction.onabort = () => reject(transaction.error ?? new Error('IndexedDB unavailable'));
   });
 }
 

@@ -87,7 +87,7 @@ function create(cookie: string, body: Record<string, unknown>) {
     {
       method: 'POST',
       cookie,
-      body: { mode: 'swiss', name: 'Friday Night', ...body }
+      body: { mode: 'swiss', roundTime: 30, name: 'Friday Night', ...body }
     }
   );
 }

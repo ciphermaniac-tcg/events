@@ -70,9 +70,6 @@ async function during<T>(step: string, run: () => Promise<T>): Promise<T> {
   }
 }
 
-export const readTime = (at: Date) =>
-  at.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', second: '2-digit' });
-
 /**
  * `onSynced` takes the console's new copy of the event when a sync answered
  * with one, and asks for it again when one was refused.
@@ -80,7 +77,6 @@ export const readTime = (at: Date) =>
 export function createTomLink(props: { manage: () => Manage; onSynced: (answer?: Manage) => Promise<unknown> }) {
   const [handle, setHandle] = createSignal<TdfHandle | null>(null);
   const [state, setState] = createSignal<LinkState>('none');
-  const [readAt, setReadAt] = createSignal<Date | null>(null);
   const [error, setError] = createSignal<string | null>(null);
   const [askingWrite, setAskingWrite] = createSignal<FileWrite | null>(null);
   let lastModified = 0;
@@ -102,18 +98,17 @@ export function createTomLink(props: { manage: () => Manage; onSynced: (answer?:
   }
 
   /** Sends the parsed file if it differs from what was last sent. */
-  async function push(text: string) {
+  async function push(text: string, force = false) {
     const parsed = await during('parse', async () => parseTdf(text));
     const json = JSON.stringify(parsed);
-    if (json !== lastSent) {
+    if (force || json !== lastSent) {
       const base = synced ?? (await revisionOf(props.manage().tournament));
       const event = code();
-      const answer = await during('send', () => syncTournament(event, parsed, base).catch(conflicted));
+      const answer = await during('send', () => syncTournament(event, parsed, base, force).catch(conflicted));
       synced = answer.revision;
       lastSent = json;
       await props.onSynced(answer);
     }
-    setReadAt(new Date());
   }
 
   /**
@@ -139,8 +134,6 @@ export function createTomLink(props: { manage: () => Manage; onSynced: (answer?:
         await push(read.text);
         ({ lastModified } = read);
         setError(null);
-      } else {
-        setReadAt(new Date());
       }
     } catch (err) {
       // TOM may be halfway through a save, or the site slow to answer; the next look tries again.
@@ -208,17 +201,23 @@ export function createTomLink(props: { manage: () => Manage; onSynced: (answer?:
   }
 
   async function unlink() {
-    await forgetHandle(code());
     setHandle(null);
     setState('none');
+    await forgetHandle(code()).catch(() => undefined);
   }
 
   async function upload(file: File) {
     try {
-      await push(await file.text());
+      // A manually chosen snapshot replaces automatic following only after its import succeeds.
+      await readDone();
+      reading = true;
+      await push(await file.text(), true);
+      await unlink();
       setError(null);
     } catch (err) {
       setError(errorText(err));
+    } finally {
+      reading = false;
     }
   }
 
@@ -285,7 +284,7 @@ export function createTomLink(props: { manage: () => Manage; onSynced: (answer?:
   return {
     state,
     fileName: () => handle()?.name ?? '',
-    readAt,
+    importedAt: () => props.manage().lastImportAt ?? null,
     error,
     askingWrite,
     pending: () => props.manage().pending.length,
@@ -323,24 +322,37 @@ const results = (n: number) => `${n} result${n === 1 ? '' : 's'}`;
 
 const pairLabel = (write: FileWrite) => (write.kind === 'pair' ? write.label : null);
 
+const MODES: Record<LinkState, string> = {
+  none: 'Manual snapshot',
+  watching: 'Automatically following',
+  reconnect: 'Following paused'
+};
+
 /** The file's name and where it stands, as one data-built line. */
 function FileLine(props: { link: TomLink }) {
-  const read = () => {
-    const at = props.link.readAt();
-    return at ? ` · read ${readTime(at)}` : '';
-  };
   return (
     <span class='tm-file-line'>
-      <Show when={props.link.fileName()} fallback={<strong>No .tdf linked</strong>}>
-        <strong>{props.link.fileName()}</strong>
+      <strong>{MODES[props.link.state()]}</strong>
+      <Show when={props.link.fileName()}>
+        <span> · {props.link.fileName()}</span>
       </Show>
-      <Show
-        when={props.link.state() !== 'reconnect'}
-        fallback={<span class='muted'> · reconnect to read it and enter results</span>}
-      >
-        <span class='muted'>{read()} · </span>
-        {props.link.pending() ? `${results(props.link.pending())} not in TOM yet` : 'TOM has every result'}
+      {/* Events imported before the time was recorded say nothing rather than guess. */}
+      <Show when={props.link.importedAt()}>
+        {at => (
+          <span class='muted'>
+            {' '}
+            · Last imported {new Date(at()).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'medium' })}
+          </span>
+        )}
       </Show>
+      <Show when={!canLinkFiles()}>
+        <span class='muted'> · This browser cannot follow files</span>
+      </Show>
+      <Show when={props.link.state() === 'reconnect'}>
+        <span class='muted'> · Reconnect to read it and enter results</span>
+      </Show>
+      <span class='muted'> · </span>
+      {props.link.pending() ? `${results(props.link.pending())} not in TOM yet` : 'TOM has every result'}
     </span>
   );
 }

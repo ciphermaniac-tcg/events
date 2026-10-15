@@ -139,7 +139,8 @@ CREATE TABLE IF NOT EXISTS tournaments (
   -- The day a Community organizer's event is on (YYYY-MM-DD), held one to an
   -- owner by the index below: one event per date. NULL for a store's event
   -- and an Admin's.
-  community_day TEXT
+  community_day TEXT,
+  last_import_at INTEGER
 );
 CREATE INDEX IF NOT EXISTS tournaments_of_store ON tournaments (store_id) WHERE store_id IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS tournaments_one_community_day ON tournaments (owner_id, community_day)

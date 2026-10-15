@@ -33,6 +33,7 @@ import { deleteWrites, firstIndexWrites, rosterWrites } from './rosterWrites.js'
 import { winWrites } from './winWrites.js';
 
 export interface TournamentRow {
+  lastImportAt?: number | null;
   code: string;
   ownerId: string;
   mode: TournamentMode;
@@ -54,6 +55,7 @@ export interface TournamentRow {
 }
 
 interface RawRow {
+  last_import_at: number | null;
   code: string;
   owner_id: string;
   mode: string;
@@ -80,6 +82,7 @@ function fromRaw(raw: RawRow): TournamentRow {
   // Rows imported before the writer matched TOM byte for byte carry the file's bytes; the next write drops them.
   delete (tournament.passthrough as { original?: unknown } | undefined)?.original;
   return {
+    lastImportAt: raw.last_import_at ?? null,
     code: raw.code,
     ownerId: raw.owner_id,
     mode: raw.mode === 'tom' ? 'tom' : 'swiss',
@@ -311,6 +314,7 @@ export async function createTournament(db: D1Like, input: NewTournament): Promis
   const keys = assignKeys(tournament, {});
   const staffToken = randomToken(16);
   const now = Date.now();
+  const lastImportAt = mode === 'tom' ? now : null;
   const admissionId = randomToken(8);
   // With a limit, the event goes in only where its creation was counted in.
   const admitted = input.admission
@@ -327,7 +331,7 @@ export async function createTournament(db: D1Like, input: NewTournament): Promis
     const insert = db
       .prepare(
         'INSERT INTO tournaments (code, owner_id, mode, state, settings, player_keys, staff_token, created_at, ' +
-          'updated_at, store_id, community_day) SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ' +
+          'updated_at, store_id, community_day, last_import_at) SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ' +
           `WHERE NOT EXISTS (SELECT 1 FROM tournaments WHERE code = ?)${admitted.sql} AND (${guard.sql})`
       )
       .bind(
@@ -342,6 +346,7 @@ export async function createTournament(db: D1Like, input: NewTournament): Promis
         now,
         storeId,
         communityDay,
+        lastImportAt,
         code,
         ...admitted.values,
         ...guard.values
@@ -355,7 +360,7 @@ export async function createTournament(db: D1Like, input: NewTournament): Promis
     if (rowsChanged(results[admission.length + 1]) === 1) {
       const empty = { pending: [], reports: [], decks: {} };
       const made = { code, ownerId, mode, tournament, settings, keys, staffToken, version: 1, updatedAt: now };
-      return { ...made, ...empty, storeId, communityDay };
+      return { ...made, ...empty, storeId, communityDay, lastImportAt };
     }
   }
   throw new Error('Could not find a free tournament code');
@@ -395,6 +400,7 @@ function stateJson(tournament: Tournament): string {
 }
 
 export interface Changes {
+  lastImportAt?: number;
   /** A refused action can still persist TOM's phase transition without a round. */
   refusal?: string;
   /** Preserve the last activity time when the idle sweep only changes bookkeeping. */
@@ -452,6 +458,7 @@ function columnsFor(changes: Changes, next: TournamentRow): [string, string][] {
   const { tournament, pending, settings, decks, communityDay } = changes;
   const columns: [string, string | false | undefined][] = [
     ['community_day', communityDay],
+    ['last_import_at', changes.lastImportAt?.toString()],
     ['state', tournament && stateJson(tournament)],
     ['player_keys', tournament && JSON.stringify(next.keys)],
     ['pending', pending && JSON.stringify(pending)],
@@ -652,6 +659,7 @@ export const pairedRounds = (state: string) =>
   POD_CATEGORIES.map((_, i) => `ifnull(json_array_length(${state}, '$.pods[${i}].rounds'), 0)`).join(' + ');
 
 interface SummaryRow {
+  community_day: string | null;
   code: string;
   mode: string;
   name: string | null;
@@ -672,7 +680,7 @@ export async function listTournaments(db: D1Like, userId: string): Promise<Tourn
       "SELECT code, mode, json_extract(state, '$.info.name') AS name, " +
         "json_array_length(state, '$.players') AS players, json_extract(state, '$.info.startDate') AS start_date, " +
         "json_extract(settings, '$.finished') AS finished, " +
-        `${pairedRounds('state')} AS rounds, owner_id, updated_at, store_id, ` +
+        `community_day, ${pairedRounds('state')} AS rounds, owner_id, updated_at, store_id, ` +
         '(SELECT m.role FROM store_members m WHERE m.store_id = tournaments.store_id AND m.user_id = ?1) AS store_role ' +
         'FROM tournaments WHERE (owner_id = ?1 AND store_id IS NULL) OR code IN (SELECT code FROM staff WHERE user_id = ?1) ' +
         'OR store_id IN (SELECT store_id FROM store_members WHERE user_id = ?1) ORDER BY updated_at DESC LIMIT 200'
@@ -690,7 +698,10 @@ export async function listTournaments(db: D1Like, userId: string): Promise<Tourn
     startDate: row.start_date ?? '',
     finished: row.finished === 1,
     rounds: row.rounds ?? 0,
-    updatedAt: row.updated_at
+    updatedAt: row.updated_at,
+    ...(row.owner_id === userId && row.store_id === null && row.community_day
+      ? { communityDay: row.community_day }
+      : {})
   }));
 }
 

@@ -12,6 +12,7 @@ import { playerPod } from '../../../shared/tournament/rounds';
 import { type MatchRecord, type Standing, thirdPlaceMatch } from '../../../shared/tournament/standings';
 import type { Division, Pod } from '../../../shared/tournament/types';
 import { decksVisible, isSanctioned, type PublishedView } from '../../../shared/tournament/view';
+import { isWallClock } from '../../../shared/tournament/timeZone';
 import { type HistoryRow, matchHistory, namesById, podStandings, roundLabel } from './present';
 
 const sameYear = (date: Date) => date.getFullYear() === new Date().getFullYear();
@@ -28,7 +29,8 @@ export const dayLabel = (date: Date, timeZone?: string) =>
 
 /** The day an event is on: the organizer's start time, else TOM's start date; '' with neither. */
 export function eventDay(startsAt: string, startDate: string): string {
-  if (startsAt) {
+  // A start stored before times were checked may name no real day; TOM's date stands in for it.
+  if (isWallClock(startsAt)) {
     return dayLabel(new Date(startsAt));
   }
   const tom = parseTomDate(startDate);

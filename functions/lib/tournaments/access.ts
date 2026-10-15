@@ -150,6 +150,7 @@ export function viewOf(access: Access): TournamentView {
 export function manageView(access: StaffAccess): Manage {
   const { row, role } = access;
   return {
+    lastImportAt: row.lastImportAt ?? null,
     code: row.code,
     mode: row.mode,
     version: row.version,

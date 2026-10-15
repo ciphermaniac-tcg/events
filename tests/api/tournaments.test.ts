@@ -297,7 +297,7 @@ test('creating an event needs a signed-in, same-origin request', async () => {
     {},
     {
       method: 'POST',
-      body: { mode: 'swiss', name: 'x' }
+      body: { mode: 'swiss', roundTime: 30, name: 'x' }
     }
   );
   assert.equal(anonymous.status, 401);
@@ -310,7 +310,7 @@ test('creating an event needs a signed-in, same-origin request', async () => {
       method: 'POST',
       cookie,
       origin: 'https://evil.test',
-      body: { mode: 'swiss', name: 'x' }
+      body: { mode: 'swiss', roundTime: 30, name: 'x' }
     }
   );
   assert.equal(crossSite.status, 403);
@@ -440,7 +440,7 @@ test('who starts an event of their own: a Community organizer or an Admin; a rev
       {
         method: 'POST',
         cookie,
-        body: { mode: 'swiss', name: 'Test Cup' }
+        body: { mode: 'swiss', roundTime: 30, name: 'Test Cup' }
       }
     );
   const player = await create(await signIn('Player'));
@@ -1137,7 +1137,11 @@ test('an event starts with the settings its setup chose', async () => {
     tournaments.onRequestPost as Handler,
     '/api/tournaments',
     {},
-    { method: 'POST', cookie: owner, body: { mode: 'swiss', name: 'X', settings: { sanctioned: 'yes' } } }
+    {
+      method: 'POST',
+      cookie: owner,
+      body: { mode: 'swiss', roundTime: 30, name: 'X', settings: { sanctioned: 'yes' } }
+    }
   );
   assert.equal(bad.status, 400);
 });
@@ -3259,4 +3263,125 @@ test('a decklist token alone recovers the list without persisting its player det
   assert.equal(stranger.json.mine, null);
   const absent = await hit(decklists.onRequestGet as Handler, '/decklists', at(code));
   assert.equal(absent.json.mine, null);
+});
+
+test('Swiss setup rejects missing or invalid minutes instead of supplying a default', async () => {
+  const cookie = await signIn('Organizer', 'organizer');
+  const store = await storeOf(cookie);
+  for (const roundTime of [undefined, null, '', '30', 0, 181, 30.5]) {
+    const answer = await hit(
+      tournaments.onRequestPost as Handler,
+      '/api/tournaments',
+      {},
+      {
+        method: 'POST',
+        cookie,
+        body: { mode: 'swiss', name: 'Friday', store, roundTime }
+      }
+    );
+    assert.equal(answer.status, 400);
+    assert.equal(answer.json.error, 'Enter whole minutes from 1 to 180');
+  }
+  const list = await hit(tournaments.onRequestGet as Handler, '/api/tournaments', {}, { cookie });
+  assert.deepEqual(list.json.tournaments, []);
+});
+
+test('community setup receives its reserved dates, including finished events', async () => {
+  const cookie = await signIn('Community', 'community');
+  const code = await newEvent(cookie, { settings: { sanctioned: false, startsAt: '2026-10-18T12:00' } });
+  await settle(code, cookie, { finished: true });
+  const answer = await hit(tournaments.onRequestGet as Handler, '/api/tournaments', {}, { cookie });
+  assert.equal(answer.json.tournaments[0].communityDay, '2026-10-18');
+});
+
+test('TOM import time survives reloads and settings changes and advances only with an imported snapshot', async () => {
+  const owner = await signIn('Organizer', 'organizer');
+  mock.timers.enable({ apis: ['Date'], now: Date.parse('2026-10-14T12:00:00Z') });
+  const code = await newTom(
+    owner,
+    parseTdf(readFileSync(new URL('../fixtures/tdf/challenge-midevent.tdf', import.meta.url), 'utf8'))
+  );
+  const load = async () => (await hit(manage.onRequestGet as Handler, '/manage', at(code), { cookie: owner })).json;
+  const initial = await load();
+  assert.equal(initial.lastImportAt, Date.now());
+  mock.timers.tick(60_000);
+  await settle(code, owner, { format: 'Expanded' });
+  assert.equal((await load()).lastImportAt, initial.lastImportAt);
+  const tournament = structuredClone(initial.tournament) as Tournament;
+  tournament.info.name = 'Imported revision';
+  const imported = await hit(sync.onRequestPut as Handler, '/sync', at(code), {
+    method: 'PUT',
+    cookie: owner,
+    body: { tournament, base: await revisionNow(code, owner) }
+  });
+  assert.equal(imported.status, 200);
+  assert.equal(imported.json.lastImportAt, Date.now());
+  const last = Date.now();
+  mock.timers.tick(60_000);
+  assert.equal((await load()).lastImportAt, last);
+  const refused = await hit(sync.onRequestPut as Handler, '/sync', at(code), {
+    method: 'PUT',
+    cookie: owner,
+    body: { tournament: initial.tournament, base: 'stale' }
+  });
+  assert.equal(refused.status, 409);
+  assert.equal((await load()).lastImportAt, last);
+});
+
+test('an unchanged file counts as an import when the organizer uploads it, not when the console polls it', async () => {
+  const owner = await signIn('Organizer', 'organizer');
+  mock.timers.enable({ apis: ['Date'], now: Date.parse('2026-10-14T12:00:00Z') });
+  const code = await newTom(
+    owner,
+    parseTdf(readFileSync(new URL('../fixtures/tdf/challenge-midevent.tdf', import.meta.url), 'utf8'))
+  );
+  const load = async () => (await hit(manage.onRequestGet as Handler, '/manage', at(code), { cookie: owner })).json;
+  const initial = await load();
+  const sendSame = async (extra: Record<string, unknown>) =>
+    hit(sync.onRequestPut as Handler, '/sync', at(code), {
+      method: 'PUT',
+      cookie: owner,
+      body: { tournament: initial.tournament, base: await revisionNow(code, owner), ...extra }
+    });
+  mock.timers.tick(60_000);
+  const polled = await sendSame({});
+  assert.equal(polled.status, 200);
+  assert.equal(polled.json.lastImportAt, initial.lastImportAt, 'following the file finds nothing new');
+  assert.equal((await load()).version, initial.version, 'and writes nothing');
+  const uploaded = await sendSame({ manual: true });
+  assert.equal(uploaded.status, 200);
+  assert.equal(uploaded.json.lastImportAt, Date.now(), 'the organizer imported it now');
+  assert.equal((await load()).lastImportAt, Date.now());
+  assert.deepEqual((await load()).tournament, initial.tournament, 'only the import time changed');
+});
+
+test('a new event keeps its logistics and starts in its store’s zone unless setup names one', async () => {
+  const organizer = await signIn('Organizer', 'organizer');
+  const logistics = { venue: 'Test Games', address: '100 Main Street', checkInAt: '2026-10-18T11:30' };
+  const stored = await newEvent(organizer, { settings: logistics });
+  const { timeZone, venue, address, checkInAt } = (await view(stored)).settings;
+  assert.deepEqual({ timeZone, venue, address, checkInAt }, { timeZone: 'America/Chicago', ...logistics });
+  const named = await newEvent(organizer, { settings: { timeZone: 'Europe/London' } });
+  assert.equal((await view(named)).settings.timeZone, 'Europe/London');
+  const community = await signIn('Community', 'community');
+  const own = await newEvent(community, { settings: { sanctioned: false, timeZone: 'America/Los_Angeles' } });
+  assert.equal((await view(own)).settings.timeZone, 'America/Los_Angeles');
+  const refused = await hit(
+    tournaments.onRequestPost as Handler,
+    '/api/tournaments',
+    {},
+    {
+      method: 'POST',
+      cookie: organizer,
+      body: { mode: 'swiss', name: 'Cup', roundTime: 30, settings: { timeZone: 'Mars/Base' } }
+    }
+  );
+  assert.equal(refused.status, 400);
+  assert.equal((await settle(stored, organizer, { timeZone: 'Asia/Tokyo', venue: 'x'.repeat(121) })).status, 400);
+  for (const time of ['2026-10-18T99:00', '2026-02-30T10:00']) {
+    assert.equal((await settle(stored, organizer, { startsAt: time })).status, 400, time);
+    assert.equal((await settle(stored, organizer, { checkInAt: time })).status, 400, time);
+  }
+  assert.equal((await settle(stored, organizer, { timeZone: 'Asia/Tokyo' })).status, 200);
+  assert.equal((await view(stored)).settings.timeZone, 'Asia/Tokyo');
 });

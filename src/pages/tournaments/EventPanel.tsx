@@ -37,6 +37,7 @@ import { session } from './session';
 import type { ManageState } from './manageState';
 import { DecklistsSwitch, EventTypeSwitch, RoundsSelect } from './SettingChoices';
 import { ArchetypesSelect, SettingRow, Toggle } from './SettingControls';
+import { type Logistics, LogisticsRows } from './LogisticsRows';
 import { reportingInfo, SETTING_INFO, SettingInfo } from './SettingInfo';
 
 /** A box of settings with its heading, and a foot with Save and whether anything is unsaved. */
@@ -158,14 +159,28 @@ function EventDetails(props: { state: ManageState; manage: Manage }) {
   );
 }
 
-type PlayerSettings = Pick<
-  TournamentSettings,
-  'details' | 'format' | 'startsAt' | 'deckVisibility' | 'sanctioned' | 'playerReporting' | 'decklists'
->;
+type PlayerSettings = Logistics &
+  Pick<
+    TournamentSettings,
+    'details' | 'format' | 'startsAt' | 'deckVisibility' | 'sanctioned' | 'playerReporting' | 'decklists'
+  >;
 
 const pickPlayerSettings = (settings: TournamentSettings): PlayerSettings => {
   const { details, format, startsAt, deckVisibility, sanctioned, playerReporting, decklists } = settings;
-  return { details, format, startsAt, deckVisibility, sanctioned, playerReporting, decklists };
+  const { timeZone, checkInAt, venue, address } = settings;
+  return {
+    details,
+    format,
+    startsAt,
+    timeZone,
+    checkInAt,
+    venue,
+    address,
+    deckVisibility,
+    sanctioned,
+    playerReporting,
+    decklists
+  };
 };
 
 function ForPlayers(props: { state: ManageState; manage: Manage }) {
@@ -193,6 +208,7 @@ function ForPlayers(props: { state: ManageState; manage: Manage }) {
           onInput={e => set('startsAt', e.currentTarget.value)}
         />
       </SettingRow>
+      <LogisticsRows id='set' value={draft()} onChange={set} />
       <SettingRow label='Format' for='set-format'>
         <FormatSelect id='set-format' value={draft().format} onChange={value => set('format', value)} />
       </SettingRow>

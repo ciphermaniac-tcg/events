@@ -139,6 +139,32 @@ test('settings changes are checked field by field', () => {
   assert.equal(readSettings({ startsAt: 'tomorrow' }, DEFAULT_SETTINGS), null);
   assert.equal(readSettings({ admin: true }, DEFAULT_SETTINGS), null);
   assert.equal(readSettings({ details: 'x'.repeat(1001) }, DEFAULT_SETTINGS), null);
+  assert.deepEqual(
+    readSettings(
+      { timeZone: 'America/Chicago', checkInAt: '2026-10-10T10:30', venue: 'Test Games', address: '1 Main St' },
+      DEFAULT_SETTINGS
+    ),
+    {
+      ...DEFAULT_SETTINGS,
+      timeZone: 'America/Chicago',
+      checkInAt: '2026-10-10T10:30',
+      venue: 'Test Games',
+      address: '1 Main St'
+    }
+  );
+  assert.equal(readSettings({ timeZone: '' }, DEFAULT_SETTINGS)?.timeZone, '', 'an event can keep no zone');
+  for (const change of [
+    { timeZone: 'Mars/Base' },
+    { timeZone: 'America/Chicago'.repeat(5) },
+    { checkInAt: '10:30' },
+    { checkInAt: '2026-10-18T99:00' },
+    { startsAt: '2026-02-30T10:00' },
+    { startsAt: '2026-10-18T24:00' },
+    { venue: 'x'.repeat(121) },
+    { address: 'x'.repeat(201) }
+  ]) {
+    assert.equal(readSettings(change, DEFAULT_SETTINGS), null, JSON.stringify(change));
+  }
   assert.equal(readSettings('open', DEFAULT_SETTINGS), null);
   assert.equal(readSettings({ constructor: {} }, DEFAULT_SETTINGS), null);
   assert.equal(readSettings(JSON.parse('{"__proto__": 1}'), DEFAULT_SETTINGS), null);

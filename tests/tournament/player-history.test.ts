@@ -23,7 +23,7 @@ import {
   type TournamentSettings
 } from '../../shared/tournament/view.ts';
 import { eventDay, playerResult, readEntry } from '../../src/lib/tournament/history.ts';
-import { namesById, podStandings } from '../../src/lib/tournament/present.ts';
+import { firstRoundTime, namesById, podStandings } from '../../src/lib/tournament/present.ts';
 import { juniorsCutApart } from '../__utils__/divisionCuts.ts';
 
 const CHALLENGE = parseTdf(readFileSync(new URL('../fixtures/tdf/challenge-midevent.tdf', import.meta.url), 'utf8'));
@@ -47,6 +47,12 @@ test('an event’s day: the organizer’s start time, else TOM’s date, with th
   assert.doesNotMatch(eventDay(`${thisYear}-10-03T11:00`, ''), new RegExp(String(thisYear)));
   assert.match(eventDay('', '10/03/2025'), /Oct 3, 2025|3 Oct 2025/);
   assert.equal(eventDay('', ''), '', 'neither set');
+  // A start stored before times were checked: TOM's date, not Invalid Date or a rolled-over day.
+  assert.match(eventDay('2025-10-03T99:00', '10/03/2025'), /Oct 3, 2025|3 Oct 2025/);
+  assert.equal(eventDay('2026-02-30T10:00', ''), '');
+  assert.equal(firstRoundTime('2026-10-18T99:00'), null);
+  assert.equal(firstRoundTime(''), null);
+  assert.match(firstRoundTime('2026-10-18T13:05') ?? '', /1:05/);
 });
 
 describe('one player’s event, read from the public copy as History reads it', () => {

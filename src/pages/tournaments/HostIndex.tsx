@@ -44,6 +44,7 @@ import {
   type TournamentSummary
 } from '../../lib/tournament/api';
 import { canLinkFiles, pickTdf, rememberHandle, type TdfHandle } from '../../lib/tournament/tomLink';
+import { clearSetupDraft, setupDraftKey, tdfDraftId } from '../../lib/tournament/setupDraft';
 import { latestValue } from '../../lib/resource';
 import { eventStatus, roundCapOf } from '../../lib/tournament/present';
 import type { MyApplication, MyStore } from '../../../shared/accounts/types';
@@ -311,19 +312,30 @@ function Organizer(props: {
       ? 'No events yet'
       : (['live', 'upcoming', 'finished'] as Phase[]).map(phase => `${byPhase(phase).length} ${phase}`).join(' · ');
 
+  const draftKey = () =>
+    setupDraftKey(
+      user()?.id ?? '',
+      stage().kind,
+      stage().kind === 'tom' ? tdfDraftId((stage() as Extract<Stage, { kind: 'tom' }>).tournament) : ''
+    );
+
   async function create(setup: Setup) {
     const current = stage();
+    const savedDraft = draftKey();
     setBusy(true);
     setError(null);
     try {
       if (current.kind === 'tom') {
         const { code } = await createFromTdf(current.tournament, setup.store, setup.settings);
         if (current.handle) {
-          await rememberHandle(code, current.handle);
+          await rememberHandle(code, current.handle).catch(() => undefined);
         }
+        clearSetupDraft(savedDraft);
         props.onOpened(code);
       } else {
-        props.onOpened((await createSwiss(setup)).code);
+        const { code } = await createSwiss(setup);
+        clearSetupDraft(savedDraft);
+        props.onOpened(code);
       }
     } catch (err) {
       setError(errorText(err));
@@ -346,7 +358,12 @@ function Organizer(props: {
   const runAs = (tom: boolean): RunAs[] => [
     ...(user()?.stores ?? [])
       .filter(store => store.status === 'active' && (!tom || store.leagueId))
-      .map(store => ({ id: store.id, label: store.name, sanctions: Boolean(store.leagueId) })),
+      .map(store => ({
+        id: store.id,
+        label: store.name,
+        sanctions: Boolean(store.leagueId),
+        timeZone: store.timeZone
+      })),
     ...(!tom && canRunCommunityEvents(role()) ? [{ id: null, label: user()?.name ?? '', sanctions: false }] : [])
   ];
   /** The store `?new=` asks to start an event as, when the account may. */
@@ -390,6 +407,9 @@ function Organizer(props: {
           tdfSanctioned={Boolean((stage() as Extract<Stage, { kind: 'tom' }>).tournament?.info.sanctionId)}
           runAs={runAs(stage().kind === 'tom')}
           initialRunAs={asked}
+          draftKey={draftKey()}
+          community={role() === 'community'}
+          communityDays={all().flatMap(event => (event.communityDay ? [event.communityDay] : []))}
           busy={busy()}
           error={error()}
           onCreate={setup => void create(setup)}

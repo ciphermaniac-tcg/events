@@ -34,3 +34,7 @@ export function organizerToday(value: unknown, now: number): string {
   const gap = Math.abs(Date.parse(`${value}T00:00:00Z`) - Date.parse(`${utc}T00:00:00Z`));
   return gap <= DAY_MS ? value : utc;
 }
+
+/** The required Swiss round duration. */
+export const isRoundMinutes = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= 180;

@@ -14,7 +14,7 @@
 
 import { canRunCommunityEvents } from '../../../shared/accounts/roles.js';
 import { dateIn } from '../../../shared/accounts/stores.js';
-import { CREATIONS_PER_DAY, eventDay, organizerToday } from '../../../shared/tournament/limits.js';
+import { CREATIONS_PER_DAY, eventDay, isRoundMinutes, organizerToday } from '../../../shared/tournament/limits.js';
 import { sanctionedMinutesError } from '../../../shared/tournament/structure.js';
 import { emptyTournament, eventTimeLimits } from '../../../shared/tournament/create.js';
 import { tomDateTime } from '../../../shared/tournament/divisions.js';
@@ -77,20 +77,17 @@ interface NewEvent {
 
 const SANCTION_ID_RE = /^\d{2}-\d{2}-\d{6}$/;
 
-const isMinutes = (value: unknown): value is number =>
-  typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= 180;
-
 function validModeMinutes(type: EventType, value: unknown): boolean {
   if (value === undefined || type === 'cup' || type === 'challenge') {
     return true;
   }
   const range = eventTimeLimits(type);
-  return isMinutes(value) && value >= range.minimum && value <= range.maximum;
+  return isRoundMinutes(value) && value >= range.minimum && value <= range.maximum;
 }
 
 /**
- * A Swiss event from the setup's answers: a name, and optionally the round
- * length, the kind of event and the settings to start with. Its pods follow
+ * A Swiss event from the setup's answers: a name, and the round
+ * length, optionally the kind of event and the settings to start with. Its pods follow
  * the players' age divisions (see shared/tournament/podding.ts); without
  * birth years everyone reads as Masters, so an unsanctioned event pairs
  * everyone together.
@@ -105,7 +102,7 @@ function swissFrom(body: Body): Tournament | null {
   const info = {
     name,
     startDate: tomDateTime(new Date()).slice(0, 10),
-    ...(isMinutes(body.roundTime) ? { roundTime: body.roundTime } : {}),
+    roundTime: body.roundTime as number,
     ...(kind ? { eventType: kind } : {})
   };
   return name ? emptyTournament(info) : null;
@@ -131,12 +128,23 @@ async function readNew(request: Request): Promise<NewEvent | string> {
     return 'Not a tournament';
   }
   const mode = value.mode === 'tom' ? 'tom' : 'swiss';
-  const tournament = mode === 'tom' ? tomEvent(value.tournament) : swissFrom(value);
-  if (!tournament) {
-    return mode === 'tom' ? 'That file did not read as a tournament' : 'The event needs a name';
+  const tournament = describedTournament(value, mode);
+  if (typeof tournament === 'string') {
+    return tournament;
   }
   const short = mode === 'swiss' && settings.sanctioned ? sanctionedMinutesError(tournament.info) : null;
   return short ?? { mode, tournament, settings, ...whoAndWhen(value) };
+}
+
+/** Required setup values, with no fallback for invalid minutes. */
+function describedTournament(value: Body, mode: NewEvent['mode']): Tournament | string {
+  if (mode === 'swiss' && !isRoundMinutes(value.roundTime)) {
+    return 'Enter whole minutes from 1 to 180';
+  }
+  const tournament = mode === 'tom' ? tomEvent(value.tournament) : swissFrom(value);
+  return (
+    tournament ?? (mode === 'tom' ? 'Your .TDF could not be parsed. Please try again.' : 'Please name your event.')
+  );
 }
 
 /** What a create request says about who runs the event and the listing it comes from. */
@@ -194,6 +202,12 @@ interface StorePlace {
   time_zone: string;
 }
 
+/** The setup's settings, read in the store's time zone when the setup named none. */
+const inStoreZone = (read: NewEvent, place: StorePlace): TournamentSettings => ({
+  ...read.settings,
+  timeZone: read.settings.timeZone || place.time_zone
+});
+
 /** YYYY-MM-DD as TOM writes a date, MM/DD/YYYY. */
 const tomDate = (day: string) => `${day.slice(5, 7)}/${day.slice(8, 10)}/${day.slice(0, 4)}`;
 
@@ -238,7 +252,7 @@ function unsanctionedStoreEvent(user: User, read: NewEvent, place: StorePlace, s
   const info = unsanctionedInfo(tournament.info);
   return {
     tournament: { ...tournament, info },
-    settings: { ...read.settings, sanctioned: false },
+    settings: { ...inStoreZone(read, place), sanctioned: false },
     storeId,
     communityDay: null,
     admission: { owner: `store:${storeId}`, limit: CREATIONS_PER_DAY.community }
@@ -272,6 +286,7 @@ async function storeEvent(where: Where, user: User, read: NewEvent, storeId: str
   }
   return {
     ...(read.mode === 'swiss' ? { tournament: storeInfo(user, read, place) } : {}),
+    settings: inStoreZone(read, place),
     storeId,
     communityDay: null,
     admission: { owner: `store:${storeId}`, limit: CREATIONS_PER_DAY.store }

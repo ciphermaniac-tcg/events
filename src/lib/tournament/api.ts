@@ -160,7 +160,7 @@ export const listTournaments = () => call<{ tournaments: TournamentSummary[] }>(
 /** What the setup asks before a Swiss event starts; the settings left out keep their defaults. */
 export interface SwissSetup {
   name: string;
-  roundTime?: number;
+  roundTime: number;
   eventType?: EventType;
   settings?: Partial<TournamentSettings>;
   /** The store that runs it; null for the account's own. */
@@ -251,9 +251,10 @@ export const SYNC_TIMEOUT_MS = 30_000;
 /**
  * Sends the parsed .tdf, taken only if the site still holds the copy `revision` names (see shared/tournament/revision.ts).
  * A sync that hangs is abandoned, so the link following TOM's file is not stuck waiting on it; one that landed
- * anyway is the copy the site holds when the link sends again, which the server takes as a match.
+ * anyway is the copy the site holds when the link sends again, which the server takes as a match. A `manual`
+ * upload, one the organizer chose, counts as an import even when the site already holds that copy.
  */
-export async function syncTournament(code: string, tournament: Tournament, revision: string) {
+export async function syncTournament(code: string, tournament: Tournament, revision: string, manual = false) {
   const controller = new AbortController();
   const timer = setTimeout(
     () => controller.abort(new ApiError('The site took too long to answer', 0)),
@@ -261,7 +262,7 @@ export async function syncTournament(code: string, tournament: Tournament, revis
   );
   try {
     return await call<Manage & { revision: string }>(`${base(code)}/sync`, {
-      ...json('PUT', { tournament, base: revision }),
+      ...json('PUT', { tournament, base: revision, ...(manual ? { manual } : {}) }),
       signal: controller.signal
     });
   } finally {

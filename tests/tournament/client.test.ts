@@ -148,7 +148,7 @@ test('every call goes to its endpoint with its body', async () => {
   await fetchSession();
   await saveProfile(profile);
   await listTournaments();
-  await createSwiss({ name: 'Cup' });
+  await createSwiss({ name: 'Cup', roundTime: 30 });
   await createFromTdf(t, 'store-1');
   await fetchView('ABC', 3);
   await fetchManage('ABC');
@@ -197,7 +197,7 @@ test('every call goes to its endpoint with its body', async () => {
   assert.match(decklist.localTime, /^\d{2}\/\d{2}\/\d{4} /, 'a list can add its submitter, so it carries the clock');
   const command = sent[8]?.body as { localTime: string };
   assert.match(command.localTime, /^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}:\d{2}$/, 'stamped with the venue clock');
-  assert.deepEqual(sent[3]?.body, { mode: 'swiss', name: 'Cup' });
+  assert.deepEqual(sent[3]?.body, { mode: 'swiss', name: 'Cup', roundTime: 30 });
 });
 
 test('a player identifies and reports through one endpoint, stamped with the venue clock', async () => {
@@ -422,7 +422,15 @@ function fakeIndexedDb() {
     get: (key: string) => request(() => data.get(key)),
     delete: (key: string) => request(() => data.delete(key) && undefined)
   };
-  const db = { transaction: () => ({ objectStore: () => store }), createObjectStore: () => store };
+  const db = {
+    transaction: () => {
+      const transaction: { objectStore: () => typeof store; oncomplete?: () => void } = { objectStore: () => store };
+      queueMicrotask(() => queueMicrotask(() => transaction.oncomplete?.()));
+      return transaction;
+    },
+    createObjectStore: () => store,
+    close: () => undefined
+  };
   return {
     open: () => {
       const req: { result: typeof db; onupgradeneeded?: () => void; onsuccess?: () => void; onerror?: () => void } = {
@@ -450,4 +458,31 @@ test('remembers a linked file per event, and forgets it', async () => {
     delete (globalThis as { indexedDB?: unknown }).indexedDB;
   }
   assert.equal(await recallHandle('ABC'), null, 'no IndexedDB reads as nothing remembered');
+});
+
+test('handle persistence rejects a transaction that aborts after its put succeeds', async () => {
+  (globalThis as { indexedDB?: unknown }).indexedDB = {
+    open: () => {
+      const transaction: { onabort?: () => void; error: Error; objectStore: () => unknown } = {
+        error: new Error('Storage quota'),
+        objectStore: () => ({ put: () => ({ result: 'ABC' }) })
+      };
+      const req: { result: unknown; onsuccess?: () => void } = {
+        result: {
+          transaction: () => {
+            queueMicrotask(() => transaction.onabort?.());
+            return transaction;
+          },
+          close: () => undefined
+        }
+      };
+      queueMicrotask(() => req.onsuccess?.());
+      return req;
+    }
+  };
+  try {
+    await assert.rejects(rememberHandle('ABC', fakeHandle('')), /Storage quota/);
+  } finally {
+    delete (globalThis as { indexedDB?: unknown }).indexedDB;
+  }
 });

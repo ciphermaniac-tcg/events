@@ -408,8 +408,7 @@ test('sanctioned setup requires Play! Tools confirmation; local setup skips it @
   ]);
   await page.getByRole('button', { name: 'Cancel', exact: true }).click();
   await page.getByRole('button', { name: 'Start an event' }).click();
-  await sanctioned.getByRole('radio', { name: 'Yes', exact: true }).click();
-  await expect(confirmation).not.toBeChecked();
+  await expect(confirmation).toBeChecked();
 });
 
 for (const [eventType, label] of [
@@ -590,6 +589,7 @@ const TDF_SOURCE = readFileSync(new URL('../fixtures/tdf/challenge-midevent.tdf'
 /** The console's copy of the TOM event the file below holds. */
 const tomManage = () => ({
   ...VIEW,
+  lastImportAt: Date.parse('2026-10-14T12:00:00Z'),
   tournament: tdf,
   decks: {},
   settings: DEFAULT_SETTINGS,
@@ -608,7 +608,11 @@ type SyncAnswer = Answer | null;
 async function tomConsole(
   page: Page,
   sync: (body: string) => SyncAnswer | Promise<SyncAnswer>,
-  { manage = tomManage(), pairing }: { manage?: unknown; pairing?: (body: unknown) => Answer } = {}
+  {
+    manage = tomManage(),
+    pairing,
+    following = true
+  }: { manage?: unknown; pairing?: (body: unknown) => Answer; following?: boolean } = {}
 ) {
   await page.addInitScript(source => {
     const file = { modified: 1, lost: false, text: source };
@@ -665,8 +669,13 @@ async function tomConsole(
     }
     return route.fulfill({ status: 404, json: { error: 'Not found' } });
   });
+  if (!following) {
+    await page.addInitScript(() => Object.defineProperty(window, 'showOpenFilePicker', { value: undefined }));
+  }
   await page.goto(`/host/${CODE}`);
-  await page.getByRole('button', { name: 'Link .tdf file' }).click();
+  if (following) {
+    await page.getByRole('button', { name: 'Link .tdf file' }).click();
+  }
 }
 
 test('a TOM console stops following its file when another copy was synced over it', async ({ page }) => {
@@ -1003,6 +1012,262 @@ test('the display reacquires its wake lock after returning to view', async ({ pa
   await page.evaluate(() => (window as unknown as { wakeTest: { hide: () => void } }).wakeTest.hide());
   await page.evaluate(() => (window as unknown as { wakeTest: { show: () => void } }).wakeTest.show());
   await expect.poll(asks).toBe(2);
+});
+
+test('setup recovers after cancel and reload and refuses invalid minutes @mobile', async ({ page }) => {
+  const submissions = await mockOrganizer(page);
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Start an event' }).click();
+  await page.getByRole('textbox', { name: 'Event name' }).fill('Recovered setup');
+  await page.locator('#setup-starts').fill('2026-10-18T12:00');
+  const minutes = page.getByRole('spinbutton', { name: 'Swiss round minutes' });
+  await minutes.fill('');
+  await expect(page.getByRole('button', { name: 'Create event' })).toBeDisabled();
+  await page.locator('.tm-setup').evaluate(form => form.dispatchEvent(new Event('submit', { bubbles: true })));
+  expect(submissions).toEqual([]);
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await page.reload();
+  await page.getByRole('button', { name: 'Start an event' }).click();
+  await expect(page.getByRole('textbox', { name: 'Event name' })).toHaveValue('Recovered setup');
+  await expect(page.locator('#setup-starts')).toHaveValue('2026-10-18T12:00');
+  await expect(minutes).toHaveValue('');
+  await minutes.fill('30.5');
+  await expect(page.getByRole('button', { name: 'Create event' })).toBeDisabled();
+  await minutes.fill('35');
+  await page.getByRole('button', { name: 'Create event' }).click();
+  await expect(page.locator('.tm-error')).toHaveText('Fixture submission');
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await page.getByRole('button', { name: 'Start an event' }).click();
+  await expect(minutes).toHaveValue('35');
+});
+
+test('community setup shows an occupied date before creation @mobile', async ({ page }) => {
+  await mockOrganizer(page);
+  await page.route('**/api/me', route =>
+    route.fulfill({
+      json: {
+        user: { id: 'community', name: 'Community', role: 'community', stores: [] },
+        providers: []
+      }
+    })
+  );
+  await page.route('**/api/tournaments', route =>
+    route.fulfill({
+      json: {
+        tournaments: [
+          {
+            code: 'TAKEND',
+            name: 'Existing event',
+            mode: 'swiss',
+            role: 'owner',
+            players: 0,
+            startDate: '10/18/2026',
+            communityDay: '2026-10-18',
+            finished: true,
+            rounds: 0,
+            updatedAt: 0
+          }
+        ]
+      }
+    })
+  );
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Start an event' }).click();
+  await page.getByRole('textbox', { name: 'Event name' }).fill('Next event');
+  await page.locator('#setup-starts').fill('2026-10-18T12:00');
+  await expect(page.getByText('One community event per date', { exact: false })).toBeVisible();
+  await expect(page.getByText('An event already uses 2026-10-18.', { exact: false })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Create event' })).toBeDisabled();
+  await page.locator('#setup-starts').fill('2026-10-19T12:00');
+  await expect(page.getByRole('button', { name: 'Create event' })).toBeEnabled();
+});
+
+test('successful creation clears the setup draft', async ({ page }) => {
+  await mockOrganizer(page);
+  await page.route('**/api/tournaments', route =>
+    route.request().method() === 'POST'
+      ? route.fulfill({ status: 201, json: { code: CODE } })
+      : route.fulfill({ json: { tournaments: [] } })
+  );
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Start an event' }).click();
+  await page.getByRole('textbox', { name: 'Event name' }).fill('Created event');
+  await page.getByRole('button', { name: 'Create event' }).click();
+  await expect(page).toHaveURL(new RegExp(`/host/${CODE}`));
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Start an event' }).click();
+  await expect(page.getByRole('textbox', { name: 'Event name' })).toHaveValue('');
+  await expect(page.getByRole('spinbutton', { name: 'Swiss round minutes' })).toHaveValue('30');
+});
+
+test('TOM creation opens the known event when handle persistence fails', async ({ page }) => {
+  await mockOrganizer(page);
+  await page.addInitScript(source => {
+    Object.assign(window, {
+      showOpenFilePicker: async () => [{ name: 'event.tdf', getFile: async () => new File([source], 'event.tdf') }]
+    });
+    indexedDB.open = () => {
+      throw new Error('Storage unavailable');
+    };
+  }, TDF_SOURCE);
+  await page.route('**/api/tournaments', route =>
+    route.request().method() === 'POST'
+      ? route.fulfill({ status: 201, json: { code: CODE } })
+      : route.fulfill({ json: { tournaments: [] } })
+  );
+  await page.route(`**/api/tournaments/${CODE}/manage*`, route =>
+    new URL(route.request().url()).searchParams.has('since')
+      ? route.fulfill({ status: 204 })
+      : route.fulfill({ json: tomManage() })
+  );
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Link .tdf file' }).click();
+  await page.getByRole('checkbox', { name: 'I’ve created this event in Play! Tools' }).check();
+  await page.getByRole('button', { name: 'Create event' }).click();
+  await expect(page).toHaveURL(new RegExp(`/host/${CODE}`));
+  await expect(page.getByRole('region', { name: 'TOM file' })).toContainText('Manual snapshot');
+  expect(await page.evaluate(() => Object.keys(localStorage).filter(key => key.startsWith('cm-event-setup:')))).toEqual(
+    []
+  );
+});
+
+test('automatic TOM polling preserves the last import timestamp and manual upload stops following', async ({
+  page
+}) => {
+  await page.clock.install();
+  let syncs = 0;
+  const manual: unknown[] = [];
+  await tomConsole(page, body => {
+    syncs += 1;
+    manual.push((JSON.parse(body) as { manual?: boolean }).manual);
+    return { status: 200, json: { ...tomManage(), version: 5, revision: 'next' } };
+  });
+  const strip = page.getByRole('region', { name: 'TOM file' });
+  await expect(strip).toContainText('Automatically following');
+  await expect(strip).toContainText('Last imported');
+  const before = await strip.locator('.tm-file-line').innerText();
+  await page.clock.fastForward(10_000);
+  expect(await strip.locator('.tm-file-line').innerText()).toBe(before);
+  expect(syncs).toBe(1);
+  await strip.getByRole('button', { name: 'More' }).click();
+  await strip
+    .locator('input[type="file"]')
+    .setInputFiles({ name: 'manual.tdf', mimeType: 'text/xml', buffer: Buffer.from(TDF_SOURCE) });
+  await expect(strip).toContainText('Manual snapshot');
+  await expect(strip.getByRole('button', { name: 'Link .tdf file' })).toBeVisible();
+  await expect(strip.getByRole('button', { name: 'Refresh .tdf' })).toHaveCount(0);
+  expect(syncs).toBe(2);
+  await page.clock.fastForward(10_000);
+  expect(syncs).toBe(2);
+  // Following the file is not an import the organizer chose; uploading one is, even unchanged.
+  expect(manual).toEqual([undefined, true]);
+});
+
+test('manual TOM uploads show browser capability and the imported snapshot time', async ({ page }) => {
+  const lastImportAt = Date.parse('2026-10-14T14:00:00Z');
+  await tomConsole(
+    page,
+    () => ({ status: 200, json: { ...tomManage(), lastImportAt, version: 5, revision: 'next' } }),
+    { following: false }
+  );
+  const strip = page.getByRole('region', { name: 'TOM file' });
+  await expect(strip).toContainText('Manual snapshot');
+  await expect(strip).toContainText('This browser cannot follow files');
+  await expect(strip.getByRole('button', { name: 'Link .tdf file' })).toHaveCount(0);
+  const before = await strip.locator('.tm-file-line').innerText();
+  await strip
+    .locator('input[type="file"]')
+    .setInputFiles({ name: 'manual.tdf', mimeType: 'text/xml', buffer: Buffer.from(TDF_SOURCE) });
+  await expect(strip.locator('.tm-file-line')).not.toHaveText(before);
+  await expect(strip).toContainText('Manual snapshot');
+});
+
+test('a failed manual upload preserves automatic TOM following', async ({ page }) => {
+  let syncs = 0;
+  await tomConsole(page, () => {
+    syncs += 1;
+    return synced();
+  });
+  const strip = page.getByRole('region', { name: 'TOM file' });
+  await expect(strip).toContainText('Automatically following');
+  await strip.getByRole('button', { name: 'More' }).click();
+  await strip
+    .locator('input[type="file"]')
+    .setInputFiles({ name: 'broken.tdf', mimeType: 'text/xml', buffer: Buffer.from('<broken>') });
+  await expect(strip).toContainText('Could not parse the .tdf');
+  await expect(strip).toContainText('Automatically following');
+  expect(syncs).toBe(1);
+  await page.evaluate(() => {
+    const file = (window as unknown as { tdfFile: { text: string; modified: number } }).tdfFile;
+    file.text = file.text.replace('Fixture Challenge', 'Updated Challenge');
+    file.modified += 1;
+  });
+  await strip.getByRole('button', { name: 'Refresh .tdf' }).click();
+  await expect.poll(() => syncs).toBe(2);
+  await expect(strip.locator('.tm-error')).toHaveCount(0);
+});
+
+test('setup asks where and when, starting in the store’s zone, and keeps the answers', async ({ page }) => {
+  const submissions = await mockOrganizer(page);
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Start an event' }).click();
+  const zone = page.getByRole('combobox', { name: 'Time zone' });
+  await expect(zone).toHaveValue('America/Chicago');
+  await page.getByRole('textbox', { name: 'Event name' }).fill('Sunday Cup');
+  await page.getByRole('textbox', { name: 'Venue' }).fill('Test Games');
+  await page.getByRole('textbox', { name: 'Address' }).fill('100 Main Street');
+  await page.locator('#setup-check-in').fill('2026-10-18T11:30');
+  await zone.selectOption('Europe/London');
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await page.reload();
+  await page.getByRole('button', { name: 'Start an event' }).click();
+  await expect(page.getByRole('textbox', { name: 'Venue' })).toHaveValue('Test Games');
+  await expect(zone).toHaveValue('Europe/London');
+  await page.getByRole('button', { name: 'Create event' }).click();
+  await expect(page.locator('.tm-error')).toHaveText('Fixture submission');
+  expect(submissions).toEqual([
+    expect.objectContaining({
+      settings: expect.objectContaining({
+        timeZone: 'Europe/London',
+        venue: 'Test Games',
+        address: '100 Main Street',
+        checkInAt: '2026-10-18T11:30'
+      })
+    })
+  ]);
+});
+
+test.describe('a viewer in another time zone', () => {
+  test.use({ timezoneId: 'America/Los_Angeles' });
+
+  test('sees the venue and each time in the event’s zone and their own @mobile', async ({ page }) => {
+    const settings = {
+      ...VIEW.settings,
+      timeZone: 'America/Chicago',
+      startsAt: '2026-10-18T12:00',
+      checkInAt: '2026-10-18T11:30',
+      venue: 'Test Games',
+      address: '100 Main Street'
+    };
+    await mockApi(page, { ...VIEW, settings });
+    await page.goto(`/t/${CODE}`);
+    const logistics = page.locator('.tm-logistics');
+    await expect(logistics.getByRole('row', { name: /Venue/ })).toContainText('Test Games100 Main Street');
+    await expect(logistics.getByRole('row', { name: /Check-in/ })).toContainText('11:30 AM CDT');
+    await expect(logistics.getByRole('row', { name: /Check-in/ })).toContainText('Your time: Sun, Oct 18, 9:30 AM PDT');
+    await expect(logistics.getByRole('row', { name: /Starts/ })).toContainText('Your time: Sun, Oct 18, 10:00 AM PDT');
+    await expect(page.locator('.hero-meta')).toContainText('12:00 PM CDT');
+  });
+
+  test('sees an event without a zone as it was written, with no second time', async ({ page }) => {
+    await mockApi(page, {
+      ...VIEW,
+      settings: { ...VIEW.settings, startsAt: '2026-10-18T12:00', checkInAt: '2026-10-18T11:30' }
+    });
+    await page.goto(`/t/${CODE}`);
+    await expect(page.locator('.tm-logistics')).toContainText('11:30 AM');
+    await expect(page.locator('.tm-logistics')).not.toContainText('Your time');
+  });
 });
 
 test('with divisions on their own clocks, the running one leads and the one waiting says so', async ({ page }) => {

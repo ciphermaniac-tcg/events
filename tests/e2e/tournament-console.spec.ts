@@ -877,3 +877,18 @@ test('Escape closes the extension menu before the mobile result sheet @mobileOnl
   await page.keyboard.press('Escape');
   await expect(sheet).toHaveCount(0);
 });
+
+test('an event made before time zones picks one and its venue from Settings', async ({ page }) => {
+  const sent = await mockConsole(page, event(8, 0, true), settingsOf({}));
+  await page.getByRole('tab', { name: 'Settings' }).click();
+  const zone = page.getByRole('combobox', { name: 'Time zone' });
+  await expect(zone).toHaveValue('');
+  await zone.selectOption('America/Chicago');
+  await page.getByRole('textbox', { name: 'Venue' }).fill('Test Games');
+  const box = page.locator('section', { has: page.getByRole('heading', { name: 'For players' }) });
+  await box.getByRole('button', { name: 'Save' }).click();
+  await expect
+    .poll(() => sent.saved.at(-1))
+    .toMatchObject({ timeZone: 'America/Chicago', venue: 'Test Games', address: '', checkInAt: '' });
+  await expect(zone.locator('option[value=""]')).toHaveCount(0);
+});

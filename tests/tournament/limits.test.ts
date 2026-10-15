@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { eventDay, organizerToday } from '../../shared/tournament/limits.ts';
+import { eventDay, isRoundMinutes, organizerToday } from '../../shared/tournament/limits.ts';
 
 test('an event is on the date its start time names, or the organizer’s today without one', () => {
   assert.equal(eventDay('2026-10-09T19:30', '2026-10-04'), '2026-10-09');
@@ -18,4 +18,13 @@ test('the organizer’s today is their browser’s when it is within a day of th
   assert.equal(organizerToday('2026-10-07', now), '2026-10-04', 'no time zone is three days ahead');
   assert.equal(organizerToday('tomorrow', now), '2026-10-04');
   assert.equal(organizerToday(undefined, now), '2026-10-04');
+});
+
+test('round minutes require a whole number from 1 through 180', () => {
+  for (const value of [undefined, null, '', '30', 0, 181, 30.5, NaN, Infinity]) {
+    assert.equal(isRoundMinutes(value), false);
+  }
+  for (const value of [1, 30, 180]) {
+    assert.equal(isRoundMinutes(value), true);
+  }
 });

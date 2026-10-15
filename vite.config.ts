@@ -36,10 +36,11 @@ export default defineConfig({
             {
               // Share the shell, controls and event helpers so route chunks do not repeat their wrappers. The TOM
               // file reader and writer stay out: only organizer pages load them, the download on demand. So
-              // does the Clerk sign-in client, which only the sign-in box uses.
+              // does the Clerk sign-in client, which only the sign-in box uses, and the zoned event times only the
+              // event page shows, and setup's drafts.
               name: 'tournament',
               priority: 1,
-              test: /(?:src[\\/]components[\\/]|src[\\/]main\.tsx$|tournaments[\\/](Field|FormatSelect|SettingControls|OptionsMenu|Modal|ConfirmAction)\.tsx$|shared[\\/]tournament[\\/](?!tdf\.|xml\.)|src[\\/]lib[\\/]tournament[\\/](?!admin|applications|clerk|exportTdf))/,
+              test: /(?:src[\\/]components[\\/]|src[\\/]main\.tsx$|tournaments[\\/](Field|FormatSelect|SettingControls|OptionsMenu|Modal|ConfirmAction)\.tsx$|shared[\\/]tournament[\\/](?!tdf\.|xml\.|eventTime\.)|src[\\/]lib[\\/]tournament[\\/](?!admin|applications|clerk|exportTdf|setupDraft))/,
               includeDependenciesRecursively: true
             },
             // The Swiss engine runs in the browser only for the /host home page's sample event. Its own

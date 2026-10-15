@@ -20,7 +20,7 @@ const create = (cookie: string, store?: string) =>
     {
       method: 'POST',
       cookie,
-      body: { name: 'Friday', mode: 'swiss', store }
+      body: { name: 'Friday', mode: 'swiss', roundTime: 30, store }
     }
   );
 

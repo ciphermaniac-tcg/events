@@ -20,8 +20,10 @@ import {
   decksEnabled,
   isSanctioned,
   type PublishedView,
+  type TournamentSettings,
   type TournamentView
 } from '../../../shared/tournament/view';
+import { eventTimes } from '../../../shared/tournament/eventTime';
 import { Segmented } from '../../components/Segmented';
 import { Skeleton } from '../../components/Skeleton';
 import { TabPanel, Tabs } from '../../components/Tabs';
@@ -60,6 +62,7 @@ import {
 import type { Tab as DashboardTab } from './Dashboard';
 import { TournamentHero } from './Hero';
 import { createNow } from './now';
+import { EventLogistics } from './EventLogistics';
 import { PlayerSheet } from './PlayerSheet';
 import { PublicPairings } from './PublicPairings';
 import type { Identified } from './Identify';
@@ -687,8 +690,14 @@ function EventBody(props: {
   );
 }
 
-/** One date format across the page: the organizer's start time, else TOM's start date (see eventDay). */
-function eventDate(startsAt: string, startDate: string): string {
+/**
+ * One date format across the page: the organizer's start time, in the event's
+ * zone where it has one, else TOM's start date (see eventDay).
+ */
+function eventDate({ startsAt, timeZone }: TournamentSettings, startDate: string): string {
+  if (startsAt && timeZone) {
+    return eventTimes(startsAt, timeZone).event;
+  }
   const day = eventDay(startsAt, startDate);
   return startsAt ? `${day} · ${firstRoundTime(startsAt) ?? ''}` : day;
 }
@@ -726,7 +735,7 @@ function Hero(props: { view: TournamentView }) {
   const place = () => [info().city, info().state].filter(Boolean).join(', ');
   const parts = () =>
     [
-      eventDate(settings().startsAt, info().startDate),
+      eventDate(settings(), info().startDate),
       settings().format,
       place(),
       `${props.view.tournament.players.length} players`,
@@ -755,6 +764,7 @@ function Hero(props: { view: TournamentView }) {
           </For>
         }
       />
+      <EventLogistics settings={settings()} />
       <Show when={settings().details}>
         <p class='tm-details'>{settings().details}</p>
       </Show>

@@ -127,6 +127,7 @@ const createEvent = (cookie: string, where: { day?: number; store?: string } = {
       cookie,
       body: {
         mode: 'swiss',
+        roundTime: 30,
         name: 'Test Cup',
         settings: { startsAt: `2026-11-${String(where.day ?? 1).padStart(2, '0')}T18:00` },
         ...(where.store ? { store: where.store } : {})

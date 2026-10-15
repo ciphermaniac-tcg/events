@@ -41,7 +41,7 @@ export function eventCalls(hit: ReturnType<typeof apiCalls>['hit']) {
       tournaments.onRequestPost as Handler,
       '/api/tournaments',
       {},
-      { method: 'POST', cookie, body: { mode: 'swiss', name: 'Test Cup', ...store, ...body } }
+      { method: 'POST', cookie, body: { mode: 'swiss', name: 'Test Cup', roundTime: 30, ...store, ...body } }
     );
     assert.equal(created.status, 201, JSON.stringify(created.json));
     return created.json.code as string;

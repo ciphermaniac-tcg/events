@@ -10,7 +10,9 @@
  * file settles are dropped. The answer is the console's new copy of the
  * event, with the revision it now holds, so the console need not ask again. A file sent from a copy the site no longer holds
  * is refused (409) rather than taken over rounds another browser synced; one
- * that is the copy the site already holds changes nothing and succeeds.
+ * that is the copy the site already holds changes nothing and succeeds,
+ * apart from an upload the organizer chose ({ manual: true }), which records
+ * the import time.
  *
  * The file's round clocks are set aside for the ones the site runs (see
  * shared/tournament/tomClock.ts), so a copy that differs only in its clocks
@@ -25,7 +27,13 @@ import { prunePending } from '../../../../shared/tournament/view.js';
 import { asObject, readJsonBody } from '../../../lib/api/body.js';
 import { jsonError } from '../../../lib/api/responses.js';
 import type { Context } from '../../../lib/auth/env.js';
-import { manageView, MAX_TOURNAMENT_BYTES, openForStaff, privateJson } from '../../../lib/tournaments/access.js';
+import {
+  manageView,
+  MAX_TOURNAMENT_BYTES,
+  openForStaff,
+  privateJson,
+  type StaffAccess
+} from '../../../lib/tournaments/access.js';
 import { publishAfter } from '../../../lib/tournaments/publish.js';
 import { mutate } from '../../../lib/tournaments/store.js';
 
@@ -34,6 +42,8 @@ const CONFLICT = 'The site has a different copy of this event. Reconnect the fil
 interface Upload {
   tournament: Tournament;
   base: string;
+  /** The organizer chose this file, rather than the console following one: it is an import even unchanged. */
+  manual: boolean;
 }
 
 /** The upload in a request body, or the refusal. */
@@ -47,7 +57,19 @@ async function readUpload(request: Request): Promise<Upload | Response> {
   if (!tournament) {
     return jsonError('That file did not read as a tournament', 400);
   }
-  return typeof value.base === 'string' ? { tournament, base: value.base } : jsonError('Reload the page', 400);
+  return typeof value.base === 'string'
+    ? { tournament, base: value.base, manual: value.manual === true }
+    : jsonError('Reload the page', 400);
+}
+
+/** An explicit upload of the copy the site already holds: only the import time changes. */
+async function importedAgain(context: Context<'code'>, access: StaffAccess, revision: string): Promise<Response> {
+  const outcome = await mutate(access.db, access.row, () => ({ lastImportAt: Date.now() }));
+  if ('error' in outcome) {
+    return jsonError(outcome.error, outcome.status);
+  }
+  await publishAfter(context, outcome.row);
+  return privateJson({ ...manageView({ ...access, row: outcome.row }), revision });
 }
 
 export async function onRequestPut(context: Context<'code'>): Promise<Response> {
@@ -64,9 +86,12 @@ export async function onRequestPut(context: Context<'code'>): Promise<Response> 
   }
   const held = await revisionOf(access.row.tournament);
   const sent = await revisionOf(upload.tournament);
-  // The copy the site already holds, from a second tab or a push that crossed another: nothing to change.
+  // The copy the site already holds, from a second tab or a push that crossed another: nothing to change,
+  // unless the organizer chose the file, which is an import whatever it holds.
   if (sent === held) {
-    return privateJson({ ...manageView(access), revision: held });
+    return upload.manual
+      ? importedAgain(context, access, held)
+      : privateJson({ ...manageView(access), revision: held });
   }
   if (held !== upload.base) {
     return jsonError(CONFLICT, 409);
@@ -80,7 +105,11 @@ export async function onRequestPut(context: Context<'code'>): Promise<Response> 
   const checked = unclocked(access.row.tournament);
   const outcome = await mutate(access.db, access.row, row =>
     row === access.row || unclocked(row.tournament) === checked
-      ? { tournament: withSiteClocks(tournament, row.tournament), pending: prunePending(tournament, row.pending) }
+      ? {
+          tournament: withSiteClocks(tournament, row.tournament),
+          pending: prunePending(tournament, row.pending),
+          lastImportAt: Date.now()
+        }
       : CONFLICT
   );
   if ('error' in outcome) {
