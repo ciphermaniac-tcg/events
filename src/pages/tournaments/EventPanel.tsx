@@ -2,7 +2,8 @@
  * The console's event tab, as bordered boxes of settings rows (label at left,
  * control at right): the event itself (name, round lengths, Swiss rounds),
  * what players see and do (start, format, archetypes, sanctioned, reporting,
- * decklists, details), finishing (end or reopen, the .tdf), the staff invite
+ * decklists, details), a store event's big screen preset (StoreDisplays),
+ * finishing (end or reopen, the .tdf), the staff invite
  * and who is on staff, and deleting the event. Each box of settings saves on
  * its own and says when it has unsaved changes; anything that cannot be taken
  * back asks first.
@@ -15,10 +16,13 @@ import { eventTypeOf, recommendedStructure, SANCTIONED } from '../../../shared/t
 import type { EventType } from '../../../shared/tournament/types';
 import { swissAttendance } from '../../../shared/tournament/rounds';
 import { isSanctioned, SETTINGS_LIMITS, type TournamentSettings } from '../../../shared/tournament/view';
+import type { DisplayPreset } from '../../../shared/tournament/display';
 import {
+  call,
   deleteTournament,
   errorText,
   fetchStaff,
+  json,
   type Manage,
   removeStaff,
   rotateStaffToken,
@@ -442,6 +446,51 @@ function DeleteEvent(props: { manage: Manage }) {
   );
 }
 
+const displayPath = (code: string) => `/api/tournaments/${encodeURIComponent(code)}/display`;
+
+/**
+ * Which of the store's display presets the big screen uses. The event keeps
+ * a copy of the one it picked, so a preset edited or deleted since still
+ * shows here by its name until another is picked.
+ */
+function BigScreenPreset(props: { state: ManageState; manage: Manage }) {
+  const [read] = createResource(
+    () => props.manage.code,
+    code => call<{ presets: DisplayPreset[] }>(displayPath(code))
+  );
+  const kept = () => props.manage.settings.display;
+  const [picked, setPicked] = createSignal<string | null>(null);
+  const value = () => picked() ?? kept()?.id ?? '';
+  const choices = () => {
+    const presets = latestValue(read)?.presets ?? [];
+    const copy = kept();
+    return copy && !presets.some(preset => preset.id === copy.id) ? [...presets, copy] : presets;
+  };
+  function save() {
+    const { code } = props.manage;
+    const preset = value() || null;
+    void props.state
+      .run(() => call<Manage>(displayPath(code), json('PUT', { preset })))
+      .then(saved => {
+        // A refused save keeps the pick on screen, unsaved, to try again.
+        if (saved) {
+          setPicked(null);
+        }
+      });
+  }
+  return (
+    <SettingsBox title='Big screen' dirty={value() !== (kept()?.id ?? '')} busy={props.state.busy()} onSave={save}>
+      <SettingRow label='Display preset' for='set-display'>
+        <select id='set-display' class='tm-select' value={value()} onChange={e => setPicked(e.currentTarget.value)}>
+          <option value=''>Automatic</option>
+          <For each={choices()}>{preset => <option value={preset.id}>{preset.name}</option>}</For>
+        </select>
+      </SettingRow>
+      <ErrorLine message={read.error ? errorText(read.error) : null} />
+    </SettingsBox>
+  );
+}
+
 export function EventPanel(props: { state: ManageState; manage: Manage }) {
   return (
     <div class='tm-panel tm-event-panel'>
@@ -449,6 +498,9 @@ export function EventPanel(props: { state: ManageState; manage: Manage }) {
         <EventDetails state={props.state} manage={props.manage} />
       </Show>
       <ForPlayers state={props.state} manage={props.manage} />
+      <Show when={props.manage.store !== null}>
+        <BigScreenPreset state={props.state} manage={props.manage} />
+      </Show>
       <Finish state={props.state} manage={props.manage} />
       <Show when={props.manage.role === 'owner'}>
         <StaffInvite state={props.state} manage={props.manage} />

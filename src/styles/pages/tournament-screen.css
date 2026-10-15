@@ -1,14 +1,6 @@
 /* The big screen (/t/:code?screen=1), loaded with its chunk (BigScreen).
    Read from across a room: sizes scale with the screen, and while a round
    runs the clock is the largest thing on it. */
-body.tm-screen-mode .site-head,
-body.tm-screen-mode .site-footer {
-  display: none;
-}
-body.tm-screen-mode main.page {
-  max-width: none;
-  padding: 0;
-}
 .tm-screen {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
@@ -30,12 +22,12 @@ body.tm-screen-mode main.page {
 }
 .tm-screen-title {
   margin: 0;
-  font-size: clamp(var(--text-xl), 2.4vw, calc(var(--text-2xl) * 1.6));
+  font-size: calc(var(--tm-display-font, 32px) * 1.44);
   letter-spacing: -0.02em;
 }
 .tm-screen-status {
   margin: var(--space-2) 0 0;
-  font-size: clamp(var(--text-lg), 1.4vw, var(--text-2xl));
+  font-size: calc(var(--tm-display-font, 32px) * 0.84);
 }
 .tm-screen-join {
   display: flex;
@@ -139,7 +131,7 @@ body.tm-screen-mode main.page {
   list-style: none;
   margin: 0;
   padding: 0;
-  font-size: clamp(var(--text-xl), 2.4vw, calc(var(--text-2xl) * 1.8));
+  font-size: calc(var(--tm-display-font, 32px) * 1.44);
 }
 .tm-screen-registered li {
   overflow: hidden;
@@ -165,7 +157,7 @@ body.tm-screen-mode main.page {
 }
 .tm-screen-clock {
   display: block;
-  font-size: min(20vw, 34vh);
+  font-size: min(calc(20vw * var(--tm-display-scale, 1)), 34vh);
   font-weight: 800;
   line-height: 0.82;
   letter-spacing: -0.045em;
@@ -176,6 +168,46 @@ body.tm-screen-mode main.page {
   font-weight: 600;
   color: var(--muted);
 }
+/* Divisions on their own clocks: the one nearest its end leads, the others
+   stack beside it, each named; one waiting or done says so in words. */
+.tm-screen-big-clock.is-divisions {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-6);
+}
+.is-divisions .tm-screen-clock {
+  font-size: min(calc(15vw * var(--tm-display-scale, 1)), 28vh);
+}
+.tm-screen-side-clocks {
+  display: grid;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  text-align: left;
+}
+.tm-screen-side-clocks p {
+  margin: var(--space-1) 0 0;
+  font-size: clamp(var(--text-base), 1.4vw, var(--text-2xl));
+}
+.tm-screen-side-clock {
+  display: block;
+  font-size: min(calc(6vw * var(--tm-display-scale, 1)), 12vh);
+  font-weight: 800;
+  line-height: 0.9;
+  letter-spacing: -0.03em;
+}
+.tm-screen-clock.is-words,
+.tm-screen-side-clock.is-words {
+  font-size: min(calc(3vw * var(--tm-display-scale, 1)), 8vh);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--muted);
+}
+.is-divisions .tm-screen-clock.is-words {
+  font-size: min(calc(6vw * var(--tm-display-scale, 1)), 14vh);
+}
 
 /* Tables in order: the players face each other across the table number,
    which gives way to the result once there is one. */
@@ -184,14 +216,14 @@ body.tm-screen-mode main.page {
 }
 .tm-screen-pod-head {
   margin: 0 0 var(--space-2);
-  font-size: clamp(var(--text-lg), 1.4vw, var(--text-2xl));
+  font-size: calc(var(--tm-display-font, 32px) * 0.84);
   font-weight: 700;
 }
 .tm-screen-tables {
   list-style: none;
   margin: 0;
   padding: 0;
-  font-size: clamp(calc(var(--text-xl) * 1.5), 3vw, calc(var(--text-2xl) * 2.25));
+  font-size: calc(var(--tm-display-font, 32px) * 1.8);
 }
 .tm-screen-tables li {
   display: grid;
@@ -280,7 +312,7 @@ body.tm-screen-mode main.page {
 .tm-screen-standings {
   width: 100%;
   border-collapse: collapse;
-  font-size: clamp(var(--text-xl), 2.4vw, calc(var(--text-2xl) * 1.8));
+  font-size: calc(var(--tm-display-font, 32px) * 1.44);
 }
 .tm-screen-standings th {
   position: sticky;
@@ -347,11 +379,16 @@ body.tm-screen-mode main.page {
   align-items: center;
   gap: var(--space-2);
   opacity: 0;
+  pointer-events: none;
   transition: opacity var(--ms-base) var(--ease-base);
 }
 .tm-screen-controls.is-shown,
 .tm-screen-controls:focus-within {
   opacity: 1;
+  pointer-events: auto;
+}
+.tm-screen:has(.tm-screen-paged) .tm-screen-controls {
+  bottom: calc(var(--space-4) + 3rem);
 }
 .tm-screen-speed {
   display: inline-flex;
@@ -365,8 +402,8 @@ body.tm-screen-mode main.page {
 }
 @media (max-width: 900px) {
   .tm-screen {
-    height: auto;
-    min-height: 100dvh;
+    height: 100dvh;
+    min-height: 0;
     padding: var(--space-4);
   }
   .tm-screen-head {
@@ -384,4 +421,90 @@ body.tm-screen-mode main.page {
   .tm-screen-join.is-large .tm-qr {
     width: min(60vw, 280px);
   }
+}
+
+.tm-screen-paged {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: var(--space-3);
+  height: 100%;
+  min-height: 0;
+}
+.tm-screen-dense {
+  display: grid;
+  grid-auto-flow: column;
+  column-gap: var(--space-6);
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  min-height: 0;
+  font-size: var(--tm-display-font);
+}
+.tm-screen-dense li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-width: 0;
+  border-bottom: 1px solid var(--rule);
+  line-height: 1.25;
+}
+.tm-screen-dense-names {
+  display: grid;
+  min-width: 0;
+}
+.tm-screen-dense-names > * {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.tm-screen-dense-names > span {
+  font-size: 0.65em;
+  color: var(--muted);
+}
+.tm-screen-dense-table {
+  display: grid;
+  text-align: right;
+  flex-shrink: 0;
+}
+.tm-screen-dense-table small {
+  font-size: 0.5em;
+  color: var(--muted);
+}
+.tm-screen-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  font-size: calc(var(--text-base) * var(--tm-display-scale, 1));
+}
+
+.tm-screen-dense:not(.is-alphabetical) .tm-screen-dense-names {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-3);
+  flex: 1;
+}
+.tm-screen-dense:not(.is-alphabetical) .tm-screen-dense-names > span {
+  font-size: 1em;
+  font-weight: 700;
+  color: var(--fg);
+}
+
+.tm-screen-dense-table {
+  grid-template-columns: auto auto;
+  column-gap: 0.3em;
+}
+.tm-screen-dense-table strong {
+  grid-row: 1;
+  grid-column: 1;
+}
+.tm-screen-dense-table small:not([aria-label]) {
+  grid-row: 2;
+  grid-column: 1 / -1;
+}
+.tm-screen-dense-table small[aria-label] {
+  grid-row: 1;
+  grid-column: 2;
+  align-self: center;
+  font-size: 0.75em;
 }

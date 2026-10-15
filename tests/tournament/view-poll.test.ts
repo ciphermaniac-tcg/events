@@ -367,3 +367,87 @@ test('a page back in view asks who the viewer is at most every half minute, unti
     globals.document = before;
   }
 });
+
+test('unchanged published and API responses count as successful checks, throttled fallback does not', async () => {
+  let checks = 0;
+  const published = source({
+    shown: viewAt(3),
+    published: async () => ({ version: 3 }) as PublishedView,
+    checked: () => {
+      checks += 1;
+    }
+  });
+  await published.poll();
+  assert.equal(checks, 1);
+  const fallback = source({
+    shown: viewAt(3),
+    checked: () => {
+      checks += 1;
+    }
+  });
+  await fallback.poll();
+  assert.equal(checks, 2, '204 / unchanged API check counts');
+  await fallback.poll();
+  assert.equal(checks, 2, 'a skipped API request never claims freshness');
+});
+
+test('a failed fallback stays failed while throttled; explicit retry checks immediately', async () => {
+  const error = { status: 403 };
+  let failure: unknown;
+  let checks = 0;
+  let down = true;
+  const s = source({
+    shown: viewAt(3),
+    api: async () => {
+      if (down) {
+        throw error;
+      }
+      return null;
+    },
+    failed: err => {
+      failure = err;
+    },
+    checked: () => {
+      checks += 1;
+    }
+  });
+  assert.equal(await s.poll(), false);
+  assert.equal(failure, error);
+  assert.equal(await s.poll(), true);
+  assert.equal(checks, 0);
+  down = false;
+  s.poll.retry();
+  assert.equal(await s.poll(), true);
+  assert.equal(checks, 1);
+  assert.equal(s.calls.api, 2);
+});
+
+test('a published copy behind what another tab announced is no good check while the API fails', async () => {
+  let checks = 0;
+  const failures: unknown[] = [];
+  let down = true;
+  const s = source({
+    shown: viewAt(2),
+    ownCopy: () => false,
+    announced: () => 3,
+    published: async () => ({ version: 2 }) as PublishedView,
+    api: async () => {
+      if (down) {
+        throw new TypeError('Failed to fetch');
+      }
+      return viewAt(3);
+    },
+    checked: () => {
+      checks += 1;
+    },
+    failed: error => failures.push(error)
+  });
+  assert.equal(await s.poll(), false);
+  assert.equal(await s.poll(), false);
+  assert.deepEqual([checks, failures.length], [0, 2], 'each read of the stale file leaves the failure standing');
+  down = false;
+  assert.equal(await s.poll(), true);
+  assert.deepEqual([checks, s.shown()?.version], [1, 3]);
+  assert.equal(await s.poll(), true);
+  assert.equal(checks, 2, 'once the page holds the announced version, the file is enough again');
+});

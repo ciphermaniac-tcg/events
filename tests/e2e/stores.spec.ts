@@ -803,3 +803,49 @@ test('public store links hide legacy non-Discord URLs and canonicalize Discord i
     'https://discord.gg/combatpower'
   );
 });
+
+test('store settings: a display preset is made from the room, nudged, saved and deleted', async ({ page }) => {
+  await mock(page, { user: MANAGER });
+  const sent: { method: string; query: string; body: unknown }[] = [];
+  const corner = {
+    id: 'corner',
+    name: 'Collectibles Corner',
+    options: { scale: 1, layout: 'auto', pageSeconds: 20, room: { inches: 100, feet: 25 } }
+  };
+  await page.route('**/api/stores/store-1/displays*', route => {
+    const request = route.request();
+    const body = request.postData() ? (request.postDataJSON() as Record<string, unknown>) : null;
+    sent.push({ method: request.method(), query: new URL(request.url()).search, body });
+    if (request.method() === 'PUT') {
+      return route.fulfill({ json: { preset: { id: 'wall', ...body } } });
+    }
+    return route.fulfill({ json: request.method() === 'GET' ? { presets: [corner] } : { removed: 'wall' } });
+  });
+  await page.goto('/stores/store-1/settings?section=displays');
+  await expect(page.getByRole('radio', { name: 'Collectibles Corner' })).toBeVisible();
+  await page.getByRole('button', { name: 'New preset' }).click();
+  await page.getByLabel('Name').fill('Combat Power');
+  await page.getByLabel('Screen size').fill('43');
+  await page.getByLabel('Farthest viewer').fill('18');
+  await expect(page.locator('.tm-set-box strong.num')).toHaveText('165%');
+  await page.getByRole('button', { name: 'Larger text' }).click();
+  await expect(page.locator('.tm-set-box strong.num')).toHaveText('170%');
+  await expect(page.getByText('from 165% for this room')).toBeVisible();
+  await page.getByLabel('Layout').selectOption('alphabetical');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByRole('status')).toHaveText('Saved');
+  expect(sent.find(ask => ask.method === 'PUT')?.body).toEqual({
+    name: 'Combat Power',
+    options: { scale: 1.7, layout: 'alphabetical', pageSeconds: 15, room: { inches: 43, feet: 18 } }
+  });
+  await expect(page.getByRole('radio', { name: 'Combat Power' })).toHaveAttribute('aria-checked', 'true');
+  await page.getByRole('radio', { name: 'Collectibles Corner' }).click();
+  await expect(page.getByLabel('Name')).toHaveValue('Collectibles Corner');
+  await page.getByRole('radio', { name: 'Combat Power' }).click();
+  await page.getByRole('button', { name: 'Delete' }).click();
+  await page.getByRole('button', { name: 'Delete' }).click();
+  await expect(page.getByRole('radio', { name: 'Combat Power' })).toHaveCount(0);
+  await expect(page.getByLabel('Name')).toHaveValue('');
+  await expect(page.getByRole('status')).toHaveCount(0);
+  expect(sent.find(ask => ask.method === 'DELETE')?.query).toBe('?preset=wall');
+});

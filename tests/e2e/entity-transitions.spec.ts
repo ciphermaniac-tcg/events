@@ -361,3 +361,37 @@ test('closing the account menu during logout preserves busy state and shows a la
   await expect(page.locator('.tm-acct-menu').getByRole('alert')).toHaveText('Logout unavailable');
   await expect(page.getByRole('button', { name: 'Sign out', exact: true })).toBeEnabled();
 });
+
+for (const failure of [
+  { status: 401, label: 'Access expired' },
+  { status: 503, label: 'Updates unavailable' },
+  { status: 0, label: 'Connection unavailable' }
+]) {
+  test(`the console identifies ${failure.label} and retries unchanged successful checks`, async ({ page }) => {
+    await page.clock.install();
+    await page.route('**/api/tournaments/FIRST/manage*', route => route.fulfill({ json: manage('FIRST') }));
+    await page.goto('/host/FIRST');
+    await expect(page.getByRole('heading', { name: 'Event FIRST', exact: true })).toBeVisible();
+    await page.clock.fastForward(20_000);
+    await expect(page.locator('.tm-live-data')).toHaveCount(0);
+    await page.route('**/api/tournaments/FIRST/manage*', route =>
+      failure.status ? route.fulfill({ status: failure.status, json: { error: 'Unavailable' } }) : route.abort()
+    );
+    await page.clock.fastForward(failure.status === 401 ? 15_000 : 45_000);
+    await expect(page.getByText(failure.label, { exact: true })).toBeVisible();
+    await expect(page.getByText(/Last updated/)).toBeVisible();
+    await expect(page.getByText(/not updating/)).toBeVisible();
+    await page.route('**/api/tournaments/FIRST/manage*', route => route.fulfill({ status: 204 }));
+    await page.getByRole('button', { name: 'Retry', exact: true }).click();
+    await expect(page.locator('.tm-live-data')).toHaveCount(0);
+    await expect(page.getByText(/not updating/)).toHaveCount(0);
+  });
+}
+
+test('an initial console network failure offers retry without suggesting a different account', async ({ page }) => {
+  await page.route('**/api/tournaments/FIRST/manage*', route => route.abort());
+  await page.goto('/host/FIRST');
+  await expect(page.getByText('Connection unavailable. Try again.', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Retry', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Switch account' })).toHaveCount(0);
+});

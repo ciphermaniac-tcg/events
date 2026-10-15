@@ -2,9 +2,9 @@
  * /stores/:id/settings: a store's Managers change it. The sections are
  * listed down the left, as a settings app lists them, and the chosen one
  * fills the right (`?section=`, so each can be linked to): League nights (the
- * weekly nights and the dates that differ), Staff (StoreStaff), and Details
- * (what the store tells players). On a phone the list becomes a row of
- * tabs over the section. Staff who are not Managers are sent to the store's
+ * weekly nights and the dates that differ), Staff (StoreStaff), Details
+ * (what the store tells players) and Displays (StoreDisplays, the big screen
+ * presets). On a phone the list becomes a row of tabs over the section. Staff who are not Managers are sent to the store's
  * page; signed out, one box to sign in.
  */
 
@@ -30,72 +30,29 @@ import {
   saveStoreDetails
 } from '../../lib/tournament/stores';
 import { latestValue } from '../../lib/resource';
-import { ErrorLine } from './Field';
 import { TournamentHero } from './Hero';
 import { NightExceptions, WeeklyNights } from './LeagueNights';
 import { refreshSession } from './session';
 import { SignIn } from './SignIn';
 import { StoreFields } from './StoreFields';
+import { StoreDisplays } from './StoreDisplays';
+import { ErrorLine } from './Field';
+import { createSave, SaveBar } from './StoreSave';
 import { StoreStaff } from './StoreStaff';
 import '../../styles/pages/tournament-store-settings.css';
 import { pageTitle } from '../../lib/title';
 
-type Section = 'nights' | 'staff' | 'details';
+type Section = 'nights' | 'staff' | 'details' | 'displays';
 
 const SECTIONS: { value: Section; label: string }[] = [
   { value: 'nights', label: 'League nights' },
   { value: 'staff', label: 'Staff' },
-  { value: 'details', label: 'Details' }
+  { value: 'details', label: 'Details' },
+  { value: 'displays', label: 'Displays' }
 ];
 
 const readSection = (value: string | undefined): Section =>
   SECTIONS.find(section => section.value === value)?.value ?? 'nights';
-
-/** Save at the foot of a section: what it is waiting on, the error, or that it saved. */
-function SaveBar(props: {
-  dirty: boolean;
-  busy: boolean;
-  saved: boolean;
-  error: string | null;
-  reason?: string | null;
-}) {
-  return (
-    <div class='tm-store-save'>
-      <button type='submit' class='btn btn-primary' disabled={!props.dirty || props.busy || Boolean(props.reason)}>
-        Save
-      </button>
-      <Show when={props.reason && props.dirty}>
-        <span class='muted'>{props.reason}</span>
-      </Show>
-      <Show when={props.saved && !props.dirty}>
-        <span class='muted' role='status'>
-          Saved
-        </span>
-      </Show>
-      <ErrorLine message={props.error} />
-    </div>
-  );
-}
-
-/** One save of a section: busy while it goes, the error it left, and whether the last one landed. */
-function createSave() {
-  const [busy, setBusy] = createSignal(false);
-  const [saved, setSaved] = createSignal(false);
-  const [error, setError] = createSignal<string | null>(null);
-  async function run(step: () => Promise<void>) {
-    setBusy(true);
-    setError(null);
-    try {
-      await step();
-      setSaved(true);
-    } catch (err) {
-      setError(errorText(err));
-    } finally {
-      setBusy(false);
-    }
-  }
-  return { busy, saved, error, run };
-}
 
 const nightsProblem = (nights: readonly LeagueNight[], exceptions: readonly NightException[]) => {
   if (nights.some(night => !night.time)) {
@@ -314,6 +271,9 @@ function Settings(props: { id: string }) {
               </Pane>
               <Pane of='staff' current={section()} opened={opened()}>
                 <StoreStaff storeId={answer().store.id} />
+              </Pane>
+              <Pane of='displays' current={section()} opened={opened()}>
+                <StoreDisplays storeId={answer().store.id} />
               </Pane>
               <Pane of='details' current={section()} opened={opened()}>
                 <DetailsSection

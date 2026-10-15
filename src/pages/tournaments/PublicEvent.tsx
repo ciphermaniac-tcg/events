@@ -69,6 +69,8 @@ import '../../styles/pages/tournament-public.css';
 import { pageTitle } from '../../lib/title';
 import { RoundStepper } from './RoundStepper';
 import { ErrorState } from '../../components/ErrorState';
+import { EMPTY_LIVE_DATA, type LiveData, liveFailure } from '../../lib/tournament/liveData';
+import { LiveDataStatus } from './LiveDataStatus';
 import { MAIN_SITE } from '../../lib/constants';
 
 const BigScreen = lazy(() => import('./BigScreen').then(m => ({ default: m.BigScreen })));
@@ -94,6 +96,10 @@ const sameViewer = (a: TournamentView['viewer'], b: TournamentView['viewer']) =>
 function createView(code: () => string, signedIn: () => boolean, options: { every: number; decks: boolean }) {
   // Moved on by every read of who the viewer is, and by their own undo (see fromApi).
   let generation = 0;
+  const [freshness, setFreshness] = createSignal<LiveData>(EMPTY_LIVE_DATA);
+  const checked = () => setFreshness({ checkedAt: Date.now(), failure: null });
+  const failed = (error: unknown) => setFreshness(data => ({ ...data, failure: liveFailure(error) }));
+  let retry = () => void reload();
   /**
    * The API's copy, or null when nothing is newer than `since`. What it says
    * of the viewer counts only if nothing since it was asked knows better: a
@@ -112,6 +118,14 @@ function createView(code: () => string, signedIn: () => boolean, options: { ever
   }
   const [view, { mutate, refetch }] = createResource(code, c =>
     firstView({ published: () => fetchPublished(c), api: () => fromApi(c).then(v => v as TournamentView) })
+      .then(next => {
+        checked();
+        return next;
+      })
+      .catch((error: unknown) => {
+        failed(error);
+        throw error;
+      })
   );
   /**
    * Takes a copy no older than the one shown, of the same event: answers can
@@ -172,9 +186,15 @@ function createView(code: () => string, signedIn: () => boolean, options: { ever
       published: () => fetchPublished(code()),
       api: since => fromApi(code(), since),
       apply: accept,
-      now: Date.now
+      now: Date.now,
+      checked,
+      failed
     });
     const polls = schedulePolls(poll, () => document.hidden, options.every);
+    retry = () => {
+      poll.retry();
+      polls.soon();
+    };
     const forget = lookOnReturn(polls);
     // Back in view, a signed-in viewer catches up on a Claim made or released elsewhere.
     const forgetViewer = askOnReturn(() => {
@@ -211,7 +231,7 @@ function createView(code: () => string, signedIn: () => boolean, options: { ever
       mutate({ ...current, viewer: { role, me: null, via: null, signedIn } });
     }
   }
-  return { view, take, whoAmI, unlinked, retry: () => void reload() };
+  return { view, take, whoAmI, unlinked, freshness, retry: () => retry() };
 }
 
 const meKey = (code: string) => `cm-tournament-me:${code}`;
@@ -754,7 +774,7 @@ export function PublicEvent(props: { code: string; session: Session | undefined 
   const stream = streamOf(params);
   const screen = params.screen === '1' || stream !== null;
   // The big screen draws no decks, so it reads the published file even in a staff browser.
-  const { view, take, whoAmI, unlinked, retry } = createView(
+  const { view, take, whoAmI, unlinked, retry, freshness } = createView(
     () => props.code,
     () => Boolean(props.session?.user),
     {
@@ -821,13 +841,14 @@ export function PublicEvent(props: { code: string; session: Session | undefined 
         <Show
           when={!screen}
           fallback={
-            <Show when={stream} fallback={<BigScreen view={v()} />}>
-              {s => <StreamOverlay view={v()} table={s().table} pod={s().pod} />}
+            <Show when={stream} fallback={<BigScreen view={v()} liveData={freshness()} onRetry={retry} />}>
+              {s => <StreamOverlay view={v()} table={s().table} pod={s().pod} liveData={freshness()} onRetry={retry} />}
             </Show>
           }
         >
           <div class='tm-page tm-public'>
             <Hero view={v()} />
+            <LiveDataStatus data={freshness()} onRetry={retry} />
             <EventBody view={v()} session={props.session} onView={take} onWhoAmI={whoAmI} onUnlinked={unlinked} />
           </div>
         </Show>

@@ -11,6 +11,7 @@ import { createSignal } from 'solid-js';
 import type { Command } from '../../../shared/tournament/commands';
 import { ApiError, errorText, fetchManage, type Manage, sendCommand } from '../../lib/tournament/api';
 import { announceChange } from '../../lib/tournament/changes';
+import { EMPTY_LIVE_DATA, type LiveData, liveFailure } from '../../lib/tournament/liveData';
 import { shared } from '../../lib/tournament/share';
 
 export interface ManageState {
@@ -18,6 +19,7 @@ export interface ManageState {
   loadError: () => ApiError | null;
   error: () => string | null;
   busy: () => boolean;
+  freshness: () => LiveData;
   /** Reads the event again; whether the read went through. */
   load: () => Promise<boolean>;
   /** Runs a request that answers with the event, and takes its answer. */
@@ -37,6 +39,7 @@ export function createManage(code: () => string): ManageState {
   // A count, since results go out one after another without waiting: busy until the last one answers.
   const [sending, setSending] = createSignal(0);
   const busy = () => sending() > 0;
+  const [freshness, setFreshness] = createSignal<LiveData>(EMPTY_LIVE_DATA);
 
   /**
    * Takes a copy unless it is older than the one shown. A refresh can land
@@ -45,6 +48,8 @@ export function createManage(code: () => string): ManageState {
    * only the rows that changed are drawn again.
    */
   function take(next: Manage) {
+    setFreshness({ checkedAt: Date.now(), failure: null });
+    setLoadError(null);
     const shown = data();
     if (!shown || shown.code !== next.code || next.version >= shown.version) {
       setData(shared(shown, next));
@@ -65,9 +70,11 @@ export function createManage(code: () => string): ManageState {
       if (next) {
         take(next);
       }
+      setFreshness({ checkedAt: Date.now(), failure: null });
       setLoadError(null);
       return true;
     } catch (err) {
+      setFreshness(data => ({ ...data, failure: liveFailure(err) }));
       setLoadError(err instanceof ApiError ? err : new ApiError(String(err), 0));
       return false;
     }
@@ -92,6 +99,7 @@ export function createManage(code: () => string): ManageState {
     loadError,
     error,
     busy,
+    freshness,
     load,
     // Started inside a promise, so a request that throws before it sends still shows why.
     run: request => act(Promise.resolve().then(request).then(take)),

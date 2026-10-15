@@ -13,6 +13,8 @@ import { cutSeeds } from '../../lib/tournament/bracket';
 import { namesById, recordsSoFar, roundLabel, seatMark, shownOutcome } from '../../lib/tournament/present';
 import { streamDecks, streamTable } from '../../lib/tournament/spectate';
 import { withSwiss } from '../../../shared/tournament/rounds';
+import type { LiveData } from '../../lib/tournament/liveData';
+import { LiveDataStatus } from './LiveDataStatus';
 import { Clock } from './Clock';
 import { DeckIcons } from './DeckIcons';
 import '../../styles/pages/tournament-stream.css';
@@ -51,7 +53,13 @@ function StreamSeat(props: {
   );
 }
 
-export function StreamOverlay(props: { view: TournamentView; table: number; pod?: PodCategory }) {
+export function StreamOverlay(props: {
+  view: TournamentView;
+  table: number;
+  pod?: PodCategory;
+  liveData?: LiveData;
+  onRetry?: () => void;
+}) {
   onMount(() => {
     document.body.classList.add('tm-stream-mode');
     onCleanup(() => document.body.classList.remove('tm-stream-mode'));
@@ -61,6 +69,7 @@ export function StreamOverlay(props: { view: TournamentView; table: number; pod?
   const decks = createMemo(() => streamDecks(props.view));
   return (
     <div class='tm-stream'>
+      <LiveDataStatus data={props.liveData} onRetry={props.onRetry} />
       <Show
         when={shown()}
         fallback={

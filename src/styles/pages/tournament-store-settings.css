@@ -194,3 +194,69 @@
     grid-column: 1 / -1;
   }
 }
+
+/* Displays: a preset's fields, and beside them the screen at its text size. */
+.tm-display-editor {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.8fr);
+  align-items: start;
+  gap: var(--space-4);
+}
+.tm-display-editor .tm-set-row {
+  grid-template-columns: 130px minmax(0, 1fr);
+}
+.tm-display-editor .tm-set-inline > .tm-input {
+  width: 88px;
+}
+.tm-display-step {
+  min-width: 34px;
+  justify-content: center;
+}
+.tm-display-preview {
+  container-type: inline-size;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  padding: 4% 5%;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+.tm-display-preview-head {
+  margin: 0 0 3%;
+  padding-bottom: 2%;
+  border-bottom: 1px solid var(--border);
+  font-size: calc(3.4cqi * var(--tm-preview-scale, 1));
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tm-display-preview ol {
+  display: grid;
+  column-gap: 5%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: calc(2.2cqi * var(--tm-preview-scale, 1));
+}
+.tm-display-preview li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5em;
+  padding: 0.3em 0;
+  border-bottom: 1px solid var(--rule);
+  white-space: nowrap;
+  overflow: hidden;
+}
+.tm-display-preview small {
+  color: var(--muted);
+  font-size: 0.75em;
+}
+@media (max-width: 800px) {
+  .tm-display-editor {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .tm-display-editor .tm-set-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

@@ -13,7 +13,7 @@
  */
 
 import { useLocation, useParams } from '@solidjs/router';
-import { lazy, Match, Switch } from 'solid-js';
+import { createRenderEffect, lazy, Match, onCleanup, Switch } from 'solid-js';
 import '../styles/pages/tournament.css';
 import '../styles/pages/tournament-organizer.css';
 import { latestValue } from '../lib/resource';
@@ -48,6 +48,12 @@ export function TournamentsPage() {
   // Nobody is signed in yet at the age check, and its only way on is the form.
   const welcome = () => location.pathname.startsWith('/welcome');
   const dashboard = () => location.pathname === '/' || location.pathname.startsWith('/host/');
+  // Before the first paint: marked once its chunk arrives, the big screen shifted the whole page up.
+  // BigScreen marks itself too, for a URL this misses.
+  const bigScreen = () =>
+    location.pathname.startsWith('/t/') && location.query.screen === '1' && location.query.stream === undefined;
+  createRenderEffect(() => document.body.classList.toggle('tm-screen-mode', bigScreen()));
+  onCleanup(() => document.body.classList.remove('tm-screen-mode'));
   const organizer = () =>
     dashboard() ||
     settings() ||

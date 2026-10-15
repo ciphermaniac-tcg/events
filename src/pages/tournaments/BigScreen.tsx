@@ -26,6 +26,10 @@ import { createMemo, createSignal, For, Index, type JSX, lazy, onCleanup, onMoun
 import { percentLabel, recordLabel } from '../../../shared/tournament/standings';
 import type { Match, Pod, Round } from '../../../shared/tournament/types';
 import type { TournamentView } from '../../../shared/tournament/view';
+import { DEFAULT_DISPLAY, type DisplayOptions } from '../../../shared/tournament/display';
+import { displayFont, pagedDisplay } from './displayLayout';
+import { screenWakeLock } from './wakeLock';
+import { PagedDisplay } from './PagedDisplay';
 import { Segmented } from '../../components/Segmented';
 import { cutSeeds } from '../../lib/tournament/bracket';
 import {
@@ -45,7 +49,9 @@ import {
 } from '../../lib/tournament/present';
 import { type ScreenPhase, screenPhase } from '../../lib/tournament/screen';
 import { latestRound, livePods, sortMatches, withSwiss } from '../../../shared/tournament/rounds';
-import { Clock } from './Clock';
+import type { LiveData } from '../../lib/tournament/liveData';
+import { LiveDataStatus } from './LiveDataStatus';
+import { DivisionClocks } from './DivisionClocks';
 import { DeckIcons } from './DeckIcons';
 import { createNow } from './now';
 import { QrCode } from './QrCode';
@@ -72,6 +78,9 @@ const PIXELS: Record<Speed, number> = { off: 0, slow: 1, moderate: 2, fast: 4 };
 /** The stored speed; an older "on" is the old pace, Slow. */
 function storedSpeed(): Speed {
   const stored = localStorage.getItem(SPEED_KEY);
+  if (stored === null && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    return 'off';
+  }
   if (stored === 'on') {
     return 'slow';
   }
@@ -81,18 +90,26 @@ function storedSpeed(): Speed {
 /** Scrolls `el` down `step()` pixels at a time, pausing at each end, while it overflows. */
 function autoScroll(el: HTMLElement, step: () => number): () => void {
   let pausedUntil = Date.now() + PAUSE_MS;
+  let reset: ReturnType<typeof setTimeout> | undefined;
   const timer = setInterval(() => {
     if (step() === 0 || Date.now() < pausedUntil || el.scrollHeight <= el.clientHeight) {
       return;
     }
     if (el.scrollTop + el.clientHeight >= el.scrollHeight - 1) {
       pausedUntil = Date.now() + PAUSE_MS;
-      setTimeout(() => el.scrollTo({ top: 0 }), PAUSE_MS / 2);
+      reset = setTimeout(() => {
+        if (step() > 0) {
+          el.scrollTo({ top: 0 });
+        }
+      }, PAUSE_MS / 2);
       return;
     }
     el.scrollTop += step();
   }, STEP_MS);
-  return () => clearInterval(timer);
+  return () => {
+    clearInterval(timer);
+    clearTimeout(reset);
+  };
 }
 
 function createScreenPrefs() {
@@ -391,12 +408,29 @@ function PhaseBody(props: {
   prefs: Prefs;
   url: string;
   label: string;
+  display: DisplayOptions;
+  font: number;
+  size: { width: number; height: number };
 }) {
   const firstRound = () => firstRoundTime(props.view.settings.startsAt);
+  const tables = () => props.pods.reduce((count, pod) => count + (latestRound(pod)?.matches.length ?? 0), 0);
   const matches = () => (
-    <Scroller prefs={props.prefs}>
-      <Matches view={props.view} pods={props.pods} prefs={props.prefs} />
-    </Scroller>
+    <Show
+      when={pagedDisplay(props.display, tables(), props.size, props.font)}
+      fallback={
+        <Scroller prefs={props.prefs}>
+          <Matches view={props.view} pods={props.pods} prefs={props.prefs} />
+        </Scroller>
+      }
+    >
+      <PagedDisplay
+        view={props.view}
+        pods={props.pods}
+        options={props.display}
+        font={props.font}
+        still={props.prefs.speed() === 'off'}
+      />
+    </Show>
   );
   const views: Record<ScreenPhase, () => JSX.Element> = {
     roster: () => (
@@ -413,10 +447,7 @@ function PhaseBody(props: {
     results: matches,
     clock: () => (
       <div class='tm-screen-timing'>
-        <div class='tm-screen-big-clock'>
-          <Clock round={latestRound(props.pods[0]) as Round} class='tm-screen-clock' />
-          <p>{props.label}</p>
-        </div>
+        <DivisionClocks pods={props.pods} pending={props.view.pending} label={props.label} />
         {matches()}
       </div>
     ),
@@ -429,8 +460,11 @@ function PhaseBody(props: {
   return <div class={`tm-screen-main is-${props.phase}`}>{views[props.phase]()}</div>;
 }
 
-export function BigScreen(props: { view: TournamentView }) {
+export function BigScreen(props: { view: TournamentView; liveData?: LiveData; onRetry?: () => void }) {
   const prefs = createScreenPrefs();
+  const [size, setSize] = createSignal({ width: window.innerWidth, height: window.innerHeight });
+  const display = () => props.view.settings.display?.options ?? DEFAULT_DISPLAY;
+  const font = () => displayFont(size(), display().scale);
   const now = createNow();
   const [controls, setControls] = createSignal(false);
   const url = () => `${location.origin}/t/${props.view.code}`;
@@ -458,6 +492,17 @@ export function BigScreen(props: { view: TournamentView }) {
   };
   onMount(() => {
     document.body.classList.add('tm-screen-mode');
+    const resize = () => setSize({ width: window.innerWidth, height: window.innerHeight });
+    const wake = screenWakeLock(
+      () => navigator.wakeLock.request('screen'),
+      () => !document.hidden
+    );
+    const resume = () => void wake.resume();
+    resume();
+    document.addEventListener('visibilitychange', resume);
+    window.addEventListener('focus', resume);
+    window.addEventListener('pageshow', resume);
+    window.addEventListener('resize', resize);
     const onKey = (event: KeyboardEvent) => {
       if (event.metaKey || event.ctrlKey || event.altKey) {
         return;
@@ -475,13 +520,18 @@ export function BigScreen(props: { view: TournamentView }) {
     document.addEventListener('keydown', onKey);
     onCleanup(() => {
       clearTimeout(hide);
+      wake.stop();
+      document.removeEventListener('visibilitychange', resume);
+      window.removeEventListener('focus', resume);
+      window.removeEventListener('pageshow', resume);
+      window.removeEventListener('resize', resize);
       document.removeEventListener('pointermove', reveal);
       document.removeEventListener('keydown', onKey);
       document.body.classList.remove('tm-screen-mode');
     });
   });
   return (
-    <div class='tm-screen'>
+    <div class='tm-screen' style={{ '--tm-display-scale': display().scale, '--tm-display-font': `${font()}px` }}>
       <header class='tm-screen-head'>
         <div class='tm-screen-text'>
           <h1 class='tm-screen-title'>{props.view.tournament.info.name}</h1>
@@ -491,6 +541,7 @@ export function BigScreen(props: { view: TournamentView }) {
               <span class='muted'> · {statusShown().slice(1).join(' · ')}</span>
             </Show>
           </p>
+          <LiveDataStatus data={props.liveData} onRetry={props.onRetry} />
         </div>
         <Show when={phase() !== 'roster'}>
           <Join url={url()} />
@@ -506,6 +557,9 @@ export function BigScreen(props: { view: TournamentView }) {
             prefs={prefs}
             url={url()}
             label={status()[0] ?? ''}
+            display={display()}
+            font={font()}
+            size={size()}
           />
         )}
       </Show>

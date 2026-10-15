@@ -54,6 +54,7 @@ import { Skeleton } from '../../components/Skeleton';
 import { SessionGate } from './SessionGate';
 import { ErrorLine } from './Field';
 import { lookOnReturn, schedulePolls } from '../../lib/tournament/viewPoll';
+import { LiveDataStatus } from './LiveDataStatus';
 import { createManage, type ManageState } from './manageState';
 import '../../styles/pages/tournament-console.css';
 import { ClockControls } from './RoundControls';
@@ -584,14 +585,30 @@ export function ManageEvent(props: { code: string }) {
             when={state.data()}
             fallback={
               <Show when={state.loadError()} fallback={<Skeleton height='240px' />}>
-                <Refused message={state.loadError()?.message} name={user()?.name} />
+                <Show
+                  when={state.loadError()?.status === 401 || state.loadError()?.status === 403}
+                  fallback={
+                    <p class='muted'>
+                      {state.loadError()?.status === 0
+                        ? 'Connection unavailable. Try again.'
+                        : state.loadError()?.message}
+                    </p>
+                  }
+                >
+                  <Refused message={state.loadError()?.message} name={user()?.name} />
+                </Show>
                 <button type='button' class='btn btn-secondary' onClick={() => void state.load()}>
                   Retry
                 </button>
               </Show>
             }
           >
-            {manage => <Console state={state} manage={manage()} />}
+            {manage => (
+              <>
+                <LiveDataStatus data={state.freshness()} onRetry={() => void state.load()} />
+                <Console state={state} manage={manage()} />
+              </>
+            )}
           </Show>
         </Show>
       )}

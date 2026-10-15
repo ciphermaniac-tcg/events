@@ -7,6 +7,16 @@
 .tm-narrow {
   max-width: 640px;
 }
+/* The big screen (TournamentsPage marks it) fills the screen from the first
+   paint, so the site's head and footer never show only to vanish. */
+body.tm-screen-mode .site-head,
+body.tm-screen-mode .site-footer {
+  display: none;
+}
+body.tm-screen-mode main.page {
+  max-width: none;
+  padding: 0;
+}
 /* Center the legal pages' reading column, including their title and trail. */
 .tm-legal-page {
   margin-inline: auto;
@@ -2023,4 +2033,29 @@ tr.is-in .tm-place {
   font-size: var(--text-sm);
   font-weight: 500;
   white-space: nowrap;
+}
+
+.tm-live-data {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  color: var(--muted);
+  font-size: var(--text-base);
+}
+.tm-screen .tm-live-data {
+  font-size: calc(var(--text-lg) * var(--tm-display-scale, 1));
+}
+.tm-stream .tm-live-data {
+  width: fit-content;
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface);
+}
+
+.tm-stream:has(.tm-live-data) {
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
 }

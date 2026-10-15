@@ -8,6 +8,8 @@
 
 import { readFileSync } from 'node:fs';
 import { expect, type Page, test } from '@playwright/test';
+import { deferred } from '../__utils__/deferred';
+import { chunkOf } from './build-manifest';
 
 import { applyCommand } from '../../shared/tournament/commands';
 import { birthYear } from '../../shared/tournament/divisions';
@@ -752,4 +754,296 @@ test('a TOM console offers no next round once TOM has finalized the file', async
   await tomConsole(page, () => ({ status: 200, json: { ...done, version: 5, revision: 'next' } }), { manage: done });
   await expect(page.getByRole('button', { name: 'Refresh .tdf' }).first()).toBeVisible();
   await expect(page.getByRole('button', { name: /^Pair / })).toHaveCount(0);
+});
+
+for (const suffix of ['', '?screen=1', '?stream=table&table=1']) {
+  test(`live data discloses failed checks and Retry recovers ${suffix || 'public page'}`, async ({ page }) => {
+    await mockApi(page);
+    await page.clock.install();
+    await page.goto(`/t/${CODE}${suffix}`);
+    await expect(
+      page.locator(suffix.includes('stream') ? '.tm-stream' : suffix ? '.tm-screen' : '.tm-public')
+    ).toBeVisible();
+    await page.route(`**/api/tournaments/${CODE}?since=*`, route => route.abort());
+    await page.clock.fastForward(11_000);
+    await expect(page.locator('.tm-live-data')).toHaveCount(0);
+    await page.clock.fastForward(30_000);
+    await expect(page.getByText('Connection unavailable', { exact: true })).toBeVisible();
+    await expect(page.getByText('Last updated', { exact: false })).toBeVisible();
+    await page.route(`**/api/tournaments/${CODE}?since=*`, route => route.fulfill({ status: 204 }));
+    await page.getByRole('button', { name: 'Retry', exact: true }).click();
+    await expect(page.locator('.tm-live-data')).toHaveCount(0);
+  });
+}
+
+function largeDisplayView(): TournamentView {
+  const players = Array.from({ length: 64 }, (_, i) => ({
+    ...VIEW.tournament.players[0]!,
+    id: `player-${i}`,
+    firstName: `Player ${String(i).padStart(2, '0')}`,
+    lastName: 'Example',
+    droppedAfter: null
+  }));
+  const pod = VIEW.tournament.pods[0]!;
+  const round = pod.rounds.at(-1)!;
+  const matches = Array.from({ length: 32 }, (_, i) => ({
+    table: i + 1,
+    p1: players[i * 2]!.id,
+    p2: players[i * 2 + 1]!.id,
+    outcome: 'pending' as const,
+    timestamp: ''
+  }));
+  return {
+    ...VIEW,
+    decks: {},
+    tournament: {
+      ...VIEW.tournament,
+      players,
+      pods: [
+        {
+          ...pod,
+          playerIds: players.map(p => p.id),
+          rounds: [{ ...round, status: 'paired', startTime: '', clockStartedAt: null, matches }]
+        }
+      ]
+    }
+  };
+}
+
+test('a large big screen fits dense pages and keeps them stationary under reduced motion', async ({ page }) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.clock.install();
+  await mockApi(page, largeDisplayView());
+  await page.goto(`/t/${CODE}?screen=1`);
+  const rows = page.locator('.tm-screen-dense li');
+  await expect(rows.first()).toBeVisible();
+  expect(await rows.count()).toBeGreaterThan(5);
+  await expect(page.locator('.tm-screen-pagination')).toContainText('Page 1 of');
+  const first = (await rows.first().textContent()) ?? '';
+  await page.clock.fastForward(35_000);
+  await expect(rows.first()).toHaveText(first);
+  await page.getByRole('button', { name: 'Next page' }).click();
+  await expect(rows.first()).not.toHaveText(first);
+  await page.keyboard.press('ArrowLeft');
+  await expect(rows.first()).toHaveText(first);
+  const bounds = await page.locator('.tm-screen-pagination').boundingBox();
+  expect((bounds?.y ?? 0) + (bounds?.height ?? 0)).toBeLessThanOrEqual(1080);
+  await expect(page.getByRole('radio', { name: 'Off', exact: true })).toHaveAttribute('aria-checked', 'true');
+});
+
+test('the big screen hides the site’s head from the first paint, and leaving it brings the head back', async ({
+  page
+}) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await page.addInitScript(() => {
+    const shifts = { total: 0 };
+    Object.assign(window, { shifts });
+    new PerformanceObserver(list => {
+      for (const entry of list.getEntries() as (PerformanceEntry & { value: number })[]) {
+        shifts.total += entry.value;
+      }
+    }).observe({ type: 'layout-shift', buffered: true });
+  });
+  await mockApi(page, largeDisplayView());
+  const held = deferred<void>();
+  await page.route(`**/${chunkOf('src/pages/tournaments/BigScreen.tsx')}`, async route => {
+    await held.promise;
+    await route.continue();
+  });
+  await page.goto(`/t/${CODE}?screen=1`);
+  await expect(page.locator('.site-head')).toBeHidden();
+  held.resolve();
+  await expect(page.locator('.tm-screen-dense li').first()).toBeVisible();
+  expect(await page.evaluate(() => (window as Window & { shifts?: { total: number } }).shifts?.total)).toBeLessThan(
+    0.01
+  );
+  await page.evaluate(() => {
+    const link = Object.assign(document.createElement('a'), { href: '/privacy', textContent: 'Privacy' });
+    document.body.append(link);
+  });
+  await page.getByRole('link', { name: 'Privacy', exact: true }).click();
+  await expect(page.getByRole('heading', { level: 1, name: 'Privacy Policy' })).toBeVisible();
+  await expect(page.locator('.site-head')).toBeVisible();
+});
+
+function presetView(): TournamentView {
+  const view = largeDisplayView();
+  view.settings = {
+    ...view.settings,
+    display: {
+      id: 'tv',
+      name: 'Wall TV',
+      storeId: 'store',
+      options: { scale: 1.5, layout: 'alphabetical', pageSeconds: 15 }
+    }
+  };
+  return view;
+}
+
+test('a timed preset under reduced motion stands still until resumed, and pauses on the page it shows', async ({
+  page
+}) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.clock.install();
+  await mockApi(page, presetView());
+  await page.goto(`/t/${CODE}?screen=1`);
+  const rows = page.locator('.tm-screen-dense li');
+  const pager = page.locator('.tm-screen-pagination');
+  await expect(rows.first()).toBeVisible();
+  expect(await page.locator('.tm-screen-dense').evaluate(el => getComputedStyle(el).fontSize)).toBe('48px');
+  await page.clock.fastForward(16_000);
+  await expect(pager).toContainText('Page 1 of');
+  await page.getByRole('button', { name: 'Resume pages' }).click();
+  await page.clock.fastForward(16_000);
+  await expect(pager).toContainText('Page 2 of');
+  await page.getByRole('button', { name: 'Pause pages' }).click();
+  await page.clock.fastForward(32_000);
+  await expect(pager).toContainText('Page 2 of');
+  await expect(page.getByRole('button', { name: 'Resume pages' })).toBeVisible();
+  // A smaller screen keeps the first row it showed in view rather than starting over.
+  const firstShown = (await rows.first().textContent()) ?? '';
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await expect(pager).not.toContainText('Page 1 of');
+  await expect(rows.filter({ hasText: firstShown })).toHaveCount(1);
+});
+
+test('timed pages turn on their own, and Auto scroll Off stops them where they are', async ({ page }) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await page.clock.install();
+  await mockApi(page, presetView());
+  await page.goto(`/t/${CODE}?screen=1`);
+  const pager = page.locator('.tm-screen-pagination');
+  await expect(pager).toContainText('Page 1 of');
+  await page.clock.fastForward(16_000);
+  await expect(pager).toContainText('Page 2 of');
+  await page.mouse.move(400, 400);
+  await page.getByRole('radio', { name: 'Off', exact: true }).click();
+  await page.clock.fastForward(32_000);
+  await expect(pager).toContainText('Page 2 of');
+  await expect(page.getByRole('button', { name: 'Resume pages' })).toBeVisible();
+});
+
+test('the display reacquires its wake lock after returning to view', async ({ page }) => {
+  await page.addInitScript(() => {
+    let asks = 0;
+    let current: EventTarget;
+    let hidden = false;
+    Object.defineProperty(document, 'hidden', { get: () => hidden, configurable: true });
+    Object.defineProperty(navigator, 'wakeLock', {
+      value: {
+        request: async () => {
+          asks += 1;
+          current = new EventTarget();
+          return Object.assign(current, { release: async () => current.dispatchEvent(new Event('release')) });
+        }
+      }
+    });
+    Object.assign(window, {
+      wakeTest: {
+        asks: () => asks,
+        hide: () => {
+          hidden = true;
+          current.dispatchEvent(new Event('release'));
+          document.dispatchEvent(new Event('visibilitychange'));
+        },
+        show: () => {
+          hidden = false;
+          document.dispatchEvent(new Event('visibilitychange'));
+        }
+      }
+    });
+  });
+  await mockApi(page);
+  await page.goto(`/t/${CODE}?screen=1`);
+  const asks = () => page.evaluate(() => (window as unknown as { wakeTest: { asks: () => number } }).wakeTest.asks());
+  await expect.poll(asks).toBe(1);
+  await page.evaluate(() => (window as unknown as { wakeTest: { hide: () => void } }).wakeTest.hide());
+  await page.evaluate(() => (window as unknown as { wakeTest: { show: () => void } }).wakeTest.show());
+  await expect.poll(asks).toBe(2);
+});
+
+test('with divisions on their own clocks, the running one leads and the one waiting says so', async ({ page }) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  const pod = VIEW.tournament.pods[0]!;
+  const round = pod.rounds.at(-1)!;
+  const division = (category: 'masters' | 'senior', clock: Partial<typeof round>) => ({
+    ...pod,
+    category,
+    rounds: [...pod.rounds.slice(0, -1), { ...round, ...clock }]
+  });
+  const view: TournamentView = {
+    ...VIEW,
+    tournament: {
+      ...VIEW.tournament,
+      pods: [
+        division('masters', { startTime: '', clockStartedAt: null, timeLeft: 3000 }),
+        division('senior', { startTime: '10:00', clockStartedAt: Date.now(), timeLeft: 2322 })
+      ]
+    }
+  };
+  await mockApi(page, view);
+  await page.goto(`/t/${CODE}?screen=1`);
+  const lead = page.locator('.tm-screen-big-clock.is-divisions > div');
+  await expect(lead.locator('p')).toHaveText('Seniors · Round 2');
+  await expect(lead.getByRole('timer')).toHaveText(/^3[0-8]:\d\d$/);
+  const side = page.locator('.tm-screen-side-clocks li');
+  await expect(side).toHaveCount(1);
+  await expect(side.first()).toContainText('Not started');
+  await expect(side.first().locator('p')).toHaveText('Masters · Round 2');
+});
+
+test('a store event picks its big screen preset on the Settings tab', async ({ page }) => {
+  await tomConsole(page, () => ({ status: 200, json: tomManage() }), { following: false });
+  const preset = { id: 'wall', name: 'Wall TV', options: { scale: 1.5, layout: 'alphabetical', pageSeconds: 15 } };
+  const picked: unknown[] = [];
+  await page.route(`**/api/tournaments/${CODE}/display`, route => {
+    if (route.request().method() === 'PUT') {
+      picked.push(route.request().postDataJSON());
+      const display = { ...preset, storeId: 'store-1' };
+      return route.fulfill({ json: { ...tomManage(), settings: { ...DEFAULT_SETTINGS, display } } });
+    }
+    return route.fulfill({ json: { presets: [preset], selected: null } });
+  });
+  await page.getByRole('tab', { name: 'Settings' }).click();
+  const select = page.getByLabel('Display preset');
+  await expect(select).toHaveValue('');
+  await select.selectOption('wall');
+  await page.locator('section', { hasText: 'Big screen' }).getByRole('button', { name: 'Save' }).click();
+  await expect.poll(() => picked).toEqual([{ preset: 'wall' }]);
+  await expect(select).toHaveValue('wall');
+  await expect(page.locator('section', { hasText: 'Big screen' }).getByText('Unsaved changes')).toHaveCount(0);
+});
+
+test('a refused big screen preset save keeps the pick unsaved to try again', async ({ page }) => {
+  await tomConsole(page, () => ({ status: 200, json: tomManage() }), { following: false });
+  const preset = { id: 'wall', name: 'Wall TV', options: { scale: 1.5, layout: 'alphabetical', pageSeconds: 15 } };
+  await page.route(`**/api/tournaments/${CODE}/display`, route =>
+    route.request().method() === 'PUT'
+      ? route.fulfill({ status: 503, json: { error: 'Try again shortly' } })
+      : route.fulfill({ json: { presets: [preset], selected: null } })
+  );
+  await page.getByRole('tab', { name: 'Settings' }).click();
+  const box = page.locator('section', { hasText: 'Big screen' });
+  const select = page.getByLabel('Display preset');
+  await expect(select.locator('option', { hasText: 'Wall TV' })).toHaveCount(1);
+  await select.selectOption('wall');
+  await box.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByText('Try again shortly')).toBeVisible();
+  await expect(select).toHaveValue('wall');
+  await expect(box.getByText('Unsaved changes')).toBeVisible();
+});
+
+test('a sole division whose clock is paused says so under the clock', async ({ page }) => {
+  const pod = VIEW.tournament.pods[0]!;
+  const round = { ...pod.rounds.at(-1)!, startTime: '10:00', clockStartedAt: null, timeLeft: 1325 };
+  const view: TournamentView = {
+    ...VIEW,
+    tournament: { ...VIEW.tournament, pods: [{ ...pod, rounds: [...pod.rounds.slice(0, -1), round] }] }
+  };
+  await mockApi(page, view);
+  await page.goto(`/t/${CODE}?screen=1`);
+  await expect(page.locator('.tm-screen-big-clock').getByRole('timer')).toHaveText('22:05');
+  await expect(page.locator('.tm-screen-big-clock p')).toHaveText(/ · Paused$/);
 });

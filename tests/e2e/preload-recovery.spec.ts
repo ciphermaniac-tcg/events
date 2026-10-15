@@ -1,13 +1,8 @@
-import { readFileSync } from 'node:fs';
 import { expect, type Page, test } from '@playwright/test';
 import { deferred } from '../__utils__/deferred';
+import { chunkOf } from './build-manifest';
 
-function homeChunk(): string {
-  const manifest = JSON.parse(
-    readFileSync(new URL('../../.cache/e2e-dist/.vite/manifest.json', import.meta.url), 'utf8')
-  ) as Record<string, { file: string }>;
-  return manifest['src/pages/tournaments/HostIndex.tsx']!.file;
-}
+const homeChunk = () => chunkOf('src/pages/tournaments/HostIndex.tsx');
 
 async function mockHome(page: Page) {
   await page.route('**/api/**', route => {

@@ -8,6 +8,7 @@
  * it with the same shared code the organizer's copy uses.
  */
 
+import type { DisplaySelection } from './display.js';
 import { divisionFor, eventSeason } from './divisions.js';
 import { SANCTIONED, sanctionedMinutesError } from './structure.js';
 import { type PlayerClaim, shortLastNames } from './identify.js';
@@ -38,6 +39,7 @@ export type DeckVisibility = 'always' | 'after' | 'off';
 export type DecklistMode = 'off' | 'open' | 'closed';
 
 export interface TournamentSettings {
+  display: DisplaySelection | null;
   decklists: DecklistMode;
   deckVisibility: DeckVisibility;
   /** The organizer's own notes for players: venue, prizes, schedule. */
@@ -66,6 +68,7 @@ export interface TournamentSettings {
 }
 
 export const DEFAULT_SETTINGS: TournamentSettings = {
+  display: null,
   decklists: 'off',
   deckVisibility: 'off',
   details: '',
@@ -88,6 +91,8 @@ const STARTS_AT_RE = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2})?$/;
 type SettingCheck = (value: unknown) => boolean;
 
 const SETTING_CHECKS: { [K in keyof TournamentSettings]: SettingCheck } = {
+  // Never the client's to write: /display copies the picked preset from the event's own store.
+  display: () => false,
   decklists: value => DECKLIST_MODES.includes(value as DecklistMode),
   roundCap: value =>
     typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= SETTINGS_LIMITS.roundCap,

@@ -67,10 +67,12 @@ export interface ViewSource {
   api: (since: number) => Promise<TournamentView | null>;
   apply: (view: TournamentView) => void;
   now: () => number;
+  checked?: () => void;
+  failed?: (error: unknown) => void;
 }
 
 /** One look at the event: true when it went through, false when it failed and the next should wait. */
-export function createViewPoll(source: ViewSource): () => Promise<boolean> {
+export function createViewPoll(source: ViewSource): (() => Promise<boolean>) & { retry: () => void } {
   let askedApiAt = Number.NEGATIVE_INFINITY;
   /** The version of the last copy the API gave; a copy from anywhere else lacks what only the API has. */
   let fromApi = -1;
@@ -91,13 +93,15 @@ export function createViewPoll(source: ViewSource): () => Promise<boolean> {
         fromApi = next.version;
         source.apply(next);
       }
+      source.checked?.();
       return true;
-    } catch {
+    } catch (error) {
+      source.failed?.(error);
       return false;
     }
   }
 
-  return async () => {
+  const look = async () => {
     const current = source.current();
     if (!current) {
       return source.reload();
@@ -112,9 +116,19 @@ export function createViewPoll(source: ViewSource): () => Promise<boolean> {
     if (published.version > current.version) {
       source.apply({ ...published, viewer: current.viewer });
     }
-    // The console's word arrives before its publish does; the API has the change already.
-    return Math.max(published.version, current.version) < source.announced() ? askApi(current, true) : true;
+    // The console's word arrives before its publish does; the API has the change already. Until
+    // the page holds what was announced, only the API's answer counts as a good check.
+    if (Math.max(published.version, current.version) < source.announced()) {
+      return askApi(current, true);
+    }
+    source.checked?.();
+    return true;
   };
+  return Object.assign(look, {
+    retry: () => {
+      askedApiAt = Number.NEGATIVE_INFINITY;
+    }
+  });
 }
 
 export interface Polls {

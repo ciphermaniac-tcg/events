@@ -1,0 +1,34 @@
+import type { DisplaySelection } from '../../../../shared/tournament/display.js';
+import { readJsonObject } from '../../../lib/api/body.js';
+import { jsonError } from '../../../lib/api/responses.js';
+import type { Context } from '../../../lib/auth/env.js';
+import { displayPresets } from '../../../lib/stores/displayPresets.js';
+import { openForStaff, privateJson } from '../../../lib/tournaments/access.js';
+import { answerStaff } from '../../../lib/tournaments/answers.js';
+import { mutate } from '../../../lib/tournaments/store.js';
+
+export async function onRequestGet(context: Context<'code'>): Promise<Response> {
+  const access = await openForStaff(context);
+  if (access instanceof Response) {
+    return access;
+  }
+  const presets = access.row.storeId ? await displayPresets(access.db, access.row.storeId) : [];
+  return privateJson({ presets, selected: access.row.settings.display });
+}
+
+export async function onRequestPut(context: Context<'code'>): Promise<Response> {
+  const access = await openForStaff(context);
+  if (access instanceof Response) {
+    return access;
+  }
+  const body = await readJsonObject(context.request, 256);
+  const { storeId } = access.row;
+  const presets = storeId ? await displayPresets(access.db, storeId) : [];
+  const preset = presets.find(item => item.id === body?.preset);
+  if (body?.preset !== null && !preset) {
+    return jsonError('No such store display preset', 400);
+  }
+  const display: DisplaySelection | null = preset && storeId ? { ...preset, storeId } : null;
+  const outcome = await mutate(access.db, access.row, row => ({ settings: { ...row.settings, display } }));
+  return answerStaff(context, access, outcome);
+}
