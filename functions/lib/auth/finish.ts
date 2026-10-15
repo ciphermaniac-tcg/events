@@ -8,7 +8,7 @@
 
 import { cookie, redirectWithCookies, SESSION_COOKIE, SIGNUP_COOKIE } from './cookies.js';
 import type { Profile } from './oauth.js';
-import { createSession, currentUser, linkIdentity, SESSION_SECONDS, upsertUser } from './session.js';
+import { createSession, currentUser, linkIdentity, proofOf, SESSION_SECONDS, upsertUser } from './session.js';
 import { holdSignup, needsAgeCheck, SIGNUP_SECONDS } from './signup.js';
 import type { D1Like } from '../types.js';
 
@@ -47,6 +47,6 @@ export async function finishSignIn(
   if (!userId) {
     return redirectWithCookies(`/settings?${error}`, cookies);
   }
-  const token = await createSession(db, userId);
+  const token = await createSession(db, userId, proofOf(profile));
   return redirectWithCookies(started.next, [...cookies, cookie(request, SESSION_COOKIE, token, SESSION_SECONDS)]);
 }

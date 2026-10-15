@@ -357,7 +357,7 @@ test('deleting removes everything under the account, keeps its finished events f
   assert.equal((await rename(player, 'casual.host')).status, 200, 'the username is free');
 });
 
-test('deleting an account that signs in with a password deletes its Clerk user too', async () => {
+test('deleting an account that signs in with a password deletes its Clerk user, and its password cutoff, too', async () => {
   env = {
     ...env,
     CLERK_PUBLISHABLE_KEY: `pk_test_${btoa('clerk.example.test$')}`,
@@ -367,6 +367,14 @@ test('deleting an account that signs in with a password deletes its Clerk user t
   const player = await signIn('Player');
   const id = await idOf(player);
   raw().prepare("INSERT INTO identities (provider, subject, user_id) VALUES ('clerk', 'user_abc', ?)").run(id);
+  raw().exec("INSERT INTO clerk_password_cutoffs (subject, changed_at) VALUES ('user_abc', 1), ('user_other', 1)");
+  raw().exec(
+    'INSERT INTO password_resets (token_hash, subject, attempts, created_at, expires_at) ' +
+      "VALUES ('mine', 'user_abc', 0, 1, 9999999999999), ('theirs', 'user_other', 0, 1, 9999999999999)"
+  );
+  raw().exec(
+    "INSERT INTO reset_reservations (scope, key, at) VALUES ('account', 'user_abc', 1), ('account', 'user_other', 1)"
+  );
   const calls: { url: string; method: string; auth: string | null }[] = [];
   mock.method(globalThis, 'fetch', async (url: string, init: RequestInit) => {
     calls.push({ url, method: init.method ?? 'GET', auth: new Headers(init.headers).get('authorization') });
@@ -377,6 +385,30 @@ test('deleting an account that signs in with a password deletes its Clerk user t
     { url: 'https://api.clerk.com/v1/users/user_abc', method: 'DELETE', auth: 'Bearer sk_test' }
   ]);
   assert.deepEqual(clerkQueue(), [], 'nothing is left to retry');
+  assert.deepEqual(
+    raw()
+      .prepare('SELECT subject FROM clerk_password_cutoffs')
+      .all()
+      .map(row => row.subject),
+    ['user_other'],
+    'when its password changed goes with it'
+  );
+  assert.deepEqual(
+    raw()
+      .prepare('SELECT subject FROM password_resets')
+      .all()
+      .map(row => row.subject),
+    ['user_other'],
+    'and its reset requests'
+  );
+  assert.deepEqual(
+    raw()
+      .prepare('SELECT key FROM reset_reservations')
+      .all()
+      .map(row => row.key),
+    ['user_other'],
+    'and the count of codes it was sent'
+  );
 });
 
 test('an account is deleted even when Clerk cannot be reached', async () => {

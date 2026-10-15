@@ -472,6 +472,11 @@ export function SettingsPage() {
           Sign-in didn’t go through. Try again.
         </p>
       </Show>
+      <Show when={params.signin === 'email'}>
+        <p class='tm-error' role='alert'>
+          Add and verify an email to sign in with a password.
+        </p>
+      </Show>
       <Show when={params.link === 'used'}>
         <p class='tm-error' role='alert'>
           That account is already linked to another user.

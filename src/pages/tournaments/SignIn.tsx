@@ -1,7 +1,6 @@
-import { createSignal, createUniqueId, For, type JSX, onCleanup, onMount, Show } from 'solid-js';
-import { PASSWORD_MIN } from '../../../shared/accounts/clerk';
+import { createSignal, For, type JSX, Show } from 'solid-js';
 import { type OAuthProvider, type Provider, type SignInOffer, signInUrl } from '../../lib/tournament/api';
-import type { ClerkMode } from '../../lib/tournament/clerk';
+import { UsernameForm } from './PasswordForm';
 
 /*
  * The providers' own marks, unaltered: Google's standard-colour G (its
@@ -96,129 +95,6 @@ function ProviderButtons(props: { providers: readonly Provider[]; next: string; 
         <p class='muted'>Sign-in is not set up on this server.</p>
       </Show>
     </div>
-  );
-}
-
-/** The Clerk client, loaded on first use so the pages that only show this form don't carry it. */
-const clerkClient = () => import('../../lib/tournament/clerk');
-
-/**
- * A username and password, checked by Clerk (lib/tournament/clerk.ts). The
- * same form signs in or makes an account. Clerk starts loading when the form
- * first takes focus. Its bot check draws into #clerk-captcha, which only the
- * form making an account at that moment holds, so a page with two forms has
- * one.
- */
-function UsernameForm(props: { publishableKey: string; next: string; focus?: boolean }) {
-  const [mode, setMode] = createSignal<ClerkMode>('in');
-  const [username, setUsername] = createSignal('');
-  const [password, setPassword] = createSignal('');
-  const [problem, setProblem] = createSignal<string | null>(null);
-  const [busy, setBusy] = createSignal(false);
-  const hintId = createUniqueId();
-  const making = () => mode() === 'up';
-  let warmed = false;
-  function warm() {
-    if (!warmed) {
-      warmed = true;
-      const key = props.publishableKey;
-      clerkClient()
-        .then(clerk => clerk.prepareClerk(key))
-        .catch(() => (warmed = false));
-    }
-  }
-  async function submit(event: SubmitEvent) {
-    event.preventDefault();
-    const credentials = { mode: mode(), username: username().trim(), password: password() };
-    setBusy(true);
-    setProblem(null);
-    const clerk = await clerkClient().catch(() => null);
-    try {
-      if (!clerk) {
-        throw new Error('The sign-in client did not load');
-      }
-      // Busy until the browser leaves for the answer.
-      clerk.postClerkToken(await clerk.clerkToken(props.publishableKey, credentials), props.next);
-    } catch (error) {
-      setProblem(clerk?.clerkProblem(error) ?? 'Sign-in failed. Try again.');
-      setBusy(false);
-    }
-  }
-  // Back from the page sign-in led to, the browser may restore this one as it was left: busy.
-  const restored = (event: PageTransitionEvent) => {
-    if (event.persisted) {
-      setBusy(false);
-      setPassword('');
-    }
-  };
-  let first: HTMLInputElement | undefined;
-  onMount(() => {
-    window.addEventListener('pageshow', restored);
-    if (props.focus) {
-      first?.focus();
-    }
-  });
-  onCleanup(() => window.removeEventListener('pageshow', restored));
-  function swap() {
-    setMode(making() ? 'in' : 'up');
-    setProblem(null);
-  }
-  return (
-    <form class='tm-signin-form' onFocusIn={warm} onSubmit={event => void submit(event)}>
-      <label class='tm-field'>
-        <span class='tm-label'>Username</span>
-        <input
-          ref={first}
-          class='tm-input'
-          name='username'
-          autocomplete='username'
-          autocapitalize='none'
-          spellcheck={false}
-          required
-          aria-invalid={problem() ? 'true' : undefined}
-          value={username()}
-          onInput={event => setUsername(event.currentTarget.value)}
-        />
-      </label>
-      <label class='tm-field'>
-        <span class='tm-label'>Password</span>
-        <input
-          class='tm-input'
-          type='password'
-          name='password'
-          autocomplete={making() ? 'new-password' : 'current-password'}
-          minLength={making() ? PASSWORD_MIN : undefined}
-          required
-          aria-invalid={problem() ? 'true' : undefined}
-          aria-describedby={making() ? hintId : undefined}
-          value={password()}
-          onInput={event => setPassword(event.currentTarget.value)}
-        />
-        <Show when={making()}>
-          <span class='tm-signin-hint' id={hintId}>
-            At least {PASSWORD_MIN} characters
-          </span>
-        </Show>
-      </label>
-      <Show when={problem()}>
-        {text => (
-          <p class='tm-error' role='alert'>
-            {text()}
-          </p>
-        )}
-      </Show>
-      <Show when={making() && busy()}>
-        <div id='clerk-captcha' />
-      </Show>
-      <div class='tm-signin-acts'>
-        <button type='submit' class='btn btn-primary tm-signin-submit' disabled={busy()}>
-          {making() ? 'Create account' : 'Sign in'}
-        </button>
-        <button type='button' class='tm-signin-swap' disabled={busy()} onClick={swap}>
-          {making() ? 'I have an account' : 'Create an account'}
-        </button>
-      </div>
-    </form>
   );
 }
 

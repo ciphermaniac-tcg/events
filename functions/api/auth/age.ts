@@ -14,7 +14,7 @@ import { readJsonObject } from '../../lib/api/body.js';
 import { jsonError } from '../../lib/api/responses.js';
 import { clearCookie, cookie, readCookie, safeNext, SESSION_COOKIE, SIGNUP_COOKIE } from '../../lib/auth/cookies.js';
 import { type Context, sameOrigin } from '../../lib/auth/env.js';
-import { createSession, SESSION_SECONDS, upsertUser } from '../../lib/auth/session.js';
+import { createSession, proofOf, SESSION_SECONDS, StaleSignIn, upsertUser } from '../../lib/auth/session.js';
 import { rejectSignup } from '../../lib/auth/rejection.js';
 import { takeSignup } from '../../lib/auth/signup.js';
 
@@ -45,14 +45,23 @@ export async function onRequestPost({ request, env }: Context): Promise<Response
   const held = token ? await takeSignup(db, token, now.getTime()) : null;
   const cleared = clearCookie(request, SIGNUP_COOKIE);
   if (!held) {
-    return answer(410, { error: 'Sign in again to continue' }, [cleared]);
+    return answer(410, { error: 'Please sign in again to continue.' }, [cleared]);
   }
   if (!oldEnoughForAccount(birthDate, now)) {
     await rejectSignup(db, held.profile, env.PROOFS);
     return answer(403, { error: TOO_YOUNG, minor: true }, [cleared]);
   }
   const userId = await upsertUser(db, held.profile, birthDateOfYear(year));
-  const session = await createSession(db, userId);
+  const session = await createSession(db, userId, proofOf(held.profile)).catch((error: unknown) => {
+    if (error instanceof StaleSignIn) {
+      return null;
+    }
+    throw error;
+  });
+  if (!session) {
+    // The password changed while the age check waited: the sign-in it held is spent.
+    return answer(410, { error: 'Please sign in again to continue.' }, [cleared]);
+  }
   return answer(200, { next: safeNext(held.next) }, [
     cleared,
     cookie(request, SESSION_COOKIE, session, SESSION_SECONDS)

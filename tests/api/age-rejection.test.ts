@@ -40,7 +40,7 @@ function legacyAccount() {
     'INSERT INTO users (id, handle, email, avatar, pop_id, first_name, last_name, birth_date, public_profile, role, created_at) ' +
       "VALUES ('legacy', 'child-handle', 'child@example.com', 'avatar', '123', 'Child', 'Name', '02/27/2016', 1, 'community', 1);" +
       "INSERT INTO identities VALUES ('google', 'legacy-child', 'legacy'), ('discord', 'other-provider', 'legacy');" +
-      "INSERT INTO sessions VALUES ('session', 'legacy', 9999999999999);" +
+      "INSERT INTO sessions (token_hash, user_id, expires_at) VALUES ('session', 'legacy', 9999999999999);" +
       "INSERT INTO duplicate_emails_backup VALUES ('legacy', 'previous@example.com', '2026');" +
       "INSERT INTO handle_changes VALUES ('legacy', 1, 'old-child-name', 'child-handle', 'rename');" +
       "INSERT INTO report_devices VALUES ('CODE', '123', 'token', 'device', 1, 'legacy');" +

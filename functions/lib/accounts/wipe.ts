@@ -208,8 +208,30 @@ function accountWrites(db: D1Like, user: User): D1Statement[] {
       "INSERT OR IGNORE INTO clerk_deletions (subject) SELECT subject FROM identities WHERE user_id = ? AND provider = 'clerk'"
     )
     .bind(user.id);
+  // When its password last changed, and its reset requests, go with the Clerk user, before the identity that names it.
+  const cutoffs = db
+    .prepare(
+      'DELETE FROM clerk_password_cutoffs WHERE subject IN ' +
+        "(SELECT subject FROM identities WHERE user_id = ? AND provider = 'clerk')"
+    )
+    .bind(user.id);
+  const resets = db
+    .prepare(
+      'DELETE FROM password_resets WHERE subject IN ' +
+        "(SELECT subject FROM identities WHERE user_id = ? AND provider = 'clerk')"
+    )
+    .bind(user.id);
+  const reserved = db
+    .prepare(
+      "DELETE FROM reset_reservations WHERE scope = 'account' AND key IN " +
+        "(SELECT subject FROM identities WHERE user_id = ? AND provider = 'clerk')"
+    )
+    .bind(user.id);
   return [
     clerk,
+    cutoffs,
+    resets,
+    reserved,
     db.prepare('UPDATE report_devices SET user_id = NULL WHERE user_id = ?').bind(user.id),
     db.prepare('UPDATE decklists SET account = NULL WHERE account = ?').bind(user.id),
     db.prepare('UPDATE report_history SET account_id = NULL WHERE account_id = ?').bind(user.id),

@@ -46,10 +46,10 @@ test('a minor is told accounts are for adults, with nothing left to try again', 
 });
 
 test('a wait that ran out offers sign-in again', async ({ page }) => {
-  await mockAgeCheck(page, 410, { error: 'Sign in again to continue' });
+  await mockAgeCheck(page, 410, { error: 'Please sign in again to continue.' });
   await page.goto('/welcome');
   await page.getByLabel('Birth date').fill('1990-06-15');
   await page.getByRole('button', { name: 'Continue' }).click();
-  await expect(page.getByText('Sign in again to continue')).toBeVisible();
+  await expect(page.getByText('Please sign in again to continue.')).toBeVisible();
   await expect(page.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/settings');
 });

@@ -327,17 +327,59 @@ export async function upsertUser(db: D1Like, profile: Profile, birthDate: string
   }
 }
 
-/** Starts a session and returns the token for the cookie. */
-export async function createSession(db: D1Like, userId: string): Promise<string> {
+/**
+ * What a session is made on: when the sign-in was proven (ms), and the Clerk
+ * user it was proven as, for a password sign-in.
+ */
+export interface SignInProof {
+  clerkSubject: string | null;
+  authAt: number;
+}
+
+/**
+ * The proof a profile carries. A Clerk profile without its time counts as
+ * proven at the start of time, so any password change refuses it.
+ */
+export function proofOf(profile: Profile, now = Date.now()): SignInProof {
+  return profile.provider === 'clerk'
+    ? { clerkSubject: profile.subject, authAt: profile.authAt ?? 0 }
+    : { clerkSubject: null, authAt: now };
+}
+
+/** A sign-in proven before its password last changed, which makes no session. */
+export class StaleSignIn extends Error {
+  constructor() {
+    super('Signed in before the password last changed');
+  }
+}
+
+/**
+ * Starts a session and returns the token for the cookie. The session is made
+ * only if its proof is no older than the Clerk user's password cutoff
+ * (lib/auth/clerk.ts), checked in the same statement that makes it, so a
+ * password change landing at any moment either refuses it here or ends it
+ * after (its `auth_at` is older). Throws `StaleSignIn` when refused.
+ */
+export async function createSession(
+  db: D1Like,
+  userId: string,
+  proof: SignInProof = { clerkSubject: null, authAt: Date.now() }
+): Promise<string> {
   const token = randomToken();
   const now = Date.now();
-  await db.batch([
+  const [made] = await db.batch([
     db
-      .prepare('INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (?, ?, ?)')
-      .bind(await sha256(token), userId, now + SESSION_SECONDS * 1000),
+      .prepare(
+        'INSERT INTO sessions (token_hash, user_id, expires_at, auth_at) SELECT ?1, ?2, ?3, ?4 ' +
+          'WHERE NOT EXISTS (SELECT 1 FROM clerk_password_cutoffs WHERE subject = ?5 AND changed_at > ?4)'
+      )
+      .bind(await sha256(token), userId, now + SESSION_SECONDS * 1000, proof.authAt, proof.clerkSubject),
     // Sign-in is the one write a session costs, so it also sweeps this user's expired ones.
     db.prepare('DELETE FROM sessions WHERE user_id = ? AND expires_at <= ?').bind(userId, now)
   ]);
+  if (made?.meta?.changes !== 1) {
+    throw new StaleSignIn();
+  }
   return token;
 }
 

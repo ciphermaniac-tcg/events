@@ -91,11 +91,14 @@ CREATE TABLE IF NOT EXISTS identities (
 -- The account page lists a user's providers; without this that read scans every account's.
 CREATE INDEX IF NOT EXISTS identities_by_user ON identities (user_id);
 
--- The cookie holds the session token; only its SHA-256 is stored.
+-- The cookie holds the session token; only its SHA-256 is stored. `auth_at`
+-- is when the sign-in it was made on was proven (ms); NULL from before that
+-- was kept, read as when it was made.
 CREATE TABLE IF NOT EXISTS sessions (
   token_hash TEXT PRIMARY KEY,
   user_id TEXT NOT NULL,
-  expires_at INTEGER NOT NULL
+  expires_at INTEGER NOT NULL,
+  auth_at INTEGER
 ) WITHOUT ROWID;
 CREATE INDEX IF NOT EXISTS sessions_by_user ON sessions (user_id);
 
@@ -481,6 +484,44 @@ CREATE TABLE IF NOT EXISTS proof_deletions (
 CREATE TABLE IF NOT EXISTS clerk_deletions (
   subject TEXT PRIMARY KEY
 ) WITHOUT ROWID;
+
+-- Clerk sessions whose token has been exchanged for one of ours
+-- (functions/lib/auth/clerk.ts): each is exchanged once. Kept a day.
+CREATE TABLE IF NOT EXISTS clerk_sessions_used (
+  session_id TEXT PRIMARY KEY,
+  used_at INTEGER NOT NULL
+) WITHOUT ROWID;
+
+-- When each Clerk user's password last changed, as far as we know (ms); only
+-- ever moved forward. Sessions proven before it end, and none is made.
+CREATE TABLE IF NOT EXISTS clerk_password_cutoffs (
+  subject TEXT PRIMARY KEY,
+  changed_at INTEGER NOT NULL
+) WITHOUT ROWID;
+
+-- Password reset requests (functions/lib/auth/passwordReset.ts), under the
+-- hash of the token in the asker's cookie; `subject` and `code_hash` stay
+-- NULL for a request that named no one.
+CREATE TABLE IF NOT EXISTS password_resets (
+  token_hash TEXT PRIMARY KEY,
+  subject TEXT,
+  code_hash TEXT,
+  attempts INTEGER NOT NULL DEFAULT 0,
+  created_at INTEGER NOT NULL,
+  expires_at INTEGER NOT NULL,
+  -- When a submission claimed it to set the password; one at a time per account.
+  claimed_at INTEGER
+) WITHOUT ROWID;
+CREATE INDEX IF NOT EXISTS password_resets_by_subject ON password_resets (subject, created_at);
+
+-- Rate limits on password reset: a row per request an address (its hash)
+-- made, or per code an account was sent, kept an hour.
+CREATE TABLE IF NOT EXISTS reset_reservations (
+  scope TEXT NOT NULL,
+  key TEXT NOT NULL,
+  at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS reset_reservations_by_key ON reset_reservations (scope, key, at);
 CREATE TABLE IF NOT EXISTS display_presets (
   store_id TEXT NOT NULL,
   id TEXT NOT NULL,

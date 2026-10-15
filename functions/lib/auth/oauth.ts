@@ -28,6 +28,14 @@ export interface AuthEnv {
   CLERK_SECRET_KEY?: string;
   /** The PEM public key Clerk signs session tokens with. */
   CLERK_JWT_KEY?: string;
+  /** The signing secret (`whsec_…`) of Clerk's webhook to /api/auth/clerk-webhook. */
+  CLERK_WEBHOOK_SECRET?: string;
+  /** Cloudflare Email Sending, which sends password reset codes (lib/auth/passwordReset.ts): the account it is on, */
+  EMAIL_SENDING_ACCOUNT_ID?: string;
+  /** an API token allowed to send email, */
+  EMAIL_SENDING_TOKEN?: string;
+  /** and the address codes come from, on a domain onboarded to Email Sending. */
+  RESET_EMAIL_FROM?: string;
   DEV_LOGIN?: string;
   ENVIRONMENT?: string;
 }
@@ -40,6 +48,12 @@ export interface Profile {
   /** Only a verified email may link two providers to one account. */
   emailVerified: boolean;
   avatar: string | null;
+  /**
+   * When the provider proved who this is (ms): for Clerk, when the session its
+   * token came from began. A session of ours made on it is refused once the
+   * password has changed since (lib/auth/session.ts, `createSession`).
+   */
+  authAt?: number;
 }
 
 interface Provider {
