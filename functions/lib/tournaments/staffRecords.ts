@@ -22,7 +22,16 @@ import { jsonError } from '../api/responses.js';
 import type { Context } from '../auth/env.js';
 import { rowsChanged } from '../d1.js';
 import { displayNameSql } from '../accounts/handles.js';
-import { type Access, open, openForStaff, privateJson, type StaffAccess } from './access.js';
+import {
+  type Access,
+  answerMiss,
+  askerOf,
+  openForStaff,
+  openForStaffRead,
+  privateJson,
+  type StaffAccess
+} from './access.js';
+import { askerValues, asksStill } from './roles.js';
 import { latestRoundOf, type StaffAccount, type StaffMember } from '../../../shared/tournament/staffRecords.js';
 import type { Tournament } from '../../../shared/tournament/types.js';
 
@@ -87,6 +96,14 @@ function playerName(tournament: Tournament, playerId: string): string {
   return player ? `${player.firstName} ${player.lastName}` : '';
 }
 
+/**
+ * Lands only while the event is there and the asker still on its staff: one
+ * deleted, or an asker taken off it, between the request's read and its write
+ * leaves no entry behind it. `hash` and `now` bind the asker (see roles.ts).
+ */
+const eventStands = (access: StaffAccess, hash: string, now: string) =>
+  `EXISTS (SELECT 1 FROM tournaments WHERE code = ?1 AND ${asksStill(askerOf(access), hash, now)})`;
+
 /** Lands only while the entry `?2` replaces is in this event, not a removal, and replaced by nothing yet. */
 const replaceable = (table: string) =>
   `EXISTS (SELECT 1 FROM ${table} WHERE code = ?1 AND id = ?2 AND removed = 0) ` +
@@ -149,7 +166,8 @@ async function append<Input extends RecordInput>(
       `INSERT INTO ${kind.table} (code, replaces, id, ${columnsOf(kind)}, recorded_by, recorded_at) ` +
         'SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12 ' +
         // A SELECT that feeds an upsert needs a WHERE, or SQLite reads its ON CONFLICT as a join's.
-        `WHERE ?2 IS NULL OR (${replaceable(kind.table)}) ON CONFLICT DO NOTHING`
+        `WHERE ${eventStands(access, '?13', '?14')} AND (?2 IS NULL OR (${replaceable(kind.table)})) ` +
+        'ON CONFLICT DO NOTHING'
     )
     .bind(
       access.row.code,
@@ -163,7 +181,8 @@ async function append<Input extends RecordInput>(
       kind.verdictOf(input),
       input.notes,
       access.user?.id ?? null,
-      Date.now()
+      Date.now(),
+      ...askerValues(askerOf(access))
     )
     .run();
   return rowsChanged(written) === 1;
@@ -176,9 +195,17 @@ async function strike(kind: Shape, access: StaffAccess, id: string): Promise<boo
     .prepare(
       `INSERT INTO ${kind.table} (code, replaces, id, ${columns}, recorded_by, recorded_at, removed) ` +
         `SELECT code, id, ?3, ${columns}, ?4, ?5, 1 FROM ${kind.table} ` +
-        `WHERE code = ?1 AND id = ?2 AND ${replaceable(kind.table)} ON CONFLICT DO NOTHING`
+        `WHERE code = ?1 AND id = ?2 AND ${eventStands(access, '?6', '?7')} AND ${replaceable(kind.table)} ` +
+        'ON CONFLICT DO NOTHING'
     )
-    .bind(access.row.code, id, crypto.randomUUID(), access.user?.id ?? null, Date.now())
+    .bind(
+      access.row.code,
+      id,
+      crypto.randomUUID(),
+      access.user?.id ?? null,
+      Date.now(),
+      ...askerValues(askerOf(access))
+    )
     .run();
   return rowsChanged(written) === 1;
 }
@@ -195,12 +222,9 @@ async function exists(kind: Shape, access: StaffAccess, id: string): Promise<boo
 export function recordRoutes<Input extends RecordInput, Entry>(kind: RecordKind<Input, Entry>) {
   return {
     async onRequestGet(context: Context<'code'>): Promise<Response> {
-      const access = await open(context);
+      const access = await openForStaffRead(context);
       if (access instanceof Response) {
         return access;
-      }
-      if (!access.role) {
-        return access.user ? jsonError('Only this event’s staff can do that', 403) : jsonError('Sign in first', 401);
       }
       return record(kind, access, new URL(context.request.url).searchParams.get('player') || null);
     },
@@ -218,7 +242,10 @@ export function recordRoutes<Input extends RecordInput, Entry>(kind: RecordKind<
       if (problem) {
         return jsonError(problem, 400);
       }
-      return (await append(kind, access, input)) ? record(kind, access, null) : jsonError(kind.words.changed, 409);
+      if (await append(kind, access, input)) {
+        return record(kind, access, null);
+      }
+      return answerMiss(access, () => jsonError(kind.words.changed, 409));
     },
 
     async onRequestDelete(context: Context<'code'>): Promise<Response> {
@@ -230,7 +257,9 @@ export function recordRoutes<Input extends RecordInput, Entry>(kind: RecordKind<
       if (await strike(kind, access, id)) {
         return record(kind, access, null);
       }
-      return (await exists(kind, access, id)) ? jsonError(kind.words.changed, 409) : jsonError(kind.words.missing, 404);
+      return answerMiss(access, async () =>
+        (await exists(kind, access, id)) ? jsonError(kind.words.changed, 409) : jsonError(kind.words.missing, 404)
+      );
     }
   };
 }

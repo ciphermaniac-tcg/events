@@ -324,6 +324,34 @@ test('as an event ends, the cards of lists whose player may be under 18 go and t
   assert.deepEqual(teen?.problems, [], 'an emptied list shows no problems');
 });
 
+test('as an event ends, a list goes by the roster’s corrected birth year too, not only the one it was sent with', async () => {
+  const owner = await signIn('Organizer', 'organizer');
+  const code = await eventWith(owner, [ADULT, ADULT]);
+  assert.equal((await submit(code, '950', ADULT)).status, 200);
+  assert.equal((await submit(code, '951', ADULT)).status, 200);
+  // Staff correct one player's year after their list came in.
+  const corrected = await send(code, owner, {
+    type: 'editPlayer',
+    id: '950',
+    firstName: 'P',
+    lastName: '0',
+    birthDate: `02/27/${TEEN}`
+  });
+  assert.equal(corrected.status, 200);
+  assert.equal((await settle(code, owner, { finished: true })).status, 200);
+  const decks = raw().prepare('SELECT pop_id, deck FROM decklists ORDER BY pop_id').all() as {
+    pop_id: string;
+    deck: string;
+  }[];
+  assert.deepEqual(
+    decks.map(row => [row.pop_id, row.deck !== '']),
+    [
+      ['950', false],
+      ['951', true]
+    ]
+  );
+});
+
 test('an unsanctioned event knows no birth years, so its lists stay as it ends', async () => {
   const owner = await signIn('Organizer', 'organizer');
   const code = await newSwiss(owner);

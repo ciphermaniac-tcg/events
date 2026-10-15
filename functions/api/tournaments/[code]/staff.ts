@@ -9,7 +9,15 @@
 import { readJsonObject } from '../../../lib/api/body.js';
 import { jsonError } from '../../../lib/api/responses.js';
 import { type Context, sameOrigin } from '../../../lib/auth/env.js';
-import { type Access, manageView, open, openForOwner, privateJson } from '../../../lib/tournaments/access.js';
+import {
+  type Access,
+  answerMiss,
+  askerOf,
+  manageView,
+  open,
+  openForOwner,
+  privateJson
+} from '../../../lib/tournaments/access.js';
 import {
   isStaffMember,
   joinStaff,
@@ -18,6 +26,8 @@ import {
   removeStaff,
   rotateStaff
 } from '../../../lib/tournaments/store.js';
+
+const ONLY_ORGANIZER = 'Only the organizer can do that';
 
 export async function onRequestGet(context: Context<'code'>): Promise<Response> {
   const access = await openForOwner(context);
@@ -36,8 +46,11 @@ export async function onRequestDelete(context: Context<'code'>): Promise<Respons
   if (!user) {
     return jsonError('Say who to remove', 400);
   }
-  await removeStaff(access.db, access.row.code, user);
-  return privateJson({ staff: await listStaff(access.db, access.row.code) });
+  const list = async () => privateJson({ staff: await listStaff(access.db, access.row.code) });
+  // Nobody removed is someone already gone, unless the organizer is no longer one.
+  return (await removeStaff(access.db, access.row.code, user, askerOf(access)))
+    ? list()
+    : answerMiss(access, list, 'Only the organizer can do that');
 }
 
 /**
@@ -45,12 +58,16 @@ export async function onRequestDelete(context: Context<'code'>): Promise<Respons
  * everyone who joined through it has to be invited again. Organizer only.
  */
 async function rotate(access: Access): Promise<Response> {
-  if (access.role !== 'owner') {
-    return jsonError('Only the organizer can do that', 403);
+  const { role, hash } = access;
+  if (role !== 'owner' || !hash) {
+    return jsonError(ONLY_ORGANIZER, 403);
   }
-  await rotateStaff(access.db, access.row.code);
+  const owner = { ...access, role, hash };
+  if (!(await rotateStaff(access.db, access.row.code, askerOf(owner)))) {
+    return answerMiss(owner, () => jsonError('Busy; try again', 409), ONLY_ORGANIZER);
+  }
   const row = await loadTournament(access.db, access.row.code);
-  return row ? privateJson(manageView({ ...access, role: 'owner', row })) : jsonError('No such tournament', 404);
+  return row ? privateJson(manageView({ role, row })) : jsonError('No such tournament', 404);
 }
 
 export async function onRequestPost(context: Context<'code'>): Promise<Response> {

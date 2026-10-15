@@ -16,11 +16,11 @@
 import { readJsonObject } from '../../../lib/api/body.js';
 import { jsonError } from '../../../lib/api/responses.js';
 import type { Context } from '../../../lib/auth/env.js';
-import { type Access, open, openForStaff, privateJson } from '../../../lib/tournaments/access.js';
+import { type Access, askerOf, openForStaff, openForStaffRead, privateJson } from '../../../lib/tournaments/access.js';
 import { answerStaff } from '../../../lib/tournaments/answers.js';
 import { loadCorrections } from '../../../lib/tournaments/corrections.js';
 import { headJudgeOf } from '../../../lib/tournaments/headJudge.js';
-import { tryChange } from '../../../lib/tournaments/store.js';
+import { type Changes, tryChange } from '../../../lib/tournaments/store.js';
 import {
   type ApproverRole,
   correctableMatch,
@@ -41,12 +41,9 @@ function approverRole(access: Pick<Access, 'role' | 'user'>, headJudge: StaffAcc
 }
 
 export async function onRequestGet(context: Context<'code'>): Promise<Response> {
-  const access = await open(context);
+  const access = await openForStaffRead(context);
   if (access instanceof Response) {
     return access;
-  }
-  if (!access.role) {
-    return access.user ? jsonError('Only this event’s staff can do that', 403) : jsonError('Sign in first', 401);
   }
   const [corrections, headJudge] = await Promise.all([
     loadCorrections(access.db, access.row.code),
@@ -74,13 +71,13 @@ export async function onRequestPost(context: Context<'code'>): Promise<Response>
   if (request.version !== row.version) {
     return jsonError(CHANGED, 409);
   }
-  const ctx = { tom: row.mode === 'tom', finished: row.settings.finished };
+  const ctx = { tom: row.mode === 'tom', finished: row.settings.finished, paired: row.pairedThrough ?? {} };
   const match = correctableMatch(row.tournament, request, ctx);
   if (typeof match === 'string') {
     return jsonError(match, 400);
   }
   const localTime = isTomDateTime(body.localTime) ? body.localTime : tomDateTime(new Date());
-  const outcome = await tryChange(access.db, row, () => ({
+  const change = (): Changes => ({
     tournament: correctedTournament(row.tournament, request, localTime),
     correction: {
       pod: request.pod,
@@ -97,6 +94,7 @@ export async function onRequestPost(context: Context<'code'>): Promise<Response>
       // The round being played: always the corrected round's next (see roundRefusal).
       during: request.round + 1
     }
-  }));
+  });
+  const outcome = await tryChange(access.db, row, change, askerOf(access));
   return outcome ? answerStaff(context, access, outcome) : jsonError(CHANGED, 409);
 }

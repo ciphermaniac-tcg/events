@@ -12,10 +12,10 @@ import { readCommand } from '../../../../shared/tournament/readCommand.js';
 import { readJsonObject } from '../../../lib/api/body.js';
 import { jsonError } from '../../../lib/api/responses.js';
 import type { Context } from '../../../lib/auth/env.js';
-import { openForStaff } from '../../../lib/tournaments/access.js';
+import { changeEvent, openForStaff } from '../../../lib/tournaments/access.js';
 import { answerStaff } from '../../../lib/tournaments/answers.js';
 import { commandChanges } from '../../../lib/tournaments/results.js';
-import { mutate, type TournamentRow } from '../../../lib/tournaments/store.js';
+import type { TournamentRow } from '../../../lib/tournaments/store.js';
 
 /**
  * The command as this event takes it: a Community organizer's event is of no
@@ -42,6 +42,6 @@ export async function onRequestPost(context: Context<'code'>): Promise<Response>
     return jsonError('Not a command', 400);
   }
   const command = forEvent(read, access.row);
-  const outcome = await mutate(access.db, access.row, row => commandChanges(row, command, value?.localTime));
+  const outcome = await changeEvent(access, row => commandChanges(row, command, value?.localTime));
   return answerStaff(context, access, outcome);
 }

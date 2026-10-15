@@ -3,9 +3,9 @@ import { readJsonObject } from '../../../lib/api/body.js';
 import { jsonError } from '../../../lib/api/responses.js';
 import type { Context } from '../../../lib/auth/env.js';
 import { displayPresets } from '../../../lib/stores/displayPresets.js';
-import { openForStaff, privateJson } from '../../../lib/tournaments/access.js';
+import { changeEvent, openForStaff, privateJson } from '../../../lib/tournaments/access.js';
+import { changesNothing } from '../../../lib/tournaments/store.js';
 import { answerStaff } from '../../../lib/tournaments/answers.js';
-import { mutate } from '../../../lib/tournaments/store.js';
 
 export async function onRequestGet(context: Context<'code'>): Promise<Response> {
   const access = await openForStaff(context);
@@ -29,6 +29,8 @@ export async function onRequestPut(context: Context<'code'>): Promise<Response> 
     return jsonError('No such store display preset', 400);
   }
   const display: DisplaySelection | null = preset && storeId ? { ...preset, storeId } : null;
-  const outcome = await mutate(access.db, access.row, row => ({ settings: { ...row.settings, display } }));
+  const outcome = await changeEvent(access, row =>
+    changesNothing(row, row.settings.display, display) ? {} : { settings: { ...row.settings, display } }
+  );
   return answerStaff(context, access, outcome);
 }

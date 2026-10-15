@@ -18,7 +18,7 @@ import type { TournamentEnv } from '../../functions/lib/auth/env.ts';
 import { type PenaltyNoteEntry, standingNotes } from '../../shared/tournament/penaltyNotes.ts';
 import { apiCalls, type Handler } from '../__utils__/apiCalls.ts';
 import { at, eventCalls } from '../__utils__/eventCalls.ts';
-import { sqliteD1 } from '../__utils__/sqliteD1.ts';
+import { racing, sqliteD1 } from '../__utils__/sqliteD1.ts';
 
 let env: TournamentEnv;
 let db: ReturnType<typeof sqliteD1>;
@@ -168,5 +168,16 @@ test('penalty notes read per player, go with their event, and name no one once a
     (await hit(event.onRequestDelete as Handler, '', at(code), { method: 'DELETE', cookie: owner })).status,
     204
   );
+  assert.equal((db.raw.prepare('SELECT count(*) AS n FROM penalty_notes').get() as { n: number }).n, 0);
+});
+
+test('a note whose event is deleted before it is written leaves nothing behind', async () => {
+  const { code, owner, ownerId } = await runningEvent();
+  env.TOURNAMENT_DB = racing(db, 'INSERT INTO penalty_notes', () => {
+    db.raw.prepare('DELETE FROM tournaments WHERE code = ?').run(code);
+  });
+  const refused = await record(code, owner, { playerId: '900', round: 1, judgeId: ownerId, penalty: 'warning' });
+  env.TOURNAMENT_DB = db;
+  assert.deepEqual([refused.status, refused.json.error], [404, 'No such tournament']);
   assert.equal((db.raw.prepare('SELECT count(*) AS n FROM penalty_notes').get() as { n: number }).n, 0);
 });

@@ -7,10 +7,10 @@
 import { readJsonObject } from '../../../lib/api/body.js';
 import { jsonError } from '../../../lib/api/responses.js';
 import type { Context } from '../../../lib/auth/env.js';
-import { openForStaff } from '../../../lib/tournaments/access.js';
+import { changeEvent, openForStaff } from '../../../lib/tournaments/access.js';
 import { answerStaff } from '../../../lib/tournaments/answers.js';
 import { archetypeLabel, withDeck } from '../../../lib/tournaments/decks.js';
-import { mutate } from '../../../lib/tournaments/store.js';
+import { changesNothing } from '../../../lib/tournaments/store.js';
 
 export async function onRequestPut(context: Context<'code'>): Promise<Response> {
   const access = await openForStaff(context);
@@ -23,6 +23,8 @@ export async function onRequestPut(context: Context<'code'>): Promise<Response> 
   if (label === undefined || !access.row.tournament.players.some(player => player.id === playerId)) {
     return jsonError('Not a deck change', 400);
   }
-  const outcome = await mutate(access.db, access.row, row => ({ decks: withDeck(row.decks, playerId, label) }));
+  const outcome = await changeEvent(access, row =>
+    changesNothing(row, row.decks[playerId] ?? null, label) ? {} : { decks: withDeck(row.decks, playerId, label) }
+  );
   return answerStaff(context, access, outcome);
 }

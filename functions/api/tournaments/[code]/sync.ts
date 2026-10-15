@@ -31,6 +31,7 @@ import { asObject, readJsonBody } from '../../../lib/api/body.js';
 import { jsonError } from '../../../lib/api/responses.js';
 import type { Context } from '../../../lib/auth/env.js';
 import {
+  changeEvent,
   manageView,
   MAX_TOURNAMENT_BYTES,
   openForStaff,
@@ -39,7 +40,6 @@ import {
 } from '../../../lib/tournaments/access.js';
 import { publishAfter } from '../../../lib/tournaments/publish.js';
 import { FINISHED_REFUSAL } from '../../../lib/tournaments/results.js';
-import { mutate } from '../../../lib/tournaments/store.js';
 
 const CONFLICT = 'The site has a different copy of this event. Reconnect the file TOM is using to replace it.';
 
@@ -68,12 +68,12 @@ async function readUpload(request: Request): Promise<Upload | Response> {
 
 /** An explicit upload of the copy the site already holds: only the import time changes. */
 async function importedAgain(context: Context<'code'>, access: StaffAccess, revision: string): Promise<Response> {
-  const outcome = await mutate(access.db, access.row, () => ({ lastImportAt: Date.now() }));
+  const outcome = await changeEvent(access, () => ({ lastImportAt: Date.now() }));
   if ('error' in outcome) {
     return jsonError(outcome.error, outcome.status);
   }
   await publishAfter(context, outcome.row);
-  return privateJson({ ...manageView({ ...access, row: outcome.row }), revision });
+  return privateJson({ ...manageView({ row: outcome.row, role: outcome.role ?? access.role }), revision });
 }
 
 export async function onRequestPut(context: Context<'code'>): Promise<Response> {
@@ -108,7 +108,7 @@ export async function onRequestPut(context: Context<'code'>): Promise<Response> 
   const unclocked = (held: Tournament) => JSON.stringify(withoutClocks(held));
   const checked = unclocked(access.row.tournament);
   // Judged on each try's own read, so an end that lands between the read and the write still holds.
-  const outcome = await mutate(access.db, access.row, row => {
+  const outcome = await changeEvent(access, row => {
     if (row.settings.finished) {
       return FINISHED_REFUSAL;
     }
@@ -124,5 +124,5 @@ export async function onRequestPut(context: Context<'code'>): Promise<Response> 
     return jsonError(outcome.error, outcome.error === CONFLICT ? 409 : outcome.status);
   }
   await publishAfter(context, outcome.row);
-  return privateJson({ ...manageView({ ...access, row: outcome.row }), revision: sent });
+  return privateJson({ ...manageView({ row: outcome.row, role: outcome.role ?? access.role }), revision: sent });
 }

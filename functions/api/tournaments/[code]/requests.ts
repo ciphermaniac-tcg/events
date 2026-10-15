@@ -12,10 +12,9 @@ import type { RequestAnswer } from '../../../../shared/tournament/requests.js';
 import { readJsonObject } from '../../../lib/api/body.js';
 import { jsonError } from '../../../lib/api/responses.js';
 import type { Context } from '../../../lib/auth/env.js';
-import { openForStaff } from '../../../lib/tournaments/access.js';
+import { changeEvent, openForStaff } from '../../../lib/tournaments/access.js';
 import { answerStaff } from '../../../lib/tournaments/answers.js';
 import { staffAnswerChanges } from '../../../lib/tournaments/requests.js';
-import { mutate } from '../../../lib/tournaments/store.js';
 
 const ANSWERS: readonly unknown[] = ['accepted', 'declined', 'done'] satisfies RequestAnswer[];
 
@@ -30,6 +29,6 @@ export async function onRequestPut(context: Context<'code'>): Promise<Response> 
   }
   const by = access.user?.name ?? '';
   const answer = { id, status: status as RequestAnswer, by, localTime };
-  const outcome = await mutate(access.db, access.row, row => staffAnswerChanges(row, { ...answer, at: Date.now() }));
+  const outcome = await changeEvent(access, row => staffAnswerChanges(row, { ...answer, at: Date.now() }));
   return answerStaff(context, access, outcome);
 }

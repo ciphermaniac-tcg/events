@@ -10,11 +10,32 @@ import type { ApproverRole, CorrectionEntry } from '../../../shared/tournament/c
 import type { Outcome, PodCategory } from '../../../shared/tournament/types.js';
 import { displayNameSql } from '../accounts/handles.js';
 import type { D1Like, D1Statement } from '../types.js';
+import { onStaff, organizes } from './roles.js';
 
 /** What a correction writes beside the event: everything its entry says but when and by which version. */
 export type CorrectionWrite = Omit<CorrectionEntry, 'id' | 'approvedBy' | 'recordedAt'> & { approver: string };
 
-/** The entry, written only while the event stands at the version this correction read: its own write lands with it. */
+/** Whether `who` may still approve as `role`, read from the event's row as the write lands. */
+const mayApprove = (role: ApproverRole, who: string) =>
+  role === 'head-judge' ? `(tournaments.head_judge = ${who} AND ${onStaff(who)})` : organizes(who);
+
+/**
+ * What the event's own update adds to its WHERE for a correction: the
+ * approver may still approve, so a head judge replaced or an organizer gone
+ * from the store between the route's check and the write changes nothing.
+ */
+export function correctionGuard(write: CorrectionWrite): { sql: string; values: string[] } {
+  return {
+    sql: ` AND EXISTS (SELECT 1 FROM (SELECT ? AS who) w WHERE ${mayApprove(write.role, 'w.who')})`,
+    values: [write.approver]
+  };
+}
+
+/**
+ * The entry, written only while the event stands at the version this
+ * correction read and its approver may still approve: it lands with the
+ * event's own write (see correctionGuard), or neither does.
+ */
 export function correctionWrites(
   db: D1Like,
   row: { code: string; version: number },
@@ -26,7 +47,7 @@ export function correctionWrites(
         'INSERT INTO result_corrections (code, id, version, pod, round, table_no, p1, p2, from_outcome, to_outcome, ' +
           'note, approved_by, role, alone, during, recorded_at) ' +
           'SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16 ' +
-          'FROM tournaments WHERE code = ?1 AND version = ?17'
+          `FROM tournaments WHERE code = ?1 AND version = ?17 AND ${mayApprove(write.role, '?12')}`
       )
       .bind(
         row.code,

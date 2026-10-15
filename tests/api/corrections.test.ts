@@ -21,7 +21,7 @@ import type { CorrectionEntry } from '../../shared/tournament/corrections.ts';
 import type { Match, Pod, Tournament } from '../../shared/tournament/types.ts';
 import { apiCalls, type Handler } from '../__utils__/apiCalls.ts';
 import { at, eventCalls } from '../__utils__/eventCalls.ts';
-import { sqliteD1 } from '../__utils__/sqliteD1.ts';
+import { racing, sqliteD1 } from '../__utils__/sqliteD1.ts';
 
 let env: TournamentEnv;
 let db: ReturnType<typeof sqliteD1>;
@@ -244,4 +244,83 @@ test('staff read the head judge and who could be named; anyone else does not, an
   assert.deepEqual([malformed.status, malformed.json.error], [400, 'Say who the head judge is']);
   await nameHeadJudge(code, owner, helperUser.id);
   assert.equal((await nameHeadJudge(code, owner, null)).json.headJudge, null, 'null names none');
+});
+
+test('deleting the rounds after a locked one does not reopen it, to a correction or to its results', async () => {
+  const { code, owner } = await inRound2();
+  await reportAll(code, owner);
+  await send(code, owner, { type: 'pairRound', pod: 'masters' });
+  const locked = 'Round 1 can no longer be corrected. Its records locked when round 3 was paired.';
+  assert.equal((await correct(code, owner, await flipTable1(code, owner))).json.error, locked);
+
+  assert.equal((await send(code, owner, { type: 'deleteRound', pod: 'masters' })).status, 200);
+  assert.equal(masters((await managed(code, owner)).tournament).rounds.length, 2, 'round 3 is gone');
+  assert.equal((await correct(code, owner, await flipTable1(code, owner))).json.error, locked, 'still locked');
+
+  // Clearing round 2's results lets it be deleted too, which leaves round 1 the latest round.
+  const r2 = masters((await managed(code, owner)).tournament).rounds[1]!;
+  for (const m of r2.matches.filter(match => match.p2 !== null)) {
+    await send(code, owner, { type: 'reportResult', pod: 'masters', round: 2, ...pick(m), outcome: 'pending' });
+  }
+  assert.equal((await send(code, owner, { type: 'deleteRound', pod: 'masters' })).status, 200);
+  const r1 = masters((await managed(code, owner)).tournament).rounds;
+  assert.equal(r1.length, 1);
+  const entry = await send(code, owner, {
+    type: 'reportResult',
+    pod: 'masters',
+    round: 1,
+    ...pick(r1[0]!.matches.find(m => m.table === 1)!),
+    outcome: 'p2'
+  });
+  assert.deepEqual([entry.status, entry.json.error], [400, locked], 'its results stay as they were');
+  const stored = db.raw.prepare('SELECT paired_through FROM tournaments').get() as { paired_through: string };
+  assert.deepEqual(JSON.parse(stored.paired_through), { masters: 3 });
+});
+
+test('naming another head judge makes a new version, so a correction previewed before it is refused', async () => {
+  const { code, owner, helper, helperUser } = await inRound2();
+  await nameHeadJudge(code, owner, helperUser.id);
+  const previewed = await flipTable1(code, helper);
+  const before = (await managed(code, owner)).version;
+  await nameHeadJudge(code, owner, null);
+  assert.equal((await managed(code, owner)).version, before + 1);
+  const refused = await correct(code, helper, previewed);
+  assert.equal(refused.status, 403, 'no longer head judge');
+  assert.deepEqual((await record(code, owner)).corrections, []);
+});
+
+/** A correction whose approver loses the right to approve between the route's check and its write. */
+async function revokedMidWrite(meanwhile: (code: string) => void, as: 'owner' | 'helper') {
+  const { code, owner, helper, helperUser } = await inRound2();
+  await nameHeadJudge(code, owner, helperUser.id);
+  const body = await flipTable1(code, owner);
+  env.TOURNAMENT_DB = racing(db, 'INSERT INTO result_corrections', () => meanwhile(code));
+  const refused = await correct(code, as === 'owner' ? owner : helper, body);
+  env.TOURNAMENT_DB = db;
+  assert.deepEqual(
+    [refused.status, refused.json.error],
+    [409, 'The event changed since you looked. Look again and try once more.']
+  );
+  // Read by the staff member the link let in, who stays on staff whoever lost what.
+  const match = masters((await managed(code, helper)).tournament).rounds[0]!.matches.find(m => m.table === 1)!;
+  assert.equal(match.outcome, 'p1', 'the result stands');
+  assert.equal((db.raw.prepare('SELECT count(*) AS n FROM result_corrections').get() as { n: number }).n, 0);
+}
+
+test('a head judge replaced as their correction is written changes nothing', async () => {
+  // Without a new version, as a write that slipped past the version guard would be.
+  await revokedMidWrite(
+    code => db.raw.prepare('UPDATE tournaments SET head_judge = NULL WHERE code = ?').run(code),
+    'helper'
+  );
+});
+
+test('an organizer no longer the event’s as their correction is written changes nothing', async () => {
+  await revokedMidWrite(code => {
+    // Out of the store that runs it, and not the account that started it either.
+    db.raw
+      .prepare('DELETE FROM store_members WHERE store_id = (SELECT store_id FROM tournaments WHERE code = ?)')
+      .run(code);
+    db.raw.prepare("UPDATE tournaments SET owner_id = 'someone' WHERE code = ?").run(code);
+  }, 'owner');
 });

@@ -287,3 +287,14 @@ test('deck checks read per player, go with their event, and name no one once an 
   );
   assert.equal((db.raw.prepare('SELECT count(*) AS n FROM deck_checks').get() as { n: number }).n, 0);
 });
+
+test('a deck check whose event is deleted before it is written leaves nothing behind', async () => {
+  const { code, owner, ownerId } = await runningEvent();
+  env.TOURNAMENT_DB = racing(db, 'INSERT INTO deck_checks', () => {
+    db.raw.prepare('DELETE FROM tournaments WHERE code = ?').run(code);
+  });
+  const refused = await record(code, owner, { playerId: '4242', round: 1, checkerId: ownerId, result: 'pass' });
+  env.TOURNAMENT_DB = db;
+  assert.deepEqual([refused.status, refused.json.error], [404, 'No such tournament']);
+  assert.equal((db.raw.prepare('SELECT count(*) AS n FROM deck_checks').get() as { n: number }).n, 0);
+});

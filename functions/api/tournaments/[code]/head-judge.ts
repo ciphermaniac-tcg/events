@@ -10,9 +10,18 @@
 import { readJsonObject } from '../../../lib/api/body.js';
 import { jsonError } from '../../../lib/api/responses.js';
 import type { Context } from '../../../lib/auth/env.js';
-import { type Access, open, openForOwner, privateJson } from '../../../lib/tournaments/access.js';
+import {
+  type Access,
+  answerMiss,
+  askerOf,
+  openForOwner,
+  openForStaffRead,
+  privateJson
+} from '../../../lib/tournaments/access.js';
 import { headJudgeOf, setHeadJudge } from '../../../lib/tournaments/headJudge.js';
 import { staffAccounts } from '../../../lib/tournaments/staffRecords.js';
+
+const ONLY_ORGANIZER = 'Only the organizer can name the head judge';
 
 async function answer(access: Access): Promise<Response> {
   const [headJudge, staff] = await Promise.all([headJudgeOf(access), staffAccounts(access)]);
@@ -20,18 +29,12 @@ async function answer(access: Access): Promise<Response> {
 }
 
 export async function onRequestGet(context: Context<'code'>): Promise<Response> {
-  const access = await open(context);
-  if (access instanceof Response) {
-    return access;
-  }
-  if (!access.role) {
-    return access.user ? jsonError('Only this event’s staff can do that', 403) : jsonError('Sign in first', 401);
-  }
-  return answer(access);
+  const access = await openForStaffRead(context);
+  return access instanceof Response ? access : answer(access);
 }
 
 export async function onRequestPut(context: Context<'code'>): Promise<Response> {
-  const access = await openForOwner(context, 'Only the organizer can name the head judge');
+  const access = await openForOwner(context, ONLY_ORGANIZER);
   if (access instanceof Response) {
     return access;
   }
@@ -39,9 +42,8 @@ export async function onRequestPut(context: Context<'code'>): Promise<Response> 
   if (userId !== null && typeof userId !== 'string') {
     return jsonError('Say who the head judge is', 400);
   }
-  if (userId !== null && !(await staffAccounts(access)).some(staff => staff.id === userId)) {
-    return jsonError('The head judge must be on this event’s staff', 400);
+  if (await setHeadJudge(access.db, access.row.code, userId, askerOf(access))) {
+    return answer(access);
   }
-  await setHeadJudge(access.db, access.row.code, userId);
-  return answer(access);
+  return answerMiss(access, () => jsonError('The head judge must be on this event’s staff', 400), ONLY_ORGANIZER);
 }

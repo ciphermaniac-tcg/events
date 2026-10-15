@@ -14,3 +14,15 @@ SELECT subject FROM clerk_deletions WHERE 0;
 SELECT user_id, code FROM history_hidden WHERE 0;
 SELECT user_id, links, pins FROM profile_preferences WHERE 0;
 SELECT code, version, player_id, report, account_id, claimed_at FROM report_history WHERE 0;
+SELECT store_id, id, name, options FROM display_presets WHERE 0;
+SELECT head_judge, paired_through FROM tournaments WHERE 0;
+SELECT id, player_id, round, checker_id, result, recorded_by, removed FROM deck_checks INDEXED BY deck_checks_replaced
+ WHERE replaces IS NOT NULL LIMIT 0;
+SELECT id, player_id, round, judge_id, penalty, recorded_by, removed FROM penalty_notes INDEXED BY penalty_notes_replaced
+ WHERE replaces IS NOT NULL LIMIT 0;
+SELECT code, id, version, pod, round, table_no, approved_by, role, alone, during FROM result_corrections WHERE 0;
+SELECT session_id, used_at FROM clerk_sessions_used WHERE 0;
+SELECT subject, changed_at FROM clerk_password_cutoffs WHERE 0;
+SELECT auth_at FROM sessions WHERE 0;
+SELECT token_hash, subject, code_hash, attempts, expires_at, claimed_at FROM password_resets WHERE 0;
+SELECT at FROM reset_reservations INDEXED BY reset_reservations_by_key WHERE scope = '' AND key = '' LIMIT 0;

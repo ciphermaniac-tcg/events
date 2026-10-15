@@ -21,9 +21,9 @@ import type { D1Like } from '../../../lib/types.js';
 import { readJsonBody } from '../../../lib/api/body.js';
 import { jsonError } from '../../../lib/api/responses.js';
 import type { Context } from '../../../lib/auth/env.js';
-import { openForStaff } from '../../../lib/tournaments/access.js';
+import { changeEvent, openForStaff } from '../../../lib/tournaments/access.js';
 import { answerStaff } from '../../../lib/tournaments/answers.js';
-import { dayChange, mutate, type TournamentRow } from '../../../lib/tournaments/store.js';
+import { type Change, changesNothing, dayChange, type TournamentRow } from '../../../lib/tournaments/store.js';
 
 /** How soon each setting shows decks to players: higher is sooner. */
 const OPENNESS: Record<DeckVisibility, number> = { off: 0, after: 1, always: 2 };
@@ -31,7 +31,7 @@ const OPENNESS: Record<DeckVisibility, number> = { off: 0, after: 1, always: 2 }
 const SOONER = 'Only the organizer can show decks sooner';
 
 /** Whether the settings show decks sooner than the row does, which only the organizer may. */
-const showsSooner = (role: Role, row: TournamentRow, next: TournamentSettings) =>
+const showsSooner = (role: Role | null, row: TournamentRow, next: TournamentSettings) =>
   role !== 'owner' && OPENNESS[next.deckVisibility] > OPENNESS[row.settings.deckVisibility];
 
 /**
@@ -89,6 +89,24 @@ function concludedPrerelease(row: TournamentRow, settings: TournamentSettings) {
   return finished.ok ? { tournament: finished.tournament } : finished.error!;
 }
 
+/** The change `change` makes of the event's settings, as the asker's role allows. */
+function settingsChange(change: unknown, sanctionable: boolean): Change {
+  return (row, role): ReturnType<Change> => {
+    const settings = changedSettings(change, row, sanctionable);
+    if (typeof settings === 'string') {
+      return settings;
+    }
+    if (showsSooner(role, row, settings)) {
+      return { error: SOONER, status: 403 };
+    }
+    if (changesNothing(row, row.settings, settings)) {
+      return {};
+    }
+    const conclusion = concludedPrerelease(row, settings);
+    return typeof conclusion === 'string' ? conclusion : { settings, ...dayChange(row, settings), ...conclusion };
+  };
+}
+
 export async function onRequestPut(context: Context<'code'>): Promise<Response> {
   const access = await openForStaff(context);
   if (access instanceof Response) {
@@ -102,18 +120,6 @@ export async function onRequestPut(context: Context<'code'>): Promise<Response> 
     return jsonError(next, 400);
   }
   // Judged against the event as each try finds it: decks the organizer hid meanwhile are not staff's to show again.
-  const outcome = await mutate(access.db, access.row, row => {
-    const settings = changedSettings(change, row, sanctionable);
-    if (typeof settings === 'string') {
-      return settings;
-    }
-    if (showsSooner(access.role, row, settings)) {
-      return SOONER;
-    }
-    const conclusion = concludedPrerelease(row, settings);
-    return typeof conclusion === 'string' ? conclusion : { settings, ...dayChange(row, settings), ...conclusion };
-  });
-  return 'error' in outcome && outcome.error === SOONER
-    ? jsonError(SOONER, 403)
-    : answerStaff(context, access, outcome);
+  const outcome = await changeEvent(access, settingsChange(change, sanctionable));
+  return answerStaff(context, access, outcome);
 }

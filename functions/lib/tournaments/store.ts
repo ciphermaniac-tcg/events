@@ -7,7 +7,8 @@
  * the caller (see `mutate`).
  */
 
-import { ADULT_AGE } from '../../../shared/accounts/age.js';
+import { ADULT_AGE, mayBeMinor } from '../../../shared/accounts/age.js';
+import { birthYear } from '../../../shared/tournament/divisions.js';
 import { managesStore, storeRoleOf } from '../../../shared/accounts/stores.js';
 import { DAY_MS, eventDay } from '../../../shared/tournament/limits.js';
 import { type MatchKey, normalizeCutPods } from '../../../shared/tournament/rounds.js';
@@ -31,8 +32,10 @@ import { displayNameSql } from '../accounts/handles.js';
 import { firstRow, rowsChanged } from '../d1.js';
 import type { D1Like, D1Statement } from '../types.js';
 import { deleteWrites, firstIndexWrites, rosterWrites } from './rosterWrites.js';
-import { type CorrectionWrite, correctionWrites } from './corrections.js';
+import { correctionGuard, type CorrectionWrite, correctionWrites } from './corrections.js';
+import { type PairedThrough, pairedThrough } from '../../../shared/tournament/corrections.js';
 import { type ReportEvidence, reportEvidenceWrites } from './reportHistory.js';
+import { type Asker, askerValues, asksStill, onStaff, roleSql } from './roles.js';
 import { winWrites } from './winWrites.js';
 
 export interface TournamentRow {
@@ -57,6 +60,8 @@ export interface TournamentRow {
   storeId: string | null;
   /** The day a Community organizer's event holds (see shared/tournament/limits.ts); null otherwise. */
   communityDay: string | null;
+  /** The highest round each pod has ever paired; only ever rises (see shared/tournament/corrections.ts). */
+  pairedThrough?: PairedThrough;
 }
 
 interface RawRow {
@@ -76,6 +81,7 @@ interface RawRow {
   updated_at: number;
   store_id: string | null;
   community_day: string | null;
+  paired_through?: string | null;
 }
 
 function legacyMatchKeys<T extends MatchKey>(tournament: Tournament, keys: T[]): T[] {
@@ -103,7 +109,9 @@ function fromRaw(raw: RawRow): TournamentRow {
     version: raw.version,
     updatedAt: raw.updated_at,
     storeId: raw.store_id ?? null,
-    communityDay: raw.community_day ?? null
+    communityDay: raw.community_day ?? null,
+    // Raised to the rounds the event holds now, so an event saved before the column existed starts there.
+    pairedThrough: pairedThrough(JSON.parse(raw.paired_through ?? '{}') as PairedThrough, tournament)
   };
 }
 
@@ -159,6 +167,8 @@ export interface Opened {
    * holds none, or the route did not ask.
    */
   claimed: string | null;
+  /** The SHA-256 of the request's session token; null without one. */
+  hash: string | null;
 }
 
 /** What a route asks of `openTournament` beyond the event and who is asking. */
@@ -182,39 +192,37 @@ export async function openTournament(
   const hash = await sessionHash(request);
   if (!hash) {
     const row = await loadTournament(db, code);
-    return row && { row, user: null, role: null, claimed: null };
+    return row && { row, user: null, role: null, claimed: null, hash };
   }
+  return openAs(db, code, hash, options);
+}
+
+/** As `openTournament`, for the session under `hash`. */
+async function openAs(db: D1Like, code: string, hash: string, options: OpenOptions = {}): Promise<Opened | null> {
   const now = Date.now();
   const [event, account, staff, claim] = await db.batch([
     tournamentQuery(db, code),
     sessionUserQuery(db, hash, now),
-    staffQuery(db, code, hash, now),
+    roleQuery(db, code, hash, now),
     ...(options.claim ? [claimQuery(db, code, hash, now)] : [])
   ]);
   const raw = firstRow<RawRow>(event);
   if (!raw) {
     return null;
   }
-  const row = fromRaw(raw);
   const found = firstRow<UserRow>(account);
   const user = found && userFromRow(found);
   const claimed = firstRow<{ player_id: string }>(claim)?.player_id ?? null;
-  return { row, user, role: roleIn(row, user, firstRow<StaffRow>(staff)), claimed };
+  const role = (user && firstRow<{ role: Role | null }>(staff)?.role) ?? null;
+  return { row: fromRaw(raw), user, role, claimed, hash };
 }
 
-/** How the session's account is on the event's staff: through its invite link, or as one of its store's. */
-interface StaffRow {
-  joined: number;
-  store_role: string | null;
-}
-
-const staffQuery = (db: D1Like, code: string, hash: string, now: number) =>
+/** The role the session's account holds at the event (see roles.ts). */
+const roleQuery = (db: D1Like, code: string, hash: string, now: number) =>
   db
     .prepare(
-      'SELECT EXISTS (SELECT 1 FROM staff WHERE staff.code = ?1 AND staff.user_id = sessions.user_id) AS joined, ' +
-        '(SELECT m.role FROM tournaments t JOIN store_members m ON m.store_id = t.store_id ' +
-        'WHERE t.code = ?1 AND m.user_id = sessions.user_id) AS store_role ' +
-        'FROM sessions WHERE sessions.token_hash = ?2 AND sessions.expires_at > ?3'
+      `SELECT ${roleSql('sessions.user_id')} AS role FROM sessions JOIN tournaments ON tournaments.code = ?1 ` +
+        'WHERE sessions.token_hash = ?2 AND sessions.expires_at > ?3'
     )
     .bind(code, hash, now);
 
@@ -226,26 +234,6 @@ const claimQuery = (db: D1Like, code: string, hash: string, now: number) =>
         'WHERE report_devices.code = ? AND sessions.token_hash = ? AND sessions.expires_at > ?'
     )
     .bind(code, hash, now);
-
-/** What the account is in the event's store, if it is in it. */
-const storeRoleIn = (staff: StaffRow | null) => (staff?.store_role ? storeRoleOf(staff.store_role) : null);
-
-/**
- * A store's event is the store's: its Owner and Managers are as its organizer and its
- * Staff as its staff, whoever started it, and anyone who leaves the store
- * leaves its events. Any other event is owned by the account that started
- * it. Either way, anyone the invite link let in is staff.
- */
-function roleIn(row: TournamentRow, user: User | null, staff: StaffRow | null): Role | null {
-  if (!user) {
-    return null;
-  }
-  const owner = row.storeId === null ? user.id === row.ownerId : managesStore(storeRoleIn(staff));
-  if (owner) {
-    return 'owner';
-  }
-  return staff?.joined === 1 || staff?.store_role === 'staff' ? 'staff' : null;
-}
 
 /** Just the version, for a cheap "has anything changed" check. */
 export async function loadVersion(db: D1Like, code: string): Promise<number | null> {
@@ -367,7 +355,7 @@ export async function createTournament(db: D1Like, input: NewTournament): Promis
     if (rowsChanged(results[admission.length + 1]) === 1) {
       const empty = { pending: [], reports: [], requests: [], decks: {} };
       const made = { code, ownerId, mode, tournament, settings, keys, staffToken, version: 1, updatedAt: now };
-      return { ...made, ...empty, storeId, communityDay, lastImportAt };
+      return { ...made, ...empty, storeId, communityDay, lastImportAt, pairedThrough: pairedThrough({}, tournament) };
     }
   }
   throw new Error('Could not find a free tournament code');
@@ -440,6 +428,14 @@ export function dayChange(row: TournamentRow, settings: TournamentSettings): Pic
 }
 
 /**
+ * Whether setting `next` where the row holds `held` changes nothing: the same
+ * JSON, at an event that is not idle, which any change from staff ends. Read
+ * as written, so a difference in key order only costs the write it always did.
+ */
+export const changesNothing = (row: TournamentRow, held: unknown, next: unknown): boolean =>
+  !row.settings.idle && JSON.stringify(held) === JSON.stringify(next);
+
+/**
  * The reports a change leaves: its own, or the row's less any whose match it
  * settled or took away, since a result from staff settles a disputed match.
  * Turning player reporting off drops them all, as does ending the event, whose
@@ -465,7 +461,20 @@ function changedRow(row: TournamentRow, changes: Changes): TournamentRow {
   // The keys as saved, so a player added by this change is already under a public key.
   const keys = changes.tournament ? assignKeys(changes.tournament, row.keys) : row.keys;
   const { reportEvidence: _evidence, correction: _correction, ...state } = changes;
-  return { ...row, ...state, keys, reports: reportsAfter(row, changes) };
+  // A deleted or re-paired round never lowers it: the correction window stays shut (see corrections.ts).
+  const paired = changes.tournament ? pairedThrough(row.pairedThrough ?? {}, changes.tournament) : row.pairedThrough;
+  return { ...row, ...state, keys, reports: reportsAfter(row, changes), pairedThrough: paired };
+}
+
+/** The columns a new copy of the event's document rewrites: the document, its public keys, and its rounds paired. */
+function documentColumns(tournament: Tournament | undefined, next: TournamentRow): [string, string | undefined][] {
+  return tournament
+    ? [
+        ['state', stateJson(tournament)],
+        ['player_keys', JSON.stringify(next.keys)],
+        ['paired_through', JSON.stringify(next.pairedThrough ?? {})]
+      ]
+    : [];
 }
 
 /** The columns a change writes, and their values: only what it changed. */
@@ -474,8 +483,7 @@ function columnsFor(changes: Changes, next: TournamentRow): [string, string][] {
   const columns: [string, string | false | undefined][] = [
     ['community_day', communityDay],
     ['last_import_at', changes.lastImportAt?.toString()],
-    ['state', tournament && stateJson(tournament)],
-    ['player_keys', tournament && JSON.stringify(next.keys)],
+    ...documentColumns(tournament, next),
     ['pending', pending && JSON.stringify(pending)],
     ['settings', settings && JSON.stringify(settings)],
     ['decks', decks && JSON.stringify(decks)],
@@ -487,62 +495,108 @@ function columnsFor(changes: Changes, next: TournamentRow): [string, string][] {
 }
 
 /**
- * Writes the changes if the row is still at `row.version`. Only the columns
- * the change touches are written, so a result reported mid-event does not
- * send the whole document back. A change to the player list or to whether
- * the event is sanctioned also keeps the history index, in the same batch and
- * on the same version (see rosterWrites.ts); any other change is the one
- * update alone.
- * @returns The row as written, or null when someone else wrote first
+ * The two writes that hold a staff change to its asker's standing as it lands,
+ * one first in its batch and one last. Where the asker no longer holds their
+ * role (removed from staff or the store, signed out), the first turns the
+ * event's version aside, to its negative, so each write between, every one of
+ * which names the version read or the one it makes, misses; the last turns it
+ * back. The batch then changes nothing, and `mutate` reads the event and the
+ * asker's role again. A batch is one transaction: nothing outside it sees the
+ * version turned, and a guard that holds as it starts holds to its end.
  */
-async function saveTournament(db: D1Like, row: TournamentRow, input: Changes): Promise<TournamentRow | null> {
+function askerGate(db: D1Like, row: TournamentRow, asker: Asker | undefined): [D1Statement[], D1Statement[]] {
+  if (!asker) {
+    return [[], []];
+  }
+  const turn = 'UPDATE tournaments SET version = -version WHERE code = ? AND ';
+  return [
+    [db.prepare(`${turn}version = ? AND NOT ${asksStill(asker)}`).bind(row.code, row.version, ...askerValues(asker))],
+    [db.prepare(`${turn}version < 0`).bind(row.code)]
+  ];
+}
+
+/**
+ * Writes the changes if the row is still at `row.version`, and the asker, when
+ * there is one, still holds their role (see askerGate). Only the columns the
+ * change touches are written, so a result reported mid-event does not send
+ * the whole document back. A change to the player list or to whether the
+ * event is sanctioned also keeps the history index, in the same batch and on
+ * the same version (see rosterWrites.ts); any other change is the one update
+ * alone.
+ * @returns The row as written, or null when someone else wrote first or the asker may no longer write
+ */
+async function saveTournament(
+  db: D1Like,
+  row: TournamentRow,
+  input: Changes,
+  asker?: Asker
+): Promise<TournamentRow | null> {
   const changes =
     row.settings.idle && !input.settings ? { ...input, settings: { ...row.settings, idle: false } } : input;
   const next = changedRow(row, changes);
   const columns = columnsFor(changes, next);
   const updatedAt = changes.updatedAt ?? Date.now();
   const roster = changes.tournament || changes.settings ? rosterWrites(db, row, next) : [];
+  const guard = changes.correction ? correctionGuard(changes.correction) : { sql: '', values: [] };
   const update = db
     .prepare(
       `UPDATE tournaments SET ${columns.map(([name]) => `${name} = ?, `).join('')}` +
-        'version = version + 1, updated_at = ? WHERE code = ? AND version = ?'
+        `version = version + 1, updated_at = ? WHERE code = ? AND version = ?${guard.sql}`
     )
-    .bind(...columns.map(([, value]) => value), updatedAt, row.code, row.version);
-  const ending = next.settings.finished && !row.settings.finished ? [minorCardsCut(db, row, updatedAt)] : [];
+    .bind(...columns.map(([, value]) => value), updatedAt, row.code, row.version, ...guard.values);
+  const ending =
+    next.settings.finished && !row.settings.finished ? [minorCardsCut(db, next, row.version + 1, updatedAt)] : [];
   const evidence = [
     ...(changes.reportEvidence ? reportEvidenceWrites(db, row, changes.reportEvidence) : []),
     ...(changes.correction ? correctionWrites(db, row, changes.correction) : [])
   ];
-  const after = [...ending, ...winWrites(db, row, next)];
-  const results = await db.batch([...roster, ...evidence, update, ...after]);
-  const saved = results.at(-1 - after.length);
-  return rowsChanged(saved) === 1 ? { ...next, version: row.version + 1, updatedAt } : null;
+  const [check, restore] = askerGate(db, row, asker);
+  const before = [...check, ...roster, ...evidence];
+  const results = await db.batch([...before, update, ...ending, ...winWrites(db, row, next), ...restore]);
+  return rowsChanged(results[before.length]) === 1 ? { ...next, version: row.version + 1, updatedAt } : null;
 }
 
 /**
  * Deletes the cards of every list whose player may be under 18, as the event
  * ends: deck checks needed them while it ran, and nothing needs them after
- * (Play! Pokémon sets no time to keep them). The archetype stays. Runs after
- * the event's own write in the same batch, and only where that write landed:
- * the row must stand at the version it wrote and be finished, so an end that
- * lost a race to another write deletes nothing. An unsanctioned event's lists
- * carry no birth year, so its lists are kept.
+ * (Play! Pokémon sets no time to keep them). The archetype stays. Either
+ * birth year says so: the one the list was sent with, or the one the roster
+ * holds for its Player ID as the event ends, since staff may have corrected
+ * it since. Runs after the event's own write in the same batch, and only
+ * where that write landed: the row must stand at the version it wrote and be
+ * finished, so an end that lost a race to another write deletes nothing. An
+ * unsanctioned event's lists carry no birth year, so its lists are kept.
  */
-function minorCardsCut(db: D1Like, row: TournamentRow, now: number): D1Statement {
+function minorCardsCut(db: D1Like, next: TournamentRow, version: number, now: number): D1Statement {
   // Born in this year or later, someone may still be 17 (shared/accounts/age.ts).
   const youngest = new Date(now).getUTCFullYear() - ADULT_AGE;
+  const minors = next.tournament.players
+    .filter(player => mayBeMinor(birthYear(player.birthDate), new Date(now)))
+    .map(player => player.id);
   return db
     .prepare(
       "UPDATE decklists SET deck = '' WHERE code = ?1 AND deck <> '' " +
-        'AND CAST(substr(birth_date, -4) AS INTEGER) >= ?2 ' +
+        'AND (CAST(substr(birth_date, -4) AS INTEGER) >= ?2 OR pop_id IN (SELECT value FROM json_each(?4) AS ids)) ' +
         'AND EXISTS (SELECT 1 FROM tournaments WHERE code = ?1 AND version = ?3 ' +
         "AND coalesce(json_extract(settings, '$.finished'), 0) = 1)"
     )
-    .bind(row.code, youngest, row.version + 1);
+    .bind(next.code, youngest, version, JSON.stringify(minors));
 }
 
-/** What a change comes to: the row as written, or why it was refused. */
-export type Mutation = { row: TournamentRow; refusal?: string } | { error: string; status: number };
+/**
+ * What a change comes to: the row as written, or why it was refused. A change
+ * staff asked for carries the role the asker held as it landed.
+ */
+export type Mutation = { row: TournamentRow; refusal?: string; role?: Role } | Refused;
+
+/** Why a change was refused, and the status that says so. */
+export interface Refused {
+  error: string;
+  status: number;
+}
+
+/** A change to the row as it stands, judged with the asker's role as it stands too; or why not (a message is a 400). */
+export type Change = (row: TournamentRow, role: Role | null) => Changes | string | Refused;
 
 /**
  * A round's end is many writes to one row at once, each player's report among
@@ -550,52 +604,91 @@ export type Mutation = { row: TournamentRow; refusal?: string } | { error: strin
  */
 const MAX_TRIES = 5;
 
+/** Why a staff asker who has lost their place is refused. */
+export const SIGN_IN = 'Sign in first';
+export const NOT_STAFF = 'Only this event’s staff can do that';
+
+/** The event and the asker's role read again after a write missed; or why the asker's change ends there. */
+export async function readAgain(
+  db: D1Like,
+  code: string,
+  asker: Asker | undefined
+): Promise<{ row: TournamentRow; asker?: Asker } | { error: string; status: number }> {
+  if (!asker) {
+    const row = await loadTournament(db, code);
+    return row ? { row } : { error: 'No such tournament', status: 404 };
+  }
+  const opened = await openAs(db, code, asker.hash);
+  if (!opened) {
+    return { error: 'No such tournament', status: 404 };
+  }
+  if (!opened.user) {
+    return { error: SIGN_IN, status: 401 };
+  }
+  return opened.role ? { row: opened.row, asker: { ...asker, role: opened.role } } : { error: NOT_STAFF, status: 403 };
+}
+
 /**
  * Changes the row a request read and writes it, trying again from a fresh
  * read each time another write got there first. `change` returns the changes
- * or an error message.
+ * or an error message. With an asker, each try lands only while they still
+ * hold the role it was judged with, and a miss reads their role again with
+ * the row, so a change never outlives the asker's place on staff.
  */
-export async function mutate(
-  db: D1Like,
-  read: TournamentRow,
-  change: (row: TournamentRow) => Changes | string
-): Promise<Mutation> {
-  let row = read;
+export async function mutate(db: D1Like, read: TournamentRow, change: Change, asker?: Asker): Promise<Mutation> {
+  let current: { row: TournamentRow; asker?: Asker } = { row: read, asker };
   for (let tries = 1; ; tries += 1) {
-    const outcome = await tryChange(db, row, change);
+    const outcome = await tryChange(db, current.row, change, current.asker);
     if (outcome) {
       return outcome;
     }
     if (tries === MAX_TRIES) {
       return { error: 'Busy; try again', status: 409 };
     }
-    const fresh = await loadTournament(db, row.code);
-    if (!fresh) {
-      return { error: 'No such tournament', status: 404 };
+    const fresh = await readAgain(db, read.code, current.asker);
+    if ('error' in fresh) {
+      return fresh;
     }
-    row = fresh;
+    current = fresh;
   }
+}
+
+/** Whether the event is still at the version `row` read, and the asker, when there is one, still holds their role. */
+async function stillStands(db: D1Like, row: TournamentRow, asker: Asker | undefined): Promise<boolean> {
+  const found = await db
+    .prepare(
+      `SELECT 1 AS yes FROM tournaments WHERE code = ? AND version = ?${asker ? ` AND ${asksStill(asker)}` : ''}`
+    )
+    .bind(row.code, row.version, ...(asker ? askerValues(asker) : []))
+    .first<{ yes: number }>();
+  return found !== null;
 }
 
 /**
  * One read-change-write, never tried again from a fresh read: for a change
  * staff approved against the event as they saw it. Null when another write
- * got there first.
+ * got there first, or the asker no longer holds their role.
  */
 export async function tryChange(
   db: D1Like,
   row: TournamentRow,
-  change: (row: TournamentRow) => Changes | string
+  change: Change,
+  asker?: Asker
 ): Promise<Mutation | null> {
-  const changes = change(row);
+  const changes = change(row, asker?.role ?? null);
   if (typeof changes === 'string') {
     return { error: changes, status: 400 };
   }
-  // A change that changes nothing writes nothing: no new version, nothing to publish.
-  if (Object.keys(changes).length === 0) {
-    return { row };
+  if ('error' in changes) {
+    return changes;
   }
-  const saved = await saveTournament(db, row, changes).catch((error: unknown) => {
+  const role = asker ? { role: asker.role } : {};
+  // A change that changes nothing writes nothing: no new version, nothing to publish. It was judged on the
+  // row as read, though, so it holds only while the row and the asker stand as they did; else try again.
+  if (Object.keys(changes).length === 0) {
+    return (await stillStands(db, row, asker)) ? { row, ...role } : null;
+  }
+  const saved = await saveTournament(db, row, changes, asker).catch((error: unknown) => {
     if (error instanceof TooLarge) {
       return error;
     }
@@ -610,7 +703,7 @@ export async function tryChange(
   if (saved instanceof DayTaken) {
     return { error: saved.message, status: 409 };
   }
-  return saved && { row: saved, ...(changes.refusal ? { refusal: changes.refusal } : {}) };
+  return saved && { row: saved, ...role, ...(changes.refusal ? { refusal: changes.refusal } : {}) };
 }
 
 /** What the console's polls check before anything else: whether the copy they hold still stands. */
@@ -625,10 +718,7 @@ export async function loadHead(db: D1Like, code: string, request: Request): Prom
   const raw = await db
     .prepare(
       'SELECT version, EXISTS (SELECT 1 FROM sessions WHERE sessions.token_hash = ? ' +
-        'AND sessions.expires_at > ? AND ((tournaments.store_id IS NULL AND sessions.user_id = tournaments.owner_id) OR EXISTS ' +
-        '(SELECT 1 FROM staff WHERE staff.code = tournaments.code AND staff.user_id = sessions.user_id) OR EXISTS ' +
-        '(SELECT 1 FROM store_members m WHERE m.store_id = tournaments.store_id AND m.user_id = sessions.user_id))) ' +
-        'AS staff FROM tournaments WHERE code = ?'
+        `AND sessions.expires_at > ? AND ${onStaff('sessions.user_id')}) AS staff FROM tournaments WHERE code = ?`
     )
     .bind((await sessionHash(request)) ?? '', Date.now(), code)
     .first<{ version: number; staff: number }>();
@@ -672,8 +762,16 @@ export async function listStaff(db: D1Like, code: string): Promise<StaffMember[]
   return results.map(row => ({ id: row.id, name: row.name ?? 'Unknown', joinedAt: row.joined_at }));
 }
 
-export async function removeStaff(db: D1Like, code: string, userId: string): Promise<void> {
-  await db.prepare('DELETE FROM staff WHERE code = ? AND user_id = ?').bind(code, userId).run();
+/** Whether the asker, as organizer, took `userId` off the event's staff. */
+export async function removeStaff(db: D1Like, code: string, userId: string, asker: Asker): Promise<boolean> {
+  const result = await db
+    .prepare(
+      'DELETE FROM staff WHERE code = ?1 AND user_id = ?2 ' +
+        `AND EXISTS (SELECT 1 FROM tournaments WHERE code = ?1 AND ${asksStill(asker, '?3', '?4')})`
+    )
+    .bind(code, userId, ...askerValues(asker))
+    .run();
+  return rowsChanged(result) === 1;
 }
 
 /**
@@ -734,39 +832,67 @@ export async function listTournaments(db: D1Like, userId: string): Promise<Tourn
 
 /**
  * A new invite token and nobody on staff, in one transaction: no join can
- * fall between the two and keep a place the old link gave.
+ * fall between the two and keep a place the old link gave. Only while the
+ * asker still organizes the event.
+ * @returns Whether it landed
  */
-export async function rotateStaff(db: D1Like, code: string): Promise<void> {
-  await db.batch([
+export async function rotateStaff(db: D1Like, code: string, asker: Asker): Promise<boolean> {
+  // The same check on both, in one transaction: the staff go only where the new link lands.
+  const organizes = asksStill(asker, '?2', '?3');
+  const values = askerValues(asker);
+  const results = await db.batch([
     db
-      .prepare('UPDATE tournaments SET staff_token = ?, version = version + 1, updated_at = ? WHERE code = ?')
-      .bind(randomToken(16), Date.now(), code),
-    db.prepare('DELETE FROM staff WHERE code = ?').bind(code)
+      .prepare(
+        'UPDATE tournaments SET staff_token = ?4, version = version + 1, updated_at = ?5 ' +
+          `WHERE code = ?1 AND ${organizes}`
+      )
+      .bind(code, ...values, randomToken(16), Date.now()),
+    db
+      .prepare(
+        `DELETE FROM staff WHERE code = ?1 AND EXISTS (SELECT 1 FROM tournaments WHERE code = ?1 AND ${organizes})`
+      )
+      .bind(code, ...values)
   ]);
+  return rowsChanged(results[0]) === 1;
 }
 
 /**
  * Deletes the event and everything kept under its code, its players' places
  * in the history index included, all on the version `row` read (see
- * deleteWrites): a change between means a fresh read and another try, so no
- * player it gained meanwhile stays in the index.
- * @returns Whether the event is gone; false when other writes kept getting there first
+ * deleteWrites) and only while the asker still organizes it (see askerGate):
+ * a change between means a fresh read of both and another try, so no player
+ * it gained meanwhile stays in the index, and nobody gone from the event
+ * deletes it. `refusal` is what an asker who no longer organizes it is told.
+ * @returns Null once the event is gone, by this or another request; else why not
  */
-export async function deleteTournament(db: D1Like, row: TournamentRow): Promise<boolean> {
-  let current: TournamentRow | null = row;
-  for (let tries = 1; current; tries += 1) {
-    const results = await db.batch([
-      ...deleteWrites(db, current),
-      db.prepare('DELETE FROM tournaments WHERE code = ? AND version = ?').bind(current.code, current.version)
-    ]);
-    if (rowsChanged(results.at(-1)) === 1) {
-      return true;
+export async function deleteTournament(
+  db: D1Like,
+  row: TournamentRow,
+  asker: Asker,
+  refusal: string
+): Promise<Refused | null> {
+  let current: { row: TournamentRow; asker?: Asker } = { row, asker };
+  for (let tries = 1; ; tries += 1) {
+    const [check, restore] = askerGate(db, current.row, current.asker);
+    const before = [...check, ...deleteWrites(db, current.row)];
+    const gone = db
+      .prepare('DELETE FROM tournaments WHERE code = ? AND version = ?')
+      .bind(row.code, current.row.version);
+    const results = await db.batch([...before, gone, ...restore]);
+    if (rowsChanged(results[before.length]) === 1) {
+      return null;
     }
     if (tries === MAX_TRIES) {
-      return false;
+      return { error: 'Busy; try again', status: 409 };
     }
-    current = await loadTournament(db, row.code);
+    const fresh = await readAgain(db, row.code, current.asker);
+    if ('error' in fresh) {
+      // Deleted by another request meanwhile, which took its rows with it.
+      return fresh.status === 404 ? null : fresh;
+    }
+    if (fresh.asker?.role !== 'owner') {
+      return { error: refusal, status: 403 };
+    }
+    current = fresh;
   }
-  // Deleted by another request meanwhile, which took its rows with it.
-  return true;
 }

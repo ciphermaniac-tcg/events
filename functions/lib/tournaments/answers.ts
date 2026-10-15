@@ -1,6 +1,7 @@
 /**
  * How the routes that change an event finish: the public view is published
- * (see publish.ts), and staff get the console's new copy of the event.
+ * (see publish.ts) when the change wrote a version, and staff get the
+ * console's new copy of the event.
  */
 
 import { jsonError } from '../api/responses.js';
@@ -14,9 +15,12 @@ export async function answerStaff(context: Context<'code'>, access: StaffAccess,
   if ('error' in outcome) {
     return jsonError(outcome.error, outcome.status);
   }
-  await publishAfter(context, outcome.row);
+  // A change that wrote nothing has nothing new to publish.
+  if (outcome.row.version !== access.row.version) {
+    await publishAfter(context, outcome.row);
+  }
   if (outcome.refusal) {
     return jsonError(outcome.refusal, 400);
   }
-  return privateJson(manageView({ ...access, row: outcome.row }));
+  return privateJson(manageView({ row: outcome.row, role: outcome.role ?? access.role }));
 }

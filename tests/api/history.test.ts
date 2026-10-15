@@ -289,7 +289,8 @@ function raceWrites(times: number) {
   env.TOURNAMENT_DB = {
     ...inner,
     prepare: sql => {
-      if (left > 0 && sql.startsWith('UPDATE tournaments SET')) {
+      // The event's own write: not the asker check that turns its version aside and back (see store.ts).
+      if (left > 0 && sql.startsWith('UPDATE tournaments SET') && !sql.includes('version = -version')) {
         left -= 1;
         inner.raw.exec('UPDATE tournaments SET version = version + 1');
       }

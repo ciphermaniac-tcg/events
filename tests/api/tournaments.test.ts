@@ -52,6 +52,7 @@ import * as staff from '../../functions/api/tournaments/[code]/staff.ts';
 import * as sync from '../../functions/api/tournaments/[code]/sync.ts';
 import * as tournaments from '../../functions/api/tournaments/index.ts';
 import type { TournamentEnv } from '../../functions/lib/auth/env.ts';
+import { sessionHash } from '../../functions/lib/auth/session.ts';
 import { REPORT_WINDOW_MS } from '../../shared/tournament/reports.ts';
 import { revisionOf } from '../../shared/tournament/revision.ts';
 import { parseTdf, writeTdf } from '../../shared/tournament/tdf.ts';
@@ -2082,12 +2083,13 @@ test('a join that read the old invite link cannot land after the organizer repla
   const { staffToken } = (await hit(manage.onRequestGet as Handler, '/manage', at(code), { cookie: owner })).json;
   const helper = await signIn('Helper');
   const db = env.TOURNAMENT_DB as NonNullable<TournamentEnv['TOURNAMENT_DB']>;
+  const organizer = { hash: (await sessionHash(request('/', { cookie: owner }))) ?? '', role: 'owner' as const };
   // The organizer's new link lands after the join request read the event, just before it writes.
   env.TOURNAMENT_DB = {
     ...db,
     prepare: sql => {
       if (sql.startsWith('INSERT OR IGNORE INTO staff')) {
-        void rotateStaff(db, code);
+        void rotateStaff(db, code, organizer);
       }
       return db.prepare(sql);
     }
@@ -3118,7 +3120,10 @@ const ACCOUNT_STATEMENTS = [
   'INDEXED BY tournaments_of_store',
   'INSERT OR IGNORE INTO event_creations',
   'DELETE FROM event_creations WHERE owner = ? AND at <= ?',
-  'store_role FROM sessions',
+  'AS role FROM sessions JOIN tournaments',
+  'SET version = -version WHERE code = ? AND version = ? AND NOT EXISTS',
+  'SET version = -version WHERE code = ? AND version < 0',
+  'DELETE FROM staff WHERE code = ?1 AND EXISTS',
   'SELECT u.pop_id, u.first_name, u.last_name FROM store_members m',
   "FROM stores s WHERE s.status IN ('active', 'revoked')",
   "SET role = 'manager'",
@@ -3354,7 +3359,8 @@ function raceWrites(times: number) {
   env.TOURNAMENT_DB = {
     ...db,
     prepare: sql => {
-      if (left > 0 && sql.startsWith('UPDATE tournaments SET')) {
+      // The event's own write: not the asker check that turns its version aside and back (see store.ts).
+      if (left > 0 && sql.startsWith('UPDATE tournaments SET') && !sql.includes('version = -version')) {
         left -= 1;
         db.raw.exec('UPDATE tournaments SET version = version + 1');
       }

@@ -14,6 +14,7 @@ import { isTimeZone, isWallClock } from './timeZone.js';
 import { SANCTIONED, sanctionedMinutesError } from './structure.js';
 import { type PlayerClaim, shortLastNames } from './identify.js';
 import type { PlayerProfile } from './profile.js';
+import type { PairedThrough } from './corrections.js';
 import type { PlayerReport } from './reports.js';
 import type { PlayerRequest } from './requests.js';
 import { hasStarted, isOpenMatch, type MatchKey, sameMatch } from './rounds.js';
@@ -471,6 +472,8 @@ export interface Manage {
   settings: TournamentSettings;
   /** POP ID to archetype label. */
   decks: Record<string, string>;
+  /** The highest round each pod has ever paired, which closes the correction window (see corrections.ts). */
+  pairedThrough?: PairedThrough;
   role: Role;
   /** The invite link's token, for the organizer alone. */
   staffToken: string | null;

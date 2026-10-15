@@ -10,9 +10,8 @@
 import { readJsonObject } from '../../../lib/api/body.js';
 import { jsonError } from '../../../lib/api/responses.js';
 import type { Context } from '../../../lib/auth/env.js';
-import { openForStaff } from '../../../lib/tournaments/access.js';
+import { changeEvent, openForStaff } from '../../../lib/tournaments/access.js';
 import { answerStaff } from '../../../lib/tournaments/answers.js';
-import { mutate } from '../../../lib/tournaments/store.js';
 
 interface Member {
   pop_id: string | null;
@@ -45,7 +44,7 @@ export async function onRequestPut(context: Context<'code'>): Promise<Response> 
   }
   const organizerName = [member.first_name, member.last_name].filter(Boolean).join(' ');
   const organizer = { organizerPopId: member.pop_id, organizerName };
-  const outcome = await mutate(db, row, current => ({
+  const outcome = await changeEvent(access, current => ({
     tournament: { ...current.tournament, info: { ...current.tournament.info, ...organizer } }
   }));
   return answerStaff(context, access, outcome);

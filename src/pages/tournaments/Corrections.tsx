@@ -8,7 +8,7 @@
  */
 
 import { createResource, createSignal, For, type JSX, lazy, Show, Suspense } from 'solid-js';
-import { type CorrectionEntry, roundRefusal } from '../../../shared/tournament/corrections';
+import { type CorrectionContext, type CorrectionEntry, roundRefusal } from '../../../shared/tournament/corrections';
 import type { Match, Pod, Round } from '../../../shared/tournament/types';
 import { type CorrectionRecord, fetchCorrections, type Manage } from '../../lib/tournament/api';
 import { RESULT_WORDS } from '../../lib/tournament/present';
@@ -36,12 +36,7 @@ export function approvalLine(entry: Pick<CorrectionEntry, 'approvedBy' | 'role' 
  * whom, or why it cannot. Null for the plain read-only note, as for a round
  * of a top cut.
  */
-export function pastNote(
-  pod: Pod,
-  round: Round,
-  ctx: { tom: boolean; finished: boolean },
-  approver: boolean
-): string | null {
+export function pastNote(pod: Pod, round: Round, ctx: CorrectionContext, approver: boolean): string | null {
   if (round.kind !== 'swiss') {
     return null;
   }
@@ -136,7 +131,11 @@ interface PanelProps {
  */
 export function createRoundCorrections(props: PanelProps, past: () => string | null) {
   const tom = () => props.manage.mode === 'tom';
-  const ctx = () => ({ tom: tom(), finished: props.manage.settings.finished });
+  const ctx = () => ({
+    tom: tom(),
+    finished: props.manage.settings.finished,
+    paired: props.manage.pairedThrough ?? {}
+  });
   const record = createRecord(
     () => props.manage,
     () => past() !== null && !tom()

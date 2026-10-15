@@ -6,7 +6,9 @@ import {
   correctableMatch,
   correctedTournament,
   type CorrectionRequest,
+  lockedRound,
   nextMatches,
+  pairedThrough,
   readCorrection,
   roundRefusal
 } from '../../shared/tournament/corrections.ts';
@@ -64,7 +66,7 @@ function inRound2(): Tournament {
   return run(r1, { type: 'pairRound', pod: 'masters' });
 }
 
-const SITE = { tom: false, finished: false };
+const SITE = { tom: false, finished: false, paired: {} };
 
 /** The request that turns round 1 table 1 around, on the event's version 4. */
 function flipTable1(t: Tournament): CorrectionRequest {
@@ -117,10 +119,10 @@ test('round 1 is correctable while round 2 is the latest round, and only then', 
 test('a TOM event, an ended one and a started top cut take no corrections', () => {
   const pod = masters(inRound2());
   assert.equal(
-    roundRefusal(pod, 1, { tom: true, finished: false }),
+    roundRefusal(pod, 1, { tom: true, finished: false, paired: {} }),
     'This event runs in TOM. Correct the result in TOM, then sync.'
   );
-  assert.equal(roundRefusal(pod, 1, { tom: false, finished: true }), 'The event has ended.');
+  assert.equal(roundRefusal(pod, 1, { tom: false, finished: true, paired: {} }), 'The event has ended.');
   const cut = 'The top cut has started, so Swiss results can no longer be corrected here.';
   const eliminating = { ...pod, rounds: [pod.rounds[0]!, { ...pod.rounds[1]!, kind: 'elimination' as const }] };
   assert.equal(roundRefusal(eliminating, 1, SITE), cut);
@@ -169,4 +171,21 @@ test('a correction changes that one result, and the standings and next pairings 
       assert.equal(match.points[seat], 0, 'the old winner goes into round 2 on no points');
     }
   }
+});
+
+test('the rounds a pod has paired only ever rise, and a round deleted since still locks the window', () => {
+  const t = inRound2();
+  assert.deepEqual(pairedThrough({}, t), { masters: 2 });
+  assert.deepEqual(pairedThrough({ masters: 3 }, t), { masters: 3 }, 'a deleted round 3 is not forgotten');
+  assert.equal(
+    roundRefusal(masters(t), 1, { ...SITE, paired: { masters: 3 } }),
+    'Round 1 can no longer be corrected. Its records locked when round 3 was paired.'
+  );
+  assert.equal(
+    roundRefusal(masters(t), 1, { ...SITE, paired: { junior: 9 } }),
+    null,
+    'another pod’s rounds do not count'
+  );
+  assert.equal(lockedRound(3, 2), null);
+  assert.equal(lockedRound(3, 1), 'Round 1 can no longer be corrected. Its records locked when round 3 was paired.');
 });

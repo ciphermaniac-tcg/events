@@ -13,7 +13,7 @@ import { type JsonRepresentation, jsonRepresentation, revalidatedJson } from '..
 import { jsonError, noContent } from '../../../lib/api/responses.js';
 import { readCookie, SESSION_COOKIE } from '../../../lib/auth/cookies.js';
 import type { Context } from '../../../lib/auth/env.js';
-import { codeOf, open, openForOwner, pollOf, viewOf } from '../../../lib/tournaments/access.js';
+import { askerOf, codeOf, open, openForOwner, pollOf, viewOf } from '../../../lib/tournaments/access.js';
 import { unpublishView } from '../../../lib/tournaments/publish.js';
 import { deleteTournament, loadVersion } from '../../../lib/tournaments/store.js';
 
@@ -69,12 +69,14 @@ export async function onRequestGet(context: Context<'code'>): Promise<Response> 
 }
 
 export async function onRequestDelete(context: Context<'code'>): Promise<Response> {
-  const access = await openForOwner(context, 'Only the organizer can delete the event');
+  const refusal = 'Only the organizer can delete the event';
+  const access = await openForOwner(context, refusal);
   if (access instanceof Response) {
     return access;
   }
-  if (!(await deleteTournament(access.db, access.row))) {
-    return jsonError('Busy; try again', 409);
+  const refused = await deleteTournament(access.db, access.row, askerOf(access), refusal);
+  if (refused) {
+    return jsonError(refused.error, refused.status);
   }
   await unpublishView(context.env.EVENTS_DATA, access.row.code);
   return noContent();

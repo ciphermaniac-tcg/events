@@ -9,6 +9,7 @@
 
 import { applyCommand as applySiteClock } from '../../../shared/tournament/legacyCommands.js';
 import { applyCommand, type Command } from '../../../shared/tournament/commands.js';
+import { lockedRound } from '../../../shared/tournament/corrections.js';
 import { isOpenMatch } from '../../../shared/tournament/rounds.js';
 import { withSiteClocks } from '../../../shared/tournament/tomClock.js';
 import type { PodCategory, Tournament } from '../../../shared/tournament/types.js';
@@ -52,12 +53,23 @@ const takesOnceEnded = (command: Command) =>
   command.type === 'updateInfo' && Object.keys(command.info).every(key => ENDED_DETAILS.has(key));
 
 /** The changes `command` makes, or why it cannot run. */
-export function commandChanges(row: TournamentRow, command: Command, localTime: unknown): Changes | string {
+/** Why the event does not take the command at all, or null: it has ended, TOM runs it, or the round is locked. */
+function commandRefusal(row: TournamentRow, command: Command): string | null {
   if (row.settings.finished && !takesOnceEnded(command)) {
     return FINISHED_REFUSAL;
   }
-  if (row.mode === 'tom' && !TOM_COMMANDS.has(command.type)) {
-    return 'TOM runs this event; make that change in TOM';
+  if (row.mode === 'tom') {
+    return TOM_COMMANDS.has(command.type) ? null : 'Please make this change in TOM.';
+  }
+  // On the site, a round whose records locked stays locked, even if deleting the rounds after it made it the
+  // latest again (TOM keeps its own events' records).
+  return command.type === 'reportResult' ? lockedRound(row.pairedThrough?.[command.pod] ?? 0, command.round) : null;
+}
+
+export function commandChanges(row: TournamentRow, command: Command, localTime: unknown): Changes | string {
+  const refusal = commandRefusal(row, command);
+  if (refusal) {
+    return refusal;
   }
   const apply = row.mode === 'tom' && command.type !== 'reportResult' ? applySiteClock : applyCommand;
   const source = commandSource(row, command);

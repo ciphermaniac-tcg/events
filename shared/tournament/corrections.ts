@@ -98,10 +98,37 @@ export function readCorrection(value: Record<string, unknown>): CorrectionReques
   };
 }
 
-/** How the event is run, as far as a correction cares: in TOM or on the site, and whether it has ended. */
+/**
+ * The highest round each pod has ever paired. The handbook locks round N
+ * once round N+2 "is paired", so a round paired and then deleted, or a round
+ * re-paired, still counts: this only ever rises (see pairedThrough).
+ */
+export type PairedThrough = Partial<Record<PodCategory, number>>;
+
+/** `earlier`, raised to each pod's latest round in `t`; never lowered. */
+export function pairedThrough(earlier: PairedThrough, t: Tournament): PairedThrough {
+  const highest: PairedThrough = { ...earlier };
+  for (const pod of t.pods) {
+    highest[pod.category] = Math.max(highest[pod.category] ?? 0, latestRound(pod)?.number ?? 0);
+  }
+  return highest;
+}
+
+/** Why round `round`'s records can no longer change, given the highest round its pod has ever paired; or null. */
+export function lockedRound(highest: number, round: number): string | null {
+  return highest > round + 1
+    ? `Round ${round} can no longer be corrected. Its records locked when round ${round + 2} was paired.`
+    : null;
+}
+
+/**
+ * How the event is run, as far as a correction cares: in TOM or on the site,
+ * whether it has ended, and the highest round each pod has ever paired.
+ */
 export interface CorrectionContext {
   tom: boolean;
   finished: boolean;
+  paired: PairedThrough;
 }
 
 /** Whether any division's top cut has been seeded in the pod. */
@@ -117,7 +144,8 @@ function eventRefusal(ctx: CorrectionContext): string | null {
 
 /**
  * Why round `round` of `pod` cannot be corrected now, or null: it must be a
- * Swiss round, the round before the pod's latest, and the latest still Swiss.
+ * Swiss round, the round before the pod's latest, the latest still Swiss, and
+ * no later round ever paired.
  */
 export function roundRefusal(pod: Pod, round: number, ctx: CorrectionContext): string | null {
   const event = eventRefusal(ctx);
@@ -129,8 +157,9 @@ export function roundRefusal(pod: Pod, round: number, ctx: CorrectionContext): s
   if (!latest || corrected?.kind !== 'swiss') {
     return `Round ${round} is not a Swiss round of this event.`;
   }
-  if (latest.number > round + 1) {
-    return `Round ${round} can no longer be corrected. Its records locked when round ${round + 2} was paired.`;
+  const locked = lockedRound(Math.max(latest.number, ctx.paired[pod.category] ?? 0), round);
+  if (locked) {
+    return locked;
   }
   if (latest.kind !== 'swiss' || cutStarted(pod)) {
     return 'The top cut has started, so Swiss results can no longer be corrected here.';
