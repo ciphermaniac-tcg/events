@@ -9,6 +9,7 @@ import { birthYear, divisionFor, divisionLookup } from './divisions.js';
 import { defaultRootAttrs, eventTypeOf, SANCTIONED } from './structure.js';
 import { countsComplete, hasStarted, latestRound } from './rounds.js';
 import { DIVISIONS, type Tournament } from './types.js';
+import { msg, msgf } from '../i18n.js';
 
 export type { Command, CommandContext, CommandResult, EditableInfo, NewPlayer } from './commandTypes.js';
 
@@ -67,7 +68,7 @@ function reported(
   const round = latestRound(t.pods.find(p => p.category === command.pod)!);
   const match = round?.matches.find(m => m.p1 === command.p1 && m.p2 === command.p2 && m.table === command.table);
   if (!round || round.number !== command.round || !match) {
-    throw new Error('The reported match has changed');
+    throw new Error(msg('The reported match has changed'));
   }
   if (command.outcome === 'pending') {
     return { type: 'reopen', pod: command.pod, round: command.round, player: command.p1 };
@@ -87,13 +88,13 @@ function checkedCutDivisions(
   const of = divisionLookup(t);
   const present = DIVISIONS.filter(d => pod.playerIds.some(id => of(id) === d));
   if (!command.division && present.length > 1) {
-    throw new Error('Pick the division to cut');
+    throw new Error(msg('Pick the division to cut'));
   }
   if (command.division && pod.divisionCuts?.[command.division]?.playerIds) {
-    throw new Error('The top cut has started');
+    throw new Error(msg('The top cut has started'));
   }
   if (!command.division && pod.stage === 1) {
-    throw new Error('The top cut has started');
+    throw new Error(msg('The top cut has started'));
   }
 }
 
@@ -143,17 +144,21 @@ function preparedCut(
   ctx: CommandContext
 ): Tournament {
   if (eventTypeOf(t) === 'challenge') {
-    throw new Error('A League Challenge has no top cut');
+    throw new Error(msg('A League Challenge has no top cut'));
   }
   const pod = t.pods.find(p => p.category === command.pod);
   if (!pod) {
-    throw new Error('There is no pod to cut');
+    throw new Error(msg('There is no pod to cut'));
   }
   if (command.size < 4 && command.playoff3rd4th) {
-    throw new Error('A top cut of two cannot play for third');
+    throw new Error(msg('A top cut of two cannot play for third'));
   }
   if (ctx.sanctioned && pod.rounds.filter(r => r.kind === 'swiss').length < SANCTIONED.swissRounds) {
-    throw new Error(`A sanctioned event plays at least ${SANCTIONED.swissRounds} Swiss rounds before its top cut`);
+    throw new Error(
+      msgf('A sanctioned event plays at least {rounds} Swiss rounds before its top cut', {
+        rounds: SANCTIONED.swissRounds
+      })
+    );
   }
   checkedCutDivisions(t, pod, command);
   const of = divisionLookup(t);
@@ -177,7 +182,7 @@ function checkedStart(t: Tournament, command: Command, ctx: CommandContext): voi
     t.settings!.stage < 4 &&
     t.players.filter(p => p.droppedAfter === null).length < SANCTIONED.players
   ) {
-    throw new Error(`A sanctioned event needs at least ${SANCTIONED.players} players`);
+    throw new Error(msgf('A sanctioned event needs at least {players} players', { players: SANCTIONED.players }));
   }
 }
 
@@ -197,14 +202,14 @@ function checkedAdmission(command: Command, ctx: CommandContext): void {
     return;
   }
   if (!command.player.id?.trim()) {
-    throw new Error('All players need Player IDs.');
+    throw new Error(msg('All players need Player IDs.'));
   }
   if (!readableBirthYear(command.player.birthDate, ctx.season)) {
     throw new Error(NEEDS_YEAR);
   }
 }
 
-const NEEDS_YEAR = 'A sanctioned event needs each player’s birth year';
+const NEEDS_YEAR = msg('A sanctioned event needs each player’s birth year');
 
 /**
  * A correction keeps the player where they play: a sanctioned event's player
@@ -223,11 +228,11 @@ function checkedCorrection(t: Tournament, command: Command, ctx: CommandContext)
   // Only a year being changed is judged, so a name is still corrected beside an old year from a file.
   const newYear = birthYear(command.birthDate) !== birthYear(player?.birthDate ?? '');
   if (newYear && command.birthDate.trim() && !readableBirthYear(command.birthDate, ctx.season)) {
-    throw new Error('Birth year invalid');
+    throw new Error(msg('Birth year invalid'));
   }
   const moves = player && divisionFor(player.birthDate, ctx.season) !== divisionFor(command.birthDate, ctx.season);
   if (moves && hasStarted(t)) {
-    throw new Error('Play has started, so their birth year cannot change their division');
+    throw new Error(msg('Play has started, so their birth year cannot change their division'));
   }
 }
 
@@ -327,7 +332,7 @@ const LEGACY_ROUTES = [registersBeforeStart, additionalDivisionCut, resumesClock
 
 const refused = (error: unknown): CommandResult => ({
   ok: false,
-  error: error instanceof Error ? error.message : 'The command could not complete'
+  error: error instanceof Error ? error.message : msg('The command could not complete')
 });
 
 export function applyCommand(t: Tournament, command: Command, ctx: CommandContext): CommandResult {

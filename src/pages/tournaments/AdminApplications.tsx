@@ -16,6 +16,7 @@ import type { AdminApplication, ApplicationStatus } from '../../../shared/accoun
 import { Segmented } from '../../components/Segmented';
 import { Skeleton } from '../../components/Skeleton';
 import { ApiError, errorText } from '../../lib/tournament/api';
+import { msg, t, tn } from '../../lib/i18n';
 import { decideApplication, fetchApplications } from '../../lib/tournament/admin';
 import { recountApplications } from './pendingApplications';
 import { dayOf } from '../../lib/tournament/applications';
@@ -25,12 +26,23 @@ import { ErrorLine, RetryError } from './Field';
 import '../../styles/pages/tournament-admin.css';
 
 const STATUSES: { value: ApplicationStatus; label: string }[] = [
-  { value: 'pending', label: 'Pending' },
-  { value: 'approved', label: 'Approved' },
-  { value: 'rejected', label: 'Rejected' }
+  { value: 'pending', label: msg('Pending') },
+  { value: 'approved', label: msg('Approved') },
+  { value: 'rejected', label: msg('Rejected') }
 ];
 
-const DECIDED: Record<ApplicationStatus, string> = { pending: '', approved: 'Approved', rejected: 'Rejected' };
+const DECIDED: Record<ApplicationStatus, string> = {
+  pending: '',
+  approved: msg('Approved'),
+  rejected: msg('Rejected')
+};
+
+/** How many of the list are still in `status`, e.g. "3 pending". */
+const COUNTS: Record<ApplicationStatus, (n: number) => string> = {
+  pending: n => tn(n, '{n} pending', '{n} pending'),
+  approved: n => tn(n, '{n} approved', '{n} approved'),
+  rejected: n => tn(n, '{n} rejected', '{n} rejected')
+};
 
 /** One fact about an Application: its label at left, its value beside it. */
 function Fact(props: { label: string; value: string | null | undefined }) {
@@ -81,7 +93,7 @@ function Decide(props: {
   return (
     <div class='tm-app-decide'>
       <label class='tm-label' for={id()}>
-        Note
+        {t('Note')}
       </label>
       <div class='tm-app-decide-row'>
         <input
@@ -99,7 +111,7 @@ function Decide(props: {
           disabled={busy()}
           onClick={() => void decide('approve')}
         >
-          Approve
+          {t('Approve')}
         </button>
         <button
           type='button'
@@ -108,7 +120,7 @@ function Decide(props: {
           disabled={busy()}
           onClick={() => void decide('reject')}
         >
-          Reject
+          {t('Reject')}
         </button>
       </div>
       <ErrorLine message={error()} />
@@ -124,40 +136,47 @@ function ApplicationRow(props: {
   const a = () => props.application;
   const decidedBy = () => {
     const at = a().decidedAt;
-    return at ? `${dayOf(at)}${a().decidedBy ? ` by ${a().decidedBy?.name}` : ''}` : null;
+    if (!at) {
+      return null;
+    }
+    const by = a().decidedBy?.name;
+    return by ? t('{day} by {name}', { day: dayOf(at), name: by }) : dayOf(at);
   };
   return (
     <article class='tm-app'>
       <div class='tm-app-who'>
         <h3 id={`app-${a().id}`}>
           {a().applied.firstName} {a().applied.lastName}
-          <Show when={DECIDED[a().status]}>{word => <span class='tm-flag'>{word()}</span>}</Show>
+          <Show when={DECIDED[a().status]}>{word => <span class='tm-flag'>{t(word())}</span>}</Show>
         </h3>
         <dl class='tm-app-facts'>
-          <Fact label='POP ID' value={a().applied.popId} />
-          <Fact label='Account' value={a().account.name} />
-          <Fact label='Email' value={a().account.email} />
+          <Fact label={t('POP ID')} value={a().applied.popId} />
+          <Fact label={t('Account')} value={a().account.name} />
+          <Fact label={t('Email')} value={a().account.email} />
           <Show when={a().store}>
             {store => (
               <>
-                <Fact label='Store' value={`${store().details.name} · League ${store().leagueId}`} />
-                <Fact label='Reason' value={RELATIONSHIP_LABELS[store().relationship]} />
-                <Fact label='Joins as' value={STORE_ROLE_WORDS[roleForRelationship(store().relationship)]} />
+                <Fact
+                  label={t('Store')}
+                  value={t('{store} · League {id}', { store: store().details.name, id: store().leagueId })}
+                />
+                <Fact label={t('Reason')} value={t(RELATIONSHIP_LABELS[store().relationship])} />
+                <Fact label={t('Joins as')} value={t(STORE_ROLE_WORDS[roleForRelationship(store().relationship)])} />
               </>
             )}
           </Show>
-          <Fact label='Sent' value={dayOf(a().createdAt)} />
-          <Fact label='Decided' value={decidedBy()} />
+          <Fact label={t('Sent')} value={dayOf(a().createdAt)} />
+          <Fact label={t('Decided')} value={decidedBy()} />
         </dl>
       </div>
       <div class='tm-app-what'>
-        <Show when={a().explanation} fallback={<p class='muted'>No explanation</p>}>
+        <Show when={a().explanation} fallback={<p class='muted'>{t('No explanation')}</p>}>
           {text => <p class='tm-app-explanation'>{text()}</p>}
         </Show>
         <Show when={a().note}>
           {note => (
             <p class='tm-app-note'>
-              <span class='muted'>Note</span> {note()}
+              <span class='muted'>{t('Note')}</span> {note()}
             </p>
           )}
         </Show>
@@ -170,9 +189,9 @@ function ApplicationRow(props: {
 }
 
 const EMPTY: Record<ApplicationStatus, string> = {
-  pending: 'No pending applications',
-  approved: 'No approved applications',
-  rejected: 'No rejected applications'
+  pending: msg('No pending applications'),
+  approved: msg('No approved applications'),
+  rejected: msg('No rejected applications')
 };
 
 export function AdminApplications() {
@@ -185,13 +204,18 @@ export function AdminApplications() {
   return (
     <section class='tm-box tm-apps'>
       <div class='tm-box-bar'>
-        <Segmented options={STATUSES} selected={status()} onSelect={setStatus} ariaLabel='Status' />
+        <Segmented
+          options={STATUSES.map(option => ({ ...option, label: t(option.label) }))}
+          selected={status()}
+          onSelect={setStatus}
+          ariaLabel={t('Status')}
+        />
         <span class='tm-grow' />
         {/* Decided in place, an Application leaves the count of those still in the queue. */}
         <Show when={resolved(list)}>
           {apps => (
             <span class='muted tm-num'>
-              {apps().filter(application => application.status === status()).length} {status()}
+              {COUNTS[status()](apps().filter(application => application.status === status()).length)}
             </span>
           )}
         </Show>
@@ -207,7 +231,7 @@ export function AdminApplications() {
         }
       >
         {apps => (
-          <Show when={apps().length > 0} fallback={<p class='tm-empty muted'>{EMPTY[status()]}</p>}>
+          <Show when={apps().length > 0} fallback={<p class='tm-empty muted'>{t(EMPTY[status()])}</p>}>
             <For each={apps()}>
               {application => (
                 <ApplicationRow application={application} onDecided={decided} onStale={() => void refetch()} />

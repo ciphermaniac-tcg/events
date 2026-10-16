@@ -10,6 +10,7 @@
 
 import { createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import type { Match, Outcome, Round } from '../../../shared/tournament/types';
+import { msg, t } from '../../lib/i18n';
 import { RESULT_WORDS } from '../../lib/tournament/present';
 import { DeckIcons } from './DeckIcons';
 import { OptionsMenu } from './OptionsMenu';
@@ -18,8 +19,8 @@ import { inertOutside, keepTabIn } from '../../lib/focusTrap';
 
 /** Table-level results, besides either player winning; an elimination match has neither. */
 const EVEN: { outcome: Outcome; label: string }[] = [
-  { outcome: 'tie', label: 'Tie' },
-  { outcome: 'double-loss', label: 'Double loss' }
+  { outcome: 'tie', label: msg('Tie') },
+  { outcome: 'double-loss', label: msg('Double loss') }
 ];
 
 export function ResultSheet(props: {
@@ -44,12 +45,13 @@ export function ResultSheet(props: {
   const name = (id: string | null) => (id ? (props.names.get(id) ?? id) : '');
   // Full names: two players can share a first name, and the buttons must never read alike.
   const winners = (): { outcome: Outcome; label: string }[] => [
-    { outcome: 'p1', label: `${name(props.match.p1)} wins` },
-    { outcome: 'p2', label: `${name(props.match.p2)} wins` }
+    { outcome: 'p1', label: t('{name} wins', { name: name(props.match.p1) }) },
+    { outcome: 'p2', label: t('{name} wins', { name: name(props.match.p2) }) }
   ];
-  const choices = () => [...winners(), ...(props.round.kind === 'elimination' ? [] : EVEN)];
+  const even = () => EVEN.map(choice => ({ ...choice, label: t(choice.label) }));
+  const choices = () => [...winners(), ...(props.round.kind === 'elimination' ? [] : even())];
   const standing = () =>
-    props.outcome === 'pending' ? (props.report?.label ?? 'In progress') : RESULT_WORDS[props.outcome];
+    props.outcome === 'pending' ? (props.report?.label ?? t('In progress')) : t(RESULT_WORDS[props.outcome] ?? '');
 
   onMount(() => {
     // Back to whatever opened it once it closes; the page behind holds still meanwhile.
@@ -105,14 +107,14 @@ export function ResultSheet(props: {
         role='dialog'
         aria-modal='true'
         tabIndex={-1}
-        aria-label={`Result, table ${props.match.table}`}
+        aria-label={t('Result, table {table}', { table: props.match.table })}
       >
         <div class='tm-sheet-top'>
-          <strong>Table {props.match.table}</strong>
+          <strong>{t('Table {table}', { table: props.match.table })}</strong>
           <Show when={props.onTimeExtension}>
-            <OptionsMenu name={`table ${props.match.table}`} closeOnSelect>
+            <OptionsMenu name={t('table {table}', { table: props.match.table })} closeOnSelect>
               <button type='button' class='tm-menu-item' onClick={() => props.onTimeExtension?.()}>
-                Time extension
+                {t('Time extension')}
               </button>
             </OptionsMenu>
           </Show>
@@ -151,17 +153,17 @@ export function ResultSheet(props: {
           <Show when={props.lone}>
             {lone => (
               <button type='button' class='btn btn-primary tm-sheet-accept' onClick={() => props.onPick(lone())}>
-                Accept {RESULT_WORDS[lone()]}
+                {t('Accept {result}', { result: t(RESULT_WORDS[lone()] ?? '') })}
               </button>
             )}
           </Show>
           <Show when={props.outcome !== 'pending'}>
             <button type='button' class='btn btn-ghost tm-sheet-clear' onClick={() => props.onPick('pending')}>
-              Clear result
+              {t('Clear result')}
             </button>
           </Show>
           <button type='button' class='btn btn-ghost tm-sheet-close' onClick={() => props.onClose()}>
-            Cancel
+            {t('Cancel')}
           </button>
         </div>
       </div>

@@ -8,6 +8,8 @@
  * knows the numbers.
  */
 
+import { msg } from '../i18n.js';
+
 export type Division = 'junior' | 'senior' | 'masters';
 
 export const DIVISIONS: readonly Division[] = ['junior', 'senior', 'masters'];
@@ -18,9 +20,9 @@ export function isDivision(value: unknown): value is Division {
 }
 
 export const DIVISION_LABELS: Record<Division, string> = {
-  junior: 'Juniors',
-  senior: 'Seniors',
-  masters: 'Masters'
+  junior: msg('Juniors'),
+  senior: msg('Seniors'),
+  masters: msg('Masters')
 };
 
 /**
@@ -41,9 +43,9 @@ export const POD_CATEGORIES: readonly PodCategory[] = [
 
 export const POD_LABELS: Record<PodCategory, string> = {
   ...DIVISION_LABELS,
-  'junior-senior': 'Juniors and Seniors',
-  'senior-masters': 'Seniors and Masters',
-  mixed: 'All divisions'
+  'junior-senior': msg('Juniors and Seniors'),
+  'senior-masters': msg('Seniors and Masters'),
+  mixed: msg('All divisions')
 };
 
 /**
@@ -199,10 +201,10 @@ export type EventType = 'challenge' | 'cup' | 'local' | 'prerelease';
 export const EVENT_TYPES: readonly EventType[] = ['cup', 'challenge', 'local', 'prerelease'];
 
 export const EVENT_TYPE_LABELS: Record<EventType, string> = {
-  cup: 'League Cup',
-  challenge: 'League Challenge',
-  local: 'Local',
-  prerelease: 'Prerelease'
+  cup: msg('League Cup'),
+  challenge: msg('League Challenge'),
+  local: msg('Local'),
+  prerelease: msg('Prerelease')
 };
 
 export interface TournamentInfo {

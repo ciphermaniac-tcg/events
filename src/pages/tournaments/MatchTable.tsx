@@ -14,6 +14,7 @@ import { createMemo, createSignal, For, Index, type JSX, Show } from 'solid-js';
 import { sortMatches } from '../../../shared/tournament/rounds';
 import type { Match, Outcome, Pod, Round } from '../../../shared/tournament/types';
 import type { PendingResult } from '../../../shared/tournament/view';
+import { t } from '../../lib/i18n';
 import { recordsSoFar, seatMark, type SeatTag, shownOutcome } from '../../lib/tournament/present';
 import { PendingSeatMark } from './PendingSeatMark';
 import { DeckIcons } from './DeckIcons';
@@ -74,7 +75,7 @@ function SeatCell(props: MatchTableProps & { match: Match; seat: 1 | 2; records:
       <DeckIcons label={props.decks[playerId]} />
       <span class='tm-name'>{name(playerId)}</span>
       <Show when={props.status && playerId === props.me}>
-        <span class='tm-flag is-you'>You</span>
+        <span class='tm-flag is-you'>{t('You')}</span>
       </Show>
       <span class='muted-cell tm-record'>{props.records.get(playerId) ?? ''}</span>
     </>
@@ -84,7 +85,7 @@ function SeatCell(props: MatchTableProps & { match: Match; seat: 1 | 2; records:
     <td class='tm-seat' classList={{ 'is-selected': props.selected?.has(id() ?? '') }}>
       <Show
         when={id()}
-        fallback={<span class='muted-cell'>{props.match.outcome === 'bye' ? 'Bye' : 'Missed round'}</span>}
+        fallback={<span class='muted-cell'>{props.match.outcome === 'bye' ? t('Bye') : t('Missed round')}</span>}
       >
         {playerId => (
           <span class='tm-seat-inner'>
@@ -105,7 +106,7 @@ function SeatCell(props: MatchTableProps & { match: Match; seat: 1 | 2; records:
               >
                 {mark()}
                 <Show when={mark() && shown().unconfirmed}>
-                  <span class='sr-only'> (not yet confirmed)</span>
+                  <span class='sr-only'> {t('(not yet confirmed)')}</span>
                 </Show>
               </span>
             </PendingSeatMark>
@@ -113,7 +114,7 @@ function SeatCell(props: MatchTableProps & { match: Match; seat: 1 | 2; records:
               type='button'
               class='tm-seat-link'
               classList={{ 'is-winner': mark() === 'W' }}
-              aria-label={reportable() ? `Report ${name(playerId())} as the winner` : undefined}
+              aria-label={reportable() ? t('Report {name} as the winner', { name: name(playerId()) }) : undefined}
               onClick={() =>
                 reportable() ? props.onReport?.(props.match, winnerOutcome(props.seat)) : props.onPlayer?.(playerId())
               }
@@ -138,8 +139,8 @@ function StatusCell(props: MatchTableProps & { match: Match }) {
   return (
     <td class='tm-status-col'>
       <Show when={props.match.p2 !== null}>
-        <Show when={outcome() === 'pending'} fallback={<span class='muted-cell'>Done</span>}>
-          <strong>In progress</strong>
+        <Show when={outcome() === 'pending'} fallback={<span class='muted-cell'>{t('Done')}</span>}>
+          <strong>{t('In progress')}</strong>
         </Show>
       </Show>
     </td>
@@ -159,8 +160,8 @@ function grouped(
   const done = sorted.filter(m => !playing(m));
   return open.length && done.length
     ? [
-        { label: `In progress · ${open.length}`, matches: open },
-        { label: `Done · ${done.length}`, matches: done }
+        { label: t('In progress · {count}', { count: open.length }), matches: open },
+        { label: t('Done · {count}', { count: done.length }), matches: done }
       ]
     : [{ label: null, matches: sorted }];
 }
@@ -210,14 +211,14 @@ export function MatchTable(props: MatchTableProps) {
       <table class='data'>
         <thead>
           <tr>
-            <th class='num tm-table-col'>Table</th>
-            <th>Player</th>
-            <th>Opponent</th>
+            <th class='num tm-table-col'>{t('Table')}</th>
+            <th>{t('Player')}</th>
+            <th>{t('Opponent')}</th>
             <Show when={props.extra}>
-              <th class='tm-extra-col'>Result</th>
+              <th class='tm-extra-col'>{t('Result')}</th>
             </Show>
             <Show when={props.status && !props.extra}>
-              <th class='tm-status-col'>Status</th>
+              <th class='tm-status-col'>{t('Status')}</th>
             </Show>
           </tr>
         </thead>

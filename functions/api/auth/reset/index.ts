@@ -13,6 +13,7 @@ import { cookie } from '../../../lib/auth/cookies.js';
 import { type Context, sameOrigin } from '../../../lib/auth/env.js';
 import { reserve, RESET_COOKIE, RESET_SECONDS, resetSetup, startReset } from '../../../lib/auth/passwordReset.js';
 import { sha256 } from '../../../lib/auth/session.js';
+import { msg } from '../../../../shared/i18n.js';
 
 const problem = (status: number, code: string, error: string) =>
   jsonResponse({ error, code }, { status, cacheControl: 'no-store', cors: false });
@@ -27,18 +28,18 @@ export async function onRequestPost({ request, env, waitUntil }: Context): Promi
   const db = env.TOURNAMENT_DB;
   const setup = resetSetup(env);
   if (!db || !setup) {
-    return problem(503, 'reset_unavailable', 'Password reset is currently not available.');
+    return problem(503, 'reset_unavailable', msg('Password reset is currently not available.'));
   }
   if (!sameOrigin(request)) {
     return problem(403, 'forbidden', 'Forbidden');
   }
   // Per address, kept in D1 by its hash: the same everywhere the site runs, and saying nothing of any account.
   if (!(await reserve(db, 'address', await sha256(rateLimitAddress(request))))) {
-    return problem(429, 'too_many_requests', "You've hit our rate limits for resets. Please try again later.");
+    return problem(429, 'too_many_requests', msg("You've hit our rate limits for resets. Please try again later."));
   }
   const identifier = identifierOf(await readJsonObject(request, 1024));
   if (!identifier) {
-    return problem(400, 'form_param_missing', 'Enter a username or email');
+    return problem(400, 'form_param_missing', msg('Enter a username or email'));
   }
   const { token, work } = await startReset(db, setup, identifier);
   if (waitUntil) {

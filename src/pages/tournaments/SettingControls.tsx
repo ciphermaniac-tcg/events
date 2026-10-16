@@ -11,11 +11,12 @@
 import { For, type JSX, Show } from 'solid-js';
 import type { DeckVisibility } from '../../../shared/tournament/view';
 import { Segmented } from '../../components/Segmented';
+import { msg, t } from '../../lib/i18n';
 
 export const VISIBILITY_LABELS: Record<DeckVisibility, string> = {
-  always: 'Shown during the event',
-  after: 'Shown once the event ends',
-  off: 'Disabled'
+  always: msg('Shown during the event'),
+  after: msg('Shown once the event ends'),
+  off: msg('Disabled')
 };
 
 /**
@@ -60,8 +61,8 @@ export function Toggle(props: {
   return (
     <Segmented
       options={[
-        { value: 'on', label: props.on ?? 'Enabled' },
-        { value: 'off', label: props.off ?? 'Disabled' }
+        { value: 'on', label: props.on ?? t('Enabled') },
+        { value: 'off', label: props.off ?? t('Disabled') }
       ]}
       selected={props.value ? 'on' : 'off'}
       onSelect={value => props.onChange(value === 'on')}
@@ -81,7 +82,7 @@ export function ArchetypesSelect(props: {
       <For each={Object.entries(VISIBILITY_LABELS)}>
         {([value, label]) => (
           <option value={value} selected={props.value === value}>
-            {label}
+            {t(label)}
           </option>
         )}
       </For>

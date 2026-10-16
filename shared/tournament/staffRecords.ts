@@ -13,6 +13,7 @@
  */
 
 import type { Tournament } from './types.js';
+import { msg, msgf } from '../i18n.js';
 
 /** What every entry in a record carries, whatever its kind. */
 export interface RecordedEntry {
@@ -57,9 +58,9 @@ export type RecordCheck = [problem: string, ok: (value: Record<string, unknown>)
 export function commonChecks(words: { player: string; edit: string }, notesLimit: number): RecordCheck[] {
   return [
     [words.player, value => recordText(value.playerId) !== ''],
-    ['Say which round', value => Number.isInteger(value.round) && (value.round as number) >= 1],
+    [msg('Say which round'), value => Number.isInteger(value.round) && (value.round as number) >= 1],
     [
-      `Keep the notes under ${notesLimit} characters`,
+      msgf('Keep the notes under {limit} characters', { limit: notesLimit }),
       value => value.notes === undefined || (typeof value.notes === 'string' && value.notes.length <= notesLimit)
     ],
     [words.edit, value => value.replaces === undefined || value.replaces === null || recordText(value.replaces) !== '']

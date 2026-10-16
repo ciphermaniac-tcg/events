@@ -1,6 +1,7 @@
 /** How a section of store settings saves: one request at a time, and the bar at its foot that says how it went. */
 
 import { createSignal, type JSX, Show } from 'solid-js';
+import { t } from '../../lib/i18n';
 import { errorText } from '../../lib/tournament/api';
 import { ErrorLine } from './Field';
 
@@ -44,7 +45,7 @@ export function SaveBar(props: {
   return (
     <div class='tm-store-save'>
       <button type='submit' class='btn btn-primary' disabled={!props.dirty || props.busy || Boolean(props.reason)}>
-        Save
+        {t('Save')}
       </button>
       {props.children}
       <Show when={props.reason && props.dirty}>
@@ -52,7 +53,7 @@ export function SaveBar(props: {
       </Show>
       <Show when={props.saved && !props.dirty}>
         <span class='muted' role='status'>
-          Saved
+          {t('Saved')}
         </span>
       </Show>
       <ErrorLine message={props.error} />

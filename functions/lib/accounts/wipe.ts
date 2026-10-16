@@ -27,6 +27,7 @@ import { randomHandle } from '../../../shared/accounts/handle.js';
 import type { DataRefusal, RunningEvent, WipePart } from '../../../shared/accounts/myData.js';
 import type { User } from '../auth/session.js';
 import type { D1Like, D1Statement } from '../types.js';
+import { msg } from '../../../shared/i18n.js';
 
 /** The events an organizer wipe changes: owned, or naming the account's POP ID as their organizer. */
 const ORGANIZED = "(owner_id = ?1 OR (?2 IS NOT NULL AND json_extract(state, '$.info.organizerPopId') = ?2))";
@@ -57,8 +58,8 @@ async function ownedStores(db: D1Like, userId: string): Promise<string[]> {
   return results.map(row => row.name);
 }
 
-const RUNNING_ERROR = 'End your running events first';
-const STORE_ERROR = 'Hand over the stores you own first';
+const RUNNING_ERROR = msg('End your running events first');
+const STORE_ERROR = msg('Hand over the stores you own first');
 
 /** Why the asked change must wait, or null when it may go ahead. */
 async function refusalOf(db: D1Like, user: User, deleting: boolean): Promise<DataRefusal | null> {

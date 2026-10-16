@@ -1,4 +1,5 @@
 import { createEffect, createMemo, createSignal, For, type JSX, onCleanup, onMount, Show } from 'solid-js';
+import { t } from '../lib/i18n';
 import { rovingIndex } from './roving';
 
 interface TabsProps<T extends string> {
@@ -99,7 +100,7 @@ export function Tabs<T extends string>(props: TabsProps<T>) {
   });
 
   return (
-    <nav ref={nav} class='tabs' role='tablist' aria-label={props.ariaLabel ?? 'Section'} onKeyDown={key}>
+    <nav ref={nav} class='tabs' role='tablist' aria-label={props.ariaLabel ?? t('Section')} onKeyDown={key}>
       <For each={props.options}>
         {opt => (
           <Show

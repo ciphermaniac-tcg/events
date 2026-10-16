@@ -10,6 +10,7 @@ import { createSignal, onCleanup, onMount, Show } from 'solid-js';
 import { isAdmin } from '../../../shared/accounts/roles';
 import { canCreateEvents } from '../../../shared/accounts/stores';
 import type { Me } from '../../lib/tournament/api';
+import { t } from '../../lib/i18n';
 import { SignOutButton } from './SignOutButton';
 import '../../styles/pages/tournament-account-menu.css';
 
@@ -46,7 +47,7 @@ export function AccountMenu(props: { user: Me; pending: number }) {
       <button
         type='button'
         class='tm-acct-button'
-        aria-label='Account'
+        aria-label={t('Account')}
         aria-expanded={open()}
         onClick={() => setOpen(!open())}
       >
@@ -62,18 +63,18 @@ export function AccountMenu(props: { user: Me; pending: number }) {
           </p>
           <Show when={props.user.publicProfile}>
             <A onClick={close} href={`/u/${props.user.handle}`}>
-              Public profile
+              {t('Public profile')}
             </A>
           </Show>
           <A onClick={close} href='/history'>
-            History
+            {t('History')}
           </A>
           <A onClick={close} href='/settings'>
-            Settings
+            {t('Settings')}
           </A>
           <Show when={admin()}>
             <A onClick={close} href='/admin'>
-              Admin
+              {t('Admin')}
               <Show when={props.pending > 0}>
                 <span class='tm-dash-count'>{props.pending}</span>
               </Show>
@@ -81,7 +82,7 @@ export function AccountMenu(props: { user: Me; pending: number }) {
           </Show>
           <Show when={apply()}>
             <A onClick={close} class='tm-acct-quiet' href='/apply'>
-              Apply to organize
+              {t('Apply to organize')}
             </A>
           </Show>
           {logout}

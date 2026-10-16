@@ -1,5 +1,6 @@
 import { Show } from 'solid-js';
 import type { Round } from '../../../shared/tournament/types';
+import { t } from '../../lib/i18n';
 import { clockLabel } from '../../lib/tournament/present';
 import { createNow } from './now';
 
@@ -16,7 +17,7 @@ export function Clock(props: { round: Round; class?: string; extraSeconds?: numb
           'is-over': clockLabel(props.round, now(), props.extraSeconds).startsWith('-')
         }}
         role='timer'
-        aria-label={props.extraSeconds ? 'Time left at your table' : 'Time left in the round'}
+        aria-label={props.extraSeconds ? t('Time left at your table') : t('Time left in the round')}
       >
         {clockLabel(props.round, now(), props.extraSeconds)}
       </span>

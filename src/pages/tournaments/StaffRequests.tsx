@@ -10,19 +10,22 @@ import { For, Show } from 'solid-js';
 import type { PlayerRequest, RequestAnswer } from '../../../shared/tournament/requests';
 import { playerName } from '../../../shared/tournament/types';
 import { answerRequest, type Manage } from '../../lib/tournament/api';
+import { intlLocale, msg, t, tc } from '../../lib/i18n';
 import type { ManageState } from './manageState';
 
-const KIND_LABELS = { drop: 'Drop', staff: 'Contact staff' } as const;
+/** What a request asks, as a noun: the staff table names the request, not the button the player pressed. */
+const kindLabel = (kind: PlayerRequest['kind']) =>
+  kind === 'drop' ? tc('request', 'Drop') : tc('request', 'Contact staff');
 
 const STATUS_LABELS: Record<PlayerRequest['status'], string> = {
-  open: 'Waiting',
-  accepted: 'Confirmed',
-  declined: 'Declined',
-  done: 'Contacted',
-  cancelled: 'Cancelled'
+  open: msg('Waiting'),
+  accepted: msg('Confirmed'),
+  declined: msg('Declined'),
+  done: msg('Contacted'),
+  cancelled: msg('Cancelled')
 };
 
-const timeOf = (at: number) => new Date(at).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+const timeOf = (at: number) => new Date(at).toLocaleTimeString(intlLocale(), { hour: 'numeric', minute: '2-digit' });
 
 /** Open requests first, oldest first; then answered ones, latest first. Cancelled ones ask nothing. */
 const ordered = (requests: readonly PlayerRequest[]) => [
@@ -45,15 +48,15 @@ function Answers(props: { state: ManageState; manage: Manage; request: PlayerReq
         when={props.request.kind === 'drop'}
         fallback={
           <button type='button' class='btn btn-secondary tm-small' onClick={() => answer('done')}>
-            Mark contacted
+            {t('Mark contacted')}
           </button>
         }
       >
         <button type='button' class='btn btn-secondary tm-small' onClick={() => answer('accepted')}>
-          Confirm drop
+          {t('Confirm drop')}
         </button>
         <button type='button' class='btn btn-ghost tm-small' onClick={() => answer('declined')}>
-          Decline
+          {t('Decline')}
         </button>
       </Show>
     </span>
@@ -65,7 +68,7 @@ function Status(props: { manage: Manage; request: PlayerRequest }) {
     props.manage.mode === 'tom' && props.request.kind === 'drop' && props.request.status === 'accepted';
   return (
     <>
-      {STATUS_LABELS[props.request.status]}
+      {t(STATUS_LABELS[props.request.status])}
       <Show when={props.request.answeredAt}>
         {at => (
           <span class='muted'>
@@ -76,7 +79,7 @@ function Status(props: { manage: Manage; request: PlayerRequest }) {
         )}
       </Show>
       <Show when={tomDrop()}>
-        <span class='muted'> · drop in TOM</span>
+        <span class='muted'> · {t('drop in TOM')}</span>
       </Show>
     </>
   );
@@ -90,15 +93,15 @@ export function StaffRequests(props: { state: ManageState; manage: Manage }) {
   };
   return (
     <Show when={requests().length > 0}>
-      <section class='tm-box' aria-label='Player requests'>
+      <section class='tm-box' aria-label={t('Player requests')}>
         <div class='table-wrap'>
           <table class='data tm-requests'>
             <thead>
               <tr>
-                <th>Player</th>
-                <th>Request</th>
-                <th>Asked</th>
-                <th>Status</th>
+                <th>{t('Player')}</th>
+                <th>{t('Request')}</th>
+                <th>{t('Asked')}</th>
+                <th>{t('Status')}</th>
               </tr>
             </thead>
             <tbody>
@@ -106,7 +109,7 @@ export function StaffRequests(props: { state: ManageState; manage: Manage }) {
                 {request => (
                   <tr>
                     <td>{name(request.player)}</td>
-                    <td>{KIND_LABELS[request.kind]}</td>
+                    <td>{kindLabel(request.kind)}</td>
                     <td class='tm-num'>{timeOf(request.at)}</td>
                     <td>
                       <Show

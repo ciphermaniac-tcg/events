@@ -12,8 +12,9 @@ import { jsonError } from '../../../lib/api/responses.js';
 import type { Context } from '../../../lib/auth/env.js';
 import { answerMiss, askerOf, openForOwner, openForStaffRead, privateJson } from '../../../lib/tournaments/access.js';
 import { setHeadJudge, staffContext } from '../../../lib/tournaments/headJudge.js';
+import { msg } from '../../../../shared/i18n.js';
 
-const ONLY_ORGANIZER = 'Only the organizer can name the head judge';
+const ONLY_ORGANIZER = msg('Only the organizer can name the head judge');
 
 export async function onRequestGet(context: Context<'code'>): Promise<Response> {
   const access = await openForStaffRead(context);

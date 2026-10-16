@@ -25,6 +25,7 @@ import {
 import { decksEnabled, isSanctioned } from '../../../shared/tournament/view';
 import { type Manage, releaseReporter } from '../../lib/tournament/api';
 import { matchHistory } from '../../lib/tournament/present';
+import { t, tn } from '../../lib/i18n';
 import type { ReportedDeck } from '../live/reportedDeck';
 import { OptionsMenu } from './OptionsMenu';
 import { ConfirmAction } from './ConfirmAction';
@@ -70,9 +71,9 @@ function AddPlayer(props: { state: ManageState; code: string; sanctioned: boolea
     }
   }
   return (
-    <form class='tm-box tm-add-player' aria-label='Add a player' onSubmit={event => void submit(event)}>
+    <form class='tm-box tm-add-player' aria-label={t('Add a player')} onSubmit={event => void submit(event)}>
       <div class='tm-box-bar tm-add-row'>
-        <Field id='add-first' label='First name'>
+        <Field id='add-first' label={t('First name')}>
           <ReturningPlayerField
             code={props.code}
             ref={el => (firstInput = el)}
@@ -86,11 +87,11 @@ function AddPlayer(props: { state: ManageState; code: string; sanctioned: boolea
             }}
           />
         </Field>
-        <Field id='add-last' label='Last name'>
+        <Field id='add-last' label={t('Last name')}>
           <input id='add-last' class='tm-input' value={last()} onInput={e => setLast(e.currentTarget.value)} />
         </Field>
         <Show when={props.sanctioned}>
-          <Field id='add-pop' label='Player ID'>
+          <Field id='add-pop' label={t('Player ID')}>
             <input
               id='add-pop'
               class='tm-input'
@@ -99,7 +100,7 @@ function AddPlayer(props: { state: ManageState; code: string; sanctioned: boolea
               onInput={e => setPopId(e.currentTarget.value.replace(/\D/g, ''))}
             />
           </Field>
-          <Field id='add-year' label='Birth year'>
+          <Field id='add-year' label={t('Birth year')}>
             <input
               id='add-year'
               class='tm-input'
@@ -115,7 +116,7 @@ function AddPlayer(props: { state: ManageState; code: string; sanctioned: boolea
           class='btn btn-primary'
           disabled={props.state.busy() || !first().trim() || !last().trim() || !identified()}
         >
-          {props.late ? 'Add late player' : 'Add player'}
+          {props.late ? t('Add late player') : t('Add player')}
         </button>
       </div>
     </form>
@@ -135,7 +136,7 @@ function DeckOffCell() {
   return (
     <td class='tm-deck-cell is-off'>
       <span class='tm-deck-off' aria-hidden='true'>
-        Deck
+        {t('Deck')}
       </span>
     </td>
   );
@@ -155,12 +156,12 @@ function FixedTableField(props: { state: ManageState; player: Player }) {
     void props.state.send({ type: 'setFixedTable', id, table });
   }
   return (
-    <label class='tm-menu-field' title='Static seating: this player sits at the same table every round'>
-      Fixed table
+    <label class='tm-menu-field' title={t('Static seating: this player sits at the same table every round')}>
+      {t('Fixed table')}
       <input
         class='tm-input tm-table-input'
         inputmode='numeric'
-        aria-label={`Fixed table for ${playerName(props.player)}`}
+        aria-label={t('Fixed table for {name}', { name: playerName(props.player) })}
         placeholder='—'
         value={props.player.fixedTable ?? ''}
         onChange={e => save(e.currentTarget.value.replace(/\D/g, ''))}
@@ -187,10 +188,14 @@ function ReleaseAction(props: { state: ManageState; manage: Manage; player: Play
   return (
     <Show when={mayRelease(props.manage, props.player)}>
       <ConfirmAction
-        label={reporting() ? 'Reset reporting' : 'Unlink account'}
+        label={reporting() ? t('Reset reporting') : t('Unlink account')}
         class='tm-menu-item'
-        question={reporting() ? `Let another device report for ${name()}?` : `Unlink ${name()} from their account?`}
-        confirmLabel={reporting() ? 'Reset' : 'Unlink'}
+        question={
+          reporting()
+            ? t('Let another device report for {name}?', { name: name() })
+            : t('Unlink {name} from their account?', { name: name() })
+        }
+        confirmLabel={reporting() ? t('Reset') : t('Unlink')}
         onConfirm={() => void props.state.act(releaseReporter(props.manage.code, props.player.id))}
       />
     </Show>
@@ -226,14 +231,14 @@ function PlayerActions(props: { state: ManageState; manage: Manage; player: Play
       <span class='tm-row-actions'>
         <Show when={!ended() && dropped() !== null && canUndrop(props.manage.tournament, props.player)}>
           <button type='button' class='btn btn-ghost tm-small' onClick={() => send('undropPlayer')}>
-            Reinstate
+            {t('Reinstate')}
           </button>
         </Show>
         {/* Once paired, a player is dropped rather than removed, so their opponents keep the match. */}
         <Show when={!ended() && !hasPlayed(pod(), props.player.id)}>
           <ConfirmAction
-            label='Remove'
-            question={`Remove ${playerName(props.player)}?`}
+            label={t('Remove')}
+            question={t('Remove {name}?', { name: playerName(props.player) })}
             danger
             onConfirm={() => send('removePlayer')}
           />
@@ -245,20 +250,20 @@ function PlayerActions(props: { state: ManageState; manage: Manage; player: Play
             </Show>
             <Show when={!ended()}>
               <button type='button' class='tm-menu-item' data-closes-menu onClick={() => setEditing(true)}>
-                Edit
+                {t('Edit')}
               </button>
             </Show>
             <Show when={!ended() && dropped() === null}>
               <ConfirmAction
-                label='Drop'
-                question={`Drop ${playerName(props.player)}?`}
+                label={t('Drop')}
+                question={t('Drop {name}?', { name: playerName(props.player) })}
                 class='tm-menu-item'
                 danger
                 onConfirm={() => send('dropPlayer')}
               />
               <ConfirmAction
-                label='Disqualify'
-                question={`Disqualify ${playerName(props.player)}?`}
+                label={t('Disqualify')}
+                question={t('Disqualify {name}?', { name: playerName(props.player) })}
                 class='tm-menu-item'
                 danger
                 onConfirm={() => send('disqualifyPlayer')}
@@ -292,16 +297,17 @@ interface RowProps {
   decks: readonly ReportedDeck[];
 }
 
+const droppedLine = (disqualified: boolean | undefined, round: number) =>
+  disqualified ? t('disqualified after round {round}', { round }) : t('dropped after round {round}', { round });
+
 function PlayerRow(props: RowProps) {
   const swiss = () => props.manage.mode === 'swiss';
   const sanctioned = () => isSanctioned(props.manage);
   const sub = () =>
     [
-      sanctioned() ? (isGeneratedId(props.player.id) ? 'Provisional ID' : props.player.id) : '',
-      sanctioned() ? DIVISION_LABELS[divisionFor(props.player.birthDate, props.season)] : '',
-      props.player.droppedAfter !== null
-        ? `${props.player.disqualified ? 'disqualified' : 'dropped'} after round ${props.player.droppedAfter}`
-        : ''
+      sanctioned() ? (isGeneratedId(props.player.id) ? t('Provisional ID') : props.player.id) : '',
+      sanctioned() ? t(DIVISION_LABELS[divisionFor(props.player.birthDate, props.season)]) : '',
+      props.player.droppedAfter === null ? '' : droppedLine(props.player.disqualified, props.player.droppedAfter)
     ]
       .filter(Boolean)
       .join(' · ');
@@ -314,11 +320,13 @@ function PlayerRow(props: RowProps) {
           <Show
             when={props.player.late || joinedLate(playerPod(props.manage.tournament, props.player.id), props.player.id)}
           >
-            <span class='tm-flag'>Late</span>
+            <span class='tm-flag'>{t('Late')}</span>
           </Show>
-          <Show when={props.player.fixedTable}>{table => <span class='tm-flag'>Table {table()}</span>}</Show>
+          <Show when={props.player.fixedTable}>
+            {table => <span class='tm-flag'>{t('Table {table}', { table: table() })}</span>}
+          </Show>
           <Show when={props.player.droppedAfter !== null}>
-            <span class='tm-flag'>{props.player.disqualified ? 'Disqualified' : 'Dropped'}</span>
+            <span class='tm-flag'>{props.player.disqualified ? t('Disqualified') : t('Dropped')}</span>
           </Show>
         </span>
         <Show when={sub()}>
@@ -360,7 +368,9 @@ export function PlayersPanel(props: { state: ManageState; manage: Manage }) {
   });
   const count = () => {
     const all = props.manage.tournament.players.length;
-    return players().length === all ? `${all} players` : `${players().length} of ${all} players`;
+    return players().length === all
+      ? tn(all, '{n} players', '{n} players')
+      : tn(all, '{shown} of {n} players', '{shown} of {n} players', { shown: players().length });
   };
   return (
     <div class='tm-panel'>
@@ -373,8 +383,8 @@ export function PlayersPanel(props: { state: ManageState; manage: Manage }) {
           <input
             class='search'
             type='search'
-            placeholder='Search players'
-            aria-label='Search players'
+            placeholder={t('Search players')}
+            aria-label={t('Search players')}
             value={query()}
             onInput={e => setQuery(e.currentTarget.value)}
           />
@@ -384,24 +394,24 @@ export function PlayersPanel(props: { state: ManageState; manage: Manage }) {
           <table class='data tm-roster'>
             <thead>
               <tr>
-                <th>Player</th>
+                <th>{t('Player')}</th>
                 <Show when={started()}>
-                  <th>Rounds</th>
+                  <th>{t('Rounds')}</th>
                 </Show>
                 <th>
-                  Deck
+                  {t('Deck')}
                   <Show when={!archetypes()}>
                     <span class='tm-th-note'>
                       {' '}
-                      · off{' '}
+                      · {t('off')}{' '}
                       <button type='button' class='tm-th-link' onClick={() => setParams({ tab: 'event' })}>
-                        Turn on in Settings
+                        {t('Turn on in Settings')}
                       </button>
                     </span>
                   </Show>
                 </th>
                 <th>
-                  <span class='sr-only'>Actions</span>
+                  <span class='sr-only'>{t('Actions')}</span>
                 </th>
               </tr>
             </thead>
@@ -423,7 +433,7 @@ export function PlayersPanel(props: { state: ManageState; manage: Manage }) {
         </div>
         <Show when={players().length === 0}>
           <p class='muted tm-empty'>
-            {props.manage.tournament.players.length ? 'No players match.' : 'No players yet.'}
+            {props.manage.tournament.players.length ? t('No players match.') : t('No players yet.')}
           </p>
         </Show>
       </section>

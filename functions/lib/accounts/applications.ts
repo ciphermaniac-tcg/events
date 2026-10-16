@@ -20,6 +20,7 @@ import { firstRow } from '../d1.js';
 import { displayNameSql } from './handles.js';
 import { privateJson } from '../tournaments/access.js';
 import type { D1Like } from '../types.js';
+import { msg } from '../../../shared/i18n.js';
 
 export interface ApplicationRow {
   id: string;
@@ -138,14 +139,14 @@ export function applyRefusal(applicant: Applicant): Response | null {
   const { user } = applicant;
   if (!profileComplete(user)) {
     // `profile` tells the page to send the account to its profile, not show the message alone.
-    return privateJson({ error: 'Complete your profile first', profile: true }, 400);
+    return privateJson({ error: msg('Complete your profile first'), profile: true }, 400);
   }
   if (mayBeMinor(birthYear(user.birthDate ?? ''), new Date())) {
     return privateJson({ error: HOSTS_ONLY }, 403);
   }
   if (!user.email) {
     // A username and password account may have no email; an organizer has to be reachable.
-    return privateJson({ error: 'Add an email first', email: true }, 400);
+    return privateJson({ error: msg('Add an email first'), email: true }, 400);
   }
   return isPending(applicant) ? pendingRefusal() : null;
 }

@@ -9,13 +9,14 @@ import { For } from 'solid-js';
 import { EVENT_TYPE_LABELS, EVENT_TYPES, type EventType } from '../../../shared/tournament/types';
 import { type DecklistMode, SETTINGS_LIMITS } from '../../../shared/tournament/view';
 import { Segmented } from '../../components/Segmented';
+import { msg, t, tn } from '../../lib/i18n';
 
 const CAPS = Array.from({ length: SETTINGS_LIMITS.roundCap }, (_, i) => i + 1);
 
 const DECKLIST_OPTIONS: { value: DecklistMode; label: string }[] = [
-  { value: 'off', label: 'Disabled' },
-  { value: 'closed', label: 'Closed' },
-  { value: 'open', label: 'Open' }
+  { value: 'off', label: msg('Disabled') },
+  { value: 'closed', label: msg('Closed') },
+  { value: 'open', label: msg('Open') }
 ];
 
 /** The event kind, which sets its mode and initial round structure. */
@@ -24,14 +25,19 @@ export function EventTypeSwitch(props: {
   types?: readonly EventType[] | undefined;
   onChange: (value: EventType) => void;
 }) {
-  const options = () => (props.types ?? EVENT_TYPES).map(value => ({ value, label: EVENT_TYPE_LABELS[value] }));
-  return <Segmented options={options()} selected={props.value} onSelect={props.onChange} ariaLabel='Event type' />;
+  const options = () => (props.types ?? EVENT_TYPES).map(value => ({ value, label: t(EVENT_TYPE_LABELS[value]) }));
+  return <Segmented options={options()} selected={props.value} onSelect={props.onChange} ariaLabel={t('Event type')} />;
 }
 
 /** Whether the event takes decklists, and if it does, whether players can send one now. */
 export function DecklistsSwitch(props: { value: DecklistMode; onChange: (value: DecklistMode) => void }) {
   return (
-    <Segmented options={DECKLIST_OPTIONS} selected={props.value} onSelect={props.onChange} ariaLabel='Decklists' />
+    <Segmented
+      options={DECKLIST_OPTIONS.map(option => ({ ...option, label: t(option.label) }))}
+      selected={props.value}
+      onSelect={props.onChange}
+      ariaLabel={t('Decklists')}
+    />
   );
 }
 
@@ -50,13 +56,15 @@ export function RoundsSelect(props: {
   return (
     <select id={props.id} class='tm-select' onChange={e => props.onChange(Number(e.currentTarget.value))}>
       <option value={0} selected={props.value === 0}>
-        {props.recommended ? `Recommended (${props.recommended} for this many players)` : 'Recommended for attendance'}
+        {props.recommended
+          ? t('Recommended ({rounds} for this many players)', { rounds: props.recommended })
+          : t('Recommended for attendance')}
       </option>
       {/* A cap stored before the minimum held stays listed, so the select shows what is set. */}
       <For each={CAPS.filter(n => n >= (props.min ?? 1) || n === props.value)}>
         {n => (
           <option value={n} selected={props.value === n}>
-            {n === 1 ? 'Capped at 1 round' : `Capped at ${n} rounds`}
+            {tn(n, 'Capped at {n} round', 'Capped at {n} rounds')}
           </option>
         )}
       </For>

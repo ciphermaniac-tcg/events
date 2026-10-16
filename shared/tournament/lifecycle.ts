@@ -21,6 +21,7 @@ import {
 import { writeTdf } from './tdf.js';
 import { countsComplete, latestRound, regularRounds, savedStages, wasFinalized } from './rounds.js';
 import type { Match, Round, Tournament } from './types.js';
+import { msg } from '../i18n.js';
 
 /** V18-12: the cut follows the last Swiss round once that round counts as complete. */
 const completedSwiss = (pod: Tournament['pods'][number]) => countsComplete(latestRound(pod));
@@ -133,7 +134,11 @@ function attemptedStart(paired: () => Tournament, aborted: Tournament): Lifecycl
 }
 
 function refused(tournament: Tournament, error: unknown): LifecycleResult {
-  return { ok: false, tournament, error: error instanceof Error ? error.message : 'The operation could not complete' };
+  return {
+    ok: false,
+    tournament,
+    error: error instanceof Error ? error.message : msg('The operation could not complete')
+  };
 }
 
 type Handlers = {
@@ -190,7 +195,7 @@ const handlers: Handlers = {
   concludePrerelease: (t, op, ctx) => handledConclusion(t, op, ctx),
   finish: t => {
     if (!t.settings || t.pods.some(p => !completedPod(t, p))) {
-      throw new Error('Report every result before finishing');
+      throw new Error(msg('Report every result before finishing'));
     }
     return { ...t, settings: { ...t.settings, stage: 5 } };
   }
@@ -305,11 +310,11 @@ export function applyLifecycleOperation(t: Tournament, op: LifecycleOperation, c
     // A repair still returns an acknowledged complete round unchanged after the finish (PAIRING V14b); a pod that
     // reopening left with a pending match is not finished and still pairs (V16-2, statement 49).
     if (((op.type === 'pair' && !op.repair) || op.type === 'topCut') && finishedEvent(t)) {
-      throw new Error('The tournament is complete');
+      throw new Error(msg('The tournament is complete'));
     }
     const tournament = handledOperation(t, op, ctx);
     if (pairedNothing(t, tournament, op)) {
-      return { ok: false, tournament, error: 'No eligible qualifiers can form another round' };
+      return { ok: false, tournament, error: msg('No eligible qualifiers can form another round') };
     }
     const ordered = recordedDisqualifiedOrder(withRecordedOrders(restoredRecords(t, tournament), ctx), op, ctx);
     return completedOperation(ordered, ctx);

@@ -16,6 +16,8 @@
  * Other browsers fall back to picking the file each time.
  */
 
+import { msg, t } from '../i18n';
+
 interface PermissionDescriptor {
   mode: 'read' | 'readwrite';
 }
@@ -47,14 +49,14 @@ export function canLinkFiles(): boolean {
 export async function pickTdf(): Promise<TdfHandle> {
   const open = picker();
   if (!open) {
-    throw new Error('This browser cannot link files');
+    throw new Error(msg('This browser cannot link files'));
   }
   const [handle] = await open({
-    types: [{ description: 'TOM tournament', accept: { 'application/xml': ['.tdf'] } }],
+    types: [{ description: t('TOM tournament'), accept: { 'application/xml': ['.tdf'] } }],
     excludeAcceptedTypesOption: true
   });
   if (!handle) {
-    throw new Error('No file picked');
+    throw new Error(msg('No file picked'));
   }
   return handle;
 }
@@ -95,7 +97,7 @@ async function readFile(handle: TdfHandle, lastModified: number): Promise<FileRe
 export async function readIfChanged(handle: TdfHandle, lastModified: number): Promise<FileRead | null> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const late = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new Error('Reading the file took too long')), READ_TIMEOUT_MS);
+    timer = setTimeout(() => reject(new Error(msg('Reading the file took too long'))), READ_TIMEOUT_MS);
   });
   try {
     return await Promise.race([readFile(handle, lastModified), late]);

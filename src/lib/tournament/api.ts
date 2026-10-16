@@ -33,6 +33,7 @@ import {
   type TournamentView
 } from '../../../shared/tournament/view';
 import { EVENTS_DATA_ORIGIN } from '../constants';
+import { msg, t, translateMessage } from '../i18n';
 
 export type { Decklist, HistoryEntry, Manage, PublicProfile, Registration, StaffMember, TournamentSummary };
 
@@ -47,8 +48,8 @@ export class ApiError extends Error {
   }
 }
 
-/** What a failed call says, for the pages to show as-is. */
-export const errorText = (err: unknown): string => (err instanceof Error ? err.message : String(err));
+/** What a failed call says, for the pages to show as-is: the server's English in the language shown. */
+export const errorText = (err: unknown): string => (err instanceof Error ? translateMessage(err.message) : String(err));
 
 export interface Me {
   id: string;
@@ -103,7 +104,11 @@ async function answer(path: string, init: RequestInit): Promise<Response> {
   });
   if (!response.ok) {
     const body = (await response.json().catch(() => null)) as ({ error?: string } & Record<string, unknown>) | null;
-    throw new ApiError(body?.error ?? `Request failed (${response.status})`, response.status, body);
+    throw new ApiError(
+      body?.error ?? t('Request failed ({status})', { status: response.status }),
+      response.status,
+      body
+    );
   }
   return response;
 }
@@ -271,7 +276,7 @@ export const SYNC_TIMEOUT_MS = 30_000;
 export async function syncTournament(code: string, tournament: Tournament, revision: string, manual = false) {
   const controller = new AbortController();
   const timer = setTimeout(
-    () => controller.abort(new ApiError('The site took too long to answer', 0)),
+    () => controller.abort(new ApiError(msg('The site took too long to answer'), 0)),
     SYNC_TIMEOUT_MS
   );
   try {

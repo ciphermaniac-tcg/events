@@ -59,6 +59,7 @@ import { admitTry, clearFailures, forgive, LOCKED_OUT } from '../../../lib/tourn
 import { publishAfter } from '../../../lib/tournaments/publish.js';
 import { commandChanges } from '../../../lib/tournaments/results.js';
 import { loadTournament, mutate, pairedRounds, type TournamentRow } from '../../../lib/tournaments/store.js';
+import { msg } from '../../../../shared/i18n.js';
 
 interface DecklistRow {
   /** The submitter's identity key (see identityKey). */
@@ -241,10 +242,12 @@ interface Submission {
   localTime: unknown;
 }
 
-const LOCKED = 'This list was sent from another device. Send it from that device, or ask staff to reset it.';
+const LOCKED = msg('This list was sent from another device. Send it from that device, or ask staff to reset it.');
 /** A list from a player who may be under 18, once the event is over: its cards were deleted as it ended (store.ts). */
-const OVER_FOR_MINORS = 'This event is over.';
-const WRONG_YEAR = 'That birth year doesn’t match this event’s record for that Player ID. Ask staff if yours is right.';
+const OVER_FOR_MINORS = msg('This event is over.');
+const WRONG_YEAR = msg(
+  'That birth year doesn’t match this event’s record for that Player ID. Ask staff if yours is right.'
+);
 
 /** What follows a submission the guard let in, once its store has run: whether it landed. */
 interface Admitted {
@@ -301,13 +304,13 @@ async function readSubmission(request: Request, sanctioned: boolean): Promise<Su
   const deck = typeof value.deck === 'string' ? value.deck.trim() : '';
   const archetype = archetypeLabel(value.archetype ?? null);
   if (!profile) {
-    return sanctioned ? 'Fill in your Player ID, name and birth year' : 'Fill in your name';
+    return sanctioned ? msg('Fill in your Player ID, name and birth year') : msg('Fill in your name');
   }
   if (!deck || deck.length > MAX_DECKLIST_CHARS) {
-    return 'Paste a decklist';
+    return msg('Paste a decklist');
   }
   return archetype === undefined
-    ? 'Not an archetype'
+    ? msg('Not an archetype')
     : { profile, deck, archetype, held: value.token, localTime: value.localTime };
 }
 
@@ -394,7 +397,7 @@ async function store(access: Access, submission: Submission, tokenHash: string, 
   return true;
 }
 
-const ALREADY_IN = 'Already on the player list';
+const ALREADY_IN = msg('Already on the player list');
 
 /**
  * Puts a submitter who is not on the player list onto it: a Swiss event the
@@ -428,7 +431,7 @@ async function register(
       return ALREADY_IN;
     }
     return current.settings.finished
-      ? 'The event is closed'
+      ? msg('The event is closed')
       : commandChanges(current, { type: 'addPlayer', player }, submission.localTime);
   });
   if ('error' in outcome) {
@@ -452,10 +455,10 @@ function notTaking(row: TournamentRow): Response {
   if (row.settings.decklists === 'off') {
     return jsonError('This event does not take decklists', 403);
   }
-  return jsonError(decklistsLocked(row) ? LOCKED_AFTER_ROUND_1 : 'Decklist submission is closed', 403);
+  return jsonError(decklistsLocked(row) ? LOCKED_AFTER_ROUND_1 : msg('Decklist submission is closed'), 403);
 }
 
-const LOCKED_AFTER_ROUND_1 = 'Decklists are locked once round 1 is paired';
+const LOCKED_AFTER_ROUND_1 = msg('Decklists are locked once round 1 is paired');
 
 /** @internal exposed for tests */
 export function _resetRateLimitStore(): void {

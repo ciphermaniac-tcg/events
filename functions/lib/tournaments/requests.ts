@@ -12,6 +12,7 @@ import {
 } from '../../../shared/tournament/requests.js';
 import { commandChanges } from './results.js';
 import type { Changes, TournamentRow } from './store.js';
+import { msg } from '../../../shared/i18n.js';
 
 const ALREADY_OUT = 'You’re already out of the event';
 
@@ -28,7 +29,7 @@ export function playerRequestChanges(
   ask: { id: string; player: string; kind: RequestKind; cancel: boolean; at: number }
 ): Changes | string {
   if (row.settings.finished) {
-    return 'This event is over';
+    return msg('This event is over');
   }
   if (!ask.cancel && ask.kind === 'drop' && dropped(row, ask.player)) {
     return ALREADY_OUT;

@@ -11,6 +11,7 @@
 import { divisionsOf } from './podding.js';
 import { isOpenMatch, latestRound, type MatchKey, podOf, sameMatch } from './rounds.js';
 import { isDivision, type Match, type Pod, type PodCategory, type Round, type Tournament } from './types.js';
+import { msg } from '../i18n.js';
 
 /** A match's result as one of its players tells it. */
 export type ReportedOutcome = 'p1' | 'p2' | 'tie';
@@ -58,13 +59,13 @@ export function reportableMatch(tournament: Tournament, playerId: string): OpenM
   const round = latestRound(pod);
   const match = round?.matches.find(m => m.p1 === playerId || m.p2 === playerId);
   if (!pod || !round || !match) {
-    return 'You are not paired this round';
+    return msg('You are not paired this round');
   }
   if (match.p2 === null) {
-    return 'A bye has no result to report';
+    return msg('A bye has no result to report');
   }
   if (match.outcome !== 'pending') {
-    return 'This match already has a result';
+    return msg('This match already has a result');
   }
   return { pod, round, match: { ...match, p2: match.p2 } };
 }
@@ -91,7 +92,7 @@ export function playerReport(
   filed: { at: number; device?: string }
 ): PlayerReport | string {
   if (open.round.kind === 'elimination' && result === 'tie') {
-    return 'A top cut match needs a winner';
+    return msg('A top cut match needs a winner');
   }
   const { pod, round, match } = open;
   const outcome = reportedOutcome(match, by, result);
@@ -117,7 +118,7 @@ export const isLocked = (report: Pick<PlayerReport, 'at'>, now: number): boolean
 export function fileReport(reports: readonly PlayerReport[], report: PlayerReport): PlayerReport[] | string {
   const own = reports.find(r => sameMatch(r, report) && r.by === report.by);
   if (own && isLocked(own, report.at)) {
-    return 'Your report has locked; ask staff to change it';
+    return msg('Your report has locked; ask staff to change it');
   }
   return [...reports.filter(r => r !== own), report];
 }

@@ -25,6 +25,7 @@ import {
   type Round,
   type Tournament
 } from './types.js';
+import { msg } from '../i18n.js';
 
 export function stamp(t: Tournament, pod: Pod, ctx: LifecycleContext, taken: ReadonlySet<number>) {
   return tableStamp(t, pod, ctx, { taken, repairing: false });
@@ -189,25 +190,25 @@ function searchedFlight<T>(search: () => T, flight: readonly string[]): T {
 
 function checkedSwissRepair(last: ReturnType<typeof latestRound>, terminal: boolean): void {
   if (!last || last.kind !== 'swiss') {
-    throw new PairingError('Only a Swiss round can be repaired');
+    throw new PairingError(msg('Only a Swiss round can be repaired'));
   }
   const refused = terminal ? [4, 5].includes(last.stage ?? 4) : (last.stage ?? 4) >= 4;
   if (refused) {
-    throw new PairingError('Only a paired, not-started Swiss round can be repaired');
+    throw new PairingError(msg('Only a paired, not-started Swiss round can be repaired'));
   }
 }
 
 export function validateSwissRound(t: Tournament, pod: Pod, repair: boolean, terminal: boolean): void {
   const last = latestRound(pod);
   if (pod.prereleaseConcluded) {
-    throw new PairingError('This Prerelease pod is concluded');
+    throw new PairingError(msg('This Prerelease pod is concluded'));
   }
   if (repair) {
     checkedSwissRepair(last, terminal);
     return;
   }
   if (last && last.number >= regularRounds(t, pod) && countsComplete(last) && pod.stage !== 1) {
-    throw new PairingError('This Swiss pod is complete');
+    throw new PairingError(msg('This Swiss pod is complete'));
   }
 }
 

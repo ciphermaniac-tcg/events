@@ -13,6 +13,7 @@ import type { Match, Pod, Round } from '../../../shared/tournament/types';
 import { type CorrectionRecord, fetchCorrections, type Manage } from '../../lib/tournament/api';
 import { RESULT_WORDS } from '../../lib/tournament/present';
 import { latestValue } from '../../lib/resource';
+import { intlLocale, msg, t } from '../../lib/i18n';
 import type { CorrectionSelection } from './CorrectionDialog';
 import { ExtensionClock } from './ExtensionClock';
 import { OptionsMenu } from './OptionsMenu';
@@ -21,14 +22,14 @@ import { session } from './session';
 // Corrections are rare, so the dialog loads when one is first opened.
 const CorrectionDialog = lazy(() => import('./CorrectionDialog').then(m => ({ default: m.CorrectionDialog })));
 
-const ROLE_WORDS = { organizer: 'organizer', 'head-judge': 'head judge' } as const;
+const ROLE_WORDS = { organizer: msg('organizer'), 'head-judge': msg('head judge') };
 
-const timeOf = (at: number) => new Date(at).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+const timeOf = (at: number) => new Date(at).toLocaleTimeString(intlLocale(), { hour: 'numeric', minute: '2-digit' });
 
 /** Who approved a correction, as what, and whether alone. */
 export function approvalLine(entry: Pick<CorrectionEntry, 'approvedBy' | 'role' | 'alone'>): string {
-  const who = entry.approvedBy ?? 'Deleted account';
-  return `${who}, ${ROLE_WORDS[entry.role]}${entry.alone ? ' (no head judge named)' : ''}`;
+  const values = { who: entry.approvedBy ?? t('Deleted account'), role: t(ROLE_WORDS[entry.role]) };
+  return entry.alone ? t('{who}, {role} (no head judge named)', values) : t('{who}, {role}', values);
 }
 
 /**
@@ -42,10 +43,12 @@ export function pastNote(pod: Pod, round: Round, ctx: CorrectionContext, approve
   }
   const refusal = roundRefusal(pod, round.number, ctx);
   if (refusal) {
-    return refusal;
+    return t(refusal);
   }
-  const until = `Round ${round.number} can be corrected until round ${round.number + 2} is paired`;
-  return approver ? `${until}.` : `${until}, by the organizer or head judge.`;
+  const values = { round: round.number, until: round.number + 2 };
+  return approver
+    ? t('Round {round} can be corrected until round {until} is paired.', values)
+    : t('Round {round} can be corrected until round {until} is paired, by the organizer or head judge.', values);
 }
 
 /** A past round's result cell: whether it was corrected, and how to correct it now, if the viewer can. */
@@ -59,18 +62,18 @@ export function CorrectableResult(props: { match: Match; round: Round; cell: Cor
   return (
     <div class='tm-result'>
       <span class='tm-result-label'>
-        {RESULT_WORDS[props.match.outcome]}
+        {t(RESULT_WORDS[props.match.outcome] ?? '')}
         <Show when={props.cell.corrected}>
-          <span class='tm-flag'>Corrected</span>
+          <span class='tm-flag'>{t('Corrected')}</span>
         </Show>
         <ExtensionClock match={props.match} round={props.round} playing={false} />
       </span>
       <Show when={props.cell.onCorrect}>
         {correct => (
           <span class='tm-result-acts'>
-            <OptionsMenu name={`table ${String(props.match.table)}`} closeOnSelect>
+            <OptionsMenu name={t('table {table}', { table: props.match.table })} closeOnSelect>
               <button type='button' class='tm-menu-item' onClick={() => correct()()}>
-                Correct result
+                {t('Correct result')}
               </button>
             </OptionsMenu>
           </span>
@@ -86,19 +89,24 @@ function CorrectionLog(props: { entries: CorrectionEntry[]; names: Map<string, s
   return (
     <Show when={props.entries.length}>
       <div class='tm-box-bar'>
-        <strong>Corrections</strong>
+        <strong>{t('Corrections')}</strong>
       </div>
       <ul class='tm-corrections'>
         <For each={props.entries}>
           {entry => (
             <li>
               <span>
-                <strong>Table {entry.table}</strong> · {name(entry.p1)} v {name(entry.p2)} · {RESULT_WORDS[entry.from]}{' '}
-                to {RESULT_WORDS[entry.to]}
+                <strong>{t('Table {table}', { table: entry.table })}</strong> ·{' '}
+                {t('{p1} v {p2}', { p1: name(entry.p1), p2: name(entry.p2) })} ·{' '}
+                {t('{from} to {to}', { from: t(RESULT_WORDS[entry.from] ?? ''), to: t(RESULT_WORDS[entry.to] ?? '') })}
               </span>
               <span>{entry.note}</span>
               <span class='muted'>
-                Approved by {approvalLine(entry)} at {timeOf(entry.recordedAt)}, during round {entry.during}
+                {t('Approved by {who} at {time}, during round {round}', {
+                  who: approvalLine(entry),
+                  time: timeOf(entry.recordedAt),
+                  round: entry.during
+                })}
               </span>
             </li>
           )}

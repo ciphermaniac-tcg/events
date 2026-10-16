@@ -53,6 +53,7 @@ import { ErrorLine } from './Field';
 import { TournamentHero } from './Hero';
 import { refreshSession, session } from './session';
 import { pageTitle } from '../../lib/title';
+import { intlLocale, msg, t, tn } from '../../lib/i18n';
 import { SessionGate } from './SessionGate';
 
 const loadDashboard = () => import('./Dashboard');
@@ -68,7 +69,7 @@ if (window.location.pathname === '/') {
 }
 
 const shortDate = (startDate: string) =>
-  parseTomDate(startDate)?.toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' }) ?? '';
+  parseTomDate(startDate)?.toLocaleDateString(intlLocale(), { month: 'short', day: 'numeric', timeZone: 'UTC' }) ?? '';
 
 type Phase = 'live' | 'upcoming' | 'finished';
 
@@ -80,7 +81,18 @@ const phaseOf = (event: TournamentSummary): Phase => {
   return event.rounds > 0 ? 'live' : 'upcoming';
 };
 
-const PHASE_WORDS: Record<Phase, string> = { live: 'Running', upcoming: 'Registration', finished: 'Finished' };
+const PHASE_WORDS: Record<Phase, string> = {
+  live: msg('Running'),
+  upcoming: msg('Registration'),
+  finished: msg('Finished')
+};
+
+/** How many events are in a phase, e.g. "2 live". */
+const PHASE_COUNTS: Record<Phase, (n: number) => string> = {
+  live: n => tn(n, '{n} live', '{n} live'),
+  upcoming: n => tn(n, '{n} upcoming', '{n} upcoming'),
+  finished: n => tn(n, '{n} finished', '{n} finished')
+};
 
 function EventRow(props: { event: TournamentSummary }) {
   const finished = () => props.event.finished;
@@ -91,23 +103,23 @@ function EventRow(props: { event: TournamentSummary }) {
           {props.event.name || props.event.code}
         </A>
         <Show when={props.event.role === 'staff'}>
-          <span class='tm-flag'>Staff</span>
+          <span class='tm-flag'>{t('Staff')}</span>
         </Show>
       </td>
-      <td class='muted-cell tm-host-status'>{PHASE_WORDS[phaseOf(props.event)]}</td>
+      <td class='muted-cell tm-host-status'>{t(PHASE_WORDS[phaseOf(props.event)])}</td>
       <td class='muted-cell tm-nowrap tm-wide-col'>{shortDate(props.event.startDate)}</td>
-      <td class='muted-cell tm-wide-col'>{props.event.mode === 'tom' ? 'TOM' : 'Swiss'}</td>
+      <td class='muted-cell tm-wide-col'>{props.event.mode === 'tom' ? 'TOM' : t('Swiss')}</td>
       {/* The unit shows on a phone, where the column heads do not. */}
-      <td class='num tm-host-players' data-unit={props.event.players === 1 ? 'player' : 'players'}>
+      <td class='num tm-host-players' data-unit={tn(props.event.players, 'player', 'players')}>
         {props.event.players}
       </td>
       <td class='tm-extra-col'>
         <span class='tm-row-actions'>
           <A class='btn btn-ghost tm-small' href={`/host/${props.event.code}${finished() ? '?tab=standings' : ''}`}>
-            {finished() ? 'Results' : 'Console'}
+            {finished() ? t('Results') : t('Console')}
           </A>
           <A class='btn btn-ghost tm-small' href={`/t/${props.event.code}`}>
-            Public page
+            {t('Public page')}
           </A>
         </span>
       </td>
@@ -124,13 +136,13 @@ function EventTable(props: { title: string; events: readonly TournamentSummary[]
           <table class='data tm-host-table'>
             <thead>
               <tr>
-                <th>Event</th>
-                <th>Status</th>
-                <th class='tm-wide-col'>Date</th>
-                <th class='tm-wide-col'>Run in</th>
-                <th class='num'>Players</th>
+                <th>{t('Event')}</th>
+                <th>{t('Status')}</th>
+                <th class='tm-wide-col'>{t('Date')}</th>
+                <th class='tm-wide-col'>{t('Run in')}</th>
+                <th class='num'>{t('Players')}</th>
                 <th>
-                  <span class='sr-only'>Links</span>
+                  <span class='sr-only'>{t('Links')}</span>
                 </th>
               </tr>
             </thead>
@@ -159,7 +171,7 @@ function LiveEvent(props: { event: TournamentSummary; first: boolean }) {
           { pending: current.pending, finished: false, firstRound: null, roundCap: roundCapOf(current) },
           Date.now()
         ).join(' · ')
-      : 'Running';
+      : t('Running');
   };
   return (
     <section class='tm-box tm-live-event'>
@@ -169,13 +181,13 @@ function LiveEvent(props: { event: TournamentSummary; first: boolean }) {
       </div>
       <div class='tm-live-event-acts'>
         <A class={props.first ? 'btn btn-primary' : 'btn btn-secondary'} href={`/host/${props.event.code}`}>
-          Open console
+          {t('Open console')}
         </A>
         <a class='btn btn-secondary' href={`/t/${props.event.code}?screen=1`} target='_blank' rel='noopener'>
-          Big screen
+          {t('Big screen')}
         </a>
         <A class='btn btn-ghost' href={`/t/${props.event.code}`}>
-          Public page
+          {t('Public page')}
         </A>
       </div>
     </section>
@@ -221,7 +233,7 @@ function LinkTdf(props: {
       when={canLinkFiles()}
       fallback={
         <label class={`${props.class} tm-desktop-only`}>
-          Choose .tdf file
+          {t('Choose .tdf file')}
           <input
             type='file'
             accept='.tdf'
@@ -238,7 +250,7 @@ function LinkTdf(props: {
       }
     >
       <button type='button' class={`${props.class} tm-desktop-only`} disabled={props.busy} onClick={() => void link()}>
-        Link .tdf file
+        {t('Link .tdf file')}
       </button>
     </Show>
   );
@@ -262,7 +274,7 @@ function StoreLinks(props: { stores: readonly MyStore[]; apply: boolean }) {
               </span>
             </Show>
             <A href={managesStore(store.role) ? `/stores/${store.id}/settings` : `/stores/${store.id}`}>
-              {managesStore(store.role) ? `${store.name} settings` : store.name}
+              {managesStore(store.role) ? t('{store} settings', { store: store.name }) : store.name}
             </A>
           </>
         )}
@@ -273,7 +285,7 @@ function StoreLinks(props: { stores: readonly MyStore[]; apply: boolean }) {
             ·
           </span>
         </Show>
-        <A href='/apply'>Apply for a store</A>
+        <A href='/apply'>{t('Apply for a store')}</A>
       </Show>
     </>
   );
@@ -310,8 +322,10 @@ function Organizer(props: {
   const rest = () => all().filter(event => phaseOf(event) !== 'live');
   const counts = () =>
     all().length === 0
-      ? 'No events yet'
-      : (['live', 'upcoming', 'finished'] as Phase[]).map(phase => `${byPhase(phase).length} ${phase}`).join(' · ');
+      ? t('No events yet')
+      : (['live', 'upcoming', 'finished'] as Phase[])
+          .map(phase => PHASE_COUNTS[phase](byPhase(phase).length))
+          .join(' · ');
 
   const draftKey = () =>
     setupDraftKey(
@@ -386,7 +400,7 @@ function Organizer(props: {
             >
               <span class='tm-hero-acts'>
                 <button type='button' class={startClass()} onClick={() => setStage({ kind: 'swiss' })}>
-                  Start an event
+                  {t('Start an event')}
                 </button>
                 <Show when={runAs(true).length > 0}>
                   <LinkTdf busy={busy()} class='btn btn-secondary' onRead={tdfRead} onError={setError} />
@@ -398,7 +412,7 @@ function Organizer(props: {
         <ErrorLine message={error()} />
         <For each={live()}>{(event, i) => <LiveEvent event={event} first={i() === 0} />}</For>
         <Show when={rest().length > 0}>
-          <EventTable title='Your events' events={rest()} />
+          <EventTable title={t('Your events')} events={rest()} />
         </Show>
       </Match>
       <Match when={stage().kind !== 'lists'}>

@@ -19,6 +19,7 @@ import {
 } from '../../../shared/accounts/myData';
 import { ApiError, deleteAccount, errorText, exportData, type Me, wipeData } from '../../lib/tournament/api';
 import { ErrorLine } from './Field';
+import { msg, t, tx } from '../../lib/i18n';
 import { Modal } from './Modal';
 import { clearSession } from './session';
 import { SettingRow } from './SettingControls';
@@ -27,41 +28,41 @@ import '../../styles/pages/tournament-my-data.css';
 
 /** Each part's name and what it holds. */
 const PARTS: Record<ExportPart, { name: string; what: string }> = {
-  profile: { name: 'Profile', what: 'First and last name, POP ID, birth year' },
-  username: { name: 'Username', what: 'Your username, and any you changed from today' },
-  events: { name: 'Event history', what: 'The ended events you played in, and which players you were there' },
-  organizer: { name: 'Organizer history', what: 'The events you ran or staffed' },
-  account: { name: 'Account', what: 'Email, sign-ins, sessions, Applications, stores, badges' }
+  profile: { name: msg('Profile'), what: msg('First and last name, POP ID, birth year') },
+  username: { name: msg('Username'), what: msg('Your username, and any you changed from today') },
+  events: { name: msg('Event history'), what: msg('The ended events you played in, and which players you were there') },
+  organizer: { name: msg('Organizer history'), what: msg('The events you ran or staffed') },
+  account: { name: msg('Account'), what: msg('Email, sign-ins, sessions, Applications, stores, badges') }
 };
 
 /** What follows from wiping each part. */
 const AFTER: Record<WipePart, string[]> = {
   profile: [
-    'Decklists and “find my table” stop filling themselves in',
-    'Sanctioned events leave your history until you add your POP ID again',
-    'You can’t apply to organize until the profile is filled in'
+    msg('Decklists and “find my table” stop filling themselves in'),
+    msg('Sanctioned events leave your history until you add your POP ID again'),
+    msg('You can’t apply to organize until the profile is filled in')
   ],
   username: [
-    'You get a random username',
-    'Your old usernames are free for anyone right away',
-    'Links to your public profile stop working'
+    msg('You get a random username'),
+    msg('Your old usernames are free for anyone right away'),
+    msg('Links to your public profile stop working')
   ],
   events: [
-    'Ended events leave your history; events still running and ones you play later stay',
-    'Organizers keep their own records of the event'
+    msg('Ended events leave your history; events still running and ones you play later stay'),
+    msg('Organizers keep their own records of the event')
   ],
   organizer: [
-    'Your name comes off those events; players keep them in their histories',
-    'You can no longer open or edit them',
-    'Waits until every event you run has ended'
+    msg('Your name comes off those events; players keep them in their histories'),
+    msg('You can no longer open or edit them'),
+    msg('Waits until every event you run has ended')
   ]
 };
 
 /** What deleting costs. */
 const DELETE_AFTER = [
-  'Everything above is wiped, and your sign-ins and sessions go',
-  'Events you ran stay for their players, without your name',
-  'Waits until your events have ended and any store you own is handed over'
+  msg('Everything above is wiped, and your sign-ins and sessions go'),
+  msg('Events you ran stay for their players, without your name'),
+  msg('Waits until your events have ended and any store you own is handed over')
 ];
 
 /** The refusal a 409 carries, or null for any other failure. */
@@ -101,8 +102,8 @@ function PartChoices<P extends ExportPart>(props: {
         <label class='tm-choice' classList={{ 'is-on': props.chosen.has(part) }}>
           <input type='checkbox' checked={props.chosen.has(part)} onChange={() => props.onToggle(part)} />
           <span class='tm-choice-text'>
-            <strong>{PARTS[part].name}</strong>
-            <span>{PARTS[part].what}</span>
+            <strong>{t(PARTS[part].name)}</strong>
+            <span>{t(PARTS[part].what)}</span>
           </span>
         </label>
       )}
@@ -149,7 +150,7 @@ function ExportDialog(props: { open: boolean; onClose: () => void }) {
     }
   }
   return (
-    <Modal open={props.open} title='Export data' onClose={close}>
+    <Modal open={props.open} title={t('Export data')} onClose={close}>
       <PartChoices parts={EXPORT_PARTS} chosen={chosen()} onToggle={part => setChosen(toggled(chosen(), part))} />
       <Show when={error()}>
         <div class='tm-box-bar'>
@@ -158,7 +159,7 @@ function ExportDialog(props: { open: boolean; onClose: () => void }) {
       </Show>
       <div class='tm-box-bar tm-modal-foot'>
         <button type='button' class='btn btn-ghost' onClick={close}>
-          Cancel
+          {t('Cancel')}
         </button>
         <button
           type='button'
@@ -166,7 +167,7 @@ function ExportDialog(props: { open: boolean; onClose: () => void }) {
           disabled={chosen().size === 0 || busy()}
           onClick={() => void download()}
         >
-          {chosen().size === EXPORT_PARTS.length ? 'Download all' : 'Download'}
+          {chosen().size === EXPORT_PARTS.length ? t('Download all') : t('Download')}
         </button>
       </div>
     </Modal>
@@ -198,18 +199,18 @@ function WipeDialog(props: { open: boolean; onClose: () => void; onWiped: (user:
     }
   }
   return (
-    <Modal open={props.open} title='Wipe data' onClose={close}>
+    <Modal open={props.open} title={t('Wipe data')} onClose={close}>
       <div class='tm-box-bar'>
         <span class='tm-modal-steps'>
           <Show
             when={reviewing()}
             fallback={
               <>
-                <b>1 Choose</b> · 2 Review
+                <b>1 {t('Choose')}</b> · 2 {t('Review')}
               </>
             }
           >
-            1 Choose · <b>2 Review</b>
+            1 {t('Choose')} · <b>2 {t('Review')}</b>
           </Show>
         </span>
       </div>
@@ -220,7 +221,7 @@ function WipeDialog(props: { open: boolean; onClose: () => void; onWiped: (user:
             <PartChoices parts={WIPE_PARTS} chosen={chosen()} onToggle={part => setChosen(toggled(chosen(), part))} />
             <div class='tm-box-bar tm-modal-foot'>
               <button type='button' class='btn btn-ghost' onClick={close}>
-                Cancel
+                {t('Cancel')}
               </button>
               <button
                 type='button'
@@ -228,7 +229,7 @@ function WipeDialog(props: { open: boolean; onClose: () => void; onWiped: (user:
                 disabled={chosen().size === 0}
                 onClick={() => setReviewing(true)}
               >
-                Review
+                {t('Review')}
               </button>
             </div>
           </>
@@ -236,16 +237,16 @@ function WipeDialog(props: { open: boolean; onClose: () => void; onWiped: (user:
       >
         <div class='tm-box-bar tm-modal-body'>
           <ul class='tm-consequences'>
-            <For each={parts().flatMap(part => AFTER[part])}>{line => <li>{line}</li>}</For>
+            <For each={parts().flatMap(part => AFTER[part])}>{line => <li>{t(line)}</li>}</For>
           </ul>
         </div>
         <Failure error={error()} />
         <div class='tm-box-bar tm-modal-foot'>
           <button type='button' class='btn btn-ghost' onClick={() => setReviewing(false)}>
-            Back
+            {t('Back')}
           </button>
           <button type='button' class='btn btn-secondary tm-danger' disabled={busy()} onClick={() => void wipe()}>
-            {parts().length === WIPE_PARTS.length ? 'Wipe all' : `Wipe ${parts().length}`}
+            {parts().length === WIPE_PARTS.length ? t('Wipe all') : t('Wipe {n}', { n: parts().length })}
           </button>
         </div>
       </Show>
@@ -276,15 +277,13 @@ function DeleteDialog(props: { open: boolean; handle: string; onClose: () => voi
     }
   }
   return (
-    <Modal open={props.open} title='Delete your account?' class='tm-modal-delete' onClose={close}>
+    <Modal open={props.open} title={t('Delete your account?')} class='tm-modal-delete' onClose={close}>
       <div class='tm-box-bar tm-modal-body'>
         <ul class='tm-consequences'>
-          <For each={DELETE_AFTER}>{line => <li>{line}</li>}</For>
+          <For each={DELETE_AFTER}>{line => <li>{t(line)}</li>}</For>
         </ul>
         <label class='tm-field'>
-          <span class='tm-label'>
-            Type <strong>{props.handle}</strong> to confirm
-          </span>
+          <span class='tm-label'>{tx('Type {handle} to confirm', { handle: <strong>{props.handle}</strong> })}</span>
           <input
             class='tm-input'
             autocomplete='off'
@@ -298,7 +297,7 @@ function DeleteDialog(props: { open: boolean; handle: string; onClose: () => voi
       <Failure error={error()} />
       <div class='tm-box-bar tm-modal-foot'>
         <button type='button' class='btn btn-ghost' onClick={close}>
-          Cancel
+          {t('Cancel')}
         </button>
         <button
           type='button'
@@ -306,7 +305,7 @@ function DeleteDialog(props: { open: boolean; handle: string; onClose: () => voi
           disabled={typed() !== props.handle || busy()}
           onClick={() => void remove()}
         >
-          Delete account
+          {t('Delete account')}
         </button>
       </div>
     </Modal>
@@ -321,29 +320,29 @@ export function MyData(props: { user: Me; onWiped: (user: Me) => void }) {
   return (
     <section>
       <div class='tm-box'>
-        <SettingRow label='Terms of service'>
+        <SettingRow label={t('Terms of service')}>
           <A class='btn btn-secondary' href='/terms'>
-            View terms
+            {t('View terms')}
           </A>
         </SettingRow>
-        <SettingRow label='Privacy policy'>
+        <SettingRow label={t('Privacy policy')}>
           <A class='btn btn-secondary' href='/privacy'>
-            View policy
+            {t('View policy')}
           </A>
         </SettingRow>
-        <SettingRow label='Export'>
+        <SettingRow label={t('Export')}>
           <button type='button' class='btn btn-secondary' onClick={() => setOpen('export')}>
-            Export data
+            {t('Export data')}
           </button>
         </SettingRow>
-        <SettingRow label='Wipe data'>
+        <SettingRow label={t('Wipe data')}>
           <button type='button' class='btn btn-secondary' onClick={() => setOpen('wipe')}>
-            Wipe data
+            {t('Wipe data')}
           </button>
         </SettingRow>
-        <SettingRow label='Delete account'>
+        <SettingRow label={t('Delete account')}>
           <button type='button' class='btn btn-secondary tm-danger' onClick={() => setOpen('delete')}>
-            Delete account
+            {t('Delete account')}
           </button>
         </SettingRow>
       </div>

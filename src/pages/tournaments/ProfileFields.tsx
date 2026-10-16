@@ -1,5 +1,6 @@
 import { type PlayerProfile, profileErrors } from '../../../shared/tournament/profile';
 import { Show } from 'solid-js';
+import { msg, t } from '../../lib/i18n';
 import { Field } from './Field';
 
 /**
@@ -20,7 +21,7 @@ export function emptyProfile(user?: Partial<Record<keyof PlayerProfile, string |
 
 export function profileProblems(profile: PlayerProfile, sanctioned = true) {
   const errors = profileErrors(profile, sanctioned);
-  return errors.birthDate ? { ...errors, birthDate: 'Enter a four-digit year' } : errors;
+  return errors.birthDate ? { ...errors, birthDate: msg('Enter a four-digit year') } : errors;
 }
 
 type Problems = Partial<Record<keyof PlayerProfile, string>>;
@@ -55,11 +56,15 @@ export function ProfileFields(props: {
 }) {
   const set = (key: keyof PlayerProfile, value: string) => props.onChange({ ...props.value, [key]: value });
   const id = (key: string) => `${props.idPrefix}-${key}`;
+  const error = (key: keyof PlayerProfile) => {
+    const text = props.errors[key];
+    return text ? t(text) : undefined;
+  };
   const problem = (key: keyof PlayerProfile, field: string) =>
     props.errors[key] ? { 'aria-invalid': true, 'aria-describedby': `${id(field)}-error` } : {};
   return (
     <div class='tm-grid-fields tm-profile-fields'>
-      <Field id={id('first')} label='First name' error={props.errors.firstName}>
+      <Field id={id('first')} label={t('First name')} error={error('firstName')}>
         <input
           id={id('first')}
           {...problem('firstName', 'first')}
@@ -69,7 +74,7 @@ export function ProfileFields(props: {
           onInput={e => set('firstName', e.currentTarget.value)}
         />
       </Field>
-      <Field id={id('last')} label='Last name' error={props.errors.lastName}>
+      <Field id={id('last')} label={t('Last name')} error={error('lastName')}>
         <input
           id={id('last')}
           {...problem('lastName', 'last')}
@@ -80,7 +85,7 @@ export function ProfileFields(props: {
         />
       </Field>
       <Show when={props.sanctioned !== false}>
-        <Field id={id('pop')} label='Player ID' error={props.errors.popId}>
+        <Field id={id('pop')} label={t('Player ID')} error={error('popId')}>
           <input
             id={id('pop')}
             {...problem('popId', 'pop')}
@@ -90,7 +95,7 @@ export function ProfileFields(props: {
             onInput={e => set('popId', e.currentTarget.value.replace(/\D/g, ''))}
           />
         </Field>
-        <Field id={id('year')} label='Birth year' error={props.errors.birthDate}>
+        <Field id={id('year')} label={t('Birth year')} error={error('birthDate')}>
           <input
             id={id('year')}
             {...problem('birthDate', 'year')}

@@ -38,6 +38,7 @@
  */
 
 import { createEffect, createMemo, createSignal, createUniqueId, For, type JSX, onCleanup, Show } from 'solid-js';
+import { t } from '../lib/i18n';
 import { rankByQuery, SUGGESTION_LIMIT } from '../lib/rankByQuery';
 import { type Band, placeComboList } from '../utils/comboListPlacement';
 
@@ -262,7 +263,7 @@ export function Combo<T>(props: ComboProps<T>): JSX.Element {
       />
       <Show when={open()}>
         <ul ref={el => (list = el)} class='tl-list' id={listId} role='listbox' popover='manual'>
-          <Show when={results().length > 0} fallback={<li class='none'>Nothing matches.</li>}>
+          <Show when={results().length > 0} fallback={<li class='none'>{t('Nothing matches.')}</li>}>
             <For each={results()}>
               {(item, i) => (
                 <>

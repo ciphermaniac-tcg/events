@@ -10,6 +10,7 @@ import { createResource, createSignal, For, Show } from 'solid-js';
 import type { FoundAccount } from '../../../shared/accounts/types';
 import { Skeleton } from '../../components/Skeleton';
 import { errorText } from '../../lib/tournament/api';
+import { t } from '../../lib/i18n';
 import { findAccounts, movePopId, ROLE_WORDS } from '../../lib/tournament/admin';
 import { dayOf } from '../../lib/tournament/applications';
 import { latestValue } from '../../lib/resource';
@@ -34,10 +35,10 @@ function MoveForm(props: { account: FoundAccount & { popId: string }; onMoved: (
     <div class='tm-move'>
       <div class='tm-move-head'>
         <label class='tm-label' for={id()}>
-          Account ID
+          {t('Account ID')}
         </label>
         <button type='button' class='btn btn-ghost tm-small' onClick={() => props.onCancel()}>
-          Cancel
+          {t('Cancel')}
         </button>
       </div>
       <div class='tm-move-row'>
@@ -49,8 +50,8 @@ function MoveForm(props: { account: FoundAccount & { popId: string }; onMoved: (
         />
         <ConfirmAction
           class='btn btn-secondary'
-          label='Move'
-          question={`Move ${props.account.popId} to ${target().trim()}?`}
+          label={t('Move')}
+          question={t('Move {popId} to {account}?', { popId: props.account.popId, account: target().trim() })}
           disabled={target().trim() === '' || target().trim() === props.account.id}
           onConfirm={() => void move()}
         />
@@ -83,27 +84,27 @@ function FoundRow(props: { account: FoundAccount; onChanged: (lookup: string) =>
       <div class='tm-found-who'>
         <h3>
           {a().name}
-          <Show when={a().role}>{role => <span class='tm-flag'>{ROLE_WORDS[role()]}</span>}</Show>
+          <Show when={a().role}>{role => <span class='tm-flag'>{t(ROLE_WORDS[role()])}</span>}</Show>
         </h3>
         <dl class='tm-app-facts'>
           <div>
-            <dt>POP ID</dt>
-            <dd class='tm-num'>{a().popId ?? 'None'}</dd>
+            <dt>{t('POP ID')}</dt>
+            <dd class='tm-num'>{a().popId ?? t('None')}</dd>
           </div>
           <Show when={a().email}>
             {email => (
               <div>
-                <dt>Email</dt>
+                <dt>{t('Email')}</dt>
                 <dd>{email()}</dd>
               </div>
             )}
           </Show>
           <div>
-            <dt>Account ID</dt>
+            <dt>{t('Account ID')}</dt>
             <dd class='tm-mono tm-select-all'>{a().id}</dd>
           </div>
           <div>
-            <dt>Joined</dt>
+            <dt>{t('Joined')}</dt>
             <dd>{dayOf(a().createdAt)}</dd>
           </div>
         </dl>
@@ -116,12 +117,12 @@ function FoundRow(props: { account: FoundAccount; onChanged: (lookup: string) =>
               fallback={
                 <span class='tm-row-actions'>
                   <button type='button' class='btn btn-secondary' onClick={() => setMoving(true)}>
-                    Move to account…
+                    {t('Move to account…')}
                   </button>
                   <ConfirmAction
                     class='btn btn-ghost'
-                    label='Clear'
-                    question={`Clear ${popId()}?`}
+                    label={t('Clear')}
+                    question={t('Clear {popId}?', { popId: popId() })}
                     danger
                     onConfirm={() => void clear(popId())}
                   />
@@ -172,12 +173,12 @@ export function AdminPopIds() {
         }}
       >
         <label class='tm-label' for='lookup'>
-          POP ID, email or account ID
+          {t('POP ID, email or account ID')}
         </label>
         <div class='tm-lookup-row'>
           <input id='lookup' class='tm-input' value={text()} onInput={event => setText(event.currentTarget.value)} />
           <button type='submit' class='btn btn-secondary' disabled={!text().trim()}>
-            Look up
+            {t('Look up')}
           </button>
         </div>
       </form>
@@ -193,7 +194,7 @@ export function AdminPopIds() {
           }
         >
           {accounts => (
-            <Show when={accounts().length > 0} fallback={<p class='tm-empty muted'>No account found</p>}>
+            <Show when={accounts().length > 0} fallback={<p class='tm-empty muted'>{t('No account found')}</p>}>
               <For each={accounts()}>{account => <FoundRow account={account} onChanged={lookUp} />}</For>
             </Show>
           )}

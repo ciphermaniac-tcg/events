@@ -6,25 +6,27 @@
 
 import { For, onMount, Show } from 'solid-js';
 import { loadTierFormats, tierFormats } from '../../lib/data/formats';
+import { msg, t } from '../../lib/i18n';
 
-const OTHER_FORMATS = ['Gym Leader Challenge', 'Eternal', 'Other'];
+/** Kept as the label in English; only `Other` reads differently in another language. */
+const OTHER_FORMATS = ['Gym Leader Challenge', 'Eternal', msg('Other')];
 
 const GROUPS = [
   {
-    label: 'Current formats',
+    label: msg('Current formats'),
     options: () =>
       tierFormats()
         .filter(f => f.group === 'current')
         .map(f => f.label)
   },
   {
-    label: 'Past formats',
+    label: msg('Past formats'),
     options: () =>
       tierFormats()
         .filter(f => f.group === 'past')
         .map(f => f.label)
   },
-  { label: 'Other formats', options: () => OTHER_FORMATS }
+  { label: msg('Other formats'), options: () => OTHER_FORMATS }
 ];
 
 export function FormatSelect(props: { id: string; value: string; onChange: (label: string) => void }) {
@@ -40,11 +42,11 @@ export function FormatSelect(props: { id: string; value: string; onChange: (labe
       </Show>
       <For each={GROUPS}>
         {group => (
-          <optgroup label={group.label}>
+          <optgroup label={t(group.label)}>
             <For each={group.options()}>
               {label => (
                 <option value={label} selected={label === props.value}>
-                  {label}
+                  {t(label)}
                 </option>
               )}
             </For>

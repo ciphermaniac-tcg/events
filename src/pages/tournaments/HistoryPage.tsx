@@ -13,16 +13,17 @@ import { TournamentHero } from './Hero';
 import { ProfileHistory } from './ProfileHistory';
 import { SignIn } from './SignIn';
 import { pageTitle } from '../../lib/title';
+import { t } from '../../lib/i18n';
 
 function SignedOut(props: { offer: SignInOffer }) {
   return (
     <>
-      <TournamentHero title='History' tab='playing' />
+      <TournamentHero title={t('History')} tab='playing' />
       <section class='tm-box'>
         <div class='tm-box-bar'>
-          <strong>Sign in</strong>
+          <strong>{t('Sign in')}</strong>
           <span class='tm-grow' />
-          <span class='tm-flag'>Signed out</span>
+          <span class='tm-flag'>{t('Signed out')}</span>
         </div>
         <div class='tm-box-bar'>
           <SignIn offer={props.offer} next='/history' />
@@ -37,7 +38,7 @@ function MyHistory() {
   const entries = () => resolved(history);
   return (
     <>
-      <TournamentHero title='History' tab='playing' />
+      <TournamentHero title={t('History')} tab='playing' />
       <Show when={entries()} fallback={<ResourceFallback resource={history} onRetry={() => void refetch()} small />}>
         {list => <ProfileHistory entries={list().entries} activity={list().activity} />}
       </Show>
@@ -47,7 +48,7 @@ function MyHistory() {
 
 export function HistoryPage() {
   onMount(() => {
-    document.title = pageTitle('History');
+    document.title = pageTitle(t('History'));
   });
   return (
     <div class='tm-page'>

@@ -11,6 +11,7 @@ import type { TournamentView } from '../../../shared/tournament/view';
 import { keepBrowserMemory, readBrowserMemory } from '../../lib/tournament/browserMemory';
 import { ApiError, errorText, identifyPlayer } from '../../lib/tournament/api';
 import { currentMatchOf, divisionHeading, namesById } from '../../lib/tournament/present';
+import { t } from '../../lib/i18n';
 import { ErrorLine } from './Field';
 import type { Identified } from './Identify';
 
@@ -19,7 +20,7 @@ const declinedKey = (code: string) => `cm-tournament-not-me:${code}`;
 /** Where the player is now: their division, and their table once they are paired. */
 function whereNow(view: TournamentView, key: string): string {
   const match = currentMatchOf(view.tournament, key);
-  const table = match && (match.match.p2 === null ? 'Bye' : `Table ${match.match.table}`);
+  const table = match && (match.match.p2 === null ? t('Bye') : t('Table {table}', { table: match.match.table }));
   return [divisionHeading(view.divisions[key] ?? null), table].filter(Boolean).join(' · ');
 }
 
@@ -71,17 +72,17 @@ export function SuggestedPlayer(props: {
 
   return (
     <>
-      <h2 class='tm-you-q'>Is this you?</h2>
+      <h2 class='tm-you-q'>{t('Is this you?')}</h2>
       <div class='tm-lookup-match'>
         <span>
           <strong>{name()}</strong>
           <Show when={whereNow(props.view, props.suggest.key)}>{where => <span class='muted'>{where()}</span>}</Show>
         </span>
         <button type='button' class='btn btn-primary' disabled={busy()} onClick={() => void confirm()}>
-          That’s me
+          {t('That’s me')}
         </button>
         <button type='button' class='btn btn-ghost' disabled={busy()} onClick={decline}>
-          Not me
+          {t('Not me')}
         </button>
       </div>
       <ErrorLine message={error()} />

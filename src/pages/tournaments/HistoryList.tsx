@@ -12,6 +12,7 @@ import { createEffect, createResource, createSignal, For, onCleanup, Show, untra
 import { recordLabel } from '../../../shared/tournament/standings';
 import type { HistoryEntry } from '../../lib/tournament/api';
 import { ordinal } from '../../lib/format';
+import { msg, t } from '../../lib/i18n';
 import { type EntryResult, eventDay } from '../../lib/tournament/history';
 import { loadEntry } from '../../lib/tournament/historyCopies';
 import { divisionHeading } from '../../lib/tournament/present';
@@ -22,8 +23,8 @@ import { Squares } from './Squares';
 import '../../styles/pages/tournament-history.css';
 
 const STATUS_FLAGS: Record<HistoryEntry['status'], string | null> = {
-  live: 'In progress',
-  upcoming: 'Upcoming',
+  live: msg('In progress'),
+  upcoming: msg('Upcoming'),
   finished: null
 };
 
@@ -60,12 +61,12 @@ function RoundLine(props: { row: EntryResult['finish']['rounds'][number]; result
       <span class='tm-hist-round'>
         <span>{props.row.label}</span>
         <Show when={props.row.table > 0}>
-          <small class='muted tm-num'>Table {props.row.table}</small>
+          <small class='muted tm-num'>{t('Table {n}', { n: props.row.table })}</small>
         </Show>
       </span>
       <Show
         when={props.row.opponent}
-        fallback={<span class='tm-hist-opp muted'>{props.row.outcome === 'bye' ? 'Bye' : 'Missed round'}</span>}
+        fallback={<span class='tm-hist-opp muted'>{props.row.outcome === 'bye' ? t('Bye') : t('Missed round')}</span>}
       >
         {opponent => (
           <span class='tm-hist-opp'>
@@ -75,7 +76,7 @@ function RoundLine(props: { row: EntryResult['finish']['rounds'][number]; result
         )}
       </Show>
       <span class='tm-hist-mark'>
-        <Show when={props.row.mark} fallback={<span class='muted'>In progress</span>}>
+        <Show when={props.row.mark} fallback={<span class='muted'>{t('In progress')}</span>}>
           <Squares marks={[props.row.mark]} />
         </Show>
       </span>
@@ -91,12 +92,12 @@ function Rounds(props: { entry: HistoryEntry; result: EntryResult | undefined; f
         when={props.result}
         fallback={
           <Show when={props.failed} fallback={<Skeleton width='60%' height='14px' />}>
-            <p class='muted'>Results could not be loaded</p>
+            <p class='muted'>{t('Results could not be loaded')}</p>
           </Show>
         }
       >
         {result => (
-          <Show when={result().finish.rounds.length} fallback={<p class='muted'>No rounds played yet</p>}>
+          <Show when={result().finish.rounds.length} fallback={<p class='muted'>{t('No rounds played yet')}</p>}>
             <ol class='tm-hist-rounds'>
               <For each={result().finish.rounds}>{row => <RoundLine row={row} result={result()} />}</For>
             </ol>
@@ -104,7 +105,7 @@ function Rounds(props: { entry: HistoryEntry; result: EntryResult | undefined; f
         )}
       </Show>
       <A class='btn btn-secondary tm-small' href={`/t/${props.entry.code}`}>
-        Event page
+        {t('Event page')}
       </A>
     </div>
   );
@@ -147,7 +148,7 @@ function EntryRow(props: { entry: HistoryEntry; watch: Watch; onGone?: (entry: H
   const sub = () =>
     [
       eventDay(props.entry.startsAt, props.entry.startDate),
-      props.entry.format,
+      t(props.entry.format),
       divisionHeading(finish()?.division ?? null)
     ]
       .filter(Boolean)
@@ -163,7 +164,7 @@ function EntryRow(props: { entry: HistoryEntry; watch: Watch; onGone?: (entry: H
             class='row-caret'
             classList={{ open: open() }}
             aria-expanded={open()}
-            aria-label={open() ? 'Hide rounds' : 'Show rounds'}
+            aria-label={open() ? t('Hide rounds') : t('Show rounds')}
           >
             ▸
           </button>
@@ -171,7 +172,7 @@ function EntryRow(props: { entry: HistoryEntry; watch: Watch; onGone?: (entry: H
         <td class='tm-hist-event'>
           <span class='tm-hist-name'>
             {props.entry.name || props.entry.code}
-            <Show when={STATUS_FLAGS[props.entry.status]}>{flag => <span class='tm-flag'>{flag()}</span>}</Show>
+            <Show when={STATUS_FLAGS[props.entry.status]}>{flag => <span class='tm-flag'>{t(flag())}</span>}</Show>
           </span>
           <span class='tm-hist-sub'>
             {/* On a phone the deck's own column gives way, and its sprites lead this line. */}
@@ -180,7 +181,7 @@ function EntryRow(props: { entry: HistoryEntry; watch: Watch; onGone?: (entry: H
             </span>
             {sub()}
             <Show when={finish()?.dropped}>
-              <span class='tm-flag'>Dropped</span>
+              <span class='tm-flag'>{t('Dropped')}</span>
             </Show>
           </span>
         </td>
@@ -238,12 +239,12 @@ export function HistoryList(props: {
           <thead>
             <tr>
               <th class='expand-col'>
-                <span class='sr-only'>Rounds</span>
+                <span class='sr-only'>{t('Rounds')}</span>
               </th>
-              <th>Event</th>
-              <th class='tm-hist-deck'>Deck</th>
-              <th class='num tm-hist-place'>Place</th>
-              <th class='num tm-hist-record'>Record</th>
+              <th>{t('Event')}</th>
+              <th class='tm-hist-deck'>{t('Deck')}</th>
+              <th class='num tm-hist-place'>{t('Place')}</th>
+              <th class='num tm-hist-record'>{t('Record')}</th>
             </tr>
           </thead>
           <tbody>

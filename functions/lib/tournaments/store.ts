@@ -37,6 +37,7 @@ import { type PairedThrough, pairedThrough } from '../../../shared/tournament/co
 import { type ReportEvidence, reportEvidenceWrites } from './reportHistory.js';
 import { type Asker, askerValues, asksStill, onStaff, roleSql } from './roles.js';
 import { winWrites } from './winWrites.js';
+import { msg } from '../../../shared/i18n.js';
 
 export interface TournamentRow {
   lastImportAt?: number | null;
@@ -353,7 +354,7 @@ export async function createTournament(db: D1Like, input: NewTournament): Promis
     const results = await db
       .batch([allowed, ...admission, insert, ...firstIndexWrites(db, { code, staffToken, mode, settings, tournament })])
       .catch((error: unknown) => {
-        throw breaksDay(error) ? new DayTaken('You already have an event that day') : error;
+        throw breaksDay(error) ? new DayTaken(msg('You already have an event that day')) : error;
       });
     checkCreationAdmission(results, input, attempt);
     if (rowsChanged(results[admission.length + 1]) === 1) {
@@ -363,7 +364,7 @@ export async function createTournament(db: D1Like, input: NewTournament): Promis
       return { ...made, ...empty, storeId, communityDay, lastImportAt, pairedThrough: paired, headJudge: null };
     }
   }
-  throw new Error('Could not find a free tournament code');
+  throw new Error(msg('Could not find a free tournament code'));
 }
 
 /** Interpret the admission snapshot from the same transaction as the event insert. */
@@ -374,7 +375,7 @@ function checkCreationAdmission(
 ): void {
   const permission = (results[0]?.results as { allowed: number }[] | undefined)?.[0]?.allowed;
   if (!permission) {
-    throw new CreationRefused('You can no longer start this event, or have too many events');
+    throw new CreationRefused(msg('You can no longer start this event, or have too many events'));
   }
   // A retry can reuse its admission; the first try must have recorded one.
   if (attempt === 0 && input.admission && rowsChanged(results[2]) === 0) {
@@ -394,7 +395,7 @@ export class TooLarge extends Error {}
 function stateJson(tournament: Tournament): string {
   const json = JSON.stringify(tournament);
   if (new TextEncoder().encode(json).length > MAX_STATE_BYTES) {
-    throw new TooLarge('This event is too large to store');
+    throw new TooLarge(msg('This event is too large to store'));
   }
   return json;
 }
@@ -610,8 +611,8 @@ export type Change = (row: TournamentRow, role: Role | null) => Changes | string
 const MAX_TRIES = 5;
 
 /** Why a staff asker who has lost their place is refused. */
-export const SIGN_IN = 'Sign in first';
-export const NOT_STAFF = 'Only this event’s staff can do that';
+export const SIGN_IN = msg('Sign in first');
+export const NOT_STAFF = msg('Only this event’s staff can do that');
 
 /** The event and the asker's role read again after a write missed; or why the asker's change ends there. */
 export async function readAgain(
@@ -621,11 +622,11 @@ export async function readAgain(
 ): Promise<{ row: TournamentRow; asker?: Asker } | { error: string; status: number }> {
   if (!asker) {
     const row = await loadTournament(db, code);
-    return row ? { row } : { error: 'No such tournament', status: 404 };
+    return row ? { row } : { error: msg('No such tournament'), status: 404 };
   }
   const opened = await openAs(db, code, asker.hash);
   if (!opened) {
-    return { error: 'No such tournament', status: 404 };
+    return { error: msg('No such tournament'), status: 404 };
   }
   if (!opened.user) {
     return { error: SIGN_IN, status: 401 };
@@ -698,7 +699,7 @@ export async function tryChange(
       return error;
     }
     if (breaksDay(error)) {
-      return new DayTaken('You already have an event that day');
+      return new DayTaken(msg('You already have an event that day'));
     }
     throw error;
   });

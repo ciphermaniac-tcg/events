@@ -23,6 +23,7 @@ import {
   REPORTABLE_OUTCOMES,
   type Tournament
 } from './types.js';
+import { msg, msgf } from '../i18n.js';
 
 export const CORRECTION_LIMITS = { note: 500 } as const;
 
@@ -67,17 +68,17 @@ const text = (value: unknown) => (typeof value === 'string' ? value.trim() : '')
 const whole = (value: unknown, least: number) => Number.isInteger(value) && (value as number) >= least;
 
 const CHECKS: [problem: string, ok: (value: Record<string, unknown>) => boolean][] = [
-  ['Say which pod', value => POD_CATEGORIES.includes(value.pod as PodCategory)],
-  ['Say which round', value => whole(value.round, 1)],
-  ['Say which table', value => whole(value.table, 0)],
-  ['Say which match', value => text(value.p1) !== '' && text(value.p2) !== ''],
-  ['Choose the result it should have', value => REPORTABLE_OUTCOMES.includes(value.outcome as Outcome)],
-  ['Say which slip and what was wrong', value => text(value.note) !== ''],
+  [msg('Say which pod'), value => POD_CATEGORIES.includes(value.pod as PodCategory)],
+  [msg('Say which round'), value => whole(value.round, 1)],
+  [msg('Say which table'), value => whole(value.table, 0)],
+  [msg('Say which match'), value => text(value.p1) !== '' && text(value.p2) !== ''],
+  [msg('Choose the result it should have'), value => REPORTABLE_OUTCOMES.includes(value.outcome as Outcome)],
+  [msg('Say which slip and what was wrong'), value => text(value.note) !== ''],
   [
-    `Keep the note under ${CORRECTION_LIMITS.note} characters`,
+    msgf('Keep the note under {limit} characters', { limit: CORRECTION_LIMITS.note }),
     value => text(value.note).length <= CORRECTION_LIMITS.note
   ],
-  ['Look at the event again first', value => whole(value.version, 1)]
+  [msg('Look at the event again first'), value => whole(value.version, 1)]
 ];
 
 /** A correction out of a request body, or why it is not one. Whether it fits the event is `correctionRefusal`'s to say. */
@@ -117,7 +118,10 @@ export function pairedThrough(earlier: PairedThrough, t: Tournament): PairedThro
 /** Why round `round`'s records can no longer change, given the highest round its pod has ever paired; or null. */
 export function lockedRound(highest: number, round: number): string | null {
   return highest > round + 1
-    ? `Round ${round} can no longer be corrected. Its records locked when round ${round + 2} was paired.`
+    ? msgf('Round {round} can no longer be corrected. Its records locked when round {later} was paired.', {
+        round,
+        later: round + 2
+      })
     : null;
 }
 
@@ -137,9 +141,9 @@ const cutStarted = (pod: Pod) => Object.values(pod.divisionCuts ?? {}).some(cut 
 /** Why the event takes no corrections at all, or null. */
 function eventRefusal(ctx: CorrectionContext): string | null {
   if (ctx.tom) {
-    return 'This event runs in TOM. Correct the result in TOM, then sync.';
+    return msg('This event runs in TOM. Correct the result in TOM, then sync.');
   }
-  return ctx.finished ? 'The event has ended.' : null;
+  return ctx.finished ? msg('The event has ended.') : null;
 }
 
 /**
@@ -155,16 +159,18 @@ export function roundRefusal(pod: Pod, round: number, ctx: CorrectionContext): s
   const latest = latestRound(pod);
   const corrected = pod.rounds.find(r => r.number === round);
   if (!latest || corrected?.kind !== 'swiss') {
-    return `Round ${round} is not a Swiss round of this event.`;
+    return msgf('Round {round} is not a Swiss round of this event.', { round });
   }
   const locked = lockedRound(Math.max(latest.number, ctx.paired[pod.category] ?? 0), round);
   if (locked) {
     return locked;
   }
   if (latest.kind !== 'swiss' || cutStarted(pod)) {
-    return 'The top cut has started, so Swiss results can no longer be corrected here.';
+    return msg('The top cut has started, so Swiss results can no longer be corrected here.');
   }
-  return latest.number === round ? `Round ${round} is the current round. Change its results from its table.` : null;
+  return latest.number === round
+    ? msgf('Round {round} is the current round. Change its results from its table.', { round })
+    : null;
 }
 
 /** The two-player match a correction names, as it stands now; undefined when it has changed. */
@@ -181,7 +187,7 @@ function matchOf(pod: Pod, request: Pick<CorrectionRequest, 'round' | 'table' | 
 export function correctableMatch(t: Tournament, request: CorrectionRequest, ctx: CorrectionContext): Match | string {
   const pod = t.pods.find(p => p.category === request.pod);
   if (!pod) {
-    return 'That pod is not on this event.';
+    return msg('That pod is not on this event.');
   }
   const window = roundRefusal(pod, request.round, ctx);
   if (window) {
@@ -189,12 +195,12 @@ export function correctableMatch(t: Tournament, request: CorrectionRequest, ctx:
   }
   const match = matchOf(pod, request);
   if (!match) {
-    return 'That match has changed. Look again.';
+    return msg('That match has changed. Look again.');
   }
   if (!REPORTABLE_OUTCOMES.includes(match.outcome)) {
-    return 'That match has no result to correct.';
+    return msg('That match has no result to correct.');
   }
-  return match.outcome === request.outcome ? 'That is already its result.' : match;
+  return match.outcome === request.outcome ? msg('That is already its result.') : match;
 }
 
 /** The event with the correction made: the one match's result, stamped `timestamp`, and nothing else. */

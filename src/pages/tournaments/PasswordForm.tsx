@@ -10,6 +10,7 @@ import {
   Switch
 } from 'solid-js';
 import { PASSWORD_MIN } from '../../../shared/accounts/clerk';
+import { t } from '../../lib/i18n';
 import type { Step } from '../../lib/tournament/clerk';
 
 /** The Clerk client, loaded on first use so the pages that only show this form don't carry it. */
@@ -161,33 +162,40 @@ function Credentials(props: { flow: Flow; mode: 'in' | 'up' }) {
   return (
     <Part
       flow={props.flow}
-      submit={making() ? 'Create account' : 'Sign in'}
+      submit={making() ? t('Create account') : t('Sign in')}
       onSubmit={submit}
       acts={
         <>
           <Swap flow={props.flow} onClick={() => props.flow.restart(making() ? 'in' : 'up')}>
-            {making() ? 'I have an account' : 'Create an account'}
+            {making() ? t('I have an account') : t('Create an account')}
           </Swap>
           <Show when={!making()}>
             <Swap flow={props.flow} onClick={() => props.flow.restart('forgot')}>
-              Forgot password?
+              {t('Forgot password?')}
             </Swap>
           </Show>
         </>
       }
     >
-      <TextField flow={props.flow} name='username' label='Username' autocomplete='username' first />
+      <TextField flow={props.flow} name='username' label={t('Username')} autocomplete='username' first />
       <Show when={making()}>
-        <TextField flow={props.flow} name='email' label='Email' type='email' inputmode='email' autocomplete='email' />
+        <TextField
+          flow={props.flow}
+          name='email'
+          label={t('Email')}
+          type='email'
+          inputmode='email'
+          autocomplete='email'
+        />
       </Show>
       <TextField
         flow={props.flow}
         name='password'
-        label='Password'
+        label={t('Password')}
         type='password'
         autocomplete={making() ? 'new-password' : 'current-password'}
         minLength={making() ? PASSWORD_MIN : undefined}
-        hint={making() ? `At least ${PASSWORD_MIN} characters` : undefined}
+        hint={making() ? t('At least {n} characters', { n: PASSWORD_MIN }) : undefined}
       />
       <Show when={making() && props.flow.busy()}>
         <div id='clerk-captcha' />
@@ -201,18 +209,18 @@ function Forgot(props: { flow: Flow }) {
   return (
     <Part
       flow={props.flow}
-      submit='Send code'
+      submit={t('Send code')}
       onSubmit={() => {
         const identifier = trimmed(props.flow, 'username');
         props.flow.run((clerk, key) => clerk.passwordReset(key, identifier));
       }}
       acts={
         <Swap flow={props.flow} onClick={() => props.flow.restart('in')}>
-          Back to sign in
+          {t('Back to sign in')}
         </Swap>
       }
     >
-      <TextField flow={props.flow} name='username' label='Username or email' autocomplete='username' first />
+      <TextField flow={props.flow} name='username' label={t('Username or email')} autocomplete='username' first />
     </Part>
   );
 }
@@ -226,25 +234,26 @@ function CodeActs(props: { flow: Flow; resend: () => Promise<void> }) {
   return (
     <>
       <Swap flow={props.flow} onClick={resend}>
-        {sent() ? 'Sent again' : 'Send again'}
+        {sent() ? t('Sent again') : t('Send again')}
       </Swap>
       <Swap flow={props.flow} onClick={() => props.flow.restart()}>
-        Start over
+        {t('Start over')}
       </Swap>
     </>
   );
 }
 
-const sentTo = (to: string) => (to ? `Sent to ${to}` : undefined);
+const sentTo = (to: string) => (to ? t('Sent to {to}', { to }) : undefined);
 
-const ONE_TIME = { name: 'code', label: 'Code', autocomplete: 'one-time-code', inputmode: 'numeric' } as const;
+const oneTime = () =>
+  ({ name: 'code', label: t('Code'), autocomplete: 'one-time-code', inputmode: 'numeric' }) as const;
 
 /** The code Clerk emailed, proving an email for a new account or one added at sign-in. */
 function Code(props: { flow: Flow; step: PendingOf<'code'> }) {
   return (
     <Part
       flow={props.flow}
-      submit='Verify'
+      submit={t('Verify')}
       onSubmit={() => {
         const { verify } = props.step;
         const code = trimmed(props.flow, 'code');
@@ -252,7 +261,7 @@ function Code(props: { flow: Flow; step: PendingOf<'code'> }) {
       }}
       acts={<CodeActs flow={props.flow} resend={props.step.resend} />}
     >
-      <TextField flow={props.flow} {...ONE_TIME} hint={sentTo(props.step.to)} first />
+      <TextField flow={props.flow} {...oneTime()} hint={sentTo(props.step.to)} first />
     </Part>
   );
 }
@@ -262,7 +271,7 @@ function AddEmail(props: { flow: Flow; step: PendingOf<'email'> }) {
   return (
     <Part
       flow={props.flow}
-      submit='Send code'
+      submit={t('Send code')}
       onSubmit={() => {
         const { add } = props.step;
         const email = trimmed(props.flow, 'email');
@@ -270,7 +279,7 @@ function AddEmail(props: { flow: Flow; step: PendingOf<'email'> }) {
       }}
       acts={
         <Swap flow={props.flow} onClick={() => props.flow.restart()}>
-          Cancel
+          {t('Cancel')}
         </Swap>
       }
     >
@@ -278,11 +287,11 @@ function AddEmail(props: { flow: Flow; step: PendingOf<'email'> }) {
       <TextField
         flow={props.flow}
         name='email'
-        label='Email'
+        label={t('Email')}
         type='email'
         inputmode='email'
         autocomplete='email'
-        hint='Add an email to reset your password with.'
+        hint={t('Add an email to reset your password with.')}
         first
       />
     </Part>
@@ -294,7 +303,7 @@ function Reset(props: { flow: Flow; step: PendingOf<'reset'> }) {
   return (
     <Part
       flow={props.flow}
-      submit='Reset password'
+      submit={t('Reset password')}
       onSubmit={() => {
         const { reset } = props.step;
         const code = trimmed(props.flow, 'code');
@@ -304,15 +313,20 @@ function Reset(props: { flow: Flow; step: PendingOf<'reset'> }) {
       acts={<CodeActs flow={props.flow} resend={props.step.resend} />}
     >
       {/* Placeholder copy until it is written. It says nothing of whether the account exists. */}
-      <TextField flow={props.flow} {...ONE_TIME} hint='If the account has an email, a code is on its way.' first />
+      <TextField
+        flow={props.flow}
+        {...oneTime()}
+        hint={t('If the account has an email, a code is on its way.')}
+        first
+      />
       <TextField
         flow={props.flow}
         name='password'
-        label='New password'
+        label={t('New password')}
         type='password'
         autocomplete='new-password'
         minLength={PASSWORD_MIN}
-        hint={`At least ${PASSWORD_MIN} characters`}
+        hint={t('At least {n} characters', { n: PASSWORD_MIN })}
       />
     </Part>
   );
@@ -379,7 +393,7 @@ export function UsernameForm(props: { publishableKey: string; next: string; focu
       }
       return { clerk, answer: await action(clerk, props.publishableKey) };
     } catch (error) {
-      setProblem(clerk?.clerkProblem(error) ?? 'Sign-in failed. Try again.');
+      setProblem(clerk?.clerkProblem(error) ?? t('Sign-in failed. Try again.'));
       setBusy(false);
       return null;
     }

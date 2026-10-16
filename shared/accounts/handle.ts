@@ -6,6 +6,7 @@
  * (`handleKey`), so rose.matcha cannot stand beside rosematcha.
  */
 
+import { msg, msgf } from '../i18n.js';
 export const HANDLE_MIN = 2;
 export const HANDLE_MAX = 32;
 
@@ -48,18 +49,18 @@ export const handleKey = (handle: string) => handle.replace(SEPARATORS, '');
  */
 export function handleProblem(handle: string, { reserved = true } = {}): string | null {
   if (handle.length < HANDLE_MIN || handle.length > HANDLE_MAX) {
-    return `Use ${HANDLE_MIN} to ${HANDLE_MAX} characters`;
+    return msgf('Use {min} to {max} characters', { min: HANDLE_MIN, max: HANDLE_MAX });
   }
   if (!/^[a-z0-9._-]+$/.test(handle)) {
-    return 'Use letters, numbers, periods, dashes and underscores';
+    return msg('Use letters, numbers, periods, dashes and underscores');
   }
   if (!/^[a-z0-9]/.test(handle) || !/[a-z0-9]$/.test(handle)) {
-    return 'Start and end with a letter or number';
+    return msg('Start and end with a letter or number');
   }
   if (/[._-]{2}/.test(handle)) {
-    return 'Put a letter or number between separators';
+    return msg('Put a letter or number between separators');
   }
-  return reserved && RESERVED.has(handleKey(handle)) ? 'That username is reserved' : null;
+  return reserved && RESERVED.has(handleKey(handle)) ? msg('That username is reserved') : null;
 }
 
 export const isHandle = (value: string, options?: { reserved: boolean }) => handleProblem(value, options) === null;

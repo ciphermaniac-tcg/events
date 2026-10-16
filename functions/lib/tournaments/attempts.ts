@@ -16,12 +16,13 @@
  */
 
 import type { D1Like } from '../types.js';
+import { msg } from '../../../shared/i18n.js';
 
 export const FREE_TRIES = 5;
 const FIRST_LOCK_MS = 60_000;
 const MAX_LOCK_MS = 60 * 60_000;
 
-export const LOCKED_OUT = 'Too many wrong birth years for this Player ID. Try again later, or ask staff.';
+export const LOCKED_OUT = msg('Too many wrong birth years for this Player ID. Try again later, or ask staff.');
 
 /**
  * Counts a try against the Player ID unless it is refused now; whether it was

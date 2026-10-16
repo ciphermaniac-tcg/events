@@ -22,6 +22,7 @@ import {
   type PodCategory,
   type Tournament
 } from './types.js';
+import { msg } from '../i18n.js';
 
 export function bracketPlayers(
   players: Player[],
@@ -115,7 +116,7 @@ export function initializeCuts(t: Tournament, category: PodCategory | undefined,
   const pods = selectedPods(t, category).map(pod => {
     const last = latestRound(pod);
     if (pod.stage !== 0 || last?.kind !== 'swiss' || last.number < regularRounds(t, pod) || !countsComplete(last)) {
-      throw new PairingError('Finish Swiss results before starting the cut');
+      throw new PairingError(msg('Finish Swiss results before starting the cut'));
     }
     const cuts = { ...pod.divisionCuts };
     const pairings: Pairing[] = [];
@@ -270,13 +271,13 @@ export function playoffCandidates(t: Tournament, pod: Pod, winners: string[], fi
   }
   const prior = winners.map((id, i) => priorMatch(pod, id, winners[1 - i]!, finalPaired));
   if (prior.includes('missing')) {
-    throw new PairingError('A third-place playoff requires a previous match for each finalist');
+    throw new PairingError(msg('A third-place playoff requires a previous match for each finalist'));
   }
   const candidates: string[] = [];
   for (const i of [1, 0]) {
     const match = prior[i] as Pick<Match, 'p1' | 'p2'>;
     if (match.p2 === null) {
-      throw new PairingError('A third-place playoff requires a previous two-seat match for each finalist');
+      throw new PairingError(msg('A third-place playoff requires a previous two-seat match for each finalist'));
     }
     const candidate = match.p1 === winners[i] ? match.p2 : match.p1;
     if (t.players.find(p => p.id === candidate)?.droppedAfter !== null) {
@@ -306,14 +307,14 @@ export function nextElimination(t: Tournament, category: PodCategory | undefined
     const last = latestRound(pod);
     const cutRound = [...pod.rounds].reverse().find(round => round.kind === 'elimination');
     if (!last || !cutRound) {
-      throw new PairingError('There is no elimination round to advance');
+      throw new PairingError(msg('There is no elimination round to advance'));
     }
     if (playedOut(t, cutRound)) {
-      throw new PairingError('The elimination bracket has played all its rounds');
+      throw new PairingError(msg('The elimination bracket has played all its rounds'));
     }
     const brackets = pairedBrackets(t, pod, last.number + 1);
     if (!brackets?.length) {
-      throw new PairingError('No more elimination rounds can be paired');
+      throw new PairingError(msg('No more elimination rounds can be paired'));
     }
     if (t.settings?.type !== 1 && last.kind === 'swiss') {
       players = brackets.reduce(

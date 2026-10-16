@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { applyLifecycleOperation } from '../../shared/tournament/lifecycle.ts';
 import { latestRound } from '../../shared/tournament/rounds.ts';
 import type { Tournament } from '../../shared/tournament/types.ts';
 import { readTournament } from '../../shared/tournament/validate.ts';
@@ -48,4 +49,34 @@ test('rule 53: a repeated departure keeps the first status, round and time', () 
   t = operated(t, { type: 'pair' }, ctx);
   const repeated = operated(t, { type: 'drop', id: '2', disqualified: true, timestamp: '10/01/2026 12:45:00' }, ctx);
   assert.deepEqual(repeated, t);
+});
+
+test('dropping a player who is in no pod is refused', () => {
+  const t = generatedEvent(8, ctx);
+  const result = applyLifecycleOperation(
+    t,
+    { type: 'drop', id: 'missing', disqualified: false, timestamp: ctx.localTime },
+    ctx
+  );
+  assert.equal(result.ok, false);
+  assert.equal(result.error, 'The player has no pod');
+});
+
+test('a player who has not dropped cannot return', () => {
+  const t = operated(generatedEvent(8, ctx), { type: 'start' }, ctx);
+  const result = applyLifecycleOperation(t, { type: 'reenter', id: '2' }, ctx);
+  assert.equal(result.ok, false);
+  assert.equal(result.error, 'The player is not dropped');
+});
+
+test('a late entrant cannot reuse a registered player ID', () => {
+  const t = operated(generatedEvent(8, ctx), { type: 'start' }, ctx);
+  const player = { id: '2', firstName: 'Late', lastName: 'Entrant', birthDate: '02/27/1995' };
+  const result = applyLifecycleOperation(
+    t,
+    { type: 'late', player, markLate: false, forcedLoss: false, timestamp: ctx.localTime },
+    ctx
+  );
+  assert.equal(result.ok, false);
+  assert.equal(result.error, 'A late entrant needs a new player ID');
 });

@@ -7,6 +7,7 @@
 
 import { createSignal, Show } from 'solid-js';
 import type { Pod, Round } from '../../../shared/tournament/types';
+import { t } from '../../lib/i18n';
 import { clockLabel } from '../../lib/tournament/present';
 import { Clock } from './Clock';
 import { ConfirmAction } from './ConfirmAction';
@@ -18,7 +19,7 @@ export function ClockControls(props: { state: ManageState; pod: Pod; round: Roun
   const adjust = (seconds: number) => void props.state.send({ type: 'adjustClock', pod: props.pod.category, seconds });
   const running = () => props.round.clockStartedAt != null;
   return (
-    <span class={`tm-clock-group ${props.class ?? ''}`} role='group' aria-label='Round clock'>
+    <span class={`tm-clock-group ${props.class ?? ''}`} role='group' aria-label={t('Round clock')}>
       <span class='tm-clock-face'>
         <Clock round={props.round} />
         <Show when={!running() && !props.round.startTime}>
@@ -26,12 +27,12 @@ export function ClockControls(props: { state: ManageState; pod: Pod; round: Roun
         </Show>
       </span>
       <button type='button' onClick={() => send(running() ? 'stopClock' : 'startClock')}>
-        {running() ? 'Pause' : props.round.startTime ? 'Resume' : 'Start clock'}
+        {running() ? t('Pause') : props.round.startTime ? t('Resume') : t('Start clock')}
       </button>
-      <button type='button' aria-label='Add a minute' onClick={() => adjust(60)}>
+      <button type='button' aria-label={t('Add a minute')} onClick={() => adjust(60)}>
         +1
       </button>
-      <button type='button' aria-label='Take a minute off' onClick={() => adjust(-60)}>
+      <button type='button' aria-label={t('Take a minute off')} onClick={() => adjust(-60)}>
         −1
       </button>
     </span>
@@ -54,13 +55,13 @@ export function RepairControl(props: {
     <ConfirmAction
       class={props.class ?? 'btn btn-ghost tm-small'}
       label={props.label}
-      question={props.question ?? (keep() ? 'Re-pair the open tables?' : 'Re-pair every table?')}
-      confirmLabel='Re-pair'
+      question={props.question ?? (keep() ? t('Re-pair the open tables?') : t('Re-pair every table?'))}
+      confirmLabel={t('Re-pair')}
       disabled={props.state.busy()}
       extra={
         <label class='tm-check'>
           <input type='checkbox' checked={keep()} onChange={e => setKeep(e.currentTarget.checked)} />
-          <span>Keep reported results</span>
+          <span>{t('Keep reported results')}</span>
         </label>
       }
       onConfirm={() => void props.state.send({ type: 'repairRound', pod: props.pod.category, keepReported: keep() })}
@@ -73,9 +74,9 @@ export function DeleteRound(props: { state: ManageState; pod: Pod; round: Round 
   return (
     <ConfirmAction
       class='btn btn-ghost tm-small'
-      label='Delete round'
-      question={`Delete round ${props.round.number}?`}
-      confirmLabel='Delete'
+      label={t('Delete round')}
+      question={t('Delete round {number}?', { number: props.round.number })}
+      confirmLabel={t('Delete')}
       danger
       disabled={props.state.busy()}
       onConfirm={() => void props.state.send({ type: 'deleteRound', pod: props.pod.category })}

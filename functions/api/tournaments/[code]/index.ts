@@ -16,6 +16,7 @@ import type { Context } from '../../../lib/auth/env.js';
 import { askerOf, codeOf, open, openForOwner, pollOf, viewOf } from '../../../lib/tournaments/access.js';
 import { unpublishView } from '../../../lib/tournaments/publish.js';
 import { deleteTournament, loadVersion } from '../../../lib/tournaments/store.js';
+import { msg } from '../../../../shared/i18n.js';
 
 /** A refusal as data: a Response belongs to the request that made it, so a shared read cannot hand one on. */
 interface Refusal {
@@ -69,7 +70,7 @@ export async function onRequestGet(context: Context<'code'>): Promise<Response> 
 }
 
 export async function onRequestDelete(context: Context<'code'>): Promise<Response> {
-  const refusal = 'Only the organizer can delete the event';
+  const refusal = msg('Only the organizer can delete the event');
   const access = await openForOwner(context, refusal);
   if (access instanceof Response) {
     return access;

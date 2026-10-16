@@ -31,6 +31,7 @@ import { availableProviders } from '../lib/auth/providers.js';
 import { currentAccount, type ProfileName, type User } from '../lib/auth/session.js';
 import { rowsChanged } from '../lib/d1.js';
 import type { D1Like } from '../lib/types.js';
+import { msg } from '../../shared/i18n.js';
 
 const PRIVATE = { cacheControl: 'no-store', cors: false } as const;
 
@@ -83,7 +84,10 @@ export async function onRequestPut({ request, env }: Context): Promise<Response>
   const profile = { ...read, birthDate: yearOnlyBirthDate(read.birthDate) };
   const [, saved] = await db.batch(profileWrites(db, user, profile));
   if (rowsChanged(saved) === 0) {
-    return jsonResponse({ error: 'This POP ID is on another account', popIdTaken: true }, { ...PRIVATE, status: 409 });
+    return jsonResponse(
+      { error: msg('This POP ID is on another account'), popIdTaken: true },
+      { ...PRIVATE, status: 409 }
+    );
   }
   const updated = { ...user, ...profile };
   return jsonResponse({ user: { ...updated, name: displayName(updated) } }, PRIVATE);
@@ -97,7 +101,7 @@ const CHANGES = ['handle', 'publicProfile', 'profileName'] as const;
 function readChange(body: Record<string, unknown>): AccountChange | string {
   const asked = CHANGES.filter(key => key in body);
   if (asked.length !== 1) {
-    return asked.length > 1 ? 'Change one thing at a time' : 'Not a valid change';
+    return asked.length > 1 ? msg('Change one thing at a time') : msg('Not a valid change');
   }
   const { handle, publicProfile, profileName } = body;
   if (asked[0] === 'handle') {
@@ -105,14 +109,14 @@ function readChange(body: Record<string, unknown>): AccountChange | string {
     return handleProblem(wanted) ?? { handle: wanted };
   }
   if (asked[0] === 'publicProfile') {
-    return typeof publicProfile === 'boolean' ? { publicProfile } : 'Not a valid change';
+    return typeof publicProfile === 'boolean' ? { publicProfile } : msg('Not a valid change');
   }
-  return profileName === 'real' || profileName === 'handle' ? { profileName } : 'Not a valid change';
+  return profileName === 'real' || profileName === 'handle' ? { profileName } : msg('Not a valid change');
 }
 
 const REFUSED = {
-  taken: { error: 'That username is taken', status: 409 },
-  limit: { error: 'You can change your username three times a day', status: 429 }
+  taken: { error: msg('That username is taken'), status: 409 },
+  limit: { error: msg('You can change your username three times a day'), status: 429 }
 } as const;
 
 /** Makes the change, and answers the fields of the account it changed, or why it was refused. */

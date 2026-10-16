@@ -11,6 +11,7 @@
 import { useSearchParams } from '@solidjs/router';
 import { Match, Switch } from 'solid-js';
 import { TabPanel, Tabs } from '../../components/Tabs';
+import { msg, t } from '../../lib/i18n';
 import { AdminApplications } from './AdminApplications';
 import { AdminEvents } from './AdminEvents';
 import { AdminOrganizers } from './AdminOrganizers';
@@ -21,11 +22,11 @@ import '../../styles/pages/tournament-admin.css';
 type Section = 'applications' | 'organizers' | 'pop-ids' | 'events' | 'users';
 
 const SECTIONS: { value: Section; label: string }[] = [
-  { value: 'applications', label: 'Applications' },
-  { value: 'organizers', label: 'Organizers' },
-  { value: 'pop-ids', label: 'POP IDs' },
-  { value: 'events', label: 'Events' },
-  { value: 'users', label: 'Users' }
+  { value: 'applications', label: msg('Applications') },
+  { value: 'organizers', label: msg('Organizers') },
+  { value: 'pop-ids', label: msg('POP IDs') },
+  { value: 'events', label: msg('Events') },
+  { value: 'users', label: msg('Users') }
 ];
 
 export function AdminSections(props: { param: 'tab' | 'section' }) {
@@ -35,10 +36,10 @@ export function AdminSections(props: { param: 'tab' | 'section' }) {
     <div class='tm-admin'>
       <Tabs
         id='admin'
-        options={SECTIONS}
+        options={SECTIONS.map(option => ({ ...option, label: t(option.label) }))}
         selected={section()}
         onSelect={value => setParams({ [props.param]: value }, { replace: true })}
-        ariaLabel='Admin sections'
+        ariaLabel={t('Admin sections')}
       />
       <TabPanel tabs='admin' selected={section()}>
         <Switch>

@@ -8,23 +8,22 @@
 import { createEffect, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import type { Badge } from '../../../shared/accounts/achievements';
 import { InfoTip } from '../../components/InfoTip';
+import { t, tn } from '../../lib/i18n';
 import { visibleBadgeCount } from '../../lib/tournament/badgeOverflow';
 import { BadgeArt } from './badgeArt';
 import '../../styles/pages/tournament-badges.css';
 
-const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
-
 const LABELS: Record<Badge['key'], (n: number) => string> = {
-  creator: () => 'Developer',
-  beta: () => 'Beta tester',
-  early: () => 'Early adopter',
-  played: n => `Played ${plural(n, 'event')}`,
-  won: n => `Won ${plural(n, 'event')}`,
-  organized: n => `Organized ${plural(n, 'event')}`,
-  staffed: n => `Staffed ${plural(n, 'event')}`,
-  traveler: n => `Played in ${plural(n, 'city', 'cities')}`,
-  bug: n => plural(n, 'accepted issue'),
-  developer: n => plural(n, 'accepted pull request')
+  creator: () => t('Developer'),
+  beta: () => t('Beta tester'),
+  early: () => t('Early adopter'),
+  played: n => tn(n, 'Played {n} event', 'Played {n} events'),
+  won: n => tn(n, 'Won {n} event', 'Won {n} events'),
+  organized: n => tn(n, 'Organized {n} event', 'Organized {n} events'),
+  staffed: n => tn(n, 'Staffed {n} event', 'Staffed {n} events'),
+  traveler: n => tn(n, 'Played in {n} city', 'Played in {n} cities'),
+  bug: n => tn(n, '{n} accepted issue', '{n} accepted issues'),
+  developer: n => tn(n, '{n} accepted pull request', '{n} accepted pull requests')
 };
 
 /** What a badge is called where it is named. */
@@ -72,7 +71,7 @@ function More(props: { badges: Badge[] }) {
       <button
         type='button'
         aria-expanded={open()}
-        aria-label={`${props.badges.length} more badges`}
+        aria-label={tn(props.badges.length, '{n} more badges', '{n} more badges')}
         onClick={() => setOpen(!open())}
       >
         +{props.badges.length}

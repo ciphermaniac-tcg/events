@@ -23,6 +23,7 @@ import {
   removeDeckCheck
 } from '../../lib/tournament/api';
 import { latestValue } from '../../lib/resource';
+import { intlLocale, msg, t, tn } from '../../lib/i18n';
 import { Segmented } from '../../components/Segmented';
 import { ConfirmAction } from './ConfirmAction';
 
@@ -47,14 +48,14 @@ export function createDeckChecks(code: () => string) {
 
 export type DeckChecks = ReturnType<typeof createDeckChecks>;
 
-const RESULT_WORDS: Record<DeckCheckResult, string> = { pass: 'Pass', fail: 'Fail' };
+const RESULT_WORDS: Record<DeckCheckResult, string> = { pass: msg('Pass'), fail: msg('Fail') };
 
-const timeOf = (at: number) => new Date(at).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+const timeOf = (at: number) => new Date(at).toLocaleTimeString(intlLocale(), { hour: 'numeric', minute: '2-digit' });
 
-const nameOr = (name: string | null) => name ?? 'Deleted account';
+const nameOr = (name: string | null) => name ?? t('Deleted account');
 
 function Result(props: { result: DeckCheckResult }) {
-  return <strong class={`tm-check-${props.result}`}>{RESULT_WORDS[props.result]}</strong>;
+  return <strong class={`tm-check-${props.result}`}>{t(RESULT_WORDS[props.result])}</strong>;
 }
 
 /** The row's cell: the player's latest check, or that there is none. */
@@ -63,7 +64,9 @@ export function LastCheck(props: { checks: DeckChecks; playerId: string | undefi
   return (
     <Show
       when={last()}
-      fallback={<span class='muted-cell'>{props.checks.loading() || props.checks.failed() ? '' : 'Not checked'}</span>}
+      fallback={
+        <span class='muted-cell'>{props.checks.loading() || props.checks.failed() ? '' : t('Not checked')}</span>
+      }
     >
       {check => (
         <span class='tm-nowrap'>
@@ -78,7 +81,7 @@ export function LastCheck(props: { checks: DeckChecks; playerId: string | undefi
 function Earlier(props: { entry: DeckCheckEntry }) {
   return (
     <li>
-      R{props.entry.round} · {RESULT_WORDS[props.entry.result]} · {nameOr(props.entry.checker.name)}
+      R{props.entry.round} · {t(RESULT_WORDS[props.entry.result])} · {nameOr(props.entry.checker.name)}
       {props.entry.notes ? ` · ${props.entry.notes}` : ''} · {nameOr(props.entry.recordedBy)},{' '}
       {timeOf(props.entry.recordedAt)}
     </li>
@@ -89,28 +92,29 @@ function Earlier(props: { entry: DeckCheckEntry }) {
 function CheckLine(props: { check: DeckCheck; onEdit: () => void; onRemove: () => void }) {
   const [older, setOlder] = createSignal(false);
   const earlier = () => props.check.earlier.length;
+  const recorded = () => ({ name: nameOr(props.check.recordedBy), time: timeOf(props.check.recordedAt) });
   return (
     <li>
       <div class='tm-check-head'>
         <span>
-          <strong>R{props.check.round}</strong> · <Result result={props.check.result} /> · checked by{' '}
-          {nameOr(props.check.checker.name)}
+          <strong>R{props.check.round}</strong> · <Result result={props.check.result} /> ·{' '}
+          {t('checked by {name}', { name: nameOr(props.check.checker.name) })}
         </span>
         <span class='tm-grow' />
         <button type='button' class='btn btn-ghost tm-small' onClick={() => props.onEdit()}>
-          Edit
+          {t('Edit')}
         </button>
         <ConfirmAction
-          label='Remove'
-          question='Remove this deck check?'
-          confirmLabel='Remove'
+          label={t('Remove')}
+          question={t('Remove this deck check?')}
+          confirmLabel={t('Remove')}
           danger
           onConfirm={() => props.onRemove()}
         />
       </div>
       <Show when={props.check.notes}>{notes => <p class='tm-check-notes'>{notes()}</p>}</Show>
       <p class='tm-check-meta muted'>
-        {earlier() ? 'Edited' : 'Recorded'} by {nameOr(props.check.recordedBy)} at {timeOf(props.check.recordedAt)}
+        {earlier() ? t('Edited by {name} at {time}', recorded()) : t('Recorded by {name} at {time}', recorded())}
         <Show when={earlier()}>
           {' · '}
           <button
@@ -119,7 +123,9 @@ function CheckLine(props: { check: DeckCheck; onEdit: () => void; onRemove: () =
             aria-expanded={older()}
             onClick={() => setOlder(!older())}
           >
-            {older() ? 'Hide' : 'Show'} {earlier()} earlier version{earlier() === 1 ? '' : 's'}
+            {older()
+              ? tn(earlier(), 'Hide {n} earlier version', 'Hide {n} earlier versions')
+              : tn(earlier(), 'Show {n} earlier version', 'Show {n} earlier versions')}
           </button>
         </Show>
       </p>
@@ -166,9 +172,9 @@ const editing = (check: DeckCheck): Draft => ({
 /** What is missing before the draft can be saved, or null. */
 function draftProblem(draft: Draft): string | null {
   if (!draft.result) {
-    return 'Choose Pass or Fail';
+    return t('Choose Pass or Fail');
   }
-  return draft.checkerId === SOMEONE_ELSE && !draft.checkerName.trim() ? 'Say who checked the deck' : null;
+  return draft.checkerId === SOMEONE_ELSE && !draft.checkerName.trim() ? t('Say who checked the deck') : null;
 }
 
 interface FormProps {
@@ -200,29 +206,29 @@ function CheckForm(props: FormProps) {
       }}
     >
       <label>
-        Round
+        {t('Round')}
         <select
           class='tm-select'
           value={props.draft.round}
           onChange={e => set({ round: Number(e.currentTarget.value) })}
         >
-          <For each={rounds()}>{round => <option value={round}>Round {round}</option>}</For>
+          <For each={rounds()}>{round => <option value={round}>{t('Round {round}', { round })}</option>}</For>
         </select>
       </label>
       <label>
-        Deck checker
+        {t('Deck checker')}
         <select
           class='tm-select'
           value={props.draft.checkerId}
           onChange={e => set({ checkerId: e.currentTarget.value })}
         >
           <For each={props.checkers}>{checker => <option value={checker.id}>{checker.name}</option>}</For>
-          <option value={SOMEONE_ELSE}>Someone else</option>
+          <option value={SOMEONE_ELSE}>{t('Someone else')}</option>
         </select>
       </label>
       <Show when={props.draft.checkerId === SOMEONE_ELSE}>
         <label>
-          Name
+          {t('Name')}
           <input
             class='tm-input'
             maxLength={DECK_CHECK_LIMITS.checkerName}
@@ -232,19 +238,19 @@ function CheckForm(props: FormProps) {
         </label>
       </Show>
       <div class='tm-check-field'>
-        <span>Result</span>
+        <span>{t('Result')}</span>
         <Segmented
           options={(['pass', 'fail'] as const).map(value => ({
             value,
-            label: <span class={`tm-check-${value}`}>{RESULT_WORDS[value]}</span>
+            label: <span class={`tm-check-${value}`}>{t(RESULT_WORDS[value])}</span>
           }))}
           selected={props.draft.result}
           onSelect={result => set({ result })}
-          ariaLabel='Result'
+          ariaLabel={t('Result')}
         />
       </div>
       <label class='tm-check-wide'>
-        Notes
+        {t('Notes')}
         <textarea
           class='tm-input tm-textarea'
           rows={3}
@@ -255,11 +261,11 @@ function CheckForm(props: FormProps) {
       </label>
       <div class='tm-check-wide tm-row-actions'>
         <button type='submit' class='btn btn-primary tm-small' disabled={props.saving}>
-          {props.draft.replaces ? 'Save edit' : 'Save check'}
+          {props.draft.replaces ? t('Save edit') : t('Save check')}
         </button>
         <Show when={props.draft.replaces}>
           <button type='button' class='btn btn-ghost tm-small' onClick={() => props.onCancel()}>
-            Cancel
+            {t('Cancel')}
           </button>
         </Show>
         <Show when={props.error}>
@@ -333,21 +339,23 @@ export function DeckCheckSide(props: SideProps) {
   }
   return (
     <div class='tm-check-side'>
-      <h4>Deck checks</h4>
+      <h4>{t('Deck checks')}</h4>
       <Show
         when={!props.checks.failed()}
         fallback={
           <p class='muted'>
-            Deck checks could not be loaded.{' '}
+            {t('Deck checks could not be loaded.')}{' '}
             <button type='button' class='btn btn-secondary tm-small' onClick={() => props.checks.retry()}>
-              Retry
+              {t('Retry')}
             </button>
           </p>
         }
       >
         <Show
           when={props.checks.of(props.playerId).length}
-          fallback={<p class='muted'>{props.checks.loading() ? 'Loading deck checks…' : 'No deck checks yet.'}</p>}
+          fallback={
+            <p class='muted'>{props.checks.loading() ? t('Loading deck checks…') : t('No deck checks yet.')}</p>
+          }
         >
           <ul class='tm-check-list'>
             <For each={props.checks.of(props.playerId)}>
@@ -358,8 +366,11 @@ export function DeckCheckSide(props: SideProps) {
           </ul>
         </Show>
       </Show>
-      <Show when={props.latestRound > 0} fallback={<p class='muted'>Checks are recorded once round 1 is paired.</p>}>
-        <h4>{draft().replaces ? 'Edit check' : 'Record a check'}</h4>
+      <Show
+        when={props.latestRound > 0}
+        fallback={<p class='muted'>{t('Checks are recorded once round 1 is paired.')}</p>}
+      >
+        <h4>{draft().replaces ? t('Edit check') : t('Record a check')}</h4>
         <CheckForm
           draft={draft()}
           latestRound={props.latestRound}

@@ -6,6 +6,7 @@
 
 import { For, Show } from 'solid-js';
 import { Segmented } from '../../components/Segmented';
+import { t } from '../../lib/i18n';
 import type { Showing, SpectateFilter } from '../../lib/tournament/spectate';
 
 export function SpectateBar(props: {
@@ -16,9 +17,9 @@ export function SpectateBar(props: {
   onFilter: (filter: SpectateFilter) => void;
 }) {
   const options = () => [
-    { value: 'all' as const, label: 'All' },
-    { value: 'playing' as const, label: 'In progress' },
-    ...(props.following > 0 ? [{ value: 'following' as const, label: `Following ${props.following}` }] : [])
+    { value: 'all' as const, label: t('All') },
+    { value: 'playing' as const, label: t('In progress') },
+    ...(props.following > 0 ? [{ value: 'following' as const, label: t('Following {n}', { n: props.following }) }] : [])
   ];
   return (
     <span class='tm-spectate'>
@@ -26,16 +27,16 @@ export function SpectateBar(props: {
         options={options()}
         selected={props.filter.showing}
         onSelect={(showing: Showing) => props.onFilter({ ...props.filter, showing })}
-        ariaLabel='Show tables'
+        ariaLabel={t('Show tables')}
       />
       <Show when={props.decks.length > 0}>
         <select
           class='tm-select'
-          aria-label='Deck'
+          aria-label={t('Deck')}
           onChange={e => props.onFilter({ ...props.filter, deck: e.currentTarget.value || null })}
         >
           <option value='' selected={props.filter.deck === null}>
-            All decks
+            {t('All decks')}
           </option>
           <For each={props.decks}>
             {deck => (

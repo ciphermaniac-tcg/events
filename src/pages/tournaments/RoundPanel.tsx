@@ -23,14 +23,15 @@ import { isDisputed, type PlayerReport, reportsFor } from '../../../shared/tourn
 import { latestRound, withSwiss } from '../../../shared/tournament/rounds';
 import { DIVISION_LABELS, type Match, type Outcome, type Pod, type Round } from '../../../shared/tournament/types';
 import { Segmented } from '../../components/Segmented';
+import { t, tc, tx } from '../../lib/i18n';
 import type { Manage } from '../../lib/tournament/api';
 import {
   type Champion,
   champions,
   filterMatches,
   hasCut,
-  MATCH_VIEWS,
   type MatchView,
+  matchViews,
   namesById,
   outcomeLabel,
   recordsBefore,
@@ -94,19 +95,20 @@ interface ResultProps {
 
 /** The second press a result takes, in its row, so a slip of the finger is not a result. */
 function ConfirmResult(props: ResultProps & { asking: Asking }) {
+  const asked = () => t('{result}?', { result: outcomeLabel(props.asking.outcome, props.match, props.names) });
   return (
     <div
       class='tm-result is-asking'
       role='group'
-      aria-label='Confirm result'
+      aria-label={t('Confirm result')}
       onKeyDown={e => {
         if (e.key === 'Escape') {
           props.onKeep();
         }
       }}
     >
-      <span class='tm-result-label' title={`${outcomeLabel(props.asking.outcome, props.match, props.names)}?`}>
-        {outcomeLabel(props.asking.outcome, props.match, props.names)}?
+      <span class='tm-result-label' title={asked()}>
+        {asked()}
       </span>
       <span class='tm-result-acts'>
         <button
@@ -115,10 +117,10 @@ function ConfirmResult(props: ResultProps & { asking: Asking }) {
           ref={el => queueMicrotask(() => el.focus())}
           onClick={() => props.onRecord()}
         >
-          {props.asking.outcome === 'pending' ? 'Clear' : 'Record'}
+          {props.asking.outcome === 'pending' ? t('Clear') : tc('verb', 'Record')}
         </button>
         <button type='button' class='btn btn-ghost tm-small' onClick={() => props.onKeep()}>
-          Cancel
+          {t('Cancel')}
         </button>
       </span>
     </div>
@@ -136,14 +138,16 @@ function UnsavedResult(props: ResultProps & { failed: Outcome }) {
     action();
   };
   return (
-    <div class='tm-result is-unsaved' role='group' aria-label='Result not saved'>
-      <span class='tm-result-label is-problem'>Not saved: {outcomeLabel(props.failed, props.match, props.names)}</span>
+    <div class='tm-result is-unsaved' role='group' aria-label={t('Result not saved')}>
+      <span class='tm-result-label is-problem'>
+        {t('Not saved: {result}', { result: outcomeLabel(props.failed, props.match, props.names) })}
+      </span>
       <span class='tm-result-acts'>
         <button type='button' class='btn btn-secondary tm-small' onClick={e => press(e, props.onRetry)}>
-          Retry
+          {t('Retry')}
         </button>
         <button type='button' class='btn btn-ghost tm-small' onClick={e => press(e, props.onDiscard)}>
-          Discard
+          {t('Discard')}
         </button>
       </span>
     </div>
@@ -190,10 +194,10 @@ function StandingResult(props: ResultProps) {
         classList={{ 'is-open': open(), 'is-reported': Boolean(report()), 'is-problem': report()?.problem }}
         title={report()?.detail}
       >
-        {open() ? (report()?.label ?? 'In progress') : RESULT_WORDS[shown().outcome]}
+        {open() ? (report()?.label ?? t('In progress')) : t(RESULT_WORDS[shown().outcome] ?? '')}
         <Show when={report()}>{r => <span class='sr-only'>. {r().detail}</span>}</Show>
         <Show when={shown().unconfirmed}>
-          <span class='tm-result-sub'> not in TOM yet</span>
+          <span class='tm-result-sub'> {t('not in TOM yet')}</span>
         </Show>
         <Show when={props.match.timeExtension}>
           <ExtensionClock match={props.match} round={props.round} playing={open()} />
@@ -203,7 +207,11 @@ function StandingResult(props: ResultProps) {
         <button
           type='button'
           class='tm-row-open'
-          aria-label={`${open() ? 'Enter' : 'Change'} the result of table ${props.match.table}`}
+          aria-label={
+            open()
+              ? t('Enter the result of table {table}', { table: props.match.table })
+              : t('Change the result of table {table}', { table: props.match.table })
+          }
           onClick={event => {
             event.stopPropagation();
             props.onOpen?.();
@@ -214,18 +222,18 @@ function StandingResult(props: ResultProps) {
       </Show>
       <span class='tm-result-acts' classList={{ 'is-locked': props.locked || Boolean(props.onOpen) }}>
         <Show when={!elimination() || props.onTimeExtension}>
-          <OptionsMenu name={`table ${String(props.match.table)}`} busy={props.locked} closeOnSelect>
+          <OptionsMenu name={t('table {table}', { table: props.match.table })} busy={props.locked} closeOnSelect>
             <Show when={!elimination()}>
               <button type='button' class='tm-menu-item' onClick={() => props.onReport('tie')}>
-                Tie
+                {t('Tie')}
               </button>
               <button type='button' class='tm-menu-item' onClick={() => props.onReport('double-loss')}>
-                Double loss
+                {t('Double loss')}
               </button>
             </Show>
             <Show when={props.onTimeExtension}>
               <button type='button' class='tm-menu-item' onClick={() => props.onTimeExtension?.()}>
-                Time extension
+                {t('Time extension')}
               </button>
             </Show>
           </OptionsMenu>
@@ -235,14 +243,14 @@ function StandingResult(props: ResultProps) {
             when={open()}
             fallback={
               <button type='button' class='btn btn-ghost tm-small' onClick={() => props.onReport('pending')}>
-                Clear
+                {t('Clear')}
               </button>
             }
           >
             <Show when={lone()}>
               {r => (
                 <button type='button' class='btn tm-small tm-accept' onClick={() => props.onAccept(r().outcome)}>
-                  Accept
+                  {t('Accept')}
                 </button>
               )}
             </Show>
@@ -301,8 +309,8 @@ function RoomFilter(props: { query: string; onQuery: (value: string) => void; re
         ref={props.ref}
         class='search'
         type='search'
-        placeholder='Table or player'
-        aria-label='Find a table or player'
+        placeholder={t('Table or player')}
+        aria-label={t('Find a table or player')}
         value={props.query}
         onInput={e => props.onQuery(e.currentTarget.value)}
       />
@@ -316,12 +324,12 @@ function ShowTables(props: { openOnly: boolean; open: number; onOpenOnly: (value
     <Segmented
       class='tm-show-tables'
       options={[
-        { value: 'all', label: 'All tables' },
+        { value: 'all', label: t('All tables') },
         {
           value: 'open',
           label: (
             <>
-              In progress
+              {t('In progress')}
               <Show when={props.open > 0}>
                 <span class='tm-count'>{props.open}</span>
               </Show>
@@ -331,7 +339,7 @@ function ShowTables(props: { openOnly: boolean; open: number; onOpenOnly: (value
       ]}
       selected={props.openOnly ? 'open' : 'all'}
       onSelect={value => props.onOpenOnly(value === 'open')}
-      ariaLabel='Show'
+      ariaLabel={t('Show')}
     />
   );
 }
@@ -369,12 +377,16 @@ function RoundBar(props: RoundBarProps) {
     <div class='tm-box-bar'>
       <RoundStepper pod={props.pod} selected={props.round.number} onSelect={props.onPick} />
       <span class='muted tm-num tm-round-state'>
-        {STATUS_LABELS[props.round.status]} · {props.played - props.open} of {props.played} in
+        {t('{status} · {done} of {total} in', {
+          status: t(STATUS_LABELS[props.round.status]),
+          done: props.played - props.open,
+          total: props.played
+        })}
       </span>
       {props.views}
       <span class='tm-grow' />
       <Show when={props.tom}>
-        <span class='muted'>Paired in TOM</span>
+        <span class='muted'>{t('Paired in TOM')}</span>
       </Show>
       <span class='tm-round-acts'>
         <Show when={running() && swiss()}>
@@ -384,11 +396,11 @@ function RoundBar(props: RoundBarProps) {
             aria-pressed={props.swapMode}
             onClick={() => props.onSwap()}
           >
-            {props.swapMode ? 'Cancel swap' : 'Swap players'}
+            {props.swapMode ? t('Cancel swap') : t('Swap players')}
           </button>
         </Show>
         <Show when={props.live && swiss() && props.open > 0 && !props.waiting}>
-          <RepairControl state={props.state} pod={props.pod} label='Re-pair round' />
+          <RepairControl state={props.state} pod={props.pod} label={t('Re-pair round')} />
         </Show>
         <Show when={props.live && props.nothingReported}>
           <DeleteRound state={props.state} pod={props.pod} round={props.round} />
@@ -521,16 +533,14 @@ function NotSeated(props: { state: ManageState; pod: Pod; names: string }) {
   return (
     <Show when={props.names}>
       <div class='tm-strip is-note' role='status'>
-        <span>
-          Not seated this round: <strong>{props.names}</strong>
-        </span>
+        <span>{tx('Not seated this round: {names}', { names: <strong>{props.names}</strong> })}</span>
         <span class='tm-grow' />
         <RepairControl
           state={props.state}
           pod={props.pod}
           class='btn btn-secondary tm-small'
-          label='Re-pair to seat them'
-          question={`Re-pair the open tables to seat ${props.names}?`}
+          label={t('Re-pair to seat them')}
+          question={t('Re-pair the open tables to seat {names}?', { names: props.names })}
         />
       </div>
     </Show>
@@ -542,10 +552,10 @@ function EndedNote() {
   const [, setParams] = useSearchParams<{ tab?: string }>();
   return (
     <div class='tm-strip is-note' role='status'>
-      <span>The event has ended. Reopen it to change results.</span>
+      <span>{t('The event has ended. Reopen it to change results.')}</span>
       <span class='tm-grow' />
       <button type='button' class='btn btn-secondary tm-small' onClick={() => setParams({ tab: 'event' })}>
-        Settings
+        {t('Settings')}
       </button>
     </div>
   );
@@ -568,10 +578,12 @@ function PastNote(props: { past: string | null; text: string | null; onCurrent: 
     <Show when={props.past}>
       {past => (
         <div class='tm-strip is-note' role='status'>
-          <span>{props.text ?? `${past()} is read-only. Results are entered in the current round.`}</span>
+          <span>
+            {props.text ?? t('{round} is read-only. Results are entered in the current round.', { round: past() })}
+          </span>
           <span class='tm-grow' />
           <button type='button' class='btn btn-secondary tm-small' onClick={() => props.onCurrent()}>
-            Current round
+            {t('Current round')}
           </button>
         </div>
       )}
@@ -606,7 +618,11 @@ function RoundNotes(props: {
       <For each={props.winners}>
         {won => (
           <ChampionLine
-            label={won.division && props.winners.length > 1 ? `${DIVISION_LABELS[won.division]} champion` : 'Champion'}
+            label={
+              won.division && props.winners.length > 1
+                ? t('{division} champion', { division: t(DIVISION_LABELS[won.division]) })
+                : t('Champion')
+            }
             name={props.names.get(won.id) ?? won.id}
           />
         )}
@@ -738,7 +754,7 @@ export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod
         winners={winners()}
         names={names()}
       />
-      <Show when={round()} fallback={<p class='muted'>No rounds yet.</p>}>
+      <Show when={round()} fallback={<p class='muted'>{t('No rounds yet.')}</p>}>
         {r => {
           // The room's tables with result entry; also what a cut shows when it cannot be drawn as a bracket.
           const roomTable = () => (
@@ -792,7 +808,7 @@ export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod
                 )}
               />
               <Show when={shown().length === 0}>
-                <p class='muted tm-empty'>No tables match.</p>
+                <p class='muted tm-empty'>{t('No tables match.')}</p>
               </Show>
               {fixes.log(r(), names())}
             </>
@@ -823,10 +839,10 @@ export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod
                 views={
                   <Show when={cut()}>
                     <Segmented
-                      options={MATCH_VIEWS}
+                      options={matchViews()}
                       selected={matchView()}
                       onSelect={setMatchView}
-                      ariaLabel='Show matches as'
+                      ariaLabel={t('Show matches as')}
                     />
                   </Show>
                 }
@@ -835,7 +851,7 @@ export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod
               />
               <Show when={swapMode()}>
                 <div class='tm-box-bar tm-ask'>
-                  <span>Pick two players to trade seats.</span>
+                  <span>{t('Pick two players to trade seats.')}</span>
                 </div>
               </Show>
               <Show when={asBracket()} fallback={roomTable()}>

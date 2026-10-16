@@ -7,6 +7,7 @@
 
 import { createSignal, For, onCleanup, onMount } from 'solid-js';
 import { type Size, visibleTiles } from '../../lib/events/mercator';
+import { t } from '../../lib/i18n';
 
 const ZOOM = 16;
 
@@ -35,7 +36,7 @@ export function StoreMap(props: { lat: number; lon: number; label: string }) {
         href={directions()}
         target='_blank'
         rel='noopener noreferrer'
-        aria-label={`Directions to ${props.label}`}
+        aria-label={t('Directions to {store}', { store: props.label })}
       >
         <For each={tiles()}>
           {tile => (
@@ -54,7 +55,7 @@ export function StoreMap(props: { lat: number; lon: number; label: string }) {
         <span class='tm-store-pin' aria-hidden='true' />
       </a>
       <a class='tm-store-credit' href='https://www.openstreetmap.org/copyright' target='_blank' rel='noopener'>
-        © OpenStreetMap contributors
+        {t('© OpenStreetMap contributors')}
       </a>
     </div>
   );

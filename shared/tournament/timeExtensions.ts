@@ -1,4 +1,5 @@
 import type { Match, PodCategory, Round, Tournament } from './types.js';
+import { msg } from '../i18n.js';
 
 export const MAX_EXTENSION_SECONDS = 3600;
 export const EXTENSION_REASON_MAX = 200;
@@ -25,10 +26,10 @@ export function setTimeExtension(tournament: Tournament, command: ExtensionComma
   const round = pod?.rounds.at(-1);
   const match = round?.matches.find(m => samePairing(m, command));
   if (!pod || !round || round.number !== command.round || !match) {
-    return 'This match has changed; reload the round';
+    return msg('This match has changed; reload the round');
   }
   if (match.p2 === null || match.outcome !== 'pending') {
-    return 'Only a table still playing can receive a time extension';
+    return msg('Only a table still playing can receive a time extension');
   }
   const changed = extendedMatch(match, command);
   const rounds = pod.rounds.map(r =>
@@ -39,10 +40,10 @@ export function setTimeExtension(tournament: Tournament, command: ExtensionComma
 
 function extensionError(command: ExtensionCommand): string | null {
   if (!Number.isInteger(command.seconds) || command.seconds < 0 || command.seconds > MAX_EXTENSION_SECONDS) {
-    return 'Time extensions are up to 60 minutes';
+    return msg('Time extensions are up to 60 minutes');
   }
   if (command.reason.length > EXTENSION_REASON_MAX) {
-    return 'Keep the reason to 200 characters';
+    return msg('Keep the reason to 200 characters');
   }
   return null;
 }

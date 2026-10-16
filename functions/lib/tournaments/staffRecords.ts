@@ -35,6 +35,7 @@ import {
 import { askerValues, asksStill, onStaff } from './roles.js';
 import { latestRoundOf, type StaffAccount, type StaffMember } from '../../../shared/tournament/staffRecords.js';
 import type { Tournament } from '../../../shared/tournament/types.js';
+import { msg, msgf } from '../../../shared/i18n.js';
 
 /** An entry's row, with its columns named alike whatever its kind. */
 export interface RecordRow {
@@ -155,13 +156,15 @@ const answerRecord = (kind: Shape, read: Read) =>
 /** Why the entry does not fit the event as it was read, or null: the player, or the round. */
 function misfit(tournament: Tournament, input: RecordInput): string | null {
   if (!tournament.players.some(player => player.id === input.playerId)) {
-    return 'That player is not on this event';
+    return msg('That player is not on this event');
   }
   const latest = latestRoundOf(tournament, input.playerId);
   if (latest === 0) {
-    return 'No round is paired for that player yet';
+    return msg('No round is paired for that player yet');
   }
-  return input.round > latest ? `Round ${latest} is the latest round paired for that player` : null;
+  return input.round > latest
+    ? msgf('Round {round} is the latest round paired for that player', { round: latest })
+    : null;
 }
 
 /**

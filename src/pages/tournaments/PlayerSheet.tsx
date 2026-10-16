@@ -14,6 +14,7 @@ import type { Pod } from '../../../shared/tournament/types';
 import type { TournamentView } from '../../../shared/tournament/view';
 import { inertOutside, keepTabIn } from '../../lib/focusTrap';
 import { matchHistory } from '../../lib/tournament/present';
+import { t } from '../../lib/i18n';
 import { DeckIcons } from './DeckIcons';
 import { type Identified, IdentifyForm } from './Identify';
 import { Squares } from './Squares';
@@ -98,7 +99,7 @@ export function PlayerSheet(props: {
             ref={el => queueMicrotask(() => el.focus())}
             onClick={() => props.onClose()}
           >
-            Close
+            {t('Close')}
           </button>
         </div>
         <div class='tm-sheet-body'>
@@ -107,11 +108,11 @@ export function PlayerSheet(props: {
               <dl class='tm-sheet-stats'>
                 <div>
                   <dd class='num'>{recordLabel(row().record)}</dd>
-                  <dt>Record</dt>
+                  <dt>{t('Record')}</dt>
                 </div>
                 <div>
                   <dd class='num'>{row().points}</dd>
-                  <dt>Points</dt>
+                  <dt>{t('Points')}</dt>
                 </div>
                 <div>
                   <dd class='num'>{percentLabel(row().owp)}</dd>
@@ -128,9 +129,9 @@ export function PlayerSheet(props: {
             <table class='data tm-history'>
               <thead>
                 <tr>
-                  <th class='num tm-table-col'>Round</th>
-                  <th>Opponent</th>
-                  <th class='num'>Result</th>
+                  <th class='num tm-table-col'>{t('Round')}</th>
+                  <th>{t('Opponent')}</th>
+                  <th class='num'>{t('Result')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -141,7 +142,7 @@ export function PlayerSheet(props: {
                       <td>
                         <Show
                           when={row.opponent}
-                          fallback={<span class='muted'>{row.outcome === 'bye' ? 'Bye' : 'Missed round'}</span>}
+                          fallback={<span class='muted'>{row.outcome === 'bye' ? t('Bye') : t('Missed round')}</span>}
                         >
                           {opponent => (
                             <button type='button' class='tm-seat-link' onClick={() => props.onPlayer(opponent())}>
@@ -153,7 +154,10 @@ export function PlayerSheet(props: {
                         </Show>
                       </td>
                       <td class='num'>
-                        <Show when={row.mark} fallback={<span class='muted-cell'>Table {row.table}</span>}>
+                        <Show
+                          when={row.mark}
+                          fallback={<span class='muted-cell'>{t('Table {table}', { table: row.table })}</span>}
+                        >
                           <Squares marks={[row.mark]} />
                         </Show>
                       </td>
@@ -167,7 +171,7 @@ export function PlayerSheet(props: {
             <IdentifyForm
               view={props.view}
               idPrefix='sheet'
-              submitLabel='Confirm'
+              submitLabel={t('Confirm')}
               expect={props.playerId}
               autofocus
               onFound={found => {
@@ -184,11 +188,11 @@ export function PlayerSheet(props: {
             aria-pressed={props.following}
             onClick={() => props.onFollow()}
           >
-            {props.following ? 'Following' : 'Follow'}
+            {props.following ? t('Following') : t('Follow')}
           </button>
           <Show when={props.me === props.playerId}>
             <button type='button' class='btn btn-ghost' onClick={() => props.onForget()}>
-              This isn’t me
+              {t('This isn’t me')}
             </button>
           </Show>
           <Show when={props.me === null}>
@@ -196,12 +200,12 @@ export function PlayerSheet(props: {
               when={proving()}
               fallback={
                 <button type='button' class='btn btn-primary' onClick={() => setProving(true)}>
-                  This is me
+                  {t('This is me')}
                 </button>
               }
             >
               <button type='button' class='btn btn-ghost' onClick={() => setProving(false)}>
-                Cancel
+                {t('Cancel')}
               </button>
             </Show>
           </Show>

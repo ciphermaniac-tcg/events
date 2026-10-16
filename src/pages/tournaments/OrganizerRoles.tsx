@@ -12,6 +12,7 @@ import { createSignal, For, Match, Show, Switch } from 'solid-js';
 import { managesStore } from '../../../shared/accounts/stores';
 import type { MyStore } from '../../../shared/accounts/types';
 import { errorText, type Me } from '../../lib/tournament/api';
+import { t } from '../../lib/i18n';
 import { removeMember, resignCommunity, STORE_ROLE_WORDS } from '../../lib/tournament/stores';
 import { ConfirmAction } from './ConfirmAction';
 import { ErrorLine } from './Field';
@@ -19,27 +20,29 @@ import { refreshSession } from './session';
 import { SettingRow } from './SettingControls';
 
 /** What the account is at the store, and whether the store may still run events. */
-const storeNote = (store: MyStore) =>
-  `${STORE_ROLE_WORDS[store.role]}${store.status === 'revoked' ? ' · Revoked' : ''}`;
+const storeNote = (store: MyStore) => {
+  const role = t(STORE_ROLE_WORDS[store.role]);
+  return store.status === 'revoked' ? t('{role} · Revoked', { role }) : role;
+};
 
 /** The account's own standing as a Community organizer, or as an Admin, who needs none. */
 function CommunityRow(props: { user: Me; busy: boolean; onResign: () => void }) {
   return (
     <Switch>
       <Match when={props.user.role === 'admin'}>
-        <SettingRow label='Admin'>
+        <SettingRow label={t('Admin')}>
           <A class='btn btn-secondary' href='/admin'>
-            Admin page
+            {t('Admin page')}
           </A>
         </SettingRow>
       </Match>
       <Match when={props.user.role === 'community'}>
-        <SettingRow label='Community organizer'>
+        <SettingRow label={t('Community organizer')}>
           <ConfirmAction
             class='btn btn-secondary'
-            label='Resign'
-            question='Resign as a community organizer?'
-            confirmLabel='Resign'
+            label={t('Resign')}
+            question={t('Resign as a community organizer?')}
+            confirmLabel={t('Resign')}
             danger
             disabled={props.busy}
             onConfirm={() => props.onResign()}
@@ -47,14 +50,14 @@ function CommunityRow(props: { user: Me; busy: boolean; onResign: () => void }) 
         </SettingRow>
       </Match>
       <Match when={props.user.role === 'revoked'}>
-        <SettingRow label='Community organizer'>
-          <span class='muted'>Access removed</span>
+        <SettingRow label={t('Community organizer')}>
+          <span class='muted'>{t('Access removed')}</span>
         </SettingRow>
       </Match>
       <Match when={props.user.role === null}>
-        <SettingRow label='Community organizer'>
+        <SettingRow label={t('Community organizer')}>
           <A class='btn btn-secondary' href='/apply'>
-            Join
+            {t('Join')}
           </A>
         </SettingRow>
       </Match>
@@ -71,14 +74,14 @@ function StoreRow(props: { store: MyStore; busy: boolean; onLeave: () => void })
           class='btn btn-secondary'
           href={manages() ? `/stores/${props.store.id}/settings` : `/stores/${props.store.id}`}
         >
-          {manages() ? 'Store settings' : 'Store page'}
+          {manages() ? t('Store settings') : t('Store page')}
         </A>
         <Show when={props.store.role !== 'owner'}>
           <ConfirmAction
             class='btn btn-ghost'
-            label='Leave'
-            question={`Leave ${props.store.name}?`}
-            confirmLabel='Leave'
+            label={t('Leave')}
+            question={t('Leave {store}?', { store: props.store.name })}
+            confirmLabel={t('Leave')}
             danger
             disabled={props.busy}
             onConfirm={() => props.onLeave()}
@@ -118,9 +121,9 @@ export function OrganizerRoles(props: { user: Me; applying: boolean }) {
           {store => <StoreRow store={store} busy={busy()} onLeave={() => leave(store.id)} />}
         </For>
         <Show when={!props.applying}>
-          <SettingRow label={props.user.stores.length > 0 ? 'Another store' : 'Store'}>
+          <SettingRow label={props.user.stores.length > 0 ? t('Another store') : t('Store')}>
             <A class='btn btn-secondary' href='/apply'>
-              Apply for a store
+              {t('Apply for a store')}
             </A>
           </SettingRow>
         </Show>

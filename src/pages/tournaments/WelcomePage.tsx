@@ -9,6 +9,7 @@ import { A } from '@solidjs/router';
 import { createSignal, Match, Switch } from 'solid-js';
 import { ApiError, call, errorText, json } from '../../lib/tournament/api';
 import { ErrorLine, Field } from './Field';
+import { t } from '../../lib/i18n';
 import { TournamentHero } from './Hero';
 
 type Stage = 'asking' | 'sending' | 'refused' | 'expired';
@@ -35,10 +36,11 @@ export function WelcomePage() {
 
   return (
     <div class='tm-page tm-narrow'>
-      <TournamentHero title='Birth date' trail={false} />
+      <TournamentHero title={t('Birth date')} trail={false} />
       <p class='muted tm-welcome-why'>
-        Accounts are for people 16 and older, and hosting events for 18 and older. We check your date once and keep only
-        the year.
+        {t(
+          'Accounts are for people 16 and older, and hosting events for 18 and older. We check your date once and keep only the year.'
+        )}
       </p>
       <section class='tm-box'>
         <Switch>
@@ -50,7 +52,7 @@ export function WelcomePage() {
               <Match when={stage() === 'expired'}>
                 <div class='tm-box-bar'>
                   <A class='btn btn-secondary' href='/settings'>
-                    Sign in
+                    {t('Sign in')}
                   </A>
                 </div>
               </Match>
@@ -58,7 +60,7 @@ export function WelcomePage() {
           </Match>
           <Match when={true}>
             <form class='tm-box-bar tm-add-row' onSubmit={event => void send(event)}>
-              <Field id='welcome-birth' label='Birth date'>
+              <Field id='welcome-birth' label={t('Birth date')}>
                 <input
                   id='welcome-birth'
                   class='tm-input'
@@ -70,7 +72,7 @@ export function WelcomePage() {
                 />
               </Field>
               <button type='submit' class='btn btn-primary' disabled={stage() === 'sending' || !birthDate()}>
-                Continue
+                {t('Continue')}
               </button>
               <ErrorLine message={error()} />
             </form>
@@ -78,8 +80,8 @@ export function WelcomePage() {
         </Switch>
       </section>
       <p class='muted tm-welcome-legal'>
-        <A href='/terms'>Terms of service</A>
-        <A href='/privacy'>Privacy policy</A>
+        <A href='/terms'>{t('Terms of service')}</A>
+        <A href='/privacy'>{t('Privacy policy')}</A>
       </p>
     </div>
   );

@@ -26,6 +26,7 @@ import type {
 } from '../../../shared/accounts/types';
 import type { EventType } from '../../../shared/tournament/types';
 import { addressLine, addressParts, titleCase } from '../events/format';
+import { intlLocale, locale, msg, t, tc } from '../i18n';
 import { call, json, type Me } from './api';
 
 const storePath = (id: string) => `/api/stores/${encodeURIComponent(id)}`;
@@ -96,27 +97,63 @@ export const fetchListings = (id: string) => call<{ listings: Listing[] }>(`${st
 export const inviteLink = (origin: string, token: string) =>
   `${origin}/stores/join?${new URLSearchParams({ invite: token }).toString()}`;
 
-export const STORE_ROLE_WORDS: Record<StoreRole, string> = { owner: 'Owner', manager: 'Manager', staff: 'Staff' };
-
-/** Why an applicant applies for a store, in their own words. */
-export const RELATIONSHIP_LABELS: Record<Relationship, string> = {
-  organizer: 'I’m the store’s organizer',
-  judge: 'I’m a judge at this store',
-  owner: 'I own this store'
+/** Role names for display; pass them through `t` where they show. */
+export const STORE_ROLE_WORDS: Record<StoreRole, string> = {
+  owner: msg('Owner'),
+  manager: msg('Manager'),
+  staff: msg('Staff')
 };
 
-export const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'] as const;
+/** Why an applicant applies for a store, in their own words; pass them through `t` where they show. */
+export const RELATIONSHIP_LABELS: Record<Relationship, string> = {
+  organizer: msg('I’m the store’s organizer'),
+  judge: msg('I’m a judge at this store'),
+  owner: msg('I own this store')
+};
 
-/** HH:MM as a reader in the US reads it, e.g. 19:30 as 7:30 PM. */
+/** The days of the week, Sunday first, as the indexes league nights keep. */
+export const WEEKDAY_INDEXES = [0, 1, 2, 3, 4, 5, 6] as const;
+
+/** A weekday (0 is Sunday) by name in the language shown, capitalized to stand alone: "Wednesday", "Miércoles". */
+export function weekdayName(weekday: number): string {
+  const name = new Date(Date.UTC(2026, 9, 11 + weekday, 12)).toLocaleDateString(intlLocale(), {
+    weekday: 'long',
+    timeZone: 'UTC'
+  });
+  return name.charAt(0).toLocaleUpperCase(intlLocale()) + name.slice(1);
+}
+
+/** Every week on a day, Sunday first: "Wednesdays". Whole words, since no language makes them from the day alike. */
+const WEEKDAY_PLURALS = [
+  msg('Sundays'),
+  msg('Mondays'),
+  msg('Tuesdays'),
+  msg('Wednesdays'),
+  msg('Thursdays'),
+  msg('Fridays'),
+  msg('Saturdays')
+];
+
+/** A weekday (0 is Sunday) as a weekly habit in the language shown: "Wednesdays", "Los miércoles". */
+export const weekdayPlural = (weekday: number): string => t(WEEKDAY_PLURALS[weekday] ?? '');
+
+/** HH:MM in the reader's language: 19:30 as 7:30 PM in English, as the locale writes it elsewhere. */
 export function clock(time: string): string {
   const [hours = 0, minutes = 0] = time.split(':').map(Number);
+  if (locale() !== 'en') {
+    return new Date(Date.UTC(2026, 0, 1, hours, minutes)).toLocaleTimeString(intlLocale(), {
+      hour: 'numeric',
+      minute: '2-digit',
+      timeZone: 'UTC'
+    });
+  }
   const suffix = hours < 12 ? 'AM' : 'PM';
   return `${hours % 12 || 12}:${String(minutes).padStart(2, '0')} ${suffix}`;
 }
 
 /** A store-local YYYY-MM-DD as "Wed, Oct 7", read as the calendar date it names wherever the reader is. */
 export function shortDay(date: string): string {
-  return new Date(`${date}T12:00:00Z`).toLocaleDateString('en-US', {
+  return new Date(`${date}T12:00:00Z`).toLocaleDateString(intlLocale(), {
     weekday: 'short',
     month: 'short',
     day: 'numeric',
@@ -127,7 +164,7 @@ export function shortDay(date: string): string {
 /** A time zone as people name it, e.g. "Central Time"; the zone's own ID when the browser has no name for it. */
 export function zoneName(timeZone: string): string {
   try {
-    const parts = new Intl.DateTimeFormat('en-US', { timeZone, timeZoneName: 'longGeneric' }).formatToParts(0);
+    const parts = new Intl.DateTimeFormat(intlLocale(), { timeZone, timeZoneName: 'longGeneric' }).formatToParts(0);
     return parts.find(part => part.type === 'timeZoneName')?.value ?? timeZone;
   } catch {
     return timeZone;
@@ -167,13 +204,13 @@ export const byWeek = (nights: readonly LeagueNight[]) =>
 
 /** What an exception does to its night: "Off", or "Moved to 4:00 PM". */
 export const exceptionChange = (exception: NightException) =>
-  exception.time === null ? 'Off' : `Moved to ${clock(exception.time)}`;
+  exception.time === null ? tc('league night', 'Off') : t('Moved to {time}', { time: clock(exception.time) });
 
 export const LISTING_KINDS: Record<Listing['kind'], string> = {
-  cup: 'League Cup',
-  challenge: 'League Challenge',
-  prerelease: 'Prerelease',
-  local: 'Local'
+  cup: msg('League Cup'),
+  challenge: msg('League Challenge'),
+  prerelease: msg('Prerelease'),
+  local: msg('Local')
 };
 
 /** What picking a listing fills in the new event's setup. */
@@ -260,22 +297,22 @@ export function detailsProblems(details: StoreDetails): Partial<Record<keyof Sto
   const problems: Partial<Record<keyof StoreDetails, string>> = {};
   const link = (value: string) => value.trim() !== '' && !isHttps(value.trim());
   if (!details.name.trim()) {
-    problems.name = 'Enter the store’s name';
+    problems.name = t('Enter the store’s name');
   }
   if (!details.address.trim()) {
-    problems.address = 'Enter the store’s address';
+    problems.address = t('Enter the store’s address');
   }
   if (!/^[A-Za-z]{2}$/.test(details.country.trim())) {
-    problems.country = 'Two letters, e.g. US';
+    problems.country = t('Two letters, e.g. US');
   }
   if (link(details.website)) {
-    problems.website = 'Starts with https://';
+    problems.website = t('Starts with https://');
   }
   if (readDiscordInvite(details.discord.trim()) === null) {
-    problems.discord = 'Enter a Discord invite URL';
+    problems.discord = t('Enter a Discord invite URL');
   }
   if (details.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(details.email.trim())) {
-    problems.email = 'Not an email address';
+    problems.email = t('Not an email address');
   }
   return problems;
 }

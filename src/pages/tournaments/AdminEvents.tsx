@@ -10,17 +10,18 @@ import { createResource, For, Show } from 'solid-js';
 import type { AdminEvent } from '../../../shared/accounts/types';
 import { parseTomDate } from '../../../shared/tournament/divisions';
 import { fetchAllEvents } from '../../lib/tournament/admin';
+import { intlLocale, t } from '../../lib/i18n';
 import { resolved } from '../../lib/resource';
 import { ResourceFallback } from './Field';
 
 const dateOf = (startDate: string) =>
-  parseTomDate(startDate)?.toLocaleDateString(undefined, { dateStyle: 'medium', timeZone: 'UTC' }) ?? '';
+  parseTomDate(startDate)?.toLocaleDateString(intlLocale(), { dateStyle: 'medium', timeZone: 'UTC' }) ?? '';
 
 const phaseOf = (event: AdminEvent) => {
   if (event.finished) {
-    return 'Finished';
+    return t('Finished');
   }
-  return event.rounds > 0 ? `Round ${event.rounds}` : 'Registration';
+  return event.rounds > 0 ? t('Round {n}', { n: event.rounds }) : t('Registration');
 };
 
 function EventRow(props: { event: AdminEvent }) {
@@ -48,16 +49,16 @@ export function AdminEvents() {
     <Show when={resolved(list)} fallback={<ResourceFallback resource={list} onRetry={() => void refetch()} small />}>
       {events => (
         <section class='tm-box'>
-          <Show when={events().length > 0} fallback={<p class='tm-empty muted'>No events yet</p>}>
+          <Show when={events().length > 0} fallback={<p class='tm-empty muted'>{t('No events yet')}</p>}>
             <div class='table-wrap'>
               <table class='data tm-admin-events'>
                 <thead>
                   <tr>
-                    <th>Event</th>
-                    <th>Run by</th>
-                    <th>Date</th>
-                    <th>Status</th>
-                    <th class='num'>Players</th>
+                    <th>{t('Event')}</th>
+                    <th>{t('Run by')}</th>
+                    <th>{t('Date')}</th>
+                    <th>{t('Status')}</th>
+                    <th class='num'>{t('Players')}</th>
                   </tr>
                 </thead>
                 <tbody>

@@ -8,6 +8,7 @@
 
 import { createResource, For, Show } from 'solid-js';
 import type { Listing } from '../../../shared/accounts/types';
+import { t } from '../../lib/i18n';
 import { clock, fetchListings, LISTING_KINDS, shortDay } from '../../lib/tournament/stores';
 import { latestValue } from '../../lib/resource';
 import '../../styles/pages/tournament-listings.css';
@@ -31,7 +32,7 @@ export function ListingPicker(props: {
   return (
     <Show when={shown().length > 0}>
       <fieldset class='tm-box tm-listings'>
-        <legend class='tm-listings-head'>On pokemon.com</legend>
+        <legend class='tm-listings-head'>{t('On pokemon.com')}</legend>
         <For each={shown()}>
           {listing => (
             <label class='tm-listing' classList={{ 'is-on': props.picked === listing.sanctionId }}>
@@ -49,7 +50,7 @@ export function ListingPicker(props: {
                   <span class='muted tm-num'> {clock(listing.time)}</span>
                 </Show>
               </span>
-              <span class={`badge tm-listing-kind ${listing.kind}`}>{LISTING_KINDS[listing.kind]}</span>
+              <span class={`badge tm-listing-kind ${listing.kind}`}>{t(LISTING_KINDS[listing.kind])}</span>
             </label>
           )}
         </For>
@@ -62,7 +63,7 @@ export function ListingPicker(props: {
             onChange={() => props.onPick(null)}
           />
           <span class='tm-listing-day' />
-          <span class='tm-listing-name'>Not listed here</span>
+          <span class='tm-listing-name'>{t('Not listed here')}</span>
         </label>
       </fieldset>
     </Show>

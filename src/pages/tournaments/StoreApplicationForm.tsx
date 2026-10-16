@@ -21,6 +21,7 @@ import {
 } from '../../../shared/accounts/stores';
 import type { LeagueFound, MyApplication } from '../../../shared/accounts/types';
 import { ApiError, errorText } from '../../lib/tournament/api';
+import { t } from '../../lib/i18n';
 import {
   browserZone,
   cleanDetails,
@@ -52,7 +53,7 @@ function Found(props: { league: LeagueFound }) {
       <strong>{details().name}</strong>
       <span class='muted'>{addressOf(details())}</span>
       <span class='muted tm-num'>
-        League {props.league.leagueId} · {zoneName(props.league.timeZone)}
+        {t('League {id} · {zone}', { id: props.league.leagueId, zone: zoneName(props.league.timeZone) })}
       </span>
     </div>
   );
@@ -64,14 +65,14 @@ function LeagueField(props: { lookup: Lookup; onLookup: (lookup: Lookup) => void
   async function look() {
     const leagueId = readLeagueId(typed());
     if (!leagueId) {
-      props.onLookup({ kind: 'refused', message: 'Enter the league ID, or paste its pokemon.com page' });
+      props.onLookup({ kind: 'refused', message: t('Enter the league ID, or paste its pokemon.com page') });
       return;
     }
     props.onLookup({ kind: 'looking' });
     try {
       const answer = await fetchLeague(leagueId);
       if (answer.taken) {
-        props.onLookup({ kind: 'refused', message: 'That league already has a store' });
+        props.onLookup({ kind: 'refused', message: t('That league already has a store') });
       } else {
         props.onLookup(
           answer.league ? { kind: 'found', leagueId, league: answer.league } : { kind: 'unknown', leagueId }
@@ -99,11 +100,11 @@ function LeagueField(props: { lookup: Lookup; onLookup: (lookup: Lookup) => void
     return current.kind === 'refused' ? current.message : undefined;
   };
   return (
-    <Field id='apply-league' label='League ID or pokemon.com league page' error={refusal()}>
+    <Field id='apply-league' label={t('League ID or pokemon.com league page')} error={refusal()}>
       <span class='tm-apply-league'>
         <input
           id='apply-league'
-          placeholder='Enter your League ID here.'
+          placeholder={t('Enter your League ID here.')}
           class='tm-input'
           inputMode='numeric'
           autocomplete='off'
@@ -124,7 +125,7 @@ function LeagueField(props: { lookup: Lookup; onLookup: (lookup: Lookup) => void
           disabled={props.lookup.kind === 'looking' || !typed().trim()}
           onClick={() => void look()}
         >
-          {props.lookup.kind === 'looking' ? 'Looking up' : 'Look up'}
+          {props.lookup.kind === 'looking' ? t('Looking up') : t('Look up')}
         </button>
       </span>
     </Field>
@@ -160,15 +161,15 @@ export function StoreApplicationForm(props: { onSent: (sent: MyApplication) => v
   }
   const missing = () => {
     if (!relationship()) {
-      return 'Say why you are applying for the store';
+      return t('Say why you are applying for the store');
     }
     if (!certified()) {
-      return 'Confirm you are a certified organizer, or work with one';
+      return t('Confirm you are a certified organizer, or work with one');
     }
     if (Object.keys(detailsProblems(details())).length > 0) {
-      return 'Check the store’s details';
+      return t('Check the store’s details');
     }
-    return nights().some(night => !night.time) ? 'Give each league night a start time' : null;
+    return nights().some(night => !night.time) ? t('Give each league night a start time') : null;
   };
 
   async function send(event: Event) {
@@ -214,7 +215,7 @@ export function StoreApplicationForm(props: { onSent: (sent: MyApplication) => v
       <Show when={league()}>
         <>
           <Show when={known()}>{found => <Found league={found()} />}</Show>
-          <Field id='apply-relationship' label='Why are you applying for this store?'>
+          <Field id='apply-relationship' label={t('Why are you applying for this store?')}>
             <select
               id='apply-relationship'
               class='tm-select tm-select-full'
@@ -222,12 +223,12 @@ export function StoreApplicationForm(props: { onSent: (sent: MyApplication) => v
               onChange={e => setRelationship(e.currentTarget.value as Relationship | '')}
             >
               <option value='' selected={relationship() === ''}>
-                Choose
+                {t('Choose')}
               </option>
               <For each={RELATIONSHIPS}>
                 {value => (
                   <option value={value} selected={relationship() === value}>
-                    {RELATIONSHIP_LABELS[value]}
+                    {t(RELATIONSHIP_LABELS[value])}
                   </option>
                 )}
               </For>
@@ -235,9 +236,9 @@ export function StoreApplicationForm(props: { onSent: (sent: MyApplication) => v
           </Field>
           <label class='tm-check tm-apply-certified'>
             <input type='checkbox' checked={certified()} onChange={e => setCertified(e.currentTarget.checked)} />
-            I’m a certified Play! Pokémon organizer, or work with one
+            {t('I’m a certified Play! Pokémon organizer, or work with one')}
           </label>
-          <h2 class='tm-subhead tm-apply-head'>Store</h2>
+          <h2 class='tm-subhead tm-apply-head'>{t('Store')}</h2>
           <StoreFields
             id='apply-store'
             details={details()}
@@ -246,12 +247,12 @@ export function StoreApplicationForm(props: { onSent: (sent: MyApplication) => v
             onChange={setDetails}
             onTimeZone={setTimeZone}
           />
-          <h2 class='tm-subhead tm-apply-head'>League nights</h2>
+          <h2 class='tm-subhead tm-apply-head'>{t('League nights')}</h2>
           <WeeklyNights nights={nights()} country={details().country} storeName={details().name} onChange={setNights} />
-          <h2 class='tm-subhead tm-apply-head'>For the admin</h2>
+          <h2 class='tm-subhead tm-apply-head'>{t('For the admin')}</h2>
           <div class='tm-field'>
             <label class='tm-label' for='apply-explanation'>
-              Note <span class='muted tm-optional'>optional</span>
+              {t('Note')} <span class='muted tm-optional'>{t('optional')}</span>
             </label>
             <textarea
               id='apply-explanation'
@@ -266,7 +267,7 @@ export function StoreApplicationForm(props: { onSent: (sent: MyApplication) => v
           </div>
           <div class='tm-apply-foot'>
             <button type='submit' class='btn btn-primary' disabled={sending()}>
-              Send application
+              {t('Send application')}
             </button>
             <ErrorLine message={error()} />
           </div>

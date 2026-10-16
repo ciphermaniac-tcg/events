@@ -7,6 +7,7 @@ import {
 } from '../../../shared/accounts/profile';
 import { errorText, fetchProfilePreferences, saveProfileLinks } from '../../lib/tournament/api';
 import { resolved } from '../../lib/resource';
+import { t } from '../../lib/i18n';
 import { ErrorLine, Field } from './Field';
 import { Skeleton } from '../../components/Skeleton';
 import '../../styles/pages/tournament-profile.css';
@@ -18,7 +19,7 @@ function LinksForm(props: { links: ProfileLinks }) {
   const [error, setError] = createSignal<string | null>(null);
   const [touched, setTouched] = createSignal(false);
   const problem = (key: (typeof PROFILE_LINKS)[number]) =>
-    touched() && !validProfileLink(key, (links()[key] ?? '').trim()) ? 'Enter a valid HTTPS profile URL' : undefined;
+    touched() && !validProfileLink(key, (links()[key] ?? '').trim()) ? t('Enter a valid HTTPS profile URL') : undefined;
   async function save(event: SubmitEvent) {
     event.preventDefault();
     setTouched(true);
@@ -41,7 +42,7 @@ function LinksForm(props: { links: ProfileLinks }) {
     <form onSubmit={event => void save(event)} class='tm-profile-links-form'>
       <For each={PROFILE_LINKS}>
         {key => (
-          <Field id={`profile-link-${key}`} label={PROFILE_LINK_LABELS[key]} error={problem(key)}>
+          <Field id={`profile-link-${key}`} label={t(PROFILE_LINK_LABELS[key])} error={problem(key)}>
             <input
               id={`profile-link-${key}`}
               class='tm-input'
@@ -60,11 +61,11 @@ function LinksForm(props: { links: ProfileLinks }) {
       </For>
       <div class='tm-profile-form-actions'>
         <button type='submit' class='btn btn-primary' disabled={busy()}>
-          {busy() ? 'Saving…' : 'Save links'}
+          {busy() ? t('Saving…') : t('Save links')}
         </button>
         <Show when={saved()}>
           <span role='status' class='muted'>
-            Saved
+            {t('Saved')}
           </span>
         </Show>
       </div>
@@ -82,7 +83,7 @@ export function ProfileLinksForm() {
         <Show when={preferences.error} fallback={<Skeleton height='240px' />}>
           <ErrorLine message={errorText(preferences.error)} />
           <button type='button' class='btn btn-secondary' onClick={() => void refetch()}>
-            Retry
+            {t('Retry')}
           </button>
         </Show>
       }

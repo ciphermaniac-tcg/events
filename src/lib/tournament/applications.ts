@@ -6,6 +6,7 @@
 
 import type { AccountRole } from '../../../shared/accounts/roles';
 import type { ApplicationState, MyApplication } from '../../../shared/accounts/types';
+import { intlLocale } from '../i18n';
 import { call } from './api';
 
 /** The account's latest Application, and whether it may apply. */
@@ -39,4 +40,4 @@ export function applicantStage(role: AccountRole | null, latest: MyApplication |
 
 /** A day, as "Oct 1, 2026" in the reader's own order. */
 export const dayOf = (ms: number) =>
-  new Date(ms).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  new Date(ms).toLocaleDateString(intlLocale(), { month: 'short', day: 'numeric', year: 'numeric' });

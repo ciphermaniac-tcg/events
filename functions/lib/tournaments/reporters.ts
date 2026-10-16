@@ -21,6 +21,7 @@ import { randomToken, sha256, type User } from '../auth/session.js';
 import { firstRow, rowsChanged } from '../d1.js';
 import type { D1Like } from '../types.js';
 import { loadTournament, type TournamentRow } from './store.js';
+import { msg } from '../../../shared/i18n.js';
 
 export interface Claim {
   /** The token to keep, when this request made the claim; the device that has it already holds it otherwise. */
@@ -159,7 +160,7 @@ export async function claimReporter(
     }
     const fresh = await loadTournament(db, row.code);
     if (!fresh?.tournament.players.some(player => player.id === playerId)) {
-      return { error: 'No such player', status: 404 };
+      return { error: msg('No such player'), status: 404 };
     }
     current = fresh;
   }

@@ -13,6 +13,7 @@ import { NotFoundPage } from './pages/NotFoundPage';
 import { TournamentsPage } from './pages/TournamentsPage';
 import { installPreloadRecovery } from './lib/preloadRecovery';
 import { initTheme } from './lib/theme';
+import { initLocale } from './lib/i18n';
 import { initEventMemory } from './lib/tournament/sessionMemory';
 
 // A deploy replaces every content-hashed chunk, so a tab that predates it will
@@ -28,33 +29,37 @@ if (!rootEl) {
 initTheme();
 initEventMemory();
 
-render(
-  () => (
-    <Router root={App}>
-      {/* The home page moved from /host to the root; old links keep their query. */}
-      <Route path='/host' component={() => <Navigate href={({ location }) => `/${location.search}`} />} />
-      {/* One route for every tournament page: see TournamentsPage for why. */}
-      <Route
-        path={[
-          '/',
-          '/host/:code',
-          '/t/:code',
-          '/settings',
-          '/account',
-          '/history',
-          '/u/:handle',
-          '/apply',
-          '/welcome',
-          '/privacy',
-          '/terms',
-          '/admin',
-          '/stores/:id',
-          '/stores/:id/settings'
-        ]}
-        component={TournamentsPage}
-      />
-      <Route path='*' component={NotFoundPage} />
-    </Router>
-  ),
-  rootEl
+// Language before render too: the catalog is read as each string renders, so
+// it has to be in hand first. English settles at once, with no request.
+void initLocale().then(() =>
+  render(
+    () => (
+      <Router root={App}>
+        {/* The home page moved from /host to the root; old links keep their query. */}
+        <Route path='/host' component={() => <Navigate href={({ location }) => `/${location.search}`} />} />
+        {/* One route for every tournament page: see TournamentsPage for why. */}
+        <Route
+          path={[
+            '/',
+            '/host/:code',
+            '/t/:code',
+            '/settings',
+            '/account',
+            '/history',
+            '/u/:handle',
+            '/apply',
+            '/welcome',
+            '/privacy',
+            '/terms',
+            '/admin',
+            '/stores/:id',
+            '/stores/:id/settings'
+          ]}
+          component={TournamentsPage}
+        />
+        <Route path='*' component={NotFoundPage} />
+      </Router>
+    ),
+    rootEl
+  )
 );

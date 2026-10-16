@@ -16,6 +16,7 @@ import { percentLabel, recordLabel, type Standing } from '../../../shared/tourna
 import type { Division, Pod, Tournament } from '../../../shared/tournament/types';
 import { cutSplit, divisionHeading, podStandings } from '../../lib/tournament/present';
 import { DeckIcons } from './DeckIcons';
+import { t } from '../../lib/i18n';
 
 interface TableProps {
   tournament: Tournament;
@@ -71,7 +72,7 @@ export function StandingsTable(props: TableProps) {
                 </Show>
                 <Show when={props.hideCutDecks && cutStarted() && cut() > 0}>
                   <div class='tm-box-bar'>
-                    <span class='muted'>Top {cut()} decks hidden until the event ends</span>
+                    <span class='muted'>{t('Top {n} decks hidden until the event ends', { n: cut() })}</span>
                   </div>
                 </Show>
                 <div class='table-wrap'>
@@ -79,9 +80,9 @@ export function StandingsTable(props: TableProps) {
                     <thead>
                       <tr>
                         <th class='num tm-table-col'>#</th>
-                        <th>Player</th>
-                        <th class='num'>Record</th>
-                        <th class='num'>Pts</th>
+                        <th>{t('Player')}</th>
+                        <th class='num'>{t('Record')}</th>
+                        <th class='num'>{t('Pts')}</th>
                         <Show when={props.tiebreakers}>
                           <th class='num tm-wide-col'>OWP</th>
                           <th class='num tm-wide-col'>OOWP</th>
@@ -109,10 +110,10 @@ export function StandingsTable(props: TableProps) {
                                     <Show when={(hasDecks() && !hidden(row())) || row().dropped}>
                                       <span class='tm-who-sub'>
                                         <Show when={hasDecks() && !hidden(row())}>
-                                          {props.decks[row().playerId] ?? 'No deck'}
+                                          {props.decks[row().playerId] ?? t('No deck')}
                                         </Show>
                                         <Show when={row().dropped}>
-                                          <span class='tm-flag'>Dropped</span>
+                                          <span class='tm-flag'>{t('Dropped')}</span>
                                         </Show>
                                       </span>
                                     </Show>
@@ -132,7 +133,7 @@ export function StandingsTable(props: TableProps) {
                                     phone: spanned by this one, they kept their width in a fixed table and
                                     squeezed the names to nothing. */}
                                 <td colSpan={4}>
-                                  <span class='tm-cut-top'>Top {cut()}</span>
+                                  <span class='tm-cut-top'>{t('Top {n}', { n: cut() })}</span>
                                   <Show when={split()}>{text => <span class='muted'>{text()}</span>}</Show>
                                 </td>
                                 <Show when={props.tiebreakers}>

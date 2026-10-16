@@ -10,6 +10,7 @@ import { byMonth, playersWord } from '../../src/pages/tournaments/storeHistory';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { afterEach, test } from 'node:test';
+import { setTranslations } from '../../src/lib/i18n/translate.ts';
 
 import { addressOf } from '../../shared/accounts/stores.ts';
 import type { LeagueFound, Listing } from '../../shared/accounts/types.ts';
@@ -42,6 +43,8 @@ import {
   shortDay,
   storeEventWhen,
   timeZones,
+  weekdayName,
+  weekdayPlural,
   withdrawInvite,
   zoneName
 } from '../../src/lib/tournament/stores.ts';
@@ -260,5 +263,19 @@ test('Discord invite validation agrees between the form and the server', () => {
     'https://user@discord.gg/store'
   ]) {
     assert.equal(detailsProblems({ ...details, discord }).discord, 'Enter a Discord invite URL');
+  }
+});
+
+test('weekdays and times follow the language shown, and a night off says so in it', () => {
+  assert.deepEqual([0, 3].map(weekdayName), ['Sunday', 'Wednesday']);
+  assert.equal(weekdayPlural(3), 'Wednesdays');
+  setTranslations('es', { 'Off ‖ league night': 'Sin liga', Wednesdays: 'Los miércoles' });
+  try {
+    assert.deepEqual([0, 3].map(weekdayName), ['Domingo', 'Miércoles']);
+    assert.equal(clock('19:30'), '19:30');
+    assert.equal(weekdayPlural(3), 'Los miércoles');
+    assert.equal(exceptionChange({ date: '2026-10-11', nightId: null, time: null, note: '' }), 'Sin liga');
+  } finally {
+    setTranslations('en', {});
   }
 });

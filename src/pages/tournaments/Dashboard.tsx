@@ -39,11 +39,12 @@ import { createSessionCatchUp } from './ApplicantStatus';
 import { PlayingTab } from './PlayingTab';
 import '../../styles/pages/tournament-dashboard.css';
 import { pageTitle } from '../../lib/title';
+import { msg, t } from '../../lib/i18n';
 import { ResourceFallback } from './Field';
 
 export type Tab = 'playing' | 'organizing';
 
-const LABELS: Record<Tab, string> = { playing: 'Playing', organizing: 'Organizing' };
+const LABELS: Record<Tab, string> = { playing: msg('Playing'), organizing: msg('Organizing') };
 
 const ICONS: Record<Tab | 'admin', JSX.Element> = {
   playing: (
@@ -99,7 +100,7 @@ function TabList(props: {
   }
   return (
     <div class={props.wide ? 'tm-dash-tabs tm-dash-wide' : 'tm-dash-bar tm-dash-phone'}>
-      <div ref={list} class='tm-dash-tablist' role='tablist' aria-label='Dashboard' onKeyDown={key}>
+      <div ref={list} class='tm-dash-tablist' role='tablist' aria-label={t('Dashboard')} onKeyDown={key}>
         <For each={props.shown}>
           {s => (
             <button
@@ -113,7 +114,7 @@ function TabList(props: {
             >
               <Show when={!props.wide}>{ICONS[s.tab]}</Show>
               <span>
-                {LABELS[s.tab]}
+                {t(LABELS[s.tab])}
                 <Show when={s.count > 0}>
                   <span class='tm-dash-count'>{s.count}</span>
                 </Show>
@@ -126,7 +127,7 @@ function TabList(props: {
         <A class='tm-dash-link' href='/admin'>
           <Show when={!props.wide}>{ICONS.admin}</Show>
           <span>
-            Admin
+            {t('Admin')}
             <Show when={(props.admin ?? 0) > 0}>
               <span class='tm-dash-count'>{props.admin}</span>
             </Show>
@@ -202,7 +203,7 @@ export function Dashboard(props: {
   createEffect(() => {
     const open = tab();
     if (open) {
-      document.title = pageTitle(LABELS[open]);
+      document.title = pageTitle(t(LABELS[open]));
     }
   });
 
@@ -211,16 +212,16 @@ export function Dashboard(props: {
       {open => (
         <div class='tm-dash' classList={{ 'tm-dash-barred': barred() }}>
           <header class='tm-dash-head'>
-            <Show when={barred()} fallback={<h1 class='tm-dash-title'>{LABELS[open()]}</h1>}>
+            <Show when={barred()} fallback={<h1 class='tm-dash-title'>{t(LABELS[open()])}</h1>}>
               {/* Above a phone's bar the open tab's name heads the page; wider, the tabs say it, and it is read only. */}
-              <h1 class='tm-dash-title tm-dash-phone-title'>{LABELS[open()]}</h1>
+              <h1 class='tm-dash-title tm-dash-phone-title'>{t(LABELS[open()])}</h1>
               <TabList shown={shown()} tab={open()} onSelect={select} wide admin={adminLink()} />
             </Show>
           </header>
           <Show when={barred()}>
             <TabList shown={shown()} tab={open()} onSelect={select} wide={false} admin={adminLink()} />
           </Show>
-          <div id='tm-dash-panel' role='tabpanel' aria-label={LABELS[open()]}>
+          <div id='tm-dash-panel' role='tabpanel' aria-label={t(LABELS[open()])}>
             <Switch>
               <Match when={open() === 'playing'}>
                 <PlayingTab history={history} onRetry={() => void refetch()} />

@@ -17,12 +17,13 @@ import { Segmented } from '../../components/Segmented';
 import type { ManageState } from './manageState';
 import { Modal } from './Modal';
 import { OptionsMenu } from './OptionsMenu';
+import { msg, t } from '../../lib/i18n';
 
 /** Which of a Swiss round's ends the plan calls for: another round until its rounds are played, then the cut or the end. */
 export type RoundEnd = 'pair' | 'cut' | 'end' | 'conclude';
 
-const CUT_LABEL = 'Start top cut';
-const END_LABEL = 'End event';
+const CUT_LABEL = msg('Start top cut');
+const END_LABEL = msg('End event');
 
 /** With no cut planned, the biggest one the players still in can fill, up to a top 8. */
 const largestCut = (active: number) => TOP_CUT_SIZES.filter(n => n <= Math.min(8, active)).at(-1) ?? 2;
@@ -54,7 +55,7 @@ function CutDialog(props: {
     return choice && choice.division === entry()?.division ? choice.size : suggestedCut(entry());
   };
   const sizes = () =>
-    TOP_CUT_SIZES.filter(n => n <= (entry()?.active ?? 0)).map(n => ({ value: String(n), label: `Top ${n}` }));
+    TOP_CUT_SIZES.filter(n => n <= (entry()?.active ?? 0)).map(n => ({ value: String(n), label: t('Top {n}', { n }) }));
   // Optional, and announced before the cut starts; it needs two semifinal losers.
   const [thirdPlace, setThirdPlace] = createSignal(false);
   const playsThird = () => thirdPlace() && size() >= 4;
@@ -70,20 +71,20 @@ function CutDialog(props: {
     void props.state.send(props.divided && which ? { ...cut, division: which } : cut);
   }
   return (
-    <Modal open={props.open} title='Start the top cut' class='tm-cut-dialog' onClose={props.onClose}>
+    <Modal open={props.open} title={t('Start the top cut')} class='tm-cut-dialog' onClose={props.onClose}>
       <div class='tm-box-bar tm-modal-body'>
         <div class='tm-cut-row'>
-          <span class='tm-cut-label'>Cut to</span>
+          <span class='tm-cut-label'>{t('Cut to')}</span>
           <Show when={props.cuts.length > 1}>
             <select
               class='tm-select'
-              aria-label='Division to cut'
+              aria-label={t('Division to cut')}
               onChange={e => setDivision(e.currentTarget.value as Division)}
             >
               <For each={props.cuts}>
                 {c => (
                   <option value={c.division} selected={c.division === entry()?.division}>
-                    {DIVISION_LABELS[c.division]}
+                    {t(DIVISION_LABELS[c.division])}
                   </option>
                 )}
               </For>
@@ -93,22 +94,22 @@ function CutDialog(props: {
             options={sizes()}
             selected={String(size())}
             onSelect={value => setPicked({ division: entry()?.division, size: Number(value) })}
-            ariaLabel='Top cut size'
+            ariaLabel={t('Top cut size')}
           />
         </div>
         <Show when={size() >= 4}>
           <label class='tm-check'>
             <input type='checkbox' checked={thirdPlace()} onChange={e => setThirdPlace(e.currentTarget.checked)} />
-            Third place match
+            {t('Third place match')}
           </label>
         </Show>
       </div>
       <div class='tm-box-bar tm-modal-foot'>
         <button type='button' class='btn btn-ghost' onClick={() => props.onClose()}>
-          Cancel
+          {t('Cancel')}
         </button>
         <button type='button' class='btn btn-primary' disabled={props.state.busy()} onClick={start}>
-          Start top {size()} cut
+          {t('Start top {n} cut', { n: size() })}
         </button>
       </div>
     </Modal>
@@ -132,7 +133,7 @@ function EndDialog(props: { state: ManageState; manage: Manage; open: boolean; o
   return (
     <Modal
       open={props.open}
-      title={early() ? 'End the event early?' : 'End the event?'}
+      title={early() ? t('End the event early?') : t('End the event?')}
       class='tm-end-dialog'
       onClose={props.onClose}
     >
@@ -149,11 +150,11 @@ function EndDialog(props: { state: ManageState; manage: Manage; open: boolean; o
             </For>
           </ul>
         </Show>
-        <p class='muted'>The final standings are published. Results can change only by reopening the event.</p>
+        <p class='muted'>{t('The final standings are published. Results can change only by reopening the event.')}</p>
       </div>
       <div class='tm-box-bar tm-modal-foot'>
         <button type='button' class='btn btn-ghost' onClick={() => props.onClose()}>
-          Keep running
+          {t('Keep running')}
         </button>
         <button
           type='button'
@@ -161,7 +162,7 @@ function EndDialog(props: { state: ManageState; manage: Manage; open: boolean; o
           disabled={props.state.busy()}
           onClick={end}
         >
-          {early() ? 'End early' : END_LABEL}
+          {early() ? t('End early') : t(END_LABEL)}
         </button>
       </div>
     </Modal>
@@ -179,7 +180,7 @@ export function EndEventStep(props: { state: ManageState; manage: Manage; primar
         disabled={props.state.busy()}
         onClick={() => setAsking(true)}
       >
-        {END_LABEL}
+        {t(END_LABEL)}
       </button>
       <EndDialog state={props.state} manage={props.manage} open={asking()} onClose={() => setAsking(false)} />
     </>
@@ -219,15 +220,15 @@ export function RoundEndSplit(props: {
   const steps = (): { end: RoundEnd; label: string }[] => [
     ...(props.swissOver || props.pod.prereleaseConcluded ? [] : [{ end: 'pair' as const, label: props.label }]),
     ...(prereleaseChoiceAvailable(props.manage.tournament, props.pod)
-      ? [{ end: 'conclude' as const, label: 'Conclude pod' }]
+      ? [{ end: 'conclude' as const, label: t('Conclude pod') }]
       : []),
-    ...(props.canCut ? [{ end: 'cut' as const, label: CUT_LABEL }] : []),
+    ...(props.canCut ? [{ end: 'cut' as const, label: t(CUT_LABEL) }] : []),
     ...(props.manage.tournament.settings?.mode !== 'PRERELEASE' || allDone()
-      ? [{ end: 'end' as const, label: END_LABEL }]
+      ? [{ end: 'end' as const, label: t(END_LABEL) }]
       : [])
   ];
   const main = () =>
-    steps().find(s => s.end === props.step) ?? steps()[0] ?? { end: 'conclude' as const, label: 'Pod concluded' };
+    steps().find(s => s.end === props.step) ?? steps()[0] ?? { end: 'conclude' as const, label: t('Pod concluded') };
   const others = () => steps().filter(s => s.end !== main().end);
   const take = (end: RoundEnd) => {
     if (end === 'pair') {
@@ -250,9 +251,9 @@ export function RoundEndSplit(props: {
       </button>
       <Show when={others().length > 0}>
         <OptionsMenu
-          name='the next step'
+          name={t('the next step')}
           buttonClass='btn btn-primary tm-split-caret'
-          buttonLabel='Other next steps'
+          buttonLabel={t('Other next steps')}
           buttonContent={CARET}
           closeOnSelect
           busy={props.state.busy()}

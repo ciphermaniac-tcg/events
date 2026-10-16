@@ -17,9 +17,10 @@ import { type Context, sameOrigin } from '../../lib/auth/env.js';
 import { createSession, proofOf, SESSION_SECONDS, StaleSignIn, upsertUser } from '../../lib/auth/session.js';
 import { rejectSignup } from '../../lib/auth/rejection.js';
 import { takeSignup } from '../../lib/auth/signup.js';
+import { msg } from '../../../shared/i18n.js';
 
 /** What someone too young is told; nothing about them was kept. */
-export const TOO_YOUNG = 'Ciphermaniac accounts are for people 16 and older.';
+export const TOO_YOUNG = msg('Ciphermaniac accounts are for people 16 and older.');
 
 function answer(status: number, body: unknown, cookies: readonly string[]): Response {
   const headers = new Headers({ 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
@@ -45,7 +46,7 @@ export async function onRequestPost({ request, env }: Context): Promise<Response
   const held = token ? await takeSignup(db, token, now.getTime()) : null;
   const cleared = clearCookie(request, SIGNUP_COOKIE);
   if (!held) {
-    return answer(410, { error: 'Please sign in again to continue.' }, [cleared]);
+    return answer(410, { error: msg('Please sign in again to continue.') }, [cleared]);
   }
   if (!oldEnoughForAccount(birthDate, now)) {
     await rejectSignup(db, held.profile, env.PROOFS);
@@ -60,7 +61,7 @@ export async function onRequestPost({ request, env }: Context): Promise<Response
   });
   if (!session) {
     // The password changed while the age check waited: the sign-in it held is spent.
-    return answer(410, { error: 'Please sign in again to continue.' }, [cleared]);
+    return answer(410, { error: msg('Please sign in again to continue.') }, [cleared]);
   }
   return answer(200, { next: safeNext(held.next) }, [
     cleared,

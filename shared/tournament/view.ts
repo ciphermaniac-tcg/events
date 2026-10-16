@@ -19,6 +19,7 @@ import type { PlayerReport } from './reports.js';
 import type { PlayerRequest } from './requests.js';
 import { hasStarted, isOpenMatch, type MatchKey, sameMatch } from './rounds.js';
 import type { Division, Outcome, Pod, Tournament, TournamentInfo } from './types.js';
+import { msgf } from '../i18n.js';
 
 export type TournamentMode = 'swiss' | 'tom';
 
@@ -177,7 +178,7 @@ export function sanctionedSettingsError(
   const touches = (key: keyof TournamentSettings) => Object.hasOwn(change, key);
   const capped = next.roundCap > 0 && next.roundCap < SANCTIONED.swissRounds;
   if (next.sanctioned && capped && (touches('roundCap') || touches('sanctioned'))) {
-    return `A sanctioned event plays at least ${SANCTIONED.swissRounds} Swiss rounds`;
+    return msgf('A sanctioned event plays at least {rounds} Swiss rounds', { rounds: SANCTIONED.swissRounds });
   }
   return next.sanctioned && !current.sanctioned ? sanctionedMinutesError(info) : null;
 }

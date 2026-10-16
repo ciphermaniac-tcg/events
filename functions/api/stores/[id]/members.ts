@@ -27,8 +27,9 @@ import {
   withdrawInvite
 } from '../../../lib/stores/db.js';
 import { privateJson } from '../../../lib/tournaments/access.js';
+import { msg } from '../../../../shared/i18n.js';
 
-const OWNER_STAYS = 'The owner stays until they hand the store to someone else';
+const OWNER_STAYS = msg('The owner stays until they hand the store to someone else');
 
 const roleOf = (value: unknown): GivenRole | null => GIVEN_ROLES.find(role => role === value) ?? null;
 
@@ -92,7 +93,7 @@ export async function onRequestPatch(context: Context<'id'>): Promise<Response> 
   }
   return (await applyChange(access, change))
     ? people(access)
-    : jsonError(handing ? 'The store was not handed over' : OWNER_STAYS, 409);
+    : jsonError(handing ? msg('The store was not handed over') : OWNER_STAYS, 409);
 }
 
 export async function onRequestDelete(context: Context<'id'>): Promise<Response> {

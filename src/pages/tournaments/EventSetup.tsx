@@ -17,6 +17,7 @@ import { For, Show, untrack } from 'solid-js';
 import type { Listing } from '../../../shared/accounts/types';
 import { DEFAULT_ROUND_MINUTES, eventTimeLimits } from '../../../shared/tournament/create';
 import { CREATIONS_PER_DAY, eventDay, isRoundMinutes } from '../../../shared/tournament/limits';
+import { t } from '../../lib/i18n';
 import { setupDraft } from '../../lib/tournament/setupDraft';
 import { SANCTIONED } from '../../../shared/tournament/structure';
 import { EVENT_TYPES, type EventType } from '../../../shared/tournament/types';
@@ -213,12 +214,12 @@ export function EventSetup(props: {
   return (
     <form class='tm-setup' onSubmit={submit}>
       <div class='tm-setup-head'>
-        <h2>New event</h2>
+        <h2>{t('New event')}</h2>
       </div>
       <SetupName swiss={swiss()} name={name()} tdfName={props.tdfName} onInput={setName} />
       <Show when={props.runAs.length > 1}>
         <div class='tm-box'>
-          <SettingRow label='Run as' for='setup-run-as'>
+          <SettingRow label={t('Run as')} for='setup-run-as'>
             <select
               id='setup-run-as'
               class='tm-input'
@@ -236,26 +237,32 @@ export function EventSetup(props: {
       <div class='tm-box'>
         <Show when={listing()}>
           {picked => (
-            <SettingRow label='Sanction ID'>
+            <SettingRow label={t('Sanction ID')}>
               <span class='tm-set-inline'>
                 <span class='tm-num'>{picked().sanctionId}</span>
-                <span class='muted'>{LISTING_KINDS[picked().kind]}</span>
+                <span class='muted'>{t(LISTING_KINDS[picked().kind])}</span>
               </span>
             </SettingRow>
           )}
         </Show>
         <Show when={swiss() && !own() && !listed()}>
-          <SettingRow label='Sanctioned'>
-            <Toggle label='Sanctioned' value={sanctioned()} on='Yes' off='No' onChange={setSanctionedTo} />
+          <SettingRow label={t('Sanctioned')}>
+            <Toggle
+              label={t('Sanctioned')}
+              value={sanctioned()}
+              on={t('Yes')}
+              off={t('No')}
+              onChange={setSanctionedTo}
+            />
           </SettingRow>
         </Show>
         <Show when={needsPlayTools()}>
           <PlayToolsRow confirmed={playToolsConfirmed()} onConfirm={setPlayToolsConfirmed} />
         </Show>
-        <SettingRow label='Format' for='setup-format'>
+        <SettingRow label={t('Format')} for='setup-format'>
           <FormatSelect id='setup-format' value={format()} onChange={setFormat} />
         </SettingRow>
-        <SettingRow label='Starts' for='setup-starts'>
+        <SettingRow label={t('Starts')} for='setup-starts'>
           <input
             id='setup-starts'
             class='tm-input'
@@ -272,7 +279,7 @@ export function EventSetup(props: {
         />
         <Show when={swiss()}>
           <Show when={!listed()}>
-            <SettingRow label='Event type'>
+            <SettingRow label={t('Event type')}>
               <EventTypeSwitch
                 value={selectedEventType()}
                 types={own() ? ['local', 'prerelease'] : undefined}
@@ -280,7 +287,7 @@ export function EventSetup(props: {
               />
             </SettingRow>
           </Show>
-          <SettingRow label='Swiss round minutes' for='setup-minutes'>
+          <SettingRow label={t('Swiss round minutes')} for='setup-minutes'>
             <input
               id='setup-minutes'
               class='tm-input tm-set-minutes'
@@ -294,7 +301,7 @@ export function EventSetup(props: {
               onInput={e => setRoundTime(e.currentTarget.value)}
             />
           </SettingRow>
-          <SettingRow label='Swiss rounds' for='setup-rounds'>
+          <SettingRow label={t('Swiss rounds')} for='setup-rounds'>
             <RoundsSelect
               id='setup-rounds'
               value={roundCap()}
@@ -303,13 +310,17 @@ export function EventSetup(props: {
             />
           </SettingRow>
         </Show>
-        <SettingRow label='Mobile result reporting' info={<SettingInfo text={reportingInfo(sanctioned())} />}>
-          <Toggle label='Mobile result reporting' value={reporting()} onChange={setReporting} />
+        <SettingRow label={t('Mobile result reporting')} info={<SettingInfo text={reportingInfo(sanctioned())} />}>
+          <Toggle label={t('Mobile result reporting')} value={reporting()} onChange={setReporting} />
         </SettingRow>
-        <SettingRow label='Archetypes' for='setup-archetypes' info={<SettingInfo text={SETTING_INFO.archetypes} />}>
+        <SettingRow
+          label={t('Archetypes')}
+          for='setup-archetypes'
+          info={<SettingInfo text={SETTING_INFO.archetypes} />}
+        >
           <ArchetypesSelect id='setup-archetypes' value={archetypes()} onChange={setArchetypes} />
         </SettingRow>
-        <SettingRow label='Decklists' info={<SettingInfo text={SETTING_INFO.decklists} />}>
+        <SettingRow label={t('Decklists')} info={<SettingInfo text={SETTING_INFO.decklists} />}>
           <DecklistsSwitch value={decklists()} onChange={setDecklists} />
         </SettingRow>
       </div>
@@ -331,14 +342,14 @@ export function EventSetup(props: {
 /** Where a sanctioned event is created first, and the organizer's word that they have. */
 function PlayToolsRow(props: { confirmed: boolean; onConfirm: (value: boolean) => void }) {
   return (
-    <SettingRow label='Play! Tools'>
+    <SettingRow label={t('Play! Tools')}>
       <div class='tm-field'>
         <div class='tm-set-inline'>
           <a href='https://play-tools.pokemon.com/' target='_blank' rel='noopener noreferrer'>
             Play! Tools
           </a>
           <a href='https://play-tools.pokemon.com/guide' target='_blank' rel='noopener noreferrer'>
-            Sanctioning guide
+            {t('Sanctioning guide')}
           </a>
         </div>
         <label class='tm-check'>
@@ -348,7 +359,7 @@ function PlayToolsRow(props: { confirmed: boolean; onConfirm: (value: boolean) =
             checked={props.confirmed}
             onChange={e => props.onConfirm(e.currentTarget.checked)}
           />
-          I’ve created this event in Play! Tools
+          {t('I’ve created this event in Play! Tools')}
         </label>
       </div>
     </SettingRow>
@@ -369,27 +380,31 @@ function SetupFooter(props: {
     <>
       <Show when={props.limited}>
         <p class='muted' role='status'>
-          One community event per date · up to {CREATIONS_PER_DAY.community} creations in 24 hours.
-          <Show when={props.dayTaken}> An event already uses {props.day}.</Show>
+          {t('One community event per date · up to {count} creations in 24 hours.', {
+            count: CREATIONS_PER_DAY.community
+          })}
+          <Show when={props.dayTaken}> {t('An event already uses {day}.', { day: props.day })}</Show>
         </p>
       </Show>
       <Show when={props.invalidMinutes}>
         <p id='setup-minutes-status' class='tm-error' role='status'>
-          Enter whole minutes from 1 to 180
+          {t('Enter whole minutes from 1 to 180')}
         </p>
       </Show>
       <div class='tm-setup-foot'>
         <Show when={props.needsName}>
-          <span class='muted'>Name the event to create it</span>
+          <span class='muted'>{t('Name the event to create it')}</span>
         </Show>
         <Show when={!props.needsName && props.shortRounds}>
-          <span class='muted'>Sanctioned rounds are at least {SANCTIONED.minutes} minutes</span>
+          <span class='muted'>
+            {t('Sanctioned rounds are at least {minutes} minutes', { minutes: SANCTIONED.minutes })}
+          </span>
         </Show>
         <button type='submit' class='btn btn-primary' disabled={props.cannotCreate}>
-          Create event
+          {t('Create event')}
         </button>
         <button type='button' class='btn btn-ghost' onClick={() => props.onCancel()}>
-          Cancel
+          {t('Cancel')}
         </button>
       </div>
     </>
@@ -399,7 +414,7 @@ function SetupFooter(props: {
 function SetupName(props: { swiss: boolean; name: string; tdfName?: string; onInput: (value: string) => void }) {
   return (
     <div class='tm-box'>
-      <SettingRow label='Event name' for='setup-name'>
+      <SettingRow label={t('Event name')} for='setup-name'>
         <Show
           when={props.swiss}
           fallback={
@@ -412,8 +427,8 @@ function SetupName(props: { swiss: boolean; name: string; tdfName?: string; onIn
             id='setup-name'
             class='tm-input tm-setup-name'
             maxLength={120}
-            placeholder='Event name'
-            aria-label='Event name'
+            placeholder={t('Event name')}
+            aria-label={t('Event name')}
             value={props.name}
             ref={el => queueMicrotask(() => el.focus())}
             onInput={e => props.onInput(e.currentTarget.value)}

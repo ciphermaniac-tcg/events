@@ -6,6 +6,7 @@ import { ErrorState } from './components/ErrorState';
 import { SiteHead } from './components/SiteHead';
 import { useScrollRestoration } from './lib/scrollRestore';
 import { isRecoveringPreload } from './lib/preloadRecovery';
+import { t } from './lib/i18n';
 
 /**
  * Fallback while a lazy route chunk downloads on a cold load (page data never
@@ -65,7 +66,7 @@ export const App: ParentComponent = props => {
           main?.focus();
         }}
       >
-        Skip to content
+        {t('Skip to content')}
       </a>
       <SiteHead />
       <main ref={main} id='main' class='page' tabIndex={-1}>
@@ -79,15 +80,15 @@ export const App: ParentComponent = props => {
             return (
               <div role='alert'>
                 <ErrorState
-                  code='Error'
-                  title='Something went wrong'
-                  line='This page hit a problem it couldn’t recover from. Trying again usually works.'
+                  code={t('Error')}
+                  title={t('Something went wrong')}
+                  line={t('This page hit a problem it couldn’t recover from. Trying again usually works.')}
                 >
                   <button type='button' class='btn btn-primary' onClick={reset}>
-                    Try again
+                    {t('Try again')}
                   </button>
                   <a href='/' class='btn btn-secondary'>
-                    Go home
+                    {t('Go home')}
                   </a>
                 </ErrorState>
               </div>

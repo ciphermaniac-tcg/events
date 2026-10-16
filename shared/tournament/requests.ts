@@ -13,6 +13,7 @@
  * player's public key and leaves the staff member out.
  */
 
+import { msg } from '../i18n.js';
 export const REQUEST_KINDS = ['drop', 'staff'] as const;
 export type RequestKind = (typeof REQUEST_KINDS)[number];
 
@@ -22,7 +23,7 @@ export type RequestAnswer = Exclude<RequestStatus, 'open' | 'cancelled'>;
 /** How soon a player may ask again after cancelling a request of the same kind. */
 export const REQUEST_COOLDOWN_MS = 30_000;
 
-export const TOO_SOON = 'Wait a moment before asking again';
+export const TOO_SOON = msg('Wait a moment before asking again');
 
 export interface PlayerRequest {
   /** Names this request, so staff answer the one they saw. */
@@ -104,7 +105,7 @@ export function cancelRequest(
 ): PlayerRequest[] | string {
   const open = requestOf(requests, ask.player, ask.kind);
   if (open?.status !== 'open') {
-    return 'Staff have already answered';
+    return msg('Staff have already answered');
   }
   const cancelled: PlayerRequest = { ...open, status: 'cancelled', answeredAt: ask.at };
   return requests.map(request => (request === open ? cancelled : request));
@@ -117,10 +118,10 @@ export function answerRequest(
 ): PlayerRequest[] | string {
   const open = requests.find(request => request.id === answer.id);
   if (open?.status !== 'open') {
-    return 'That request was already answered or cancelled';
+    return msg('That request was already answered or cancelled');
   }
   if (!isAnswerFor(open.kind, answer.status)) {
-    return 'Not an answer to that request';
+    return msg('Not an answer to that request');
   }
   const answered = { ...open, status: answer.status, by: answer.by, answeredAt: answer.at };
   return requests.map(request => (request === open ? answered : request));

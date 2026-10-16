@@ -1,3 +1,4 @@
+import { msg } from '../i18n.js';
 export const PROFILE_LINKS = ['ciphermaniac', 'facebook', 'instagram', 'twitter', 'metafy'] as const;
 export type ProfileLink = (typeof PROFILE_LINKS)[number];
 export type ProfileLinks = Partial<Record<ProfileLink, string>>;
@@ -6,7 +7,7 @@ export interface ProfilePreferences {
 }
 
 export const PROFILE_LINK_LABELS: Record<ProfileLink, string> = {
-  ciphermaniac: 'Ciphermaniac profile',
+  ciphermaniac: msg('Ciphermaniac profile'),
   facebook: 'Facebook',
   instagram: 'Instagram',
   twitter: 'Twitter / X',

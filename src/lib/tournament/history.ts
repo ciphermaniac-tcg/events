@@ -13,13 +13,14 @@ import { type MatchRecord, type Standing, thirdPlaceMatch } from '../../../share
 import type { Division, Pod } from '../../../shared/tournament/types';
 import { decksVisible, isSanctioned, type PublishedView } from '../../../shared/tournament/view';
 import { isWallClock } from '../../../shared/tournament/timeZone';
+import { intlLocale, t } from '../i18n';
 import { type HistoryRow, matchHistory, namesById, podStandings, roundLabel } from './present';
 
 const sameYear = (date: Date) => date.getFullYear() === new Date().getFullYear();
 
 /** "Sat, Oct 3", with the year only outside this one. */
 export const dayLabel = (date: Date, timeZone?: string) =>
-  date.toLocaleDateString(undefined, {
+  date.toLocaleDateString(intlLocale(), {
     weekday: 'short',
     month: 'short',
     day: 'numeric',
@@ -80,7 +81,7 @@ function namedRounds(pod: Pod, key: string): PlayerFinish['rounds'] {
   );
   return matchHistory(pod, key).map(row => ({
     ...row,
-    label: third.has(row.round) ? 'Third place' : (labels.get(row.round) ?? `Round ${row.round}`)
+    label: third.has(row.round) ? t('Third place') : (labels.get(row.round) ?? t('Round {n}', { n: row.round }))
   }));
 }
 

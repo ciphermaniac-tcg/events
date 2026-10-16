@@ -7,6 +7,7 @@
 
 import { createSignal, createUniqueId, For, type JSX, onCleanup } from 'solid-js';
 import { R2_ORIGIN } from '../../lib/constants';
+import { t } from '../../lib/i18n';
 
 const spriteUrl = (name: string) => `${R2_ORIGIN}/pokemon-sprites/gen9/${name}.png`;
 const cardUrl = (set: string, num: string) => `${R2_ORIGIN}/card-images/${set}/${set}_${num}_R_EN_SM.webp`;
@@ -127,7 +128,7 @@ export function PhoneArt() {
       <rect x='54' y='4' width='52' height='112' rx='9' />
       <Bar x={74} y={11} w={12} />
       <Text x={80} y={30} size={7.5} class='tm-art-muted' weight={600}>
-        Table
+        {t('Table')}
       </Text>
       <Text x={80} y={52} size={22}>
         7
@@ -214,7 +215,7 @@ export function ScreenArt() {
       <rect x='8' y='8' width='144' height='88' rx='4' />
       <path d='M68 108h24M80 96v12' />
       <Text x={20} y={26} size={9} anchor='start' weight={700}>
-        Round 3
+        {t('Round {n}', { n: 3 })}
       </Text>
       <Text x={140} y={28} size={16} class='tm-art-ink' anchor='end'>
         {clock()}
@@ -252,7 +253,7 @@ export function StreamArt() {
         <path class='tm-art-dim' d='M40 88h12' />
         <rect x='72' y='76' width='16' height='18' class='tm-art-chip' stroke='none' />
         <Text x={80} y={88.5} size={8} class='tm-art-chipt'>
-          R3
+          {t('R{n}', { n: 3 })}
         </Text>
         <rect x='88' y='76' width='54' height='18' rx='1.5' class='tm-art-plate' />
         <Sprite name='charizard' x={124} y={77} size={16} />
@@ -261,7 +262,7 @@ export function StreamArt() {
         <g class='tm-art-win'>
           <rect x='60' y='79' width='10' height='12' rx='1' stroke='none' class='tm-art-chip' />
           <Text x={65} y={88} size={7.5} class='tm-art-chipt'>
-            W
+            {t('W')}
           </Text>
         </g>
       </g>
@@ -367,7 +368,7 @@ export function ResultsArt() {
         1–0
       </Text>
       <Text x={138} y={63} size={12} anchor='end'>
-        Tie
+        {t('Tie')}
       </Text>
       <Bar x={106} y={89} w={32} class='tm-art-soft' />
     </Canvas>

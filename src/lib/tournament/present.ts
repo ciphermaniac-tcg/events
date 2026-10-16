@@ -36,6 +36,7 @@ import {
   swissAttendance
 } from '../../../shared/tournament/rounds';
 import { ordinal } from '../format';
+import { intlLocale, msg, t, tc, tn } from '../i18n';
 import { divisionLookup } from '../../../shared/tournament/divisions';
 import { eventTypeOf, recommendedStructure } from '../../../shared/tournament/structure';
 import {
@@ -63,10 +64,13 @@ export function namesById(tournament: Tournament): Map<string, string> {
   return new Map(tournament.players.map(player => [player.id, playerName(player)]));
 }
 
-const CUT_ROUND_NAMES: Record<number, string> = { 2: 'Final', 4: 'Semifinals', 8: 'Quarterfinals' };
+const CUT_ROUND_NAMES: Record<number, string> = { 2: msg('Final'), 4: msg('Semifinals'), 8: msg('Quarterfinals') };
 
 /** A top-cut stage by the players still in it: Final, Semifinals, Quarterfinals, then Top 16 and up. */
-export const cutStageLabel = (players: number): string => CUT_ROUND_NAMES[players] ?? `Top ${players}`;
+export const cutStageLabel = (players: number): string => {
+  const name = CUT_ROUND_NAMES[players];
+  return name ? t(name) : t('Top {n}', { n: players });
+};
 
 /** Whether a pod has played into a top cut, so its matches can be shown as a bracket. */
 export const hasCut = (pod: Pod | undefined): boolean => pod?.rounds.some(r => r.kind === 'elimination') === true;
@@ -74,15 +78,16 @@ export const hasCut = (pod: Pod | undefined): boolean => pod?.rounds.some(r => r
 /** How a top cut's matches are shown: the table every round has, or the bracket. */
 export type MatchView = 'table' | 'bracket';
 
-export const MATCH_VIEWS: { value: MatchView; label: string }[] = [
-  { value: 'table', label: 'Table' },
-  { value: 'bracket', label: 'Bracket' }
+/** The two views, named in the language shown: "Table" here is the layout, not the table a match sits at. */
+export const matchViews = (): { value: MatchView; label: string }[] => [
+  { value: 'table', label: tc('match view', 'Table') },
+  { value: 'bracket', label: t('Bracket') }
 ];
 
 /** A round's name: its number in Swiss, its stage in a top cut, whose final may also hold the match for third. */
 export function roundLabel(round: Round, pod: Pod): string {
   if (round.kind === 'swiss') {
-    return `Round ${round.number}`;
+    return t('Round {n}', { n: round.number });
   }
   return cutStageLabel(bracketSize(pod, round) * 2);
 }
@@ -155,13 +160,26 @@ export function podProgress(pod: Pod, pending: readonly PendingResult[]): PodPro
   return { round, tables: played.length, open, champion: champion(round, pod), label, next };
 }
 
-const tablesWord = (n: number, kind: Round['kind']) =>
-  kind === 'elimination' ? (n === 1 ? 'match' : 'matches') : n === 1 ? 'table' : 'tables';
+/** "3 tables open": a top cut counts matches, Swiss counts tables. */
+const openWords = (n: number, kind: Round['kind']) =>
+  kind === 'elimination' ? tn(n, '{n} match open', '{n} matches open') : tn(n, '{n} table open', '{n} tables open');
+
+const playingWords = (n: number, kind: Round['kind']) =>
+  kind === 'elimination'
+    ? tn(n, '{n} match playing', '{n} matches playing')
+    : tn(n, '{n} table playing', '{n} tables playing');
+
+const allInWords = (n: number, kind: Round['kind']) =>
+  kind === 'elimination'
+    ? tn(n, 'all {n} match in', 'all {n} matches in')
+    : tn(n, 'all {n} table in', 'all {n} tables in');
+
+const NEXT_STAGES: Record<number, string> = { 2: msg('the final'), 4: msg('semifinals'), 8: msg('quarterfinals') };
 
 /** The name of the stage a cut round of `matches` bracket matches leads to: "semifinals", "the final". */
 function nextStageName(matches: number): string {
-  const name = CUT_ROUND_NAMES[matches] ?? `top ${matches}`;
-  return name === 'Final' ? 'the final' : name.toLowerCase();
+  const name = NEXT_STAGES[matches];
+  return name ? t(name) : t('top {n}', { n: matches });
 }
 
 /** The Swiss rounds a pod plans to play, and the top cut to follow them (0 for none). */
@@ -202,7 +220,8 @@ export function divisionCuts(tournament: Tournament, pod: Pod, divisionOf: (id: 
 
 /** A pod's name on the page: its divisions, or for one division's top cut, that. */
 export function podLabel(pod: Pod): string {
-  return pod.cutOf ? `${POD_LABELS[pod.category]} top cut` : POD_LABELS[pod.category];
+  const name = t(POD_LABELS[pod.category]);
+  return pod.cutOf ? t('{division} top cut', { division: name }) : name;
 }
 
 /** The round cap a status line counts rounds against: none for a TOM event, whose rounds are TOM's to decide. */
@@ -241,14 +260,14 @@ export function nextStep(progress: PodProgress, finished: boolean, plan: SwissPl
     return { kind: 'none' };
   }
   if (!round) {
-    return { kind: 'pair', label: 'Pair round 1', ready: true };
+    return { kind: 'pair', label: t('Pair round {n}', { n: 1 }), ready: true };
   }
-  const waiting = open > 0 ? { ready: false, reason: `${open} ${tablesWord(open, round.kind)} open` } : { ready: true };
+  const waiting = open > 0 ? { ready: false, reason: openWords(open, round.kind) } : { ready: true };
   if (winner) {
     return { kind: 'close', champion: winner, ...waiting };
   }
   const swiss = round.kind === 'swiss';
-  const label = swiss ? `Pair round ${round.number + 1}` : `Pair ${progress.next}`;
+  const label = swiss ? t('Pair round {n}', { n: round.number + 1 }) : t('Pair {stage}', { stage: progress.next });
   return plan && swiss && round.number >= plan.rounds
     ? { kind: 'decide', label, cut: plan.cut, ...waiting }
     : { kind: 'pair', label, ...waiting };
@@ -283,19 +302,19 @@ interface EndingEvent {
 /** What a step still to take says in an ending's review; null for none. */
 function stepGap(step: NextStep): string | null {
   if (step.kind === 'pair') {
-    return `Next: ${step.label}`;
+    return t('Next: {step}', { step: step.label });
   }
-  return step.kind === 'decide' && step.cut > 0 ? 'Top cut not played' : null;
+  return step.kind === 'decide' && step.cut > 0 ? t('Top cut not played') : null;
 }
 
 /** What one pod has left: no round at all, open tables, or (on the site) a round or cut its plan still calls for. */
 function podGap(event: EndingEvent, pod: Pod): string | null {
   const progress = podProgress(pod, event.pending);
   if (!progress.round) {
-    return 'No rounds played';
+    return t('No rounds played');
   }
   if (progress.open > 0) {
-    return `${progress.label}: ${progress.open} ${tablesWord(progress.open, progress.round.kind)} open`;
+    return t('{round}: {open}', { round: progress.label, open: openWords(progress.open, progress.round.kind) });
   }
   // TOM decides a TOM event's rounds, so only its open tables are the site's to know.
   return event.mode === 'tom'
@@ -311,7 +330,7 @@ function podGap(event: EndingEvent, pod: Pod): string | null {
 export function endGaps(event: EndingEvent): EndGap[] {
   const pods = livePods(event.tournament);
   if (!pods.some(pod => pod.rounds.length > 0)) {
-    return [{ where: null, detail: 'No rounds played' }];
+    return [{ where: null, detail: t('No rounds played') }];
   }
   return pods.flatMap(pod => {
     const detail = podGap(event, pod);
@@ -321,12 +340,13 @@ export function endGaps(event: EndingEvent): EndGap[] {
 
 /** "Round 2 of 5" while a Swiss round is within the plan's `rounds`; the round's own name past it or without one. */
 /** A clock past zero reads as time over rather than a negative time left. */
-const timeWords = (clock: string) => (clock.startsWith('-') ? `${clock.slice(1)} over` : `${clock} left`);
+const timeWords = (clock: string) =>
+  clock.startsWith('-') ? t('{time} over', { time: clock.slice(1) }) : t('{time} left', { time: clock });
 
 function roundOf(progress: PodProgress & { round: Round }, rounds: number | null): string {
   const { round } = progress;
   return round.kind === 'swiss' && rounds !== null && round.number <= rounds
-    ? `Round ${round.number} of ${rounds}`
+    ? t('Round {n} of {total}', { n: round.number, total: rounds })
     : progress.label;
 }
 
@@ -339,18 +359,15 @@ export function statusParts(
 ): string[] {
   const { round, open, tables } = progress;
   if (finished) {
-    return ['Finished'];
+    return [t('Finished')];
   }
   if (!round) {
-    return ['Registration'];
+    return [t('Registration')];
   }
   if (progress.champion && open === 0) {
-    return [progress.label, 'final played'];
+    return [progress.label, t('final played')];
   }
-  const doing =
-    open === 0
-      ? `all ${tables} ${tablesWord(tables, round.kind)} in`
-      : `${open} ${tablesWord(open, round.kind)} playing`;
+  const doing = open === 0 ? allInWords(tables, round.kind) : playingWords(open, round.kind);
   return [roundOf({ ...progress, round }, rounds), doing, ...(open > 0 && clock ? [timeWords(clock)] : [])];
 }
 
@@ -358,18 +375,17 @@ export function statusParts(
 export function roundStatus(progress: PodProgress, finished: boolean, rounds: number | null = null): string {
   const { round, open } = progress;
   if (finished) {
-    return 'Finished';
+    return t('Finished');
   }
   if (!round) {
-    return 'Registration';
+    return t('Registration');
   }
   if (progress.champion && open === 0) {
-    return `${progress.label}, final played`;
+    return t('{round}, final played', { round: progress.label });
   }
-  return `${roundOf({ ...progress, round }, rounds)} ${open === 0 ? 'complete' : 'in progress'}`;
+  const name = roundOf({ ...progress, round }, rounds);
+  return open === 0 ? t('{round} complete', { round: name }) : t('{round} in progress', { round: name });
 }
-
-const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
 /**
  * Where the event stands, for the public page and the big screen: who is
@@ -390,13 +406,17 @@ export function eventStatus(
   const pod = livePods(tournament).find(p => p.rounds.length > 0);
   if (!pod) {
     const players = tournament.players.filter(player => player.droppedAfter === null).length;
-    return ['Registration', plural(players, 'player'), ...(event.firstRound ? [`Round 1 at ${event.firstRound}`] : [])];
+    return [
+      t('Registration'),
+      tn(players, '{n} player', '{n} players'),
+      ...(event.firstRound ? [t('Round 1 at {time}', { time: event.firstRound })] : [])
+    ];
   }
   if (event.finished) {
     const swiss = pod.rounds.filter(round => round.kind === 'swiss').length;
     // The cut is chosen when play starts; only one that was played belongs in the summary.
     const cut = swiss < pod.rounds.length ? pod.cut : 0;
-    return ['Finished', plural(swiss, 'round'), ...(cut ? [`Top ${cut}`] : [])];
+    return [t('Finished'), tn(swiss, '{n} round', '{n} rounds'), ...(cut ? [t('Top {n}', { n: cut })] : [])];
   }
   const progress = podProgress(pod, event.pending);
   const { round } = progress;
@@ -413,16 +433,16 @@ export function eventStatus(
 export const RESULT_WORDS: Partial<Record<Outcome, string>> = {
   p1: '1–0',
   p2: '0–1',
-  tie: 'Tie',
-  'double-loss': 'Double loss',
-  bye: 'Bye',
-  loss: 'Missed round'
+  tie: msg('Tie'),
+  'double-loss': msg('Double loss'),
+  bye: msg('Bye'),
+  loss: msg('Missed round')
 };
 
 export const STATUS_LABELS: Record<Round['status'], string> = {
-  paired: 'Paired',
-  started: 'In progress',
-  finished: 'Complete'
+  paired: msg('Paired'),
+  started: msg('In progress'),
+  finished: msg('Complete')
 };
 
 /** The outcome shown for a match: TOM's, or a pending one entered on the site. */
@@ -449,6 +469,14 @@ export function shownOutcome(
 export function seatMark(outcome: Outcome, seat: 1 | 2): string {
   const side = sideResult(outcome, seat);
   return side === 'win' ? 'W' : side === 'loss' ? 'L' : side === 'tie' ? 'T' : '';
+}
+
+const MARK_LETTERS: Record<string, string> = { W: msg('W'), L: msg('L'), T: msg('T') };
+
+/** A seat mark (see seatMark) as the language shown writes it: V, D or E in Spanish. */
+export function markText(mark: string): string {
+  const letter = MARK_LETTERS[mark];
+  return letter ? t(letter) : mark;
 }
 
 export interface DivisionStandings {
@@ -506,7 +534,7 @@ export function podStandings(
 }
 
 export function divisionHeading(division: Division | null): string {
-  return division ? DIVISION_LABELS[division] : '';
+  return division ? t(DIVISION_LABELS[division]) : '';
 }
 
 export interface HistoryRow {
@@ -725,20 +753,26 @@ export function reportState(
 }
 
 const OUTCOME_WORDS: Partial<Record<Outcome, string>> = {
-  tie: 'Tie',
-  'double-loss': 'Double loss',
-  pending: 'Clear the result'
+  tie: msg('Tie'),
+  'double-loss': msg('Double loss'),
+  pending: msg('Clear the result')
 };
 
 /** An outcome in words, as staff confirm it: "Ash Ketchum wins", "Tie", "Clear the result". */
 export function outcomeLabel(outcome: Outcome, match: Match, names: Map<string, string>): string {
   const winner = outcome === 'p1' ? match.p1 : outcome === 'p2' ? match.p2 : null;
-  return winner ? `${names.get(winner) ?? winner} wins` : (OUTCOME_WORDS[outcome] ?? '');
+  if (winner) {
+    return t('{name} wins', { name: names.get(winner) ?? winner });
+  }
+  const words = OUTCOME_WORDS[outcome];
+  return words ? t(words) : '';
 }
 
 /** A short tag after a player's name in a pairings row, as what they reported. */
 export interface SeatTag {
   text: string;
+  /** The same word in English, whatever language `text` is in: what the pending marks key on. */
+  word: string;
   /** The tag in full, for its tooltip and for assistive tech. */
   title: string;
   /** Drawn as a problem: reports that differ, or that came from one device. */
@@ -746,8 +780,16 @@ export interface SeatTag {
 }
 
 const REPORT_WORDS: Partial<Record<Outcome, string>> = {
-  tie: 'Tie',
-  'double-loss': 'Double loss'
+  tie: msg('Tie'),
+  'double-loss': msg('Double loss')
+};
+
+/** A report tag's tooltip, whole: a lower-cased word inside it would read wrong in a language that capitalizes nouns. */
+const REPORTED_TITLES: Record<string, string> = {
+  Won: msg('Reported: won'),
+  Lost: msg('Reported: lost'),
+  Tie: msg('Reported: tie'),
+  'Double loss': msg('Reported: double loss')
 };
 
 /**
@@ -757,8 +799,12 @@ const REPORT_WORDS: Partial<Record<Outcome, string>> = {
  */
 function reportTag(report: PlayerReport, match: Match, problem: boolean): SeatTag {
   const winner = report.outcome === 'p1' ? match.p1 : report.outcome === 'p2' ? match.p2 : null;
-  const text = winner ? (winner === report.by ? 'Won' : 'Lost') : (REPORT_WORDS[report.outcome] ?? 'Reported');
-  return { text, title: `Reported: ${text.toLowerCase()}`, problem };
+  const word = winner
+    ? winner === report.by
+      ? msg('Won')
+      : msg('Lost')
+    : (REPORT_WORDS[report.outcome] ?? msg('Reported'));
+  return { text: t(word), word, title: t(REPORTED_TITLES[word] ?? 'Reported'), problem };
 }
 
 export interface StaffReport {
@@ -787,7 +833,10 @@ export function staffReport(
     return null;
   }
   const said = (report: PlayerReport) =>
-    `${names.get(report.by) ?? report.by}: ${outcomeLabel(report.outcome, match, names)}`;
+    t('{name}: {result}', {
+      name: names.get(report.by) ?? report.by,
+      result: outcomeLabel(report.outcome, match, names)
+    });
   // Two agreeing reports from one device never settle on their own: one person may have spoken for both seats.
   const shared = Boolean(second && oneDevice(first, second));
   const disputed = isDisputed(reports);
@@ -795,21 +844,33 @@ export function staffReport(
   const tags = new Map(reports.map(report => [report.by, reportTag(report, match, problem)]));
   if (shared) {
     return {
-      label: 'One device',
+      label: t('One device'),
       problem,
       tags,
-      detail: `Both reports came from one device. Reported: ${outcomeLabel(first.outcome, match, names)}`
+      detail: t('Both reports came from one device. Reported: {result}', {
+        result: outcomeLabel(first.outcome, match, names)
+      })
     };
   }
   return disputed
-    ? { label: 'Disputed', problem, tags, detail: `Reports differ. ${reports.map(said).join('; ')}` }
-    : { label: 'Reported', problem, tags, detail: `Reported: ${outcomeLabel(first.outcome, match, names)}` };
+    ? {
+        label: t('Disputed'),
+        problem,
+        tags,
+        detail: t('Reports differ. {reports}', { reports: reports.map(said).join(t('; ')) })
+      }
+    : {
+        label: t('Reported'),
+        problem,
+        tags,
+        detail: t('Reported: {result}', { result: outcomeLabel(first.outcome, match, names) })
+      };
 }
 
 /** The start of round 1 as a time, when the organizer set one. */
 export const firstRoundTime = (startsAt: string): string | null =>
   isWallClock(startsAt)
-    ? new Date(startsAt).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+    ? new Date(startsAt).toLocaleTimeString(intlLocale(), { hour: 'numeric', minute: '2-digit' })
     : null;
 
 /** What put the last player in above the first one out: points, then OWP, then OOWP. */
@@ -819,12 +880,14 @@ export function cutSplit(rows: readonly Standing[], cut: number): string | null 
   if (!inside || !outside) {
     return null;
   }
-  const lead = `${ordinal(cut)} and ${ordinal(cut + 1)} split on`;
+  const places = { inside: ordinal(cut), outside: ordinal(cut + 1) };
   if (inside.points !== outside.points) {
-    return `${lead} points: ${inside.points} / ${outside.points}`;
+    return t('{inside} and {outside} split on points: {a} / {b}', { ...places, a: inside.points, b: outside.points });
   }
   if (inside.owp !== outside.owp) {
-    return `${lead} OWP: ${percentLabel(inside.owp)} / ${percentLabel(outside.owp)}`;
+    const rates = { a: percentLabel(inside.owp), b: percentLabel(outside.owp) };
+    return t('{inside} and {outside} split on OWP: {a} / {b}', { ...places, ...rates });
   }
-  return `${lead} OOWP: ${percentLabel(inside.oowp)} / ${percentLabel(outside.oowp)}`;
+  const rates = { a: percentLabel(inside.oowp), b: percentLabel(outside.oowp) };
+  return t('{inside} and {outside} split on OOWP: {a} / {b}', { ...places, ...rates });
 }

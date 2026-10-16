@@ -32,7 +32,7 @@ const config: KnipConfig = {
     'shared/**/*.ts!',
     'functions/**/*.{ts,js}!',
     'scripts/*.{ts,mjs}!',
-    'scripts/quality/*.mjs',
+    'scripts/quality/*.{mjs,ts}',
     '.github/scripts/*.{ts,mjs}!',
     'tests/**/*.{ts,js,mjs}'
   ]

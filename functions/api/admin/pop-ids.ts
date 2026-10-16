@@ -15,6 +15,7 @@ import type { Context } from '../../lib/auth/env.js';
 import { firstRow, rowsChanged } from '../../lib/d1.js';
 import { privateJson } from '../../lib/tournaments/access.js';
 import type { D1Like, D1Statement } from '../../lib/types.js';
+import { msg } from '../../../shared/i18n.js';
 
 interface Move {
   popId: string;
@@ -26,10 +27,10 @@ interface Move {
 function readMove(body: Record<string, unknown> | null): Move | string {
   const popId = typeof body?.popId === 'string' ? body.popId.trim() : '';
   if (!isPopId(popId)) {
-    return 'A POP ID is up to ten digits';
+    return msg('A POP ID is up to ten digits');
   }
   const to = body?.accountId;
-  return typeof to === 'string' || to === null ? { popId, to } : 'Name an account, or none';
+  return typeof to === 'string' || to === null ? { popId, to } : msg('Name an account, or none');
 }
 
 /**

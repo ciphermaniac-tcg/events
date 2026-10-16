@@ -5,6 +5,7 @@
  */
 
 import type { EventType, Tournament, TournamentInfo } from './types.js';
+import { msgf } from '../i18n.js';
 
 /** TOM's root and Swiss round type, and its mode, for each kind of event. */
 const EVENT_CODES: Record<EventType, { type: string; mode: string }> = {
@@ -94,6 +95,6 @@ export const SANCTIONED = { players: 4, swissRounds: 3, minutes: 30 } as const;
 /** Why a sanctioned event cannot have these round lengths, or null when it can. */
 export function sanctionedMinutesError(info: Pick<TournamentInfo, 'roundTime' | 'finalsRoundTime'>): string | null {
   return info.roundTime < SANCTIONED.minutes || info.finalsRoundTime < SANCTIONED.minutes
-    ? `A sanctioned event’s rounds are at least ${SANCTIONED.minutes} minutes`
+    ? msgf('A sanctioned event’s rounds are at least {minutes} minutes', { minutes: SANCTIONED.minutes })
     : null;
 }

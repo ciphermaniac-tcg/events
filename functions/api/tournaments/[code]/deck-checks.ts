@@ -10,6 +10,7 @@
 
 import { personOfRow, recordRoutes } from '../../../lib/tournaments/staffRecords.js';
 import { type DeckCheckEntry, readDeckCheck } from '../../../../shared/tournament/deckChecks.js';
+import { msg } from '../../../../shared/i18n.js';
 
 export const { onRequestGet, onRequestPost, onRequestDelete } = recordRoutes({
   table: 'deck_checks',
@@ -33,8 +34,8 @@ export const { onRequestGet, onRequestPost, onRequestDelete } = recordRoutes({
     removed: row.removed === 1
   }),
   words: {
-    changed: 'Someone changed this deck check meanwhile. Look again and try once more.',
-    missing: 'No such deck check',
-    notStaff: 'The checker must be on this event’s staff'
+    changed: msg('Someone changed this deck check meanwhile. Look again and try once more.'),
+    missing: msg('No such deck check'),
+    notStaff: msg('The checker must be on this event’s staff')
   }
 });

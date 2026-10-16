@@ -6,13 +6,14 @@ import { replacePods } from './lifecycleWorkflow.js';
 import { divisionsOf } from './podding.js';
 import { checkedStage, latestRound, regularRounds } from './rounds.js';
 import type { Match, Player, Pod, Round, Tournament } from './types.js';
+import { msg } from '../i18n.js';
 
 type DropOperation = Extract<LifecycleOperation, { type: 'drop' }>;
 
 function playerPod(t: Tournament, id: string): Pod {
   const pod = t.pods.find(p => p.playerIds.includes(id));
   if (!pod) {
-    throw new Error('The player has no pod');
+    throw new Error(msg('The player has no pod'));
   }
   return pod;
 }
@@ -22,7 +23,7 @@ function checkedDropMatch(t: Tournament, last: Round | undefined, op: Pick<DropO
   const match = last?.matches.find(m => m.p1 === op.id || m.p2 === op.id);
   const opponent = match?.p1 === op.id ? match.p2 : match?.p1;
   if (last?.kind === 'elimination' && !op.disqualified && hasDeparted(t, opponent)) {
-    throw new Error('The elimination opponent has already dropped');
+    throw new Error(msg('The elimination opponent has already dropped'));
   }
   return match;
 }
@@ -191,7 +192,7 @@ function pairedAdjustment(round: Round | undefined): number {
 
 function checkReturnHistory(last: Round | undefined, hasHistory: boolean): void {
   if (!hasHistory && (last?.number ?? 0) >= 3) {
-    throw new Error('A player without match history cannot return after round two');
+    throw new Error(msg('A player without match history cannot return after round two'));
   }
 }
 
@@ -202,21 +203,21 @@ export function reenterEntrant(
 ): Tournament {
   const player = t.players.find(p => p.id === op.id);
   if (!player || player.droppedAfter === null) {
-    throw new Error('The player is not dropped');
+    throw new Error(msg('The player is not dropped'));
   }
   const pod = playerPod(t, op.id);
   const last = latestRound(pod);
   const hasHistory = pod.rounds.some(r => r.matches.some(m => m.p1 === op.id || m.p2 === op.id));
   // V18-2: matches of a failed pairing attempt are history although unsaved, so V14b's return is refused.
   if (!hasHistory && pod.unsavedPlayers?.includes(op.id)) {
-    throw new Error('A player whose only matches were not saved cannot return');
+    throw new Error(msg('A player whose only matches were not saved cannot return'));
   }
   checkReturnHistory(last, hasHistory);
   // Absence counts the rounds since the player last played, whichever round the departure saved.
   const played = hasHistory ? lastPlayedRound(pod, op.id) : player.droppedAfter;
   const absent = (last?.number ?? 0) - played - pairedAdjustment(last);
   if (absent > 1) {
-    throw new Error('A player cannot return after missing more than one round');
+    throw new Error(msg('A player cannot return after missing more than one round'));
   }
   const rounds = pod.rounds.map(round => {
     if (!hasHistory || round.matches.some(m => m.p1 === op.id || m.p2 === op.id)) {
@@ -273,11 +274,11 @@ function entrantPod(t: Tournament, birthDate: string, ctx: LifecycleContext): Po
   const division = divisionFor(birthDate, ctx.season);
   const pod = t.pods.find(p => divisionsOf(p.category).includes(division));
   if (!pod) {
-    throw new Error('No existing pod accepts the late entrant');
+    throw new Error(msg('No existing pod accepts the late entrant'));
   }
   const last = latestRound(pod);
   if (pod.stage === 1 || (last && last.number >= regularRounds(t, pod) && (last.stage ?? 4) >= 4)) {
-    throw new Error('Registration closed when the last Swiss round started');
+    throw new Error(msg('Registration closed when the last Swiss round started'));
   }
   return pod;
 }
@@ -289,7 +290,7 @@ export function lateEntrant(
 ): Tournament {
   const { player } = op;
   if (!player.id || t.players.some(p => p.id === player.id)) {
-    throw new Error('A late entrant needs a new player ID');
+    throw new Error(msg('A late entrant needs a new player ID'));
   }
   const birthDate = player.birthDate ?? '';
   const pod = entrantPod(t, birthDate, ctx);

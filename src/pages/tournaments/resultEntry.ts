@@ -20,6 +20,7 @@
 import { createSignal } from 'solid-js';
 import { latestRound } from '../../../shared/tournament/rounds';
 import type { Match, Outcome, Pod, PodCategory, Round } from '../../../shared/tournament/types';
+import { t } from '../../lib/i18n';
 import type { Manage } from '../../lib/tournament/api';
 import { shownOutcome } from '../../lib/tournament/present';
 import type { ManageState } from './manageState';
@@ -126,7 +127,7 @@ export function createResultEntry(state: () => ManageState, pod: () => Pod): Res
     if (found === 'send') {
       sendEntered(result);
     } else if (found === 'changed') {
-      state().fail(`Table ${result.table} has changed since; enter its result again.`);
+      state().fail(t('Table {table} has changed since; enter its result again.', { table: result.table }));
     } else if (found === 'saved') {
       state().clearError();
     } else {

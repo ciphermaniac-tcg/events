@@ -3,7 +3,8 @@ import type { DisplayOptions } from '../../../shared/tournament/display';
 import type { Pod } from '../../../shared/tournament/types';
 import type { TournamentView } from '../../../shared/tournament/view';
 import { displayCapacity, type DisplayRow, displayRows, type DisplaySize } from './displayLayout';
-import { namesById, podLabel, seatMark, shownOutcome } from '../../lib/tournament/present';
+import { markText, namesById, podLabel, seatMark, shownOutcome } from '../../lib/tournament/present';
+import { t } from '../../lib/i18n';
 
 /** Whole pages replace a crawl at large events. Each seat is listed separately in alphabetical mode. */
 export function PagedDisplay(props: {
@@ -42,9 +43,9 @@ export function PagedDisplay(props: {
   const result = (row: DisplayRow) => {
     const { outcome } = shownOutcome(row.match, row.pod, row.round, props.view.pending);
     if (props.options.layout === 'alphabetical') {
-      return seatMark(outcome, row.player === row.match.p1 ? 1 : 2);
+      return markText(seatMark(outcome, row.player === row.match.p1 ? 1 : 2));
     }
-    return [seatMark(outcome, 1), seatMark(outcome, 2)].filter(Boolean).join('–');
+    return [seatMark(outcome, 1), seatMark(outcome, 2)].filter(Boolean).map(markText).join('–');
   };
   const move = (by: number) => setFirst(((current() + by + pages()) % pages()) * capacity().total);
   const roundKey = createMemo(() => props.pods.map(pod => `${pod.category}:${pod.rounds.at(-1)?.number}`).join(','));
@@ -112,14 +113,14 @@ export function PagedDisplay(props: {
                   {row.opponent
                     ? names().get(row.opponent)
                     : ['bye', 'assigned-bye'].includes(row.match.outcome)
-                      ? 'Bye'
-                      : 'Missed round'}
+                      ? t('Bye')
+                      : t('Missed round')}
                 </span>
               </span>
               <span class='tm-screen-dense-table'>
                 <strong class='num'>{row.match.table || '—'}</strong>
-                <small>{props.pods.length > 1 ? podLabel(row.pod) : 'Table'}</small>
-                <Show when={result(row)}>{mark => <small aria-label='Result'>{mark()}</small>}</Show>
+                <small>{props.pods.length > 1 ? podLabel(row.pod) : t('Table')}</small>
+                <Show when={result(row)}>{mark => <small aria-label={t('Result')}>{mark()}</small>}</Show>
               </span>
             </li>
           )}
@@ -127,17 +128,15 @@ export function PagedDisplay(props: {
       </ol>
       <div class='tm-screen-pagination'>
         <button type='button' class='btn btn-secondary' onClick={() => move(-1)} disabled={pages() === 1}>
-          Previous page
+          {t('Previous page')}
         </button>
-        <span>
-          Page {current() + 1} of {pages()}
-        </span>
+        <span>{t('Page {n} of {total}', { n: current() + 1, total: pages() })}</span>
         <button type='button' class='btn btn-secondary' onClick={() => move(1)} disabled={pages() === 1}>
-          Next page
+          {t('Next page')}
         </button>
         <Show when={timed() && pages() > 1}>
           <button type='button' class='btn btn-secondary' onClick={() => setTurning(!turning())}>
-            {turning() ? 'Pause pages' : 'Resume pages'}
+            {turning() ? t('Pause pages') : t('Resume pages')}
           </button>
         </Show>
       </div>

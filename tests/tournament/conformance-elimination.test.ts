@@ -192,3 +192,22 @@ test('PAIRING 28: a departed elimination opponent refuses an ordinary drop but a
   assert.deepEqual(latestRound(t.pods[0]!)!.matches[0], awarded);
   assert.equal(t.players.find(p => p.id === p2)!.disqualified, true);
 });
+
+test('the cut is refused while the last Swiss round is still unreported', () => {
+  const ctx = context(29);
+  const t = operated(generatedEvent(8, ctx, { type: 3, cut: 4 }), { type: 'start' }, ctx);
+  const result = applyLifecycleOperation(t, { type: 'topCut' }, ctx);
+  assert.equal(result.ok, false);
+  assert.equal(result.error, 'Finish Swiss results before starting the cut');
+});
+
+test('a terminal repair of a reported opening bracket refuses a playoff whose finalists have no earlier match', () => {
+  const ctx = context(29);
+  let t = operated(generatedEvent(4, ctx, { type: 1, thirdPlace: true }), { type: 'start' }, ctx);
+  t = operated(t, { type: 'startRound' }, ctx);
+  const results = latestRound(t.pods[0]!)!.matches.map(m => ({ ...m, outcome: 'p1' as const }));
+  t = operated(operated(t, { type: 'results', results }, ctx), { type: 'viewStandings' }, ctx);
+  const result = applyLifecycleOperation(t, { type: 'pair', repair: true, terminal: true }, ctx);
+  assert.equal(result.ok, false);
+  assert.equal(result.error, 'A third-place playoff requires a previous match for each finalist');
+});

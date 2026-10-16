@@ -3,6 +3,7 @@ import type { LifecycleContext, LifecycleOperation } from './lifecycleTypes.js';
 import { replacePods, selectedPods } from './lifecycleWorkflow.js';
 import { latestRound } from './rounds.js';
 import type { Round, Tournament } from './types.js';
+import { msg } from '../i18n.js';
 
 /**
  * Moves the current rounds' clock origin so `seconds` have elapsed at `ctx.now`.
@@ -22,7 +23,7 @@ export function sampleClock(
     return round && (round.startTime || (round.stage ?? 4) >= 4);
   });
   if (!pods.length) {
-    throw new Error('Start the round before sampling its clock');
+    throw new Error(msg('Start the round before sampling its clock'));
   }
   return replacePods(
     t,

@@ -21,6 +21,7 @@ import {
 import type { PublicStore } from '../../../shared/accounts/types';
 import { Skeleton } from '../../components/Skeleton';
 import { errorText, type SignInOffer } from '../../lib/tournament/api';
+import { msg, t } from '../../lib/i18n';
 import {
   byWeek,
   cleanDetails,
@@ -45,10 +46,10 @@ import { pageTitle } from '../../lib/title';
 type Section = 'nights' | 'staff' | 'details' | 'displays';
 
 const SECTIONS: { value: Section; label: string }[] = [
-  { value: 'nights', label: 'League nights' },
-  { value: 'staff', label: 'Staff' },
-  { value: 'details', label: 'Details' },
-  { value: 'displays', label: 'Displays' }
+  { value: 'nights', label: msg('League nights') },
+  { value: 'staff', label: msg('Staff') },
+  { value: 'details', label: msg('Details') },
+  { value: 'displays', label: msg('Displays') }
 ];
 
 const readSection = (value: string | undefined): Section =>
@@ -56,10 +57,10 @@ const readSection = (value: string | undefined): Section =>
 
 const nightsProblem = (nights: readonly LeagueNight[], exceptions: readonly NightException[]) => {
   if (nights.some(night => !night.time)) {
-    return 'Give each league night a start time';
+    return t('Give each league night a start time');
   }
   return exceptions.some(item => !item.date || item.time === '')
-    ? 'Give each date a day, and a time if it moved'
+    ? t('Give each date a day, and a time if it moved')
     : null;
 };
 
@@ -94,7 +95,7 @@ function NightsSection(props: { store: PublicStore; onSaved: (store: PublicStore
   return (
     <form class='tm-store-section' aria-labelledby='store-nights-head' onSubmit={submit}>
       <h2 class='tm-subhead tm-box-head' id='store-nights-head'>
-        Every week
+        {t('Every week')}
       </h2>
       <div class='tm-box tm-store-pane'>
         <WeeklyNights
@@ -104,7 +105,7 @@ function NightsSection(props: { store: PublicStore; onSaved: (store: PublicStore
           onChange={changeNights}
         />
       </div>
-      <h2 class='tm-subhead tm-box-head'>Dates that differ</h2>
+      <h2 class='tm-subhead tm-box-head'>{t('Dates that differ')}</h2>
       <div class='tm-box tm-store-pane'>
         <NightExceptions exceptions={exceptions()} nights={nights()} today={today()} onChange={setExceptions} />
       </div>
@@ -159,7 +160,7 @@ function DetailsSection(props: {
   return (
     <form class='tm-store-section' aria-labelledby='store-details-head' noValidate onSubmit={submit}>
       <h2 class='tm-subhead tm-box-head' id='store-details-head'>
-        Details
+        {t('Details')}
       </h2>
       <div class='tm-box tm-store-pane'>
         <StoreFields
@@ -179,7 +180,7 @@ function DetailsSection(props: {
 /** The section list: down the left on a wide screen, a row of tabs on a phone. */
 function SectionNav(props: { current: Section; onPick: (section: Section) => void }) {
   return (
-    <nav class='tm-side-nav' aria-label='Store settings'>
+    <nav class='tm-side-nav' aria-label={t('Store settings')}>
       <For each={SECTIONS}>
         {section => (
           <button
@@ -188,7 +189,7 @@ function SectionNav(props: { current: Section; onPick: (section: Section) => voi
             aria-current={props.current === section.value ? 'page' : undefined}
             onClick={() => props.onPick(section.value)}
           >
-            {section.label}
+            {t(section.label)}
           </button>
         )}
       </For>
@@ -218,7 +219,7 @@ function Settings(props: { id: string }) {
   });
   createEffect(() => {
     const name = current()?.store.name;
-    document.title = pageTitle(name ? `${name} settings` : 'Store settings');
+    document.title = pageTitle(name ? t('{store} settings', { store: name }) : t('Store settings'));
   });
   const saved = (store: PublicStore, contact?: { phone: string; email: string }) =>
     mutate(prev => prev && { ...prev, store, ...(contact ? { contact } : {}) });
@@ -238,8 +239,8 @@ function Settings(props: { id: string }) {
             <>
               <TournamentHero title={answer().store.name} />
               <p class='tm-store-refused'>
-                <span>Only this store’s managers can change it.</span>{' '}
-                <A href={`/stores/${answer().store.id}`}>Store page</A>
+                <span>{t('Only this store’s managers can change it.')}</span>{' '}
+                <A href={`/stores/${answer().store.id}`}>{t('Store page')}</A>
               </p>
             </>
           }
@@ -249,18 +250,18 @@ function Settings(props: { id: string }) {
             tab='organizing'
             meta={
               <>
-                <Show when={answer().store.leagueId} fallback={<span>Unsanctioned store</span>}>
-                  {id => <span class='tm-num'>League {id()}</span>}
+                <Show when={answer().store.leagueId} fallback={<span>{t('Unsanctioned store')}</span>}>
+                  {id => <span class='tm-num'>{t('League {id}', { id: id() })}</span>}
                 </Show>
                 <span class='tm-store-dot' aria-hidden='true'>
                   ·
                 </span>
-                <A href={`/stores/${answer().store.id}`}>Store page</A>
+                <A href={`/stores/${answer().store.id}`}>{t('Store page')}</A>
               </>
             }
             action={
               <A class='btn btn-primary' href={`/?${new URLSearchParams({ new: answer().store.id }).toString()}`}>
-                Start an event
+                {t('Start an event')}
               </A>
             }
           />
@@ -294,7 +295,7 @@ function Settings(props: { id: string }) {
 function SignedOut(props: { offer: SignInOffer; id: string }) {
   return (
     <>
-      <TournamentHero title='Store settings' />
+      <TournamentHero title={t('Store settings')} />
       <section class='tm-box'>
         <div class='tm-box-bar'>
           <SignIn offer={props.offer} next={`/stores/${props.id}/settings`} />

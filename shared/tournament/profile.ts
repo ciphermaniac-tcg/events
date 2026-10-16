@@ -4,6 +4,7 @@
  * Checked the same way in the browser and in the function that stores it.
  */
 
+import { msg } from '../i18n.js';
 export interface PlayerProfile {
   popId: string;
   firstName: string;
@@ -32,16 +33,16 @@ function field(body: Record<string, unknown>, key: string): string {
 export function profileErrors(profile: PlayerProfile, sanctioned = true): Partial<Record<keyof PlayerProfile, string>> {
   const errors: Partial<Record<keyof PlayerProfile, string>> = {};
   if (sanctioned && !isPopId(profile.popId)) {
-    errors.popId = 'A POP ID is up to ten digits';
+    errors.popId = msg('A POP ID is up to ten digits');
   }
   if (!profile.firstName || profile.firstName.length > NAME_MAX) {
-    errors.firstName = 'Required';
+    errors.firstName = msg('Required');
   }
   if (!profile.lastName || profile.lastName.length > NAME_MAX) {
-    errors.lastName = 'Required';
+    errors.lastName = msg('Required');
   }
   if (sanctioned && !DATE_RE.test(profile.birthDate)) {
-    errors.birthDate = 'Use MM/DD/YYYY';
+    errors.birthDate = msg('Use MM/DD/YYYY');
   }
   return errors;
 }

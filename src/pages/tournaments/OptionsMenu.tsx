@@ -1,4 +1,5 @@
 import { createEffect, createMemo, createSignal, createUniqueId, type JSX, onCleanup, Show } from 'solid-js';
+import { t } from '../../lib/i18n';
 
 function menuEvents(root: () => HTMLElement | undefined, close: () => void, place: () => void) {
   const outside = (event: PointerEvent) => {
@@ -95,7 +96,7 @@ export function OptionsMenu(props: {
         ref={button}
         type='button'
         class={props.buttonClass ?? 'btn btn-ghost tm-small'}
-        aria-label={props.buttonLabel ?? `More for ${props.name}`}
+        aria-label={props.buttonLabel ?? t('More for {name}', { name: props.name })}
         aria-expanded={at() !== null}
         aria-controls={at() ? id : undefined}
         disabled={props.busy}
@@ -117,7 +118,7 @@ export function OptionsMenu(props: {
             class='tm-menu tm-menu-fixed'
             classList={{ 'tm-staff-options': props.staff, 'tm-result-options': !props.staff }}
             role='group'
-            aria-label={`More for ${props.name}`}
+            aria-label={t('More for {name}', { name: props.name })}
             style={{ top: `${String(position().top)}px`, left: `${String(position().left)}px` }}
           >
             {props.children}

@@ -9,8 +9,13 @@ import { For, Show } from 'solid-js';
 import type { Tournament } from '../../../shared/tournament/types';
 import { deckBreakdown } from '../../lib/tournament/present';
 import { DeckIcons } from './DeckIcons';
+import { intlLocale, t } from '../../lib/i18n';
 
 const percent = (value: number) => `${Math.round(value * 100)}%`;
+
+/** A share as the language shown writes it: 42% in English, 42 % in Spanish. */
+const percentText = (value: number) =>
+  new Intl.NumberFormat(intlLocale(), { style: 'percent' }).format(Math.round(value * 100) / 100);
 
 /** The main site's archetype page for a label: the index names archetypes with underscores for spaces. */
 const archetypeHref = (label: string) => `${MAIN_SITE}/archetypes/${encodeURIComponent(label.replace(/ /g, '_'))}`;
@@ -19,16 +24,16 @@ export function DeckStats(props: { tournament: Tournament; decks: Record<string,
   const rows = () => deckBreakdown(props.tournament, props.decks);
   const total = () => props.tournament.players.length || 1;
   return (
-    <Show when={rows().length} fallback={<p class='muted tm-empty'>No decks to show yet.</p>}>
+    <Show when={rows().length} fallback={<p class='muted tm-empty'>{t('No decks to show yet.')}</p>}>
       <div class='table-wrap tm-deck-stats'>
         <table class='data'>
           <thead>
             <tr>
-              <th>Deck</th>
-              <th class='num'>Players</th>
-              <th class='num tm-share-col'>Share</th>
-              <th class='num'>Matches</th>
-              <th class='num'>Win rate</th>
+              <th>{t('Deck')}</th>
+              <th class='num'>{t('Players')}</th>
+              <th class='num tm-share-col'>{t('Share')}</th>
+              <th class='num'>{t('Matches')}</th>
+              <th class='num'>{t('Win rate')}</th>
             </tr>
           </thead>
           <tbody>
@@ -47,11 +52,11 @@ export function DeckStats(props: { tournament: Tournament; decks: Record<string,
                       <span class='tm-bar' aria-hidden='true'>
                         <span class='tm-bar-fill' style={{ width: percent(row.players / total()) }} />
                       </span>
-                      <span class='tm-share-value'>{percent(row.players / total())}</span>
+                      <span class='tm-share-value'>{percentText(row.players / total())}</span>
                     </span>
                   </td>
                   <td class='num muted-cell'>{row.matches}</td>
-                  <td class='num'>{row.winRate === null ? '—' : percent(row.winRate)}</td>
+                  <td class='num'>{row.winRate === null ? '—' : percentText(row.winRate)}</td>
                 </tr>
               )}
             </For>

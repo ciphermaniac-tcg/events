@@ -1,6 +1,8 @@
+import { intlLocale, tn } from '../../lib/i18n';
+
 /** A count of players, e.g. "22 players". */
 export function playersWord(count: number): string {
-  return `${count} ${count === 1 ? 'player' : 'players'}`;
+  return tn(count, '{n} player', '{n} players');
 }
 
 /** Ended events under their month, e.g. "October 2026", in the order given. */
@@ -19,9 +21,10 @@ export function byMonth<T extends { date: string }>(events: readonly T[]): { lab
 }
 
 function monthLabel(key: string): string {
-  return new Date(`${key}-01T12:00:00Z`).toLocaleDateString('en-US', {
+  const label = new Date(`${key}-01T12:00:00Z`).toLocaleDateString(intlLocale(), {
     month: 'long',
     year: 'numeric',
     timeZone: 'UTC'
   });
+  return label.charAt(0).toLocaleUpperCase(intlLocale()) + label.slice(1);
 }

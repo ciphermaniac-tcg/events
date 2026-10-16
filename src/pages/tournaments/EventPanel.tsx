@@ -30,6 +30,7 @@ import {
   rotateStaffToken,
   saveSettings
 } from '../../lib/tournament/api';
+import { intlLocale, t } from '../../lib/i18n';
 import { latestValue } from '../../lib/resource';
 import { downloadBlob } from '../../lib/download';
 import { ConfirmAction } from './ConfirmAction';
@@ -65,10 +66,10 @@ function SettingsBox(props: {
         {props.children}
         <div class='tm-box-bar tm-set-foot'>
           <Show when={props.dirty}>
-            <span class='muted'>Unsaved changes</span>
+            <span class='muted'>{t('Unsaved changes')}</span>
           </Show>
           <button type='submit' class='btn btn-primary' disabled={props.busy || !props.dirty}>
-            Save
+            {t('Save')}
           </button>
         </div>
       </form>
@@ -135,12 +136,12 @@ function EventDetails(props: { state: ManageState; manage: Manage }) {
   }
   return (
     <SettingsBox
-      title='Event'
+      title={t('Event')}
       dirty={Object.keys(draft.changes(saved())).length > 0}
       busy={props.state.busy()}
       onSave={() => void save()}
     >
-      <SettingRow label='Event name' for='info-name'>
+      <SettingRow label={t('Event name')} for='info-name'>
         <input
           id='info-name'
           class='tm-input'
@@ -148,14 +149,14 @@ function EventDetails(props: { state: ManageState; manage: Manage }) {
           onInput={e => set('name', e.currentTarget.value)}
         />
       </SettingRow>
-      <SettingRow label='Event type'>
+      <SettingRow label={t('Event type')}>
         <EventTypeSwitch
           value={field('eventType')}
           types={props.manage.store === null && !isSanctioned(props.manage) ? ['local', 'prerelease'] : undefined}
           onChange={value => set('eventType', value)}
         />
       </SettingRow>
-      <SettingRow label='Swiss round minutes' for='info-round'>
+      <SettingRow label={t('Swiss round minutes')} for='info-round'>
         <input
           id='info-round'
           class='tm-input tm-set-minutes'
@@ -166,7 +167,7 @@ function EventDetails(props: { state: ManageState; manage: Manage }) {
           onInput={e => set('roundTime', Number(e.currentTarget.value))}
         />
       </SettingRow>
-      <SettingRow label='Top cut round minutes' for='info-finals'>
+      <SettingRow label={t('Top cut round minutes')} for='info-finals'>
         <input
           id='info-finals'
           disabled={
@@ -180,7 +181,7 @@ function EventDetails(props: { state: ManageState; manage: Manage }) {
           onInput={e => set('finalsRoundTime', Number(e.currentTarget.value))}
         />
       </SettingRow>
-      <SettingRow label='Swiss rounds' for='info-rounds'>
+      <SettingRow label={t('Swiss rounds')} for='info-rounds'>
         <RoundsSelect
           id='info-rounds'
           value={field('roundCap')}
@@ -238,12 +239,12 @@ function ForPlayers(props: { state: ManageState; manage: Manage }) {
   }
   return (
     <SettingsBox
-      title='For players'
+      title={t('For players')}
       dirty={Object.keys(store.changes(saved())).length > 0}
       busy={props.state.busy()}
       onSave={() => void save()}
     >
-      <SettingRow label='Starts' for='set-start'>
+      <SettingRow label={t('Starts')} for='set-start'>
         <input
           id='set-start'
           class='tm-input'
@@ -253,35 +254,35 @@ function ForPlayers(props: { state: ManageState; manage: Manage }) {
         />
       </SettingRow>
       <LogisticsRows id='set' value={draft()} onChange={set} />
-      <SettingRow label='Format' for='set-format'>
+      <SettingRow label={t('Format')} for='set-format'>
         <FormatSelect id='set-format' value={draft().format} onChange={value => set('format', value)} />
       </SettingRow>
-      <SettingRow label='Archetypes' for='set-decks' info={<SettingInfo text={SETTING_INFO.archetypes} />}>
+      <SettingRow label={t('Archetypes')} for='set-decks' info={<SettingInfo text={SETTING_INFO.archetypes} />}>
         <ArchetypesSelect id='set-decks' value={draft().deckVisibility} onChange={v => set('deckVisibility', v)} />
       </SettingRow>
       {/* Only a store's event is sanctioned; one sanctioned before stores existed can still be turned off. */}
       <Show when={props.manage.mode === 'swiss' && (props.manage.store !== null || props.manage.settings.sanctioned)}>
-        <SettingRow label='Sanctioned'>
+        <SettingRow label={t('Sanctioned')}>
           <Toggle
-            label='Sanctioned'
+            label={t('Sanctioned')}
             value={draft().sanctioned}
-            on='Yes'
-            off='No'
+            on={t('Yes')}
+            off={t('No')}
             onChange={v => set('sanctioned', v)}
           />
         </SettingRow>
       </Show>
-      <SettingRow label='Mobile result reporting' info={<SettingInfo text={reportingInfo(draft().sanctioned)} />}>
+      <SettingRow label={t('Mobile result reporting')} info={<SettingInfo text={reportingInfo(draft().sanctioned)} />}>
         <Toggle
-          label='Mobile result reporting'
+          label={t('Mobile result reporting')}
           value={draft().playerReporting}
           onChange={v => set('playerReporting', v)}
         />
       </SettingRow>
-      <SettingRow label='Decklists' info={<SettingInfo text={SETTING_INFO.decklists} />}>
+      <SettingRow label={t('Decklists')} info={<SettingInfo text={SETTING_INFO.decklists} />}>
         <DecklistsSwitch value={draft().decklists} onChange={v => set('decklists', v)} />
       </SettingRow>
-      <SettingRow label='Event description' for='set-details'>
+      <SettingRow label={t('Event description')} for='set-details'>
         <textarea
           id='set-details'
           class='tm-input tm-textarea'
@@ -313,27 +314,27 @@ function Finish(props: { state: ManageState; manage: Manage }) {
   }
   return (
     <section>
-      <h2 class='tm-subhead tm-box-head'>Finish</h2>
+      <h2 class='tm-subhead tm-box-head'>{t('Finish')}</h2>
       <div class='tm-box'>
-        <SettingRow label='Status'>
+        <SettingRow label={t('Status')}>
           <span class='tm-set-inline'>
-            <span>{props.manage.settings.finished ? 'Ended' : 'In progress'}</span>
+            <span>{props.manage.settings.finished ? t('Ended') : t('In progress')}</span>
             <Show
               when={props.manage.settings.finished}
               fallback={<EndEventStep state={props.state} manage={props.manage} primary={false} />}
             >
               <button type='button' class='btn btn-secondary' disabled={props.state.busy()} onClick={reopen}>
-                Reopen event
+                {t('Reopen event')}
               </button>
             </Show>
           </span>
         </SettingRow>
-        <SettingRow label={isSanctioned(props.manage) ? 'Play! Pokémon file' : 'Event file'}>
+        <SettingRow label={isSanctioned(props.manage) ? t('Play! Pokémon file') : t('Event file')}>
           <span class='tm-set-inline'>
             <button type='button' class='btn btn-secondary' onClick={download}>
-              Download .tdf
+              {t('Download .tdf')}
             </button>
-            <span class='muted tm-num'>Version {props.manage.version}</span>
+            <span class='muted tm-num'>{t('Version {version}', { version: props.manage.version })}</span>
           </span>
         </SettingRow>
       </div>
@@ -358,9 +359,9 @@ function StaffInvite(props: { state: ManageState; manage: Manage }) {
   }
   return (
     <section>
-      <h2 class='tm-subhead tm-box-head'>Staff</h2>
+      <h2 class='tm-subhead tm-box-head'>{t('Staff')}</h2>
       <div class='tm-box'>
-        <SettingRow label='Invite link'>
+        <SettingRow label={t('Invite link')}>
           <span class='tm-set-inline tm-invite'>
             <Show
               when={revealed()}
@@ -368,7 +369,7 @@ function StaffInvite(props: { state: ManageState; manage: Manage }) {
                 <button
                   type='button'
                   class='tm-input tm-link tm-secret'
-                  aria-label='Show the staff invite link'
+                  aria-label={t('Show the staff invite link')}
                   onClick={() => setRevealed(true)}
                 >
                   <span class='tm-secret-text' aria-hidden='true'>
@@ -381,7 +382,7 @@ function StaffInvite(props: { state: ManageState; manage: Manage }) {
                 class='tm-input tm-link'
                 readOnly
                 value={link()}
-                aria-label='Staff invite link'
+                aria-label={t('Staff invite link')}
                 ref={el =>
                   queueMicrotask(() => {
                     el.focus();
@@ -392,13 +393,13 @@ function StaffInvite(props: { state: ManageState; manage: Manage }) {
               />
             </Show>
             <button type='button' class='btn btn-secondary' onClick={() => void copy()}>
-              {copied() ? 'Copied' : 'Copy invite link'}
+              {copied() ? t('Copied') : t('Copy invite link')}
             </button>
             <ConfirmAction
               class='btn btn-ghost'
-              label='New link'
-              question='Make a new link and remove current staff?'
-              confirmLabel='Remove staff'
+              label={t('New link')}
+              question={t('Make a new link and remove current staff?')}
+              confirmLabel={t('Remove staff')}
               danger
               onConfirm={rotate}
             />
@@ -430,7 +431,7 @@ function HeadJudge(props: { manage: Manage; removals: number }) {
       .catch(err => setError(errorText(err)));
   }
   return (
-    <SettingRow label='Head judge' for='head-judge' note='May approve result corrections'>
+    <SettingRow label={t('Head judge')} for='head-judge' note={t('May approve result corrections')}>
       <span class='tm-set-inline'>
         <select
           id='head-judge'
@@ -438,7 +439,7 @@ function HeadJudge(props: { manage: Manage; removals: number }) {
           value={latestValue(choice)?.headJudge?.id ?? ''}
           onChange={e => void name(e.currentTarget.value)}
         >
-          <option value=''>None</option>
+          <option value=''>{t('None')}</option>
           <For each={latestValue(choice)?.staff ?? []}>
             {member => <option value={member.id}>{member.name}</option>}
           </For>
@@ -449,7 +450,7 @@ function HeadJudge(props: { manage: Manage; removals: number }) {
   );
 }
 
-const joinedOn = (at: number) => new Date(at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+const joinedOn = (at: number) => new Date(at).toLocaleDateString(intlLocale(), { month: 'short', day: 'numeric' });
 
 /**
  * Who runs the event: the organizer first, then everyone the invite link let
@@ -473,14 +474,14 @@ function StaffList(props: { manage: Manage; onRemove: () => void }) {
     }
   }
   return (
-    <SettingRow label='On staff'>
+    <SettingRow label={t('On staff')}>
       <ul class='tm-staff-list'>
         <Show when={organizer()}>
           {name => (
             <li>
               <span>
                 {name()}
-                <span class='muted'> · organizer</span>
+                <span class='muted'> · {t('organizer')}</span>
               </span>
             </li>
           )}
@@ -490,12 +491,14 @@ function StaffList(props: { manage: Manage; onRemove: () => void }) {
             <li>
               <span>
                 {member.name}
-                <Show when={member.joinedAt}>{at => <span class='muted'> · joined {joinedOn(at())}</span>}</Show>
+                <Show when={member.joinedAt}>
+                  {at => <span class='muted'> · {t('joined {date}', { date: joinedOn(at()) })}</span>}
+                </Show>
               </span>
               <ConfirmAction
-                label='Remove'
-                question={`Remove ${member.name} from staff?`}
-                confirmLabel='Remove'
+                label={t('Remove')}
+                question={t('Remove {name} from staff?', { name: member.name })}
+                confirmLabel={t('Remove')}
                 danger
                 onConfirm={() => void remove(member.id)}
               />
@@ -520,12 +523,12 @@ function DeleteEvent(props: { manage: Manage }) {
   }
   return (
     <section class='tm-box tm-danger-box'>
-      <SettingRow label='Delete this event'>
+      <SettingRow label={t('Delete this event')}>
         <ConfirmAction
           class='btn btn-secondary tm-danger'
-          label='Delete event'
-          question={`Delete ${props.manage.tournament.info.name} for good?`}
-          confirmLabel='Delete'
+          label={t('Delete event')}
+          question={t('Delete {name} for good?', { name: props.manage.tournament.info.name })}
+          confirmLabel={t('Delete')}
           danger
           onConfirm={() => void remove()}
         />
@@ -569,10 +572,10 @@ function BigScreenPreset(props: { state: ManageState; manage: Manage }) {
       });
   }
   return (
-    <SettingsBox title='Big screen' dirty={value() !== (kept()?.id ?? '')} busy={props.state.busy()} onSave={save}>
-      <SettingRow label='Display preset' for='set-display'>
+    <SettingsBox title={t('Big screen')} dirty={value() !== (kept()?.id ?? '')} busy={props.state.busy()} onSave={save}>
+      <SettingRow label={t('Display preset')} for='set-display'>
         <select id='set-display' class='tm-select' value={value()} onChange={e => setPicked(e.currentTarget.value)}>
-          <option value=''>Automatic</option>
+          <option value=''>{t('Automatic')}</option>
           <For each={choices()}>{preset => <option value={preset.id}>{preset.name}</option>}</For>
         </select>
       </SettingRow>

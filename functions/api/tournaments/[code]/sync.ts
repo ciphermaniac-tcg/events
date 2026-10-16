@@ -40,8 +40,9 @@ import {
 } from '../../../lib/tournaments/access.js';
 import { publishAfter } from '../../../lib/tournaments/publish.js';
 import { FINISHED_REFUSAL } from '../../../lib/tournaments/results.js';
+import { msg } from '../../../../shared/i18n.js';
 
-const CONFLICT = 'The site has a different copy of this event. Reconnect the file TOM is using to replace it.';
+const CONFLICT = msg('The site has a different copy of this event. Reconnect the file TOM is using to replace it.');
 
 interface Upload {
   tournament: Tournament;

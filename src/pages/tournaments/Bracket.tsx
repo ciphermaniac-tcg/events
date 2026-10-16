@@ -21,6 +21,8 @@ import {
   buildBracket,
   cutSeeds
 } from '../../lib/tournament/bracket';
+import { markText } from '../../lib/tournament/present';
+import { msg, t } from '../../lib/i18n';
 import '../../styles/pages/tournament-bracket.css';
 
 interface BracketProps {
@@ -31,7 +33,7 @@ interface BracketProps {
   onPlayer?: (id: string) => void;
 }
 
-const MARK_WORDS: Record<string, string> = { W: 'Won', L: 'Lost' };
+const MARK_WORDS: Record<string, string> = { W: msg('Won'), L: msg('Lost') };
 
 function Seat(props: BracketProps & { seat: BracketSeat }) {
   const name = (id: string) => props.names.get(id) ?? id;
@@ -43,7 +45,7 @@ function Seat(props: BracketProps & { seat: BracketSeat }) {
         fallback={
           <span class='tm-bracket-name muted'>
             <span aria-hidden='true'>—</span>
-            <span class='sr-only'>To be decided</span>
+            <span class='sr-only'>{t('To be decided')}</span>
           </span>
         }
       >
@@ -58,10 +60,12 @@ function Seat(props: BracketProps & { seat: BracketSeat }) {
         )}
       </Show>
       <Show when={props.seat.id !== null && props.seat.id === props.me}>
-        <span class='tm-flag is-you'>You</span>
+        <span class='tm-flag is-you'>{t('You')}</span>
       </Show>
       <span class='tm-mark' classList={{ 'is-win': props.seat.mark === 'W' }}>
-        <Show when={props.seat.mark}>{mark => <span aria-label={MARK_WORDS[mark()]}>{mark()}</span>}</Show>
+        <Show when={props.seat.mark}>
+          {mark => <span aria-label={t(MARK_WORDS[mark()] ?? mark())}>{markText(mark())}</span>}
+        </Show>
       </span>
     </div>
   );
@@ -69,7 +73,7 @@ function Seat(props: BracketProps & { seat: BracketSeat }) {
 
 function MatchBox(props: BracketProps & { match: BracketMatch }) {
   const mine = () => props.me != null && (props.match.top.id === props.me || props.match.bottom.id === props.me);
-  const where = () => (props.match.table ? `Table ${props.match.table}` : 'Not paired yet');
+  const where = () => (props.match.table ? t('Table {n}', { n: props.match.table }) : t('Not paired yet'));
   return (
     <div
       class='tm-bracket-match'
@@ -80,10 +84,10 @@ function MatchBox(props: BracketProps & { match: BracketMatch }) {
       <div class='tm-bracket-meta'>
         <span>{where()}</span>
         <Show when={props.match.playing}>
-          <strong>In progress</strong>
+          <strong>{t('In progress')}</strong>
         </Show>
         <Show when={props.match.unconfirmed}>
-          <span>Not yet confirmed</span>
+          <span>{t('Not yet confirmed')}</span>
         </Show>
       </div>
       <Seat {...props} seat={props.match.top} />
@@ -103,7 +107,7 @@ function pairsOf(matches: readonly BracketMatch[]): BracketMatch[][] {
 
 function BracketView(props: BracketProps & { class?: string }) {
   return (
-    <div class={`tm-bracket ${props.class ?? ''}`} tabindex='0' role='region' aria-label='Top cut bracket'>
+    <div class={`tm-bracket ${props.class ?? ''}`} tabindex='0' role='region' aria-label={t('Top cut bracket')}>
       <div class='tm-bracket-cols'>
         <For each={props.bracket.rounds}>
           {(round, i) => (
@@ -131,7 +135,7 @@ function BracketView(props: BracketProps & { class?: string }) {
       <Show when={props.bracket.third}>
         {third => (
           <section class='tm-bracket-third'>
-            <h3 class='tm-bracket-head'>Third place</h3>
+            <h3 class='tm-bracket-head'>{t('Third place')}</h3>
             <MatchBox {...props} match={third()} />
           </section>
         )}
@@ -165,7 +169,7 @@ export function CutBracket(
         {entry => (
           <section>
             <Show when={brackets().length > 1}>
-              <h3>{POD_LABELS[entry.pod.category]}</h3>
+              <h3>{t(POD_LABELS[entry.pod.category])}</h3>
             </Show>
             <BracketView
               bracket={entry.bracket}

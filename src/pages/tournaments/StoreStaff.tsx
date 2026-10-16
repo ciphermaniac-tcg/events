@@ -12,6 +12,7 @@ import { createResource, createSignal, For, Show } from 'solid-js';
 import type { GivenRole, StoreRole } from '../../../shared/accounts/stores';
 import type { StoreInvite, StoreMember } from '../../../shared/accounts/types';
 import { errorText } from '../../lib/tournament/api';
+import { t } from '../../lib/i18n';
 import { dayOf } from '../../lib/tournament/applications';
 import {
   createInvite,
@@ -30,6 +31,9 @@ import { ConfirmAction } from './ConfirmAction';
 import { ErrorLine } from './Field';
 import { refreshSession, session } from './session';
 
+const inviteWord = (role: GivenRole) => (role === 'manager' ? t('Manager invite') : t('Staff invite'));
+const inviteLabel = (role: GivenRole) => (role === 'manager' ? t('Manager invite link') : t('Staff invite link'));
+
 /**
  * One open link: as what it lets someone in and until when, and Withdraw. The
  * one just made also shows its address, the only time it can, with Copy.
@@ -44,8 +48,8 @@ function InviteRow(props: { invite: StoreInvite; link: string | null; busy: bool
   return (
     <div class='tm-box-bar tm-store-invite'>
       <span class='tm-store-invite-what'>
-        {STORE_ROLE_WORDS[props.invite.role]} invite
-        <span class='muted'> · expires {dayOf(props.invite.expiresAt)}</span>
+        {inviteWord(props.invite.role)}
+        <span class='muted'> · {t('expires {date}', { date: dayOf(props.invite.expiresAt) })}</span>
       </span>
       <Show when={props.link}>
         {link => (
@@ -55,21 +59,21 @@ function InviteRow(props: { invite: StoreInvite; link: string | null; busy: bool
                 class='tm-input tm-link'
                 readOnly
                 value={link()}
-                aria-label={`${STORE_ROLE_WORDS[props.invite.role]} invite link`}
+                aria-label={inviteLabel(props.invite.role)}
                 onFocus={e => e.currentTarget.select()}
               />
               <button type='button' class='btn btn-secondary' onClick={() => void copy(link())}>
-                {copied() ? 'Copied' : 'Copy'}
+                {copied() ? t('Copied') : t('Copy')}
               </button>
             </span>
             <span class='muted tm-small tm-invite-hint'>
-              Anyone with a Ciphermaniac account can join your store's organizer team with this one-time link.
+              {t("Anyone with a Ciphermaniac account can join your store's organizer team with this one-time link.")}
             </span>
           </div>
         )}
       </Show>
       <button type='button' class='btn btn-ghost tm-small' disabled={props.busy} onClick={() => props.onWithdraw()}>
-        Withdraw
+        {t('Withdraw')}
       </button>
     </div>
   );
@@ -80,9 +84,9 @@ function HandOver(props: { member: StoreMember; busy: boolean; onHandOver: () =>
   return (
     <ConfirmAction
       class='btn btn-ghost tm-small'
-      label='Make owner'
-      question={`Make ${props.member.name} the owner?`}
-      confirmLabel='Make owner'
+      label={t('Make owner')}
+      question={t('Make {name} the owner?', { name: props.member.name })}
+      confirmLabel={t('Make owner')}
       disabled={props.busy}
       onConfirm={() => props.onHandOver()}
     />
@@ -104,11 +108,11 @@ function MemberRow(props: {
       <td>
         {props.member.name}
         <Show when={props.you}>
-          <span class='tm-flag is-you'>You</span>
+          <span class='tm-flag is-you'>{t('You')}</span>
         </Show>
       </td>
-      <td>{STORE_ROLE_WORDS[props.member.role]}</td>
-      <td class='muted-cell tm-wide-col'>{props.member.hasPopId ? 'On file' : 'None'}</td>
+      <td>{t(STORE_ROLE_WORDS[props.member.role])}</td>
+      <td class='muted-cell tm-wide-col'>{props.member.hasPopId ? t('On file') : t('None')}</td>
       <td class='tm-extra-col'>
         <Show when={props.member.role !== 'owner'}>
           <OptionsMenu name={props.member.name} busy={props.busy} staff>
@@ -121,13 +125,13 @@ function MemberRow(props: {
               disabled={props.busy}
               onClick={() => props.onRole(other())}
             >
-              {other() === 'manager' ? 'Make manager' : 'Make staff'}
+              {other() === 'manager' ? t('Make manager') : t('Make staff')}
             </button>
             <ConfirmAction
               class='btn btn-ghost tm-small'
-              label={props.you ? 'Leave' : 'Remove'}
-              question={props.you ? 'Leave this store?' : `Remove ${props.member.name}?`}
-              confirmLabel={props.you ? 'Leave' : 'Remove'}
+              label={props.you ? t('Leave') : t('Remove')}
+              question={props.you ? t('Leave this store?') : t('Remove {name}?', { name: props.member.name })}
+              confirmLabel={props.you ? t('Leave') : t('Remove')}
               danger
               disabled={props.busy}
               onConfirm={() => props.onRemove()}
@@ -208,7 +212,7 @@ export function StoreStaff(props: { storeId: string }) {
   return (
     <section class='tm-store-section' aria-labelledby='store-staff-head'>
       <h2 class='tm-subhead tm-box-head' id='store-staff-head'>
-        Staff
+        {t('Staff')}
       </h2>
       <Show
         when={latestValue(people)}
@@ -224,11 +228,11 @@ export function StoreStaff(props: { storeId: string }) {
               <table class='data tm-store-staff'>
                 <thead>
                   <tr>
-                    <th>Name</th>
-                    <th>Role</th>
+                    <th>{t('Name')}</th>
+                    <th>{t('Role')}</th>
                     <th class='tm-wide-col'>POP ID</th>
                     <th>
-                      <span class='sr-only'>Actions</span>
+                      <span class='sr-only'>{t('Actions')}</span>
                     </th>
                   </tr>
                 </thead>
@@ -260,10 +264,10 @@ export function StoreStaff(props: { storeId: string }) {
             </For>
             <div class='tm-box-bar'>
               <button type='button' class='btn btn-secondary' disabled={busy()} onClick={() => invite('staff')}>
-                Invite staff
+                {t('Invite staff')}
               </button>
               <button type='button' class='btn btn-ghost' disabled={busy()} onClick={() => invite('manager')}>
-                Invite a manager
+                {t('Invite a manager')}
               </button>
             </div>
           </div>

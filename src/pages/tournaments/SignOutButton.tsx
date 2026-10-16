@@ -1,6 +1,7 @@
 import { useNavigate } from '@solidjs/router';
 import { createSignal } from 'solid-js';
 import { errorText } from '../../lib/tournament/api';
+import { t } from '../../lib/i18n';
 import { ErrorLine } from './Field';
 import { leaveSession } from './session';
 
@@ -23,7 +24,7 @@ export function SignOutButton(props: { class?: string; onError?: () => void }) {
   return (
     <>
       <button type='button' class={props.class} disabled={busy()} onClick={() => void leave()}>
-        Sign out
+        {t('Sign out')}
       </button>
       <ErrorLine message={error()} />
     </>

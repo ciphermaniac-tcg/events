@@ -15,6 +15,7 @@
  */
 
 import { ordinal } from '../../lib/format';
+import { msg, t, tn } from '../../lib/i18n';
 import { createSignal, For, lazy, Match, Show, Suspense, Switch } from 'solid-js';
 import type { PlayerClaim } from '../../../shared/tournament/identify';
 import type { PlayerResult } from '../../../shared/tournament/reports';
@@ -43,16 +44,16 @@ import { pendingSuggestion, SuggestedPlayer } from './SuggestedPlayer';
 // Loaded on asking: most players never sign in from here, and Settings has these already.
 const SignIn = lazy(() => import('./SignIn').then(m => ({ default: m.SignIn })));
 
-const SAID: Record<PlayerResult, string> = { win: 'won', loss: 'lost', tie: 'tied' };
+const SAID: Record<PlayerResult, string> = { win: msg('You won'), loss: msg('You lost'), tie: msg('You tied') };
 
-const NOT_REPORTER = 'Someone else is already reporting for this player. Ask staff if that’s wrong.';
+const NOT_REPORTER = msg('Someone else is already reporting for this player. Ask staff if that’s wrong.');
 
 const NOTES = {
-  open: 'Staff must accept your result.',
-  reported: 'Waiting for staff acceptance.',
-  disputed: 'Your reports don’t match. If you pressed the wrong one, change it. Otherwise, find a judge.',
+  open: msg('Staff must accept your result.'),
+  reported: msg('Waiting for staff acceptance.'),
+  disputed: msg('Your reports don’t match. If you pressed the wrong one, change it. Otherwise, find a judge.'),
   /** Once the report is locked there is nothing to change: only the judge is left. */
-  disputedLocked: 'Your reports don’t match. Find a judge.'
+  disputedLocked: msg('Your reports don’t match. Find a judge.')
 };
 
 interface Props {
@@ -95,7 +96,7 @@ function SignInHere(props: { code: string; offer: SignInOffer }) {
       when={open()}
       fallback={
         <button type='button' class='tm-link-inline tm-you-signin' onClick={() => setOpen(true)}>
-          Sign in
+          {t('Sign in')}
         </button>
       }
     >
@@ -119,16 +120,16 @@ function WhichPlayer(props: Props) {
     return found?.key === declined() ? undefined : found;
   };
   return (
-    <section class='tm-box tm-you tm-you-ask' aria-label='Your match'>
+    <section class='tm-box tm-you tm-you-ask' aria-label={t('Your match')}>
       <Show
         when={suggest()}
         fallback={
           <>
-            <h2 class='tm-you-q'>Which player are you?</h2>
+            <h2 class='tm-you-q'>{t('Which player are you?')}</h2>
             <IdentifyForm
               view={props.view}
               idPrefix='lookup'
-              submitLabel='Find my match'
+              submitLabel={t('Find my match')}
               lookup
               onFound={props.onIdentified}
             />
@@ -152,9 +153,9 @@ function WhichPlayer(props: Props) {
 }
 
 const CHOICES: { result: PlayerResult; label: string }[] = [
-  { result: 'win', label: 'I won' },
-  { result: 'loss', label: 'I lost' },
-  { result: 'tie', label: 'Tie' }
+  { result: 'win', label: msg('I won') },
+  { result: 'loss', label: msg('I lost') },
+  { result: 'tie', label: msg('Tie') }
 ];
 
 /** The viewer's report of their match: where it stands and sending it; staff accept it. */
@@ -205,28 +206,28 @@ function ReportPanel(props: { report: Report; found: Found }) {
   const status = () => {
     const state = s();
     if (!state?.chosen) {
-      return 'Not reported';
+      return t('Not reported');
     }
     if (state.disputed) {
-      return 'Reports don’t match';
+      return t('Reports don’t match');
     }
-    return 'Waiting for staff';
+    return t('Waiting for staff');
   };
   const note = () => {
     const state = s();
     if (!state?.chosen) {
-      return NOTES.open;
+      return t(NOTES.open);
     }
     if (state.disputed) {
-      return state.locked ? NOTES.disputedLocked : NOTES.disputed;
+      return t(state.locked ? NOTES.disputedLocked : NOTES.disputed);
     }
-    return NOTES.reported;
+    return t(NOTES.reported);
   };
   const fixed = () => Boolean(s()?.locked || s()?.final);
   return (
     <div class='tm-you-panel'>
       <div class='tm-you-answers'>
-        <div class='tm-report-choices' role='group' aria-label='Report your result'>
+        <div class='tm-report-choices' role='group' aria-label={t('Report your result')}>
           <For each={choices()}>
             {choice => {
               const on = () => (props.report.sending() ?? s()?.chosen) === choice.result;
@@ -248,9 +249,9 @@ function ReportPanel(props: { report: Report; found: Found }) {
                     }
                   }}
                 >
-                  {choice.label}
+                  {t(choice.label)}
                   <Show when={on() && s()?.disputed}>
-                    <span class='sr-only'> (your opponent reported otherwise)</span>
+                    <span class='sr-only'> {t('(your opponent reported otherwise)')}</span>
                   </Show>
                 </button>
               );
@@ -287,8 +288,8 @@ function MatchLine(props: Props & { me: string; found: Found; report: Report; op
       when={opponent()}
       fallback={
         <>
-          <span class='tm-you-big'>{props.found.match.outcome === 'bye' ? 'Bye' : 'Missed round'}</span>
-          <span class='tm-you-mid muted'>{props.found.match.outcome === 'bye' ? 'Counts as a win' : ''}</span>
+          <span class='tm-you-big'>{props.found.match.outcome === 'bye' ? t('Bye') : t('Missed round')}</span>
+          <span class='tm-you-mid muted'>{props.found.match.outcome === 'bye' ? t('Counts as a win') : ''}</span>
           <span class='tm-you-end'>
             <Clock round={props.found.round} />
           </span>
@@ -298,11 +299,11 @@ function MatchLine(props: Props & { me: string; found: Found; report: Report; op
       {id => (
         <>
           <span class='tm-you-big'>
-            <small>Table</small>
+            <small>{t('Table')}</small>
             <span class='num'>{props.found.match.table}</span>
           </span>
           <span class='tm-you-mid'>
-            <span class='muted'>vs</span>{' '}
+            <span class='muted'>{t('vs')}</span>{' '}
             <button type='button' class='tm-seat-link' onClick={() => props.onPlayer?.(id())}>
               <span class='tm-name'>{names().get(id())}</span>
             </button>{' '}
@@ -322,7 +323,7 @@ function MatchLine(props: Props & { me: string; found: Found; report: Report; op
                   <Clock round={props.found.round} extraSeconds={props.found.match.timeExtension?.seconds} />
                   <Show when={canReport()}>
                     <button type='button' class='btn btn-secondary tm-small' onClick={() => props.onOpen()}>
-                      Report result
+                      {t('Report result')}
                     </button>
                   </Show>
                 </>
@@ -330,7 +331,8 @@ function MatchLine(props: Props & { me: string; found: Found; report: Report; op
             >
               {r => (
                 <strong>
-                  {props.report.state() ? 'Result stands · ' : ''}You {SAID[r()]}
+                  {props.report.state() ? `${t('Result stands')} · ` : ''}
+                  {t(SAID[r()])}
                 </strong>
               )}
             </Show>
@@ -372,13 +374,15 @@ function MatchBox(props: Props & { me: string; askAs: PlayerClaim | null }) {
   const confirming = () => open() && !props.claim && found() !== null;
   const division = () => divisionHeading(props.view.divisions[props.me] ?? null);
   return (
-    <section class='tm-box tm-you' aria-label='Your match'>
+    <section class='tm-box tm-you' aria-label={t('Your match')}>
       <div class='tm-you-top'>
         <Switch
           fallback={
             <>
-              <span class='tm-you-big'>{started() ? 'Not paired' : 'Registered'}</span>
-              <span class='tm-you-mid'>{!started() && props.firstRound ? `Round 1 at ${props.firstRound}` : ''}</span>
+              <span class='tm-you-big'>{started() ? t('Not paired') : t('Registered')}</span>
+              <span class='tm-you-mid'>
+                {!started() && props.firstRound ? t('Round 1 at {time}', { time: props.firstRound }) : ''}
+              </span>
             </>
           }
         >
@@ -386,11 +390,11 @@ function MatchBox(props: Props & { me: string; askAs: PlayerClaim | null }) {
             {row => (
               <>
                 <span class='tm-you-big'>
-                  <small>Place</small>
+                  <small>{t('Place')}</small>
                   <span class='num'>{ordinal(row().place)}</span>
                 </span>
                 <span class='tm-you-mid num'>
-                  {recordLabel(row().record)} · {row().points} pt{row().points === 1 ? '' : 's'}
+                  {recordLabel(row().record)} · {tn(row().points, '{n} pt', '{n} pts')}
                 </span>
               </>
             )}
@@ -410,14 +414,14 @@ function MatchBox(props: Props & { me: string; askAs: PlayerClaim | null }) {
         </Switch>
       </div>
       <Show when={followsOnly()}>
-        <p class='tm-you-panel tm-you-note muted'>{NOT_REPORTER}</p>
+        <p class='tm-you-panel tm-you-note muted'>{t(NOT_REPORTER)}</p>
       </Show>
       <Show when={confirming()}>
         <div class='tm-you-panel'>
           <IdentifyForm
             view={props.view}
             idPrefix='report'
-            submitLabel='Confirm reporting player'
+            submitLabel={t('Confirm reporting player')}
             expect={props.me}
             onFound={found => {
               setOpen(true);
@@ -425,7 +429,7 @@ function MatchBox(props: Props & { me: string; askAs: PlayerClaim | null }) {
             }}
           />
           <button type='button' class='btn btn-ghost' onClick={() => setOpen(false)}>
-            Cancel
+            {t('Cancel')}
           </button>
         </div>
       </Show>
@@ -470,21 +474,21 @@ function WhoLine(props: Props & { me: string; division: string }) {
         <span class='muted'>
           {namesById(props.view.tournament).get(props.me)}
           {props.division ? ` · ${props.division}` : ''}
-          {via() === 'claim' ? ' · Linked to your account' : ''}
+          {via() === 'claim' ? ` · ${t('Linked to your account')}` : ''}
         </span>
         <Switch
           fallback={
             <button type='button' class='btn btn-ghost tm-small' onClick={() => props.onForget()}>
-              Not you?
+              {t('Not you?')}
             </button>
           }
         >
           <Match when={via() === 'pop'}>{null}</Match>
           <Match when={via() === 'claim'}>
             <ConfirmAction
-              label='Not you?'
-              question='Unlink from your account?'
-              confirmLabel='Unlink'
+              label={t('Not you?')}
+              question={t('Unlink from your account?')}
+              confirmLabel={t('Unlink')}
               danger
               onConfirm={() => void unlink()}
             />

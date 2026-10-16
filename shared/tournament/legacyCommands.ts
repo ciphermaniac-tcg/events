@@ -58,6 +58,7 @@ import {
   type Tournament,
   type TournamentInfo
 } from './types.js';
+import { msg, msgf } from '../i18n.js';
 
 const fail = (error: string): CommandResult => ({ ok: false, error });
 const done = (tournament: Tournament): CommandResult => ({ ok: true, tournament });
@@ -68,7 +69,7 @@ function findPod(tournament: Tournament, category: PodCategory): Pod | undefined
 
 /** The pod a round command names, or why it cannot take one. */
 function roundPod(tournament: Tournament, category: PodCategory): Pod | string {
-  return findPod(tournament, category) ?? 'There is no round to change';
+  return findPod(tournament, category) ?? msg('There is no round to change');
 }
 
 function withPod(tournament: Tournament, pod: Pod): Tournament {
@@ -199,14 +200,14 @@ function addPlayer(tournament: Tournament, input: NewPlayer, ctx: CommandContext
   const firstName = input.firstName.trim();
   const lastName = input.lastName.trim();
   if (!firstName || !lastName) {
-    return fail('A player needs a first and last name');
+    return fail(msg('A player needs a first and last name'));
   }
   const id = input.id?.trim() || generatedId(tournament, ctx.random);
   if (!/^\d{1,10}$/.test(id)) {
-    return fail('A POP ID is up to ten digits');
+    return fail(msg('A POP ID is up to ten digits'));
   }
   if (tournament.players.some(p => p.id === id)) {
-    return fail('That POP ID is already registered');
+    return fail(msg('That POP ID is already registered'));
   }
   const birthDate = yearOnlyBirthDate(input.birthDate ?? '');
   const fields = { id, firstName, lastName, birthDate, fromList: input.fromList };
@@ -217,7 +218,7 @@ function addPlayer(tournament: Tournament, input: NewPlayer, ctx: CommandContext
   }
   const { pod, replaces } = podFor(tournament, divisionFor(birthDate, ctx.season));
   if (pod.rounds.some(r => r.kind === 'elimination')) {
-    return fail('Their division’s Swiss rounds are over; the top cuts are under way');
+    return fail(msg('Their division’s Swiss rounds are over; the top cuts are under way'));
   }
   const player = latePlayer(fields, pod, ctx);
   const joined = missedRounds(pod, id, ctx);
@@ -228,7 +229,7 @@ function addPlayer(tournament: Tournament, input: NewPlayer, ctx: CommandContext
 function updatePlayer(tournament: Tournament, id: string, change: (player: Player) => Player): CommandResult {
   const player = tournament.players.find(p => p.id === id);
   if (!player) {
-    return fail('No such player');
+    return fail(msg('No such player'));
   }
   return done({ ...tournament, players: tournament.players.map(p => (p.id === id ? change(p) : p)) });
 }
@@ -236,7 +237,7 @@ function updatePlayer(tournament: Tournament, id: string, change: (player: Playe
 function removePlayer(tournament: Tournament, id: string): CommandResult {
   const pod = podOf(tournament, id);
   if (hasPlayed(pod, id)) {
-    return fail('This player has been paired; drop them instead');
+    return fail(msg('This player has been paired; drop them instead'));
   }
   const pods = tournament.pods.map(p =>
     p === pod
@@ -319,7 +320,11 @@ function reopenForfeit(tournament: Tournament, player: Player): Tournament {
 function undropPlayer(tournament: Tournament, id: string, ctx: CommandContext): CommandResult {
   const player = tournament.players.find(p => p.id === id);
   if (player?.droppedAfter != null && !canUndrop(tournament, player)) {
-    return fail(`They dropped before round ${player.droppedAfter + 1} was paired, so they can’t come back now`);
+    return fail(
+      msgf('They dropped before round {round} was paired, so they can’t come back now', {
+        round: player.droppedAfter + 1
+      })
+    );
   }
   const reopened = player?.droppedAfter != null ? reopenForfeit(tournament, player) : tournament;
   return updatePlayer(reopened, id, ({ disqualified: _dq, ...p }) => ({
@@ -333,11 +338,16 @@ const MAX_TABLE = 9999;
 
 function setFixedTable(tournament: Tournament, id: string, table: number | null): CommandResult {
   if (table !== null && (!Number.isInteger(table) || table < 1 || table > MAX_TABLE)) {
-    return fail('A table is a whole number from 1');
+    return fail(msg('A table is a whole number from 1'));
   }
   const holder = table === null ? undefined : tournament.players.find(p => p.fixedTable === table && p.id !== id);
   if (holder) {
-    return fail(`Table ${table} is already fixed for ${holder.firstName} ${holder.lastName}`);
+    return fail(
+      msgf('Table {table} is already fixed for {name}', {
+        table: String(table),
+        name: `${holder.firstName} ${holder.lastName}`
+      })
+    );
   }
   return updatePlayer(tournament, id, ({ fixedTable: _old, ...player }) =>
     table === null ? player : { ...player, fixedTable: table }
@@ -407,10 +417,10 @@ function repairRound(tournament: Tournament, category: PodCategory, keepReported
   }
   const round = latestRound(pod);
   if (!round) {
-    return fail('There is no round to re-pair');
+    return fail(msg('There is no round to re-pair'));
   }
   if (round.kind !== 'swiss') {
-    return fail('Only a Swiss round can be re-paired');
+    return fail(msg('Only a Swiss round can be re-paired'));
   }
   const kept = keptMatches(round, keepReported);
   const seated = new Set(kept.flatMap(match => [match.p1, match.p2]));
@@ -444,10 +454,10 @@ function deleteRound(tournament: Tournament, category: PodCategory): CommandResu
   }
   const round = latestRound(pod);
   if (!round) {
-    return fail('There is no round to delete');
+    return fail(msg('There is no round to delete'));
   }
   if (round.matches.some(match => match.p2 !== null && isReported(match))) {
-    return fail('Clear this round’s results before deleting it');
+    return fail(msg('Clear this round’s results before deleting it'));
   }
   const rounds = pod.rounds.slice(0, -1);
   const undone = round.kind === 'elimination' && !rounds.some(r => r.kind === 'elimination');
@@ -463,13 +473,13 @@ function unseeded(tournament: Tournament, pod: Pod): Tournament {
 
 function outcomeError(round: Round, match: Match, outcome: Outcome): string | null {
   if (match.p2 === null) {
-    return 'A bye has no result to report';
+    return msg('A bye has no result to report');
   }
   if (!REPORTABLE_OUTCOMES.includes(outcome) && outcome !== 'pending') {
-    return 'Not a result';
+    return msg('Not a result');
   }
   if (round.kind === 'elimination' && (outcome === 'tie' || outcome === 'double-loss')) {
-    return 'A top cut match needs a winner';
+    return msg('A top cut match needs a winner');
   }
   return null;
 }
@@ -477,7 +487,7 @@ function outcomeError(round: Round, match: Match, outcome: Outcome): string | nu
 /** A top-cut round's results are fixed once the next round is paired from them. */
 function settledBracket(pod: Pod, round: Round): string | null {
   const later = pod.rounds.some(r => r.number > round.number);
-  return round.kind === 'elimination' && later ? 'The next top cut round is already paired' : null;
+  return round.kind === 'elimination' && later ? msg('The next top cut round is already paired') : null;
 }
 
 function reportResult(
@@ -487,7 +497,7 @@ function reportResult(
 ): CommandResult {
   const found = findMatch(tournament, command);
   if (!found) {
-    return fail('That match has changed; reload and try again');
+    return fail(msg('That match has changed; reload and try again'));
   }
   const { pod, round, match } = found;
   const error = outcomeError(round, match, command.outcome) ?? settledBracket(pod, round);
@@ -508,11 +518,11 @@ function swapPlayers(tournament: Tournament, category: PodCategory, a: string, b
   }
   const round = latestRound(pod);
   if (!round || a === b) {
-    return fail('Pick two different players in the current round');
+    return fail(msg('Pick two different players in the current round'));
   }
   const seats = [a, b].map(id => round.matches.find(m => m.p1 === id || m.p2 === id));
   if (seats.some(match => !match || match.outcome === 'loss' || (match.p2 !== null && isReported(match)))) {
-    return fail('Both players must be in unreported matches or the bye');
+    return fail(msg('Both players must be in unreported matches or the bye'));
   }
   const swap = (id: string | null) => (id === a ? b : id === b ? a : id);
   const matches = round.matches.map(m => {
@@ -529,7 +539,7 @@ function clock(tournament: Tournament, category: PodCategory, change: (round: Ro
   const pod = findPod(tournament, category);
   const round = pod && latestRound(pod);
   if (!pod || !round) {
-    return fail('There is no round to time');
+    return fail(msg('There is no round to time'));
   }
   return done(withPod(tournament, withRound(pod, change(round))));
 }
@@ -558,7 +568,7 @@ function stopClock(tournament: Tournament, category: PodCategory, ctx: CommandCo
 
 function adjustClock(tournament: Tournament, category: PodCategory, seconds: number): CommandResult {
   if (!Number.isInteger(seconds) || Math.abs(seconds) > 3600) {
-    return fail('Adjust by up to an hour at a time');
+    return fail(msg('Adjust by up to an hour at a time'));
   }
   return clock(tournament, category, round => ({ ...round, timeLeft: round.timeLeft + seconds }));
 }
@@ -590,16 +600,18 @@ function cutRefusal(
 ) {
   const latest = pod?.rounds.filter(r => r.kind === 'swiss').at(-1);
   if (!pod || !latest || !roundComplete(latest)) {
-    return 'Finish the Swiss rounds first';
+    return msg('Finish the Swiss rounds first');
   }
   if (ctx.sanctioned && pod.rounds.filter(round => round.kind === 'swiss').length < SANCTIONED.swissRounds) {
-    return `A sanctioned event plays at least ${SANCTIONED.swissRounds} Swiss rounds before its top cut`;
+    return msgf('A sanctioned event plays at least {rounds} Swiss rounds before its top cut', {
+      rounds: SANCTIONED.swissRounds
+    });
   }
   if (eventTypeOf(tournament) === 'challenge') {
-    return 'A League Challenge has no top cut';
+    return msg('A League Challenge has no top cut');
   }
   if (!(TOP_CUT_SIZES as readonly number[]).includes(command.size)) {
-    return 'A top cut is 2, 4, 8, 16 or 32 players';
+    return msg('A top cut is 2, 4, 8, 16 or 32 players');
   }
   return cutStarted(tournament, pod, command.division, ctx.season);
 }
@@ -607,10 +619,10 @@ function cutRefusal(
 /** A pod whose players are all one division has one cut (see cutField); a pod of several has one per division. */
 function cutStarted(tournament: Tournament, pod: Pod, division: Division | undefined, season: number): string | null {
   if (!cutField(tournament, pod, division, season)) {
-    return pod.rounds.some(round => round.kind === 'elimination') ? 'The top cut has started' : null;
+    return pod.rounds.some(round => round.kind === 'elimination') ? msg('The top cut has started') : null;
   }
   return division && cutPodOf(tournament, pod, division)
-    ? `The ${DIVISION_LABELS[division]} top cut has started`
+    ? msgf('The {division} top cut has started', { division: DIVISION_LABELS[division] })
     : null;
 }
 
@@ -625,11 +637,11 @@ function startTopCut(
   const pod = findPod(tournament, command.pod);
   const refusal = cutRefusal(tournament, pod, command, ctx);
   if (!pod || refusal) {
-    return fail(refusal ?? 'Finish the Swiss rounds first');
+    return fail(refusal ?? msg('Finish the Swiss rounds first'));
   }
   const only = cutField(tournament, pod, division, ctx.season);
   if (only && !division) {
-    return fail('Pick the division to cut');
+    return fail(msg('Pick the division to cut'));
   }
   const seeds = swissStandings(pod, tournament.players, {
     ...(only ? { only } : {}),
@@ -639,7 +651,7 @@ function startTopCut(
     .slice(0, size)
     .map(row => row.playerId);
   if (seeds.length < size) {
-    return fail('Not enough players for that cut');
+    return fail(msg('Not enough players for that cut'));
   }
   return openCut(tournament, pod, { seeds, division, playoff3rd4th }, ctx);
 }
@@ -655,7 +667,7 @@ function openCut(
   const swiss = pod.rounds.filter(r => r.kind === 'swiss').at(-1) as Round;
   const existing = pod.rounds.find(r => r.kind === 'elimination');
   if (existing && (pod.rounds.at(-1) !== existing || existing.matches.some(m => m.outcome !== 'pending'))) {
-    return fail('The top cut has started; finish configuring divisions before entering results');
+    return fail(msg('The top cut has started; finish configuring divisions before entering results'));
   }
   const pairings = pairTopCut(seeds);
   const seedOf = new Map(seeds.map((id, i) => [id, i + 1]));
@@ -692,12 +704,17 @@ function updateInfo(
 ): CommandResult {
   const next = { ...tournament.info, ...info };
   if (!next.name.trim()) {
-    return fail('The event needs a name');
+    return fail(msg('The event needs a name'));
   }
   const minutes = [next.roundTime, next.finalsRoundTime];
   const limits = eventTimeLimits(eventTypeOf({ info: next }));
   if (minutes.some(value => !Number.isInteger(value) || value < limits.minimum || value > limits.maximum)) {
-    return fail(`Round times are whole minutes, from ${limits.minimum} to ${limits.maximum}`);
+    return fail(
+      msgf('Round times are whole minutes, from {minimum} to {maximum}', {
+        minimum: limits.minimum,
+        maximum: limits.maximum
+      })
+    );
   }
   const short = ctx.sanctioned ? sanctionedMinutesError(next) : null;
   if (short) {
@@ -705,7 +722,7 @@ function updateInfo(
   }
   const cutStarted = tournament.pods.some(pod => pod.rounds.some(round => round.kind === 'elimination'));
   if (cutStarted && eventTypeOf({ info: next }) !== eventTypeOf(tournament)) {
-    return fail('The top cut has started; the event type stays as it is');
+    return fail(msg('The top cut has started; the event type stays as it is'));
   }
   return done({ ...tournament, info: next });
 }
@@ -747,7 +764,7 @@ const HANDLERS: Handlers = {
   reportResult: (t, c, ctx) => reportResult(t, c, ctx),
   swapPlayers: (t, c) => swapPlayers(t, c.pod, c.a, c.b),
   startTopCut: (t, c, ctx) => startTopCut(t, c, ctx),
-  concludePrerelease: () => fail('Only Prerelease events can conclude a pod early'),
+  concludePrerelease: () => fail(msg('Only Prerelease events can conclude a pod early')),
   updateInfo: (t, c, ctx) => updateInfo(t, c.info, ctx)
 };
 

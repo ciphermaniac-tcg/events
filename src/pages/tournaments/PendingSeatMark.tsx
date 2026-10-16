@@ -1,13 +1,15 @@
 import { createMemo, type JSX, Show } from 'solid-js';
+import { msg, t } from '../../lib/i18n';
 import { awaitingMark, type SeatState } from '../../lib/tournament/awaitingMarks';
 
-const labels: Record<string, string> = { W: 'Win', L: 'Loss', T: 'Tie' };
+const labels: Record<string, string> = { W: msg('Win'), L: msg('Loss'), T: msg('Tie') };
 
 export function PendingSeatMark(props: SeatState & { enabled: boolean; children: JSX.Element }) {
   const state = createMemo(() => awaitingMark(props));
   const label = () => {
-    const result = labels[state().mark] ?? '';
-    return state().pending ? `${result}, awaiting acceptance` : result;
+    const mark = labels[state().mark];
+    const result = mark ? t(mark) : '';
+    return state().pending ? t('{result}, awaiting acceptance', { result }) : result;
   };
   return (
     <Show when={props.enabled} fallback={props.children}>

@@ -15,6 +15,7 @@ import { Segmented } from '../../components/Segmented';
 import { correctResult, errorText, type Manage } from '../../lib/tournament/api';
 import { type CorrectionPreview, correctionPreview } from '../../lib/tournament/corrections';
 import { RESULT_WORDS } from '../../lib/tournament/present';
+import { t, tx } from '../../lib/i18n';
 import { Modal } from './Modal';
 
 export interface CorrectionSelection {
@@ -27,7 +28,7 @@ export interface CorrectionSelection {
 function Moved(props: { before: string; after: string }) {
   return (
     <Show when={props.before !== props.after} fallback={props.after}>
-      <span class='muted'>{props.before}</span> to {props.after}
+      {tx('{before} to {after}', { before: <span class='muted'>{props.before}</span>, after: props.after })}
     </Show>
   );
 }
@@ -50,17 +51,17 @@ function Changes(props: { preview: CorrectionPreview; names: Map<string, string>
   );
   return (
     <div class='tm-correction-changes'>
-      <h4>What changes</h4>
+      <h4>{t('What changes')}</h4>
       <For each={props.preview.standings}>
         {group => (
           <>
-            <Show when={group.division}>{division => <p class='tm-label'>{DIVISION_LABELS[division()]}</p>}</Show>
+            <Show when={group.division}>{division => <p class='tm-label'>{t(DIVISION_LABELS[division()])}</p>}</Show>
             <table class='tm-correction-diff'>
               <thead>
                 <tr>
                   <th class='num'>#</th>
-                  <th>Player</th>
-                  <th class='num'>Record</th>
+                  <th>{t('Player')}</th>
+                  <th class='num'>{t('Record')}</th>
                   <th class='num'>OWP</th>
                 </tr>
               </thead>
@@ -72,26 +73,32 @@ function Changes(props: { preview: CorrectionPreview; names: Map<string, string>
         )}
       </For>
       <ul class='tm-correction-lines'>
-        <li>Round {props.round + 1}'s pairings stay as they are.</li>
+        <li>{t("Round {round}'s pairings stay as they are.", { round: props.round + 1 })}</li>
         <For each={props.preview.next.filter(m => m.points[0] !== m.points[1])}>
           {m => (
             <li>
-              Round {props.round + 1} table {m.table} now pairs {name(m.p1)} ({m.points[0]} pts) with {name(m.p2)} (
-              {m.points[1]} pts).
+              {t('Round {round} table {table} now pairs {p1} ({p1Points} pts) with {p2} ({p2Points} pts).', {
+                round: props.round + 1,
+                table: m.table,
+                p1: name(m.p1),
+                p1Points: m.points[0],
+                p2: name(m.p2),
+                p2Points: m.points[1]
+              })}
             </li>
           )}
         </For>
-        <li>Round {props.round + 2} pairs from the corrected standings.</li>
+        <li>{t('Round {round} pairs from the corrected standings.', { round: props.round + 2 })}</li>
       </ul>
     </div>
   );
 }
 
 const choicesFor = (match: Match, name: (id: string) => string): { value: Outcome; label: string }[] => [
-  { value: 'p1', label: `${name(match.p1)} won` },
-  { value: 'p2', label: `${name(match.p2 ?? '')} won` },
-  { value: 'tie', label: 'Tie' },
-  { value: 'double-loss', label: 'Double loss' }
+  { value: 'p1', label: t('{name} won', { name: name(match.p1) }) },
+  { value: 'p2', label: t('{name} won', { name: name(match.p2 ?? '') }) },
+  { value: 'tie', label: t('Tie') },
+  { value: 'double-loss', label: t('Double loss') }
 ];
 
 export function CorrectionDialog(props: {
@@ -127,7 +134,7 @@ export function CorrectionDialog(props: {
   );
   async function apply() {
     if (!note().trim()) {
-      setError('Say which slip and what was wrong');
+      setError(t('Say which slip and what was wrong'));
       return;
     }
     setSaving(true);
@@ -151,7 +158,12 @@ export function CorrectionDialog(props: {
     }
   }
   return (
-    <Modal open title={`Correct round ${round}, table ${match.table}`} class='tm-correction' onClose={props.onClose}>
+    <Modal
+      open
+      title={t('Correct round {round}, table {table}', { round, table: match.table })}
+      class='tm-correction'
+      onClose={props.onClose}
+    >
       <form
         onSubmit={event => {
           event.preventDefault();
@@ -160,29 +172,29 @@ export function CorrectionDialog(props: {
       >
         <div class='tm-box-bar tm-modal-body'>
           <div class='tm-correction-field'>
-            <span>Recorded {RESULT_WORDS[match.outcome]}. Correct to</span>
+            <span>{t('Recorded {result}. Correct to', { result: t(RESULT_WORDS[match.outcome] ?? '') })}</span>
             <Segmented
               options={choicesFor(match, name)}
               selected={outcome()}
               onSelect={setOutcome}
-              ariaLabel='Corrected result'
+              ariaLabel={t('Corrected result')}
             />
           </div>
           <label class='tm-correction-field'>
-            Note
+            {t('Note')}
             <textarea
               class='tm-input tm-textarea'
               rows={2}
               maxLength={CORRECTION_LIMITS.note}
-              placeholder='Which slip, and what was wrong'
+              placeholder={t('Which slip, and what was wrong')}
               value={note()}
               onInput={e => setNote(e.currentTarget.value)}
             />
           </label>
-          <p class='muted tm-correction-who'>Approving as {props.approving}</p>
+          <p class='muted tm-correction-who'>{t('Approving as {who}', { who: props.approving })}</p>
           <Show
             when={preview()}
-            fallback={<p class='muted tm-correction-who'>Choose the corrected result to see what changes.</p>}
+            fallback={<p class='muted tm-correction-who'>{t('Choose the corrected result to see what changes.')}</p>}
           >
             {p => <Changes preview={p()} names={props.names} round={round} />}
           </Show>
@@ -196,10 +208,10 @@ export function CorrectionDialog(props: {
             )}
           </Show>
           <button type='button' class='btn btn-ghost' onClick={() => props.onClose()}>
-            Cancel
+            {t('Cancel')}
           </button>
           <button type='submit' class='btn btn-primary' disabled={!changed() || saving()}>
-            Apply correction
+            {t('Apply correction')}
           </button>
         </div>
       </form>

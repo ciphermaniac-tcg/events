@@ -9,6 +9,7 @@ import { type Manage, setDeck } from '../../lib/tournament/api';
 import { DeckCombo } from '../live/LiveDeck';
 import type { ReportedDeck } from '../live/reportedDeck';
 import { ErrorLine } from './Field';
+import { t } from '../../lib/i18n';
 import type { ManageState } from './manageState';
 
 export function DeckPicker(props: {
@@ -29,7 +30,7 @@ export function DeckPicker(props: {
     const { code } = props.manage;
     const id = props.playerId;
     if (!(await props.state.run(() => setDeck(code, id, archetype)))) {
-      setError('Could not save the deck');
+      setError(t('Could not save the deck'));
     }
   }
   return (
@@ -39,13 +40,13 @@ export function DeckPicker(props: {
         <DeckCombo
           decks={props.decks}
           selected={selected()}
-          placeholder='Deck'
+          placeholder={t('Deck')}
           custom={SETTINGS_LIMITS.archetype}
           onPick={deck => void pick(deck.label)}
         />
         <Show when={label()} fallback={<span />}>
           <button type='button' class='btn btn-ghost tm-small' onClick={() => void pick(null)}>
-            Clear
+            {t('Clear')}
           </button>
         </Show>
       </span>

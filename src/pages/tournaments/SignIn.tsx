@@ -1,5 +1,6 @@
 import { createSignal, For, type JSX, Show } from 'solid-js';
 import { type OAuthProvider, type Provider, type SignInOffer, signInUrl } from '../../lib/tournament/api';
+import { msg, t } from '../../lib/i18n';
 import { UsernameForm } from './PasswordForm';
 
 /*
@@ -38,8 +39,8 @@ const DiscordMark = () => (
 );
 
 const PROVIDERS: Record<OAuthProvider, { label: string; Mark: () => JSX.Element }> = {
-  google: { label: 'Sign in with Google', Mark: GoogleG },
-  discord: { label: 'Sign in with Discord', Mark: DiscordMark }
+  google: { label: msg('Sign in with Google'), Mark: GoogleG },
+  discord: { label: msg('Sign in with Discord'), Mark: DiscordMark }
 };
 
 /** Google first, so it is at least as prominent as any other provider (its branding rules). */
@@ -58,13 +59,13 @@ function DevSignIn(props: { next: string }) {
     >
       <input
         class='tm-input'
-        placeholder='Test user name'
-        aria-label='Test user name'
+        placeholder={t('Test user name')}
+        aria-label={t('Test user name')}
         value={devName()}
         onInput={event => setDevName(event.currentTarget.value)}
       />
       <button type='submit' class='btn btn-ghost'>
-        Dev sign-in
+        {t('Dev sign-in')}
       </button>
     </form>
   );
@@ -84,7 +85,7 @@ function ProviderButtons(props: { providers: readonly Provider[]; next: string; 
         {provider => (
           <a class={`tm-sso tm-sso-${provider}`} href={signInUrl(provider, props.next)} rel='external'>
             {PROVIDERS[provider].Mark()}
-            <span>{PROVIDERS[provider].label}</span>
+            <span>{t(PROVIDERS[provider].label)}</span>
           </a>
         )}
       </For>
@@ -92,7 +93,7 @@ function ProviderButtons(props: { providers: readonly Provider[]; next: string; 
         <DevSignIn next={props.next} />
       </Show>
       <Show when={props.providers.length === 0}>
-        <p class='muted'>Sign-in is not set up on this server.</p>
+        <p class='muted'>{t('Sign-in is not set up on this server.')}</p>
       </Show>
     </div>
   );
@@ -111,7 +112,7 @@ function PasswordOption(props: { publishableKey: string; next: string }) {
       when={open()}
       fallback={
         <button type='button' class='tm-signin-other' ref={opener} onClick={() => setOpen(true)}>
-          Sign in with username and password
+          {t('Sign in with username and password')}
         </button>
       }
     >
@@ -125,7 +126,7 @@ function PasswordOption(props: { publishableKey: string; next: string }) {
             queueMicrotask(() => opener?.focus());
           }}
         >
-          Back
+          {t('Back')}
         </button>
       </div>
     </Show>

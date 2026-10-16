@@ -1,4 +1,5 @@
 import { createSignal, type JSX, Show } from 'solid-js';
+import { t } from '../../lib/i18n';
 
 /**
  * A button that takes a second press before it acts, asked in place: the
@@ -66,7 +67,7 @@ export function ConfirmAction(props: {
           {props.confirmLabel ?? props.label}
         </button>
         <button type='button' class={`btn btn-ghost${size()}`} onClick={back}>
-          Keep
+          {t('Keep')}
         </button>
       </span>
     </Show>

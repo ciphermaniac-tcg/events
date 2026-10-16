@@ -7,6 +7,7 @@ import { importedEventType } from './structure.js';
 import { regularRounds, schedulePlayers } from './rounds.js';
 import { shuffled } from './random.js';
 import { type Division, DIVISIONS, isDivision, type Player, type Pod, type Tournament } from './types.js';
+import { msg } from '../i18n.js';
 
 export function createEvent(operation: Extract<LifecycleOperation, { type: 'create' }>): Tournament {
   return {
@@ -28,7 +29,7 @@ export function registerPlayers(
   ctx: LifecycleContext
 ): Tournament {
   if ((t.settings?.stage ?? 4) >= 4) {
-    throw new Error('Registration after start must use late entry');
+    throw new Error(msg('Registration after start must use late entry'));
   }
   let next = t;
   for (const player of operation.players) {
@@ -102,7 +103,7 @@ function tableSettings(t: Tournament, op: ConfigureOperation, pods: number, high
 /** The operation writes its round times directly, zero included, and pods the field again. */
 function configuredInfo(t: Tournament, op: ConfigureOperation, ctx: LifecycleContext): Tournament {
   if (![op.roundMinutes, op.finalMinutes].every(minutes => Number.isInteger(minutes) && minutes >= 0)) {
-    throw new Error('Round times are whole minutes');
+    throw new Error(msg('Round times are whole minutes'));
   }
   const info = {
     ...t.info,
@@ -118,10 +119,10 @@ function configuredInfo(t: Tournament, op: ConfigureOperation, ctx: LifecycleCon
 
 export function configureEvent(t: Tournament, op: ConfigureOperation, ctx: LifecycleContext): Tournament {
   if (!t.settings || t.settings.stage >= 4) {
-    throw new Error('Configure the event before starting');
+    throw new Error(msg('Configure the event before starting'));
   }
   if (![0, 1].includes(op.additionalRounds)) {
-    throw new Error('Only zero or one additional Swiss round is available');
+    throw new Error(msg('Only zero or one additional Swiss round is available'));
   }
   const result = { tournament: configuredInfo(t, op, ctx) };
   const combined: Pod = {
@@ -257,10 +258,10 @@ function configuredPod(t: Tournament, pod: Pod, op: ConfigureOperation, sizes: M
 export function setFlights(t: Tournament, op: Extract<LifecycleOperation, { type: 'setFlights' }>): Tournament {
   const pods = t.pods.filter(p => op.pod === undefined || p.category === op.pod);
   if (!pods.length || pods.some(p => !validFlightCount(p.playerIds.length, op.count))) {
-    throw new Error('Flights require a power of two up to sixteen and 32 players per flight');
+    throw new Error(msg('Flights require a power of two up to sixteen and 32 players per flight'));
   }
   if ((t.settings?.stage ?? 4) >= 4) {
-    throw new Error('Set flights before starting');
+    throw new Error(msg('Set flights before starting'));
   }
   return { ...t, pods: t.pods.map(p => (pods.includes(p) ? { ...p, subgroupCount: op.count } : p)) };
 }
@@ -300,13 +301,13 @@ function startingFlights(pod: Pod, ctx: LifecycleContext): Pod {
 
 export function startEvent(t: Tournament, ctx: LifecycleContext): Tournament {
   if (!t.settings || t.settings.stage >= 4) {
-    throw new Error('The tournament has already started');
+    throw new Error(msg('The tournament has already started'));
   }
   if (!t.players.length) {
     return { ...t, pods: [], settings: { ...t.settings, stage: 1 } };
   }
   if (!t.pods.length) {
-    throw new Error('Configure pods before starting the tournament');
+    throw new Error(msg('Configure pods before starting the tournament'));
   }
   const of = divisionLookup(t);
   const players = orderedRoster(t.players, ctx.recorded?.rosterOrder, ctx).map((p, index) => ({

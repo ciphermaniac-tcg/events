@@ -45,6 +45,7 @@ import { SignIn } from './SignIn';
 import { Trail } from './Trail';
 import { MAIN_SITE } from '../../lib/constants';
 import { pageTitle } from '../../lib/title';
+import { msg, t } from '../../lib/i18n';
 import { ProfileLinksForm } from './ProfileLinksForm';
 
 /**
@@ -67,12 +68,12 @@ const PROVIDER_NAMES: Record<OAuthProvider, string> = { google: 'Google', discor
 
 /** The sections, in the column's order; the first opens with none asked for. */
 const SECTIONS = [
-  { id: 'profile', label: 'Player profile' },
-  { id: 'username', label: 'Username' },
-  { id: 'history', label: 'History' },
-  { id: 'links', label: 'Profile links' },
-  { id: 'organizer', label: 'Organizer' },
-  { id: 'data', label: 'Your data' }
+  { id: 'profile', label: msg('Player profile') },
+  { id: 'username', label: msg('Username') },
+  { id: 'history', label: msg('History') },
+  { id: 'links', label: msg('Profile links') },
+  { id: 'organizer', label: msg('Organizer') },
+  { id: 'data', label: msg('Your data') }
 ] as const;
 type Section = (typeof SECTIONS)[number]['id'];
 const readSection = (value: string | undefined): Section =>
@@ -95,11 +96,11 @@ function Identity(props: { user: Me; providers: readonly Provider[] }) {
               when={props.user.providers.includes(provider)}
               fallback={
                 <a class='tm-link-inline' href={linkUrl(provider)} rel='external'>
-                  Link {PROVIDER_NAMES[provider]}
+                  {t('Link {provider}', { provider: PROVIDER_NAMES[provider] })}
                 </a>
               }
             >
-              <span class='muted'>{PROVIDER_NAMES[provider]} linked</span>
+              <span class='muted'>{t('{provider} linked', { provider: PROVIDER_NAMES[provider] })}</span>
             </Show>
           )}
         </For>
@@ -129,14 +130,14 @@ function SignedIn(props: { user: Me; providers: readonly Provider[] }) {
     const now = section();
     setOpened(prev => (prev.has(now) ? prev : new Set([...prev, now])));
   });
-  const label = () => SECTIONS.find(s => s.id === section())?.label ?? '';
+  const label = () => t(SECTIONS.find(s => s.id === section())?.label ?? '');
   return (
     <>
-      <Trail here='Settings' />
+      <Trail here={t('Settings')} />
       <div class='tm-side-layout tm-settings-layout'>
         <div class='tm-settings-side'>
           <Identity user={props.user} providers={props.providers} />
-          <nav class='tm-side-nav' aria-label='Settings'>
+          <nav class='tm-side-nav' aria-label={t('Settings')}>
             <For each={SECTIONS}>
               {s => (
                 <button
@@ -145,7 +146,7 @@ function SignedIn(props: { user: Me; providers: readonly Provider[] }) {
                   aria-current={s.id === section() ? 'page' : undefined}
                   onClick={() => setParams({ section: s.id })}
                 >
-                  {s.label}
+                  {t(s.label)}
                 </button>
               )}
             </For>
@@ -191,7 +192,10 @@ function Username(props: { user: Me }) {
   const current = createMemo(() => props.user.handle);
   createEffect(on(current, next => setHandle(next), { defer: true }));
   const wanted = () => normalizeHandle(handle());
-  const problem = () => (wanted() === props.user.handle ? null : handleProblem(wanted()));
+  const problem = () => {
+    const found = wanted() === props.user.handle ? null : handleProblem(wanted());
+    return found === null ? null : t(found);
+  };
   async function save(event: Event) {
     event.preventDefault();
     if (problem()) {
@@ -213,7 +217,7 @@ function Username(props: { user: Me }) {
           <input
             class='tm-input tm-grow'
             maxlength={HANDLE_MAX}
-            aria-label='Username'
+            aria-label={t('Username')}
             autocapitalize='none'
             autocomplete='username'
             spellcheck={false}
@@ -227,7 +231,7 @@ function Username(props: { user: Me }) {
           />
           <Show when={saved()}>
             <span class='muted' role='status'>
-              Saved
+              {t('Saved')}
             </span>
           </Show>
           <button
@@ -235,7 +239,7 @@ function Username(props: { user: Me }) {
             type='submit'
             disabled={wanted() === props.user.handle || problem() !== null}
           >
-            Save username
+            {t('Save username')}
           </button>
         </div>
       </form>
@@ -299,11 +303,11 @@ function Profile(props: { user: Me }) {
         <div class='tm-box-bar tm-set-foot'>
           <Show when={status() === 'saved'}>
             <span class='muted' role='status'>
-              Saved
+              {t('Saved')}
             </span>
           </Show>
           <button type='submit' class='btn btn-primary' disabled={status() === 'saving'}>
-            Save profile
+            {t('Save profile')}
           </button>
         </div>
       </form>
@@ -314,7 +318,7 @@ function Profile(props: { user: Me }) {
             {' · '}
           </span>
           <a class='tm-link-inline' href={`${MAIN_SITE}/feedback`}>
-            Feedback
+            {t('Feedback')}
           </a>
         </p>
       </Show>
@@ -358,42 +362,45 @@ function HistorySection(props: { user: Me }) {
   return (
     <section>
       <div class='tm-box'>
-        <SettingRow label='Your history'>
+        <SettingRow label={t('Your history')}>
           <A class='btn btn-secondary' href='/history'>
-            View history
+            {t('View history')}
           </A>
         </SettingRow>
         <SettingRow
-          label='Public profile'
-          info={<SettingInfo text='Enables a public profile page to share your performance at events.' />}
+          label={t('Public profile')}
+          info={<SettingInfo text={t('Enables a public profile page to share your performance at events.')} />}
         >
           <span class='tm-set-inline' aria-busy={busy()}>
             <Toggle
-              label='Public profile'
+              label={t('Public profile')}
               value={props.user.publicProfile}
               onChange={on => void change('publicProfile', () => setPublicProfile(on))}
             />
           </span>
         </SettingRow>
         <Show when={props.user.publicProfile}>
-          <SettingRow label='Name shown' info={<SettingInfo text='Affects only what is shown on your profile page.' />}>
+          <SettingRow
+            label={t('Name shown')}
+            info={<SettingInfo text={t('Affects only what is shown on your profile page.')} />}
+          >
             <span class='tm-set-inline' aria-busy={busy()}>
               <Toggle
-                label='Name shown'
+                label={t('Name shown')}
                 value={props.user.profileName === 'real'}
-                on='Real name'
-                off='Username'
+                on={t('Real name')}
+                off={t('Username')}
                 onChange={real => void change('profileName', () => setProfileName(real ? 'real' : 'handle'))}
               />
             </span>
           </SettingRow>
-          <SettingRow label='Profile link'>
+          <SettingRow label={t('Profile link')}>
             <span class='tm-set-inline tm-profile-link'>
               <A class='tm-link-inline' href={`/u/${props.user.handle}`}>
                 {profileUrl(props.user.handle).replace(/^https?:\/\//, '')}
               </A>
               <button type='button' class='btn btn-secondary' onClick={() => void copy()}>
-                {copied() ? 'Copied' : 'Copy'}
+                {copied() ? t('Copied') : t('Copy')}
               </button>
             </span>
           </SettingRow>
@@ -452,7 +459,7 @@ export function returnTo(next: string | undefined): string {
 function SignedOut(props: { offer: SignInOffer; next: string }) {
   return (
     <>
-      <h1 class='tm-settings-title'>Sign in</h1>
+      <h1 class='tm-settings-title'>{t('Sign in')}</h1>
       <SignIn offer={props.offer} next={props.next} />
     </>
   );
@@ -463,23 +470,23 @@ export function SettingsPage() {
   const current = () => latestValue(session);
   createEffect(() => {
     const read = current();
-    document.title = pageTitle(read && !read.user ? 'Sign in' : 'Settings');
+    document.title = pageTitle(read && !read.user ? t('Sign in') : t('Settings'));
   });
   return (
     <div class='tm-page tm-settings'>
       <Show when={params.signin === 'failed'}>
         <p class='tm-error' role='alert'>
-          Sign-in didn’t go through. Try again.
+          {t('Sign-in didn’t go through. Try again.')}
         </p>
       </Show>
       <Show when={params.signin === 'email'}>
         <p class='tm-error' role='alert'>
-          Add and verify an email to sign in with a password.
+          {t('Add and verify an email to sign in with a password.')}
         </p>
       </Show>
       <Show when={params.link === 'used'}>
         <p class='tm-error' role='alert'>
-          That account is already linked to another user.
+          {t('That account is already linked to another user.')}
         </p>
       </Show>
       <SessionGate>

@@ -618,7 +618,7 @@ describe("what staff see of an open match's reports", () => {
     assert.equal(won?.label, 'Reported');
     assert.equal(won?.problem, false);
     assert.equal(won?.detail, 'Reported: Misty Waterflower wins');
-    assert.deepEqual(won?.tags.get('misty'), { text: 'Won', title: 'Reported: won', problem: false });
+    assert.deepEqual(won?.tags.get('misty'), { text: 'Won', word: 'Won', title: 'Reported: won', problem: false });
     assert.equal(won?.tags.has('ash'), false);
     assert.equal(staffReport([report('ash', 'p2')], match, names)?.tags.get('ash')?.text, 'Lost');
     assert.equal(staffReport([report('ash', 'tie')], match, names)?.tags.get('ash')?.text, 'Tie');

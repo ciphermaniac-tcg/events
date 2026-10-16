@@ -83,3 +83,33 @@ test('V16-3: an ordinary unstarted repair keeps an odd round’s bye and seats f
     assert.deepEqual(latestRound(repaired.pods[0]!)!.matches, before.matches);
   }
 });
+
+test('an operation naming a pod the event does not have is refused', () => {
+  const t = generatedEvent(8, ctx);
+  const result = applyLifecycleOperation(t, { type: 'viewPairings', pod: 'junior' }, ctx);
+  assert.equal(result.ok, false);
+  assert.equal(result.error, 'There is no pod to change');
+});
+
+test('pairings cannot be viewed before the first round is paired', () => {
+  const t = generatedEvent(8, ctx);
+  const result = applyLifecycleOperation(t, { type: 'viewPairings' }, ctx);
+  assert.equal(result.ok, false);
+  assert.equal(result.error, 'There is no round to view or start');
+});
+
+test('results cannot be reported before the first round is paired', () => {
+  const t = generatedEvent(8, ctx);
+  const results = [{ table: 1, p1: '1', p2: '2', outcome: 'p1' as const, timestamp: ctx.localTime }];
+  const result = applyLifecycleOperation(t, { type: 'results', results }, ctx);
+  assert.equal(result.ok, false);
+  assert.equal(result.error, 'There is no round to report');
+});
+
+test('an elimination match cannot be reported as a tie', () => {
+  const t = operated(generatedEvent(8, ctx, { type: 1 }), { type: 'start' }, ctx);
+  const match = latestRound(t.pods[0]!)!.matches.find(m => m.p2 !== null)!;
+  const result = applyLifecycleOperation(t, { type: 'results', results: [{ ...match, outcome: 'tie' }] }, ctx);
+  assert.equal(result.ok, false);
+  assert.equal(result.error, 'An elimination match cannot tie');
+});

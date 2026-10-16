@@ -12,6 +12,7 @@ import { isSanctioned, type PublishedView, type TournamentView } from '../../../
 import { ApiError, errorText, identifyPlayer, type LookupCandidate, lookupPlayer } from '../../lib/tournament/api';
 import { currentMatchOf, divisionHeading } from '../../lib/tournament/present';
 import { ErrorLine, Field } from './Field';
+import { t, tn } from '../../lib/i18n';
 
 export interface Identified {
   claim: PlayerClaim;
@@ -54,7 +55,8 @@ function ClaimForm(props: IdentifyProps) {
   const [ambiguous, setAmbiguous] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
   const [busy, setBusy] = createSignal(false);
-  const wrong = () => `That ${sanctioned() ? 'Player ID and birth year' : 'last name'} isn’t this player’s`;
+  const wrong = () =>
+    sanctioned() ? t('That Player ID and birth year isn’t this player’s') : t('That last name isn’t this player’s');
 
   const claimOf = (): PlayerClaim =>
     sanctioned()
@@ -92,7 +94,7 @@ function ClaimForm(props: IdentifyProps) {
 
   return (
     <form class='tm-identify' onSubmit={event => void find(event)}>
-      <Field id={`${props.idPrefix}-id`} label={sanctioned() ? 'Player ID' : 'Last name'}>
+      <Field id={`${props.idPrefix}-id`} label={sanctioned() ? t('Player ID') : t('Last name')}>
         <input
           id={`${props.idPrefix}-id`}
           ref={el => {
@@ -108,7 +110,7 @@ function ClaimForm(props: IdentifyProps) {
         />
       </Field>
       <Show when={sanctioned()}>
-        <Field id={`${props.idPrefix}-year`} label='Birth year'>
+        <Field id={`${props.idPrefix}-year`} label={t('Birth year')}>
           <input
             id={`${props.idPrefix}-year`}
             class='tm-input'
@@ -121,7 +123,7 @@ function ClaimForm(props: IdentifyProps) {
         </Field>
       </Show>
       <Show when={ambiguous()}>
-        <Field id={`${props.idPrefix}-first`} label='First name'>
+        <Field id={`${props.idPrefix}-first`} label={t('First name')}>
           <input
             id={`${props.idPrefix}-first`}
             class='tm-input'
@@ -166,7 +168,7 @@ function LookupForm(props: IdentifyProps) {
       }
       setAnswer(found);
       setNarrow(found.candidates.length > 1 || narrow());
-      setError(found.candidates.length === 0 ? 'No matching player' : null);
+      setError(found.candidates.length === 0 ? t('No matching player') : null);
     } catch (err) {
       setError(ask === asked ? errorText(err) : null);
     } finally {
@@ -180,9 +182,9 @@ function LookupForm(props: IdentifyProps) {
     }
     const match = currentMatchOf(found.view.tournament, key);
     if (!match) {
-      return 'Not paired';
+      return t('Not paired');
     }
-    return match.match.p2 === null ? 'Bye' : `Table ${match.match.table}`;
+    return match.match.p2 === null ? t('Bye') : t('Table {n}', { n: match.match.table });
   };
   /** What the search found, for the status line screen readers announce. */
   const status = () => {
@@ -190,8 +192,8 @@ function LookupForm(props: IdentifyProps) {
     if (count === 0) {
       return '';
     }
-    const found = `${count} matching player${count === 1 ? '' : 's'}`;
-    return count > 1 && !first().trim() ? `${found}. Add a first name to narrow the list.` : found;
+    const found = tn(count, '{n} matching player', '{n} matching players');
+    return count > 1 && !first().trim() ? `${found}. ${t('Add a first name to narrow the list.')}` : found;
   };
   const details = (candidate: LookupCandidate) =>
     [divisionHeading(answer()?.view.divisions[candidate.key] ?? null), table(candidate.key)].filter(Boolean);
@@ -203,7 +205,7 @@ function LookupForm(props: IdentifyProps) {
   }
   return (
     <form class='tm-identify' onSubmit={event => void find(event)}>
-      <Field id={`${props.idPrefix}-last`} label='Last name'>
+      <Field id={`${props.idPrefix}-last`} label={t('Last name')}>
         <input
           id={`${props.idPrefix}-last`}
           class='tm-input'
@@ -219,7 +221,7 @@ function LookupForm(props: IdentifyProps) {
         />
       </Field>
       <Show when={narrow()}>
-        <Field id={`${props.idPrefix}-first`} label='First name'>
+        <Field id={`${props.idPrefix}-first`} label={t('First name')}>
           <input
             id={`${props.idPrefix}-first`}
             class='tm-input'
@@ -240,7 +242,7 @@ function LookupForm(props: IdentifyProps) {
         {status()}
       </p>
       <Show when={answer()?.candidates.length}>
-        <div class='tm-lookup-matches' role='group' aria-label='Choose your player'>
+        <div class='tm-lookup-matches' role='group' aria-label={t('Choose your player')}>
           <For each={answer()?.candidates}>
             {candidate => (
               <div class='tm-lookup-match'>
@@ -254,12 +256,12 @@ function LookupForm(props: IdentifyProps) {
                   type='button'
                   class='btn btn-secondary'
                   aria-label={[
-                    `Show table for ${candidate.firstName} ${candidate.lastName}`,
+                    t('Show table for {name}', { name: `${candidate.firstName} ${candidate.lastName}` }),
                     ...details(candidate)
                   ].join(', ')}
                   onClick={() => confirm(candidate)}
                 >
-                  Show table
+                  {t('Show table')}
                 </button>
               </div>
             )}

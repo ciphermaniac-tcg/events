@@ -78,6 +78,7 @@ import { ErrorState } from '../../components/ErrorState';
 import { EMPTY_LIVE_DATA, type LiveData, liveFailure } from '../../lib/tournament/liveData';
 import { LiveDataStatus } from './LiveDataStatus';
 import { MAIN_SITE } from '../../lib/constants';
+import { intlLocale, t, tn } from '../../lib/i18n';
 
 const BigScreen = lazy(() => import('./BigScreen').then(m => ({ default: m.BigScreen })));
 const StreamOverlay = lazy(() => import('./StreamOverlay').then(m => ({ default: m.StreamOverlay })));
@@ -382,16 +383,16 @@ function createMe(view: () => TournamentView, events: { onView: (view: Published
  */
 function decklistTab(view: TournamentView, mayHaveList: boolean): { value: Tab; label: string }[] {
   if (decklistsOpen(view)) {
-    return [{ value: 'decklist', label: 'Submit decklist' }];
+    return [{ value: 'decklist', label: t('Submit decklist') }];
   }
-  return view.settings.decklists !== 'off' && mayHaveList ? [{ value: 'decklist', label: 'My decklist' }] : [];
+  return view.settings.decklists !== 'off' && mayHaveList ? [{ value: 'decklist', label: t('My decklist') }] : [];
 }
 
 function tabsFor(view: TournamentView, mayHaveList: boolean): { value: Tab; label: string }[] {
   return [
-    { value: 'pairings', label: 'Pairings' },
-    { value: 'standings', label: 'Standings' },
-    ...(Object.keys(view.decks).length ? [{ value: 'decks' as const, label: 'Decks' }] : []),
+    { value: 'pairings', label: t('Pairings') },
+    { value: 'standings', label: t('Standings') },
+    ...(Object.keys(view.decks).length ? [{ value: 'decks' as const, label: t('Decks') }] : []),
     ...decklistTab(view, mayHaveList)
   ];
 }
@@ -411,7 +412,9 @@ function pickTab(tabs: readonly { value: Tab }[], wanted: string | undefined, vi
 
 /** One line under every panel while decks wait for the event to end. */
 const deckNote = (view: TournamentView) =>
-  view.settings.deckVisibility === 'after' && !view.settings.finished ? 'Decks shown once the event ends' : undefined;
+  view.settings.deckVisibility === 'after' && !view.settings.finished
+    ? t('Decks shown once the event ends')
+    : undefined;
 
 /** The console's round picker; the line under the event's name says where the round stands. */
 function RoundSelect(props: { pod: Pod | undefined; round: Round | undefined; onSelect: (n: number) => void }) {
@@ -454,7 +457,9 @@ function OpenPlayer(props: {
   // The place History gives the same player (see playerResult).
   const place = createMemo(() => {
     const at = playerResult(props.view, props.id)?.place;
-    return at ? `${ordinal(at)} in ${division()}` : `${division()} · Registered`;
+    return at
+      ? t('{place} in {division}', { place: ordinal(at), division: division() })
+      : `${division()} · ${t('Registered')}`;
   });
   return (
     <Show when={pod()}>
@@ -497,7 +502,7 @@ function RegisteredList(props: {
       .sort((a, b) => a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName));
   return (
     <>
-      <p class='tm-box-bar muted'>Pairings will show here once round 1 is paired.</p>
+      <p class='tm-box-bar muted'>{t('Pairings will show here once round 1 is paired.')}</p>
       <ul class='tm-registered'>
         <For each={players()}>
           {player => (
@@ -507,7 +512,7 @@ function RegisteredList(props: {
                   {player.firstName} <strong>{player.lastName}</strong>
                 </span>
                 <Show when={player.id === props.me}>
-                  <span class='tm-flag is-you'>You</span>
+                  <span class='tm-flag is-you'>{t('You')}</span>
                 </Show>
               </button>
             </li>
@@ -581,15 +586,15 @@ function EventBody(props: {
             setPodChoice(value);
             setRoundChoice(null);
           }}
-          ariaLabel='Division'
+          ariaLabel={t('Division')}
         />
       </Show>
       <Show when={withSearch}>
         <input
           class='search tm-grow'
           type='search'
-          placeholder='Find a player'
-          aria-label='Find a player'
+          placeholder={t('Find a player')}
+          aria-label={t('Find a player')}
           value={query()}
           onInput={e => setQuery(e.currentTarget.value)}
         />
@@ -626,7 +631,7 @@ function EventBody(props: {
         options={tabs()}
         selected={tab()}
         onSelect={value => setParams({ tab: value }, { replace: true })}
-        ariaLabel='Event sections'
+        ariaLabel={t('Event sections')}
       />
       <TabPanel tabs='event' selected={tab()}>
         <Show when={tab() === 'pairings'}>
@@ -651,7 +656,7 @@ function EventBody(props: {
         <Show when={tab() === 'standings' && pod()}>
           <Show
             when={started()}
-            fallback={<p class='muted tm-empty'>Standings will show here once round 1 is played.</p>}
+            fallback={<p class='muted tm-empty'>{t('Standings will show here once round 1 is played.')}</p>}
           >
             <StandingsTable
               tournament={props.view.tournament}
@@ -718,7 +723,7 @@ function eventDate({ startsAt, timeZone }: TournamentSettings, startDate: string
 function updatedLabel(at: number): string {
   const date = new Date(at);
   const today = new Date().toDateString() === date.toDateString();
-  return today ? date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }) : dayLabel(date);
+  return today ? date.toLocaleTimeString(intlLocale(), { hour: 'numeric', minute: '2-digit' }) : dayLabel(date);
 }
 
 /** The dashboard tab an event's page goes back to: Organizing for its staff, Playing for its players. */
@@ -750,9 +755,11 @@ function Hero(props: { view: TournamentView }) {
       eventDate(settings(), info().startDate),
       settings().format,
       place(),
-      `${props.view.tournament.players.length} players`,
+      tn(props.view.tournament.players.length, '{n} player', '{n} players'),
       // A finished event's date already says when; an unknown time says nothing.
-      !settings().finished && props.view.updatedAt > 0 && `Updated ${updatedLabel(props.view.updatedAt)}`
+      !settings().finished &&
+        props.view.updatedAt > 0 &&
+        t('Updated {time}', { time: updatedLabel(props.view.updatedAt) })
     ].filter(Boolean);
   return (
     <>
@@ -839,28 +846,31 @@ export function PublicEvent(props: { code: string; session: Session | undefined 
             fallback={
               <ErrorState
                 code={props.code}
-                title='Event not found'
-                line={`There’s no event with the code ${props.code}. Check the code with your organizer, or look for the event by name.`}
+                title={t('Event not found')}
+                line={t(
+                  'There’s no event with the code {code}. Check the code with your organizer, or look for the event by name.',
+                  { code: props.code }
+                )}
               >
                 <a href={`${MAIN_SITE}/tools/event-locator`} class='btn btn-primary'>
-                  Find an event
+                  {t('Find an event')}
                 </a>
                 <A href='/' class='btn btn-secondary'>
-                  Go home
+                  {t('Go home')}
                 </A>
               </ErrorState>
             }
           >
             <ErrorState
               code={props.code}
-              title='Couldn’t load this event'
-              line='Something went wrong on our side or with your connection. Try again in a moment.'
+              title={t('Couldn’t load this event')}
+              line={t('Something went wrong on our side or with your connection. Try again in a moment.')}
             >
               <button type='button' class='btn btn-primary' onClick={() => retry()}>
-                Try again
+                {t('Try again')}
               </button>
               <A href='/' class='btn btn-secondary'>
-                Go home
+                {t('Go home')}
               </A>
             </ErrorState>
           </Show>

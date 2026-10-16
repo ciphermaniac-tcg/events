@@ -5,11 +5,12 @@
 
 import { For } from 'solid-js';
 import type { Pod } from '../../../shared/tournament/types';
+import { t } from '../../lib/i18n';
 import { roundLabel } from '../../lib/tournament/present';
 
 export function RoundPicker(props: { pod: Pod; selected: number; onSelect: (n: number) => void }) {
   return (
-    <select class='tm-select' aria-label='Round' onChange={e => props.onSelect(Number(e.currentTarget.value))}>
+    <select class='tm-select' aria-label={t('Round')} onChange={e => props.onSelect(Number(e.currentTarget.value))}>
       <For each={props.pod.rounds}>
         {round => (
           <option value={round.number} selected={round.number === props.selected}>
@@ -35,7 +36,7 @@ export function RoundStepper(props: { pod: Pod; selected: number; onSelect: (n: 
       <button
         type='button'
         class='btn btn-secondary'
-        aria-label='Previous round'
+        aria-label={t('Previous round')}
         disabled={index() <= 0}
         onClick={() => step(-1)}
       >
@@ -45,7 +46,7 @@ export function RoundStepper(props: { pod: Pod; selected: number; onSelect: (n: 
       <button
         type='button'
         class='btn btn-secondary'
-        aria-label='Next round'
+        aria-label={t('Next round')}
         disabled={index() >= props.pod.rounds.length - 1}
         onClick={() => step(1)}
       >

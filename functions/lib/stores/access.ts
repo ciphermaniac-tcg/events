@@ -14,6 +14,7 @@ import { sessionHash, sessionUserQuery, type User, userFromRow, type UserRow } f
 import { firstRow } from '../d1.js';
 import type { D1Like } from '../types.js';
 import { type Guard, loadStore } from './db.js';
+import { msg } from '../../../shared/i18n.js';
 
 export interface StoreAccess {
   db: D1Like;
@@ -69,9 +70,9 @@ async function asker(db: D1Like, request: Request, storeId: string) {
 }
 
 const REFUSALS: Record<Exclude<Need, 'anyone'>, string> = {
-  member: 'Only this store’s staff can do that',
-  manager: 'Only this store’s managers can do that',
-  owner: 'Only this store’s owner can do that'
+  member: msg('Only this store’s staff can do that'),
+  manager: msg('Only this store’s managers can do that'),
+  owner: msg('Only this store’s owner can do that')
 };
 
 /** The store the route names and who is asking; a Response when either cannot be had or `need` is not met. */

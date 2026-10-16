@@ -16,6 +16,7 @@ import { Trail } from './Trail';
 import { ProfileHistory } from './ProfileHistory';
 import { ProfileLinks } from './ProfileLinks';
 import { pageTitle } from '../../lib/title';
+import { t } from '../../lib/i18n';
 import { ErrorState } from '../../components/ErrorState';
 
 const missing = (error: unknown) => error instanceof ApiError && error.status === 404;
@@ -36,11 +37,11 @@ export function ProfilePage(props: { handle: string }) {
         fallback={
           <ErrorState
             code={`@${props.handle}`}
-            title='Profile not found'
-            line={`No one here goes by @${props.handle}, or their profile is private.`}
+            title={t('Profile not found')}
+            line={t('No one here goes by @{handle}, or their profile is private.', { handle: props.handle })}
           >
             <A href='/' class='btn btn-primary'>
-              Go home
+              {t('Go home')}
             </A>
           </ErrorState>
         }
@@ -51,11 +52,11 @@ export function ProfilePage(props: { handle: string }) {
             <Show when={profile.error} fallback={<Skeleton width='280px' height='28px' />}>
               <ErrorState
                 code={`@${props.handle}`}
-                title='Couldn’t load this profile'
-                line='Something went wrong on our side or with your connection. Try again in a moment.'
+                title={t('Couldn’t load this profile')}
+                line={t('Something went wrong on our side or with your connection. Try again in a moment.')}
               >
                 <button type='button' class='btn btn-primary' onClick={() => void refetch()}>
-                  Try again
+                  {t('Try again')}
                 </button>
               </ErrorState>
             </Show>

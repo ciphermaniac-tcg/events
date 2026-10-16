@@ -4,6 +4,10 @@ import { Combo, splitMatch } from '../../components/Combo';
 import { deckIcons, loadedSpecies } from '../../lib/deckIcons';
 import { pairSearch } from './deckPairs';
 import type { ReportedDeck } from './reportedDeck';
+import { intlLocale, t } from '../../lib/i18n';
+
+const shareText = (share: number) =>
+  new Intl.NumberFormat(intlLocale(), { style: 'percent' }).format(Math.round(share) / 100);
 
 /**
  * The deck typeahead, wherever a deck is named: sprites in the field and in the
@@ -62,8 +66,8 @@ function DeckOption(props: { deck: ReportedDeck; query: string }) {
         {parts()[2]}
       </b>
       <span>
-        <Show when={!props.deck.custom} fallback='Custom'>
-          <Show when={props.deck.percent}>{share => `${Math.round(share())}%`}</Show>
+        <Show when={!props.deck.custom} fallback={t('Custom')}>
+          <Show when={props.deck.percent}>{share => shareText(share())}</Show>
         </Show>
       </span>
     </>

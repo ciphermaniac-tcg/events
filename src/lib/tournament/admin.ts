@@ -15,12 +15,13 @@ import type {
   RoleHolder
 } from '../../../shared/accounts/types';
 import { call, json } from './api';
+import { msg } from '../i18n';
 
-/** A role as the admin page names it. */
+/** A role as the admin page names it, in English: translate it where it shows. */
 export const ROLE_WORDS: Record<AccountRole, string> = {
-  community: 'Community organizer',
-  revoked: 'Revoked',
-  admin: 'Admin'
+  community: msg('Community organizer'),
+  revoked: msg('Revoked'),
+  admin: msg('Admin')
 };
 
 const path = (id: string) => `/api/admin/applications/${encodeURIComponent(id)}`;

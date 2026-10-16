@@ -1,12 +1,13 @@
 /** A decklist as it was pasted, laid out by section with each section's count, and any lines not read as a card. */
 
 import { For, Show } from 'solid-js';
+import { msg, t } from '../../lib/i18n';
 import { type DeckSection, parseDecklist } from '../../../shared/tournament/decklist';
 
 const SECTIONS: { section: DeckSection; label: string }[] = [
   { section: 'pokemon', label: 'Pokémon' },
-  { section: 'trainer', label: 'Trainer' },
-  { section: 'energy', label: 'Energy' }
+  { section: 'trainer', label: msg('Trainer') },
+  { section: 'energy', label: msg('Energy') }
 ];
 
 export function DecklistColumns(props: { deck: string }) {
@@ -19,7 +20,7 @@ export function DecklistColumns(props: { deck: string }) {
           return (
             <div>
               <p class='tm-list-head'>
-                {s.label}: {cards().reduce((sum, card) => sum + card.count, 0)}
+                {t(s.label)}: {cards().reduce((sum, card) => sum + card.count, 0)}
               </p>
               <ul class='tm-list-cards'>
                 <For each={cards()}>
@@ -36,7 +37,7 @@ export function DecklistColumns(props: { deck: string }) {
       </For>
       <Show when={parsed().unread.length > 0}>
         <div>
-          <p class='tm-list-head'>Not read</p>
+          <p class='tm-list-head'>{t('Not read')}</p>
           <ul class='tm-list-cards tm-problem'>
             <For each={parsed().unread}>{line => <li>{line}</li>}</For>
           </ul>

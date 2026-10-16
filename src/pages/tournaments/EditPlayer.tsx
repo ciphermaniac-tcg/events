@@ -8,6 +8,7 @@
 import { createSignal, Show } from 'solid-js';
 import { birthYear } from '../../../shared/tournament/divisions';
 import type { Player } from '../../../shared/tournament/types';
+import { t } from '../../lib/i18n';
 import { ErrorLine, Field } from './Field';
 import type { ManageState } from './manageState';
 import { Modal } from './Modal';
@@ -50,17 +51,21 @@ export function EditPlayerDialog(props: {
     }
   }
   return (
-    <Modal open={props.open} title='Edit player' class='tm-edit-player' onClose={props.onClose}>
+    <Modal open={props.open} title={t('Edit player')} class='tm-edit-player' onClose={props.onClose}>
       <form onSubmit={event => void save(event)}>
         <div class='tm-box-bar tm-modal-body'>
-          <Field id='edit-first' label='First name'>
+          <Field id='edit-first' label={t('First name')}>
             <input id='edit-first' class='tm-input' value={first()} onInput={e => setFirst(e.currentTarget.value)} />
           </Field>
-          <Field id='edit-last' label='Last name'>
+          <Field id='edit-last' label={t('Last name')}>
             <input id='edit-last' class='tm-input' value={last()} onInput={e => setLast(e.currentTarget.value)} />
           </Field>
           <Show when={props.sanctioned}>
-            <Field id='edit-year' label='Birth year' error={yearMissing() ? 'Enter a four-digit year' : undefined}>
+            <Field
+              id='edit-year'
+              label={t('Birth year')}
+              error={yearMissing() ? t('Enter a four-digit year') : undefined}
+            >
               <input
                 id='edit-year'
                 class='tm-input'
@@ -79,10 +84,10 @@ export function EditPlayerDialog(props: {
         </div>
         <div class='tm-box-bar tm-modal-foot'>
           <button type='button' class='btn btn-ghost' onClick={() => props.onClose()}>
-            Cancel
+            {t('Cancel')}
           </button>
           <button type='submit' class='btn btn-primary' disabled={props.state.busy() || !ready()}>
-            Save
+            {t('Save')}
           </button>
         </div>
       </form>

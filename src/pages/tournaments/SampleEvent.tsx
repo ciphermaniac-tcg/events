@@ -16,6 +16,7 @@ import {
   sampleStandings,
   type SampleTable
 } from '../../lib/tournament/sampleEvent';
+import { t } from '../../lib/i18n';
 
 const ROUNDS = 5;
 /** Rows the standings show: the top eight. */
@@ -45,15 +46,15 @@ function TableLine(props: { table: SampleTable; done: boolean }) {
     <Switch
       fallback={
         <>
-          <b>{props.table.winner}</b> <em>beat</em> {loser() ?? 'Bye'}
+          <b>{props.table.winner}</b> <em>{t('beat')}</em> {loser() ?? t('Bye')}
         </>
       }
     >
       <Match when={!props.done}>
-        {props.table.p1} <em>vs</em> {props.table.p2 ?? 'Bye'}
+        {props.table.p1} <em>{t('vs')}</em> {props.table.p2 ?? t('Bye')}
       </Match>
       <Match when={props.table.winner === null}>
-        {props.table.p1} <em>tied</em> {props.table.p2}
+        {props.table.p1} <em>{t('tied')}</em> {props.table.p2}
       </Match>
     </Switch>
   );
@@ -145,20 +146,20 @@ export function SampleEvent() {
   onCleanup(stop);
 
   return (
-    <section class='tm-sim' aria-label='Sample event'>
+    <section class='tm-sim' aria-label={t('Sample event')}>
       <div class='tm-sim-bar'>
-        <b>{finished() ? 'Final standings' : `Round ${Math.max(1, round())}`}</b>
+        <b>{finished() ? t('Final standings') : t('Round {n}', { n: Math.max(1, round()) })}</b>
         <span class='tm-sim-rounds' aria-hidden='true'>
           <For each={Array.from({ length: ROUNDS }, (_, i) => i)}>
             {i => <i classList={{ 'is-on': i < round() }} />}
           </For>
         </span>
         <span class='tm-grow' />
-        <span class='tm-sim-tag'>Sample event, 16 players</span>
+        <span class='tm-sim-tag'>{t('Sample event, 16 players')}</span>
       </div>
       <div class='tm-sim-cols'>
         <div class='tm-sim-pairs'>
-          <span class='tm-sim-label'>Pairings</span>
+          <span class='tm-sim-label'>{t('Pairings')}</span>
           <ol class='tm-sim-list'>
             <For each={tables()}>
               {(table, i) => (
@@ -173,7 +174,7 @@ export function SampleEvent() {
           </ol>
         </div>
         <div class='tm-sim-stand'>
-          <span class='tm-sim-label'>Standings</span>
+          <span class='tm-sim-label'>{t('Standings')}</span>
           {/* Rows stay in seat order and slide to their rank; a screen reader gets the top eight in rank order. */}
           <ol class='tm-sim-list' aria-hidden='true'>
             <For each={run().players}>{name => <StandingRow at={rank().get(name)} name={name} />}</For>

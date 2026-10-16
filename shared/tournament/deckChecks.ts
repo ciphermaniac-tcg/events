@@ -18,6 +18,7 @@ import {
   type Standing,
   standingEntries
 } from './staffRecords.js';
+import { msg } from '../i18n.js';
 
 export type DeckCheckResult = 'pass' | 'fail';
 
@@ -64,7 +65,7 @@ const RESULTS: readonly DeckCheckResult[] = ['pass', 'fail'];
 const readChecker = (value: Record<string, unknown>) => readStaffMember(value, 'checkerId', 'checkerName');
 
 const [whose, round, notes, edit] = commonChecks(
-  { player: 'Say whose deck was checked', edit: 'Not a deck check to edit' },
+  { player: msg('Say whose deck was checked'), edit: msg('Not a deck check to edit') },
   DECK_CHECK_LIMITS.notes
 );
 
@@ -72,8 +73,8 @@ const [whose, round, notes, edit] = commonChecks(
 const CHECKS: RecordCheck[] = [
   whose,
   round,
-  ['Say who checked the deck', value => readChecker(value) !== null],
-  ['Say whether it passed', value => RESULTS.includes(value.result as DeckCheckResult)],
+  [msg('Say who checked the deck'), value => readChecker(value) !== null],
+  [msg('Say whether it passed'), value => RESULTS.includes(value.result as DeckCheckResult)],
   notes,
   edit
 ];

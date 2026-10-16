@@ -41,6 +41,7 @@ import {
   SIGN_IN,
   type TournamentRow
 } from './store.js';
+import { msg } from '../../../shared/i18n.js';
 
 export const PRIVATE = { cacheControl: 'no-store', cors: false } as const;
 
@@ -101,7 +102,7 @@ export async function openForStaff(context: Context<'code'>): Promise<StaffAcces
 /** As `openForStaff`, for what only the organizer may do; `refusal` tells anyone else so. */
 export async function openForOwner(
   context: Context<'code'>,
-  refusal = 'Only the organizer can do that'
+  refusal = msg('Only the organizer can do that')
 ): Promise<StaffAccess | Response> {
   const access = await openForStaff(context);
   if (access instanceof Response) {

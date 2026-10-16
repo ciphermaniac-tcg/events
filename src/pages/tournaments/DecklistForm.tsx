@@ -43,6 +43,7 @@ import { ErrorLine } from './Field';
 import { birthYearOf, emptyProfile, ProfileFields, profileProblems } from './ProfileFields';
 import { session, setSession } from './session';
 import { MAIN_SITE } from '../../lib/constants';
+import { intlLocale, msg, t, tn } from '../../lib/i18n';
 import { recall, remember } from './decklistMemory';
 
 interface FormProps {
@@ -75,22 +76,26 @@ async function loadMine([code, owner]: readonly [string, ListOwner | null]): Pro
   return owner ? (await fetchMyDecklist(code, owner, '')).mine : null;
 }
 
-const SECTION_LABELS: Record<DeckSection, string> = { pokemon: 'Pokémon', trainer: 'Trainer', energy: 'Energy' };
+const SECTION_LABELS: Record<DeckSection, string> = {
+  pokemon: msg('Pokémon'),
+  trainer: msg('Trainer'),
+  energy: msg('Energy')
+};
 
 const submittedAt = (at: number) =>
-  new Date(at).toLocaleString(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' });
+  new Date(at).toLocaleString(intlLocale(), { weekday: 'short', hour: 'numeric', minute: '2-digit' });
 
 const REGISTRATION_WORDS: Record<Registration, (name: string) => string> = {
-  added: () => 'Added you to the event',
-  matched: name => `You're in the event as ${name}`,
-  'not-added': () => 'Not added to the event'
+  added: () => t('Added you to the event'),
+  matched: name => t("You're in the event as {name}", { name }),
+  'not-added': () => t('Not added to the event')
 };
 
 /** Where the list stands, built from what the server said: sent when, and whether they are in the event. */
 function statusLine(mine: Decklist | null, registration: Registration | null, count: string, problems: number) {
   return mine
     ? submittedLine(mine, registration)
-    : `${count}${problems ? ` · ${problems} problem${problems === 1 ? '' : 's'}` : ''} · Not submitted`;
+    : `${count}${problems ? ` · ${tn(problems, '{n} problem', '{n} problems')}` : ''} · ${t('Not submitted')}`;
 }
 
 function submittedLine(mine: Decklist, registration: Registration | null) {
@@ -98,29 +103,30 @@ function submittedLine(mine: Decklist, registration: Registration | null) {
   const where = registration
     ? REGISTRATION_WORDS[registration](name)
     : mine.registered
-      ? `You're in the event as ${name}`
-      : 'Not on the player list yet';
-  return `Submitted ${submittedAt(mine.submittedAt)} · ${where}`;
+      ? t("You're in the event as {name}", { name })
+      : t('Not on the player list yet');
+  return `${t('Submitted {when}', { when: submittedAt(mine.submittedAt) })} · ${where}`;
 }
 
 /** What is still missing before the list can go, for the one line under a disabled Submit. */
 function missing(profile: PlayerProfile, deck: string, sanctioned: boolean): string | null {
   const problems = profileProblems(profile, sanctioned);
   const labels: Record<keyof PlayerProfile, string> = {
-    popId: 'Player ID',
-    firstName: 'first name',
-    lastName: 'last name',
-    birthDate: 'birth year'
+    popId: t('Player ID'),
+    firstName: t('first name'),
+    lastName: t('last name'),
+    birthDate: t('birth year')
   };
   const needed = (Object.keys(labels) as (keyof PlayerProfile)[]).filter(key => problems[key]).map(key => labels[key]);
   if (!deck.trim()) {
-    needed.push('list');
-  }
-  if (needed.length === 0) {
-    return null;
+    needed.push(t('list'));
   }
   const last = needed.pop();
-  return `Add your ${needed.length ? `${needed.join(', ')} and ${last}` : last}`;
+  if (last === undefined) {
+    return null;
+  }
+  const fields = needed.length ? t('{items} and {last}', { items: needed.join(', '), last }) : last;
+  return t('Add your {fields}', { fields });
 }
 
 /** Whether the device knows its list yet: still reading it, the read failed, or known (a list, or none). */
@@ -156,9 +162,14 @@ type MyList = ReturnType<typeof createMyList>;
 
 /** What a list not known yet says, in the status bar and beside the Submit it holds back. */
 const UNKNOWN: Record<ListState, string | null> = {
-  loading: 'Checking for your decklist…',
-  failed: 'Your decklist could not be loaded',
+  loading: msg('Checking for your decklist…'),
+  failed: msg('Your decklist could not be loaded'),
   known: null
+};
+
+const unknownText = (state: ListState) => {
+  const text = UNKNOWN[state];
+  return text ? t(text) : null;
 };
 
 /** The form's state and what it can do, apart from how it is drawn. */
@@ -312,7 +323,7 @@ function createDecklistForm(props: FormProps, list: MyList) {
     parsed,
     needs: () => missing(profile(), deck(), props.sanctioned),
     /** Why nothing may be sent yet: a list there may be is not read, and sending would replace it unseen. */
-    waiting: () => UNKNOWN[list.state()],
+    waiting: () => unknownText(list.state()),
     unchanged: () => current() !== null && !touched(),
     setProfile: (value: PlayerProfile) => edit(() => setProfile(value)),
     setDeck: (value: string) => edit(() => setDeck(value)),
@@ -334,7 +345,7 @@ function YouRow(props: { form: DecklistState; sanctioned: boolean }) {
   const f = () => props.form;
   return (
     <div class='tm-box-bar tm-form-row'>
-      <span class='tm-form-row-label'>You</span>
+      <span class='tm-form-row-label'>{t('You')}</span>
       <Show
         when={f().known() && f().current()}
         fallback={
@@ -359,16 +370,16 @@ function YouRow(props: { form: DecklistState; sanctioned: boolean }) {
           </Show>
           <Show when={f().offerSave()}>
             <button type='button' class='btn btn-secondary tm-small' onClick={() => void f().saveToAccount()}>
-              Save to my account
+              {t('Save to my account')}
             </button>
           </Show>
           <Show when={f().accountSaved() && !f().offerSave()}>
             <span class='muted' role='status'>
-              Saved
+              {t('Saved')}
             </span>
           </Show>
           <button type='button' class='btn btn-ghost tm-small' onClick={() => f().notYou()}>
-            Not you?
+            {t('Not you?')}
           </button>
         </span>
       </Show>
@@ -389,13 +400,13 @@ function ListRow(props: { form: DecklistState }) {
   return (
     <div class='tm-box-bar tm-form-row'>
       <label class='tm-form-row-label' for='deck-list'>
-        Decklist
+        {t('Decklist')}
       </label>
       <div class='tm-decklist-body'>
         <textarea
           id='deck-list'
           class='tm-input tm-textarea tm-decklist-input'
-          placeholder='Paste your list from TCG Live'
+          placeholder={t('Paste your list from TCG Live')}
           value={props.form.deck()}
           onInput={e => props.form.setDeck(e.currentTarget.value)}
         />
@@ -404,7 +415,7 @@ function ListRow(props: { form: DecklistState }) {
             <For each={sections()}>
               {s => (
                 <span>
-                  {SECTION_LABELS[s.section]} <strong>{s.count}</strong>
+                  {t(SECTION_LABELS[s.section])} <strong>{s.count}</strong>
                 </span>
               )}
             </For>
@@ -415,7 +426,7 @@ function ListRow(props: { form: DecklistState }) {
           </p>
           <Show
             when={parsed().problems.length > 0}
-            fallback={<p class='muted tm-deck-ok'>Card count and copy limits check out</p>}
+            fallback={<p class='muted tm-deck-ok'>{t('Card count and copy limits check out')}</p>}
           >
             <ul class='tm-problems'>
               <For each={parsed().problems}>{problem => <li>{problem}</li>}</For>
@@ -431,8 +442,8 @@ function ListRow(props: { form: DecklistState }) {
 function Foot(props: { form: DecklistState }) {
   const f = () => props.form;
   const problems = () => f().parsed().problems.length;
-  const label = () => (f().current() ? 'Update decklist' : 'Submit decklist');
-  const reason = () => f().waiting() ?? f().needs() ?? (f().unchanged() ? 'No changes to send' : null);
+  const label = () => (f().current() ? t('Update decklist') : t('Submit decklist'));
+  const reason = () => f().waiting() ?? f().needs() ?? (f().unchanged() ? t('No changes to send') : null);
   const held = () => f().sending() || f().unchanged() || f().waiting() !== null;
   return (
     <div class='tm-box-bar tm-decklist-foot'>
@@ -452,8 +463,8 @@ function Foot(props: { form: DecklistState }) {
         <ConfirmAction
           class='btn btn-primary'
           label={label()}
-          question={`Submit with ${problems()} problem${problems() === 1 ? '' : 's'}?`}
-          confirmLabel='Submit'
+          question={tn(problems(), 'Submit with {n} problem?', 'Submit with {n} problems?')}
+          confirmLabel={t('Submit')}
           disabled={held()}
           onConfirm={() => void f().send()}
         />
@@ -464,9 +475,9 @@ function Foot(props: { form: DecklistState }) {
         {list => (
           <ConfirmAction
             class='btn btn-ghost'
-            label='Withdraw'
-            question='Withdraw your decklist?'
-            confirmLabel='Withdraw'
+            label={t('Withdraw')}
+            question={t('Withdraw your decklist?')}
+            confirmLabel={t('Withdraw')}
             danger
             onConfirm={() => void f().withdraw(list())}
           />
@@ -474,8 +485,8 @@ function Foot(props: { form: DecklistState }) {
       </Show>
       <p class='tm-decklist-note muted'>
         {f().current()
-          ? 'Change it from this device until submissions close.'
-          : 'Staff see it. Change it until submissions close.'}
+          ? t('Change it from this device until submissions close.')
+          : t('Staff see it. Change it until submissions close.')}
       </p>
     </div>
   );
@@ -486,10 +497,10 @@ function ListStatus(props: { list: MyList; known: () => string }) {
   const failed = () => props.list.state() === 'failed';
   return (
     <div class='tm-box-bar tm-decklist-status'>
-      <strong role={failed() ? 'alert' : undefined}>{UNKNOWN[props.list.state()] ?? props.known()}</strong>
+      <strong role={failed() ? 'alert' : undefined}>{unknownText(props.list.state()) ?? props.known()}</strong>
       <Show when={failed()}>
         <button type='button' class='btn btn-secondary tm-small' onClick={() => props.list.retry()}>
-          Retry
+          {t('Retry')}
         </button>
       </Show>
     </div>
@@ -500,7 +511,7 @@ function ListStatus(props: { list: MyList; known: () => string }) {
 function Receipt(props: FormProps & { list: MyList }) {
   const known = () => {
     const mine = props.list.current();
-    return mine ? submittedLine(mine, null) : 'No decklist submitted';
+    return mine ? submittedLine(mine, null) : t('No decklist submitted');
   };
   return (
     <section class='tm-box tm-decklist-form'>
@@ -508,13 +519,13 @@ function Receipt(props: FormProps & { list: MyList }) {
       <Show when={props.list.current()}>
         {mine => (
           <div class='tm-box-bar'>
-            <Show when={mine().deck} fallback={<span class='muted'>Cards deleted after the event</span>}>
+            <Show when={mine().deck} fallback={<span class='muted'>{t('Cards deleted after the event')}</span>}>
               <pre class='tm-decklist-sent'>{mine().deck}</pre>
             </Show>
           </div>
         )}
       </Show>
-      <p class='tm-box-bar muted'>{props.locked ? 'Decklists locked after round 1' : 'Submission closed'}</p>
+      <p class='tm-box-bar muted'>{props.locked ? t('Decklists locked after round 1') : t('Submission closed')}</p>
     </section>
   );
 }
@@ -523,7 +534,7 @@ function OpenForm(props: FormProps & { list: MyList }) {
   // eslint-disable-next-line solid/reactivity -- the form is made once, for the list it was given
   const form = createDecklistForm(props, props.list);
   const decks = createDeckOptions(() => props.format);
-  const count = () => `${form.parsed().total} card${form.parsed().total === 1 ? '' : 's'}`;
+  const count = () => tn(form.parsed().total, '{n} card', '{n} cards');
   return (
     <form class='tm-box tm-decklist-form' onSubmit={event => event.preventDefault()}>
       <ListStatus
@@ -531,20 +542,20 @@ function OpenForm(props: FormProps & { list: MyList }) {
         known={() => statusLine(form.current(), form.registration(), count(), form.parsed().problems.length)}
       />
       <Show when={!form.known() && props.list.state() === 'known'}>
-        <p class='tm-box-bar muted'>No account needed. Not registered yet? Submitting adds you.</p>
+        <p class='tm-box-bar muted'>{t('No account needed. Not registered yet? Submitting adds you.')}</p>
       </Show>
       <Show when={form.registration() === 'not-added'}>
-        <p class='tm-box-bar muted'>List saved. Staff will need to add you.</p>
+        <p class='tm-box-bar muted'>{t('List saved. Staff will need to add you.')}</p>
       </Show>
       <YouRow form={form} sanctioned={props.sanctioned} />
       <Show when={props.archetypes}>
         {/* A wrapping label, since the picker's input takes no id. */}
         <label class='tm-box-bar tm-form-row live-deck-picker'>
-          <span class='tm-form-row-label'>Deck</span>
+          <span class='tm-form-row-label'>{t('Deck')}</span>
           <DeckCombo
             decks={decks()}
             selected={form.archetype() ? { label: form.archetype() as string } : undefined}
-            placeholder='Search archetypes'
+            placeholder={t('Search archetypes')}
             custom={SETTINGS_LIMITS.archetype}
             onPick={picked => form.setArchetype(picked.label)}
           />
@@ -559,7 +570,7 @@ function OpenForm(props: FormProps & { list: MyList }) {
             {' · '}
           </span>
           <a class='tm-link-inline' href={`${MAIN_SITE}/feedback`}>
-            Feedback
+            {t('Feedback')}
           </a>
         </p>
       </Show>

@@ -26,8 +26,9 @@ import {
   removeStaff,
   rotateStaff
 } from '../../../lib/tournaments/store.js';
+import { msg } from '../../../../shared/i18n.js';
 
-const ONLY_ORGANIZER = 'Only the organizer can do that';
+const ONLY_ORGANIZER = msg('Only the organizer can do that');
 
 export async function onRequestGet(context: Context<'code'>): Promise<Response> {
   const access = await openForOwner(context);
@@ -50,7 +51,7 @@ export async function onRequestDelete(context: Context<'code'>): Promise<Respons
   // Nobody removed is someone already gone, unless the organizer is no longer one.
   return (await removeStaff(access.db, access.row.code, user, askerOf(access)))
     ? list()
-    : answerMiss(access, list, 'Only the organizer can do that');
+    : answerMiss(access, list, msg('Only the organizer can do that'));
 }
 
 /**

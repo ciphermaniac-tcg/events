@@ -16,6 +16,7 @@ import { createResource, createSignal, type JSX, onMount, Show, untrack } from '
 import { canJoinCommunity } from '../../../shared/accounts/roles';
 import type { MyApplication } from '../../../shared/accounts/types';
 import { errorText, type Me, type SignInOffer } from '../../lib/tournament/api';
+import { msg, t, tx } from '../../lib/i18n';
 import { applicantStage, fetchApplication } from '../../lib/tournament/applications';
 import { joinCommunity } from '../../lib/tournament/stores';
 import { latestValue } from '../../lib/resource';
@@ -28,34 +29,34 @@ import { StoreApplicationForm } from './StoreApplicationForm';
 import '../../styles/pages/tournament-store-apply.css';
 import { pageTitle } from '../../lib/title';
 
-const TITLE = 'Run events';
+const TITLE = msg('Run events');
 
 type Path = 'community' | 'store';
 
 const PATHS: Record<Path, { title: string; joined: string; line: string; held: string }> = {
   community: {
-    title: 'I want to run a tournament for fun',
-    joined: 'Community organizer',
-    line: "Run unofficial, unsanctioned events using Ciphermaniac's swiss system.",
-    held: 'You are currently approved for unsanctioned events.'
+    title: msg('I want to run a tournament for fun'),
+    joined: msg('Community organizer'),
+    line: msg("Run unofficial, unsanctioned events using Ciphermaniac's swiss system."),
+    held: msg('You are currently approved for unsanctioned events.')
   },
   store: {
-    title: 'I run an official Play! Pokémon store',
-    joined: 'I run an official Play! Pokémon store',
-    line: 'Sync TOM with Ciphermaniac to run sanctioned events with our tools. Requires admin approval.',
-    held: 'You are currently not approved for sanctioned events.'
+    title: msg('I run an official Play! Pokémon store'),
+    joined: msg('I run an official Play! Pokémon store'),
+    line: msg('Sync TOM with Ciphermaniac to run sanctioned events with our tools. Requires admin approval.'),
+    held: msg('You are currently not approved for sanctioned events.')
   }
 };
 
 function SignedOut(props: { offer: SignInOffer }) {
   return (
     <>
-      <TournamentHero title={TITLE} />
+      <TournamentHero title={t(TITLE)} />
       <section class='tm-box'>
         <div class='tm-box-bar'>
-          <strong>Sign in</strong>
+          <strong>{t('Sign in')}</strong>
           <span class='tm-grow' />
-          <span class='tm-flag'>Signed out</span>
+          <span class='tm-flag'>{t('Signed out')}</span>
         </div>
         <div class='tm-box-bar'>
           <SignIn offer={props.offer} next='/apply' />
@@ -71,11 +72,11 @@ function PathRow(props: { path: Path; joined: boolean; children: JSX.Element }) 
   return (
     <div class='tm-path'>
       <div class='tm-path-text'>
-        <h2 class='tm-path-title'>{props.joined ? words().joined : words().title}</h2>
-        <span class='muted'>{words().line}</span>
+        <h2 class='tm-path-title'>{t(props.joined ? words().joined : words().title)}</h2>
+        <span class='muted'>{t(words().line)}</span>
         <Show when={props.joined}>
           <span class='tm-path-held' classList={{ 'is-held': props.path === 'community' }}>
-            {words().held}
+            {t(words().held)}
           </span>
         </Show>
       </div>
@@ -104,7 +105,7 @@ function CommunityStart() {
   return (
     <span class='tm-path-step'>
       <button type='button' class='btn btn-primary' disabled={busy()} onClick={() => void start()}>
-        Community organizer
+        {t('Community organizer')}
       </button>
       <ErrorLine message={error()} />
     </span>
@@ -124,7 +125,7 @@ function PathRows(props: { role: Me['role']; store: boolean; storeOpen: boolean;
         <PathRow path='community' joined={joined()}>
           <Show when={joined()} fallback={<CommunityStart />}>
             <A class='btn btn-secondary' href='/'>
-              Your events
+              {t('Your events')}
             </A>
           </Show>
         </PathRow>
@@ -137,7 +138,7 @@ function PathRows(props: { role: Me['role']; store: boolean; storeOpen: boolean;
             aria-expanded={props.storeOpen}
             onClick={() => props.onStore()}
           >
-            Apply as store
+            {t('Apply as store')}
           </button>
         </PathRow>
       </Show>
@@ -162,7 +163,7 @@ function Applying(props: { user: Me }) {
   const sent = (application: MyApplication) => mutate(prev => prev && { ...prev, application });
   return (
     <>
-      <TournamentHero title={TITLE} />
+      <TournamentHero title={t(TITLE)} />
       <Show when={current()} fallback={<ResourceFallback resource={state} onRetry={() => void refetch()} small />}>
         {s => (
           <div class='tm-apply'>
@@ -191,7 +192,7 @@ function Applying(props: { user: Me }) {
                   fallback={
                     <p class='tm-apply-profile'>
                       <A class='btn btn-primary' href='/settings'>
-                        Complete your profile
+                        {t('Complete your profile')}
                       </A>
                     </p>
                   }
@@ -201,11 +202,16 @@ function Applying(props: { user: Me }) {
                     fallback={
                       // Linking Google or Discord gives the account its email (see linkIdentity).
                       <p class='tm-apply-profile'>
-                        A store application needs an email we can reach you at. Link Google or Discord in{' '}
-                        <A class='tm-link-inline' href='/settings'>
-                          Settings
-                        </A>{' '}
-                        to add one.
+                        {tx(
+                          'A store application needs an email we can reach you at. Link Google or Discord in {settings} to add one.',
+                          {
+                            settings: (
+                              <A class='tm-link-inline' href='/settings'>
+                                {t('Settings')}
+                              </A>
+                            )
+                          }
+                        )}
                       </p>
                     }
                   >
@@ -229,7 +235,7 @@ function Applying(props: { user: Me }) {
 
 export function ApplyPage() {
   onMount(() => {
-    document.title = pageTitle(TITLE);
+    document.title = pageTitle(t(TITLE));
   });
   return (
     <div class='tm-page tm-narrow tm-apply-page'>

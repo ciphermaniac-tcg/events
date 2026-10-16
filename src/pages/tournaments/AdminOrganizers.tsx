@@ -8,13 +8,14 @@
 import { createResource, createSignal, For, Show } from 'solid-js';
 import type { RoleHolder } from '../../../shared/accounts/types';
 import { errorText } from '../../lib/tournament/api';
+import { t, tc, tn } from '../../lib/i18n';
 import { fetchRoleHolders, ROLE_WORDS, setOrganizerAccess } from '../../lib/tournament/admin';
 import { dayOf } from '../../lib/tournament/applications';
 import { resolved } from '../../lib/resource';
 import { ConfirmAction } from './ConfirmAction';
 import { ErrorLine, ResourceFallback } from './Field';
 
-const eventCount = (n: number) => `${n} event${n === 1 ? '' : 's'}`;
+const eventCount = (n: number) => tn(n, '{n} event', '{n} events');
 
 /** Revoke for a Community organizer, Reinstate for a revoked one; nothing for an Admin. */
 function Access(props: { account: RoleHolder; onChanged: (account: RoleHolder) => void }) {
@@ -32,8 +33,8 @@ function Access(props: { account: RoleHolder; onChanged: (account: RoleHolder) =
   return (
     <Show when={props.account.role !== 'admin'}>
       <ConfirmAction
-        label={revoking() ? 'Revoke' : 'Reinstate'}
-        question={revoking() ? 'Revoke access?' : 'Reinstate access?'}
+        label={revoking() ? t('Revoke') : tc('organizer access', 'Reinstate')}
+        question={revoking() ? t('Revoke access?') : t('Reinstate access?')}
         danger={revoking()}
         onConfirm={() => void change()}
       />
@@ -52,13 +53,13 @@ function HolderRow(props: { account: RoleHolder; onChanged: (account: RoleHolder
         <Show when={a().popId}>
           {popId => (
             <>
-              <span class='tm-phone-only'>POP ID </span>
+              <span class='tm-phone-only'>{t('POP ID')} </span>
               {popId()}
             </>
           )}
         </Show>
       </td>
-      <td class='tm-person-role'>{ROLE_WORDS[a().role]}</td>
+      <td class='tm-person-role'>{t(ROLE_WORDS[a().role])}</td>
       <td class='muted-cell tm-num tm-nowrap tm-person-since'>{a().roleAt ? dayOf(a().roleAt as number) : ''}</td>
       <td class='num tm-person-events'>
         <span class='tm-wide-only'>{a().events}</span>
@@ -80,19 +81,19 @@ export function AdminOrganizers() {
     <Show when={resolved(list)} fallback={<ResourceFallback resource={list} onRetry={() => void refetch()} small />}>
       {accounts => (
         <section class='tm-box'>
-          <Show when={accounts().length > 0} fallback={<p class='tm-empty muted'>No organizers yet</p>}>
+          <Show when={accounts().length > 0} fallback={<p class='tm-empty muted'>{t('No organizers yet')}</p>}>
             <div class='table-wrap'>
               <table class='data tm-people'>
                 <thead>
                   <tr>
-                    <th>Name</th>
-                    <th>Email</th>
-                    <th>POP ID</th>
-                    <th>Role</th>
-                    <th>Since</th>
-                    <th class='num'>Events</th>
+                    <th>{t('Name')}</th>
+                    <th>{t('Email')}</th>
+                    <th>{t('POP ID')}</th>
+                    <th>{t('Role')}</th>
+                    <th>{t('Since')}</th>
+                    <th class='num'>{t('Events')}</th>
                     <th>
-                      <span class='sr-only'>Access</span>
+                      <span class='sr-only'>{t('Access')}</span>
                     </th>
                   </tr>
                 </thead>

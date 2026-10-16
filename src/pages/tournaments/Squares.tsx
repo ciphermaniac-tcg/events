@@ -1,4 +1,6 @@
 import { For } from 'solid-js';
+import { t } from '../../lib/i18n';
+import { markText } from '../../lib/tournament/present';
 
 const SQUARE_CLASS: Record<string, string> = { W: 'is-win', T: 'is-tie', L: 'is-loss' };
 
@@ -13,11 +15,15 @@ export function Squares(props: { marks: readonly string[]; rounds?: number }) {
     ...Array.from({ length: Math.max(0, (props.rounds ?? 0) - props.marks.length) }, () => '')
   ];
   return (
-    <span class='tm-squares' role='img' aria-label={`Rounds: ${props.marks.filter(Boolean).join(' ') || 'none yet'}`}>
+    <span
+      class='tm-squares'
+      role='img'
+      aria-label={t('Rounds: {marks}', { marks: props.marks.filter(Boolean).map(markText).join(' ') || t('none yet') })}
+    >
       <For each={cells()}>
         {mark => (
           <span class={`tm-sq ${SQUARE_CLASS[mark] ?? 'is-open'}`} aria-hidden='true'>
-            {mark}
+            {markText(mark)}
           </span>
         )}
       </For>

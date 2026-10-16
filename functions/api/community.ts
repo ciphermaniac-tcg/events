@@ -18,6 +18,7 @@ import { type Context, sameOrigin } from '../lib/auth/env.js';
 import { currentAccount, type User } from '../lib/auth/session.js';
 import { rowsChanged } from '../lib/d1.js';
 import { birthYear } from '../../shared/tournament/divisions.js';
+import { msg } from '../../shared/i18n.js';
 
 /** The signed-in account, or the answer that turns the request away. */
 async function asker({ request, env }: Context) {
@@ -41,7 +42,7 @@ export async function onRequestPost(context: Context): Promise<Response> {
   if (mayBeMinor(birthYear(user.birthDate ?? ''), new Date())) {
     return jsonError(HOSTS_ONLY, 403);
   }
-  const refusal = user.role === 'revoked' ? 'An admin removed your access' : 'You already run events';
+  const refusal = user.role === 'revoked' ? msg('An admin removed your access') : msg('You already run events');
   if (!canJoinCommunity(user.role)) {
     return jsonError(refusal, 409);
   }

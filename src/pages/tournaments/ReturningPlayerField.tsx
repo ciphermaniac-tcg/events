@@ -2,6 +2,7 @@ import { createEffect, createSignal, createUniqueId, For, onCleanup, Show } from
 import { playerSearch, type ReturningPlayer } from '../../../shared/tournament/returningPlayers';
 import { findReturningPlayers } from '../../lib/tournament/api';
 import { placeComboList } from '../../utils/comboListPlacement';
+import { t } from '../../lib/i18n';
 
 export function ReturningPlayerField(props: {
   code: string;
@@ -129,7 +130,7 @@ export function ReturningPlayerField(props: {
         onKeyDown={keyDown}
       />
       <Show when={showing()}>
-        <ul ref={list} id={id} class='tl-list' role='listbox' aria-label='Returning players' popover='manual'>
+        <ul ref={list} id={id} class='tl-list' role='listbox' aria-label={t('Returning players')} popover='manual'>
           <For each={players()}>
             {(player, index) => (
               <li
@@ -151,7 +152,7 @@ export function ReturningPlayerField(props: {
         </ul>
       </Show>
       <Show when={failed()}>
-        <span class='tm-error'>Player suggestions unavailable</span>
+        <span class='tm-error'>{t('Player suggestions unavailable')}</span>
       </Show>
     </div>
   );

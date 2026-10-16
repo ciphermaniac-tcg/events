@@ -9,6 +9,7 @@
 
 import { A, useLocation } from '@solidjs/router';
 import { Show } from 'solid-js';
+import { t } from '../lib/i18n';
 import { latestValue } from '../lib/resource';
 import { AccountMenu } from '../pages/tournaments/AccountMenu';
 import { pendingApplications } from '../pages/tournaments/pendingApplications';
@@ -38,13 +39,13 @@ export function SiteHead() {
                       class='btn btn-primary site-head-signin'
                       href={`/settings?${new URLSearchParams({ next: `${location.pathname}${location.search}` })}`}
                     >
-                      Sign in
+                      {t('Sign in')}
                     </A>
                   }
                 >
                   {/* The browser's own jump: the router ignores a second click on the same hash. */}
                   <a class='btn btn-primary site-head-signin' href='#sign-in' rel='external'>
-                    Sign in
+                    {t('Sign in')}
                   </a>
                 </Show>
               }

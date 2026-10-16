@@ -7,6 +7,7 @@
 
 import { For, Show } from 'solid-js';
 import { SETTINGS_LIMITS, type TournamentSettings } from '../../../shared/tournament/view';
+import { t } from '../../lib/i18n';
 import { SettingRow } from './SettingControls';
 
 export type Logistics = Pick<TournamentSettings, 'timeZone' | 'checkInAt' | 'venue' | 'address'>;
@@ -30,7 +31,7 @@ export function LogisticsRows(props: {
 }) {
   return (
     <>
-      <SettingRow label='Time zone' for={`${props.id}-zone`}>
+      <SettingRow label={t('Time zone')} for={`${props.id}-zone`}>
         <select
           id={`${props.id}-zone`}
           class='tm-input'
@@ -39,14 +40,14 @@ export function LogisticsRows(props: {
         >
           {/* An event made before it had a zone shows its times as written until one is chosen. */}
           <Show when={!props.value.timeZone}>
-            <option value=''>Not set</option>
+            <option value=''>{t('Not set')}</option>
           </Show>
           <For each={zones(props.value.timeZone)}>
             {zone => <option value={zone}>{zone.replaceAll('_', ' ')}</option>}
           </For>
         </select>
       </SettingRow>
-      <SettingRow label='Check-in' for={`${props.id}-check-in`}>
+      <SettingRow label={t('Check-in')} for={`${props.id}-check-in`}>
         <input
           id={`${props.id}-check-in`}
           class='tm-input'
@@ -56,7 +57,7 @@ export function LogisticsRows(props: {
         />
       </SettingRow>
       <Show when={props.place ?? true}>
-        <SettingRow label='Venue' for={`${props.id}-venue`}>
+        <SettingRow label={t('Venue')} for={`${props.id}-venue`}>
           <input
             id={`${props.id}-venue`}
             class='tm-input'
@@ -65,7 +66,7 @@ export function LogisticsRows(props: {
             onInput={e => props.onChange('venue', e.currentTarget.value)}
           />
         </SettingRow>
-        <SettingRow label='Address' for={`${props.id}-address`}>
+        <SettingRow label={t('Address')} for={`${props.id}-address`}>
           <input
             id={`${props.id}-address`}
             class='tm-input'

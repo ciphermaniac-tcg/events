@@ -12,7 +12,8 @@ import { withSwiss } from '../../../shared/tournament/rounds';
 import type { Pod, Round } from '../../../shared/tournament/types';
 import type { TournamentView } from '../../../shared/tournament/view';
 import { Segmented } from '../../components/Segmented';
-import { filterMatches, hasCut, MATCH_VIEWS, type MatchView } from '../../lib/tournament/present';
+import { t } from '../../lib/i18n';
+import { filterMatches, hasCut, type MatchView, matchViews } from '../../lib/tournament/present';
 import { NO_FILTER, roundDecks, type SpectateFilter, spectatorMatches } from '../../lib/tournament/spectate';
 import { MatchTable } from './MatchTable';
 import { SpectateBar } from './SpectateBar';
@@ -83,7 +84,7 @@ export function PublicPairings(props: {
           <SpectateBar filter={applied()} decks={decks()} following={props.following.size} onFilter={setFilter} />
         </Show>
         <Show when={cut()}>
-          <Segmented options={MATCH_VIEWS} selected={shown()} onSelect={choose} ariaLabel='Show matches as' />
+          <Segmented options={matchViews()} selected={shown()} onSelect={choose} ariaLabel={t('Show matches as')} />
         </Show>
       </div>
       <Show when={props.pod && props.round} fallback={props.registered}>

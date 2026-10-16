@@ -42,6 +42,7 @@ import { reportEvidence } from '../../../lib/tournaments/reportHistory.js';
 import { playerRequestChanges } from '../../../lib/tournaments/requests.js';
 import { admitTry, clearFailures, LOCKED_OUT } from '../../../lib/tournaments/attempts.js';
 import { type Changes, mutate, type TournamentRow } from '../../../lib/tournaments/store.js';
+import { msg } from '../../../../shared/i18n.js';
 
 type Body = Record<string, unknown>;
 
@@ -56,7 +57,7 @@ function claimOf(body: Body): PlayerClaim {
   };
 }
 
-const NOT_REPORTER = 'Someone else is already reporting for this player. Ask staff if that’s wrong.';
+const NOT_REPORTER = msg('Someone else is already reporting for this player. Ask staff if that’s wrong.');
 
 /** The match the player's page showed them, when it said: pod, round and table. */
 function shownOf(value: unknown): ShownMatch | undefined {
@@ -88,15 +89,15 @@ function readReport(row: TournamentRow, filing: Filing) {
   }
   return stillShown(open, filing.shown)
     ? playerReport(open, found.id, filing.result, { at: Date.now(), device: filing.device })
-    : 'Your pairing has changed; check your table';
+    : msg('Your pairing has changed; check your table');
 }
 
 /** Why players cannot report here, or null when they can. */
 function closedToReports(settings: TournamentSettings): string | null {
   if (!settings.playerReporting) {
-    return 'Results at this event are reported to staff';
+    return msg('Results at this event are reported to staff');
   }
-  return settings.finished ? 'This event is over' : null;
+  return settings.finished ? msg('This event is over') : null;
 }
 
 /** A report waiting for staff, rechecked against the event on each mutation attempt. */
@@ -232,7 +233,7 @@ async function ask(context: Context<'code'>, access: Access, body: Body, id: str
   return privateJson({ key: outcome.row.keys[id] ?? null, view: publicViewOf(outcome.row), ...standingOf(standing) });
 }
 
-const CLAIMED = 'Another device already claimed this player. Ask staff if that’s wrong.';
+const CLAIMED = msg('Another device already claimed this player. Ask staff if that’s wrong.');
 
 /**
  * Exact reporting identity and seat ownership, independent of fuzzy table
@@ -274,7 +275,7 @@ function listedPopId(row: TournamentRow, claim: PlayerClaim): string | null {
   return isSanctioned(row) && row.tournament.players.some(player => player.id === popId) ? popId : null;
 }
 
-const NOT_EXPECTED = 'That isn’t the player this page chose';
+const NOT_EXPECTED = msg('That isn’t the player this page chose');
 
 /**
  * The player the claim names, or the refusal: no such player, or a Player ID

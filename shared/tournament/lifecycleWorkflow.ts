@@ -10,11 +10,12 @@ import {
   schedulePlayers
 } from './rounds.js';
 import { DIVISIONS, type Match, type Pod, type Round, type Tournament } from './types.js';
+import { msg } from '../i18n.js';
 
 export function selectedPods(t: Tournament, category: Pod['category'] | undefined): Pod[] {
   const pods = t.pods.filter(p => category === undefined || p.category === category);
   if (!pods.length) {
-    throw new Error('There is no pod to change');
+    throw new Error(msg('There is no pod to change'));
   }
   return pods;
 }
@@ -90,7 +91,7 @@ export function concludePrerelease(
     t.settings?.mode !== 'PRERELEASE' ||
     pods.some(pod => !conclusionAllowed(t, pod, op.afterPairingFailure ?? false))
   ) {
-    throw new Error('This pod cannot be concluded early');
+    throw new Error(msg('This pod cannot be concluded early'));
   }
   const viewed = workflow(t, { type: 'viewStandings', pod: op.pod }, ctx);
   return schedulePlayers(
@@ -133,7 +134,7 @@ function requiredCutRounds(t: Tournament, pod: Pod, round: Round): boolean {
 // The Prerelease acknowledgment writes 7 whatever the round's results, like the records and standings ones.
 function checkedCompletedView(t: Tournament, operation: string): void {
   if (operation === 'playAnotherRound' && t.settings?.mode !== 'PRERELEASE') {
-    throw new Error('Only Prerelease events can play another optional round');
+    throw new Error(msg('Only Prerelease events can play another optional round'));
   }
 }
 
@@ -148,7 +149,7 @@ export function workflow(
   const pods = selectedPods(t, op.pod).map(pod => {
     const latest = latestRound(pod);
     if (!latest) {
-      throw new Error('There is no round to view or start');
+      throw new Error(msg('There is no round to view or start'));
     }
     checkedCompletedView(t, op.type);
     const stage = stageFor(pod, op);
@@ -205,10 +206,10 @@ export function recordResults(t: Tournament, op: Extract<LifecycleOperation, { t
     selectedPods(t, op.pod).map(pod => {
       const round = latestRound(pod);
       if (!round) {
-        throw new Error('There is no round to report');
+        throw new Error(msg('There is no round to report'));
       }
       if (op.entryMode === 'main' && round.stage === 4 && round.clockStartedAt === null) {
-        throw new Error('Continue the paused round before entering results in the main window');
+        throw new Error(msg('Continue the paused round before entering results in the main window'));
       }
       if (!op.results.some(result => result.p2 !== null)) {
         return pod;
@@ -219,7 +220,7 @@ export function recordResults(t: Tournament, op: Extract<LifecycleOperation, { t
           return match;
         }
         if (round.kind === 'elimination' && result.outcome === 'tie') {
-          throw new Error('An elimination match cannot tie');
+          throw new Error(msg('An elimination match cannot tie'));
         }
         const winner = result.outcome === 'p1' ? match.p1 : result.outcome === 'p2' ? match.p2 : undefined;
         if (round.kind === 'elimination' && winner && t.players.find(p => p.id === winner)?.droppedAfter !== null) {

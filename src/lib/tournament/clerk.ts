@@ -11,6 +11,7 @@
  */
 
 import { frontendApi, PASSWORD_MIN } from '../../../shared/accounts/clerk';
+import { msg, t } from '../i18n';
 
 interface Verification {
   status?: string | null;
@@ -362,20 +363,20 @@ function firstError(error: unknown): ClerkApiError | null {
 
 // Placeholder copy until it is written.
 const PROBLEMS = new Map<string, string>([
-  ['form_identifier_not_found', 'Wrong username or password.'],
-  ['form_password_incorrect', 'Wrong username or password.'],
-  ['form_identifier_exists', 'That username is taken.'],
-  ['form_identifier_exists:email_address', 'An account already exists with that email.'],
-  ['form_param_format_invalid:email_address', 'Check the email address.'],
-  ['reset_unavailable', 'Password reset isn’t available right now.'],
-  ['reset_in_progress', 'That code is already being used. Try again in a minute.'],
-  ['form_code_incorrect', 'That code is wrong.'],
-  ['verification_expired', 'That code expired. Send a new one.'],
-  ['verification_failed', 'Too many tries. Send a new code.'],
-  ['form_password_pwned', 'That password has appeared in a data breach. Choose another.'],
-  ['form_password_length_too_short', `Use at least ${PASSWORD_MIN} characters.`],
-  ['user_locked', 'Too many tries. Try again later.'],
-  ['too_many_requests', 'Too many tries. Try again later.']
+  ['form_identifier_not_found', msg('Wrong username or password.')],
+  ['form_password_incorrect', msg('Wrong username or password.')],
+  ['form_identifier_exists', msg('That username is taken.')],
+  ['form_identifier_exists:email_address', msg('An account already exists with that email.')],
+  ['form_param_format_invalid:email_address', msg('Check the email address.')],
+  ['reset_unavailable', msg('Password reset isn’t available right now.')],
+  ['reset_in_progress', msg('That code is already being used. Try again in a minute.')],
+  ['form_code_incorrect', msg('That code is wrong.')],
+  ['verification_expired', msg('That code expired. Send a new one.')],
+  ['verification_failed', msg('Too many tries. Send a new code.')],
+  ['form_password_pwned', msg('That password has appeared in a data breach. Choose another.')],
+  ['form_password_length_too_short', msg('Use at least {n} characters.')],
+  ['user_locked', msg('Too many tries. Try again later.')],
+  ['too_many_requests', msg('Too many tries. Try again later.')]
 ]);
 
 /** Ours for Clerk's error: by its code and the field it names (`code:field`), else by its code alone. */
@@ -388,5 +389,8 @@ function knownProblem(first: ClerkApiError | null): string | undefined {
 export function clerkProblem(error: unknown): string {
   const first = firstError(error);
   const known = knownProblem(first);
-  return known ?? first?.longMessage ?? first?.message ?? 'Sign-in failed. Try again.';
+  if (known) {
+    return t(known, { n: PASSWORD_MIN });
+  }
+  return first?.longMessage ?? first?.message ?? t('Sign-in failed. Try again.');
 }

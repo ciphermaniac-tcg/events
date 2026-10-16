@@ -71,3 +71,11 @@ test('V19-5: a partial repair cannot change a retained result or assign a new ta
     assert.equal(result.tournament, started);
   }
 });
+
+test('a repair is refused before any Swiss round is paired', () => {
+  const ctx = context(41);
+  const t = generatedEvent(8, ctx);
+  const result = applyLifecycleOperation(t, { type: 'pair', repair: true }, ctx);
+  assert.equal(result.ok, false);
+  assert.equal(result.error, 'Only a Swiss round can be repaired');
+});

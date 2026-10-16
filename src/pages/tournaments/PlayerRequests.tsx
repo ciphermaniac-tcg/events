@@ -10,6 +10,7 @@ import type { PlayerClaim } from '../../../shared/tournament/identify';
 import { isLive, type PlayerRequest, type RequestKind, requestOf } from '../../../shared/tournament/requests';
 import type { PublishedView, TournamentView } from '../../../shared/tournament/view';
 import { ApiError, askStaff, errorText } from '../../lib/tournament/api';
+import { intlLocale, msg, t } from '../../lib/i18n';
 import { ConfirmAction } from './ConfirmAction';
 import { ErrorLine } from './Field';
 
@@ -17,21 +18,25 @@ import { ErrorLine } from './Field';
 const KINDS: { kind: RequestKind; ask: string; status: (request: PlayerRequest) => string }[] = [
   {
     kind: 'drop',
-    ask: 'Request drop',
+    ask: msg('Request drop'),
     status: request =>
-      ({ open: 'Drop requested', accepted: 'Drop confirmed', declined: 'Drop declined', done: '', cancelled: '' })[
-        request.status
-      ]
+      ({
+        open: msg('Drop requested'),
+        accepted: msg('Drop confirmed'),
+        declined: msg('Drop declined'),
+        done: '',
+        cancelled: ''
+      })[request.status]
   },
   {
     kind: 'staff',
-    ask: 'Contact staff',
-    status: request => (request.status === 'open' ? 'Staff contact requested' : 'Staff responded')
+    ask: msg('Contact staff'),
+    status: request => (request.status === 'open' ? msg('Staff contact requested') : msg('Staff responded'))
   }
 ];
 
 const timeOf = (at: number | undefined) =>
-  at === undefined ? '' : ` · ${new Date(at).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}`;
+  at === undefined ? '' : ` · ${new Date(at).toLocaleTimeString(intlLocale(), { hour: 'numeric', minute: '2-digit' })}`;
 
 export function PlayerRequests(props: {
   view: TournamentView;
@@ -80,7 +85,7 @@ export function PlayerRequests(props: {
               <Show when={request()}>
                 {made => (
                   <span class='tm-you-request' role='status'>
-                    {entry.status(made())}
+                    {t(entry.status(made()))}
                     <span class='muted'>{timeOf(made().answeredAt ?? made().at)}</span>
                     <Show when={made().status === 'open'}>
                       <button
@@ -89,7 +94,7 @@ export function PlayerRequests(props: {
                         disabled={busy()}
                         onClick={() => void send(entry.kind, true)}
                       >
-                        Cancel request
+                        {t('Cancel request')}
                       </button>
                     </Show>
                   </span>
@@ -105,15 +110,15 @@ export function PlayerRequests(props: {
                       disabled={busy()}
                       onClick={() => void send(entry.kind)}
                     >
-                      {entry.ask}
+                      {t(entry.ask)}
                     </button>
                   }
                 >
                   <ConfirmAction
-                    label={entry.ask}
+                    label={t(entry.ask)}
                     class='btn btn-secondary tm-small'
-                    question='Ask staff to drop you?'
-                    confirmLabel='Ask staff'
+                    question={t('Ask staff to drop you?')}
+                    confirmLabel={t('Ask staff')}
                     onConfirm={() => void send(entry.kind)}
                   />
                 </Show>

@@ -27,6 +27,7 @@ import type { Context } from '../../lib/auth/env.js';
 import { randomToken } from '../../lib/auth/session.js';
 import { firstRow } from '../../lib/d1.js';
 import { privateJson } from '../../lib/tournaments/access.js';
+import { msgf } from '../../../shared/i18n.js';
 
 const rateLimiter = createRateLimiter({ windowMs: 60 * 60 * 1000, maxRequests: 10 });
 
@@ -44,7 +45,7 @@ interface Asked {
 function readAsked(body: Record<string, unknown> | null): Asked | string {
   const explanation = typeof body?.explanation === 'string' ? body.explanation.trim() : '';
   if (explanation.length > EXPLANATION_MAX) {
-    return `Up to ${EXPLANATION_MAX} characters`;
+    return msgf('Up to {limit} characters', { limit: EXPLANATION_MAX });
   }
   const store = readStoreApplication(body?.store);
   return typeof store === 'string' ? store : { store, explanation };

@@ -63,6 +63,7 @@ import {
   type TournamentInfo
 } from './types.js';
 import { attr, child, children, childText, encodeEntities, parseXml, type XmlElement } from './xml.js';
+import { msg } from '../i18n.js';
 
 const OUTCOME_CODES: Record<Outcome, string> = {
   pending: '0',
@@ -361,7 +362,7 @@ const REQUIRED_SECTIONS = ['data', 'players', 'pods'];
 export function parseTdf(source: string): Tournament {
   const root = parseXml(source);
   if (root.name !== 'tournament' || REQUIRED_SECTIONS.some(name => !child(root, name))) {
-    throw new Error('Not a TOM tournament file');
+    throw new Error(msg('Not a TOM tournament file'));
   }
   const data = child(root, 'data');
   const playerElements = children(child(root, 'players'), 'player');
@@ -1100,7 +1101,7 @@ export function writeTdf(input: Tournament, options: WriteOptions = {}): string 
         })
       : t.pods.some(pod => pod.rounds.some(round => round.matches.some(m => m.outcome === 'pending')));
   if (options.finalized && hasPendingMatches(t)) {
-    throw new Error('Enter all match results to finalize');
+    throw new Error(msg('Enter all match results to finalize'));
   }
   const divisionOf = options.divisionOf ?? divisionLookup(t);
   const players = t.players.flatMap(p => writePlayer(p, t.passthrough?.playerExtras[p.id] ?? [], hasStarted(t)));

@@ -6,6 +6,7 @@
 
 import { A } from '@solidjs/router';
 import { onMount } from 'solid-js';
+import { EnglishOnly } from './EnglishOnly';
 import { TournamentHero } from './Hero';
 import { pageTitle } from '../../lib/title';
 
@@ -16,8 +17,9 @@ export function PrivacyPage() {
     document.title = pageTitle('Privacy Policy');
   });
   return (
-    <div class='tm-page tm-narrow tm-legal-page'>
+    <div class='tm-page tm-narrow tm-legal-page' lang='en'>
       <TournamentHero title='Privacy Policy' meta='Last updated October 12, 2026' />
+      <EnglishOnly />
       <div class='prose tm-legal'>
         <p>
           Ciphermaniac Events is a service for running Pokémon Trading Card Game tournaments. This policy explains what

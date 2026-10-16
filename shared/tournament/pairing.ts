@@ -2,6 +2,7 @@
 
 import { bracketOrder } from './seeding.js';
 import { type Random, shuffled } from './random.js';
+import { msg } from '../i18n.js';
 
 export interface Entrant {
   id: string;
@@ -383,7 +384,7 @@ function byeCandidates(entrants: readonly Entrant[], history: PairingHistory, ro
   const field = round === 1 ? firstRoundByeField(entrants) : entrants;
   const eligible = field.filter(e => !history.byes.has(e.id));
   if (!eligible.length) {
-    throw new PairingError('No eligible player remains for a random bye');
+    throw new PairingError(msg('No eligible player remains for a random bye'));
   }
   const lowest = Math.min(...eligible.map(e => e.points));
   return eligible.filter(e => e.points === lowest);
@@ -449,7 +450,7 @@ export function pairSwissCounted(
   options: SwissOptions = {}
 ): { pairings: Pairing[]; steps: number } {
   if (!entrants.length) {
-    throw new PairingError('An empty flight cannot pair a round');
+    throw new PairingError(msg('An empty flight cannot pair a round'));
   }
   const round = options.round ?? (history.opponents.size || history.byes.size ? 2 : 1);
   if (options.recorded) {
@@ -465,7 +466,7 @@ export function pairSwissCounted(
   if (found) {
     return { pairings: found, steps: inputs.walks.reduce((sum, steps) => sum + steps, 0) };
   }
-  throw new SearchExhausted('No more rounds can be paired without repeating an opponent');
+  throw new SearchExhausted(msg('No more rounds can be paired without repeating an opponent'));
 }
 
 /** A complete, rematch-free Swiss field, or an explicit refusal without partial matches. */

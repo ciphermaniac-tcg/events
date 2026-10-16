@@ -11,6 +11,7 @@ import { createEffect, createSignal, Match, type Resource, Show, Switch } from '
 import type { AccountRole } from '../../../shared/accounts/roles';
 import type { MyApplication } from '../../../shared/accounts/types';
 import { errorText } from '../../lib/tournament/api';
+import { msg, t } from '../../lib/i18n';
 import { type ApplicantStage, applicantStage, dayOf, withdrawApplication } from '../../lib/tournament/applications';
 import { latestValue } from '../../lib/resource';
 import { ConfirmAction } from './ConfirmAction';
@@ -20,18 +21,18 @@ import '../../styles/pages/tournament-apply.css';
 
 const STAGE_WORDS: Record<ApplicantStage, string> = {
   none: '',
-  pending: 'Application pending',
-  rejected: 'Not approved',
-  store: 'Store approved',
-  community: 'Community organizer',
-  revoked: 'Organizer access removed',
-  admin: 'Admin'
+  pending: msg('Application pending'),
+  rejected: msg('Not approved'),
+  store: msg('Store approved'),
+  community: msg('Community organizer'),
+  revoked: msg('Organizer access removed'),
+  admin: msg('Admin')
 };
 
 /** The day under the stage: when a pending Application went in, or when a rejection came. */
 function stageDay(stage: ApplicantStage, application: MyApplication | null): string | null {
   if (stage === 'pending' && application) {
-    return `Sent ${dayOf(application.createdAt)}`;
+    return t('Sent {date}', { date: dayOf(application.createdAt) });
   }
   return stage === 'rejected' && application?.decidedAt ? dayOf(application.decidedAt) : null;
 }
@@ -43,13 +44,13 @@ function ApplyAgain(props: { onApply: (() => void) | undefined }) {
       when={props.onApply}
       fallback={
         <A class='btn btn-secondary' href='/apply?again=1'>
-          Apply again
+          {t('Apply again')}
         </A>
       }
     >
       {apply => (
         <button type='button' class='btn btn-secondary' onClick={() => apply()()}>
-          Apply again
+          {t('Apply again')}
         </button>
       )}
     </Show>
@@ -76,8 +77,8 @@ function Withdraw(props: { onWithdrawn: () => void }) {
     <>
       <ConfirmAction
         class='btn btn-secondary'
-        label='Withdraw'
-        question='Withdraw your application?'
+        label={t('Withdraw')}
+        question={t('Withdraw your application?')}
         danger
         disabled={busy()}
         onConfirm={() => void withdraw()}
@@ -98,7 +99,7 @@ function StageStep(props: {
     <Switch>
       <Match when={props.stage === 'none'}>
         <A class='btn btn-secondary' href='/apply'>
-          Apply to run events
+          {t('Apply to run events')}
         </A>
       </Match>
       <Match when={props.stage === 'pending'}>
@@ -109,15 +110,15 @@ function StageStep(props: {
       </Match>
       <Match when={props.stage === 'store' || props.stage === 'community'}>
         <A class='btn btn-secondary' href='/'>
-          Your events
+          {t('Your events')}
         </A>
       </Match>
       <Match when={props.stage === 'admin'}>
         <A class='btn btn-secondary' href='/admin'>
-          Admin page
+          {t('Admin page')}
         </A>
         <A class='btn btn-ghost' href='/'>
-          Your events
+          {t('Your events')}
         </A>
       </Match>
     </Switch>
@@ -141,7 +142,7 @@ export function ApplicantStatus(props: {
     props.stage === 'rejected'
       ? props.application?.note
       : props.stage === 'pending'
-        ? 'Your application is in. You’ll see the decision here once it’s reviewed.'
+        ? t('Your application is in. You’ll see the decision here once it’s reviewed.')
         : null;
   return (
     <div class='tm-box tm-applicant'>
@@ -149,7 +150,7 @@ export function ApplicantStatus(props: {
         <Show when={STAGE_WORDS[props.stage]}>
           {words => (
             <span class='tm-applicant-stage'>
-              <strong>{words()}</strong>
+              <strong>{t(words())}</strong>
               <Show when={stageDay(props.stage, props.application)}>
                 {day => <span class='muted tm-num'>{day()}</span>}
               </Show>
@@ -209,11 +210,11 @@ export function ApplicantLine(props: {
             when={STAGE_WORDS[current()]}
             fallback={
               <A class={props.primary ? 'btn btn-primary' : 'btn btn-secondary'} href='/apply'>
-                Apply to run events
+                {t('Apply to run events')}
               </A>
             }
           >
-            {words => <span class='tm-applicant-words'>{words()}</span>}
+            {words => <span class='tm-applicant-words'>{t(words())}</span>}
           </Show>
           <Show when={current() === 'rejected' || current() === 'revoked'}>
             <ApplyAgain onApply={undefined} />

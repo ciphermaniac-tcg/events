@@ -12,6 +12,7 @@ import { historyOf } from '../../lib/accounts/history.js';
 import { createRateLimiter, rateLimitAddress } from '../../lib/api/rateLimiter.js';
 import { jsonError, jsonResponse } from '../../lib/api/responses.js';
 import { type Context, param } from '../../lib/auth/env.js';
+import { msg } from '../../../shared/i18n.js';
 
 const rateLimiter = createRateLimiter({ windowMs: 10 * 60 * 1000, maxRequests: 1200 });
 
@@ -36,5 +37,5 @@ export async function onRequestGet(context: Context<'handle'>): Promise<Response
   const db = context.env.TOURNAMENT_DB;
   const handle = normalizeHandle(param(context.params.handle));
   const profile = db && isHandle(handle) ? await historyOf(db, { handle }) : null;
-  return profile ? answer(profile) : answer({ error: 'No such profile' }, 404);
+  return profile ? answer(profile) : answer({ error: msg('No such profile') }, 404);
 }

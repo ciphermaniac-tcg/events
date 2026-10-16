@@ -1,3 +1,5 @@
+import { intlLocale } from '../i18n';
+
 /**
  * Currency for each country Pokedata lists. Admission arrives as a bare number
  * ("10") or hand-typed ("$10.00", "7€") with no currency code, so the country
@@ -116,22 +118,30 @@ const MINOR_WORDS = new Set(['a', 'an', 'and', 'at', 'de', 'del', 'di', 'da', 'd
 /** Upper-case tokens that stay upper case. */
 const ACRONYMS = new Set(['TCG', 'CCG', 'LLC', 'HQ', 'USA', 'UK', 'VGC', 'II', 'III', 'IV']);
 
-let regionNames: Intl.DisplayNames | null | undefined;
+const regionNames = new Map<string, Intl.DisplayNames | null>();
 
-/** English country name, or the code when the runtime has no names. */
-export function countryName(cc: string): string {
-  if (regionNames === undefined) {
+function namesIn(tag: string): Intl.DisplayNames | null {
+  if (!regionNames.has(tag)) {
     try {
-      regionNames = new Intl.DisplayNames(['en'], { type: 'region' });
+      regionNames.set(tag, new Intl.DisplayNames([tag], { type: 'region' }));
     } catch {
-      regionNames = null;
+      regionNames.set(tag, null);
     }
   }
+  return regionNames.get(tag) ?? null;
+}
+
+function regionName(cc: string, tag: string): string {
   try {
-    return regionNames?.of(cc.toUpperCase()) ?? cc;
+    return namesIn(tag)?.of(cc.toUpperCase()) ?? cc;
   } catch {
     return cc;
   }
+}
+
+/** Country name in the language shown, or the code when the runtime has no names. */
+export function countryName(cc: string): string {
+  return regionName(cc, intlLocale());
 }
 const US_STATE_CODES = new Set(Object.values(US_STATES));
 
@@ -175,7 +185,9 @@ export function titleCase(value: string): string {
 
 /** The address without the country on the end. */
 function withoutCountry(address: string, cc: string): string {
-  const country = countryName(cc).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const country = [...new Set([regionName(cc, 'en'), countryName(cc)])]
+    .map(name => name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+    .join('|');
   const code = cc.replace(/[^A-Za-z]/g, '');
   return address
     .replace(new RegExp(`,\\s*(US|USA|UK|United Kingdom|${country}${code ? `|${code}` : ''})\\s*$`, 'i'), '')
@@ -275,7 +287,7 @@ export function currencySymbol(cc: string): string | null {
   if (!currency) {
     return null;
   }
-  const parts = new Intl.NumberFormat('en', {
+  const parts = new Intl.NumberFormat(intlLocale(), {
     style: 'currency',
     currency,
     currencyDisplay: 'narrowSymbol'

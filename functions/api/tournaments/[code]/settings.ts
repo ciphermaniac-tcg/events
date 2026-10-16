@@ -24,11 +24,12 @@ import type { Context } from '../../../lib/auth/env.js';
 import { changeEvent, openForStaff } from '../../../lib/tournaments/access.js';
 import { answerStaff } from '../../../lib/tournaments/answers.js';
 import { type Change, changesNothing, dayChange, type TournamentRow } from '../../../lib/tournaments/store.js';
+import { msg } from '../../../../shared/i18n.js';
 
 /** How soon each setting shows decks to players: higher is sooner. */
 const OPENNESS: Record<DeckVisibility, number> = { off: 0, after: 1, always: 2 };
 
-const SOONER = 'Only the organizer can show decks sooner';
+const SOONER = msg('Only the organizer can show decks sooner');
 
 /** Whether the settings show decks sooner than the row does, which only the organizer may. */
 const showsSooner = (role: Role | null, row: TournamentRow, next: TournamentSettings) =>
@@ -53,12 +54,12 @@ async function maySanction(db: D1Like, row: TournamentRow, change: unknown): Pro
 function changedSettings(change: unknown, row: TournamentRow, sanctionable: boolean): TournamentSettings | string {
   const next = readSettings(change, row.settings);
   if (!next) {
-    return 'Not a settings change';
+    return msg('Not a settings change');
   }
   if (next.sanctioned && !row.settings.sanctioned && !sanctionable) {
     return row.storeId === null
-      ? 'Only a store runs sanctioned events'
-      : 'An unsanctioned store runs unsanctioned events only';
+      ? msg('Only a store runs sanctioned events')
+      : msg('An unsanctioned store runs unsanctioned events only');
   }
   const invalid =
     row.mode === 'swiss' ? sanctionedSettingsError(change as object, row.settings, next, row.tournament.info) : null;

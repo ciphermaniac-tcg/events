@@ -7,6 +7,7 @@
 import { createResource, createSignal, For, Show } from 'solid-js';
 import type { AdminUser } from '../../../shared/accounts/types';
 import { fetchAllUsers, ROLE_WORDS } from '../../lib/tournament/admin';
+import { t } from '../../lib/i18n';
 import { dayOf } from '../../lib/tournament/applications';
 import { resolved } from '../../lib/resource';
 import { ResourceFallback } from './Field';
@@ -30,7 +31,7 @@ function UserRow(props: { user: AdminUser }) {
       <td class='muted-cell'>{u().email ?? ''}</td>
       <td class='tm-num'>{u().popId ?? ''}</td>
       <td class='tm-nowrap'>
-        <Show when={u().role}>{role => ROLE_WORDS[role()]}</Show>
+        <Show when={u().role}>{role => t(ROLE_WORDS[role()])}</Show>
       </td>
       <td class='muted-cell tm-num tm-nowrap'>{dayOf(u().createdAt)}</td>
     </tr>
@@ -50,22 +51,22 @@ export function AdminUsers() {
               <input
                 class='search tm-grow'
                 type='search'
-                placeholder='Find a user'
-                aria-label='Find a user'
+                placeholder={t('Find a user')}
+                aria-label={t('Find a user')}
                 value={query()}
                 onInput={e => setQuery(e.currentTarget.value)}
               />
             </div>
-            <Show when={shown().length > 0} fallback={<p class='tm-empty muted'>No users</p>}>
+            <Show when={shown().length > 0} fallback={<p class='tm-empty muted'>{t('No users')}</p>}>
               <div class='table-wrap'>
                 <table class='data tm-admin-users'>
                   <thead>
                     <tr>
-                      <th>Name</th>
-                      <th>Email</th>
-                      <th>POP ID</th>
-                      <th>Role</th>
-                      <th>Joined</th>
+                      <th>{t('Name')}</th>
+                      <th>{t('Email')}</th>
+                      <th>{t('POP ID')}</th>
+                      <th>{t('Role')}</th>
+                      <th>{t('Joined')}</th>
                     </tr>
                   </thead>
                   <tbody>

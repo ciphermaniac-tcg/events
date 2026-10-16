@@ -10,7 +10,8 @@
 import { For, Index, Show } from 'solid-js';
 import { type LeagueNight, type NightException, STORE_LIMITS } from '../../../shared/accounts/stores';
 import { currencySymbol } from '../../lib/events/format';
-import { blankNight, clock, feeAmount, feeOf, WEEKDAYS } from '../../lib/tournament/stores';
+import { t, tc } from '../../lib/i18n';
+import { blankNight, clock, feeAmount, feeOf, WEEKDAY_INDEXES, weekdayName } from '../../lib/tournament/stores';
 import '../../styles/pages/tournament-store-forms.css';
 
 const replaceAt = <T,>(list: readonly T[], index: number, item: T) => list.map((old, i) => (i === index ? item : old));
@@ -32,7 +33,7 @@ function FeeInput(props: { fee: string; symbol: string | null; label: string; on
         style={props.symbol ? { 'padding-left': `calc(14px + ${props.symbol.length}ch)` } : undefined}
         aria-label={props.label}
         inputMode='decimal'
-        placeholder={props.symbol ? '0' : 'Fee'}
+        placeholder={props.symbol ? '0' : t('Fee')}
         maxLength={STORE_LIMITS.fee - (props.symbol?.length ?? 0)}
         value={feeAmount(props.fee, props.symbol)}
         onInput={e => props.onChange(feeOf(e.currentTarget.value, props.symbol))}
@@ -49,42 +50,47 @@ function NightRow(props: {
   onChange: (night: LeagueNight) => void;
   onRemove: () => void;
 }) {
-  const label = (what: string) => `League night ${props.n} ${what}`;
+  const n = () => ({ n: props.n });
   const set = (change: Partial<LeagueNight>) => props.onChange({ ...props.night, ...change });
   return (
     <li class='tm-night'>
       <select
         class='tm-select'
-        aria-label={label('day')}
+        aria-label={t('League night {n} day', n())}
         value={props.night.weekday}
         onChange={e => set({ weekday: Number(e.currentTarget.value) })}
       >
-        <For each={WEEKDAYS}>{(day, i) => <option value={i()}>{day}</option>}</For>
+        <For each={WEEKDAY_INDEXES}>{day => <option value={day}>{weekdayName(day)}</option>}</For>
       </select>
       <input
         class='tm-input tm-night-time'
         type='time'
         required
-        aria-label={label('start')}
+        aria-label={t('League night {n} start', n())}
         value={props.night.time}
         onInput={e => set({ time: e.currentTarget.value })}
       />
       <input
         class='tm-input'
-        aria-label={label('event name')}
-        placeholder={props.storeName.trim() ? `Listed as ${props.storeName.trim()}` : 'Event name'}
+        aria-label={t('League night {n} event name', n())}
+        placeholder={props.storeName.trim() ? t('Listed as {name}', { name: props.storeName.trim() }) : t('Event name')}
         maxLength={STORE_LIMITS.nightName}
         value={props.night.name}
         onInput={e => set({ name: e.currentTarget.value })}
       />
-      <FeeInput fee={props.night.fee} symbol={props.symbol} label={label('fee')} onChange={fee => set({ fee })} />
+      <FeeInput
+        fee={props.night.fee}
+        symbol={props.symbol}
+        label={t('League night {n} fee', n())}
+        onChange={fee => set({ fee })}
+      />
       <button
         type='button'
         class='btn btn-ghost tm-small'
-        aria-label={label('remove')}
+        aria-label={t('League night {n} remove', n())}
         onClick={() => props.onRemove()}
       >
-        Remove
+        {t('Remove')}
       </button>
     </li>
   );
@@ -127,7 +133,7 @@ export function WeeklyNights(props: {
           class='btn btn-secondary tm-small tm-night-add'
           onClick={() => props.onChange([...props.nights, blankNight(props.nights)])}
         >
-          Add a league night
+          {t('Add a league night')}
         </button>
       </Show>
     </div>
@@ -135,7 +141,7 @@ export function WeeklyNights(props: {
 }
 
 const nightLabel = (night: LeagueNight) =>
-  `${WEEKDAYS[night.weekday]} ${clock(night.time)}${night.name ? ` · ${night.name}` : ''}`;
+  `${weekdayName(night.weekday)} ${clock(night.time)}${night.name ? ` · ${night.name}` : ''}`;
 
 function ExceptionRow(props: {
   exception: NightException;
@@ -144,7 +150,7 @@ function ExceptionRow(props: {
   onChange: (exception: NightException) => void;
   onRemove: () => void;
 }) {
-  const label = (what: string) => `Date ${props.n} ${what}`;
+  const n = () => ({ n: props.n });
   const set = (change: Partial<NightException>) => props.onChange({ ...props.exception, ...change });
   const night = () => props.nights.find(item => item.id === props.exception.nightId);
   return (
@@ -153,35 +159,35 @@ function ExceptionRow(props: {
         class='tm-input tm-night-date'
         type='date'
         required
-        aria-label={label('day')}
+        aria-label={t('Date {n} day', n())}
         value={props.exception.date}
         onInput={e => set({ date: e.currentTarget.value })}
       />
       <select
         class='tm-select'
-        aria-label={label('night')}
+        aria-label={t('Date {n} night', n())}
         value={props.exception.nightId ?? ''}
         onChange={e => set({ nightId: e.currentTarget.value || null })}
       >
-        <option value=''>Every night that day</option>
+        <option value=''>{t('Every night that day')}</option>
         <For each={props.nights}>{item => <option value={item.id}>{nightLabel(item)}</option>}</For>
       </select>
       <span class='tm-night-change'>
         <select
           class='tm-select'
-          aria-label={label('change')}
+          aria-label={t('Date {n} change', n())}
           value={props.exception.time === null ? 'off' : 'moved'}
           onChange={e => set({ time: e.currentTarget.value === 'off' ? null : (night()?.time ?? '18:00') })}
         >
-          <option value='off'>Off</option>
-          <option value='moved'>Moved to</option>
+          <option value='off'>{tc('league night', 'Off')}</option>
+          <option value='moved'>{t('Moved to')}</option>
         </select>
         <Show when={props.exception.time !== null}>
           <input
             class='tm-input tm-night-time'
             type='time'
             required
-            aria-label={label('new start')}
+            aria-label={t('Date {n} new start', n())}
             value={props.exception.time ?? ''}
             onInput={e => set({ time: e.currentTarget.value })}
           />
@@ -189,8 +195,8 @@ function ExceptionRow(props: {
       </span>
       <input
         class='tm-input'
-        aria-label={label('note')}
-        placeholder='Why'
+        aria-label={t('Date {n} note', n())}
+        placeholder={t('Why')}
         maxLength={STORE_LIMITS.note}
         value={props.exception.note}
         onInput={e => set({ note: e.currentTarget.value })}
@@ -198,10 +204,10 @@ function ExceptionRow(props: {
       <button
         type='button'
         class='btn btn-ghost tm-small'
-        aria-label={label('remove')}
+        aria-label={t('Date {n} remove', n())}
         onClick={() => props.onRemove()}
       >
-        Remove
+        {t('Remove')}
       </button>
     </li>
   );
@@ -239,7 +245,7 @@ export function NightExceptions(props: {
             props.onChange([...props.exceptions, { date: props.today, nightId: null, time: null, note: '' }])
           }
         >
-          Add a date
+          {t('Add a date')}
         </button>
       </Show>
     </div>

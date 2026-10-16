@@ -3,6 +3,7 @@ import { Show } from 'solid-js';
 import { latestValue } from '../../lib/resource';
 import type { Tab } from './Dashboard';
 import { session } from './session';
+import { t } from '../../lib/i18n';
 
 /**
  * The way back above a tournament page's title: "Your events / <the page>",
@@ -14,8 +15,8 @@ export function Trail(props: { here: string; tab?: Tab | undefined }) {
   const href = () => (props.tab ? `/?tab=${props.tab}` : '/');
   return (
     <Show when={latestValue(session)?.user}>
-      <nav class='tm-trail' aria-label='Breadcrumb'>
-        <A href={href()}>Your events</A>
+      <nav class='tm-trail' aria-label={t('Breadcrumb')}>
+        <A href={href()}>{t('Your events')}</A>
         <span class='tm-trail-sep' aria-hidden='true'>
           /
         </span>

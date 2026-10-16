@@ -18,6 +18,7 @@ import {
   type Standing,
   standingEntries
 } from './staffRecords.js';
+import { msg } from '../i18n.js';
 
 /** The Pokémon TCG penalties, least to most severe (Play! Pokémon Penalty Guidelines, section 3). */
 export const PENALTIES = [
@@ -33,13 +34,13 @@ export const PENALTIES = [
 export type Penalty = (typeof PENALTIES)[number];
 
 export const PENALTY_LABELS: Record<Penalty, string> = {
-  caution: 'Caution',
-  warning: 'Warning',
-  'double-prize': 'Double Prize Card',
-  'quadruple-prize': 'Quadruple Prize Card',
-  'game-loss': 'Game Loss',
-  'match-loss': 'Match Loss',
-  disqualification: 'Disqualification'
+  caution: msg('Caution'),
+  warning: msg('Warning'),
+  'double-prize': msg('Double Prize Card'),
+  'quadruple-prize': msg('Quadruple Prize Card'),
+  'game-loss': msg('Game Loss'),
+  'match-loss': msg('Match Loss'),
+  disqualification: msg('Disqualification')
 };
 
 /** Penalties that end a game, a match or the player's event, which staff then apply to the results themselves. */
@@ -88,7 +89,7 @@ export const isPenalty = (value: unknown): value is Penalty => PENALTIES.include
 const readJudge = (value: Record<string, unknown>) => readStaffMember(value, 'judgeId', 'judgeName');
 
 const [whose, round, notes, edit] = commonChecks(
-  { player: 'Say whose penalty it is', edit: 'Not a penalty note to edit' },
+  { player: msg('Say whose penalty it is'), edit: msg('Not a penalty note to edit') },
   PENALTY_NOTE_LIMITS.notes
 );
 
@@ -96,8 +97,8 @@ const [whose, round, notes, edit] = commonChecks(
 const CHECKS: RecordCheck[] = [
   whose,
   round,
-  ['Choose a penalty', value => isPenalty(value.penalty)],
-  ['Say which judge gave it', value => readJudge(value) !== null],
+  [msg('Choose a penalty'), value => isPenalty(value.penalty)],
+  [msg('Say which judge gave it'), value => readJudge(value) !== null],
   notes,
   edit
 ];

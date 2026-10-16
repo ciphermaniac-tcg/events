@@ -11,6 +11,7 @@
 
 import { personOfRow, recordRoutes } from '../../../lib/tournaments/staffRecords.js';
 import { type PenaltyNoteEntry, readPenaltyNote } from '../../../../shared/tournament/penaltyNotes.js';
+import { msg } from '../../../../shared/i18n.js';
 
 export const { onRequestGet, onRequestPost, onRequestDelete } = recordRoutes({
   table: 'penalty_notes',
@@ -34,8 +35,8 @@ export const { onRequestGet, onRequestPost, onRequestDelete } = recordRoutes({
     removed: row.removed === 1
   }),
   words: {
-    changed: 'Someone changed this penalty note meanwhile. Look again and try once more.',
-    missing: 'No such penalty note',
-    notStaff: 'The judge must be on this event’s staff'
+    changed: msg('Someone changed this penalty note meanwhile. Look again and try once more.'),
+    missing: msg('No such penalty note'),
+    notStaff: msg('The judge must be on this event’s staff')
   }
 });

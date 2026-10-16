@@ -7,6 +7,7 @@
 import { For, Show } from 'solid-js';
 import { eventTimes } from '../../../shared/tournament/eventTime';
 import type { TournamentSettings } from '../../../shared/tournament/view';
+import { t } from '../../lib/i18n';
 
 type Shown = Pick<TournamentSettings, 'timeZone' | 'checkInAt' | 'startsAt' | 'venue' | 'address'>;
 
@@ -14,8 +15,8 @@ export function EventLogistics(props: { settings: Shown }) {
   const times = () =>
     (
       [
-        ['Check-in', props.settings.checkInAt],
-        ['Starts', props.settings.startsAt]
+        [t('Check-in'), props.settings.checkInAt],
+        [t('Starts'), props.settings.startsAt]
       ] as const
     ).flatMap(([label, local]) => (local ? [{ label, ...eventTimes(local, props.settings.timeZone) }] : []));
   const place = () => props.settings.venue || props.settings.address;
@@ -27,7 +28,7 @@ export function EventLogistics(props: { settings: Shown }) {
         <tbody>
           <Show when={place()}>
             <tr>
-              <th scope='row'>Venue</th>
+              <th scope='row'>{t('Venue')}</th>
               <td>
                 {props.settings.venue}
                 <Show when={props.settings.address}>
@@ -42,7 +43,9 @@ export function EventLogistics(props: { settings: Shown }) {
                 <th scope='row'>{time.label}</th>
                 <td>
                   {time.event}
-                  <Show when={time.yours}>{yours => <small class='muted'>Your time: {yours()}</small>}</Show>
+                  <Show when={time.yours}>
+                    {yours => <small class='muted'>{t('Your time: {time}', { time: yours() })}</small>}
+                  </Show>
                 </td>
               </tr>
             )}

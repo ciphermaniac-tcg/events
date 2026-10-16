@@ -29,8 +29,9 @@ import {
 } from '../../../../shared/tournament/corrections.js';
 import { isTomDateTime, tomDateTime } from '../../../../shared/tournament/divisions.js';
 import type { StaffAccount } from '../../../../shared/tournament/staffRecords.js';
+import { msg } from '../../../../shared/i18n.js';
 
-const CHANGED = 'The event changed since you looked. Look again and try once more.';
+const CHANGED = msg('The event changed since you looked. Look again and try once more.');
 
 /** As what the signed-in account approves a correction: the head judge, or the organizer; null for other staff. */
 function approverRole(access: Pick<Access, 'role' | 'user'>, headJudge: StaffAccount | null): ApproverRole | null {

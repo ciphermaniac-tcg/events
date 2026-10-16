@@ -16,6 +16,7 @@ import type { PodCategory, Tournament } from '../../../shared/tournament/types.j
 import { applyPending, isSanctioned, prunePending, withPending } from '../../../shared/tournament/view.js';
 import { commandContext } from './commandContext.js';
 import { type Changes, type TournamentRow } from './store.js';
+import { msg } from '../../../shared/i18n.js';
 
 /**
  * A result for TOM to take in. Only an open match takes one: TOM's own result
@@ -40,7 +41,7 @@ const TOM_COMMANDS: ReadonlySet<Command['type']> = new Set([
 ]);
 
 /** Why a finished event takes no command: its results stand until the organizer reopens it. */
-export const FINISHED_REFUSAL = 'The event has ended; reopen it to make changes';
+export const FINISHED_REFUSAL = msg('The event has ended; reopen it to make changes');
 
 /**
  * What a finished event still takes: its name and round lengths, which change
@@ -59,7 +60,7 @@ function commandRefusal(row: TournamentRow, command: Command): string | null {
     return FINISHED_REFUSAL;
   }
   if (row.mode === 'tom') {
-    return TOM_COMMANDS.has(command.type) ? null : 'Please make this change in TOM.';
+    return TOM_COMMANDS.has(command.type) ? null : msg('Please make this change in TOM.');
   }
   // On the site, a round whose records locked stays locked, even if deleting the rounds after it made it the
   // latest again (TOM keeps its own events' records).
@@ -104,7 +105,7 @@ export function tomNextRound(row: TournamentRow, pod: PodCategory, localTime: un
     return FINISHED_REFUSAL;
   }
   if (!row.tournament.pods.find(p => p.category === pod)?.rounds.length) {
-    return 'Pair round 1 in TOM';
+    return msg('Pair round 1 in TOM');
   }
   const tournament = applyPending(row.tournament, row.pending);
   const context = commandContext(row.tournament, localTime, isSanctioned(row));

@@ -186,3 +186,10 @@ test('an incomplete elimination bracket retains a player in either seat', () => 
     assert.deepEqual([...seats].sort(), [...seeds].sort());
   }
 });
+
+test('an empty flight cannot pair a round', () => {
+  assert.throws(
+    () => pairSwiss([], noHistory, seededRandom(1)),
+    (error: unknown) => error instanceof PairingError && error.message === 'An empty flight cannot pair a round'
+  );
+});

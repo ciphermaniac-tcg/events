@@ -1,21 +1,26 @@
 import { createMemo, For, Show } from 'solid-js';
 import type { Pod } from '../../../shared/tournament/types';
 import type { PendingResult } from '../../../shared/tournament/view';
+import { msg, t } from '../../lib/i18n';
 import { Clock } from './Clock';
 import { type DivisionClock, divisionClocks } from './clockOrder';
 import { createNow } from './now';
 
-const WORDS: Partial<Record<DivisionClock['state'], string>> = { waiting: 'Not started', done: 'Round complete' };
+const WORDS: Partial<Record<DivisionClock['state'], string>> = {
+  waiting: msg('Not started'),
+  done: msg('Round complete')
+};
 
 function Time(props: { clock: DivisionClock; class: string }) {
   return (
     <Show when={WORDS[props.clock.state]} fallback={<Clock round={props.clock.round} class={props.class} />}>
-      {words => <span class={`${props.class} is-words`}>{words()}</span>}
+      {words => <span class={`${props.class} is-words`}>{t(words())}</span>}
     </Show>
   );
 }
 
-const named = (clock: DivisionClock, label = clock.label) => (clock.state === 'paused' ? `${label} · Paused` : label);
+const named = (clock: DivisionClock, label = clock.label) =>
+  clock.state === 'paused' ? t('{label} · Paused', { label }) : label;
 
 /**
  * The clock across the top of the screen. One division keeps the one large

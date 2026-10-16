@@ -15,7 +15,7 @@ export function awaitingMark(state: SeatState) {
     return { mark: state.mark, pending: state.unconfirmed, problem: false };
   }
   const mark = state.tag
-    ? (ownMarks[state.tag.text] ?? '')
-    : (state.opponentTag && !state.opponentTag.problem && oppositeMarks[state.opponentTag.text]) || '';
+    ? (ownMarks[state.tag.word] ?? '')
+    : (state.opponentTag && !state.opponentTag.problem && oppositeMarks[state.opponentTag.word]) || '';
   return { mark, pending: Boolean(mark), problem: Boolean(mark && state.tag?.problem) };
 }

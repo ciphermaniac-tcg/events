@@ -7,6 +7,7 @@
 
 import { birthYear } from './divisions.js';
 import type { Player, Tournament } from './types.js';
+import { msg } from '../i18n.js';
 
 /** What a player types to say who they are; a sanctioned event asks the birth year with the Player ID. */
 export interface PlayerClaim {
@@ -30,8 +31,9 @@ export function birthYearFits(recorded: string, claimed: string | undefined): bo
 }
 
 /** One answer for a wrong ID, a wrong year or no year on record, so none of them can be told apart. */
-export const NOT_FOUND_BY_ID =
-  'No player with that Player ID and birth year is in this event. Ask staff if yours is right.';
+export const NOT_FOUND_BY_ID = msg(
+  'No player with that Player ID and birth year is in this event. Ask staff if yours is right.'
+);
 
 export type Found = { ok: true; id: string } | { ok: false; error: string; ambiguous?: boolean };
 
@@ -53,14 +55,14 @@ export function fullNameKey(person: { firstName: string; lastName: string }): st
 function byName(tournament: Tournament, claim: PlayerClaim): Found {
   const sameLast = named(tournament.players, 'lastName', claim.lastName ?? '');
   if (sameLast.length === 0) {
-    return { ok: false, error: 'No player by that last name is in this event' };
+    return { ok: false, error: msg('No player by that last name is in this event') };
   }
   const found = sameLast.length === 1 ? sameLast : named(sameLast, 'firstName', claim.firstName ?? '');
   const [player] = found;
   if (found.length === 1 && player) {
     return { ok: true, id: player.id };
   }
-  return { ok: false, error: 'More than one player has that last name; add your first name', ambiguous: true };
+  return { ok: false, error: msg('More than one player has that last name; add your first name'), ambiguous: true };
 }
 
 export function findPlayer(tournament: Tournament, sanctioned: boolean, claim: PlayerClaim): Found {

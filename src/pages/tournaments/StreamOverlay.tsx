@@ -10,7 +10,8 @@ import { createMemo, onCleanup, onMount, Show } from 'solid-js';
 import type { Match, PodCategory, Round } from '../../../shared/tournament/types';
 import type { TournamentView } from '../../../shared/tournament/view';
 import { cutSeeds } from '../../lib/tournament/bracket';
-import { namesById, recordsSoFar, roundLabel, seatMark, shownOutcome } from '../../lib/tournament/present';
+import { markText, namesById, recordsSoFar, roundLabel, seatMark, shownOutcome } from '../../lib/tournament/present';
+import { msg, t } from '../../lib/i18n';
 import { streamDecks, streamTable } from '../../lib/tournament/spectate';
 import { withSwiss } from '../../../shared/tournament/rounds';
 import type { LiveData } from '../../lib/tournament/liveData';
@@ -19,7 +20,7 @@ import { Clock } from './Clock';
 import { DeckIcons } from './DeckIcons';
 import '../../styles/pages/tournament-stream.css';
 
-const MARK_WORDS: Record<string, string> = { W: 'Won', L: 'Lost', T: 'Tie' };
+const MARK_WORDS: Record<string, string> = { W: msg('Won'), L: msg('Lost'), T: msg('Tie') };
 
 function StreamSeat(props: {
   name: string;
@@ -44,8 +45,8 @@ function StreamSeat(props: {
       </div>
       <Show when={props.mark}>
         {mark => (
-          <span class='tm-stream-mark' aria-label={MARK_WORDS[mark()]}>
-            {mark()}
+          <span class='tm-stream-mark' aria-label={t(MARK_WORDS[mark()] ?? mark())}>
+            {markText(mark())}
           </span>
         )}
       </Show>
@@ -74,7 +75,7 @@ export function StreamOverlay(props: {
         when={shown()}
         fallback={
           <div class='tm-stream-bar is-empty'>
-            <span>Table {props.table} is not in play</span>
+            <span>{t('Table {n} is not in play', { n: props.table })}</span>
           </div>
         }
       >
@@ -89,7 +90,7 @@ export function StreamOverlay(props: {
           const mark = (seat: 1 | 2) => (table().match.p2 === null ? '' : seatMark(outcome(), seat));
           const seat = (id: string | null, side: 'left' | 'right') => (
             <StreamSeat
-              name={id ? (names().get(id) ?? id) : 'Bye'}
+              name={id ? (names().get(id) ?? id) : t('Bye')}
               deck={id ? decks()[id] : undefined}
               record={id ? (records().get(id) ?? '') : ''}
               seed={id ? seeds().get(id) : undefined}
@@ -102,7 +103,7 @@ export function StreamOverlay(props: {
               {seat(table().match.p1, 'left')}
               <div class='tm-stream-mid'>
                 <span class='tm-stream-round'>{roundLabel(table().round, table().pod)}</span>
-                <span class='tm-stream-table num'>Table {props.table}</span>
+                <span class='tm-stream-table num'>{t('Table {n}', { n: props.table })}</span>
                 <Show when={!props.view.settings.finished}>
                   <Clock round={table().round as Round} class='tm-stream-clock' />
                 </Show>

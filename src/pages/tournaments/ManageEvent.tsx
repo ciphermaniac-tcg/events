@@ -32,6 +32,7 @@ import { eventTypeOf } from '../../../shared/tournament/structure';
 import type { Pod, PodCategory } from '../../../shared/tournament/types';
 import { Segmented } from '../../components/Segmented';
 import { LockedTab, TabPanel, Tabs } from '../../components/Tabs';
+import { msg, t, tn, tx } from '../../lib/i18n';
 import { errorText, joinStaff, type Manage } from '../../lib/tournament/api';
 import {
   type DivisionCut,
@@ -82,16 +83,16 @@ type Tab = 'round' | 'players' | 'standings' | 'decklists' | 'penalties' | 'even
 
 type TabOption = { value: Tab; label: string; locked?: string };
 
-const PAIRINGS_LOCKED = 'Pairings open once round 1 starts.';
-const PENALTIES_LOCKED = 'Penalty notes open once round 1 is paired.';
+const PAIRINGS_LOCKED = msg('Pairings open once round 1 starts.');
+const PENALTIES_LOCKED = msg('Penalty notes open once round 1 is paired.');
 
 const TABS: TabOption[] = [
-  { value: 'round', label: 'Pairings' },
-  { value: 'players', label: 'Players' },
-  { value: 'standings', label: 'Standings' },
-  { value: 'decklists', label: 'Decklists' },
-  { value: 'penalties', label: 'Penalties' },
-  { value: 'event', label: 'Settings' }
+  { value: 'round', label: msg('Pairings') },
+  { value: 'players', label: msg('Players') },
+  { value: 'standings', label: msg('Standings') },
+  { value: 'decklists', label: msg('Decklists') },
+  { value: 'penalties', label: msg('Penalties') },
+  { value: 'event', label: msg('Settings') }
 ];
 
 /** Other staff change the event too; the console looks again this often while visible. */
@@ -103,10 +104,10 @@ const NO_PROGRESS: PodProgress = { round: undefined, tables: 0, open: 0, champio
 /** What a TOM event's head adds to the round: whether TOM has every result entered here. */
 function tomPart(tom: TomLink): string {
   if (tom.locked()) {
-    return 'reconnect the .tdf to enter results';
+    return t('reconnect the .tdf to enter results');
   }
   const n = tom.pending();
-  return n ? `${n} result${n === 1 ? '' : 's'} to write` : 'TOM has every result';
+  return n ? tn(n, '{n} result to write', '{n} results to write') : t('TOM has every result');
 }
 
 /**
@@ -153,7 +154,7 @@ function PairButton(props: {
 }
 
 /** What the disabled step says while the round plays, when it is not pairing. */
-const WAITING_WORDS: Partial<Record<RoundEnd, string>> = { cut: 'Start top cut', end: 'End event' };
+const WAITING_WORDS: Partial<Record<RoundEnd, string>> = { cut: msg('Start top cut'), end: msg('End event') };
 
 /**
  * The end of a Swiss round: the step the plan calls for as one button, the
@@ -182,7 +183,7 @@ function RoundEndStep(props: {
       when={props.ready}
       fallback={
         <button type='button' class='btn btn-primary is-waiting' disabled>
-          {WAITING_WORDS[props.step] ?? props.label}
+          {t(WAITING_WORDS[props.step] ?? props.label)}
         </button>
       }
     >
@@ -229,10 +230,13 @@ function Hero(props: { state: ManageState; manage: Manage; pod: Pod | undefined;
     const { tom } = props;
     const extra = tom
       ? [tomPart(tom)]
-      : [...(waiting() ? [`${waiting()} not seated`] : []), ...(swissOver() ? ['top cuts under way'] : [])];
+      : [
+          ...(waiting() ? [t('{n} not seated', { n: waiting() })] : []),
+          ...(swissOver() ? [t('top cuts under way')] : [])
+        ];
     const rounds = tom ? null : (plan()?.rounds ?? null);
     // A console that cannot reach the site says so, rather than showing an old round as the current one.
-    const stale = props.state.loadError() ? ['not updating'] : [];
+    const stale = props.state.loadError() ? [t('not updating')] : [];
     return [roundStatus(progress(), finished(), rounds), ...extra, ...stale].join(' · ');
   };
   /** The round whose clock the head runs: the pod's latest, until it is finished or crowns a champion. */
@@ -263,8 +267,11 @@ function Hero(props: { state: ManageState; manage: Manage; pod: Pod | undefined;
     }
     return s.kind === 'pair' && progress().round?.kind === 'swiss' ? { ...s, end: 'pair' as RoundEnd } : null;
   };
-  const firstBlocked = () => pairStep()?.label === 'Pair round 1' && active() < 2;
-  const reason = () => (firstBlocked() ? 'Add players to pair' : (pairStep() ?? decideStep() ?? closeStep())?.reason);
+  const firstBlocked = () => pairStep() !== null && !progress().round && active() < 2;
+  const reason = () =>
+    firstBlocked() ? t('Add players to pair') : (pairStep() ?? decideStep() ?? closeStep())?.reason;
+  // The open tables need no saying twice: the lead already counts them.
+  const openTablesOnly = () => reason() === tn(progress().open, '{n} table open', '{n} tables open');
   const action = (
     <Switch>
       <Match when={props.tom}>
@@ -296,7 +303,7 @@ function Hero(props: { state: ManageState; manage: Manage; pod: Pod | undefined;
             when={s().ready}
             fallback={
               <button type='button' class='btn btn-primary is-waiting' disabled>
-                End event
+                {t('End event')}
               </button>
             }
           >
@@ -324,20 +331,20 @@ function Hero(props: { state: ManageState; manage: Manage; pod: Pod | undefined;
                 <span class='dot'>·</span>
               </span>
               <span class='tm-meta-part'>
-                {props.manage.mode === 'tom' ? 'Run in TOM' : 'Swiss on this site'}
+                {props.manage.mode === 'tom' ? t('Run in TOM') : t('Swiss on this site')}
                 <span class='dot'>·</span>
               </span>
               <span class='tm-meta-part'>
-                {props.manage.tournament.players.length} players
+                {tn(props.manage.tournament.players.length, '{n} player', '{n} players')}
                 <span class='dot'>·</span>
               </span>
               <span class='tm-meta-part'>
-                <A href={`/t/${props.manage.code}`}>Public page</A>
+                <A href={`/t/${props.manage.code}`}>{t('Public page')}</A>
                 <span class='dot'>·</span>
               </span>
               {/* Its own tab, since it goes on the projector while the console keeps running. */}
               <a href={`/t/${props.manage.code}?screen=1`} target='_blank' rel='noopener'>
-                Big screen
+                {t('Big screen')}
               </a>
             </p>
           </div>
@@ -349,7 +356,7 @@ function Hero(props: { state: ManageState; manage: Manage; pod: Pod | undefined;
           <span class='tm-grow' />
           <div class='tm-next'>
             {action}
-            <Show when={reason() && !/^\d+ tables? open$/.test(reason() ?? '')}>
+            <Show when={reason() && !openTablesOnly()}>
               <span class='tm-next-reason'>{reason()}</span>
             </Show>
           </div>
@@ -399,26 +406,26 @@ const TAB_ICONS: Record<Tab, JSX.Element> = {
 /** A phone's tabs, in a bar along the bottom of the screen as the dashboard's are; the strip above serves wider screens. */
 function TabBar(props: { tabs: TabOption[]; selected: Tab; onSelect: (tab: Tab) => void }) {
   return (
-    <nav class='tm-console-bar' aria-label='Event sections'>
+    <nav class='tm-console-bar' aria-label={t('Event sections')}>
       <For each={props.tabs}>
-        {t => (
+        {option => (
           <Show
-            when={t.locked}
+            when={option.locked}
             fallback={
               <button
                 type='button'
-                aria-current={t.value === props.selected ? 'page' : undefined}
-                onClick={() => props.onSelect(t.value)}
+                aria-current={option.value === props.selected ? 'page' : undefined}
+                onClick={() => props.onSelect(option.value)}
               >
-                {TAB_ICONS[t.value]}
-                <span>{t.label}</span>
+                {TAB_ICONS[option.value]}
+                <span>{option.label}</span>
               </button>
             }
           >
             {hint => (
               <LockedTab hint={hint()}>
-                {TAB_ICONS[t.value]}
-                <span>{t.label}</span>
+                {TAB_ICONS[option.value]}
+                <span>{option.label}</span>
               </LockedTab>
             )}
           </Show>
@@ -432,9 +439,9 @@ function TabBar(props: { tabs: TabOption[]; selected: Tab; onSelect: (tab: Tab) 
 const hasStarted = (manage: Manage) => manage.tournament.pods.some(p => latestRound(p) !== undefined);
 
 /** The Players tab counts the requests waiting on staff, so one is seen from any tab. */
-function withRequests(t: TabOption, manage: Manage): TabOption {
+function withRequests(option: TabOption, manage: Manage): TabOption {
   const open = (manage.requests ?? []).filter(request => request.status === 'open').length;
-  return t.value === 'players' && open > 0 ? { ...t, label: `${t.label} · ${open}` } : t;
+  return option.value === 'players' && open > 0 ? { ...option, label: `${option.label} · ${open}` } : option;
 }
 
 /** Until round 1 is paired, Pairings has nothing to show and a penalty has no round to be noted in. */
@@ -442,9 +449,10 @@ const UNTIL_STARTED: Partial<Record<Tab, string>> = { round: PAIRINGS_LOCKED, pe
 
 /** The console's tabs: Decklists only while the event takes them, Pairings and Penalties locked until round 1. */
 const tabsFor = (manage: Manage): TabOption[] =>
-  TABS.filter(t => t.value !== 'decklists' || manage.settings.decklists !== 'off').map(t => {
-    const locked = hasStarted(manage) ? undefined : UNTIL_STARTED[t.value];
-    return withRequests(locked ? { ...t, locked } : t, manage);
+  TABS.filter(option => option.value !== 'decklists' || manage.settings.decklists !== 'off').map(option => {
+    const locked = hasStarted(manage) ? undefined : UNTIL_STARTED[option.value];
+    const shown = { ...option, label: t(option.label) };
+    return withRequests(locked ? { ...shown, locked: t(locked) } : shown, manage);
   });
 
 /** The tab the console opens on: Pairings once the event is running, Players before it. */
@@ -455,7 +463,9 @@ function Console(props: { state: ReturnType<typeof createManage>; manage: Manage
   const [params, setParams] = useSearchParams<{ tab?: string }>();
   const tabs = () => tabsFor(props.manage);
   const tab = (): Tab =>
-    tabs().some(t => t.value === params.tab && !t.locked) ? (params.tab as Tab) : defaultTab(props.manage);
+    tabs().some(option => option.value === params.tab && !option.locked)
+      ? (params.tab as Tab)
+      : defaultTab(props.manage);
   const setTab = (value: Tab) =>
     setParams({ tab: value === defaultTab(props.manage) ? undefined : value }, { replace: true });
   const [podChoice, setPodChoice] = createSignal<PodCategory | null>(null);
@@ -478,7 +488,7 @@ function Console(props: { state: ReturnType<typeof createManage>; manage: Manage
   return (
     <div class='tm-page tm-console' classList={{ 'is-pairings': tab() === 'round' }}>
       <Hero state={props.state} manage={props.manage} pod={pod()} tom={tom} />
-      <Tabs id='console' options={tabs()} selected={tab()} onSelect={setTab} ariaLabel='Event sections' />
+      <Tabs id='console' options={tabs()} selected={tab()} onSelect={setTab} ariaLabel={t('Event sections')} />
       <TabBar tabs={tabs()} selected={tab()} onSelect={setTab} />
       <Show when={tom}>{link => <TomStrip link={link()} />}</Show>
       <Show when={pods().length > 1 && (tab() === 'round' || tab() === 'standings')}>
@@ -486,13 +496,13 @@ function Console(props: { state: ReturnType<typeof createManage>; manage: Manage
           options={pods().map(p => ({ value: p.category, label: podLabel(p) }))}
           selected={pod()?.category ?? 'masters'}
           onSelect={setPodChoice}
-          ariaLabel='Division'
+          ariaLabel={t('Division')}
         />
       </Show>
       <ErrorLine message={props.state.error()} />
       <TabPanel tabs='console' selected={tab()}>
         <Show when={tab() === 'round'}>
-          <Show when={pod()} fallback={<p class='muted'>Add players to start pairing.</p>}>
+          <Show when={pod()} fallback={<p class='muted'>{t('Add players to start pairing.')}</p>}>
             {p => <RoundPanel state={props.state} manage={props.manage} pod={p()} locked={tom?.locked() ?? false} />}
           </Show>
         </Show>
@@ -537,7 +547,10 @@ function Refused(props: { message: string | undefined; name: string | undefined 
     <Show when={props.message}>
       <ErrorLine message={props.message} />
       <p class='muted'>
-        Signed in as {props.name}. <A href='/settings'>Switch account in Settings</A>
+        {tx('Signed in as {name}. {link}', {
+          name: props.name,
+          link: <A href='/settings'>{t('Switch account in Settings')}</A>
+        })}
       </p>
     </Show>
   );
@@ -603,15 +616,15 @@ export function ManageEvent(props: { code: string }) {
                   fallback={
                     <p class='muted'>
                       {state.loadError()?.status === 0
-                        ? 'Connection unavailable. Try again.'
-                        : state.loadError()?.message}
+                        ? t('Connection unavailable. Try again.')
+                        : t(state.loadError()?.message ?? '')}
                     </p>
                   }
                 >
-                  <Refused message={state.loadError()?.message} name={user()?.name} />
+                  <Refused message={t(state.loadError()?.message ?? '')} name={user()?.name} />
                 </Show>
                 <button type='button' class='btn btn-secondary' onClick={() => void state.load()}>
-                  Retry
+                  {t('Retry')}
                 </button>
               </Show>
             }

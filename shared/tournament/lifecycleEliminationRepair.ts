@@ -28,6 +28,7 @@ import {
   type Round,
   type Tournament
 } from './types.js';
+import { msg } from '../i18n.js';
 
 interface Repaired {
   pod: Pod;
@@ -38,7 +39,7 @@ interface Repaired {
 function checkedRepair(round: Round | undefined, ctx: LifecycleContext): Round {
   const stage = round?.stage ?? 4;
   if (!round || (ctx.terminalPairing ? [4, 5].includes(stage) : stage >= 4)) {
-    throw new PairingError('Only a paired, not-started elimination round can be repaired');
+    throw new PairingError(msg('Only a paired, not-started elimination round can be repaired'));
   }
   return round;
 }

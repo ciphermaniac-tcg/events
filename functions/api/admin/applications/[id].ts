@@ -26,6 +26,7 @@ import { type Context, param } from '../../../lib/auth/env.js';
 import { firstRow, rowsChanged } from '../../../lib/d1.js';
 import { privateJson } from '../../../lib/tournaments/access.js';
 import type { D1Like, D1Statement } from '../../../lib/types.js';
+import { msg, msgf } from '../../../../shared/i18n.js';
 
 interface Decision {
   approve: boolean;
@@ -37,12 +38,12 @@ interface Decision {
 function readDecision(body: Record<string, unknown> | null): Decision | string {
   const note = typeof body?.note === 'string' ? body.note.trim() : '';
   if (note.length > NOTE_MAX) {
-    return `Up to ${NOTE_MAX} characters`;
+    return msgf('Up to {limit} characters', { limit: NOTE_MAX });
   }
   const { decision } = body ?? {};
   return decision === 'approve' || decision === 'reject'
     ? { approve: decision === 'approve', note: note || null }
-    : 'Approve or reject';
+    : msg('Approve or reject');
 }
 
 /**

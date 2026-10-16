@@ -43,6 +43,7 @@ import {
 } from '../../lib/tournament/tomLink';
 import { fileTicks } from '../../lib/tournament/fileTicks';
 import { downloadBlob } from '../../lib/download';
+import { intlLocale, msg, t, tn } from '../../lib/i18n';
 import { ErrorLine } from './Field';
 
 /** 'none' before a file is linked (or on a browser that cannot hold one), 'reconnect' when permission lapsed. */
@@ -57,16 +58,22 @@ export type FileWrite = { kind: 'results' } | { kind: 'pair'; pod: PodCategory; 
 
 const RESULTS: FileWrite = { kind: 'results' };
 
+const STEP_FAILURES = {
+  read: msg('Could not read the .tdf: {error}'),
+  parse: msg('Could not parse the .tdf: {error}'),
+  send: msg('Could not send the .tdf: {error}')
+};
+
 /**
  * Runs one step of following the file. A failure names the step, so the strip
  * says whether the file could not be read, did not parse, or was not taken,
  * and keeps what failed as its cause.
  */
-async function during<T>(step: string, run: () => Promise<T>): Promise<T> {
+async function during<T>(step: keyof typeof STEP_FAILURES, run: () => Promise<T>): Promise<T> {
   try {
     return await run();
   } catch (err) {
-    throw new Error(`Could not ${step} the .tdf: ${errorText(err)}`, { cause: err });
+    throw new Error(t(STEP_FAILURES[step], { error: errorText(err) }), { cause: err });
   }
 }
 
@@ -273,7 +280,7 @@ export function createTomLink(props: { manage: () => Manage; onSynced: (answer?:
         return;
       }
       if (write.kind === 'pair') {
-        throw new Error('Allow this page to save the .tdf to pair the round here');
+        throw new Error(msg('Allow this page to save the .tdf to pair the round here'));
       }
       const text = exported(props.manage().tournament);
       downloadBlob(new Blob([text], { type: 'application/xml' }), tdfFilename(props.manage().tournament));
@@ -319,21 +326,19 @@ export function createTomLink(props: { manage: () => Manage; onSynced: (answer?:
 
 export type TomLink = ReturnType<typeof createTomLink>;
 
-const results = (n: number) => `${n} result${n === 1 ? '' : 's'}`;
-
 const pairLabel = (write: FileWrite) => (write.kind === 'pair' ? write.label : null);
 
 const MODES: Record<LinkState, string> = {
-  none: 'Manual snapshot',
-  watching: 'Automatically following',
-  reconnect: 'Following paused'
+  none: msg('Manual snapshot'),
+  watching: msg('Automatically following'),
+  reconnect: msg('Following paused')
 };
 
 /** The file's name and where it stands, as one data-built line. */
 function FileLine(props: { link: TomLink }) {
   return (
     <span class='tm-file-line'>
-      <strong>{MODES[props.link.state()]}</strong>
+      <strong>{t(MODES[props.link.state()])}</strong>
       <Show when={props.link.fileName()}>
         <span> · {props.link.fileName()}</span>
       </Show>
@@ -342,18 +347,23 @@ function FileLine(props: { link: TomLink }) {
         {at => (
           <span class='muted'>
             {' '}
-            · Last imported {new Date(at()).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'medium' })}
+            ·{' '}
+            {t('Last imported {time}', {
+              time: new Date(at()).toLocaleString(intlLocale(), { dateStyle: 'medium', timeStyle: 'medium' })
+            })}
           </span>
         )}
       </Show>
       <Show when={!canLinkFiles()}>
-        <span class='muted'> · This browser cannot follow files</span>
+        <span class='muted'> · {t('This browser cannot follow files')}</span>
       </Show>
       <Show when={props.link.state() === 'reconnect'}>
-        <span class='muted'> · Reconnect to read it and enter results</span>
+        <span class='muted'> · {t('Reconnect to read it and enter results')}</span>
       </Show>
       <span class='muted'> · </span>
-      {props.link.pending() ? `${results(props.link.pending())} not in TOM yet` : 'TOM has every result'}
+      {props.link.pending()
+        ? tn(props.link.pending(), '{n} result not in TOM yet', '{n} results not in TOM yet')
+        : t('TOM has every result')}
     </span>
   );
 }
@@ -385,11 +395,11 @@ function More(props: { link: TomLink }) {
   return (
     <span class='tm-more'>
       <button type='button' class='btn btn-ghost tm-small' aria-expanded={open()} onClick={() => setOpen(!open())}>
-        More
+        {t('More')}
       </button>
       <Show when={open()}>
         <span class='tm-menu' role='menu'>
-          <UploadButton link={props.link} label='Upload a .tdf instead' class='tm-menu-item' />
+          <UploadButton link={props.link} label={t('Upload a .tdf instead')} class='tm-menu-item' />
           <button
             type='button'
             class='tm-menu-item'
@@ -399,7 +409,7 @@ function More(props: { link: TomLink }) {
               void props.link.unlink();
             }}
           >
-            Unlink file
+            {t('Unlink file')}
           </button>
         </span>
       </Show>
@@ -416,46 +426,48 @@ function More(props: { link: TomLink }) {
 export function TomStrip(props: { link: TomLink }) {
   const link = () => props.link;
   return (
-    <section class='tm-strip tm-tom-strip' aria-label='TOM file'>
+    <section class='tm-strip tm-tom-strip' aria-label={t('TOM file')}>
       <FileLine link={link()} />
       <span class='tm-grow' />
       <Show when={link().state() === 'watching'}>
         <button type='button' class='btn btn-secondary tm-small' onClick={() => void link().refresh()}>
-          Refresh .tdf
+          {t('Refresh .tdf')}
         </button>
         <More link={link()} />
       </Show>
       <Show when={link().state() === 'none'}>
         <Show when={canLinkFiles()}>
           <button type='button' class='btn btn-secondary tm-small' onClick={() => void link().link()}>
-            Link .tdf file
+            {t('Link .tdf file')}
           </button>
         </Show>
-        <UploadButton link={link()} label='Upload .tdf' class='btn btn-secondary tm-small' />
+        <UploadButton link={link()} label={t('Upload .tdf')} class='btn btn-secondary tm-small' />
       </Show>
       <Show when={link().askingWrite()}>
         {write => (
           <span
             class='tm-ask tm-ask-line'
             role='group'
-            aria-label={write().kind === 'pair' ? 'Pair into the .tdf' : 'Write results to the .tdf'}
+            aria-label={write().kind === 'pair' ? t('Pair into the .tdf') : t('Write results to the .tdf')}
             onKeyDown={event => {
               if (event.key === 'Escape') {
                 link().keepWrite();
               }
             }}
           >
-            <span class='tm-confirm-label'>Close the event in TOM before writing, then reopen the file in TOM.</span>
+            <span class='tm-confirm-label'>
+              {t('Close the event in TOM before writing, then reopen the file in TOM.')}
+            </span>
             <button
               type='button'
               class='btn btn-primary tm-small'
               ref={el => queueMicrotask(() => el.focus())}
               onClick={() => void link().writeBack(write())}
             >
-              {pairLabel(write()) ?? `Write ${results(link().pending())}`}
+              {pairLabel(write()) ?? tn(link().pending(), 'Write {n} result', 'Write {n} results')}
             </button>
             <button type='button' class='btn btn-ghost tm-small' onClick={() => link().keepWrite()}>
-              Keep
+              {t('Keep')}
             </button>
           </span>
         )}
@@ -480,7 +492,7 @@ export function TomNextStep(props: { link: TomLink; pair: FileWrite | null; plan
       when={link().state() !== 'reconnect'}
       fallback={
         <button type='button' class='btn btn-primary' onClick={() => void link().reconnect()}>
-          Reconnect {link().fileName()}
+          {t('Reconnect {file}', { file: link().fileName() })}
         </button>
       }
     >
@@ -501,7 +513,7 @@ export function TomNextStep(props: { link: TomLink; pair: FileWrite | null; plan
           fallback={
             <Show when={!pair() && link().state() === 'watching'}>
               <button type='button' class='btn btn-secondary' onClick={() => void link().refresh()}>
-                Refresh .tdf
+                {t('Refresh .tdf')}
               </button>
             </Show>
           }
@@ -511,7 +523,9 @@ export function TomNextStep(props: { link: TomLink; pair: FileWrite | null; plan
             class={pair() && props.planned ? 'btn btn-secondary' : 'btn btn-primary'}
             onClick={() => void link().write()}
           >
-            {link().state() === 'watching' ? 'Write' : 'Download'} {results(link().pending())} to .tdf
+            {link().state() === 'watching'
+              ? tn(link().pending(), 'Write {n} result to .tdf', 'Write {n} results to .tdf')
+              : tn(link().pending(), 'Download {n} result to .tdf', 'Download {n} results to .tdf')}
           </button>
         </Show>
       </span>

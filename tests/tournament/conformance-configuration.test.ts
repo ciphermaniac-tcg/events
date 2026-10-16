@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { applyLifecycleOperation } from '../../shared/tournament/lifecycle.ts';
+import type { LifecycleOperation } from '../../shared/tournament/lifecycleTypes.ts';
+import type { Tournament } from '../../shared/tournament/types.ts';
 import { context, generatedEvent, operated } from './conformance-generated.ts';
 
 test('division cut choices follow their own attendance and odd single-division pods allot whole tables', () => {
@@ -150,4 +153,58 @@ test('V17-2: an already selected cut preserves the wizard control’s initial op
   const elimination = generatedEvent(12, ctx, { type: 1 });
   const preset = { ...elimination, settings: { ...elimination.settings!, mode: 'TCG1DAY' as const } };
   assert.equal(operated(preset, operation, ctx).pods[0]!.playoff3rd4th, true);
+});
+
+const configuration: Extract<LifecycleOperation, { type: 'configure' }> = {
+  type: 'configure',
+  eventType: 2,
+  cut: 0,
+  flights: 1,
+  lessSwiss: false,
+  additionalRounds: 0,
+  thirdPlace: false,
+  manualTables: false,
+  blockedRanges: [],
+  roundMinutes: 30,
+  finalMinutes: 75
+};
+
+function refusal(t: Tournament, op: LifecycleOperation): string | undefined {
+  const result = applyLifecycleOperation(t, op, context(23));
+  assert.equal(result.ok, false);
+  assert.equal(result.tournament, t);
+  return result.error;
+}
+
+const configured = () => generatedEvent(8, context(23));
+const started = () => operated(configured(), { type: 'start' }, context(23));
+
+test('configuration refuses round times that are not whole minutes', () => {
+  assert.equal(refusal(configured(), { ...configuration, roundMinutes: 1.5 }), 'Round times are whole minutes');
+});
+
+test('configuration is refused once the event has started', () => {
+  assert.equal(refusal(started(), configuration), 'Configure the event before starting');
+});
+
+test('configuration refuses more than one additional Swiss round', () => {
+  assert.equal(
+    refusal(configured(), { ...configuration, additionalRounds: 2 }),
+    'Only zero or one additional Swiss round is available'
+  );
+});
+
+test('flights cannot be set once the event has started', () => {
+  assert.equal(refusal(started(), { type: 'setFlights', count: 1 }), 'Set flights before starting');
+});
+
+test('a started event cannot be started again', () => {
+  assert.equal(refusal(started(), { type: 'start' }), 'The tournament has already started');
+});
+
+test('registering after configuration clears the pods, so the event cannot start until configured again', () => {
+  const ctx = context(23);
+  const player = { id: '99', firstName: 'Late', lastName: 'Registrant', birthDate: '02/27/1995' };
+  const registered = operated(configured(), { type: 'register', players: [player] }, ctx);
+  assert.equal(refusal(registered, { type: 'start' }), 'Configure pods before starting the tournament');
 });

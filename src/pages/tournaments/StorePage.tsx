@@ -13,6 +13,7 @@ import { addressOf, dateIn, managesStore, readDiscordInvite } from '../../../sha
 import type { PastEvent, PublicStore, StoreEvent } from '../../../shared/accounts/types';
 import { Skeleton } from '../../components/Skeleton';
 import { errorText } from '../../lib/tournament/api';
+import { msg, t } from '../../lib/i18n';
 import {
   bareLink,
   byWeek,
@@ -21,7 +22,7 @@ import {
   fetchStore,
   shortDay,
   storeEventWhen,
-  WEEKDAYS,
+  weekdayPlural,
   zoneName
 } from '../../lib/tournament/stores';
 import { latestValue } from '../../lib/resource';
@@ -35,9 +36,9 @@ import { ErrorState } from '../../components/ErrorState';
 const STORE_LINK_REL = 'noopener noreferrer nofollow ugc';
 
 const STATUS_WORDS: Record<StoreEvent['status'], string> = {
-  upcoming: 'Registration',
-  live: 'Running',
-  finished: 'Finished'
+  upcoming: msg('Registration'),
+  live: msg('Running'),
+  finished: msg('Finished')
 };
 
 function Where(props: { store: PublicStore }) {
@@ -76,14 +77,14 @@ function Nights(props: { store: PublicStore }) {
   return (
     <section class='tm-storepage-nights' aria-labelledby='storepage-nights'>
       <h2 class='tm-subhead tm-box-head' id='storepage-nights'>
-        League nights
+        {t('League nights')}
       </h2>
-      <Show when={props.store.nights.length > 0} fallback={<p class='muted tm-storepage-none'>None listed</p>}>
+      <Show when={props.store.nights.length > 0} fallback={<p class='muted tm-storepage-none'>{t('None listed')}</p>}>
         <ul class='tm-storepage-list'>
           <For each={byWeek(props.store.nights)}>
             {night => (
               <li>
-                <strong>{WEEKDAYS[night.weekday]}s</strong>
+                <strong>{weekdayPlural(night.weekday)}</strong>
                 <span class='tm-num'>{clock(night.time)}</span>
                 <span class='muted tm-storepage-night-name'>{night.name}</span>
                 <span class='muted tm-num'>{night.fee}</span>
@@ -114,16 +115,19 @@ function Events(props: { events: readonly StoreEvent[] }) {
   return (
     <section class='tm-storepage-events' aria-labelledby='storepage-events'>
       <h2 class='tm-subhead tm-box-head' id='storepage-events'>
-        Upcoming events
+        {t('Upcoming events')}
       </h2>
-      <Show when={props.events.length > 0} fallback={<p class='muted tm-storepage-none'>None on Ciphermaniac</p>}>
+      <Show
+        when={props.events.length > 0}
+        fallback={<p class='muted tm-storepage-none'>{t('None on Ciphermaniac')}</p>}
+      >
         <ul class='tm-storepage-history'>
           <For each={props.events}>
             {event => (
               <li>
                 <span class='tm-num'>{storeEventWhen(event.startDate, event.startsAt)}</span>
                 <EventName code={event.code} name={event.name} sanctioned={event.sanctioned} />
-                <span class='muted'>{STATUS_WORDS[event.status]}</span>
+                <span class='muted'>{t(STATUS_WORDS[event.status])}</span>
               </li>
             )}
           </For>
@@ -138,7 +142,7 @@ function EventName(props: { code: string; name: string; sanctioned: boolean }) {
     <span class='tm-storepage-event'>
       <A href={`/t/${props.code}`}>{props.name || props.code}</A>
       <Show when={props.sanctioned}>
-        <span class='tm-flag'>Sanctioned</span>
+        <span class='tm-flag'>{t('Sanctioned')}</span>
       </Show>
     </span>
   );
@@ -149,7 +153,7 @@ function Past(props: { events: readonly PastEvent[] }) {
     <Show when={props.events.length > 0}>
       <section class='tm-storepage-events' aria-labelledby='storepage-past'>
         <h2 class='tm-subhead tm-box-head' id='storepage-past'>
-          Past events
+          {t('Past events')}
         </h2>
         <For each={byMonth(props.events)}>
           {month => (
@@ -178,8 +182,8 @@ function Past(props: { events: readonly PastEvent[] }) {
 /** The store's league, or that it has none yet. */
 function LeagueLine(props: { leagueId: string | null }) {
   return (
-    <Show when={props.leagueId} fallback={<span>Unsanctioned store</span>}>
-      {id => <span class='tm-num'>League {id()}</span>}
+    <Show when={props.leagueId} fallback={<span>{t('Unsanctioned store')}</span>}>
+      {id => <span class='tm-num'>{t('League {id}', { id: id() })}</span>}
     </Show>
   );
 }
@@ -188,7 +192,7 @@ export function StorePage(props: { id: string }) {
   const [read] = createResource(() => props.id, fetchStore);
   const current = () => latestValue(read);
   createEffect(() => {
-    document.title = pageTitle(current()?.store.name ?? 'Store');
+    document.title = pageTitle(current()?.store.name ?? t('Store'));
   });
   return (
     <div class='tm-page tm-storepage'>
@@ -196,9 +200,9 @@ export function StorePage(props: { id: string }) {
         when={current()}
         fallback={
           <Show when={read.error} fallback={<Skeleton height='320px' />}>
-            <ErrorState code='Store' title='Couldn’t load this store' line={errorText(read.error)}>
+            <ErrorState code={t('Store')} title={t('Couldn’t load this store')} line={errorText(read.error)}>
               <A href='/' class='btn btn-primary'>
-                Go home
+                {t('Go home')}
               </A>
             </ErrorState>
           </Show>
@@ -212,7 +216,7 @@ export function StorePage(props: { id: string }) {
               action={
                 <Show when={managesStore(answer().role)}>
                   <A class='btn btn-secondary' href={`/stores/${answer().store.id}/settings`}>
-                    Store settings
+                    {t('Store settings')}
                   </A>
                 </Show>
               }

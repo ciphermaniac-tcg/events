@@ -1,3 +1,5 @@
+import { msg } from '../../../shared/i18n';
+
 /** Freshness records successful reads, including unchanged responses, separately from event mutations. */
 export type LiveFailure = 'authorization' | 'network' | 'unavailable';
 
@@ -24,7 +26,7 @@ export function liveDataStale(data: LiveData, now: number): boolean {
 }
 
 export const LIVE_FAILURE_LABELS: Record<LiveFailure, string> = {
-  authorization: 'Access expired',
-  network: 'Connection unavailable',
-  unavailable: 'Updates unavailable'
+  authorization: msg('Access expired'),
+  network: msg('Connection unavailable'),
+  unavailable: msg('Updates unavailable')
 };

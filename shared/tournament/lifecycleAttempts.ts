@@ -9,6 +9,7 @@ import { podFlights, replacePods, selectedPods } from './lifecycleWorkflow.js';
 import { PairingError } from './pairing.js';
 import { latestRound, pairingHistory } from './rounds.js';
 import type { Pod, PodCategory, Round, Tournament } from './types.js';
+import { msg } from '../i18n.js';
 
 /** Every attempt failed: nothing is appended, but the awards the attempts used stay used. */
 export class UnpairedRound extends PairingError {
@@ -115,7 +116,7 @@ function attemptedPod(
       current = failedAttempt(current, pod, failedFlight(pod, error), ctx);
     }
   }
-  throw new UnpairedRound('No more rounds can be paired', current);
+  throw new UnpairedRound(msg('No more rounds can be paired'), current);
 }
 
 /** Fresh Swiss rounds for the selected pods; any pod that cannot pair stops the request. */

@@ -57,6 +57,7 @@ interface Where {
   bucket: ReadBucket;
 }
 import { EVENT_TYPES, type EventType, type Tournament } from '../../../shared/tournament/types.js';
+import { msg } from '../../../shared/i18n.js';
 
 export async function onRequestGet({ request, env }: Context): Promise<Response> {
   const db = env.TOURNAMENT_DB;
@@ -136,7 +137,7 @@ async function readNew(request: Request): Promise<NewEvent | string> {
   const value = await readJsonObject(request, MAX_TOURNAMENT_BYTES);
   const settings = value && initialSettings(value);
   if (!value || !settings) {
-    return 'Not a tournament';
+    return msg('Not a tournament');
   }
   const mode = value.mode === 'tom' ? 'tom' : 'swiss';
   const tournament = describedTournament(value, mode);
@@ -150,11 +151,12 @@ async function readNew(request: Request): Promise<NewEvent | string> {
 /** Required setup values, with no fallback for invalid minutes. */
 function describedTournament(value: Body, mode: NewEvent['mode']): Tournament | string {
   if (mode === 'swiss' && !isRoundMinutes(value.roundTime)) {
-    return 'Enter whole minutes from 1 to 180';
+    return msg('Enter whole minutes from 1 to 180');
   }
   const tournament = mode === 'tom' ? tomEvent(value.tournament) : swissFrom(value);
   return (
-    tournament ?? (mode === 'tom' ? 'Your .TDF could not be parsed. Please try again.' : 'Please name your event.')
+    tournament ??
+    (mode === 'tom' ? msg('Your .TDF could not be parsed. Please try again.') : msg('Please name your event.'))
   );
 }
 
@@ -185,7 +187,7 @@ function unsanctionedInfo(info: Tournament['info']): Tournament['info'] {
 function ownEvent(user: User, read: NewEvent): Running {
   if (!canRunCommunityEvents(user.role)) {
     // `apply` tells the page to offer a way in rather than the message alone.
-    return privateJson({ error: 'Only organizers can start events', apply: true }, 403);
+    return privateJson({ error: msg('Only organizers can start events'), apply: true }, 403);
   }
   if (read.mode === 'tom' || read.askedSanctioned) {
     return jsonError('Only a store runs sanctioned events', 403);

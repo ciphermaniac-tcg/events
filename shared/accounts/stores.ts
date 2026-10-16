@@ -11,6 +11,7 @@
  */
 
 import { type AccountRole, canRunCommunityEvents } from './roles.js';
+import { msg } from '../i18n.js';
 
 export type StoreRole = 'owner' | 'manager' | 'staff';
 
@@ -305,13 +306,13 @@ export function readUnsanctionedStore(
   const timeZone = typeof body.timeZone === 'string' && isTimeZone(body.timeZone) ? body.timeZone : null;
   const owner = typeof body.owner === 'string' ? body.owner.trim() : '';
   if (!owner) {
-    return 'Name the account that owns it';
+    return msg('Name the account that owns it');
   }
   if (!details) {
-    return 'Check the store’s details';
+    return msg('Check the store’s details');
   }
   return located === undefined || !timeZone
-    ? 'Pick the store’s time zone'
+    ? msg('Pick the store’s time zone')
     : { owner, details, place: located, timeZone };
 }
 
@@ -325,12 +326,12 @@ export function readStoreApplication(value: unknown): StoreApplication | string 
   const nights = readNights(body.nights ?? []);
   const relationship = RELATIONSHIPS.find(item => item === body.relationship);
   const problems: [boolean, string][] = [
-    [!leagueId, 'Enter the store’s league ID'],
-    [!details, 'Check the store’s details'],
-    [located === undefined || !timeZone, 'Pick the store’s time zone'],
-    [!relationship, 'Say why you are applying for the store'],
-    [body.certified !== true, 'Confirm you are a certified organizer, or work with one'],
-    [!nights, 'Check the league nights']
+    [!leagueId, msg('Enter the store’s league ID')],
+    [!details, msg('Check the store’s details')],
+    [located === undefined || !timeZone, msg('Pick the store’s time zone')],
+    [!relationship, msg('Say why you are applying for the store')],
+    [body.certified !== true, msg('Confirm you are a certified organizer, or work with one')],
+    [!nights, msg('Check the league nights')]
   ];
   const problem = problems.find(([wrong]) => wrong);
   return problem

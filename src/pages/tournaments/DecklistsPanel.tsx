@@ -38,6 +38,7 @@ import {
   unlockDecklist
 } from '../../lib/tournament/api';
 import { latestValue } from '../../lib/resource';
+import { intlLocale, t, tn } from '../../lib/i18n';
 import { shared } from '../../lib/tournament/share';
 import { ConfirmAction } from './ConfirmAction';
 import { DecklistColumns } from './DecklistColumns';
@@ -47,14 +48,14 @@ import { DeckIcons } from './DeckIcons';
 import type { ManageState } from './manageState';
 
 const submittedAt = (at: number) =>
-  new Date(at).toLocaleString(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' });
+  new Date(at).toLocaleString(intlLocale(), { weekday: 'short', hour: 'numeric', minute: '2-digit' });
 
 /** Why a submitter is not on the player list: the site only adds them to a Swiss event still open. */
 function notEnteredReason(manage: Manage): string {
   if (manage.mode === 'tom') {
-    return 'Roster is TOM’s';
+    return t('Roster is TOM’s');
   }
-  return manage.settings.finished ? 'Event closed' : 'Not on the player list';
+  return manage.settings.finished ? t('Event closed') : t('Not on the player list');
 }
 
 /** Finds the player a list belongs to (see decklistMatcher). */
@@ -78,7 +79,7 @@ function DecklistRow(props: RowProps) {
   const archetypes = () => decksEnabled(props.manage.settings);
   const sub = () =>
     [
-      archetypes() ? (props.list.archetype ?? 'No deck named') : '',
+      archetypes() ? (props.list.archetype ?? t('No deck named')) : '',
       sanctioned() ? props.list.popId : '',
       sanctioned() ? (birthYear(props.list.birthDate) ?? '') : ''
     ]
@@ -128,10 +129,10 @@ function DecklistRow(props: RowProps) {
               {props.list.firstName} {props.list.lastName}
             </span>
             <Show when={props.list.fromList}>
-              <span class='tm-flag'>Added from list</span>
+              <span class='tm-flag'>{t('Added from list')}</span>
             </Show>
             <Show when={!playerId()}>
-              <span class='tm-flag'>Not entered</span>
+              <span class='tm-flag'>{t('Not entered')}</span>
             </Show>
           </span>
           <span class='tm-who-sub tm-num'>
@@ -145,7 +146,7 @@ function DecklistRow(props: RowProps) {
         <td class='muted-cell tm-num tm-nowrap tm-list-when'>{submittedAt(props.list.submittedAt)}</td>
         <td class='tm-list-check'>
           <Show when={props.list.problems.length} fallback={<span class='muted-cell'>OK</span>}>
-            <span class='tm-problem'>{props.list.problems.join('; ')}</span>
+            <span class='tm-problem'>{props.list.problems.join(t('; '))}</span>
           </Show>
         </td>
         <Show when={props.checks}>
@@ -163,24 +164,24 @@ function DecklistRow(props: RowProps) {
               aria-expanded={props.open}
               onClick={() => props.onToggle()}
             >
-              {props.open ? 'Hide' : 'View'}
+              {props.open ? t('Hide') : t('View')}
             </button>
             {/* An ended event's roster stands until it is reopened. */}
             <Show when={props.manage.mode === 'swiss' && !props.manage.settings.finished && !playerId()}>
               <button type='button' class='btn btn-ghost tm-small' onClick={() => void add()}>
-                Add to event
+                {t('Add to event')}
               </button>
             </Show>
             <Show when={canUseDeck()}>
               <button type='button' class='btn btn-ghost tm-small' onClick={useDeck}>
-                Use their deck
+                {t('Use their deck')}
               </button>
             </Show>
             <Show when={props.list.locked && !decklistsLocked(props.manage)}>
               <ConfirmAction
-                label='Unlock'
-                question='Let another device send this list?'
-                confirmLabel='Unlock'
+                label={t('Unlock')}
+                question={t('Let another device send this list?')}
+                confirmLabel={t('Unlock')}
                 onConfirm={() => void unlock()}
               />
             </Show>
@@ -240,25 +241,25 @@ const LISTS_REFRESH_MS = 30_000;
 /** Whether players can send lists: open, closed by staff, or locked since round 1 was paired (see decklistsLocked). */
 function submissionWord(accepting: boolean, locked: boolean): string {
   if (locked) {
-    return 'Locked after round 1';
+    return t('Locked after round 1');
   }
-  return accepting ? 'Submission open' : 'Submission closed';
+  return accepting ? t('Submission open') : t('Submission closed');
 }
 
 /** What stands in for the table with no lists to show: loading, a failed load, or none sent yet. */
 function NoLists(props: { loading: boolean; failed: boolean; onRetry: () => void }) {
   return (
-    <Switch fallback={<p class='muted tm-empty'>No decklists yet.</p>}>
+    <Switch fallback={<p class='muted tm-empty'>{t('No decklists yet.')}</p>}>
       <Match when={props.failed}>
         <p class='muted tm-empty'>
-          The decklists could not be loaded.{' '}
+          {t('The decklists could not be loaded.')}{' '}
           <button type='button' class='btn btn-secondary tm-small' onClick={() => props.onRetry()}>
-            Retry
+            {t('Retry')}
           </button>
         </p>
       </Match>
       <Match when={props.loading}>
-        <p class='muted tm-empty'>Loading decklists…</p>
+        <p class='muted tm-empty'>{t('Loading decklists…')}</p>
       </Match>
     </Switch>
   );
@@ -306,11 +307,11 @@ export function DecklistsPanel(props: { state: ManageState; manage: Manage }) {
     const fromList = all().filter(list => list.fromList).length;
     const last = all().reduce((max, list) => Math.max(max, list.submittedAt), 0);
     return [
-      `${all().length} list${all().length === 1 ? '' : 's'}`,
-      ...(withProblems ? [`${withProblems} with problems`] : []),
-      ...(notIn ? [`${notIn} not entered`] : []),
-      ...(fromList ? [`${fromList} added from lists`] : []),
-      ...(last ? [`last ${submittedAt(last)}`] : [])
+      tn(all().length, '{n} list', '{n} lists'),
+      ...(withProblems ? [tn(withProblems, '{n} with problems', '{n} with problems')] : []),
+      ...(notIn ? [tn(notIn, '{n} not entered', '{n} not entered')] : []),
+      ...(fromList ? [tn(fromList, '{n} added from lists', '{n} added from lists')] : []),
+      ...(last ? [t('last {time}', { time: submittedAt(last) })] : [])
     ].join(' · ');
   };
   const key = (list: Decklist) => `${list.popId}|${list.firstName}|${list.lastName}`;
@@ -326,12 +327,12 @@ export function DecklistsPanel(props: { state: ManageState; manage: Manage }) {
           <strong>{submissionWord(accepting(), locked())}</strong>
           <span class='muted tm-num'>{counts()}</span>
           <A class='tm-bar-link' href={`/t/${props.manage.code}?tab=decklist`}>
-            Submit decklist page
+            {t('Submit decklist page')}
           </A>
           <span class='tm-grow' />
           <Show when={!locked()}>
             <button type='button' class='btn btn-secondary tm-small' disabled={props.state.busy()} onClick={toggle}>
-              {accepting() ? 'Close submission' : 'Open submission'}
+              {accepting() ? t('Close submission') : t('Open submission')}
             </button>
           </Show>
         </div>
@@ -339,8 +340,8 @@ export function DecklistsPanel(props: { state: ManageState; manage: Manage }) {
           <input
             class='search'
             type='search'
-            placeholder='Search lists'
-            aria-label='Search lists'
+            placeholder={t('Search lists')}
+            aria-label={t('Search lists')}
             value={query()}
             onInput={e => setQuery(e.currentTarget.value)}
           />
@@ -354,16 +355,16 @@ export function DecklistsPanel(props: { state: ManageState; manage: Manage }) {
               <thead>
                 <tr>
                   <th class='tm-list-sprite'>
-                    <span class='sr-only'>Deck</span>
+                    <span class='sr-only'>{t('Deck')}</span>
                   </th>
-                  <th>Player</th>
-                  <th>Submitted</th>
-                  <th>Check</th>
+                  <th>{t('Player')}</th>
+                  <th>{t('Submitted')}</th>
+                  <th>{t('Check')}</th>
                   <Show when={checks()}>
-                    <th>Last deck check</th>
+                    <th>{t('Last deck check')}</th>
                   </Show>
                   <th>
-                    <span class='sr-only'>Actions</span>
+                    <span class='sr-only'>{t('Actions')}</span>
                   </th>
                 </tr>
               </thead>

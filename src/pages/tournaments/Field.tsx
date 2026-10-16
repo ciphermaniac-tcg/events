@@ -1,4 +1,5 @@
 import { type JSX, type Resource, Show } from 'solid-js';
+import { t } from '../../lib/i18n';
 import { errorText } from '../../lib/tournament/api';
 import { Skeleton } from '../../components/Skeleton';
 
@@ -39,7 +40,7 @@ export function RetryError(props: { error: unknown; onRetry: () => void; small?:
         class={props.small ? 'btn btn-secondary tm-small' : 'btn btn-secondary'}
         onClick={() => props.onRetry()}
       >
-        Retry
+        {t('Retry')}
       </button>
     </>
   );

@@ -1,6 +1,7 @@
 import { createSignal, Show, untrack } from 'solid-js';
 import { EXTENSION_REASON_MAX, type ExtensionCommand } from '../../../shared/tournament/timeExtensions';
 import type { Match, PodCategory } from '../../../shared/tournament/types';
+import { t } from '../../lib/i18n';
 import { ErrorLine, Field } from './Field';
 import type { ManageState } from './manageState';
 import { Modal } from './Modal';
@@ -35,7 +36,7 @@ export function TimeExtensionDialog(props: { state: ManageState; selection: Exte
   }
 
   return (
-    <Modal open title={`Time extension, table ${selection.match.table}`} onClose={props.onClose}>
+    <Modal open title={t('Time extension, table {table}', { table: selection.match.table })} onClose={props.onClose}>
       <form
         onSubmit={event => {
           event.preventDefault();
@@ -43,7 +44,7 @@ export function TimeExtensionDialog(props: { state: ManageState; selection: Exte
         }}
       >
         <div class='tm-box-bar tm-modal-body'>
-          <Field id='extension-minutes' label='Extra minutes'>
+          <Field id='extension-minutes' label={t('Extra minutes')}>
             <input
               id='extension-minutes'
               class='tm-input'
@@ -56,7 +57,7 @@ export function TimeExtensionDialog(props: { state: ManageState; selection: Exte
               onInput={event => setMinutes(Number(event.currentTarget.value))}
             />
           </Field>
-          <Field id='extension-reason' label='Reason'>
+          <Field id='extension-reason' label={t('Reason')}>
             <input
               id='extension-reason'
               class='tm-input'
@@ -70,14 +71,14 @@ export function TimeExtensionDialog(props: { state: ManageState; selection: Exte
         <div class='tm-box-bar tm-modal-foot'>
           <Show when={selection.match.timeExtension}>
             <button type='button' class='btn btn-ghost' disabled={props.state.busy()} onClick={() => void save(0)}>
-              Remove extension
+              {t('Remove extension')}
             </button>
           </Show>
           <button type='button' class='btn btn-ghost' disabled={props.state.busy()} onClick={() => props.onClose()}>
-            Cancel
+            {t('Cancel')}
           </button>
           <button type='submit' class='btn btn-primary' disabled={props.state.busy()}>
-            Save extension
+            {t('Save extension')}
           </button>
         </div>
       </form>

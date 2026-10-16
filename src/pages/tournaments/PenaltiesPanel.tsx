@@ -33,13 +33,14 @@ import {
   removePenaltyNote
 } from '../../lib/tournament/api';
 import { latestValue } from '../../lib/resource';
+import { intlLocale, t, tn, tx } from '../../lib/i18n';
 import { Segmented } from '../../components/Segmented';
 import { ConfirmAction } from './ConfirmAction';
 import { session } from './session';
 
-const timeOf = (at: number) => new Date(at).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+const timeOf = (at: number) => new Date(at).toLocaleTimeString(intlLocale(), { hour: 'numeric', minute: '2-digit' });
 
-const nameOr = (name: string | null) => name ?? 'Deleted account';
+const nameOr = (name: string | null) => name ?? t('Deleted account');
 
 const fullName = (player: Pick<Player, 'firstName' | 'lastName'>) => `${player.firstName} ${player.lastName}`;
 
@@ -80,12 +81,12 @@ const editing = (note: PenaltyNote): Draft => ({
 /** What is missing before the draft can be saved, or null. */
 function draftProblem(draft: Draft): string | null {
   if (!draft.playerId) {
-    return 'Choose a player';
+    return t('Choose a player');
   }
   if (!draft.penalty) {
-    return 'Choose a penalty';
+    return t('Choose a penalty');
   }
-  return draft.judgeId === SOMEONE_ELSE && !draft.judgeName.trim() ? 'Say which judge gave it' : null;
+  return draft.judgeId === SOMEONE_ELSE && !draft.judgeName.trim() ? t('Say which judge gave it') : null;
 }
 
 /** One line of the log: a penalty note, or with deck checks shown, a deck check. */
@@ -98,10 +99,10 @@ const atOf = (line: Line) => (line.kind === 'note' ? line.note.recordedAt : line
 function wordsOf(line: Line): string {
   if (line.kind === 'note') {
     const { note } = line;
-    return [note.playerName, PENALTY_LABELS[note.penalty], note.judge.name ?? '', note.notes].join(' ');
+    return [note.playerName, t(PENALTY_LABELS[note.penalty]), note.judge.name ?? '', note.notes].join(' ');
   }
   const { check } = line;
-  return [check.playerName, 'deck check', check.result, check.checker.name ?? '', check.notes].join(' ');
+  return [check.playerName, t('deck check'), check.result, check.checker.name ?? '', check.notes].join(' ');
 }
 
 const linesOf = (notes: PenaltyNote[], checks: DeckCheckEntry[]): Line[] =>
@@ -152,30 +153,30 @@ function NoteForm(props: FormProps) {
         props.onSave();
       }}
     >
-      <Select label='Player' value={props.draft.playerId} onChange={setPlayer}>
-        <option value=''>Choose a player</option>
+      <Select label={t('Player')} value={props.draft.playerId} onChange={setPlayer}>
+        <option value=''>{t('Choose a player')}</option>
         <For each={props.players}>{player => <option value={player.id}>{fullName(player)}</option>}</For>
       </Select>
-      <Select label='Round' value={props.draft.round} onChange={value => set({ round: Number(value) })}>
+      <Select label={t('Round')} value={props.draft.round} onChange={value => set({ round: Number(value) })}>
         <For each={rounds(props.latestOf(props.draft.playerId))}>
-          {round => <option value={round}>Round {round}</option>}
+          {round => <option value={round}>{t('Round {round}', { round })}</option>}
         </For>
       </Select>
       <Select
-        label='Penalty'
+        label={t('Penalty')}
         value={props.draft.penalty}
         onChange={value => set({ penalty: isPenalty(value) ? value : '' })}
       >
-        <option value=''>Choose a penalty</option>
-        <For each={PENALTIES}>{penalty => <option value={penalty}>{PENALTY_LABELS[penalty]}</option>}</For>
+        <option value=''>{t('Choose a penalty')}</option>
+        <For each={PENALTIES}>{penalty => <option value={penalty}>{t(PENALTY_LABELS[penalty])}</option>}</For>
       </Select>
-      <Select label='Judge' value={props.draft.judgeId} onChange={judgeId => set({ judgeId })}>
+      <Select label={t('Judge')} value={props.draft.judgeId} onChange={judgeId => set({ judgeId })}>
         <For each={props.judges}>{judge => <option value={judge.id}>{judge.name}</option>}</For>
-        <option value={SOMEONE_ELSE}>Someone else</option>
+        <option value={SOMEONE_ELSE}>{t('Someone else')}</option>
       </Select>
       <Show when={props.draft.judgeId === SOMEONE_ELSE}>
         <label>
-          Name
+          {t('Name')}
           <input
             class='tm-input'
             maxLength={PENALTY_NOTE_LIMITS.judgeName}
@@ -185,7 +186,7 @@ function NoteForm(props: FormProps) {
         </label>
       </Show>
       <label class='tm-penalty-notes'>
-        Notes
+        {t('Notes')}
         <input
           class='tm-input'
           maxLength={PENALTY_NOTE_LIMITS.notes}
@@ -195,16 +196,16 @@ function NoteForm(props: FormProps) {
       </label>
       <span class='tm-row-actions tm-penalty-save'>
         <button type='submit' class='btn btn-primary' disabled={props.saving}>
-          {props.draft.replaces ? 'Save edit' : 'Save note'}
+          {props.draft.replaces ? t('Save edit') : t('Save note')}
         </button>
         <Show when={props.draft.replaces}>
           <button type='button' class='btn btn-ghost' onClick={() => props.onCancel()}>
-            Cancel
+            {t('Cancel')}
           </button>
         </Show>
       </span>
       <Show when={props.draft.penalty !== '' && DECIDING_PENALTIES.has(props.draft.penalty as Penalty)}>
-        <p class='muted tm-penalty-wide'>A note only. Enter the result or disqualification yourself.</p>
+        <p class='muted tm-penalty-wide'>{t('A note only. Enter the result or disqualification yourself.')}</p>
       </Show>
       <Show when={props.error}>
         {error => (
@@ -224,14 +225,16 @@ function Earlier(props: { note: PenaltyNote }) {
   return (
     <Show when={count()}>
       <button type='button' class='btn btn-ghost tm-small' aria-expanded={open()} onClick={() => setOpen(!open())}>
-        {open() ? 'Hide' : 'Show'} {count()} earlier version{count() === 1 ? '' : 's'}
+        {open()
+          ? tn(count(), 'Hide {n} earlier version', 'Hide {n} earlier versions')
+          : tn(count(), 'Show {n} earlier version', 'Show {n} earlier versions')}
       </button>
       <Show when={open()}>
         <ul class='tm-check-earlier muted'>
           <For each={props.note.earlier}>
             {(entry: PenaltyNoteEntry) => (
               <li>
-                R{entry.round} · {PENALTY_LABELS[entry.penalty]} · {nameOr(entry.judge.name)}
+                R{entry.round} · {t(PENALTY_LABELS[entry.penalty])} · {nameOr(entry.judge.name)}
                 {entry.notes ? ` · ${entry.notes}` : ''} · {nameOr(entry.recordedBy)}, {timeOf(entry.recordedAt)}
               </li>
             )}
@@ -245,7 +248,7 @@ function Earlier(props: { note: PenaltyNote }) {
 function PenaltyWord(props: { penalty: Penalty }) {
   return (
     <strong class={DECIDING_PENALTIES.has(props.penalty) ? 'tm-penalty-deciding' : undefined}>
-      {PENALTY_LABELS[props.penalty]}
+      {t(PENALTY_LABELS[props.penalty])}
     </strong>
   );
 }
@@ -269,12 +272,12 @@ function NoteRow(props: { note: PenaltyNote; onEdit: () => void; onRemove: () =>
       <td class='tm-extra-col'>
         <span class='tm-row-actions'>
           <button type='button' class='btn btn-ghost tm-small' onClick={() => props.onEdit()}>
-            Edit
+            {t('Edit')}
           </button>
           <ConfirmAction
-            label='Remove'
-            question='Remove this penalty note?'
-            confirmLabel='Remove'
+            label={t('Remove')}
+            question={t('Remove this penalty note?')}
+            confirmLabel={t('Remove')}
             danger
             onConfirm={() => props.onRemove()}
           />
@@ -290,8 +293,13 @@ function CheckRow(props: { check: DeckCheckEntry }) {
       <td class='num tm-table-col'>{props.check.round}</td>
       <td class='tm-penalty-player'>{props.check.playerName}</td>
       <td class='tm-penalty-what'>
-        Deck check{' '}
-        <strong class={`tm-check-${props.check.result}`}>{props.check.result === 'pass' ? 'Pass' : 'Fail'}</strong>
+        {tx('Deck check {result}', {
+          result: (
+            <strong class={`tm-check-${props.check.result}`}>
+              {props.check.result === 'pass' ? t('Pass') : t('Fail')}
+            </strong>
+          )
+        })}
       </td>
       <td class='tm-penalty-judge'>{nameOr(props.check.checker.name)}</td>
       <td class='tm-penalty-text'>{props.check.notes}</td>
@@ -309,14 +317,14 @@ function Log(props: { lines: Line[]; onEdit: (note: PenaltyNote) => void; onRemo
       <table class='data tm-penalty-log'>
         <thead>
           <tr>
-            <th class='num tm-table-col'>Rd</th>
-            <th>Player</th>
-            <th>Penalty</th>
-            <th>Judge</th>
-            <th>Notes</th>
-            <th>Recorded</th>
+            <th class='num tm-table-col'>{t('Rd')}</th>
+            <th>{t('Player')}</th>
+            <th>{t('Penalty')}</th>
+            <th>{t('Judge')}</th>
+            <th>{t('Notes')}</th>
+            <th>{t('Recorded')}</th>
             <th>
-              <span class='sr-only'>Actions</span>
+              <span class='sr-only'>{t('Actions')}</span>
             </th>
           </tr>
         </thead>
@@ -357,30 +365,30 @@ function Filters(props: {
       <input
         class='search'
         type='search'
-        placeholder='Player, penalty or judge'
-        aria-label='Search penalty notes'
+        placeholder={t('Player, penalty or judge')}
+        aria-label={t('Search penalty notes')}
         value={props.query}
         onInput={e => props.onQuery(e.currentTarget.value)}
       />
       <select
         class='tm-select tm-penalty-round'
-        aria-label='Round'
+        aria-label={t('Round')}
         value={props.round}
         onChange={e => props.onRound(Number(e.currentTarget.value))}
       >
-        <option value={0}>All rounds</option>
-        <For each={rounds(props.latest)}>{round => <option value={round}>Round {round}</option>}</For>
+        <option value={0}>{t('All rounds')}</option>
+        <For each={rounds(props.latest)}>{round => <option value={round}>{t('Round {round}', { round })}</option>}</For>
       </select>
       <Show when={props.withChecks}>
         <span class='tm-grow' />
         <Segmented
           options={[
-            { value: 'notes', label: 'Penalties' },
-            { value: 'checks', label: 'With deck checks' }
+            { value: 'notes', label: t('Penalties') },
+            { value: 'checks', label: t('With deck checks') }
           ]}
           selected={props.shown}
           onSelect={props.onShown}
-          ariaLabel='Show'
+          ariaLabel={t('Show')}
         />
       </Show>
     </div>
@@ -413,14 +421,14 @@ function LogState(props: {
       when={!props.failed}
       fallback={
         <p class='muted tm-empty'>
-          Penalty notes could not be loaded.{' '}
+          {t('Penalty notes could not be loaded.')}{' '}
           <button type='button' class='btn btn-secondary tm-small' onClick={() => props.onRetry()}>
-            Retry
+            {t('Retry')}
           </button>
         </p>
       }
     >
-      <Show when={!props.loading} fallback={<p class='muted tm-empty'>Loading penalty notes…</p>}>
+      <Show when={!props.loading} fallback={<p class='muted tm-empty'>{t('Loading penalty notes…')}</p>}>
         <Show when={props.empty === null} fallback={<p class='muted tm-empty'>{props.empty}</p>}>
           {props.children}
         </Show>
@@ -499,8 +507,8 @@ export function PenaltiesPanel(props: { manage: Manage }) {
     <div class='tm-panel'>
       <section class='tm-box'>
         <div class='tm-box-bar'>
-          <strong>{draft().replaces ? 'Edit note' : 'Record a penalty'}</strong>
-          <span class='muted'>Staff only</span>
+          <strong>{draft().replaces ? t('Edit note') : t('Record a penalty')}</strong>
+          <span class='muted'>{t('Staff only')}</span>
         </div>
         <div class='tm-box-bar'>
           <NoteForm
@@ -529,16 +537,16 @@ export function PenaltiesPanel(props: { manage: Manage }) {
         />
         <Show when={shown() === 'checks' && checks.error}>
           <p class='muted tm-empty'>
-            Deck checks could not be loaded.{' '}
+            {t('Deck checks could not be loaded.')}{' '}
             <button type='button' class='btn btn-secondary tm-small' onClick={() => void retryChecks()}>
-              Retry
+              {t('Retry')}
             </button>
           </p>
         </Show>
         <LogState
           failed={notes.failed()}
           loading={notes.loading()}
-          empty={lines().length ? null : notes.standing().length ? 'No notes match.' : 'No penalty notes yet.'}
+          empty={lines().length ? null : notes.standing().length ? t('No notes match.') : t('No penalty notes yet.')}
           onRetry={notes.retry}
         >
           <Log

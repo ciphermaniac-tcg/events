@@ -37,8 +37,9 @@ import {
   eventStatus,
   firstRoundTime,
   hasCut,
-  MATCH_VIEWS,
+  markText,
   type MatchView,
+  matchViews,
   namesById,
   podLabel,
   podStandings,
@@ -55,6 +56,7 @@ import { DivisionClocks } from './DivisionClocks';
 import { DeckIcons } from './DeckIcons';
 import { createNow } from './now';
 import { QrCode } from './QrCode';
+import { msg, t } from '../../lib/i18n';
 import '../../styles/pages/tournament-screen.css';
 
 const STEP_MS = 40;
@@ -66,10 +68,10 @@ const VIEW_KEY = 'cm-screen-view';
 type Speed = 'off' | 'slow' | 'moderate' | 'fast';
 
 const SPEEDS: { value: Speed; label: string }[] = [
-  { value: 'off', label: 'Off' },
-  { value: 'slow', label: 'Slow' },
-  { value: 'moderate', label: 'Moderate' },
-  { value: 'fast', label: 'Fast' }
+  { value: 'off', label: msg('Off') },
+  { value: 'slow', label: msg('Slow') },
+  { value: 'moderate', label: msg('Moderate') },
+  { value: 'fast', label: msg('Fast') }
 ];
 
 /** Pixels per step: the shipped pace of a pixel every 40ms is Slow. */
@@ -166,19 +168,19 @@ function ScreenSeat(props: { name: string; record: string; seed?: number; mark: 
   );
 }
 
-const MARK_WORDS: Record<string, string> = { W: 'Won', L: 'Lost', T: 'Tie' };
+const MARK_WORDS: Record<string, string> = { W: msg('Won'), L: msg('Lost'), T: msg('Tie') };
 
 /** The middle of a table: its number, and once it has a result, each seat's mark facing its player. */
 function TableMiddle(props: { table: number; marks: [string, string] }) {
   return (
     <span class='tm-screen-mid'>
       <span class='tm-screen-table num'>{props.table || '—'}</span>
-      <Show when={props.marks[0]} fallback={<small>Table</small>}>
+      <Show when={props.marks[0]} fallback={<small>{t('Table')}</small>}>
         <span class='tm-screen-score'>
           <For each={props.marks}>
             {mark => (
-              <span class='tm-screen-mark' aria-label={MARK_WORDS[mark]}>
-                {mark}
+              <span class='tm-screen-mark' aria-label={t(MARK_WORDS[mark] ?? mark)}>
+                {markText(mark)}
               </span>
             )}
           </For>
@@ -225,7 +227,7 @@ function TableRows(props: { view: TournamentView; pod: Pod; round: Round; headin
             <li classList={{ 'is-done': marks(match)[0] !== '' }}>
               {seat(match.p1, marks(match)[0], '')}
               <TableMiddle table={match.table} marks={marks(match)} />
-              {seat(match.p2, marks(match)[1], match.outcome === 'bye' ? 'Bye' : 'Missed round')}
+              {seat(match.p2, marks(match)[1], match.outcome === 'bye' ? t('Bye') : t('Missed round'))}
             </li>
           )}
         </For>
@@ -329,10 +331,10 @@ function Standings(props: { view: TournamentView; pods: Pod[] }) {
             <thead>
               <tr>
                 <th>#</th>
-                <th>Player</th>
-                <th>Record</th>
-                <th>Points</th>
-                <th>Opp. win</th>
+                <th>{t('Player')}</th>
+                <th>{t('Record')}</th>
+                <th>{t('Points')}</th>
+                <th>{t('Opp. win')}</th>
               </tr>
             </thead>
             <tbody>
@@ -369,7 +371,7 @@ function Standings(props: { view: TournamentView; pods: Pod[] }) {
 function Join(props: { url: string; large?: boolean; children?: JSX.Element }) {
   return (
     <div class='tm-screen-join' classList={{ 'is-large': props.large }}>
-      <QrCode text={props.url} label='Event page QR code' />
+      <QrCode text={props.url} label={t('Event page QR code')} />
       <div>
         <p class='tm-screen-code num'>{props.url.split('/').pop()}</p>
         <p class='tm-screen-url'>{props.url.replace(/^https?:\/\//, '')}</p>
@@ -384,19 +386,19 @@ function Controls(props: { prefs: Prefs; shown: boolean; bracket: boolean; onFoc
     <div class='tm-screen-controls' classList={{ 'is-shown': props.shown }} onFocusIn={() => props.onFocus()}>
       <Show when={props.bracket}>
         <Segmented
-          options={MATCH_VIEWS}
+          options={matchViews()}
           selected={props.prefs.view()}
           onSelect={value => props.prefs.setView(value)}
-          ariaLabel='Show matches as'
+          ariaLabel={t('Show matches as')}
         />
       </Show>
       <span class='tm-screen-speed'>
-        <strong>Auto scroll</strong>
+        <strong>{t('Auto scroll')}</strong>
         <Segmented
-          options={SPEEDS}
+          options={SPEEDS.map(speed => ({ ...speed, label: t(speed.label) }))}
           selected={props.prefs.speed()}
           onSelect={value => props.prefs.setSpeed(value)}
-          ariaLabel='Auto scroll speed'
+          ariaLabel={t('Auto scroll speed')}
         />
       </span>
     </div>
@@ -421,7 +423,7 @@ function PhaseBody(props: {
     <Show
       when={pagedDisplay(props.display, tables(), props.size, props.font)}
       fallback={
-        <Scroller prefs={props.prefs} label='Pairings'>
+        <Scroller prefs={props.prefs} label={t('Pairings')}>
           <Matches view={props.view} pods={props.pods} prefs={props.prefs} />
         </Scroller>
       }
@@ -438,11 +440,13 @@ function PhaseBody(props: {
   const views: Record<ScreenPhase, () => JSX.Element> = {
     roster: () => (
       <div class='tm-screen-before'>
-        <Scroller prefs={props.prefs} label='Players'>
+        <Scroller prefs={props.prefs} label={t('Players')}>
           <Registered view={props.view} />
         </Scroller>
         <Join url={props.url} large>
-          <Show when={firstRound()}>{time => <p class='tm-screen-first num'>Round 1 at {time()}</p>}</Show>
+          <Show when={firstRound()}>
+            {time => <p class='tm-screen-first num'>{t('Round 1 at {time}', { time: time() })}</p>}
+          </Show>
         </Join>
       </div>
     ),
@@ -455,7 +459,7 @@ function PhaseBody(props: {
       </div>
     ),
     standings: () => (
-      <Scroller prefs={props.prefs} label='Standings'>
+      <Scroller prefs={props.prefs} label={t('Standings')}>
         <Standings view={props.view} pods={props.pods} />
       </Scroller>
     )

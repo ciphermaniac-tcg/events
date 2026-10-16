@@ -3,7 +3,7 @@ import { describe, it } from 'node:test';
 import { awaitingMark, type SeatState } from '../../src/lib/tournament/awaitingMarks';
 import type { SeatTag } from '../../src/lib/tournament/present';
 
-const tag = (text: string, problem = false): SeatTag => ({ text, problem, title: text });
+const tag = (word: string, problem = false): SeatTag => ({ text: `(${word})`, word, problem, title: word });
 const state = (patch: Partial<SeatState> = {}): SeatState => ({
   mark: '',
   unconfirmed: false,

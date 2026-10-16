@@ -12,6 +12,7 @@
  * are under 13), so staff report their results and take their lists on paper.
  */
 
+import { msg } from '../i18n.js';
 export const ADULT_AGE = 18;
 export const ACCOUNT_AGE = 16;
 export const CHILD_AGE = 13;
@@ -75,7 +76,7 @@ export function accountYear(year: number | null, now: Date): boolean {
 }
 
 /** What an account that may be under 18 is told where it would run events. */
-export const HOSTS_ONLY = 'You must be 18 or older to run events.';
+export const HOSTS_ONLY = msg('You must be 18 or older to run events.');
 
 /** What a player under 13 is told where they would hand the site their details. */
-export const UNDER_13 = 'Players under 13 report to staff, and hand in decklists on paper.';
+export const UNDER_13 = msg('Players under 13 report to staff, and hand in decklists on paper.');

@@ -12,6 +12,7 @@ import { readJsonObject } from '../../../lib/api/body.js';
 import { clearCookie, readCookie } from '../../../lib/auth/cookies.js';
 import { type Context, sameOrigin } from '../../../lib/auth/env.js';
 import { completeReset, RESET_COOKIE, resetSetup } from '../../../lib/auth/passwordReset.js';
+import { msg } from '../../../../shared/i18n.js';
 
 const answer = (status: number, body: unknown, headers?: Record<string, string>) =>
   jsonResponse(body, { status, cacheControl: 'no-store', cors: false, headers });
@@ -22,7 +23,7 @@ export async function onRequestPost({ request, env }: Context): Promise<Response
   const db = env.TOURNAMENT_DB;
   const setup = resetSetup(env);
   if (!db || !setup) {
-    return answer(503, { error: 'Password reset is currently not available.', code: 'reset_unavailable' });
+    return answer(503, { error: msg('Password reset is currently not available.'), code: 'reset_unavailable' });
   }
   if (!sameOrigin(request)) {
     return answer(403, { error: 'Forbidden', code: 'forbidden' });
@@ -35,7 +36,7 @@ export async function onRequestPost({ request, env }: Context): Promise<Response
     return answer(200, { ok: true }, { 'Set-Cookie': clearCookie(request, RESET_COOKIE) });
   }
   return answer(outcome?.status ?? 410, {
-    error: 'Password not reset',
+    error: msg('Password not reset'),
     code: outcome?.code ?? 'verification_expired'
   });
 }

@@ -8,6 +8,7 @@
 
 import { A } from '@solidjs/router';
 import { MAIN_SITE } from '../../lib/constants';
+import { t } from '../../lib/i18n';
 import { createResource, For, type Resource, Show } from 'solid-js';
 import { type HistoryEntry } from '../../lib/tournament/api';
 import { loadEntry } from '../../lib/tournament/historyCopies';
@@ -35,12 +36,12 @@ function LiveEntry(props: { entry: HistoryEntry }) {
         {props.entry.name || props.entry.code}
         <Show when={current()}>{row => <> · {row().label}</>}</Show>
       </p>
-      <Show when={current()} fallback={<p class='tm-dash-live-big'>In progress</p>}>
+      <Show when={current()} fallback={<p class='tm-dash-live-big'>{t('In progress')}</p>}>
         {row => (
           <p class='tm-dash-live-big'>
-            <Show when={row().table > 0}>Table {row().table} </Show>
-            <Show when={opponent()} fallback={<span class='muted'>Waiting on pairings</span>}>
-              {name => <>vs {name()}</>}
+            <Show when={row().table > 0}>{t('Table {n}', { n: row().table })} </Show>
+            <Show when={opponent()} fallback={<span class='muted'>{t('Waiting on pairings')}</span>}>
+              {name => <>{t('vs {name}', { name: name() })}</>}
             </Show>
           </p>
         )}
@@ -53,7 +54,7 @@ function LiveEntry(props: { entry: HistoryEntry }) {
         )}
       </Show>
       <A class='btn btn-primary' href={`/t/${props.entry.code}`}>
-        Your match
+        {t('Your match')}
       </A>
     </section>
   );
@@ -66,7 +67,7 @@ function Group(props: { title: string; entries: readonly HistoryEntry[]; more?: 
         <div class='tm-dash-section-head'>
           <h2 class='tm-subhead'>{props.title}</h2>
           <Show when={props.more}>
-            <A href='/history'>All results</A>
+            <A href='/history'>{t('All results')}</A>
           </Show>
         </div>
         <HistoryList entries={props.entries} iconsOnly />
@@ -79,27 +80,27 @@ function Group(props: { title: string; entries: readonly HistoryEntry[]; more?: 
 function Welcome() {
   return (
     <section class='tm-welcome'>
-      <h2 class='tm-welcome-title'>Welcome to Ciphermaniac</h2>
+      <h2 class='tm-welcome-title'>{t('Welcome to Ciphermaniac')}</h2>
       <ol class='tm-welcome-steps'>
         <li>
-          <strong>Find an event</strong>
-          <span class='muted'>Search for tournaments near you.</span>
-          <a href={`${MAIN_SITE}/tools/event-locator`}>Find events</a>
+          <strong>{t('Find an event')}</strong>
+          <span class='muted'>{t('Search for tournaments near you.')}</span>
+          <a href={`${MAIN_SITE}/tools/event-locator`}>{t('Find events')}</a>
         </li>
         <li>
-          <strong>Add your Player ID</strong>
-          <span class='muted'>Your Play! Pokémon ID connects your results at participating events to you.</span>
-          <A href='/settings'>Settings</A>
+          <strong>{t('Add your Player ID')}</strong>
+          <span class='muted'>{t('Your Play! Pokémon ID connects your results at participating events to you.')}</span>
+          <A href='/settings'>{t('Settings')}</A>
         </li>
         <li>
-          <strong>Play</strong>
-          <span class='muted'>During a participating event, this page shows your table and opponent.</span>
+          <strong>{t('Play')}</strong>
+          <span class='muted'>{t('During a participating event, this page shows your table and opponent.')}</span>
         </li>
       </ol>
       <p class='tm-welcome-run'>
-        <strong>Running events?</strong>{' '}
-        <span class='muted'>Organize sanctioned or unsanctioned events with our tournament manager.</span>{' '}
-        <A href='/apply'>Apply here</A>
+        <strong>{t('Running events?')}</strong>{' '}
+        <span class='muted'>{t('Organize sanctioned or unsanctioned events with our tournament manager.')}</span>{' '}
+        <A href='/apply'>{t('Apply here')}</A>
       </p>
     </section>
   );
@@ -117,8 +118,8 @@ export function PlayingTab(props: { history: Resource<HistoryEntry[]>; onRetry: 
       {list => (
         <Show when={list().length > 0} fallback={<Welcome />}>
           <For each={byStatus('live')}>{entry => <LiveEntry entry={entry} />}</For>
-          <Group title='Coming up' entries={byStatus('upcoming')} />
-          <Group title='Results' entries={finished().slice(0, RECENT)} more={finished().length > RECENT} />
+          <Group title={t('Coming up')} entries={byStatus('upcoming')} />
+          <Group title={t('Results')} entries={finished().slice(0, RECENT)} more={finished().length > RECENT} />
         </Show>
       )}
     </Show>

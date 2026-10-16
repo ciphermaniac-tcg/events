@@ -7,6 +7,7 @@
 
 import { createSignal, For } from 'solid-js';
 import { STORE_LIMITS, type StoreDetails } from '../../../shared/accounts/stores';
+import { msg, t } from '../../lib/i18n';
 import { detailsProblems, timeZones, zoneName } from '../../lib/tournament/stores';
 import '../../styles/pages/tournament-store-forms.css';
 import { Field } from './Field';
@@ -24,16 +25,16 @@ interface FieldSpec {
 const L = STORE_LIMITS;
 
 const FIELDS: FieldSpec[] = [
-  { key: 'name', label: 'Store name', max: L.name, wide: true, autocomplete: 'organization' },
-  { key: 'address', label: 'Address', max: L.address, wide: true, autocomplete: 'street-address' },
-  { key: 'city', label: 'City', max: L.city, autocomplete: 'address-level2' },
-  { key: 'region', label: 'State or region', max: L.region, autocomplete: 'address-level1' },
-  { key: 'postal', label: 'Postal code', max: L.postal, autocomplete: 'postal-code' },
-  { key: 'country', label: 'Country', max: 2, placeholder: 'US', autocomplete: 'country' },
-  { key: 'website', label: 'Website', max: L.url, type: 'url', placeholder: 'https://' },
+  { key: 'name', label: msg('Store name'), max: L.name, wide: true, autocomplete: 'organization' },
+  { key: 'address', label: msg('Address'), max: L.address, wide: true, autocomplete: 'street-address' },
+  { key: 'city', label: msg('City'), max: L.city, autocomplete: 'address-level2' },
+  { key: 'region', label: msg('State or region'), max: L.region, autocomplete: 'address-level1' },
+  { key: 'postal', label: msg('Postal code'), max: L.postal, autocomplete: 'postal-code' },
+  { key: 'country', label: msg('Country'), max: 2, placeholder: 'US', autocomplete: 'country' },
+  { key: 'website', label: msg('Website'), max: L.url, type: 'url', placeholder: 'https://' },
   { key: 'discord', label: 'Discord', max: L.url, type: 'url', placeholder: 'https://discord.gg/' },
-  { key: 'phone', label: 'Phone', max: L.phone, type: 'tel', autocomplete: 'tel' },
-  { key: 'email', label: 'Email', max: L.email, type: 'email', autocomplete: 'email' }
+  { key: 'phone', label: msg('Phone'), max: L.phone, type: 'tel', autocomplete: 'tel' },
+  { key: 'email', label: msg('Email'), max: L.email, type: 'email', autocomplete: 'email' }
 ];
 
 export function StoreFields(props: {
@@ -54,7 +55,7 @@ export function StoreFields(props: {
       <For each={FIELDS}>
         {spec => (
           <div classList={{ 'tm-store-wide': spec.wide === true }}>
-            <Field id={fieldId(spec.key)} label={spec.label} error={shown(spec.key)}>
+            <Field id={fieldId(spec.key)} label={t(spec.label)} error={shown(spec.key)}>
               <input
                 id={fieldId(spec.key)}
                 class='tm-input'
@@ -73,7 +74,7 @@ export function StoreFields(props: {
         )}
       </For>
       <div class='tm-store-wide'>
-        <Field id={fieldId('zone')} label='Time zone'>
+        <Field id={fieldId('zone')} label={t('Time zone')}>
           <select
             id={fieldId('zone')}
             class='tm-select tm-select-full'
@@ -92,7 +93,7 @@ export function StoreFields(props: {
         </Field>
       </div>
       <div class='tm-store-wide'>
-        <Field id={fieldId('details')} label='About the store'>
+        <Field id={fieldId('details')} label={t('About the store')}>
           <textarea
             id={fieldId('details')}
             class='tm-input tm-textarea'

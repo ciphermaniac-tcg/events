@@ -21,6 +21,7 @@ import { Segmented } from '../../components/Segmented';
 import { Skeleton } from '../../components/Skeleton';
 import { call, errorText, json } from '../../lib/tournament/api';
 import { latestValue } from '../../lib/resource';
+import { msg, t, tn } from '../../lib/i18n';
 import { ConfirmAction } from './ConfirmAction';
 import { roomScale } from './displayLayout';
 import { ErrorLine } from './Field';
@@ -28,10 +29,10 @@ import { createSave, SaveBar } from './StoreSave';
 import { SettingRow } from './SettingControls';
 
 const LAYOUT_WORDS: Record<DisplayLayout, string> = {
-  auto: 'Automatic',
-  faceoff: 'Face-off scroll',
-  tables: 'Table pages',
-  alphabetical: 'Alphabetical pages'
+  auto: msg('Automatic'),
+  faceoff: msg('Face-off scroll'),
+  tables: msg('Table pages'),
+  alphabetical: msg('Alphabetical pages')
 };
 const TIMINGS = [0, 10, 15, 20, 30] as const;
 const DEFAULT_ROOM: DisplayRoom = { inches: 55, feet: 15 };
@@ -67,7 +68,7 @@ function Preview(props: { options: DisplayOptions; name: string }) {
   const shown = () => Array.from({ length: columns() * rows() }, (_, i) => i);
   return (
     <div class='tm-display-preview' style={{ '--tm-preview-scale': props.options.scale }} aria-hidden='true'>
-      <p class='tm-display-preview-head'>{props.name || 'Big screen'}</p>
+      <p class='tm-display-preview-head'>{props.name || t('Big screen')}</p>
       <ol style={{ 'grid-template-columns': `repeat(${columns()}, minmax(0, 1fr))` }}>
         <For each={shown()}>
           {i => (
@@ -119,7 +120,7 @@ function PresetFields(props: { draft: Draft; onChange: (draft: Draft) => void })
   const options = () => props.draft.options;
   return (
     <>
-      <SettingRow label='Name' for='display-name'>
+      <SettingRow label={t('Name')} for='display-name'>
         <input
           id='display-name'
           class='tm-input'
@@ -128,7 +129,7 @@ function PresetFields(props: { draft: Draft; onChange: (draft: Draft) => void })
           onInput={e => props.onChange({ ...props.draft, name: e.currentTarget.value })}
         />
       </SettingRow>
-      <SettingRow label='Screen size' for='display-inches'>
+      <SettingRow label={t('Screen size')} for='display-inches'>
         <span class='tm-set-inline'>
           <RoomInput
             id='display-inches'
@@ -136,10 +137,10 @@ function PresetFields(props: { draft: Draft; onChange: (draft: Draft) => void })
             limits={ROOM_LIMITS.inches}
             onInput={inches => setRoom({ inches })}
           />
-          <span class='muted'>in diagonal</span>
+          <span class='muted'>{t('in diagonal')}</span>
         </span>
       </SettingRow>
-      <SettingRow label='Farthest viewer' for='display-feet'>
+      <SettingRow label={t('Farthest viewer')} for='display-feet'>
         <span class='tm-set-inline'>
           <RoomInput
             id='display-feet'
@@ -147,15 +148,15 @@ function PresetFields(props: { draft: Draft; onChange: (draft: Draft) => void })
             limits={ROOM_LIMITS.feet}
             onInput={feet => setRoom({ feet })}
           />
-          <span class='muted'>ft away</span>
+          <span class='muted'>{t('ft away')}</span>
         </span>
       </SettingRow>
-      <SettingRow label='Text size'>
+      <SettingRow label={t('Text size')}>
         <span class='tm-set-inline'>
           <button
             type='button'
             class='btn btn-secondary tm-small tm-display-step'
-            aria-label='Smaller text'
+            aria-label={t('Smaller text')}
             onClick={() => set({ scale: nudged(options().scale, -0.05) })}
           >
             −
@@ -166,27 +167,29 @@ function PresetFields(props: { draft: Draft; onChange: (draft: Draft) => void })
           <button
             type='button'
             class='btn btn-secondary tm-small tm-display-step'
-            aria-label='Larger text'
+            aria-label={t('Larger text')}
             onClick={() => set({ scale: nudged(options().scale, 0.05) })}
           >
             +
           </button>
           <Show when={roomOk(options().room) && options().scale !== roomScale(options().room)}>
-            <span class='muted'>from {percent(roomScale(options().room))} for this room</span>
+            <span class='muted'>
+              {t('from {percent} for this room', { percent: percent(roomScale(options().room)) })}
+            </span>
           </Show>
         </span>
       </SettingRow>
-      <SettingRow label='Layout' for='display-layout'>
+      <SettingRow label={t('Layout')} for='display-layout'>
         <select
           id='display-layout'
           class='tm-select'
           value={options().layout}
           onChange={e => set({ layout: e.currentTarget.value as DisplayLayout })}
         >
-          <For each={Object.entries(LAYOUT_WORDS)}>{([value, label]) => <option value={value}>{label}</option>}</For>
+          <For each={Object.entries(LAYOUT_WORDS)}>{([value, label]) => <option value={value}>{t(label)}</option>}</For>
         </select>
       </SettingRow>
-      <SettingRow label='Page timing' for='display-timing'>
+      <SettingRow label={t('Page timing')} for='display-timing'>
         <select
           id='display-timing'
           class='tm-select'
@@ -195,7 +198,9 @@ function PresetFields(props: { draft: Draft; onChange: (draft: Draft) => void })
           onChange={e => set({ pageSeconds: Number(e.currentTarget.value) })}
         >
           <For each={TIMINGS}>
-            {seconds => <option value={seconds}>{seconds ? `${seconds} seconds` : 'Manual'}</option>}
+            {seconds => (
+              <option value={seconds}>{seconds ? tn(seconds, '{n} second', '{n} seconds') : t('Manual')}</option>
+            )}
           </For>
         </select>
       </SettingRow>
@@ -205,10 +210,12 @@ function PresetFields(props: { draft: Draft; onChange: (draft: Draft) => void })
 
 const problem = (draft: Draft) => {
   if (!draft.name.trim()) {
-    return 'Name the preset';
+    return t('Name the preset');
   }
-  return roomOk(draft.options.room) ? null : 'Give whole inches and feet';
+  return roomOk(draft.options.room) ? null : t('Give whole inches and feet');
 };
+
+const deleteQuestion = (name: string | undefined) => (name ? t('Delete {name}?', { name }) : t('Delete this preset?'));
 
 export function StoreDisplays(props: { storeId: string }) {
   const [read, { mutate }] = createResource(() => props.storeId, fetchPresets);
@@ -273,7 +280,7 @@ export function StoreDisplays(props: { storeId: string }) {
         onSubmit={submit}
       >
         <h2 class='tm-subhead tm-box-head' id='store-displays-head'>
-          Display presets
+          {t('Display presets')}
         </h2>
         <ErrorLine message={read.error ? errorText(read.error) : null} />
         <div class='tm-set-inline'>
@@ -282,7 +289,7 @@ export function StoreDisplays(props: { storeId: string }) {
               options={presets().map(preset => ({ value: preset.id, label: preset.name }))}
               selected={draft().id ?? ''}
               onSelect={pick}
-              ariaLabel='Preset'
+              ariaLabel={t('Preset')}
             />
           </Show>
           <button
@@ -292,7 +299,7 @@ export function StoreDisplays(props: { storeId: string }) {
             disabled={presets().length >= MAX_DISPLAY_PRESETS}
             onClick={() => pick('')}
           >
-            New preset
+            {t('New preset')}
           </button>
         </div>
         <div class='tm-display-editor'>
@@ -305,9 +312,9 @@ export function StoreDisplays(props: { storeId: string }) {
           <Show when={draft().id}>
             {id => (
               <ConfirmAction
-                label='Delete'
-                question={`Delete ${openedWith()?.name ?? 'this preset'}?`}
-                confirmLabel='Delete'
+                label={t('Delete')}
+                question={deleteQuestion(openedWith()?.name)}
+                confirmLabel={t('Delete')}
                 class='btn btn-secondary'
                 danger
                 disabled={save.busy()}
