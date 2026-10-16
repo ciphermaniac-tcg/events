@@ -56,7 +56,7 @@ afterEach(() => {
 });
 
 test('an English browser settles at once, with no request and no switch offered', async () => {
-  const page = browser('https://events.test/', ['en-US', 'de']);
+  const page = browser('https://events.test/', ['en-US', 'ja']);
   await initLocale(CATALOGS);
   assert.equal(locale(), 'en');
   assert.deepEqual(page.fetched, []);

@@ -9,10 +9,12 @@ import { readFileSync } from 'node:fs';
 import { expect, type Page } from '@playwright/test';
 import { test } from './network-guard';
 
-const es = JSON.parse(readFileSync(new URL('../../src/locales/es.json', import.meta.url), 'utf8')) as Record<
-  string,
-  string
->;
+const catalog = (name: string) =>
+  JSON.parse(readFileSync(new URL(`../../src/locales/${name}.json`, import.meta.url), 'utf8')) as Record<
+    string,
+    string
+  >;
+const es = catalog('es');
 
 /** The browser's languages, as `navigator.languages` reports them. */
 async function speak(page: Page, languages: string[]): Promise<void> {
@@ -44,7 +46,7 @@ test('a browser that puts Spanish first reads the site in Spanish', async ({ pag
 });
 
 test('an English browser sees no language switch at all', async ({ page }) => {
-  await speak(page, ['en-US', 'de']);
+  await speak(page, ['en-US', 'ja']);
   await page.goto('/welcome');
   await expect(page.locator('html')).toHaveAttribute('lang', 'en');
   await expect(page.getByRole('button', { name: 'Continue' })).toBeVisible();
@@ -68,3 +70,15 @@ test('?lang= names a language outright, whatever the browser asks for', async ({
   await page.goto('/welcome?lang=es');
   await expect(page.getByRole('button', { name: es.Continue })).toBeVisible();
 });
+
+for (const [languages, lang] of [
+  [['fr-CA', 'en'], 'fr'],
+  [['de-AT'], 'de']
+] as const) {
+  test(`a browser that asks for ${lang} reads the site in it`, async ({ page }) => {
+    await speak(page, [...languages]);
+    await page.goto('/welcome');
+    await expect(page.locator('html')).toHaveAttribute('lang', lang);
+    await expect(page.getByRole('button', { name: catalog(lang).Continue })).toBeVisible();
+  });
+}

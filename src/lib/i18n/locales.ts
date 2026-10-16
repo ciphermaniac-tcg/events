@@ -15,8 +15,8 @@
 export const LOCALES = {
   en: { name: 'English', ready: true },
   es: { name: 'Español', ready: true },
-  fr: { name: 'Français', ready: false },
-  de: { name: 'Deutsch', ready: false }
+  fr: { name: 'Français', ready: true },
+  de: { name: 'Deutsch', ready: true }
 } as const satisfies Record<string, { name: string; ready: boolean }>;
 
 export type Locale = keyof typeof LOCALES;

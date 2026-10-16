@@ -15,9 +15,9 @@ test('a browser that puts Spanish first reads Spanish, whatever the region', () 
   assert.equal(pickLocale(signals(['ES_es'])), 'es');
 });
 
-test('English stays first for a browser that lists it before Spanish, or lists neither', () => {
+test('English stays first for a browser that lists it before another language, or lists none the site speaks', () => {
   assert.equal(pickLocale(signals(['en-US', 'es'])), 'en');
-  assert.equal(pickLocale(signals(['de-DE', 'ja'])), 'en');
+  assert.equal(pickLocale(signals(['pt-BR', 'ja'])), 'en');
   assert.equal(pickLocale(signals([])), 'en');
 });
 
@@ -25,10 +25,11 @@ test('an unsupported first language passes to the next one the site speaks', () 
   assert.equal(pickLocale(signals(['pt-BR', 'es', 'en'])), 'es');
 });
 
-test('a language not yet ready is never picked from the browser, only when named', () => {
-  assert.equal(pickLocale(signals(['fr-FR'])), 'en');
-  assert.equal(pickLocale(signals(['fr-FR'], { query: 'fr' })), 'fr');
-  assert.equal(pickLocale(signals(['de-AT', 'es'])), 'es');
+test('French and German browsers read their own language, wherever they are', () => {
+  assert.equal(pickLocale(signals(['fr-CA', 'en'])), 'fr');
+  assert.equal(pickLocale(signals(['de-AT'])), 'de');
+  assert.equal(pickLocale(signals(['de-CH', 'fr-CH'])), 'de');
+  assert.equal(pickLocale(signals(['pt-BR', 'fr', 'en'])), 'fr');
 });
 
 test('a named language beats a remembered one, which beats the browser', () => {
@@ -38,9 +39,10 @@ test('a named language beats a remembered one, which beats the browser', () => {
   assert.equal(pickLocale(signals(['es'], { stored: 'klingon' })), 'es');
 });
 
-test('the footer offers Spanish only to someone whose browser lists it, and English back to anyone in Spanish', () => {
+test('the footer offers another language only to someone whose browser lists it, and English back to anyone reading another', () => {
   assert.equal(offeredLocale('en', ['en-US', 'es-MX']), 'es');
-  assert.equal(offeredLocale('en', ['en-US', 'fr']), null);
+  assert.equal(offeredLocale('en', ['en-US', 'fr']), 'fr');
+  assert.equal(offeredLocale('en', ['en-US', 'ja']), null);
   assert.equal(offeredLocale('en', ['en-US']), null);
   assert.equal(offeredLocale('es', ['es-MX']), 'en');
 });
