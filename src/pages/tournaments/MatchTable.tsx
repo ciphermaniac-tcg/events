@@ -15,7 +15,7 @@ import { sortMatches } from '../../../shared/tournament/rounds';
 import type { Match, Outcome, Pod, Round } from '../../../shared/tournament/types';
 import type { PendingResult } from '../../../shared/tournament/view';
 import { t } from '../../lib/i18n';
-import { recordsSoFar, seatMark, type SeatTag, shownOutcome } from '../../lib/tournament/present';
+import { markText, recordsSoFar, seatMark, type SeatTag, shownOutcome } from '../../lib/tournament/present';
 import { PendingSeatMark } from './PendingSeatMark';
 import { DeckIcons } from './DeckIcons';
 
@@ -104,7 +104,7 @@ function SeatCell(props: MatchTableProps & { match: Match; seat: 1 | 2; records:
                   'is-unconfirmed': shown().unconfirmed
                 }}
               >
-                {mark()}
+                {markText(mark())}
                 <Show when={mark() && shown().unconfirmed}>
                   <span class='sr-only'> {t('(not yet confirmed)')}</span>
                 </Show>

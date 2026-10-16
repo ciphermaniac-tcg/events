@@ -1,6 +1,7 @@
 import { createMemo, type JSX, Show } from 'solid-js';
 import { msg, t } from '../../lib/i18n';
 import { awaitingMark, type SeatState } from '../../lib/tournament/awaitingMarks';
+import { markText } from '../../lib/tournament/present';
 
 const labels: Record<string, string> = { W: msg('Win'), L: msg('Loss'), T: msg('Tie') };
 
@@ -24,7 +25,7 @@ export function PendingSeatMark(props: SeatState & { enabled: boolean; children:
         title={label()}
       >
         <span aria-hidden='true'>
-          {state().mark}
+          {markText(state().mark)}
           {state().pending ? '?' : ''}
         </span>
         <span class='sr-only'>{label()}</span>
