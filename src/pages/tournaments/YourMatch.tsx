@@ -508,7 +508,10 @@ export function YourMatch(props: Props) {
   return (
     <Switch>
       <Match when={!known()}>
-        <WhichPlayer {...props} />
+        {/* A finished event has no match to find; its results are on the page. */}
+        <Show when={!props.view.settings.finished}>
+          <WhichPlayer {...props} />
+        </Show>
       </Match>
       <Match when={props.me}>
         {/* Requests go from the device that holds the player's seat, reporting or not. */}

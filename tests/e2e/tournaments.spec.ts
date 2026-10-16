@@ -231,6 +231,14 @@ test('no to a suggested player goes back to asking which player, and is remember
   await expect(page.getByRole('heading', { name: 'Is this you?' })).toHaveCount(0);
 });
 
+test('once the event is done nobody is asked which player they are', async ({ page }) => {
+  await mockApi(page, { ...VIEW, settings: { ...VIEW.settings, finished: true } });
+  await page.goto(`/t/${CODE}`);
+  await expect(page.locator('.tm-standings, .tm-matches, .tm-status').first()).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Which player are you?' })).toHaveCount(0);
+  await expect(page.getByRole('region', { name: 'Your match' })).toHaveCount(0);
+});
+
 test('retrying a lost identify response restores reporting and remembers the recovered token', async ({ page }) => {
   const view = { ...VIEW, settings: { ...VIEW.settings, playerReporting: true } };
   await mockApi(page, view);
