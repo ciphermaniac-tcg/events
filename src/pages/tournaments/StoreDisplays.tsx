@@ -13,15 +13,18 @@ import {
   type DisplayOptions,
   type DisplayPreset,
   type DisplayRoom,
+  FEET_PER_METRE,
   MAX_DISPLAY_PRESETS,
   ROOM_LIMITS,
+  roomFeet,
+  roomInReach,
   SCALE_LIMITS
 } from '../../../shared/tournament/display';
 import { Segmented } from '../../components/Segmented';
 import { Skeleton } from '../../components/Skeleton';
 import { call, errorText, json } from '../../lib/tournament/api';
 import { latestValue } from '../../lib/resource';
-import { msg, t, tn } from '../../lib/i18n';
+import { measuresInFeet, msg, t, tn } from '../../lib/i18n';
 import { ConfirmAction } from './ConfirmAction';
 import { roomScale } from './displayLayout';
 import { ErrorLine } from './Field';
@@ -35,7 +38,8 @@ const LAYOUT_WORDS: Record<DisplayLayout, string> = {
   alphabetical: msg('Alphabetical pages')
 };
 const TIMINGS = [0, 10, 15, 20, 30] as const;
-const DEFAULT_ROOM: DisplayRoom = { inches: 55, feet: 15 };
+/** A 55-inch screen read from about 15 feet, in the reader's own unit. */
+const defaultRoom = (): DisplayRoom => (measuresInFeet() ? { inches: 55, feet: 15 } : { inches: 55, metres: 4.5 });
 const SAMPLE = ['Alex P.', 'Casey R.', 'Jamie L.', 'Morgan S.', 'Riley T.', 'Quinn B.', 'Dana W.', 'Sky H.'];
 
 const path = (store: string) => `/api/stores/${encodeURIComponent(store)}/displays`;
@@ -50,12 +54,12 @@ interface Draft {
 const blank = (): Draft => ({
   id: null,
   name: '',
-  options: { ...DEFAULT_DISPLAY, room: DEFAULT_ROOM, scale: roomScale(DEFAULT_ROOM) }
+  options: { ...DEFAULT_DISPLAY, room: defaultRoom(), scale: roomScale(defaultRoom()) }
 });
 const draftOf = (preset: DisplayPreset): Draft => ({
   id: preset.id,
   name: preset.name,
-  options: { ...preset.options, room: preset.options.room ?? DEFAULT_ROOM }
+  options: { ...preset.options, room: preset.options.room ?? defaultRoom() }
 });
 const percent = (scale: number) => `${Math.round(scale * 100)}%`;
 const nudged = (scale: number, by: number) =>
@@ -89,6 +93,8 @@ function RoomInput(props: {
   id: string;
   value: number;
   limits: { min: number; max: number };
+  /** Tenths, for metres; whole numbers otherwise. */
+  tenths?: boolean;
   onInput: (n: number) => void;
 }) {
   return (
@@ -96,7 +102,8 @@ function RoomInput(props: {
       id={props.id}
       class='tm-input tm-set-minutes'
       type='number'
-      inputmode='numeric'
+      inputmode={props.tenths ? 'decimal' : 'numeric'}
+      step={props.tenths ? 0.1 : 1}
       min={props.limits.min}
       max={props.limits.max}
       value={props.value}
@@ -105,19 +112,31 @@ function RoomInput(props: {
   );
 }
 
-const whole = (value: number, limits: { min: number; max: number }) =>
-  Number.isInteger(value) && value >= limits.min && value <= limits.max;
-/** Whether the room's numbers are whole and in reach, so the size can be worked out from them. */
-const roomOk = (room: DisplayRoom) => whole(room.inches, ROOM_LIMITS.inches) && whole(room.feet, ROOM_LIMITS.feet);
+/** Whether the room's numbers are in reach, so the size can be worked out from them. */
+const roomOk = (room: DisplayRoom) => roomInReach(room);
+
+/**
+ * How far back the farthest player sits, in the unit the reader counts in: as
+ * measured when the units agree, else converted, to whole feet or a tenth of
+ * a metre.
+ */
+function distanceIn(room: DisplayRoom, feet: boolean): number {
+  if (feet) {
+    return room.feet ?? Math.round(roomFeet(room));
+  }
+  return room.metres ?? Math.round((roomFeet(room) / FEET_PER_METRE) * 10) / 10;
+}
 
 function PresetFields(props: { draft: Draft; onChange: (draft: Draft) => void }) {
   const set = (options: Partial<Draft['options']>) =>
     props.onChange({ ...props.draft, options: { ...props.draft.options, ...options } });
-  const setRoom = (room: Partial<DisplayRoom>) => {
-    const next = { ...props.draft.options.room, ...room };
-    set(roomOk(next) ? { room: next, scale: roomScale(next) } : { room: next });
-  };
+  const setRoom = (next: DisplayRoom) => set(roomOk(next) ? { room: next, scale: roomScale(next) } : { room: next });
   const options = () => props.draft.options;
+  const feet = measuresInFeet();
+  const setDistance = (distance: number) =>
+    setRoom(
+      feet ? { inches: options().room.inches, feet: distance } : { inches: options().room.inches, metres: distance }
+    );
   return (
     <>
       <SettingRow label={t('Name')} for='display-name'>
@@ -135,20 +154,21 @@ function PresetFields(props: { draft: Draft; onChange: (draft: Draft) => void })
             id='display-inches'
             value={options().room.inches}
             limits={ROOM_LIMITS.inches}
-            onInput={inches => setRoom({ inches })}
+            onInput={inches => setRoom({ ...options().room, inches })}
           />
           <span class='muted'>{t('in diagonal')}</span>
         </span>
       </SettingRow>
-      <SettingRow label={t('Farthest viewer')} for='display-feet'>
+      <SettingRow label={t('Farthest viewer')} for='display-distance'>
         <span class='tm-set-inline'>
           <RoomInput
-            id='display-feet'
-            value={options().room.feet}
-            limits={ROOM_LIMITS.feet}
-            onInput={feet => setRoom({ feet })}
+            id='display-distance'
+            value={distanceIn(options().room, feet)}
+            limits={feet ? ROOM_LIMITS.feet : ROOM_LIMITS.metres}
+            tenths={!feet}
+            onInput={setDistance}
           />
-          <span class='muted'>{t('ft away')}</span>
+          <span class='muted'>{feet ? t('ft away') : t('m away')}</span>
         </span>
       </SettingRow>
       <SettingRow label={t('Text size')}>
@@ -212,7 +232,10 @@ const problem = (draft: Draft) => {
   if (!draft.name.trim()) {
     return t('Name the preset');
   }
-  return roomOk(draft.options.room) ? null : t('Give whole inches and feet');
+  if (roomOk(draft.options.room)) {
+    return null;
+  }
+  return measuresInFeet() ? t('Give whole inches and feet') : t('Give whole inches, and metres to a tenth');
 };
 
 const deleteQuestion = (name: string | undefined) => (name ? t('Delete {name}?', { name }) : t('Delete this preset?'));

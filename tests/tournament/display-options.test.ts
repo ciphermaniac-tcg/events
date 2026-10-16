@@ -34,3 +34,17 @@ test('a preset made from the room keeps whole inches and feet within reach, and 
     assert.equal(readDisplayOptions({ ...DEFAULT_DISPLAY, room: bad }), null);
   }
 });
+
+test('a room measured in metres keeps them to a tenth, and a room is measured one way, not both', () => {
+  const room = { inches: 55, metres: 4.5 };
+  assert.deepEqual(readDisplayOptions({ ...DEFAULT_DISPLAY, room }), { ...DEFAULT_DISPLAY, room });
+  for (const bad of [
+    { inches: 55, metres: 4.55 },
+    { inches: 55, metres: 0.5 },
+    { inches: 55, metres: 46 },
+    { inches: 55, metres: '4.5' },
+    { inches: 55, feet: 15, metres: 4.5 }
+  ]) {
+    assert.equal(readDisplayOptions({ ...DEFAULT_DISPLAY, room: bad }), null);
+  }
+});

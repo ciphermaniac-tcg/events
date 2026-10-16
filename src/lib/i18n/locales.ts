@@ -95,3 +95,19 @@ export function offeredLocale(current: Locale, languages: readonly string[]): Lo
 export function formatTag(current: Locale, languages: readonly string[]): string {
   return languages.find(tag => localeOf(tag) === current) ?? current;
 }
+
+/** Where distances are still counted in feet. */
+const FEET_REGIONS = new Set(['US', 'LR', 'MM']);
+
+/**
+ * Whether a reader counts distances in feet: one whose language tag, filled
+ * out to its likeliest region ("en" is en-US, "es" is es-ES), is in a country
+ * that does. Everyone else counts in metres.
+ */
+export function countsFeet(tag: string): boolean {
+  try {
+    return FEET_REGIONS.has(new Intl.Locale(tag).maximize().region ?? '');
+  } catch {
+    return true;
+  }
+}

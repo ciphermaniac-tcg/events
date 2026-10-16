@@ -6,6 +6,7 @@
  * link, and starting a store's event from its pokemon.com listings.
  */
 
+import { readFileSync } from 'node:fs';
 import { expect, type Page } from '@playwright/test';
 import { test } from './network-guard';
 import { deferred } from '../__utils__/deferred';
@@ -879,6 +880,45 @@ test('store settings: a display preset is made from the room, nudged, saved and 
   await expect(page.getByLabel('Name')).toHaveValue('');
   await expect(page.getByRole('status')).toHaveCount(0);
   expect(sent.find(ask => ask.method === 'DELETE')?.query).toBe('?preset=wall');
+});
+
+test('store settings: a manager reading German measures the room in metres', async ({ page }) => {
+  const de = JSON.parse(readFileSync(new URL('../../src/locales/de.json', import.meta.url), 'utf8')) as Record<
+    string,
+    string
+  >;
+  await mock(page, { user: MANAGER });
+  const puts: unknown[] = [];
+  const corner = {
+    id: 'corner',
+    name: 'Collectibles Corner',
+    options: { scale: 1, layout: 'auto', pageSeconds: 20, room: { inches: 100, feet: 25 } }
+  };
+  await page.route('**/api/stores/store-1/displays*', route => {
+    const request = route.request();
+    if (request.method() === 'PUT') {
+      const body = request.postDataJSON() as Record<string, unknown>;
+      puts.push(body);
+      return route.fulfill({ json: { preset: { id: 'wall', ...body } } });
+    }
+    return route.fulfill({ json: { presets: [corner] } });
+  });
+  await page.goto('/stores/store-1/settings?section=displays&lang=de');
+  // A preset measured in feet reads in metres, to a tenth.
+  await page.getByRole('radio', { name: 'Collectibles Corner' }).click();
+  await expect(page.locator('#display-distance')).toHaveValue('7.6');
+  await expect(page.getByText(de['m away'] ?? 'm away')).toBeVisible();
+  await page.getByRole('button', { name: de['New preset'] }).click();
+  await page.locator('#display-name').fill('Kampfkraft');
+  await page.locator('#display-inches').fill('43');
+  await page.locator('#display-distance').fill('5.5');
+  await expect(page.locator('.tm-set-box strong.num')).toHaveText('165%');
+  await page.getByRole('button', { name: de.Save, exact: true }).click();
+  await expect.poll(() => puts.length).toBe(1);
+  expect(puts[0]).toEqual({
+    name: 'Kampfkraft',
+    options: { scale: 1.65, layout: 'auto', pageSeconds: 15, room: { inches: 43, metres: 5.5 } }
+  });
 });
 
 test('store settings: a new preset edited while its save is on its way keeps the edit, now of the saved preset', async ({

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { formatTag, localeOf, offeredLocale, pickLocale } from '../../src/lib/i18n/locales.ts';
+import { countsFeet, formatTag, localeOf, offeredLocale, pickLocale } from '../../src/lib/i18n/locales.ts';
 
 const signals = (languages: string[], extra: { query?: string; stored?: string } = {}) => ({
   query: extra.query ?? null,
@@ -58,4 +58,14 @@ test('localeOf reads the language out of any tag', () => {
   assert.equal(localeOf(' EN '), 'en');
   assert.equal(localeOf('pt'), null);
   assert.equal(localeOf(''), null);
+});
+
+test('a room is measured in feet only where the reader’s country counts in them', () => {
+  for (const tag of ['en', 'en-US', 'es-US']) {
+    assert.equal(countsFeet(tag), true, tag);
+  }
+  for (const tag of ['en-GB', 'es', 'es-MX', 'fr', 'fr-CA', 'de-AT']) {
+    assert.equal(countsFeet(tag), false, tag);
+  }
+  assert.equal(countsFeet('not a tag'), true);
 });

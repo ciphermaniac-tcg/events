@@ -1,4 +1,4 @@
-import { type DisplayOptions, type DisplayRoom, SCALE_LIMITS } from '../../../shared/tournament/display';
+import { type DisplayOptions, type DisplayRoom, roomFeet, SCALE_LIMITS } from '../../../shared/tournament/display';
 import type { Match, Pod, Round, Tournament } from '../../../shared/tournament/types';
 import { latestRound, sortMatches } from '../../../shared/tournament/rounds';
 
@@ -21,7 +21,7 @@ export function displayFont(size: DisplaySize, scale: number): number {
  */
 export function roomScale(room: DisplayRoom): number {
   const baseInches = (room.inches * (9 / Math.hypot(16, 9))) / 33.75;
-  const neededInches = (room.feet * 12 * Math.tan((12 / 60) * (Math.PI / 180))) / 0.73;
+  const neededInches = (roomFeet(room) * 12 * Math.tan((12 / 60) * (Math.PI / 180))) / 0.73;
   const scale = Math.round((neededInches / baseInches) * 20) / 20;
   return Math.max(SCALE_LIMITS.min, Math.min(SCALE_LIMITS.max, scale));
 }

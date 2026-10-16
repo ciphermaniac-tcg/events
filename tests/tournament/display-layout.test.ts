@@ -57,4 +57,6 @@ test('the room sets the text size: a wall TV read from across the store needs mo
   assert.equal(roomScale({ inches: 100, feet: 25 }), 1);
   assert.equal(roomScale({ inches: 32, feet: 40 }), 2);
   assert.equal(roomScale({ inches: 120, feet: 6 }), 0.75);
+  // The same room measured in metres: 18 feet is 5.5 metres to a tenth.
+  assert.equal(roomScale({ inches: 43, metres: 5.5 }), 1.65);
 });

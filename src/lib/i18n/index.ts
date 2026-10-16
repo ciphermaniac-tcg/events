@@ -9,7 +9,16 @@
  * @module lib/i18n
  */
 
-import { formatTag, type Locale, localeOf, LOCALES, offeredLocale, pickLocale, SOURCE_LOCALE } from './locales';
+import {
+  countsFeet,
+  formatTag,
+  type Locale,
+  localeOf,
+  LOCALES,
+  offeredLocale,
+  pickLocale,
+  SOURCE_LOCALE
+} from './locales';
 import { type Catalog, locale, setTranslations } from './translate';
 
 export { locale, msg, t, tc, tn, translateMessage, tx } from './translate';
@@ -94,4 +103,9 @@ export function offeredLanguage(): { locale: Locale; name: string } | null {
 /** The tag to format dates and numbers in, matching the language shown. */
 export function intlLocale(): string {
   return formatTag(locale(), browserLanguages());
+}
+
+/** Whether the reader measures a room in feet rather than metres. */
+export function measuresInFeet(): boolean {
+  return countsFeet(intlLocale());
 }

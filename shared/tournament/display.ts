@@ -1,11 +1,12 @@
 /** Store-owned display presets and the immutable copy an event chooses. */
 export type DisplayLayout = 'auto' | 'faceoff' | 'tables' | 'alphabetical';
 
-/** The screen a preset was made for: its diagonal, and how far back the farthest player reads it. */
-export interface DisplayRoom {
-  inches: number;
-  feet: number;
-}
+/**
+ * The screen a preset was made for: its diagonal, which screens are sold by in
+ * inches the world over, and how far back the farthest player reads it, in
+ * whole feet or in metres to a tenth, as whoever measured the room counts.
+ */
+export type DisplayRoom = { inches: number } & ({ feet: number; metres?: never } | { metres: number; feet?: never });
 
 export interface DisplayOptions {
   /** Multiplier over automatic viewport sizing; CSS pixels already incorporate device DPI. */
@@ -31,7 +32,14 @@ export interface DisplaySelection extends DisplayPreset {
 export const DEFAULT_DISPLAY: DisplayOptions = { scale: 1, layout: 'auto', pageSeconds: 15 };
 export const MAX_DISPLAY_PRESETS = 20;
 export const SCALE_LIMITS = { min: 0.75, max: 2 } as const;
-export const ROOM_LIMITS = { inches: { min: 20, max: 300 }, feet: { min: 3, max: 150 } } as const;
+export const ROOM_LIMITS = {
+  inches: { min: 20, max: 300 },
+  feet: { min: 3, max: 150 },
+  metres: { min: 1, max: 45 }
+} as const;
+
+/** Feet in a metre, for a room measured in metres. */
+export const FEET_PER_METRE = 1 / 0.3048;
 const LAYOUTS: readonly DisplayLayout[] = ['auto', 'faceoff', 'tables', 'alphabetical'];
 
 const within = (value: unknown, limits: { min: number; max: number }, whole = false): value is number =>
@@ -41,9 +49,27 @@ const within = (value: unknown, limits: { min: number; max: number }, whole = fa
   value <= limits.max &&
   (!whole || Number.isInteger(value));
 
+/** Metres to a tenth at most: 4.5, not 4.55. */
+const tenths = (value: number) => Math.abs(value * 10 - Math.round(value * 10)) < 1e-9;
+
+/** Whether a room's numbers are in reach: whole inches, and whole feet or metres to a tenth, never both. */
+export function roomInReach(room: Record<string, unknown>): room is DisplayRoom {
+  const { inches, feet, metres } = room;
+  if (!within(inches, ROOM_LIMITS.inches, true) || (feet !== undefined) === (metres !== undefined)) {
+    return false;
+  }
+  return feet === undefined
+    ? within(metres, ROOM_LIMITS.metres) && tenths(metres)
+    : within(feet, ROOM_LIMITS.feet, true);
+}
+
+/** How far back the farthest player sits, in feet whichever way it was measured. */
+export const roomFeet = (room: DisplayRoom): number => room.feet ?? room.metres * FEET_PER_METRE;
+
 function readRoom(value: unknown): DisplayRoom | null {
-  const { inches, feet } = (value ?? {}) as Record<string, unknown>;
-  return within(inches, ROOM_LIMITS.inches, true) && within(feet, ROOM_LIMITS.feet, true) ? { inches, feet } : null;
+  const { inches, feet, metres } = (value ?? {}) as Record<string, unknown>;
+  const room = { inches, ...(feet === undefined ? {} : { feet }), ...(metres === undefined ? {} : { metres }) };
+  return roomInReach(room) ? room : null;
 }
 
 export function readDisplayOptions(value: unknown): DisplayOptions | null {
