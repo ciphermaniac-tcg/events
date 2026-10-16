@@ -16,7 +16,7 @@ import { SignOutButton } from './SignOutButton';
 import { A, useSearchParams } from '@solidjs/router';
 import { createEffect, createMemo, createResource, createSignal, For, type JSX, on, Show, untrack } from 'solid-js';
 import { displayName, HANDLE_MAX, handleProblem, normalizeHandle } from '../../../shared/accounts/handle';
-import type { PlayerProfile } from '../../../shared/tournament/profile';
+import { type PlayerProfile, profileErrors } from '../../../shared/tournament/profile';
 import {
   ApiError,
   errorText,
@@ -37,7 +37,7 @@ import { OrganizerRoles } from './OrganizerRoles';
 import { Avatar } from './Avatar';
 import { MyData } from './MyData';
 import { ErrorLine, ResourceFallback } from './Field';
-import { emptyProfile, focusFirstProblem, ProfileFields, profileProblems } from './ProfileFields';
+import { emptyProfile, focusFirstProblem, ProfileFields } from './ProfileFields';
 import { session, setSession } from './session';
 import { SettingRow, Toggle } from './SettingControls';
 import { SettingInfo } from './SettingInfo';
@@ -261,12 +261,12 @@ function Profile(props: { user: Me }) {
       setProfile(emptyProfile(props.user));
     }
   });
-  const problems = () => (touched() ? profileProblems(profile()) : {});
+  const problems = () => (touched() ? profileErrors(profile()) : {});
 
   async function save(event: Event) {
     event.preventDefault();
     setTouched(true);
-    const refused = profileProblems(profile());
+    const refused = profileErrors(profile());
     if (Object.keys(refused).length > 0) {
       focusFirstProblem('settings', refused);
       return;

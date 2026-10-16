@@ -23,7 +23,7 @@
 
 import { createEffect, createMemo, createResource, createSignal, For, Show, untrack } from 'solid-js';
 import { type DeckSection, parseDecklist } from '../../../shared/tournament/decklist';
-import type { PlayerProfile } from '../../../shared/tournament/profile';
+import { type PlayerProfile, profileErrors } from '../../../shared/tournament/profile';
 import { SETTINGS_LIMITS } from '../../../shared/tournament/view';
 import {
   ApiError,
@@ -40,7 +40,7 @@ import { DeckCombo } from '../live/LiveDeck';
 import { ConfirmAction } from './ConfirmAction';
 import { createDeckOptions } from './deckOptions';
 import { ErrorLine } from './Field';
-import { birthYearOf, emptyProfile, ProfileFields, profileProblems } from './ProfileFields';
+import { birthYearOf, emptyProfile, ProfileFields } from './ProfileFields';
 import { session, setSession } from './session';
 import { MAIN_SITE } from '../../lib/constants';
 import { intlLocale, msg, t, tn } from '../../lib/i18n';
@@ -110,7 +110,7 @@ function submittedLine(mine: Decklist, registration: Registration | null) {
 
 /** What is still missing before the list can go, for the one line under a disabled Submit. */
 function missing(profile: PlayerProfile, deck: string, sanctioned: boolean): string | null {
-  const problems = profileProblems(profile, sanctioned);
+  const problems = profileErrors(profile, sanctioned);
   const labels: Record<keyof PlayerProfile, string> = {
     popId: t('Player ID'),
     firstName: t('first name'),
@@ -353,7 +353,7 @@ function YouRow(props: { form: DecklistState; sanctioned: boolean }) {
             idPrefix='deck'
             value={f().profile()}
             sanctioned={props.sanctioned}
-            errors={f().touched() ? profileProblems(f().profile(), props.sanctioned) : {}}
+            errors={f().touched() ? profileErrors(f().profile(), props.sanctioned) : {}}
             onChange={value => f().setProfile(value)}
           />
         }

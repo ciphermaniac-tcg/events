@@ -42,7 +42,8 @@ export function profileErrors(profile: PlayerProfile, sanctioned = true): Partia
     errors.lastName = msg('Required');
   }
   if (sanctioned && !DATE_RE.test(profile.birthDate)) {
-    errors.birthDate = msg('Use MM/DD/YYYY');
+    // Every form takes the year alone and fills in the rest (see birthDateFor).
+    errors.birthDate = msg('Enter a four-digit year');
   }
   return errors;
 }

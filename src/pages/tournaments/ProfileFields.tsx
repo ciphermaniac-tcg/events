@@ -1,6 +1,6 @@
-import { type PlayerProfile, profileErrors } from '../../../shared/tournament/profile';
+import type { PlayerProfile } from '../../../shared/tournament/profile';
 import { Show } from 'solid-js';
-import { msg, t } from '../../lib/i18n';
+import { t } from '../../lib/i18n';
 import { Field } from './Field';
 
 /**
@@ -17,11 +17,6 @@ export function emptyProfile(user?: Partial<Record<keyof PlayerProfile, string |
     lastName: user?.lastName ?? '',
     birthDate: user?.birthDate ?? ''
   };
-}
-
-export function profileProblems(profile: PlayerProfile, sanctioned = true) {
-  const errors = profileErrors(profile, sanctioned);
-  return errors.birthDate ? { ...errors, birthDate: msg('Enter a four-digit year') } : errors;
 }
 
 type Problems = Partial<Record<keyof PlayerProfile, string>>;
