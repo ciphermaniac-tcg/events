@@ -44,7 +44,7 @@
 }
 .tm-console .tm-clock-group.is-large button {
   min-width: 52px;
-  font-size: var(--text-body);
+  font-size: var(--text-base);
 }
 
 /* ---------- The round's box ---------- */
@@ -179,7 +179,7 @@
   border-bottom: 0;
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   background: var(--surface);
-  box-shadow: 0 -12px 30px rgb(0 0 0 / 0.25);
+  box-shadow: var(--shadow-float);
   transform: translateY(16px);
   opacity: 0;
   transition:
@@ -231,7 +231,7 @@
   align-items: center;
   gap: var(--space-2);
   margin: 0;
-  font-size: var(--text-body);
+  font-size: var(--text-base);
   font-weight: 600;
 }
 .tm-console .tm-sheet-seat.is-lost {
@@ -246,7 +246,7 @@
   justify-content: center;
   width: 100%;
   min-height: 44px;
-  font-size: var(--text-body);
+  font-size: var(--text-base);
 }
 .tm-console .tm-sheet-choices .btn[aria-pressed='true'] {
   border-color: var(--fg);
@@ -391,7 +391,7 @@
     padding-block: 2px;
   }
   .tm-console .tm-matches .data td.tm-table-col {
-    font-size: var(--text-body);
+    font-size: var(--text-base);
   }
   .tm-console .tm-matches .data td.tm-table-col::before {
     content: 'Table ';
@@ -432,7 +432,7 @@
   }
 }
 .tm-console .tm-result-label {
-  font-size: var(--text-body);
+  font-size: var(--text-base);
   font-weight: 500;
   font-variant-numeric: tabular-nums;
   color: var(--muted);
@@ -896,7 +896,7 @@
 }
 @media (hover: hover) {
   .tm-console .tm-matches .data tbody tr:not(.tm-group-row, .is-confirming):hover {
-    background: color-mix(in srgb, var(--fg) 12%, var(--surface));
+    background: var(--row-hover);
   }
   .tm-console .tm-seat-link:hover {
     background: color-mix(in srgb, var(--fg) 25%, var(--surface));
@@ -958,7 +958,7 @@
 }
 
 .tm-console :focus-visible {
-  outline: 3px solid var(--accent-ink);
+  outline: 3px solid var(--focus-color);
   outline-offset: 3px;
 }
 .tm-console .tm-result.is-asking .tm-result-label {
@@ -1086,12 +1086,12 @@
     table-layout: fixed;
   }
   .tm-console .tm-matches.has-extra th.tm-extra-col {
-    width: max(240px, calc(var(--text-body) * 16));
+    width: max(240px, calc(var(--text-base) * 16));
   }
 }
 @media (min-width: 1101px) {
   .tm-console .tm-matches.has-extra th.tm-extra-col {
-    width: max(240px, calc(var(--text-body) * 16));
+    width: max(240px, calc(var(--text-base) * 16));
   }
 }
 .tm-console .tm-result-options .tm-menu-item {

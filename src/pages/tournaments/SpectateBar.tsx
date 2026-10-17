@@ -5,7 +5,7 @@
  */
 
 import { For, Show } from 'solid-js';
-import { Segmented } from '../../components/Segmented';
+import { Segmented } from '@ciphermaniac/design/components/Segmented';
 import { t } from '../../lib/i18n';
 import type { Showing, SpectateFilter } from '../../lib/tournament/spectate';
 

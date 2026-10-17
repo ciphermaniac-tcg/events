@@ -25,7 +25,7 @@ import {
   withdrawInvite
 } from '../../lib/tournament/stores';
 import { latestValue } from '../../lib/resource';
-import { Skeleton } from '../../components/Skeleton';
+import { Skeleton } from '@ciphermaniac/design/components/Skeleton';
 import { OptionsMenu } from './OptionsMenu';
 import { ConfirmAction } from './ConfirmAction';
 import { ErrorLine } from './Field';

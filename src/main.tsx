@@ -3,8 +3,10 @@ import { render } from 'solid-js/web';
 import { Navigate, Route, Router } from '@solidjs/router';
 
 import './styles/fonts.css';
-import './styles/tokens.css';
+import '@ciphermaniac/design/tokens.css';
+import '@ciphermaniac/design/base.css';
 import './styles/global.css';
+import '@ciphermaniac/design/primitives.css';
 import './styles/components.css';
 
 import { App } from './app';

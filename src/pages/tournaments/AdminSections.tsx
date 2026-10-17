@@ -10,7 +10,7 @@
 
 import { useSearchParams } from '@solidjs/router';
 import { Match, Switch } from 'solid-js';
-import { TabPanel, Tabs } from '../../components/Tabs';
+import { TabPanel, Tabs } from '@ciphermaniac/design/components/Tabs';
 import { msg, t } from '../../lib/i18n';
 import { AdminApplications } from './AdminApplications';
 import { AdminEvents } from './AdminEvents';

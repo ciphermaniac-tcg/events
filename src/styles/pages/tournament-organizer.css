@@ -4,11 +4,8 @@
   --text-xs: 14px;
   --text-sm: 14px;
   --text-base: 14px;
-  --text-body: 14px;
   --tm-row-height: 52px;
   --control-h: 44px;
-  --radius-sm: 4px;
-  --radius-md: 6px;
   --tm-confirm-fill: #ffdb58;
   --tm-confirm-ink: #211b0b;
 }
@@ -19,7 +16,7 @@
   .data
   tbody
   tr:not(.tm-group-row, .is-confirming):has(.tm-seat-link:focus-visible) {
-  background: color-mix(in srgb, var(--fg) 12%, var(--surface));
+  background: var(--row-hover);
 }
 /* The approved console is excluded: this pass covers its surrounding pages. */
 .tm-organizer-surface .tm-page:not(.tm-console) {
@@ -67,10 +64,10 @@
   padding-block: 4px;
 }
 .tm-organizer-surface .tm-page:not(.tm-console) .data tbody tr:has(:focus-visible) {
-  background: color-mix(in srgb, var(--fg) 12%, var(--surface));
+  background: var(--row-hover);
 }
 .tm-organizer-surface .tm-page:not(.tm-console) :focus-visible {
-  outline: 3px solid var(--accent-ink);
+  outline: 3px solid var(--focus-color);
   outline-offset: 3px;
 }
 .tm-organizer-surface .tm-page:not(.tm-console):has(.tm-apply) {
@@ -116,7 +113,7 @@
 .tm-organizer-surface .tm-page select,
 .tm-organizer-surface .tm-page textarea,
 .tm-organizer-surface .tm-page .btn {
-  font-size: var(--text-body) !important;
+  font-size: var(--text-base) !important;
 }
 /* Under 16px, iOS zooms the page when a field takes focus. */
 @media (max-width: 640px) {

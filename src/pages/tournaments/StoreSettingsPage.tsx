@@ -19,7 +19,7 @@ import {
   type StoreDetails
 } from '../../../shared/accounts/stores';
 import type { PublicStore } from '../../../shared/accounts/types';
-import { Skeleton } from '../../components/Skeleton';
+import { Skeleton } from '@ciphermaniac/design/components/Skeleton';
 import { errorText, type SignInOffer } from '../../lib/tournament/api';
 import { msg, t } from '../../lib/i18n';
 import {

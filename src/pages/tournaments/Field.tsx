@@ -1,7 +1,7 @@
 import { type JSX, type Resource, Show } from 'solid-js';
 import { t } from '../../lib/i18n';
 import { errorText } from '../../lib/tournament/api';
-import { Skeleton } from '../../components/Skeleton';
+import { Skeleton } from '@ciphermaniac/design/components/Skeleton';
 
 /** A labelled form control with an optional error line, the house form row. */
 export function Field(props: { id: string; label: string; error?: string | undefined; children: JSX.Element }) {

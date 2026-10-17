@@ -19,7 +19,7 @@ export function SiteHead() {
   const location = useLocation();
   const answer = () => latestValue(session);
   return (
-    <header class='site-head'>
+    <header class='site-head head-bar'>
       <div class='site-head-row'>
         <A href='/' class='site-head-name'>
           <img src='/logo.svg' alt='' width='20' height='24' />

@@ -11,7 +11,7 @@ import { A } from '@solidjs/router';
 import { createEffect, createResource, For, Show } from 'solid-js';
 import { addressOf, dateIn, managesStore, readDiscordInvite } from '../../../shared/accounts/stores';
 import type { PastEvent, PublicStore, StoreEvent } from '../../../shared/accounts/types';
-import { Skeleton } from '../../components/Skeleton';
+import { Skeleton } from '@ciphermaniac/design/components/Skeleton';
 import { errorText } from '../../lib/tournament/api';
 import { msg, t } from '../../lib/i18n';
 import {
@@ -30,7 +30,7 @@ import { TournamentHero } from './Hero';
 import { StoreMap } from './StoreMap';
 import '../../styles/pages/tournament-store-page.css';
 import { pageTitle } from '../../lib/title';
-import { ErrorState } from '../../components/ErrorState';
+import { ErrorState } from '@ciphermaniac/design/components/ErrorState';
 
 /** Third-party links from store-entered data: no referrer, no endorsement. */
 const STORE_LINK_REL = 'noopener noreferrer nofollow ugc';

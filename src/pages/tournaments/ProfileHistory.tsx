@@ -1,6 +1,6 @@
 import { createSignal, Show } from 'solid-js';
 import type { OrganizerActivity as Activity, HistoryEntry } from '../../../shared/accounts/types';
-import { TabPanel, Tabs } from '../../components/Tabs';
+import { TabPanel, Tabs } from '@ciphermaniac/design/components/Tabs';
 import { t } from '../../lib/i18n';
 import { createShownCount, HistoryList } from './HistoryList';
 import { OrganizerActivity } from './OrganizerActivity';

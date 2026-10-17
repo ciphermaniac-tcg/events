@@ -13,7 +13,7 @@ import { TOP_CUT_SIZES } from '../../../shared/tournament/structure';
 import { type Division, DIVISION_LABELS, type Pod } from '../../../shared/tournament/types';
 import { type Manage, saveSettings } from '../../lib/tournament/api';
 import { type DivisionCut, endGaps } from '../../lib/tournament/present';
-import { Segmented } from '../../components/Segmented';
+import { Segmented } from '@ciphermaniac/design/components/Segmented';
 import type { ManageState } from './manageState';
 import { Modal } from './Modal';
 import { OptionsMenu } from './OptionsMenu';

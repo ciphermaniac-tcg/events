@@ -66,7 +66,7 @@
   white-space: nowrap;
 }
 .tm-hist-name {
-  font-size: var(--text-body);
+  font-size: var(--text-base);
   font-weight: 600;
 }
 .tm-hist-sub {
@@ -87,7 +87,7 @@
 }
 .tm-hist .data td.tm-hist-place,
 .tm-hist .data td.tm-hist-record {
-  font-size: var(--text-body);
+  font-size: var(--text-base);
 }
 .tm-hist .data td.tm-hist-place {
   font-weight: 700;

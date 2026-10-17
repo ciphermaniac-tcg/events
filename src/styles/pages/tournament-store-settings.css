@@ -34,7 +34,7 @@
   text-underline-offset: 2px;
 }
 .tm-store-refused {
-  font-size: var(--text-body);
+  font-size: var(--text-base);
 }
 .tm-store-invite {
   min-height: 52px;
@@ -92,7 +92,7 @@
 }
 @media (hover: hover) {
   .tm-store-staff tbody tr:hover {
-    background: color-mix(in srgb, var(--fg) 12%, var(--surface));
+    background: var(--row-hover);
   }
 }
 @media (hover: hover) {

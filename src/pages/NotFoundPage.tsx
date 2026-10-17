@@ -1,6 +1,6 @@
 import { A } from '@solidjs/router';
 import { onMount } from 'solid-js';
-import { ErrorState } from '../components/ErrorState';
+import { ErrorState } from '@ciphermaniac/design/components/ErrorState';
 import { pageTitle } from '../lib/title';
 import { t } from '../lib/i18n';
 

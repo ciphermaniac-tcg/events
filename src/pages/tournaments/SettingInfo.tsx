@@ -5,7 +5,7 @@
  * use it.
  */
 
-import { InfoTip } from '../../components/InfoTip';
+import { InfoTip } from '@ciphermaniac/design/components/InfoTip';
 import { msg, t } from '../../lib/i18n';
 
 export const SETTING_INFO = {

@@ -8,7 +8,7 @@
 
 import { createResource, createSignal, For, Show } from 'solid-js';
 import type { FoundAccount } from '../../../shared/accounts/types';
-import { Skeleton } from '../../components/Skeleton';
+import { Skeleton } from '@ciphermaniac/design/components/Skeleton';
 import { errorText } from '../../lib/tournament/api';
 import { t } from '../../lib/i18n';
 import { findAccounts, movePopId, ROLE_WORDS } from '../../lib/tournament/admin';

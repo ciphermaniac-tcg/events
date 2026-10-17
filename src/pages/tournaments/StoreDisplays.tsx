@@ -20,8 +20,8 @@ import {
   roomInReach,
   SCALE_LIMITS
 } from '../../../shared/tournament/display';
-import { Segmented } from '../../components/Segmented';
-import { Skeleton } from '../../components/Skeleton';
+import { Segmented } from '@ciphermaniac/design/components/Segmented';
+import { Skeleton } from '@ciphermaniac/design/components/Skeleton';
 import { call, errorText, json } from '../../lib/tournament/api';
 import { latestValue } from '../../lib/resource';
 import { measuresInFeet, msg, t, tn } from '../../lib/i18n';

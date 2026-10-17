@@ -7,7 +7,7 @@
 
 import { createEffect, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import type { Badge } from '../../../shared/accounts/achievements';
-import { InfoTip } from '../../components/InfoTip';
+import { InfoTip } from '@ciphermaniac/design/components/InfoTip';
 import { t, tn } from '../../lib/i18n';
 import { visibleBadgeCount } from '../../lib/tournament/badgeOverflow';
 import { BadgeArt } from './badgeArt';

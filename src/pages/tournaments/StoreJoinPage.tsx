@@ -14,7 +14,7 @@ import { latestValue } from '../../lib/resource';
 import { TournamentHero } from './Hero';
 import { refreshSession, session } from './session';
 import { SignIn } from './SignIn';
-import { ErrorState } from '../../components/ErrorState';
+import { ErrorState } from '@ciphermaniac/design/components/ErrorState';
 
 export function StoreJoinPage() {
   const navigate = useNavigate();

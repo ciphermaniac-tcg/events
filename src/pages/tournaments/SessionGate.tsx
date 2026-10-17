@@ -1,5 +1,5 @@
 import { type Accessor, type JSX, Show } from 'solid-js';
-import { Skeleton } from '../../components/Skeleton';
+import { Skeleton } from '@ciphermaniac/design/components/Skeleton';
 import { t } from '../../lib/i18n';
 import { latestValue } from '../../lib/resource';
 import { type Session } from '../../lib/tournament/api';

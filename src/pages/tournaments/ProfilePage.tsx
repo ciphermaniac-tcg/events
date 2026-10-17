@@ -7,7 +7,7 @@
 
 import { A } from '@solidjs/router';
 import { createEffect, createResource, Show } from 'solid-js';
-import { Skeleton } from '../../components/Skeleton';
+import { Skeleton } from '@ciphermaniac/design/components/Skeleton';
 import { ApiError, fetchProfile } from '../../lib/tournament/api';
 import { resolved } from '../../lib/resource';
 import { Avatar } from './Avatar';
@@ -17,7 +17,7 @@ import { ProfileHistory } from './ProfileHistory';
 import { ProfileLinks } from './ProfileLinks';
 import { pageTitle } from '../../lib/title';
 import { t } from '../../lib/i18n';
-import { ErrorState } from '../../components/ErrorState';
+import { ErrorState } from '@ciphermaniac/design/components/ErrorState';
 
 const missing = (error: unknown) => error instanceof ApiError && error.status === 404;
 

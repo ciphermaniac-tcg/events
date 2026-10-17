@@ -17,7 +17,7 @@ import { type EntryResult, eventDay } from '../../lib/tournament/history';
 import { loadEntry } from '../../lib/tournament/historyCopies';
 import { divisionHeading } from '../../lib/tournament/present';
 import { resolved } from '../../lib/resource';
-import { Skeleton } from '../../components/Skeleton';
+import { Skeleton } from '@ciphermaniac/design/components/Skeleton';
 import { DeckIcons } from './DeckIcons';
 import { Squares } from './Squares';
 import '../../styles/pages/tournament-history.css';
