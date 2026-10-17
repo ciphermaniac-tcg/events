@@ -24,7 +24,9 @@ import type { PlayerResult, ShownMatch } from '../../../shared/tournament/report
 import type { EventType, Tournament } from '../../../shared/tournament/types';
 import {
   type Decklist,
+  type DeckMode,
   type Manage,
+  type MyRegistration,
   type PublishedView,
   publishedViewKey,
   type Registration,
@@ -387,28 +389,51 @@ export const removeStaff = (code: string, userId: string) =>
 export const fetchDecklists = (code: string) =>
   call<{ decklists: Decklist[]; mine: Decklist | null }>(`${base(code)}/decklists`);
 
-/** A player's own list, by the details it was sent under and the token the sending device kept. */
-export const fetchMyDecklist = (
+/**
+ * What a player's details find (see MyRegistration): with a token, the list
+ * the device sent; with a sanctioned event's birth year, whose registration
+ * the Player ID is. A wrong year counts against the Player ID.
+ */
+export const lookUpRegistration = (
   code: string,
   owner: Pick<PlayerProfile, 'popId' | 'firstName' | 'lastName'>,
-  token: string
-) => call<{ mine: Decklist | null }>(`${base(code)}/decklists?${listOwner(owner, token)}`);
+  proof: { token?: string; birthYear?: string } = {}
+) => {
+  const query = new URLSearchParams(listOwner(owner, proof.token));
+  if (proof.birthYear) {
+    query.set('birthYear', proof.birthYear);
+  }
+  return call<MyRegistration>(`${base(code)}/decklists?${query.toString()}`);
+};
 
-/** Sends a list; replacing one takes the token of the device that sent it. */
-export const submitDecklist = (
+/** Registers or changes a registration; `was` renames an unsanctioned one from the names it had. */
+export const submitRegistration = (
   code: string,
-  list: { deck: string; profile: PlayerProfile; archetype: string | null; token: string | null }
+  registration: {
+    profile: PlayerProfile;
+    mode: DeckMode;
+    deck: string;
+    token: string | null;
+    was?: Pick<PlayerProfile, 'firstName' | 'lastName'>;
+  }
 ) =>
   call<{ decklist: Decklist; registration: Registration; token: string }>(
     `${base(code)}/decklists`,
-    json('PUT', { ...list, localTime: tomDateTime(new Date()) })
+    json('PUT', { ...registration, localTime: tomDateTime(new Date()) })
   );
 
-export const withdrawDecklist = (
+/** Withdraws a registration: by its birth year at a sanctioned event, by the device's token at another. */
+export const withdrawRegistration = (
   code: string,
   owner: Pick<PlayerProfile, 'popId' | 'firstName' | 'lastName'>,
-  token: string | null
-) => call<null>(`${base(code)}/decklists?${listOwner(owner, token ?? undefined)}`, { method: 'DELETE' });
+  proof: { token?: string; birthYear?: string }
+) => {
+  const query = new URLSearchParams(listOwner(owner, proof.token));
+  if (proof.birthYear) {
+    query.set('birthYear', proof.birthYear);
+  }
+  return call<null>(`${base(code)}/decklists?${query.toString()}`, { method: 'DELETE' });
+};
 
 /** Staff tick or clear one check for a player before round 1 (see shared/tournament/checkins.ts). */
 export const saveCheckIn = (code: string, check: { playerId: string; mark: CheckMark; on: boolean }) =>

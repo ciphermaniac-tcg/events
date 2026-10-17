@@ -42,8 +42,8 @@ const submit = (code: string, extra: Record<string, unknown> = {}) =>
     body: { ...LIST, profile: PROFILE, ...extra }
   });
 
-const withdraw = (code: string, token: string) =>
-  hit(decklists.onRequestDelete as Handler, `/decklists?popId=4242&token=${token}`, at(code), { method: 'DELETE' });
+const withdraw = (code: string) =>
+  hit(decklists.onRequestDelete as Handler, '/decklists?popId=4242&birthYear=2001', at(code), { method: 'DELETE' });
 
 /** A Swiss event taking lists, with four players and one list in. */
 async function eventWithList() {
@@ -64,7 +64,7 @@ test('pairing round 1 locks every list, and its player still reads theirs back',
 
   const replaced = await submit(code, { token, deck: '60 Basic {G} Energy SVE 1' });
   assert.deepEqual([replaced.status, replaced.json.error], [403, 'Decklists are locked once round 1 is paired']);
-  const gone = await withdraw(code, token);
+  const gone = await withdraw(code);
   assert.deepEqual([gone.status, gone.json.error], [403, 'Decklists are locked once round 1 is paired']);
   const late = await submit(code, { profile: { ...PROFILE, popId: '5151' } });
   assert.equal(late.status, 403, 'nor does a new list come in');
@@ -96,7 +96,7 @@ test('a list sent as round 1 is paired is refused, though the event read had no 
   env.TOURNAMENT_DB = db;
   const mine = await hit(decklists.onRequestGet as Handler, `/decklists?popId=4242&token=${token}`, at(code));
   assert.equal(mine.json.mine.deck, LIST.deck, 'the list stands as it was');
-  assert.equal((await withdraw(code, token)).status, 403);
+  assert.equal((await withdraw(code)).status, 403);
 });
 
 /** Closes submission for the event straight in the database, as a close landing mid-request would. */
@@ -119,7 +119,7 @@ test('a list sent or withdrawn as submission closes is refused, though the event
     .prepare("UPDATE tournaments SET settings = json_set(settings, '$.decklists', 'open') WHERE code = ?")
     .run(code);
   env.TOURNAMENT_DB = racing(db, 'DELETE FROM decklists', closeNow(code));
-  const gone = await withdraw(code, token);
+  const gone = await withdraw(code);
   assert.deepEqual([gone.status, gone.json.error], [403, 'Decklist submission is closed']);
   assert.equal((await readMine(code, token)).json.mine.deck, LIST.deck, 'and is not withdrawn');
 });

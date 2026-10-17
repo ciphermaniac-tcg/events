@@ -520,9 +520,14 @@ export interface StaffMember {
   joinedAt: number | null;
 }
 
+/** How a player hands in their list: pasted on the site, or on paper to staff at the event. */
+export type DeckMode = 'digital' | 'paper';
+
 /** A submitted decklist, as staff and its own submitter read it. */
 export interface Decklist extends PlayerProfile {
+  /** The pasted list; '' for a paper one. */
   deck: string;
+  mode: DeckMode;
   /** The player's own word for their deck, until staff apply it. */
   archetype: string | null;
   submittedAt: number;
@@ -534,6 +539,28 @@ export interface Decklist extends PlayerProfile {
   fromList: boolean;
   /** Only the device that sent it can replace it, until staff unlock it. */
   locked: boolean;
+}
+
+/** A name as a lookup answers with it. */
+export interface NamedPlayer {
+  firstName: string;
+  lastName: string;
+}
+
+/**
+ * What a player's own details find, before and after they prove who they
+ * are. A Player ID alone says only whether someone is registered under it;
+ * with its birth year, whose registration it is. At an unsanctioned event the
+ * names typed find the players named like them.
+ */
+export interface MyRegistration {
+  /** Whether the details name someone registered: on the event's list, or with a list in. */
+  known: boolean;
+  /** At an unsanctioned event, the players whose names are the ones typed or a slip from them. */
+  matches?: NamedPlayer[];
+  /** The registered player, once the Player ID's birth year is right. */
+  player?: NamedPlayer | null;
+  mine: Decklist | null;
 }
 
 /** Whether submitting put the player on the event's list, found them on it, or could not add them. */

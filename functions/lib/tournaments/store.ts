@@ -57,6 +57,8 @@ export interface TournamentRow {
   decks: Record<string, string>;
   /** What staff checked for each player before round 1 (see shared/tournament/checkins.ts). */
   checkins: CheckIns;
+  /** POP ID to the archetype the player's pasted list reads as; `decks`, set by staff, wins over it. */
+  inferredDecks: Record<string, string>;
   staffToken: string;
   version: number;
   updatedAt: number;
@@ -83,6 +85,7 @@ interface RawRow {
   player_keys: string;
   decks: string;
   checkins?: string | null;
+  inferred_decks?: string | null;
   staff_token: string;
   version: number;
   updated_at: number;
@@ -114,6 +117,7 @@ function fromRaw(raw: RawRow): TournamentRow {
     keys: JSON.parse(raw.player_keys) as Record<string, string>,
     decks: JSON.parse(raw.decks) as Record<string, string>,
     checkins: JSON.parse(raw.checkins ?? '{}') as CheckIns,
+    inferredDecks: JSON.parse(raw.inferred_decks ?? '{}') as Record<string, string>,
     staffToken: raw.staff_token,
     version: raw.version,
     updatedAt: raw.updated_at,
@@ -363,7 +367,7 @@ export async function createTournament(db: D1Like, input: NewTournament): Promis
       });
     checkCreationAdmission(results, input, attempt);
     if (rowsChanged(results[admission.length + 1]) === 1) {
-      const empty = { pending: [], reports: [], requests: [], decks: {}, checkins: {} };
+      const empty = { pending: [], reports: [], requests: [], decks: {}, checkins: {}, inferredDecks: {} };
       const made = { code, ownerId, mode, tournament, settings, keys, staffToken, version: 1, updatedAt: now };
       const paired = pairedThrough({}, tournament);
       return { ...made, ...empty, storeId, communityDay, lastImportAt, pairedThrough: paired, headJudge: null };
@@ -422,6 +426,7 @@ export interface Changes {
   settings?: TournamentSettings;
   decks?: Record<string, string>;
   checkins?: CheckIns;
+  inferredDecks?: Record<string, string>;
   /** A Community organizer's event moving to another day (see dayChange). */
   communityDay?: string;
 }
@@ -491,7 +496,7 @@ function documentColumns(tournament: Tournament | undefined, next: TournamentRow
 
 /** The columns a change writes, and their values: only what it changed. */
 function columnsFor(changes: Changes, next: TournamentRow): [string, string][] {
-  const { tournament, pending, settings, decks, checkins, communityDay } = changes;
+  const { tournament, pending, settings, decks, checkins, inferredDecks, communityDay } = changes;
   const columns: [string, string | false | undefined][] = [
     ['community_day', communityDay],
     ['last_import_at', changes.lastImportAt?.toString()],
@@ -500,6 +505,7 @@ function columnsFor(changes: Changes, next: TournamentRow): [string, string][] {
     ['settings', settings && JSON.stringify(settings)],
     ['decks', decks && JSON.stringify(decks)],
     ['checkins', checkins && JSON.stringify(checkins)],
+    ['inferred_decks', inferredDecks && JSON.stringify(inferredDecks)],
     ['requests', changes.requests && JSON.stringify(changes.requests)],
     // Reports follow the results and the reporting setting, so any of those rewrites them.
     ['reports', (changes.reports ?? tournament ?? pending ?? settings) && JSON.stringify(next.reports)]

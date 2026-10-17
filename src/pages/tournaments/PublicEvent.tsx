@@ -19,13 +19,13 @@ import type { PlayerClaim } from '../../../shared/tournament/identify';
 import {
   decklistsLocked,
   decklistsOpen,
-  decksEnabled,
   isSanctioned,
   type PublishedView,
   type TournamentSettings,
   type TournamentView
 } from '../../../shared/tournament/view';
-import { eventTimes } from '../../../shared/tournament/eventTime';
+import { asksWhoYouAre, eventTimes } from '../../../shared/tournament/eventTime';
+import { isWallClock } from '../../../shared/tournament/timeZone';
 import { Segmented } from '@ciphermaniac/design/components/Segmented';
 import { Skeleton } from '@ciphermaniac/design/components/Skeleton';
 import { TabPanel, Tabs } from '@ciphermaniac/design/components/Tabs';
@@ -378,23 +378,31 @@ function createMe(view: () => TournamentView, events: { onView: (view: Published
 }
 
 /**
- * The decklist tab: the form while players can send a list, and once they
- * cannot, the receipt for a viewer who may have one (a device that sent one,
- * or an account that is a player here).
+ * The registration tab: the form while players can register, and once they
+ * cannot, the receipt for a viewer who may have a list (a device that sent
+ * one, or an account that is a player here).
  */
 function decklistTab(view: TournamentView, mayHaveList: boolean): { value: Tab; label: string }[] {
   if (decklistsOpen(view)) {
-    return [{ value: 'decklist', label: t('Submit decklist') }];
+    return [{ value: 'decklist', label: mayHaveList ? t('Registration') : t('Register') }];
   }
-  return view.settings.decklists !== 'off' && mayHaveList ? [{ value: 'decklist', label: t('My decklist') }] : [];
+  return view.settings.decklists !== 'off' && mayHaveList ? [{ value: 'decklist', label: t('Registration') }] : [];
 }
 
+/** Before round 1 an event taking registrations shows only that: pairings and standings have nothing in them yet. */
 function tabsFor(view: TournamentView, mayHaveList: boolean): { value: Tab; label: string }[] {
+  const register = decklistTab(view, mayHaveList);
+  const results =
+    hasStarted(view.tournament) || register.length === 0
+      ? [
+          { value: 'pairings' as const, label: t('Pairings') },
+          { value: 'standings' as const, label: t('Standings') }
+        ]
+      : [];
   return [
-    { value: 'pairings', label: t('Pairings') },
-    { value: 'standings', label: t('Standings') },
+    ...results,
     ...(Object.keys(view.decks).length ? [{ value: 'decks' as const, label: t('Decks') }] : []),
-    ...decklistTab(view, mayHaveList)
+    ...register
   ];
 }
 
@@ -408,7 +416,7 @@ function defaultTab(view: TournamentView): Tab {
 
 function pickTab(tabs: readonly { value: Tab }[], wanted: string | undefined, view: TournamentView): Tab {
   const choice = (wanted as Tab | undefined) ?? defaultTab(view);
-  return tabs.some(t => t.value === choice) ? choice : 'pairings';
+  return tabs.some(t => t.value === choice) ? choice : (tabs[0]?.value ?? 'pairings');
 }
 
 /** One line under every panel while decks wait for the event to end. */
@@ -606,27 +614,33 @@ function EventBody(props: {
     </>
   );
 
+  const now = createNow();
+  // Who a viewer is only matters near the start: until then the page is for registering.
+  const asks = createMemo(() => me() !== null || asksWhoYouAre(started(), props.view.settings, now()));
+
   return (
     <>
-      <YourMatch
-        view={props.view}
-        me={me()}
-        claim={claim()}
-        reportToken={reportToken()}
-        reports={reports()}
-        onIdentified={identified}
-        onForget={forget}
-        onView={props.onView}
-        onPlayer={setOpen}
-        firstRound={firstRoundTime(props.view.settings.startsAt)}
-        signedIn={Boolean(props.session?.user)}
-        offer={props.session ?? { providers: [] }}
-        onUnlink={unlink}
-        onStale={() => {
-          recheck();
-          props.onWhoAmI();
-        }}
-      />
+      <Show when={asks()}>
+        <YourMatch
+          view={props.view}
+          me={me()}
+          claim={claim()}
+          reportToken={reportToken()}
+          reports={reports()}
+          onIdentified={identified}
+          onForget={forget}
+          onView={props.onView}
+          onPlayer={setOpen}
+          firstRound={firstRoundTime(props.view.settings.startsAt)}
+          signedIn={Boolean(props.session?.user)}
+          offer={props.session ?? { providers: [] }}
+          onUnlink={unlink}
+          onStale={() => {
+            recheck();
+            props.onWhoAmI();
+          }}
+        />
+      </Show>
       <Tabs
         id='event'
         options={tabs()}
@@ -679,12 +693,12 @@ function EventBody(props: {
         <Show when={tab() === 'decklist'}>
           <DecklistForm
             code={props.view.code}
-            archetypes={decksEnabled(props.view.settings)}
-            format={props.view.settings.format}
             sanctioned={isSanctioned(props.view)}
             owner={listOwner()}
             open={decklistsOpen(props.view)}
             locked={decklistsLocked(props.view)}
+            closes={startShown(props.view.settings)}
+            full={rosterFull(props.view)}
           />
         </Show>
       </TabPanel>
@@ -707,6 +721,16 @@ function EventBody(props: {
     </>
   );
 }
+
+/** The start as players read it, which is when registration changes close; null when none is set. */
+const startShown = (settings: TournamentSettings): string | null =>
+  isWallClock(settings.startsAt) ? eventTimes(settings.startsAt, settings.timeZone).event : null;
+
+/** Whether the event's own list is at its cap, so the page says so before anyone types. */
+const rosterFull = (view: TournamentView): boolean =>
+  view.mode === 'swiss' &&
+  view.settings.playerCap > 0 &&
+  view.tournament.players.filter(player => player.droppedAfter === null).length >= view.settings.playerCap;
 
 /**
  * One date format across the page: the organizer's start time, in the event's

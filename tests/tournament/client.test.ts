@@ -20,7 +20,6 @@ import {
   fetchDecklists,
   fetchHistory,
   fetchManage,
-  fetchMyDecklist,
   fetchPenaltyNotes,
   fetchProfile,
   fetchProfilePreferences,
@@ -34,6 +33,7 @@ import {
   linkUrl,
   listTournaments,
   lookupPlayer,
+  lookUpRegistration,
   preloadManage,
   preloadPublished,
   recordDeckCheck,
@@ -54,9 +54,9 @@ import {
   setPublicProfile,
   signInUrl,
   signOut,
-  submitDecklist,
+  submitRegistration,
   syncTournament,
-  withdrawDecklist
+  withdrawRegistration
 } from '../../src/lib/tournament/api.ts';
 import {
   canLinkFiles,
@@ -196,9 +196,10 @@ test('every call goes to its endpoint with its body', async () => {
   await joinStaff('ABC', 'tok');
   await rotateStaffToken('ABC');
   await fetchDecklists('ABC');
-  await submitDecklist('ABC', { deck: 'deck', profile, archetype: null, token: 'kept' });
-  await fetchMyDecklist('ABC', profile, 'tok');
-  await fetchMyDecklist('ABC', { popId: '', firstName: 'Ann', lastName: 'Lee' }, 'tok');
+  await submitRegistration('ABC', { deck: 'deck', mode: 'digital', profile, token: 'kept' });
+  await lookUpRegistration('ABC', profile, { token: 'tok' });
+  await lookUpRegistration('ABC', { popId: '', firstName: 'Ann', lastName: 'Lee' }, { token: 'tok' });
+  await lookUpRegistration('ABC', profile, { birthYear: '1990' });
   await saveCheckIn('ABC', { playerId: '1', mark: 'paid', on: true });
   await fetchStaff('ABC');
   await removeStaff('ABC', 'u-1');
@@ -223,6 +224,7 @@ test('every call goes to its endpoint with its body', async () => {
       'PUT /api/tournaments/ABC/decklists',
       'GET /api/tournaments/ABC/decklists?popId=1&firstName=A&lastName=B&token=tok',
       'GET /api/tournaments/ABC/decklists?popId=&firstName=Ann&lastName=Lee&token=tok',
+      'GET /api/tournaments/ABC/decklists?popId=1&firstName=A&lastName=B&birthYear=1990',
       'PUT /api/tournaments/ABC/checkins',
       'GET /api/tournaments/ABC/staff',
       'DELETE /api/tournaments/ABC/staff?user=u-1'
@@ -354,12 +356,17 @@ test('a 204 answers null', async () => {
   assert.equal(await fetchView('ABC', 3), null);
   assert.equal(await signOut(), null);
   assert.equal(await deleteTournament('ABC'), null);
-  assert.equal(await withdrawDecklist('ABC', { popId: '12', firstName: 'A', lastName: 'B' }, 'kept'), null);
+  assert.equal(
+    await withdrawRegistration('ABC', { popId: '12', firstName: 'A', lastName: 'B' }, { token: 'kept' }),
+    null
+  );
   assert.equal(
     sent.at(-1)?.url,
     '/api/tournaments/ABC/decklists?popId=12&firstName=A&lastName=B&token=kept',
     'withdrawn by who sent it, with the token of the device that sent it'
   );
+  await withdrawRegistration('ABC', { popId: '12', firstName: 'A', lastName: 'B' }, { birthYear: '1990' });
+  assert.equal(sent.at(-1)?.url, '/api/tournaments/ABC/decklists?popId=12&firstName=A&lastName=B&birthYear=1990');
 });
 
 test('a failure carries the server’s message and status', async () => {

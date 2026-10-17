@@ -425,25 +425,26 @@ test('a list sent by the account that is its player is the account’s, from any
   });
   assert.equal(replaced.status, 200, 'replaced from a device with no token');
   assert.notEqual(replaced.json.token, sent.json.token);
+  const wrongYear = { ...lin, birthDate: '02/27/1991' };
   assert.equal(
-    (await listCall(code, 'PUT', '', { body: { deck: DECK, profile: lin } })).status,
-    409,
-    'signed out, it is locked'
+    (await listCall(code, 'PUT', '', { body: { deck: DECK, profile: wrongYear } })).status,
+    403,
+    'signed out, only its birth year replaces it'
   );
 
   const stranger = await signIn('Stranger');
   await hit(me.onRequestPut as Handler, '/api/me', {}, { method: 'PUT', cookie: stranger, body: profileOf('7171') });
   assert.equal((await listCall(code, 'GET', 'popId=6161', { cookie: stranger })).json.mine, null);
-  assert.equal((await listCall(code, 'DELETE', 'popId=6161', { cookie: stranger })).status, 409);
+  assert.equal((await listCall(code, 'DELETE', 'popId=6161', { cookie: stranger })).status, 403);
   assert.equal(
-    (await listCall(code, 'DELETE', 'popId=6161', { cookie: player })).status,
+    (await listCall(code, 'DELETE', 'popId=6161&birthYear=1990', { cookie: player })).status,
     204,
-    'withdrawn with no token'
+    'withdrawn with its birth year'
   );
   assert.deepEqual(listAccount(code), []);
 });
 
-test('a list a device sent first stays that device’s, against the account that is its player', async () => {
+test('at a sanctioned event the birth year, not the device that sent a list, says who replaces it', async () => {
   const owner = await signIn('Organizer', 'organizer');
   const code = await newSwiss(owner);
   await settle(code, owner, { decklists: 'open' });
@@ -451,19 +452,12 @@ test('a list a device sent first stays that device’s, against the account that
   const device = await listCall(code, 'PUT', '', { body: { deck: DECK, profile: lin } });
   const player = await signIn('Player');
   await hit(me.onRequestPut as Handler, '/api/me', {}, { method: 'PUT', cookie: player, body: lin });
-  assert.equal((await listCall(code, 'PUT', '', { cookie: player, body: { deck: DECK, profile: lin } })).status, 409);
-  assert.equal((await listCall(code, 'GET', 'popId=6161', { cookie: player })).json.mine, null);
-  assert.equal((await listCall(code, 'DELETE', 'popId=6161', { cookie: player })).status, 409);
-  // The device that sent it, signed in now as the player, makes it the account's.
-  const taken = await listCall(code, 'PUT', '', {
-    cookie: player,
-    body: { deck: DECK, profile: lin, token: device.json.token }
-  });
-  assert.equal(taken.status, 200);
+  const taken = await listCall(code, 'PUT', '', { cookie: player, body: { deck: DECK, profile: lin } });
+  assert.equal(taken.status, 200, 'the account that is its player replaces it under its year');
   assert.equal(listAccount(code)[0]?.account, await accountId(player));
   const signedOut = await listCall(code, 'PUT', '', { body: { deck: DECK, profile: lin, token: device.json.token } });
-  assert.equal(signedOut.status, 200, 'the device keeps its list signed out');
-  assert.equal(listAccount(code)[0]?.account, await accountId(player), 'and the list stays the account’s');
+  assert.equal(signedOut.status, 200, 'and the first device still does');
+  assert.equal(listAccount(code)[0]?.account, null, 'which, holding no token of the account’s, frees it');
 });
 
 test('staff unlocking a list frees it from its account too', async () => {
@@ -700,7 +694,7 @@ test('a list is not the account’s to withdraw once its Claim was undone since 
   assert.equal(listAccount(code).length, 1);
 });
 
-test('a list is not the account’s to replace once it gave up the POP ID since the request read it', async () => {
+test('a list is not the account’s once it gave up the POP ID since the request read it', async () => {
   const owner = await signIn('Organizer', 'organizer');
   const code = await newSwiss(owner);
   await settle(code, owner, { decklists: 'open' });
@@ -713,8 +707,8 @@ test('a list is not the account’s to replace once it gave up the POP ID since 
     cookie: player,
     body: { deck: '60 Basic {G} Energy SVE 1', profile: lin }
   });
-  assert.equal(replaced.status, 409);
-  assert.equal((raw().prepare('SELECT deck FROM decklists WHERE code = ?').get(code) as { deck: string }).deck, DECK);
+  assert.equal(replaced.status, 200, 'its birth year still replaces it');
+  assert.deepEqual(listAccount(code), [{ who: 'pop:6161', account: null }], 'but no longer for the account');
 });
 
 test('a first list is the device’s alone when the account stopped being its player since the request read it', async () => {

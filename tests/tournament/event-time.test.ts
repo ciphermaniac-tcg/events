@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { eventTimes, zonedInstant } from '../../shared/tournament/eventTime.ts';
+import { ASK_BEFORE_MS, asksWhoYouAre, eventTimes, zonedInstant } from '../../shared/tournament/eventTime.ts';
 import { isTimeZone, isWallClock } from '../../shared/tournament/timeZone.ts';
 
 test('only zones the runtime knows are time zones', () => {
@@ -67,4 +67,19 @@ test('a stored time that names no real moment shows as written instead of failin
     yours: null
   });
   assert.deepEqual(eventTimes('2026-02-30T10:00', '', 'Asia/Tokyo'), { event: '2026-02-30T10:00', yours: null });
+});
+
+test('the page asks who you are from three hours before the start, or once round 1 is paired', () => {
+  const settings = { startsAt: '2026-10-24T11:00', timeZone: 'America/Chicago' };
+  const start = Date.UTC(2026, 9, 24, 16, 0);
+  assert.equal(asksWhoYouAre(false, settings, start - ASK_BEFORE_MS - 1), false);
+  assert.equal(asksWhoYouAre(false, settings, start - ASK_BEFORE_MS), true);
+  assert.equal(asksWhoYouAre(true, settings, 0), true, 'round 1 opens it whatever the clock says');
+  assert.equal(asksWhoYouAre(false, { startsAt: '', timeZone: '' }, start), false, 'no start, no question');
+  const local = { startsAt: '2026-10-24T11:00', timeZone: '' };
+  assert.equal(
+    asksWhoYouAre(false, local, new Date('2026-10-24T08:00').getTime()),
+    true,
+    'as the viewer’s clock reads'
+  );
 });

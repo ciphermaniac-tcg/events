@@ -79,7 +79,7 @@ function DecklistRow(props: RowProps) {
   const archetypes = () => decksEnabled(props.manage.settings);
   const sub = () =>
     [
-      archetypes() ? (props.list.archetype ?? t('No deck named')) : '',
+      archetypes() ? (props.list.archetype ?? (props.list.mode === 'paper' ? t('In person') : t('Unclassified'))) : '',
       sanctioned() ? props.list.popId : '',
       sanctioned() ? (birthYear(props.list.birthDate) ?? '') : ''
     ]

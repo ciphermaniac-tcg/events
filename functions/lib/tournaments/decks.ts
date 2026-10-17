@@ -27,3 +27,9 @@ export function withDeck(
   }
   return next;
 }
+
+/** The archetype each player is shown on: the one staff set, else the one their pasted list reads as. */
+export const shownDecks = (row: {
+  decks: Record<string, string>;
+  inferredDecks?: Record<string, string>;
+}): Record<string, string> => ({ ...row.inferredDecks, ...row.decks });

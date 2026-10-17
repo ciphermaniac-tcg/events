@@ -41,6 +41,7 @@ import * as claim from '../../functions/api/tournaments/[code]/claim.ts';
 import * as commands from '../../functions/api/tournaments/[code]/commands.ts';
 import { FREE_TRIES } from '../../functions/lib/tournaments/attempts.ts';
 import * as decklists from '../../functions/api/tournaments/[code]/decklists.ts';
+import { _forgetRules } from '../../functions/lib/tournaments/archetypeRules.ts';
 import * as decks from '../../functions/api/tournaments/[code]/decks.ts';
 import * as event from '../../functions/api/tournaments/[code]/index.ts';
 import * as idle from '../../functions/api/tournaments/idle.ts';
@@ -826,13 +827,17 @@ test('a Swiss event cannot be synced from a file', async () => {
 });
 
 test('decklists come in only while open, and decks show as the visibility setting allows', async () => {
+  mock.method(globalThis, 'fetch', async () =>
+    Response.json([{ label: 'Gardevoir ex', deckCount: 1, signatureCards: [{ name: 'Gardevoir ex', pct: 100 }] }])
+  );
   const owner = await signIn('Organizer', 'organizer');
   const code = await newSwiss(owner);
   const player = await signIn('Player');
   const submission = {
-    deck: '4 Iono PAL 185\n56 Basic {P} Energy SVE 5',
+    deck: '3 Gardevoir ex SVI 86\n57 Basic {P} Energy SVE 5',
     profile: { popId: '777', firstName: 'Pat', lastName: 'Player', birthDate: '02/27/2001' },
-    archetype: 'Gardevoir ex'
+    // A player's own word for their deck is not kept: its cards name it.
+    archetype: 'Joke Deck'
   };
   const off = await hit(decklists.onRequestPut as Handler, '/decklists', at(code), {
     method: 'PUT',
@@ -887,18 +892,11 @@ test('decklists come in only while open, and decks show as the visibility settin
     cookie: owner,
     body: { finished: true }
   });
-  assert.deepEqual((await view(code)).decks, {}, 'a player’s word is not public until staff apply it');
-  const impostor = await signIn('Impostor');
-  await hit(decklists.onRequestPut as Handler, '/decklists', at(code), {
-    method: 'PUT',
-    cookie: impostor,
-    body: { ...submission, archetype: 'Joke Deck' }
-  });
-  assert.deepEqual((await view(code)).decks, {}, 'nobody can set what someone else is on');
+  assert.deepEqual(Object.values((await view(code)).decks), ['Gardevoir ex'], 'its cards name it once the event ends');
   await hit(decks.onRequestPut as Handler, '/decks', at(code), {
     method: 'PUT',
     cookie: owner,
-    body: { playerId: '777', archetype: 'Gardevoir ex' }
+    body: { playerId: '777', archetype: 'Gardevoir Munkidori' }
   });
   await hit(settings.onRequestPut as Handler, '/settings', at(code), {
     method: 'PUT',
@@ -911,7 +909,7 @@ test('decklists come in only while open, and decks show as the visibility settin
     cookie: owner,
     body: { finished: true }
   });
-  assert.deepEqual(Object.values((await view(code)).decks), ['Gardevoir ex']);
+  assert.deepEqual(Object.values((await view(code)).decks), ['Gardevoir Munkidori'], 'staff’s name wins');
   // The account page saves a Player ID; the list did not.
   await hit(me.onRequestPut as Handler, '/api/me', {}, { method: 'PUT', cookie: player, body: submission.profile });
   const playerView = await view(code, player);
@@ -922,13 +920,15 @@ test('decklists come in only while open, and decks show as the visibility settin
     cookie: owner,
     body: { playerId: '777', archetype: null }
   });
-  assert.deepEqual(staffDeck.json.decks, {});
+  assert.deepEqual(staffDeck.json.decks, { '777': 'Gardevoir ex' }, 'cleared, the list’s own name shows again');
   const badSettings = await hit(settings.onRequestPut as Handler, '/settings', at(code), {
     method: 'PUT',
     cookie: owner,
     body: { deckVisibility: 'sometimes' }
   });
   assert.equal(badSettings.status, 400);
+  mock.restoreAll();
+  _forgetRules();
 });
 
 test('sign-in only ever returns to a path on this site', async () => {
@@ -1582,11 +1582,12 @@ function listOf(code: string, query: string) {
   return hit(decklists.onRequestGet as Handler, `/decklists?${query}`, at(code));
 }
 
-test('a player with no account submits a list, reads it back with its device token, and withdraws it', async () => {
+test('a player with no account registers, proves the registration from any device, and withdraws it', async () => {
   const owner = await signIn('Organizer', 'organizer');
   const code = await newSwiss(owner);
   await settle(code, owner, { decklists: 'open' });
   const profile = { popId: '4242', firstName: 'Nia', lastName: 'Okafor', birthDate: '02/27/2001' };
+  assert.deepEqual((await listOf(code, 'popId=4242')).json.known, false, 'nobody is registered under it yet');
   const sent = await submitAs(code, profile);
   assert.equal(sent.status, 200, 'no sign-in needed');
   assert.equal(sent.json.registration, 'added');
@@ -1598,48 +1599,80 @@ test('a player with no account submits a list, reads it back with its device tok
 
   const mine = await listOf(code, `popId=4242&token=${token}`);
   assert.equal(mine.json.mine.firstName, 'Nia');
-  assert.equal((await listOf(code, 'popId=4242&token=nope')).json.mine, null, 'the Player ID alone reads nothing');
-  assert.equal((await listOf(code, 'popId=4242')).json.mine, null);
+  const idAlone = await listOf(code, 'popId=4242');
+  assert.deepEqual([idAlone.json.known, idAlone.json.mine], [true, null], 'the Player ID alone says only that');
+  const wrongYear = await listOf(code, 'popId=4242&birthYear=2002');
+  assert.deepEqual([wrongYear.status, wrongYear.json.error], [403, 'That birth year doesn’t match this Player ID.']);
+  const proved = await listOf(code, 'popId=4242&birthYear=2001');
+  assert.deepEqual(proved.json.player, { firstName: 'Nia', lastName: 'Okafor' }, 'its year says whose it is');
+  assert.equal(proved.json.mine.deck, LIST.deck);
 
-  const stranger = await submitAs(code, profile, { deck: '60 Basic {G} Energy SVE 1' });
-  assert.equal(stranger.status, 409, 'the same Player ID from another device cannot replace the list');
-  assert.match(stranger.json.error, /sent from another device/);
-  const again = await submitAs(code, { ...profile, firstName: 'Nia R.' }, { deck: '60 Basic {D} Energy SVE 7', token });
-  assert.equal(again.json.registration, 'matched', 'the sending device replaces the list, and they are already in');
+  const elsewhere = await submitAs(code, { ...profile, firstName: 'Nia R.' }, { deck: '60 Basic {D} Energy SVE 7' });
+  assert.equal(elsewhere.json.registration, 'matched', 'another device replaces it under the right year');
+  const renamed = await hit(manage.onRequestGet as Handler, '/manage', at(code), { cookie: owner });
+  const player = renamed.json.tournament.players.find((p: { id: string }) => p.id === '4242');
+  assert.equal(player?.firstName, 'Nia R.', 'and the event’s list takes the new name');
+  const spoofed = await submitAs(code, { ...profile, birthDate: '02/27/2002' });
+  assert.equal(spoofed.status, 403, 'a wrong year replaces nothing');
   const staffLists = await hit(decklists.onRequestGet as Handler, '/decklists', at(code), { cookie: owner });
   assert.equal(staffLists.json.decklists.length, 1, 'one list per identity');
-  assert.equal(
-    again.json.token,
-    token,
-    'the device keeps its token, so a retry after a lost answer still owns the list'
-  );
-  const retried = await submitAs(code, profile, { token });
-  assert.equal(retried.status, 200);
+  assert.equal((await submitAs(code, profile, { token })).json.token, token, 'a device keeps its token');
 
   const forged = await hit(decklists.onRequestDelete as Handler, '/decklists?popId=4242', at(code), {
     method: 'DELETE'
   });
-  assert.equal(forged.status, 409, 'nor withdraw it');
-  const withdrawn = await hit(
-    decklists.onRequestDelete as Handler,
-    `/decklists?popId=4242&token=${again.json.token}`,
-    at(code),
-    { method: 'DELETE' }
-  );
+  assert.equal(forged.status, 403, 'nor is it withdrawn without the year');
+  const withdrawn = await hit(decklists.onRequestDelete as Handler, '/decklists?popId=4242&birthYear=2001', at(code), {
+    method: 'DELETE'
+  });
   assert.equal(withdrawn.status, 204);
   const after = await hit(decklists.onRequestGet as Handler, '/decklists', at(code), { cookie: owner });
   assert.equal(after.json.decklists.length, 0);
+  const left = await hit(manage.onRequestGet as Handler, '/manage', at(code), { cookie: owner });
+  assert.equal(left.json.tournament.players.length, 0, 'withdrawing takes them off the event’s list');
 
   const own = 'device-made-token-0001';
   const first = await submitAs(code, { ...profile, popId: '4243' }, { token: own });
   assert.equal(first.json.token, own, 'a first list takes the token its device made before sending');
-  assert.equal((await submitAs(code, { ...profile, popId: '4243' }, { token: own })).status, 200);
   const foreign = await hit(decklists.onRequestPut as Handler, '/decklists', at(code), {
     method: 'PUT',
     origin: 'https://elsewhere.test',
     body: { ...LIST, profile }
   });
   assert.equal(foreign.status, 403, 'another site’s page cannot submit for a player');
+});
+
+test('a paper registration sends no list, and check-in asks staff for it', async () => {
+  const owner = await signIn('Organizer', 'organizer');
+  const code = await newSwiss(owner);
+  await settle(code, owner, { decklists: 'open' });
+  const profile = { popId: '4242', firstName: 'Nia', lastName: 'Okafor', birthDate: '02/27/2001' };
+  const paper = await submitAs(code, profile, { mode: 'paper', deck: '' });
+  assert.deepEqual([paper.status, paper.json.decklist.mode, paper.json.decklist.deck], [200, 'paper', '']);
+  const held = await hit(manage.onRequestGet as Handler, '/manage', at(code), { cookie: owner });
+  assert.deepEqual(held.json.checkins, { '4242': { paper: true } });
+  await submitAs(code, profile, { mode: 'digital' });
+  const pasted = await hit(manage.onRequestGet as Handler, '/manage', at(code), { cookie: owner });
+  assert.deepEqual(pasted.json.checkins, {}, 'a pasted list asks nothing of staff');
+  assert.equal((await submitAs(code, profile, { mode: 'digital', deck: '' })).status, 400, 'a pasted list has cards');
+});
+
+test('a full event takes no newcomer, while those registered still change theirs and staff still add', async () => {
+  const owner = await signIn('Organizer', 'organizer');
+  const code = await newSwiss(owner);
+  await settle(code, owner, { decklists: 'open', playerCap: 1 });
+  const nia = { popId: '4242', firstName: 'Nia', lastName: 'Okafor', birthDate: '02/27/2001' };
+  assert.equal((await submitAs(code, nia)).json.registration, 'added');
+  const late = await submitAs(code, { ...nia, popId: '4243' });
+  assert.deepEqual([late.status, late.json.error], [403, 'This event is full.']);
+  assert.equal((await submitAs(code, nia, { deck: '60 Basic {G} Energy SVE 1' })).status, 200);
+  const staffAdd = await send(code, owner, {
+    type: 'addPlayer',
+    player: { firstName: 'Walk', lastName: 'In', id: '4244', birthDate: '02/27/2000' }
+  });
+  assert.equal(staffAdd.status, 200, 'staff add past the cap');
+  const staffLists = await hit(decklists.onRequestGet as Handler, '/decklists', at(code), { cookie: owner });
+  assert.equal(staffLists.json.decklists.length, 1, 'the refused list was not kept');
 });
 
 test('a submitter is checked again as the event stands when written: added meanwhile, or closed meanwhile', async () => {
@@ -1726,25 +1759,30 @@ test('names split differently are different players’ lists', async () => {
   assert.equal(staffLists.json.decklists.length, 2);
 });
 
-test('staff unlock a list for a player on a new device, who then takes it over', async () => {
+test('at an unsanctioned event staff unlock a list for a player on a new device, who then takes it over', async () => {
   const owner = await signIn('Organizer', 'organizer');
   const code = await newSwiss(owner);
-  await settle(code, owner, { decklists: 'open' });
-  const profile = { popId: '7373', firstName: 'Ren', lastName: 'Aoki', birthDate: '02/27/2001' };
+  await settle(code, owner, { decklists: 'open', sanctioned: false });
+  const profile = { firstName: 'Ren', lastName: 'Aoki' };
   await submitAs(code, profile);
   assert.equal((await submitAs(code, profile)).status, 409);
-  const byPlayer = await hit(decklists.onRequestPatch as Handler, '/decklists?popId=7373', at(code), {
+  const byPlayer = await hit(decklists.onRequestPatch as Handler, '/decklists?firstName=Ren&lastName=Aoki', at(code), {
     method: 'PATCH'
   });
   assert.equal(byPlayer.status, 401, 'only staff unlock');
-  const unlocked = await hit(decklists.onRequestPatch as Handler, '/decklists?popId=7373', at(code), {
+  const unlocked = await hit(decklists.onRequestPatch as Handler, '/decklists?firstName=Ren&lastName=Aoki', at(code), {
     method: 'PATCH',
     cookie: owner
   });
   assert.equal(unlocked.status, 204);
-  const anonymousDelete = await hit(decklists.onRequestDelete as Handler, '/decklists?popId=7373', at(code), {
-    method: 'DELETE'
-  });
+  const anonymousDelete = await hit(
+    decklists.onRequestDelete as Handler,
+    '/decklists?firstName=Ren&lastName=Aoki',
+    at(code),
+    {
+      method: 'DELETE'
+    }
+  );
   assert.equal(anonymousDelete.status, 409, 'unlocking grants no anonymous withdrawal');
   const newPhone = await submitAs(code, profile, { deck: '60 Basic {W} Energy SVE 3' });
   assert.equal(newPhone.status, 200);
@@ -1758,10 +1796,7 @@ test('a list for a player on the event’s list takes their birth year, and an u
   await settle(code, owner, { decklists: 'open' });
   const listed = { popId: '900', firstName: 'Player', lastName: '0', birthDate: '02/27/1991' };
   const spoofed = await submitAs(code, listed);
-  assert.deepEqual(
-    [spoofed.status, spoofed.json.error],
-    [403, 'That birth year doesn’t match this event’s record for that Player ID. Ask staff if yours is right.']
-  );
+  assert.deepEqual([spoofed.status, spoofed.json.error], [403, 'That birth year doesn’t match this Player ID.']);
   const own = await submitAs(code, { ...listed, birthDate: '06/01/1990' });
   assert.deepEqual([own.status, own.json.registration], [200, 'matched'], 'the year is what counts, not the day');
 
@@ -1770,7 +1805,7 @@ test('a list for a player on the event’s list takes their birth year, and an u
   assert.equal((await submitAs(code, unlisted)).json.registration, 'not-added', 'so only the list knows the year');
   await hit(decklists.onRequestPatch as Handler, '/decklists?popId=8080', at(code), { method: 'PATCH', cookie: owner });
   const takeover = await submitAs(code, { ...unlisted, birthDate: '02/27/2004' });
-  assert.equal(takeover.status, 409, 'an unlocked list is not taken over under another birth year');
+  assert.equal(takeover.status, 403, 'a list is not taken over under another birth year');
   assert.equal((await submitAs(code, { ...unlisted, firstName: 'Ira J.' })).status, 200, 'its own year takes it over');
 });
 
@@ -1879,7 +1914,7 @@ test('five wrong birth years refuse a Player ID a while, doubling, until the rig
   const locked = await guess('1990');
   assert.deepEqual(
     [locked.status, locked.json.error],
-    [429, 'Too many wrong birth years for this Player ID. Try again later, or ask staff.'],
+    [429, 'Too many tries. Ask staff for help.'],
     'then even the right year is refused, from any device'
   );
   assert.equal((await guess('1990')).status, 429);
@@ -3190,7 +3225,9 @@ test('nothing the functions ask of the database scans a table', async () => {
   await hit(decklists.onRequestGet as Handler, '/decklists', at(code), { cookie: owner });
   await hit(decklists.onRequestGet as Handler, `/decklists?popId=900&token=${sent.json.token}`, at(code));
   await hit(decklists.onRequestPatch as Handler, '/decklists?popId=900', at(code), { method: 'PATCH', cookie: owner });
-  await hit(decklists.onRequestDelete as Handler, '/decklists?popId=900', at(code), { method: 'DELETE' });
+  await hit(decklists.onRequestDelete as Handler, '/decklists?popId=900&birthYear=1990', at(code), {
+    method: 'DELETE'
+  });
   // The history index: a player in and out of a sanctioned event, and the event out of the index and back.
   await send(code, owner, { type: 'addPlayer', player: { firstName: 'Gone', lastName: 'Soon', id: '960' } });
   await send(code, owner, { type: 'removePlayer', id: '960' });

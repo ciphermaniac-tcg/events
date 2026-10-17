@@ -154,7 +154,10 @@ CREATE TABLE IF NOT EXISTS tournaments (
   paired_through TEXT NOT NULL DEFAULT '{}',
   -- What staff checked for each player before round 1, as JSON
   -- (shared/tournament/checkins.ts).
-  checkins TEXT NOT NULL DEFAULT '{}'
+  checkins TEXT NOT NULL DEFAULT '{}',
+  -- POP ID to the archetype each player's pasted list reads as; `decks`, set
+  -- by staff, wins over it (shared/tournament/archetypes.ts).
+  inferred_decks TEXT NOT NULL DEFAULT '{}'
 );
 CREATE INDEX IF NOT EXISTS tournaments_of_store ON tournaments (store_id) WHERE store_id IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS tournaments_one_community_day ON tournaments (owner_id, community_day)
@@ -204,6 +207,9 @@ CREATE TABLE IF NOT EXISTS decklists (
   -- list's player sent it; that account may replace or withdraw it from any
   -- device.
   account TEXT,
+  -- 'digital' for a pasted list, 'paper' for one handed to staff, whose
+  -- `deck` is ''.
+  deck_mode TEXT NOT NULL DEFAULT 'digital',
   PRIMARY KEY (code, user_id)
 ) WITHOUT ROWID;
 

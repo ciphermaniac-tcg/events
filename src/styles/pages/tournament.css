@@ -1387,6 +1387,96 @@ tr.is-in .tm-place {
   }
 }
 
+/* ---------- Register ---------- */
+.tm-reg {
+  max-width: 560px;
+}
+.tm-reg-stack {
+  display: grid;
+  gap: var(--space-3);
+}
+.tm-reg-stack > .tm-field {
+  margin: 0;
+}
+.tm-reg-two {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-3);
+}
+/* Large enough to tap, and 16px so a phone does not zoom into the field. */
+.tm-reg-input {
+  min-height: 44px;
+  font-size: 16px;
+}
+.tm-reg-wide {
+  justify-content: center;
+  min-height: 44px;
+}
+.tm-reg-head {
+  flex-wrap: nowrap;
+}
+.tm-reg-who {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.tm-reg-who strong {
+  font-size: var(--text-lg);
+}
+.tm-reg-note {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+.tm-reg-done {
+  font-weight: 600;
+  color: var(--positive);
+}
+.tm-reg-options {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.tm-reg-options legend {
+  margin-bottom: var(--space-2);
+  padding: 0;
+}
+.tm-reg-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--field);
+  cursor: pointer;
+}
+.tm-reg-option.is-on {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.tm-reg-option input {
+  margin-top: 3px;
+  accent-color: var(--accent-fill);
+}
+.tm-reg-option > span {
+  display: grid;
+  gap: 2px;
+}
+@media (min-width: 641px) {
+  .tm-reg-options {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .tm-reg-options legend {
+    grid-column: 1 / -1;
+  }
+}
+
 /* A decklist laid out by section, in the console and on its player's receipt. */
 .tm-list-columns {
   display: grid;

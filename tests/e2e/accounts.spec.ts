@@ -1034,6 +1034,7 @@ test('a signed-in player saves the POP ID their decklist went in under to their 
   const mine = {
     ...profile,
     deck: '60 Grass Energy',
+    mode: 'digital',
     archetype: null,
     submittedAt: 0,
     problems: [],
@@ -1076,7 +1077,7 @@ test('a signed-in player saves the POP ID their decklist went in under to their 
     .toBe(JSON.stringify({ token: 'kept' }));
   expect(await page.evaluate(key => sessionStorage.getItem(key), `cm-decklist:${code}`)).toBe(JSON.stringify(profile));
   await page.getByRole('button', { name: 'Save to my account' }).click();
-  await expect(page.locator('.tm-known').getByRole('status')).toHaveText('Saved');
+  await expect(page.locator('.tm-decklist-foot')).toContainText('Saved');
   await expect(page.getByRole('button', { name: 'Save to my account' })).toHaveCount(0);
   expect(saved).toEqual([profile]);
   await page.evaluate(() => sessionStorage.clear());
@@ -1126,6 +1127,7 @@ async function mockOwnList(page: Page, sanctioned: boolean) {
     lastName: player.lastName,
     birthDate: sanctioned ? '02/27/1995' : '',
     deck: player.deck,
+    mode: 'digital',
     archetype: null,
     submittedAt: 0,
     problems: [],
@@ -1163,7 +1165,7 @@ async function mockOwnList(page: Page, sanctioned: boolean) {
       if (request.method() === 'DELETE') {
         return route.fulfill({ status: own ? 204 : 409, json: own ? undefined : { error: 'Locked' } });
       }
-      return route.fulfill({ json: { decklists: [], mine: own ? listOf(players[asked]!) : null } });
+      return route.fulfill({ json: { decklists: [], known: true, mine: own ? listOf(players[asked]!) : null } });
     }
     return route.fulfill({ json: { ...published, viewer: viewerOf(owned) } });
   });
@@ -1177,24 +1179,27 @@ async function mockOwnList(page: Page, sanctioned: boolean) {
   };
 }
 
+/** Withdraws from the event through the registration's menu, as its player does. */
+async function withdrawFromMenu(page: Page) {
+  await page.getByRole('button', { name: 'More' }).click();
+  await page.getByRole('button', { name: 'Withdraw' }).click();
+  await page.getByRole('group', { name: 'Withdraw' }).getByRole('button', { name: 'Withdraw' }).click();
+  await expect(page.getByText('You’ve withdrawn.')).toBeVisible();
+}
+
 for (const sanctioned of [true, false]) {
   test(`on a device that kept no list, the account sees and withdraws its own, ${sanctioned ? 'by its POP ID' : 'by its Claim'}`, async ({
     page
   }) => {
     const { code, lists } = await mockOwnList(page, sanctioned);
     await page.goto(`/t/${code}?tab=decklist`);
-    await expect(page.locator('.tm-decklist-status')).toContainText('Submitted');
-    await expect(page.locator('#deck-list')).toHaveValue('60 Grass Energy');
-    await page.getByRole('button', { name: 'Withdraw' }).click();
-    await page
-      .getByRole('group', { name: 'Withdraw your decklist?' })
-      .getByRole('button', { name: 'Withdraw' })
-      .click();
-    await expect(page.locator('.tm-decklist-status')).toContainText('Not submitted');
-    const owner = sanctioned ? { popId: '1001' } : { firstName: 'Mary', lastName: 'Jackson' };
+    await expect(page.locator('.tm-reg-who')).toContainText('Mary Jackson');
+    await expect(page.getByRole('textbox', { name: 'Decklist' })).toHaveValue('60 Grass Energy');
+    await withdrawFromMenu(page);
+    const owner = sanctioned ? { popId: '1001', birthYear: '1995' } : { firstName: 'Mary', lastName: 'Jackson' };
     expect(lists.map(ask => ask.method)).toEqual(['GET', 'DELETE']);
+    expect(lists[1]?.query).toMatchObject(owner);
     for (const ask of lists) {
-      expect(ask.query).toMatchObject(owner);
       expect(ask.query.token).toBeUndefined();
     }
   });
@@ -1205,16 +1210,14 @@ test('a list whose owner changes while the form is being edited shows the new ow
 }) => {
   const { code, lists, claim } = await mockOwnList(page, false);
   await page.goto(`/t/${code}?tab=decklist`);
-  const deck = page.locator('#deck-list');
+  const deck = page.getByRole('textbox', { name: 'Decklist' });
   await expect(deck).toHaveValue('60 Grass Energy');
   await deck.fill('59 Grass Energy');
   claim();
   await showAgain(page);
   await expect(deck).toHaveValue('60 Fire Energy');
-  await expect(page.locator('.tm-known')).toContainText('Ash Ketchum');
-  await page.getByRole('button', { name: 'Withdraw' }).click();
-  await page.getByRole('group', { name: 'Withdraw your decklist?' }).getByRole('button', { name: 'Withdraw' }).click();
-  await expect(page.locator('.tm-decklist-status')).toContainText('Not submitted');
+  await expect(page.locator('.tm-reg-who')).toContainText('Ash Ketchum');
+  await withdrawFromMenu(page);
   expect(lists.filter(ask => ask.method === 'DELETE').map(ask => ask.query)).toEqual([
     { popId: '', firstName: 'Ash', lastName: 'Ketchum' }
   ]);
@@ -1266,6 +1269,7 @@ async function mockKeptList(
   const list = {
     ...profile,
     deck: '4 Iono PAL 185\n56 Basic {G} Energy SVE 1',
+    mode: 'digital',
     archetype: null,
     submittedAt: 0,
     problems: [],
@@ -1279,34 +1283,32 @@ async function mockKeptList(
 test('once submission closes, the device that sent a list reads it back, read-only', async ({ page }) => {
   const { code } = await mockKeptList(page, { decklists: 'closed' }, (_, list) => ({
     status: 200,
-    json: { mine: list }
+    json: { known: true, mine: list }
   }));
   await page.goto(`/t/${code}`);
-  await page.getByRole('tab', { name: 'My decklist' }).click();
-  await expect(page.locator('.tm-decklist-status')).toContainText('Submitted');
+  await page.getByRole('tab', { name: 'Registration' }).click();
+  await expect(page.locator('.tm-reg-who')).toContainText('Mary Jackson');
   await expect(page.locator('.tm-decklist-sent')).toHaveText('4 Iono PAL 185\n56 Basic {G} Energy SVE 1');
-  await expect(page.locator('#deck-list')).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Withdraw' })).toHaveCount(0);
-  await expect(page.getByText('Submission closed')).toBeVisible();
+  await expect(page.getByRole('textbox', { name: 'Decklist' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'More' })).toHaveCount(0);
+  await expect(page.getByText('Registration is closed.')).toBeVisible();
 });
 
-test('a list that cannot be read says so, keeps the draft, and sends nothing until a retry reads it', async ({
-  page
-}) => {
+test('a list that cannot be read says so, and opens nothing over it until a retry reads it', async ({ page }) => {
   const { code } = await mockKeptList(page, { decklists: 'open' }, (read, list) =>
-    read === 1 ? { status: 500, json: { error: 'Down' } } : { status: 200, json: { mine: list } }
+    read === 1 ? { status: 500, json: { error: 'Down' } } : { status: 200, json: { known: true, mine: list } }
   );
   await page.goto(`/t/${code}?tab=decklist`);
   const status = page.locator('.tm-decklist-status');
   await expect(status).toContainText('Your decklist could not be loaded');
-  await expect(status).not.toContainText('Not submitted');
-  await page.locator('#deck-list').fill('60 Basic {G} Energy SVE 1');
-  await expect(page.getByRole('button', { name: 'Submit decklist' })).toBeDisabled();
-  await expect(page.locator('.tm-decklist-foot')).toContainText('Your decklist could not be loaded');
+  await expect(page.getByRole('textbox', { name: 'Player ID' })).toHaveCount(0);
+  await expect(page.getByRole('textbox', { name: 'Decklist' })).toHaveCount(0);
   await status.getByRole('button', { name: 'Retry' }).click();
-  await expect(status).toContainText('Submitted');
-  await expect(page.locator('#deck-list')).toHaveValue('60 Basic {G} Energy SVE 1');
-  await expect(page.getByRole('button', { name: 'Update decklist' })).toBeEnabled();
+  await expect(page.getByRole('textbox', { name: 'Decklist' })).toHaveValue(
+    '4 Iono PAL 185\n56 Basic {G} Energy SVE 1'
+  );
+  await expect(page.getByRole('button', { name: 'Save changes' })).toBeDisabled();
+  await expect(page.getByText('No changes to send')).toBeVisible();
 });
 
 // ---------- The dashboard (/host signed in) ----------

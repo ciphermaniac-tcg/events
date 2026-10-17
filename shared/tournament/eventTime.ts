@@ -77,3 +77,22 @@ export function eventTimes(
     yours: wallClock(at, viewer) === wallClock(at, zone) ? null : shown(at, viewer, true)
   };
 }
+
+/** The instant `local` names: in the event's zone, or as the viewer's own clock reads it at an event with none. */
+export const eventInstant = (local: string, zone: string): number =>
+  zone ? zonedInstant(local, zone) : new Date(local).getTime();
+
+/** How long before the start the page asks a player who they are. */
+export const ASK_BEFORE_MS = 3 * 60 * 60 * 1000;
+
+/**
+ * Whether the page asks "Which player are you?" yet: once round 1 is paired,
+ * or from three hours before the start the organizer set. With no start time
+ * set, only round 1 opens it.
+ */
+export function asksWhoYouAre(started: boolean, settings: { startsAt: string; timeZone: string }, now: number) {
+  if (started) {
+    return true;
+  }
+  return isWallClock(settings.startsAt) && now >= eventInstant(settings.startsAt, settings.timeZone) - ASK_BEFORE_MS;
+}

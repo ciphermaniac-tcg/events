@@ -28,6 +28,7 @@ import { type Context, param, sameOrigin } from '../auth/env.js';
 import type { User } from '../auth/session.js';
 import type { D1Like } from '../types.js';
 import type { Asker } from './roles.js';
+import { shownDecks } from './decks.js';
 import {
   type Change,
   isCode,
@@ -151,7 +152,7 @@ export function publicViewOf(row: TournamentRow): PublishedView {
     reports: publicReports(row.reports, row.keys),
     requests: publicRequests(row.requests, row.keys),
     divisions: publicDivisions(row.tournament, row.keys, Date.now()),
-    decks: decksVisible(row.settings) ? publicDecks(row.decks, row.keys) : {},
+    decks: decksVisible(row.settings) ? publicDecks(shownDecks(row), row.keys) : {},
     settings: row.settings
   };
 }
@@ -229,7 +230,7 @@ function identityOf(access: Access): Identity {
 /** What the event's public page reads from the API, shaped for the viewer: staff see decks before the public does. */
 export function viewOf(access: Access): TournamentView {
   const { row, user, role } = access;
-  const decks = role && decksEnabled(row.settings) ? publicDecks(row.decks, row.keys) : undefined;
+  const decks = role && decksEnabled(row.settings) ? publicDecks(shownDecks(row), row.keys) : undefined;
   return {
     ...publicViewOf(row),
     ...(decks ? { decks } : {}),
@@ -251,7 +252,7 @@ export function manageView(access: Pick<StaffAccess, 'row' | 'role'>): Manage {
     reports: row.reports,
     requests: row.requests,
     settings: row.settings,
-    decks: row.decks,
+    decks: shownDecks(row),
     checkins: row.checkins,
     pairedThrough: row.pairedThrough ?? {},
     role,

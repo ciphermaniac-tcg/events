@@ -150,3 +150,32 @@ export function shortLastNames(players: readonly Named[]): Map<string, string> {
   }
   return short;
 }
+
+/** The fewest single-letter changes that turn `a` into `b`. */
+function editDistance(a: string, b: string): number {
+  let previous = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i += 1) {
+    const row = [i];
+    for (let j = 1; j <= b.length; j += 1) {
+      const swap = (previous[j - 1] ?? 0) + (a[i - 1] === b[j - 1] ? 0 : 1);
+      row.push(Math.min((previous[j] ?? 0) + 1, (row[j - 1] ?? 0) + 1, swap));
+    }
+    previous = row;
+  }
+  return previous[b.length] ?? 0;
+}
+
+/**
+ * The players whose full name is the one typed, or a single slip from it
+ * ("Avry Chen" for Avery Chen), case and accents aside: who someone at an
+ * unsanctioned event most likely means when they look themselves up.
+ */
+export function similarlyNamed<T extends { firstName: string; lastName: string }>(
+  players: readonly T[],
+  typed: { firstName: string; lastName: string }
+): T[] {
+  const wanted = `${nameKey(typed.firstName)} ${nameKey(typed.lastName)}`;
+  return players.filter(
+    player => editDistance(`${nameKey(player.firstName)} ${nameKey(player.lastName)}`, wanted) <= 1
+  );
+}
