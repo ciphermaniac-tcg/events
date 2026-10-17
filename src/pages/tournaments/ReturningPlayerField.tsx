@@ -1,7 +1,7 @@
 import { createEffect, createSignal, createUniqueId, For, onCleanup, Show } from 'solid-js';
 import { playerSearch, type ReturningPlayer } from '../../../shared/tournament/returningPlayers';
 import { findReturningPlayers } from '../../lib/tournament/api';
-import { placeComboList } from '../../utils/comboListPlacement';
+import { placeComboList } from '@ciphermaniac/design/lib/comboListPlacement';
 import { t } from '../../lib/i18n';
 
 export function ReturningPlayerField(props: {

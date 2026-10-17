@@ -23,8 +23,8 @@ import { activeIds, cutPodsOf, latestRound, livePods, roundComplete } from '../.
 
 import { eventTypeOf } from '../../../shared/tournament/structure';
 import type { Pod, PodCategory } from '../../../shared/tournament/types';
-import { Segmented } from '../../components/Segmented';
-import { LockedTab, TabPanel, Tabs } from '../../components/Tabs';
+import { Segmented } from '@ciphermaniac/design/components/Segmented';
+import { LockedTab, TabPanel, Tabs } from '@ciphermaniac/design/components/Tabs';
 import { msg, t, tn, tx } from '../../lib/i18n';
 import { errorText, joinStaff, type Manage } from '../../lib/tournament/api';
 import {
@@ -43,7 +43,7 @@ import {
 } from '../../lib/tournament/present';
 import { session } from './session';
 import { latestValue } from '../../lib/resource';
-import { Skeleton } from '../../components/Skeleton';
+import { Skeleton } from '@ciphermaniac/design/components/Skeleton';
 import { SessionGate } from './SessionGate';
 import { ErrorLine } from './Field';
 import { lookOnReturn, schedulePolls } from '../../lib/tournament/viewPoll';

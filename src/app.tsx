@@ -1,8 +1,8 @@
 import { createEffect, ErrorBoundary, on, type ParentComponent, Suspense } from 'solid-js';
 import { useIsRouting, useLocation } from '@solidjs/router';
 import { SiteFooter } from './components/SiteFooter';
-import { Skeleton } from './components/Skeleton';
-import { ErrorState } from './components/ErrorState';
+import { Skeleton } from '@ciphermaniac/design/components/Skeleton';
+import { ErrorState } from '@ciphermaniac/design/components/ErrorState';
 import { SiteHead } from './components/SiteHead';
 import { useScrollRestoration } from './lib/scrollRestore';
 import { isRecoveringPreload } from './lib/preloadRecovery';

@@ -11,7 +11,7 @@ import { createMemo, createSignal, For, Show, untrack } from 'solid-js';
 import { CORRECTION_LIMITS } from '../../../shared/tournament/corrections';
 import { percentLabel, recordLabel, type Standing } from '../../../shared/tournament/standings';
 import { DIVISION_LABELS, type Match, type Outcome, type Pod } from '../../../shared/tournament/types';
-import { Segmented } from '../../components/Segmented';
+import { Segmented } from '@ciphermaniac/design/components/Segmented';
 import { correctResult, errorText, type Manage } from '../../lib/tournament/api';
 import { type CorrectionPreview, correctionPreview } from '../../lib/tournament/corrections';
 import { RESULT_WORDS } from '../../lib/tournament/present';

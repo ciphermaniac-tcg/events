@@ -1,6 +1,6 @@
 import { Show } from 'solid-js';
 import { ArchetypeIcons } from '../../components/ArchetypeIcon';
-import { Combo, splitMatch } from '../../components/Combo';
+import { Combo, splitMatch } from '@ciphermaniac/design/components/Combo';
 import { deckIcons, loadedSpecies } from '../../lib/deckIcons';
 import { pairSearch } from './deckPairs';
 import type { ReportedDeck } from './reportedDeck';
@@ -48,6 +48,7 @@ export function DeckCombo(props: {
       adorn={deck => <ArchetypeIcons slugs={deckIcons(deck)} size={20} />}
       onPick={deck => props.onPick(deck.pair ? { label: deck.pair } : deck)}
       create={create()}
+      emptyLabel={t('Nothing matches.')}
       width={props.width}
     >
       {(deck, query) => <DeckOption deck={deck} query={query} />}

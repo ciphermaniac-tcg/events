@@ -8,7 +8,7 @@
 import { For } from 'solid-js';
 import { EVENT_TYPE_LABELS, EVENT_TYPES, type EventType } from '../../../shared/tournament/types';
 import { type DecklistMode, SETTINGS_LIMITS } from '../../../shared/tournament/view';
-import { Segmented } from '../../components/Segmented';
+import { Segmented } from '@ciphermaniac/design/components/Segmented';
 import { msg, t, tn } from '../../lib/i18n';
 
 const CAPS = Array.from({ length: SETTINGS_LIMITS.roundCap }, (_, i) => i + 1);

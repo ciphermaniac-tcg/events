@@ -22,7 +22,7 @@ import { createEffect, createMemo, createSignal, For, type JSX, lazy, on, Show, 
 import { isDisputed, type PlayerReport, reportsFor } from '../../../shared/tournament/reports';
 import { latestRound, withSwiss } from '../../../shared/tournament/rounds';
 import { DIVISION_LABELS, type Match, type Outcome, type Pod, type Round } from '../../../shared/tournament/types';
-import { Segmented } from '../../components/Segmented';
+import { Segmented } from '@ciphermaniac/design/components/Segmented';
 import { t, tc, tx } from '../../lib/i18n';
 import { createMedia } from '../../lib/media';
 import type { Manage } from '../../lib/tournament/api';

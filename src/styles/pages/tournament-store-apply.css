@@ -70,7 +70,7 @@
   font-size: var(--text-base);
 }
 .tm-choice-text strong {
-  font-size: var(--text-body);
+  font-size: var(--text-base);
 }
 
 /* ---------- The store application ---------- */

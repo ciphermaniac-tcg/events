@@ -24,7 +24,7 @@ import {
 } from '../../lib/tournament/api';
 import { latestValue } from '../../lib/resource';
 import { intlLocale, msg, t, tn } from '../../lib/i18n';
-import { Segmented } from '../../components/Segmented';
+import { Segmented } from '@ciphermaniac/design/components/Segmented';
 import { ConfirmAction } from './ConfirmAction';
 
 /** The event's deck check record, read once for the tab and replaced by each write's answer. */

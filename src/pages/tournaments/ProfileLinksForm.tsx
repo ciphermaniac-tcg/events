@@ -9,7 +9,7 @@ import { errorText, fetchProfilePreferences, saveProfileLinks } from '../../lib/
 import { resolved } from '../../lib/resource';
 import { t } from '../../lib/i18n';
 import { ErrorLine, Field } from './Field';
-import { Skeleton } from '../../components/Skeleton';
+import { Skeleton } from '@ciphermaniac/design/components/Skeleton';
 import '../../styles/pages/tournament-profile.css';
 
 function LinksForm(props: { links: ProfileLinks }) {

@@ -26,9 +26,9 @@ import {
   type TournamentView
 } from '../../../shared/tournament/view';
 import { eventTimes } from '../../../shared/tournament/eventTime';
-import { Segmented } from '../../components/Segmented';
-import { Skeleton } from '../../components/Skeleton';
-import { TabPanel, Tabs } from '../../components/Tabs';
+import { Segmented } from '@ciphermaniac/design/components/Segmented';
+import { Skeleton } from '@ciphermaniac/design/components/Skeleton';
+import { TabPanel, Tabs } from '@ciphermaniac/design/components/Tabs';
 import {
   ApiError,
   fetchPublished,
@@ -74,7 +74,7 @@ import { YourMatch } from './YourMatch';
 import '../../styles/pages/tournament-public.css';
 import { pageTitle } from '../../lib/title';
 import { RoundStepper } from './RoundStepper';
-import { ErrorState } from '../../components/ErrorState';
+import { ErrorState } from '@ciphermaniac/design/components/ErrorState';
 import { EMPTY_LIVE_DATA, type LiveData, liveFailure } from '../../lib/tournament/liveData';
 import { LiveDataStatus } from './LiveDataStatus';
 import { MAIN_SITE } from '../../lib/constants';

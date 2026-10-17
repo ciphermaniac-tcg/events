@@ -62,7 +62,7 @@ body.tm-screen-mode main.page {
   background: var(--fg);
 }
 .tm-subhead {
-  font-size: var(--text-body);
+  font-size: var(--text-base);
   font-weight: 600;
   margin: 0;
 }
@@ -105,7 +105,7 @@ body.tm-screen-mode main.page {
 }
 .tm-status {
   margin: var(--space-2) 0 2px;
-  font-size: var(--text-body);
+  font-size: var(--text-base);
   font-weight: 500;
   font-variant-numeric: tabular-nums;
 }
@@ -218,20 +218,24 @@ body.tm-screen-mode main.page {
 }
 
 /* Rows. The column heads close on the drawn edge; every other row steps
-   toward --surface-2 so a long row can be followed across the box (the cut
-   line in standings is not counted); hover is one ink tint over either, so
-   the step is held under :where() to leave hover the stronger selector. */
+   to --zebra so a long row can be followed across the box (the cut line in
+   standings is not counted, so the shared stripe is reset first); hover is
+   one tint over either, so the step is held under :where() to leave hover
+   the stronger selector. */
 .tm-page .data thead th {
   box-shadow: inset 0 -1px 0 var(--border);
 }
+.tm-page .data tbody tr {
+  background: none;
+}
 .tm-page .data tbody tr:where(:nth-child(even of :not(.tm-cut-line, .tm-group-row))) {
-  background: color-mix(in srgb, var(--surface-2) 55%, var(--surface));
+  background: var(--zebra);
 }
 .tm-page .data tbody td {
   border-bottom-color: transparent;
 }
 .tm-page .data tbody tr:not(.tm-group-row):hover {
-  background: color-mix(in srgb, var(--fg) 12%, var(--surface));
+  background: var(--row-hover);
 }
 /* A row is read for its names and results, so its text-only actions take the
    secondary label and come up to full ink on the row in hand. A bar's actions
@@ -390,7 +394,7 @@ body[data-mode='dark'] .tm-sso-google:hover {
   height: 20px;
 }
 .tm-sso:focus-visible {
-  outline: var(--focus-width) solid var(--accent);
+  outline: var(--focus-width) solid var(--focus-color);
   outline-offset: var(--focus-offset);
 }
 @media (max-width: 640px) {
@@ -435,7 +439,7 @@ body[data-mode='dark'] .tm-sso-google:hover {
   background: color-mix(in srgb, var(--fg) 6%, transparent);
 }
 .tm-signin-other:focus-visible {
-  outline: var(--focus-width) solid var(--accent);
+  outline: var(--focus-width) solid var(--focus-color);
   outline-offset: var(--focus-offset);
 }
 .tm-signin-reveal {
@@ -497,7 +501,7 @@ body[data-mode='dark'] .tm-sso-google:hover {
   cursor: default;
 }
 .tm-signin-swap:focus-visible {
-  outline: var(--focus-width) solid var(--accent);
+  outline: var(--focus-width) solid var(--focus-color);
   outline-offset: var(--focus-offset);
 }
 .tm-signin-dev {
@@ -584,7 +588,7 @@ body[data-mode='dark'] .tm-sso-google:hover {
 .tm-input:focus-visible,
 .tm-select:focus-visible {
   outline: none;
-  border-color: var(--accent);
+  border-color: var(--focus-color);
   box-shadow: var(--focus-ring);
 }
 body[data-mode='dark'] :is(.tm-input, .tm-select) {
@@ -704,7 +708,7 @@ body[data-mode='dark'] :is(.tm-input, .tm-select) {
 .tm-details {
   margin-top: var(--space-2);
   max-width: 70ch;
-  font-size: var(--text-body);
+  font-size: var(--text-base);
   white-space: pre-line;
 }
 
@@ -748,7 +752,7 @@ body[data-mode='dark'] :is(.tm-input, .tm-select) {
   padding: 0 var(--space-2);
   margin-left: calc(-1 * var(--space-2));
   border-radius: var(--radius-sm);
-  font-size: var(--text-body);
+  font-size: var(--text-base);
   text-align: left;
   color: var(--fg);
 }
@@ -782,7 +786,7 @@ body[data-mode='dark'] :is(.tm-input, .tm-select) {
 }
 /* The table number is what the room calls out, so it reads at the names' size. */
 .tm-matches .data td.tm-table-col {
-  font-size: var(--text-body);
+  font-size: var(--text-base);
   font-weight: 600;
   color: var(--fg);
 }
@@ -1216,7 +1220,7 @@ body:has(.tm-sheet) {
   display: flex;
   align-items: center;
   min-width: 0;
-  font-size: var(--text-body);
+  font-size: var(--text-base);
   font-weight: 500;
 }
 .tm-who-sub {
@@ -1275,7 +1279,7 @@ body:has(.tm-sheet) {
 .tm-standings .data td {
   height: 54px;
   padding-block: var(--space-2);
-  font-size: var(--text-body);
+  font-size: var(--text-base);
 }
 .tm-standings .data td.tm-wide-col {
   font-size: var(--text-base);
@@ -1631,7 +1635,6 @@ tr.is-in .tm-place {
   background: var(--surface-2);
   border: 1px solid var(--border);
   font-weight: 700;
-  text-transform: uppercase;
 }
 .tm-profile-bar {
   display: block;
@@ -1887,6 +1890,7 @@ tr.is-in .tm-place {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--surface);
+  box-shadow: var(--shadow-float);
 }
 .tm-menu-item {
   display: block;
@@ -1967,6 +1971,7 @@ tr.is-in .tm-place {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--surface);
+  box-shadow: var(--shadow-float);
   color: var(--fg);
 }
 .tm-modal::backdrop {
@@ -1977,7 +1982,7 @@ tr.is-in .tm-place {
 }
 .tm-modal h3 {
   margin: 0;
-  font-size: var(--text-body);
+  font-size: var(--text-base);
 }
 .tm-modal-foot {
   justify-content: flex-end;
@@ -2042,7 +2047,7 @@ tr.is-in .tm-place {
   min-height: var(--control-h);
   padding: 0;
   border-radius: 0;
-  font-size: var(--text-body);
+  font-size: var(--text-base);
 }
 .tm-stepper .btn:first-child {
   border-radius: var(--radius-md) 0 0 var(--radius-md);

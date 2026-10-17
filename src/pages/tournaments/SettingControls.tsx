@@ -10,7 +10,7 @@
 
 import { For, type JSX, Show } from 'solid-js';
 import type { DeckVisibility } from '../../../shared/tournament/view';
-import { Segmented } from '../../components/Segmented';
+import { Segmented } from '@ciphermaniac/design/components/Segmented';
 import { msg, t } from '../../lib/i18n';
 
 export const VISIBILITY_LABELS: Record<DeckVisibility, string> = {

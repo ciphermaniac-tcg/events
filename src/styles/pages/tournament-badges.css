@@ -62,7 +62,7 @@
   background: var(--surface-2);
 }
 .info-tip.tm-badge:focus-visible {
-  outline: var(--focus-width) solid var(--accent);
+  outline: var(--focus-width) solid var(--focus-color);
   outline-offset: 1px;
 }
 .tm-badge .info-tip-marker {
@@ -100,7 +100,7 @@
   color: var(--fg);
 }
 .tm-badge-more > button:focus-visible {
-  outline: var(--focus-width) solid var(--accent);
+  outline: var(--focus-width) solid var(--focus-color);
   outline-offset: 1px;
 }
 

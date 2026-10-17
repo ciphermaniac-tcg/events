@@ -13,7 +13,7 @@
   min-width: 0;
 }
 .tm-applicant-stage strong {
-  font-size: var(--text-body);
+  font-size: var(--text-base);
   font-weight: 600;
 }
 .tm-applicant-step {
@@ -38,7 +38,7 @@
 .tm-applicant-note {
   margin: 0;
   max-width: 70ch;
-  font-size: var(--text-body);
+  font-size: var(--text-base);
   white-space: pre-line;
   overflow-wrap: anywhere;
 }
@@ -49,7 +49,7 @@
   justify-content: flex-end;
 }
 .tm-applicant-words {
-  font-size: var(--text-body);
+  font-size: var(--text-base);
   font-weight: 600;
 }
 @media (max-width: 640px) {

@@ -44,7 +44,7 @@
   font-size: var(--text-base);
 }
 .tm-sim-bar b {
-  font-size: var(--text-body);
+  font-size: var(--text-base);
 }
 .tm-sim-rounds {
   display: flex;
@@ -177,7 +177,7 @@
   font-size: 26px;
 }
 .tm-home-bands p {
-  font-size: var(--text-body);
+  font-size: var(--text-base);
 }
 .tm-home-features {
   display: grid;
@@ -569,7 +569,7 @@
     font-size: var(--text-xl);
   }
   .tm-home-features p {
-    font-size: var(--text-body);
+    font-size: var(--text-base);
   }
   .tm-home-end {
     flex-direction: column;

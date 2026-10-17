@@ -29,8 +29,8 @@ import {
 import type { MyApplication } from '../../../shared/accounts/types';
 import { isAdmin } from '../../../shared/accounts/roles';
 import { canCreateEvents } from '../../../shared/accounts/stores';
-import { rovingIndex } from '../../components/roving';
-import { Skeleton } from '../../components/Skeleton';
+import { rovingIndex } from '@ciphermaniac/design/lib/roving';
+import { Skeleton } from '@ciphermaniac/design/components/Skeleton';
 import { fetchHistory, listTournaments, type Me, type TournamentSummary } from '../../lib/tournament/api';
 import { applicantStage, fetchApplication } from '../../lib/tournament/applications';
 import { latestValue } from '../../lib/resource';

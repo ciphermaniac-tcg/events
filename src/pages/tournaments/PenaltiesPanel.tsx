@@ -34,7 +34,7 @@ import {
 } from '../../lib/tournament/api';
 import { latestValue } from '../../lib/resource';
 import { intlLocale, t, tn, tx } from '../../lib/i18n';
-import { Segmented } from '../../components/Segmented';
+import { Segmented } from '@ciphermaniac/design/components/Segmented';
 import { ConfirmAction } from './ConfirmAction';
 import { session } from './session';
 

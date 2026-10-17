@@ -30,7 +30,7 @@ import { DEFAULT_DISPLAY, type DisplayOptions } from '../../../shared/tournament
 import { displayFont, pagedDisplay } from './displayLayout';
 import { screenWakeLock } from './wakeLock';
 import { PagedDisplay } from './PagedDisplay';
-import { Segmented } from '../../components/Segmented';
+import { Segmented } from '@ciphermaniac/design/components/Segmented';
 import { cutSeeds } from '../../lib/tournament/bracket';
 import {
   divisionHeading,

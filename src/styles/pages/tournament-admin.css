@@ -55,7 +55,7 @@
 /* The applicant's own words, kept as they wrote them, at reading length. */
 .tm-app-explanation {
   max-width: 70ch;
-  font-size: var(--text-body);
+  font-size: var(--text-base);
   line-height: 1.5;
   white-space: pre-line;
   overflow-wrap: anywhere;
@@ -93,7 +93,7 @@
   height: 48px;
 }
 .tm-person-name {
-  font-size: var(--text-body);
+  font-size: var(--text-base);
   font-weight: 600;
 }
 .tm-people tr.is-revoked .tm-person-name {

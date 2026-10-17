@@ -1,35 +1,18 @@
 /* ============================================================
-   Global reset + base typography
+   Site structure. The reset, base typography and focus ring come from
+   @ciphermaniac/design/base.css.
    ============================================================ */
 
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-}
-
-html,
-body {
-  margin: 0;
-  padding: 0;
-  /* Prevent mobile pull-to-refresh: an upward overscroll at the top of a long
-     list was reloading the whole SPA and wiping state. */
-  overscroll-behavior-y: contain;
+:root,
+body[data-mode] {
+  /* The site head's height, and the sticky offset for rows that park beneath it. */
+  --topnav-h: 44px;
 }
 
 #root {
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
-}
-
-html {
-  /* Reserve the scrollbar track even on short pages. Skeletons are shorter
-     than the content that replaces them, so a page that loads across the
-     viewport-height threshold used to gain a scrollbar mid-load and shove
-     every centred element sideways. No-op where scrollbars overlay (macOS,
-     touch). */
-  scrollbar-gutter: stable;
 }
 
 main.page {
@@ -58,135 +41,4 @@ main.page + .site-footer {
 main.page:has(.skeleton) + .site-footer {
   visibility: hidden;
   transition-delay: 0s;
-}
-
-body {
-  font-family:
-    'Inter',
-    'Inter Fallback',
-    system-ui,
-    -apple-system,
-    sans-serif;
-  font-size: 15px;
-  line-height: 1.5;
-  color: var(--fg);
-  background: var(--bg);
-  font-feature-settings: 'ss01', 'cv11', 'cv05';
-  transition:
-    background var(--ms-base) ease,
-    color var(--ms-base) ease;
-}
-
-h1,
-h2,
-h3,
-h4,
-h5,
-h6 {
-  margin: 0;
-  font-family: 'Inter', 'Inter Fallback', sans-serif;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  color: var(--fg);
-}
-h1 {
-  font-size: clamp(24px, 3vw, 30px);
-  line-height: 1.15;
-  letter-spacing: -0.02em;
-}
-h2 {
-  font-size: 18px;
-  line-height: 1.25;
-  letter-spacing: -0.015em;
-  font-weight: 600;
-}
-h3 {
-  font-size: 15px;
-  line-height: 1.3;
-  font-weight: 600;
-}
-
-p {
-  margin: 0;
-}
-
-.num {
-  font-variant-numeric: tabular-nums;
-}
-
-button {
-  font: inherit;
-  color: inherit;
-  cursor: pointer;
-  border: none;
-  background: transparent;
-}
-
-a {
-  color: var(--accent-ink);
-  text-decoration: none;
-}
-a:hover {
-  text-decoration: underline;
-}
-
-input,
-select,
-textarea {
-  font: inherit;
-  color: inherit;
-}
-
-/* House focus indicator. Wrapped in :where() so it carries zero specificity —
-   any component that needs the inset ring instead (bordered fields, which set
-   `outline: none` and a --focus-ring box-shadow) overrides it without !important.
-   Before this, most controls fell through to the UA outline, which reads as a
-   blue system artifact against warm paper and vanished entirely wherever a
-   component had already zeroed the outline. */
-:where(a, button, summary, [role='button'], [role='tab'], [role='option'], [tabindex]):focus-visible,
-:where(input, select, textarea):focus-visible {
-  outline: var(--focus-width) solid var(--accent);
-  outline-offset: var(--focus-offset);
-}
-
-::selection {
-  background: color-mix(in srgb, var(--accent) 35%, transparent);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    transition-duration: 0.01ms !important;
-  }
-}
-
-/* The first stop for a keyboard: out of sight until it has focus. */
-.skip-link {
-  position: absolute;
-  top: var(--space-2);
-  left: var(--space-2);
-  z-index: 100;
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-sm);
-  background: var(--bg);
-  color: var(--fg);
-  transform: translateY(-200%);
-}
-.skip-link:focus {
-  transform: none;
-}
-
-/* Visually hidden, still read by assistive tech. */
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
 }

@@ -11,7 +11,7 @@ import { createMemo, createSignal, type JSX, lazy, Show } from 'solid-js';
 import { withSwiss } from '../../../shared/tournament/rounds';
 import type { Pod, Round } from '../../../shared/tournament/types';
 import type { TournamentView } from '../../../shared/tournament/view';
-import { Segmented } from '../../components/Segmented';
+import { Segmented } from '@ciphermaniac/design/components/Segmented';
 import { t } from '../../lib/i18n';
 import { filterMatches, hasCut, type MatchView, matchViews } from '../../lib/tournament/present';
 import { NO_FILTER, roundDecks, type SpectateFilter, spectatorMatches } from '../../lib/tournament/spectate';
