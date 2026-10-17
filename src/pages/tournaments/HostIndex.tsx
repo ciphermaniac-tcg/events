@@ -194,7 +194,11 @@ function LiveEvent(props: { event: TournamentSummary; first: boolean }) {
   );
 }
 
-type Stage = { kind: 'lists' } | { kind: 'swiss' } | { kind: 'tom'; tournament: Tournament; handle: TdfHandle | null };
+/** A TOM setup reached from a Swiss one keeps the store picked there (`store`). */
+type Stage =
+  | { kind: 'lists' }
+  | { kind: 'swiss' }
+  | { kind: 'tom'; tournament: Tournament; handle: TdfHandle | null; store?: string | null };
 
 /**
  * Picking up a .tdf: the file is read and parsed first, so the setup only
@@ -365,9 +369,9 @@ function Organizer(props: {
     }
   }
 
-  const tdfRead = (tournament: Tournament, handle: TdfHandle | null) => {
+  const tdfRead = (tournament: Tournament, handle: TdfHandle | null, store?: string | null) => {
     setError(null);
-    setStage({ kind: 'tom', tournament, handle });
+    setStage({ kind: 'tom', tournament, handle, store });
   };
   /** Who may run a new event: the account's active stores, then the account itself when it may. A TOM event is a store's. */
   const runAs = (tom: boolean): RunAs[] => [
@@ -415,13 +419,27 @@ function Organizer(props: {
           <EventTable title={t('Your events')} events={rest()} />
         </Show>
       </Match>
-      <Match when={stage().kind !== 'lists'}>
+      {/* Keyed, so moving between a Swiss and a TOM setup starts the other's form, with its own draft. */}
+      <Match when={stage().kind !== 'lists' && stage()} keyed>
         <EventSetup
           mode={stage().kind === 'tom' ? 'tom' : 'swiss'}
           tdfName={(stage() as Extract<Stage, { kind: 'tom' }>).tournament?.info.name}
           tdfSanctioned={Boolean((stage() as Extract<Stage, { kind: 'tom' }>).tournament?.info.sanctionId)}
+          tdfLink={
+            stage().kind === 'swiss' && runAs(true).length > 0
+              ? store => (
+                  <LinkTdf
+                    busy={busy()}
+                    class='btn btn-primary'
+                    onRead={(tournament, handle) => tdfRead(tournament, handle, store)}
+                    onError={setError}
+                  />
+                )
+              : undefined
+          }
+          onPairHere={stage().kind === 'tom' ? () => setStage({ kind: 'swiss' }) : undefined}
           runAs={runAs(stage().kind === 'tom')}
-          initialRunAs={asked}
+          initialRunAs={(stage() as Extract<Stage, { kind: 'tom' }>).store ?? asked}
           draftKey={draftKey()}
           community={role() === 'community'}
           communityDays={all().flatMap(event => (event.communityDay ? [event.communityDay] : []))}

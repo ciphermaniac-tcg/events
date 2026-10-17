@@ -78,7 +78,6 @@
     "one": "{n} table sur {n} terminée",
     "other": "les {n} tables ont terminé"
   },
-  "Allow this page to save the .tdf to pair the round here": "Autorise cette page à enregistrer le .tdf pour apparier la ronde ici",
   "Allows organizer entry of player deck archetypes. “Shown once the event ends” shows archetypes at the time of final standings and “Shown during the event” shows archetypes at the time of entry during your event.": "Permet à l’organisateur de saisir l’archétype du deck de chaque joueur. « Affichés à la fin du tournoi » révèle les archétypes avec le classement final, et « Affichés pendant le tournoi » les montre dès leur saisie, en plein tournoi.",
   "Allows users to submit their decklists in TCGL format. “Open” makes decklists available during the event, and “Closed” disables decklist sharing.": "Permet aux joueurs d’envoyer leur liste de deck au format TCGL. « Ouvert » rend les listes visibles pendant le tournoi, et « Fermé » désactive leur partage.",
   "Alphabetical pages": "Pages par ordre alphabétique",
@@ -119,7 +118,6 @@
   "Auto scroll": "Défilement auto",
   "Auto scroll speed": "Vitesse du défilement auto",
   "Automatic": "Automatique",
-  "Automatically following": "Suivi automatique",
   "Back": "Retour",
   "Back to sign in": "Retour à la connexion",
   "beat": "bat",
@@ -181,7 +179,6 @@
   "Clear {popId}?": "Effacer {popId} ?",
   "Close": "Fermer",
   "Close submission": "Fermer les envois",
-  "Close the event in TOM before writing, then reopen the file in TOM.": "Ferme le tournoi dans TOM avant l’écriture, puis rouvre le fichier dans TOM.",
   "Closed": "Fermé",
   "Code": "Code",
   "Coming up": "À venir",
@@ -514,7 +511,6 @@
   "Manager invite": "Invitation gérant",
   "Manager invite link": "Lien d’invitation gérant",
   "Manual": "Manuel",
-  "Manual snapshot": "Import manuel",
   "Mark contacted": "Marquer comme contacté",
   "Masters": "Master",
   "Match Loss": "Match perdu",
@@ -525,7 +521,6 @@
   "Mobile result reporting": "Saisie des résultats sur téléphone",
   "Moderate": "Moyen",
   "Mondays": "Le lundi",
-  "More": "Plus",
   "More for {name}": "Plus d’options pour {name}",
   "More than one player has that last name; add your first name": "Plusieurs joueurs portent ce nom de famille ; ajoute ton prénom",
   "Move": "Déplacer",
@@ -608,7 +603,6 @@
   "Not a penalty note to edit": "Note de sanction non valide",
   "Not a request": "Demande non valide",
   "Not a result": "Résultat non valide",
-  "Not a round to pair": "Cette ronde ne peut pas être appariée",
   "Not a settings change": "Modification de paramètres non valide",
   "Not a status": "Statut non valide",
   "Not a TOM tournament file": "Ce n’est pas un fichier de tournoi TOM",
@@ -711,8 +705,6 @@
   "Page not found": "Page introuvable",
   "Page timing": "Durée par page",
   "Page {n} of {total}": "Page {n} sur {total}",
-  "Pair into the .tdf": "Apparier dans le .tdf",
-  "Pair round 1 in TOM": "Apparie la ronde 1 dans TOM",
   "Pair round {n}": "Apparier la ronde {n}",
   "Pair rounds, take results from players’ phones and publish standings, for sanctioned and unsanctioned Pokémon TCG events alike.": "Apparie les rondes, récupère les résultats depuis le téléphone des joueurs et publie le classement, que ton tournoi JCC Pokémon soit homologué ou non.",
   "Pair {stage}": "Apparier {stage}",
@@ -818,7 +810,6 @@
   "Recommended ({rounds} for this many players)": "Recommandé ({rounds} rondes pour ce nombre de joueurs)",
   "Recommended for attendance": "Recommandé selon le nombre d’inscrits",
   "reconnect the .tdf to enter results": "reconnecte le .tdf pour saisir les résultats",
-  "Reconnect to read it and enter results": "Reconnecte le fichier pour le lire et saisir les résultats",
   "Reconnect {file}": "Reconnecter {file}",
   "Record": "Bilan",
   "Record a check": "Saisir une vérification",
@@ -1138,7 +1129,6 @@
   "The player is not dropped": "Ce joueur n’a pas abandonné",
   "The reported match has changed": "Le match concerné a changé entre-temps",
   "The site has a different copy of this event. Reconnect the file TOM is using to replace it.": "Le site a une autre version de ce tournoi. Reconnecte le fichier qu’utilise TOM pour la remplacer.",
-  "The site has a different copy of this event. Reconnect the file TOM is using.": "Le site a une autre version de ce tournoi. Reconnecte le fichier qu’utilise TOM.",
   "The site took too long to answer": "Le site a mis trop de temps à répondre",
   "The store was not handed over": "La boutique n’a pas été cédée",
   "The top cut has started": "Le Top Cut a commencé",
@@ -1294,10 +1284,6 @@
     "other": "{n} tournois gagnés"
   },
   "Write results to the .tdf": "Écrire les résultats dans le .tdf",
-  "Write {n} results": {
-    "one": "Écrire {n} résultat",
-    "other": "Écrire {n} résultats"
-  },
   "Write {n} results to .tdf": {
     "one": "Écrire {n} résultat dans le .tdf",
     "other": "Écrire {n} résultats dans le .tdf"
@@ -1429,10 +1415,6 @@
   "{n} rejected": {
     "one": "{n} refusée",
     "other": "{n} refusées"
-  },
-  "{n} results not in TOM yet": {
-    "one": "{n} résultat pas encore saisi dans TOM",
-    "other": "{n} résultats pas encore saisis dans TOM"
   },
   "{n} results to write": {
     "one": "{n} résultat à écrire",

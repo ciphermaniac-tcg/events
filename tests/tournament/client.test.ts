@@ -34,7 +34,6 @@ import {
   linkUrl,
   listTournaments,
   lookupPlayer,
-  pairNextRound,
   preloadManage,
   preloadPublished,
   recordDeckCheck,
@@ -281,19 +280,6 @@ test('a player asks staff from the reporting endpoint, and staff answer at the r
   const answered = sent[2]?.body as { id: string; status: string; localTime: string };
   assert.deepEqual([answered.id, answered.status], ['r1', 'done']);
   assert.match(answered.localTime, /^\d{2}\/\d{2}\/\d{4} /, 'a confirmed drop is stamped with the venue clock');
-});
-
-test('a TOM event’s next round is asked for over the copy synced, stamped with the venue clock', async () => {
-  answer(200, { tournament: emptyTournament({ name: 'X' }) });
-  const { tournament } = await pairNextRound('ABC', 'masters', 'rev');
-  assert.equal(tournament.info.name, 'X');
-  assert.deepEqual(
-    sent.map(s => `${s.method} ${s.url}`),
-    ['POST /api/tournaments/ABC/pairing']
-  );
-  const asked = sent[0]?.body as { pod: string; base: string; localTime: string };
-  assert.deepEqual([asked.pod, asked.base], ['masters', 'rev']);
-  assert.match(asked.localTime, /^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}:\d{2}$/);
 });
 
 test('an error that says more than a message keeps the rest', async () => {

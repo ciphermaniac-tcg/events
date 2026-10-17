@@ -13,11 +13,12 @@
  * played at the store, whose name and address the server gives it.
  */
 
-import { For, Show, untrack } from 'solid-js';
+import { createSignal, For, type JSX, Show, untrack } from 'solid-js';
 import type { Listing } from '../../../shared/accounts/types';
 import { DEFAULT_ROUND_MINUTES, eventTimeLimits } from '../../../shared/tournament/create';
 import { CREATIONS_PER_DAY, eventDay, isRoundMinutes } from '../../../shared/tournament/limits';
 import { t } from '../../lib/i18n';
+import { createMedia, NOT_TOM_DESKTOP } from '../../lib/media';
 import { setupDraft } from '../../lib/tournament/setupDraft';
 import { SANCTIONED } from '../../../shared/tournament/structure';
 import { EVENT_TYPES, type EventType } from '../../../shared/tournament/types';
@@ -92,6 +93,10 @@ export function EventSetup(props: {
   error: string | null;
   onCreate: (setup: Setup) => void;
   onCancel: () => void;
+  /** Picking the .tdf of a sanctioned event TOM pairs, run by `store`, which sets it up from the file instead. */
+  tdfLink?: (store: string | null) => JSX.Element;
+  /** Back to a sanctioned event Ciphermaniac pairs, from setting up one TOM pairs. */
+  onPairHere?: () => void;
 }) {
   const field = untrack(() => setupDraft(props.draftKey));
   const [name, setName] = field('name', '', isString);
@@ -127,6 +132,10 @@ export function EventSetup(props: {
     }
   });
   const swiss = () => props.mode === 'swiss';
+  // Not kept in the draft: going back from a TOM event's setup comes back to pairing here.
+  const [tomChosen, setTomChosen] = createSignal(false);
+  /** TOM runs on a computer: a narrow or touch screen has no way to link its file, so it is not asked. */
+  const notTomDesktop = createMedia(NOT_TOM_DESKTOP);
   /** Run by a store, which is where it is played. */
   const atStore = () => runAs() !== null;
   const logistics = (): Logistics => ({
@@ -139,10 +148,23 @@ export function EventSetup(props: {
   /** Run under the account's own name or an unsanctioned store's: never sanctioned. */
   const own = () => !props.runAs.find(option => option.id === runAs())?.sanctions;
   const sanctioned = () => !own() && sanctionedChoice();
+  /** A sanctioned event TOM pairs: it starts from TOM's file, which answers the rest. */
+  const tomOffered = () => swiss() && sanctioned() && props.tdfLink !== undefined && !notTomDesktop();
+  const tomPairs = () => tomOffered() && tomChosen();
+  const asksPairing = () => (swiss() ? tomOffered() : props.onPairHere !== undefined);
+  /** A TOM event's own setup always says TOM; a Swiss one, what was picked. */
+  const pairsInTom = () => !swiss() || tomPairs();
+  /** In a TOM event's setup, Ciphermaniac goes back to setting up one paired here. */
+  function choosePairing(tom: boolean) {
+    if (swiss()) {
+      setTomChosen(tom);
+    } else if (!tom) {
+      props.onPairHere?.();
+    }
+  }
   /** The listing it starts from, which says whether it is sanctioned and its kind; none run as the account's own. */
   const listed = () => (own() ? null : listing());
   const selectedEventType = () => (own() && !['local', 'prerelease'].includes(eventType()) ? 'local' : eventType());
-  const timeLimits = () => eventTimeLimits(selectedEventType());
   const needsName = () => swiss() && !name().trim();
   const needsPlayTools = () => (swiss() ? sanctioned() : props.tdfSanctioned);
   const shortRounds = () => swiss() && sanctioned() && Number(roundTime()) < SANCTIONED.minutes;
@@ -216,7 +238,7 @@ export function EventSetup(props: {
       <div class='tm-setup-head'>
         <h2>{t('New event')}</h2>
       </div>
-      <SetupName swiss={swiss()} name={name()} tdfName={props.tdfName} onInput={setName} />
+      <SetupName swiss={swiss() && !tomPairs()} name={name()} tdfName={props.tdfName} onInput={setName} />
       <Show when={props.runAs.length > 1}>
         <div class='tm-box'>
           <SettingRow label={t('Run as')} for='setup-run-as'>
@@ -231,20 +253,11 @@ export function EventSetup(props: {
           </SettingRow>
         </div>
       </Show>
-      <Show when={swiss() && !own() && runAs()}>
+      <Show when={swiss() && !own() && !tomPairs() && runAs()}>
         {store => <ListingPicker storeId={store()} picked={listing()?.sanctionId ?? ''} onPick={pick} />}
       </Show>
       <div class='tm-box'>
-        <Show when={listing()}>
-          {picked => (
-            <SettingRow label={t('Sanction ID')}>
-              <span class='tm-set-inline'>
-                <span class='tm-num'>{picked().sanctionId}</span>
-                <span class='muted'>{t(LISTING_KINDS[picked().kind])}</span>
-              </span>
-            </SettingRow>
-          )}
-        </Show>
+        <Show when={!tomPairs() && listing()}>{picked => <ListingRow listing={picked()} />}</Show>
         <Show when={swiss() && !own() && !listed()}>
           <SettingRow label={t('Sanctioned')}>
             <Toggle
@@ -256,86 +269,174 @@ export function EventSetup(props: {
             />
           </SettingRow>
         </Show>
-        <Show when={needsPlayTools()}>
-          <PlayToolsRow confirmed={playToolsConfirmed()} onConfirm={setPlayToolsConfirmed} />
+        <Show when={asksPairing()}>
+          <PairingRow tom={pairsInTom()} onChange={choosePairing} />
         </Show>
-        <SettingRow label={t('Format')} for='setup-format'>
-          <FormatSelect id='setup-format' value={format()} onChange={setFormat} />
-        </SettingRow>
-        <SettingRow label={t('Starts')} for='setup-starts'>
-          <input
-            id='setup-starts'
-            class='tm-input'
-            type='datetime-local'
-            value={startsAt()}
-            onInput={e => setStartsAt(e.currentTarget.value)}
-          />
-        </SettingRow>
-        <LogisticsRows
-          id='setup'
-          value={logistics()}
-          place={!atStore()}
-          onChange={(key, value) => setLogistics[key](value)}
-        />
-        <Show when={swiss()}>
-          <Show when={!listed()}>
-            <SettingRow label={t('Event type')}>
-              <EventTypeSwitch
-                value={selectedEventType()}
-                types={own() ? ['local', 'prerelease'] : undefined}
-                onChange={setEventType}
-              />
-            </SettingRow>
+        <Show when={!tomPairs()}>
+          <Show when={needsPlayTools()}>
+            <PlayToolsRow confirmed={playToolsConfirmed()} onConfirm={setPlayToolsConfirmed} />
           </Show>
-          <SettingRow label={t('Swiss round minutes')} for='setup-minutes'>
+          <SettingRow label={t('Format')} for='setup-format'>
+            <FormatSelect id='setup-format' value={format()} onChange={setFormat} />
+          </SettingRow>
+          <SettingRow label={t('Starts')} for='setup-starts'>
             <input
-              id='setup-minutes'
-              class='tm-input tm-set-minutes'
-              type='number'
-              required
-              step='1'
-              aria-describedby={invalidMinutes() ? 'setup-minutes-status' : undefined}
-              min={sanctioned() ? Math.max(SANCTIONED.minutes, timeLimits().minimum) : timeLimits().minimum}
-              max={timeLimits().maximum}
-              value={roundTime()}
-              onInput={e => setRoundTime(e.currentTarget.value)}
+              id='setup-starts'
+              class='tm-input'
+              type='datetime-local'
+              value={startsAt()}
+              onInput={e => setStartsAt(e.currentTarget.value)}
             />
           </SettingRow>
-          <SettingRow label={t('Swiss rounds')} for='setup-rounds'>
-            <RoundsSelect
-              id='setup-rounds'
-              value={roundCap()}
-              min={sanctioned() ? SANCTIONED.swissRounds : 1}
-              onChange={setRoundCap}
+          <LogisticsRows
+            id='setup'
+            value={logistics()}
+            place={!atStore()}
+            onChange={(key, value) => setLogistics[key](value)}
+          />
+          <Show when={swiss()}>
+            <SwissRows
+              eventType={selectedEventType()}
+              listed={listed() !== null}
+              own={own()}
+              sanctioned={sanctioned()}
+              roundTime={roundTime()}
+              invalidMinutes={invalidMinutes()}
+              roundCap={roundCap()}
+              onEventType={setEventType}
+              onRoundTime={setRoundTime}
+              onRoundCap={setRoundCap}
             />
+          </Show>
+          <SettingRow label={t('Mobile result reporting')} info={<SettingInfo text={reportingInfo(sanctioned())} />}>
+            <Toggle label={t('Mobile result reporting')} value={reporting()} onChange={setReporting} />
+          </SettingRow>
+          <SettingRow
+            label={t('Archetypes')}
+            for='setup-archetypes'
+            info={<SettingInfo text={SETTING_INFO.archetypes} />}
+          >
+            <ArchetypesSelect id='setup-archetypes' value={archetypes()} onChange={setArchetypes} />
+          </SettingRow>
+          <SettingRow label={t('Decklists')} info={<SettingInfo text={SETTING_INFO.decklists} />}>
+            <DecklistsSwitch value={decklists()} onChange={setDecklists} />
           </SettingRow>
         </Show>
-        <SettingRow label={t('Mobile result reporting')} info={<SettingInfo text={reportingInfo(sanctioned())} />}>
-          <Toggle label={t('Mobile result reporting')} value={reporting()} onChange={setReporting} />
-        </SettingRow>
-        <SettingRow
-          label={t('Archetypes')}
-          for='setup-archetypes'
-          info={<SettingInfo text={SETTING_INFO.archetypes} />}
-        >
-          <ArchetypesSelect id='setup-archetypes' value={archetypes()} onChange={setArchetypes} />
-        </SettingRow>
-        <SettingRow label={t('Decklists')} info={<SettingInfo text={SETTING_INFO.decklists} />}>
-          <DecklistsSwitch value={decklists()} onChange={setDecklists} />
-        </SettingRow>
       </div>
-      <SetupFooter
-        limited={limited()}
-        dayTaken={dayTaken()}
-        day={day()}
-        invalidMinutes={invalidMinutes()}
-        needsName={needsName()}
-        shortRounds={shortRounds()}
-        cannotCreate={cannotCreate()}
-        onCancel={props.onCancel}
-      />
+      <Show
+        when={tomPairs()}
+        fallback={
+          <SetupFooter
+            limited={limited()}
+            dayTaken={dayTaken()}
+            day={day()}
+            invalidMinutes={invalidMinutes()}
+            needsName={needsName()}
+            shortRounds={shortRounds()}
+            cannotCreate={cannotCreate()}
+            onCancel={props.onCancel}
+          />
+        }
+      >
+        <TdfFooter link={props.tdfLink?.(runAs())} onCancel={props.onCancel} />
+      </Show>
       <ErrorLine message={props.error} />
     </form>
+  );
+}
+
+/** The pokemon.com listing the event starts from, by its sanction ID and kind. */
+function ListingRow(props: { listing: Listing }) {
+  return (
+    <SettingRow label={t('Sanction ID')}>
+      <span class='tm-set-inline'>
+        <span class='tm-num'>{props.listing.sanctionId}</span>
+        <span class='muted'>{t(LISTING_KINDS[props.listing.kind])}</span>
+      </span>
+    </SettingRow>
+  );
+}
+
+/** An event TOM pairs is made from its file, so the way on is picking it. */
+function TdfFooter(props: { link: JSX.Element; onCancel: () => void }) {
+  return (
+    <div class='tm-setup-foot'>
+      {props.link}
+      <button type='button' class='btn btn-ghost' onClick={() => props.onCancel()}>
+        {t('Cancel')}
+      </button>
+    </div>
+  );
+}
+
+/** What only an event paired here asks: its kind, unless a listing said, and its rounds' length and count. */
+function SwissRows(props: {
+  eventType: EventType;
+  listed: boolean;
+  own: boolean;
+  sanctioned: boolean;
+  roundTime: string;
+  invalidMinutes: boolean;
+  roundCap: number;
+  onEventType: (value: EventType) => void;
+  onRoundTime: (value: string) => void;
+  onRoundCap: (value: number) => void;
+}) {
+  const timeLimits = () => eventTimeLimits(props.eventType);
+  return (
+    <>
+      <Show when={!props.listed}>
+        <SettingRow label={t('Event type')}>
+          <EventTypeSwitch
+            value={props.eventType}
+            types={props.own ? ['local', 'prerelease'] : undefined}
+            onChange={props.onEventType}
+          />
+        </SettingRow>
+      </Show>
+      <SettingRow label={t('Swiss round minutes')} for='setup-minutes'>
+        <input
+          id='setup-minutes'
+          class='tm-input tm-set-minutes'
+          type='number'
+          required
+          step='1'
+          aria-describedby={props.invalidMinutes ? 'setup-minutes-status' : undefined}
+          min={props.sanctioned ? Math.max(SANCTIONED.minutes, timeLimits().minimum) : timeLimits().minimum}
+          max={timeLimits().maximum}
+          value={props.roundTime}
+          onInput={e => props.onRoundTime(e.currentTarget.value)}
+        />
+      </SettingRow>
+      <SettingRow label={t('Swiss rounds')} for='setup-rounds'>
+        <RoundsSelect
+          id='setup-rounds'
+          value={props.roundCap}
+          min={props.sanctioned ? SANCTIONED.swissRounds : 1}
+          onChange={props.onRoundCap}
+        />
+      </SettingRow>
+    </>
+  );
+}
+
+/**
+ * Whether TOM or Ciphermaniac pairs a sanctioned event and keeps its results,
+ * asked only on a desktop, where TOM runs. It cannot change once the event is
+ * made: a TOM event follows TOM's file, and one paired here only writes a
+ * .tdf at the end.
+ */
+function PairingRow(props: { tom: boolean; onChange: (tom: boolean) => void }) {
+  return (
+    <SettingRow label={t('Pairing and results')} info={<SettingInfo text={SETTING_INFO.pairing} />}>
+      <Toggle
+        label={t('Pairing and results')}
+        value={props.tom}
+        on={t('TOM')}
+        off={t('Ciphermaniac')}
+        onChange={props.onChange}
+      />
+    </SettingRow>
   );
 }
 
@@ -419,7 +520,9 @@ function SetupName(props: { swiss: boolean; name: string; tdfName?: string; onIn
           when={props.swiss}
           fallback={
             <p class='tm-setup-file'>
-              <strong>{props.tdfName}</strong>
+              <Show when={props.tdfName} fallback={<span class='muted'>{t('From the .tdf')}</span>}>
+                {tdfName => <strong>{tdfName()}</strong>}
+              </Show>
             </p>
           }
         >

@@ -19,14 +19,7 @@ import {
   Switch,
   untrack
 } from 'solid-js';
-import {
-  activeIds,
-  cutPodsOf,
-  latestRound,
-  livePods,
-  roundComplete,
-  wasFinalized
-} from '../../../shared/tournament/rounds';
+import { activeIds, cutPodsOf, latestRound, livePods, roundComplete } from '../../../shared/tournament/rounds';
 
 import { eventTypeOf } from '../../../shared/tournament/structure';
 import type { Pod, PodCategory } from '../../../shared/tournament/types';
@@ -45,7 +38,6 @@ import {
   type PodProgress,
   roundStatus,
   shownDecks,
-  type SwissPlan,
   swissPlanOf,
   unseated
 } from '../../lib/tournament/present';
@@ -60,7 +52,7 @@ import { createManage, type ManageState } from './manageState';
 import '../../styles/pages/tournament-console.css';
 import { ClockControls } from './RoundControls';
 import { EndEventStep, type RoundEnd, RoundEndSplit } from './NextStep';
-import { createTomLink, type FileWrite, type TomLink, TomNextStep, TomStrip } from './TomSyncPanel';
+import { createTomLink, type TomLink, TomStatus } from './TomSyncPanel';
 import { Trail } from './Trail';
 import { pageTitle } from '../../lib/title';
 
@@ -108,28 +100,6 @@ function tomPart(tom: TomLink): string {
   }
   const n = tom.pending();
   return n ? tn(n, '{n} result to write', '{n} results to write') : t('TOM has every result');
-}
-
-/**
- * A TOM event's next round, once every result of its latest is in: paired on
- * the site into TOM's file (see TomSyncPanel), and `planned` while the Swiss
- * rounds the attendance calls for are not all played. Round 1 and the top cut
- * start in TOM, which pods the field and sizes the cut, and a file TOM has
- * finalized takes no more rounds.
- */
-function tomPairing(
-  manage: Manage,
-  pod: Pod | undefined,
-  progress: PodProgress,
-  plan: SwissPlan | null
-): { pair: FileWrite | null; planned: boolean } {
-  const step = nextStep(progress, manage.settings.finished, plan);
-  const open = pod && progress.round && !wasFinalized(manage.tournament);
-  const pair =
-    open && (step.kind === 'pair' || step.kind === 'decide') && step.ready
-      ? { kind: 'pair' as const, pod: pod.category, label: step.label }
-      : null;
-  return { pair, planned: step.kind === 'pair' };
 }
 
 /** Pairing the pod's next round or stage. */
@@ -203,9 +173,10 @@ function RoundEndStep(props: {
 
 /**
  * The console's head, the same on every tab: the event, where its round
- * stands, and the step to take next. A TOM event's next step belongs to
- * its file: reconnect it, write the results TOM does not have, or read it
- * again (see TomSyncPanel).
+ * stands, and the step to take next. TOM pairs a TOM event's rounds, so
+ * its head says instead when TOM last saved the file, with the results TOM
+ * does not have yet to write into it, or the file to reconnect (see
+ * TomSyncPanel).
  */
 function Hero(props: { state: ManageState; manage: Manage; pod: Pod | undefined; tom: TomLink | null }) {
   const finished = () => props.manage.settings.finished;
@@ -274,12 +245,7 @@ function Hero(props: { state: ManageState; manage: Manage; pod: Pod | undefined;
   const openTablesOnly = () => reason() === tn(progress().open, '{n} table open', '{n} tables open');
   const action = (
     <Switch>
-      <Match when={props.tom}>
-        {tom => {
-          const next = () => tomPairing(props.manage, swissOver() ? undefined : props.pod, progress(), plan());
-          return <TomNextStep link={tom()} pair={next().pair} planned={next().planned} />;
-        }}
-      </Match>
+      <Match when={props.tom}>{tom => <TomStatus link={tom()} />}</Match>
       <Match when={props.pod && roundEnd()}>
         {s => (
           <RoundEndStep
@@ -490,7 +456,7 @@ function Console(props: { state: ReturnType<typeof createManage>; manage: Manage
       <Hero state={props.state} manage={props.manage} pod={pod()} tom={tom} />
       <Tabs id='console' options={tabs()} selected={tab()} onSelect={setTab} ariaLabel={t('Event sections')} />
       <TabBar tabs={tabs()} selected={tab()} onSelect={setTab} />
-      <Show when={tom}>{link => <TomStrip link={link()} />}</Show>
+      <Show when={tom}>{link => <ErrorLine message={link().error()} />}</Show>
       <Show when={pods().length > 1 && (tab() === 'round' || tab() === 'standings')}>
         <Segmented
           options={pods().map(p => ({ value: p.category, label: podLabel(p) }))}
@@ -531,7 +497,7 @@ function Console(props: { state: ReturnType<typeof createManage>; manage: Manage
           <PenaltiesPanel manage={props.manage} />
         </Show>
         <Show when={tab() === 'event'}>
-          <EventPanel state={props.state} manage={props.manage} />
+          <EventPanel state={props.state} manage={props.manage} tom={tom} />
         </Show>
       </TabPanel>
     </div>

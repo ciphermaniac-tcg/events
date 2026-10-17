@@ -45,7 +45,6 @@ import * as decks from '../../functions/api/tournaments/[code]/decks.ts';
 import * as event from '../../functions/api/tournaments/[code]/index.ts';
 import * as idle from '../../functions/api/tournaments/idle.ts';
 import * as manage from '../../functions/api/tournaments/[code]/manage.ts';
-import * as pairing from '../../functions/api/tournaments/[code]/pairing.ts';
 import * as report from '../../functions/api/tournaments/[code]/report.ts';
 import * as settings from '../../functions/api/tournaments/[code]/settings.ts';
 import * as staff from '../../functions/api/tournaments/[code]/staff.ts';
@@ -755,15 +754,7 @@ test('starting a TOM round’s clock before TOM has a result leaves the file’s
   assert.notEqual(synced.json.tournament.pods[0].rounds[1].clockStartedAt, null, 'the site’s clock still runs');
 });
 
-function pairNext(code: string, cookie: string, base: string) {
-  return hit(pairing.onRequestPost as Handler, '/pairing', at(code), {
-    method: 'POST',
-    cookie,
-    body: { pod: 'mixed', base, localTime: '10/10/2026 13:00:00' }
-  });
-}
-
-test('an ended TOM event takes neither a next round nor a new copy of its file, even one that loses the race to the end', async () => {
+test('an ended TOM event takes no new copy of its file, even one that loses the race to the end', async () => {
   const owner = await signIn('Organizer', 'organizer');
   const tdf = parseTdf(readFileSync(new URL('../fixtures/tdf/challenge-midevent.tdf', import.meta.url), 'utf8'));
   const code = await newTom(owner, tdf);
@@ -805,62 +796,22 @@ test('an ended TOM event takes neither a next round nor a new copy of its file, 
   assert.equal(await revisionNow(code, owner), base, 'the file’s copy did not land');
   const later = await syncOf();
   assert.deepEqual([later.status, later.json.error], [400, 'The event has ended; reopen it to make changes']);
-  const paired = await pairNext(code, owner, base);
-  assert.deepEqual([paired.status, paired.json.error], [400, 'The event has ended; reopen it to make changes']);
   await settle(code, owner, { finished: false });
   assert.equal((await syncOf()).status, 200, 'reopening takes the file again');
 });
 
-test('a TOM event’s next round is paired over the site’s results and lands only with the file', async () => {
+test('a TOM event never pairs a round on the site: TOM pairs every one', async () => {
   const owner = await signIn('Organizer', 'organizer');
   const tdf = parseTdf(readFileSync(new URL('../fixtures/tdf/challenge-midevent.tdf', import.meta.url), 'utf8'));
   const code = await newTom(owner, tdf);
-  const base = await revisionNow(code, owner);
-  const pending = await pairNext(code, owner, base);
-  assert.equal(pending.status, 200, 'V16-2 permits pairing while the current round has pending matches');
-  assert.deepEqual(pending.json.tournament.pods[0].rounds[1].matches, tdf.pods[0]!.rounds[1]!.matches);
-  assert.equal(pending.json.tournament.pods[0].rounds[2].number, 3);
   const open = tdf.pods[0]!.rounds[1]!.matches.filter(m => m.p2 !== null && m.outcome === 'pending');
   for (const { table, p1, p2 } of open) {
     await send(code, owner, { type: 'reportResult', pod: 'mixed', round: 2, table, p1, p2, outcome: 'p1' });
   }
-  assert.equal((await pairNext(code, owner, 'another copy')).status, 409, 'only over the file the browser sent');
-  const paired = await pairNext(code, owner, base);
-  assert.equal(paired.status, 200);
-  const [, second, third] = paired.json.tournament.pods[0].rounds as Round[];
-  assert.ok(
-    second?.matches.every(m => m.outcome !== 'pending'),
-    'the site’s results are in the round'
-  );
-  assert.equal(third?.number, 3);
-  assert.equal(third?.pairTime, '10/10/2026 13:00:00', 'stamped with the venue clock');
+  const refused = await send(code, owner, { type: 'pairRound', pod: 'mixed' });
+  assert.deepEqual([refused.status, refused.json.error], [400, 'Please make this change in TOM.']);
   const held = await hit(manage.onRequestGet as Handler, '/manage', at(code), { cookie: owner });
-  assert.equal(held.json.tournament.pods[0].rounds.length, 2, 'nothing is stored until the file has it');
-  assert.equal(held.json.pending.length, open.length, 'so the results still wait on TOM');
-  const synced = await hit(sync.onRequestPut as Handler, '/sync', at(code), {
-    method: 'PUT',
-    cookie: owner,
-    body: { tournament: parseTdf(writeTdf(paired.json.tournament)), base }
-  });
-  assert.equal(synced.status, 200, 'the file the round was written into syncs as any save of TOM’s');
-  assert.equal(synced.json.tournament.pods[0].rounds.length, 3);
-  assert.deepEqual(synced.json.pending, []);
-});
-
-test('a TOM event’s first round and a Swiss event are not paired through the file', async () => {
-  const owner = await signIn('Organizer', 'organizer');
-  const tdf = parseTdf(readFileSync(new URL('../fixtures/tdf/challenge-midevent.tdf', import.meta.url), 'utf8'));
-  const fresh = await newTom(owner, { ...tdf, pods: tdf.pods.map(pod => ({ ...pod, rounds: [] })) });
-  assert.match((await pairNext(fresh, owner, await revisionNow(fresh, owner))).json.error, /Pair round 1 in TOM/);
-  const swiss = await newSwiss(owner);
-  assert.equal((await pairNext(swiss, owner, await revisionNow(swiss, owner))).status, 400);
-  const tom = await newTom(owner, tdf);
-  const junk = await hit(pairing.onRequestPost as Handler, '/pairing', at(tom), {
-    method: 'POST',
-    cookie: owner,
-    body: { pod: 'nonsense', base: await revisionNow(tom, owner) }
-  });
-  assert.equal(junk.status, 400);
+  assert.equal(held.json.tournament.pods[0].rounds.length, 2, 'the round stays TOM’s to pair');
 });
 
 test('a Swiss event cannot be synced from a file', async () => {

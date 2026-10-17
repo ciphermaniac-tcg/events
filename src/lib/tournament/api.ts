@@ -20,7 +20,7 @@ import type { PlayerClaim } from '../../../shared/tournament/identify';
 import type { PlayerProfile } from '../../../shared/tournament/profile';
 import type { ReturningPlayer } from '../../../shared/tournament/returningPlayers';
 import type { PlayerResult, ShownMatch } from '../../../shared/tournament/reports';
-import type { EventType, PodCategory, Tournament } from '../../../shared/tournament/types';
+import type { EventType, Tournament } from '../../../shared/tournament/types';
 import {
   type Decklist,
   type Manage,
@@ -256,13 +256,6 @@ export const findReturningPlayers = (code: string, query: string, signal: AbortS
   call<{ players: ReturningPlayer[] }>(`${base(code)}/players?${new URLSearchParams({ q: query })}`, {
     signal: AbortSignal.any([signal, AbortSignal.timeout(15_000)])
   });
-
-/** A TOM event's next round, paired over the copy `revision` names, for the console to write into TOM's file. */
-export const pairNextRound = (code: string, pod: PodCategory, revision: string) =>
-  call<{ tournament: Tournament }>(
-    `${base(code)}/pairing`,
-    json('POST', { pod, base: revision, localTime: tomDateTime(new Date()) })
-  );
 
 /** How long a sync may take before the link gives up on it and tries again. */
 export const SYNC_TIMEOUT_MS = 30_000;

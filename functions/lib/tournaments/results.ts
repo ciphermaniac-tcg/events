@@ -12,7 +12,7 @@ import { applyCommand, type Command } from '../../../shared/tournament/commands.
 import { lockedRound } from '../../../shared/tournament/corrections.js';
 import { isOpenMatch } from '../../../shared/tournament/rounds.js';
 import { withSiteClocks } from '../../../shared/tournament/tomClock.js';
-import type { PodCategory, Tournament } from '../../../shared/tournament/types.js';
+import type { Tournament } from '../../../shared/tournament/types.js';
 import { applyPending, isSanctioned, prunePending, withPending } from '../../../shared/tournament/view.js';
 import { commandContext } from './commandContext.js';
 import { type Changes, type TournamentRow } from './store.js';
@@ -91,24 +91,4 @@ function commandSource(row: TournamentRow, command: Command): Tournament {
   return row.mode === 'tom' && command.type === 'setTimeExtension'
     ? applyPending(row.tournament, row.pending)
     : row.tournament;
-}
-
-/**
- * A TOM event's next round in `pod`, paired over the results entered here,
- * or why it cannot be. Nothing is stored: the console writes the round into
- * TOM's file, and the site takes it from the file's next sync, so until the
- * file has it the results stay pending and no round is held that it lacks.
- * Round 1 is TOM's, which pods the field.
- */
-export function tomNextRound(row: TournamentRow, pod: PodCategory, localTime: unknown): Tournament | string {
-  if (row.settings.finished) {
-    return FINISHED_REFUSAL;
-  }
-  if (!row.tournament.pods.find(p => p.category === pod)?.rounds.length) {
-    return msg('Pair round 1 in TOM');
-  }
-  const tournament = applyPending(row.tournament, row.pending);
-  const context = commandContext(row.tournament, localTime, isSanctioned(row));
-  const result = applyCommand(tournament, { type: 'pairRound', pod }, context);
-  return result.ok ? result.tournament : result.error;
 }

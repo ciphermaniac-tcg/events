@@ -112,6 +112,46 @@ export async function writeFile(handle: TdfHandle, text: string): Promise<void> 
   await writable.close();
 }
 
+// ---------- remembering a write ----------
+
+/**
+ * What this browser last wrote into an event's file: the modified time the
+ * write left, which is no save of TOM's, and the results it held, by
+ * pod:round:table. Kept in localStorage, so a reload, or a second tab on the
+ * same file, does not send the write up as if TOM had saved it.
+ */
+export interface OwnWrite {
+  at: number;
+  results: string[];
+}
+
+const writeKey = (code: string) => `cm-tdf-write:${code}`;
+
+const isOwnWrite = (value: unknown): value is OwnWrite =>
+  typeof (value as OwnWrite | null)?.at === 'number' && Array.isArray((value as OwnWrite).results);
+
+export function recallWrite(code: string): OwnWrite | null {
+  try {
+    const value: unknown = JSON.parse(localStorage.getItem(writeKey(code)) ?? 'null');
+    return isOwnWrite(value) ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Remembers a write, or with null forgets it; a browser that cannot store it remembers nothing. */
+export function rememberWrite(code: string, write: OwnWrite | null) {
+  try {
+    if (write) {
+      localStorage.setItem(writeKey(code), JSON.stringify(write));
+    } else {
+      localStorage.removeItem(writeKey(code));
+    }
+  } catch {
+    // Storage refused: the write is still in the file, only not remembered.
+  }
+}
+
 // ---------- remembering the handle ----------
 
 const DB_NAME = 'ciphermaniac-tournaments';

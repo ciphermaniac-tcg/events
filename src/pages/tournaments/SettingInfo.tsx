@@ -15,6 +15,9 @@ export const SETTING_INFO = {
   ),
   decklists: msg(
     'Allows users to submit their decklists in TCGL format. “Open” makes decklists available during the event, and “Closed” disables decklist sharing.'
+  ),
+  pairing: msg(
+    'Where rounds are paired and results are kept. With TOM, you pair and enter results in TOM as usual, and Ciphermaniac shows them to players. With Ciphermaniac, you pair and enter results here, then download the .tdf when the event ends.'
   )
 } as const;
 

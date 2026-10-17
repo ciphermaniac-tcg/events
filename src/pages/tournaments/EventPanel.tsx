@@ -3,7 +3,7 @@
  * control at right): the event itself (name, round lengths, Swiss rounds),
  * what players see and do (start, format, archetypes, sanctioned, reporting,
  * decklists, details), a store event's big screen preset (StoreDisplays),
- * finishing (end or reopen, the .tdf), the staff invite
+ * a TOM event's file (TomFileRow), finishing (end or reopen, the .tdf), the staff invite
  * and who is on staff, and deleting the event. Each box of settings saves on
  * its own and says when it has unsaved changes; anything that cannot be taken
  * back asks first.
@@ -44,6 +44,7 @@ import { DecklistsSwitch, EventTypeSwitch, RoundsSelect } from './SettingChoices
 import { ArchetypesSelect, SettingRow, Toggle } from './SettingControls';
 import { type Logistics, LogisticsRows } from './LogisticsRows';
 import { reportingInfo, SETTING_INFO, SettingInfo } from './SettingInfo';
+import { TomFileRow, type TomLink } from './TomSyncPanel';
 
 /** A box of settings with its heading, and a foot with Save and whether anything is unsaved. */
 function SettingsBox(props: {
@@ -584,12 +585,30 @@ function BigScreenPreset(props: { state: ManageState; manage: Manage }) {
   );
 }
 
-export function EventPanel(props: { state: ManageState; manage: Manage }) {
+/** A TOM event's file, and that TOM pairs it: set when the event was made, so only said here. */
+function TomFile(props: { link: TomLink }) {
+  return (
+    <section aria-labelledby='tom-file-head'>
+      <h2 id='tom-file-head' class='tm-subhead tm-box-head'>
+        {t('TOM')}
+      </h2>
+      <div class='tm-box'>
+        <SettingRow label={t('Pairing and results')} info={<SettingInfo text={SETTING_INFO.pairing} />}>
+          <span>{t('TOM')}</span>
+        </SettingRow>
+        <TomFileRow link={props.link} />
+      </div>
+    </section>
+  );
+}
+
+export function EventPanel(props: { state: ManageState; manage: Manage; tom: TomLink | null }) {
   return (
     <div class='tm-panel tm-event-panel'>
       <Show when={props.manage.mode === 'swiss'}>
         <EventDetails state={props.state} manage={props.manage} />
       </Show>
+      <Show when={props.tom}>{link => <TomFile link={link()} />}</Show>
       <ForPlayers state={props.state} manage={props.manage} />
       <Show when={props.manage.store !== null}>
         <BigScreenPreset state={props.state} manage={props.manage} />

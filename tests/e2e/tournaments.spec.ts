@@ -595,6 +595,102 @@ test('a TOM sanction ID shows an unchecked confirmation; an unsanctioned file sk
   await expect(create).toBeEnabled();
 });
 
+test('a sanctioned setup asks who pairs: TOM goes on from its file, and Ciphermaniac comes back', async ({ page }) => {
+  await mockOrganizer(page);
+  await page.addInitScript(source => {
+    Object.assign(window, {
+      showOpenFilePicker: async () => [{ name: 'event.tdf', getFile: async () => new File([source], 'event.tdf') }]
+    });
+  }, TDF_SOURCE);
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Start an event' }).click();
+  const pairing = page.getByRole('radiogroup', { name: 'Pairing and results', exact: true });
+  await expect(pairing).toHaveCount(0);
+  const sanctioned = page.getByRole('radiogroup', { name: 'Sanctioned', exact: true });
+  await sanctioned.getByRole('radio', { name: 'Yes', exact: true }).click();
+  await expect(pairing.getByRole('radio', { name: 'Ciphermaniac', exact: true })).toHaveAttribute(
+    'aria-checked',
+    'true'
+  );
+  await expect(page.getByRole('note', { name: /^Where rounds are paired and results are kept\./ })).toHaveCount(1);
+  await pairing.getByRole('radio', { name: 'TOM', exact: true }).click();
+  await expect(page.getByText('From the .tdf')).toBeVisible();
+  await expect(page.getByRole('textbox', { name: 'Event name' })).toHaveCount(0);
+  await expect(page.getByRole('spinbutton', { name: 'Swiss round minutes' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Create event' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Link .tdf file' }).click();
+  await expect(page.locator('.tm-setup-file')).toContainText('Fixture Challenge');
+  await expect(pairing.getByRole('radio', { name: 'TOM', exact: true })).toHaveAttribute('aria-checked', 'true');
+  await pairing.getByRole('radio', { name: 'Ciphermaniac', exact: true }).click();
+  await expect(page.getByRole('textbox', { name: 'Event name' })).toBeVisible();
+  await expect(pairing.getByRole('radio', { name: 'Ciphermaniac', exact: true })).toHaveAttribute(
+    'aria-checked',
+    'true'
+  );
+  await sanctioned.getByRole('radio', { name: 'No', exact: true }).click();
+  await expect(pairing).toHaveCount(0);
+});
+
+test('a sanctioned setup narrowed past where TOM runs goes back to pairing here', async ({ page }) => {
+  await mockOrganizer(page);
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Start an event' }).click();
+  await page
+    .getByRole('radiogroup', { name: 'Sanctioned', exact: true })
+    .getByRole('radio', { name: 'Yes', exact: true })
+    .click();
+  const pairing = page.getByRole('radiogroup', { name: 'Pairing and results', exact: true });
+  await pairing.getByRole('radio', { name: 'TOM', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Create event' })).toHaveCount(0);
+  await page.setViewportSize({ width: 600, height: 800 });
+  await expect(pairing).toHaveCount(0);
+  await expect(page.getByRole('textbox', { name: 'Event name' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Create event' })).toBeVisible();
+});
+
+test('a TOM setup reached from a Swiss one keeps the store picked there', async ({ page }) => {
+  await mockOrganizer(page);
+  await page.route('**/api/me', route =>
+    route.fulfill({
+      json: {
+        user: {
+          id: 'organizer',
+          name: 'Organizer',
+          role: null,
+          stores: ['store-1', 'store-2'].map((id, i) => ({
+            id,
+            name: `Test Games ${i + 1}`,
+            leagueId: `100000${i + 1}`,
+            status: 'active',
+            timeZone: 'America/Chicago',
+            role: 'manager'
+          }))
+        },
+        providers: []
+      }
+    })
+  );
+  await page.addInitScript(source => {
+    Object.assign(window, {
+      showOpenFilePicker: async () => [{ name: 'event.tdf', getFile: async () => new File([source], 'event.tdf') }]
+    });
+  }, TDF_SOURCE);
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Start an event' }).click();
+  await page.getByRole('combobox', { name: 'Run as' }).selectOption('store-2');
+  await page
+    .getByRole('radiogroup', { name: 'Sanctioned', exact: true })
+    .getByRole('radio', { name: 'Yes', exact: true })
+    .click();
+  await page
+    .getByRole('radiogroup', { name: 'Pairing and results', exact: true })
+    .getByRole('radio', { name: 'TOM', exact: true })
+    .click();
+  await page.getByRole('button', { name: 'Link .tdf file' }).click();
+  await expect(page.locator('.tm-setup-file')).toContainText('Fixture Challenge');
+  await expect(page.getByRole('combobox', { name: 'Run as' })).toHaveValue('store-2');
+});
+
 test('the big screen hides the site chrome and shows a QR code to the event', async ({ page }) => {
   await mockApi(page);
   await page.goto(`/t/${CODE}?screen=1`);
@@ -748,21 +844,18 @@ const tomManage = () => ({
 type Answer = { status: number; json: unknown };
 type SyncAnswer = Answer | null;
 
-/**
- * A console following a linked file; `sync` answers each sync, and null leaves
- * one hanging; `pairing` answers each ask for the next round.
- */
+/** A console following a linked file; `sync` answers each sync, and null leaves one hanging. */
 async function tomConsole(
   page: Page,
   sync: (body: string) => SyncAnswer | Promise<SyncAnswer>,
-  {
-    manage = tomManage(),
-    pairing,
-    following = true
-  }: { manage?: unknown; pairing?: (body: unknown) => Answer; following?: boolean } = {}
+  { manage = tomManage(), following = true }: { manage?: unknown; following?: boolean } = {}
 ) {
   await page.addInitScript(source => {
-    const file = { modified: 1, lost: false, text: source, reads: 0 };
+    const kept = sessionStorage.getItem('tdfFile');
+    const file = kept
+      ? (JSON.parse(kept) as { modified: number; lost: boolean; text: string; reads: number })
+      : { modified: 1, lost: false, text: source, reads: 0 };
+    addEventListener('pagehide', () => sessionStorage.setItem('tdfFile', JSON.stringify(file)));
     Object.assign(window, {
       tdfFile: file,
       showOpenFilePicker: async () => [
@@ -801,9 +894,6 @@ async function tomConsole(
         answer ? route.fulfill(answer) : undefined
       );
     }
-    if (url.pathname === `/api/tournaments/${CODE}/pairing` && pairing) {
-      return route.fulfill(pairing(route.request().postDataJSON()));
-    }
     return route.fulfill({ status: 404, json: { error: 'Not found' } });
   });
   if (!following) {
@@ -816,6 +906,40 @@ async function tomConsole(
 }
 
 const synced = () => ({ status: 200, json: { ...tomManage(), version: 5, revision: 'next' } });
+
+/** The Settings tab's TOM section, where the file is read again, swapped for another or unlinked. */
+async function tomFile(page: Page) {
+  await page.getByRole('tab', { name: 'Settings' }).click();
+  return page.getByRole('region', { name: 'TOM', exact: true });
+}
+
+/** How long ago TOM saved, in the console's head. */
+const saved = (page: Page) => page.locator('.tm-saved');
+
+/** The open tables of the file's latest round, with results entered on the site that TOM does not have yet. */
+function openPending() {
+  const pod = tdf.pods[0]!;
+  const round = pod.rounds.at(-1)!;
+  return round.matches
+    .filter(m => m.p2 !== null && m.outcome === 'pending')
+    .map(m => ({
+      pod: pod.category,
+      round: round.number,
+      table: m.table,
+      p1: m.p1,
+      p2: m.p2,
+      outcome: 'p1' as const,
+      at: 0
+    }));
+}
+
+/** TOM saves its file: the same text, unless `text` says otherwise, at a later modified time. */
+const tomSaves = (page: Page, text?: string) =>
+  page.evaluate(next => {
+    const file = (window as unknown as { tdfFile: { text: string; modified: number } }).tdfFile;
+    file.text = next ?? file.text;
+    file.modified = Math.max(file.modified + 1, Date.now());
+  }, text);
 
 test('a TOM console stops following its file when another copy was synced over it', async ({ page }) => {
   await tomConsole(page, () => ({ status: 409, json: { error: 'The site has a different copy of this event.' } }));
@@ -835,7 +959,8 @@ test('a TOM console sends nothing of its file while the event has ended', async 
       manage: { ...tomManage(), settings: { ...DEFAULT_SETTINGS, finished: true } }
     }
   );
-  await expect(page.getByRole('button', { name: 'Refresh .tdf' }).first()).toBeVisible();
+  const file = await tomFile(page);
+  await expect(file.getByRole('button', { name: 'Refresh .tdf' })).toBeVisible();
   await page.evaluate(() => {
     const file = (window as unknown as { tdfFile: { text: string; modified: number } }).tdfFile;
     file.text = file.text.replace('Fixture Challenge', 'Saved After');
@@ -843,7 +968,7 @@ test('a TOM console sends nothing of its file while the event has ended', async 
   });
   const reads = () => page.evaluate(() => (window as unknown as { tdfFile: { reads: number } }).tdfFile.reads);
   const before = await reads();
-  await page.getByRole('button', { name: 'Refresh .tdf' }).first().click();
+  await file.getByRole('button', { name: 'Refresh .tdf' }).click();
   // A sync only ever follows a read of the file, and a refresh starts its read as it is clicked.
   expect(await reads()).toBe(before);
   expect(syncs).toBe(0);
@@ -851,11 +976,12 @@ test('a TOM console sends nothing of its file while the event has ended', async 
 
 test('a TOM console holds off results when the browser takes back the file', async ({ page }) => {
   await tomConsole(page, () => ({ status: 200, json: { ...tomManage(), version: 5, revision: 'next' } }));
-  await expect(page.getByRole('button', { name: 'Refresh .tdf' }).first()).toBeVisible();
+  await expect(saved(page)).toContainText('Saved by TOM');
   await page.evaluate(() => {
     (window as unknown as { tdfFile: { lost: boolean } }).tdfFile.lost = true;
   });
   await expect(page.getByRole('button', { name: 'Reconnect event.tdf' })).toBeVisible();
+  await expect(saved(page)).toContainText('event.tdf can’t be read');
 });
 
 test('a TOM console gives up on a sync that hangs and sends the file again', async ({ page }) => {
@@ -883,7 +1009,8 @@ test('a TOM console reads the file again for a refresh pressed while a sync is u
     }
     return synced();
   });
-  await expect(page.getByRole('button', { name: 'Refresh .tdf' }).first()).toBeVisible();
+  const file = await tomFile(page);
+  await expect(file.getByRole('button', { name: 'Refresh .tdf' })).toBeVisible();
   await page.evaluate(() => {
     const file = (window as unknown as { tdfFile: { text: string; modified: number } }).tdfFile;
     file.text = file.text.replace('Fixture Challenge', 'Saved Once');
@@ -895,7 +1022,7 @@ test('a TOM console reads the file again for a refresh pressed while a sync is u
     const file = (window as unknown as { tdfFile: { text: string } }).tdfFile;
     file.text = file.text.replace('Saved Once', 'Saved Twice');
   });
-  await page.getByRole('button', { name: 'Refresh .tdf' }).first().click();
+  await file.getByRole('button', { name: 'Refresh .tdf' }).click();
   release();
   await expect.poll(() => bodies.length).toBe(3);
   expect(bodies[2]).toContain('Saved Twice');
@@ -903,7 +1030,7 @@ test('a TOM console reads the file again for a refresh pressed while a sync is u
 
 test('a TOM console says when the file TOM saved does not parse', async ({ page }) => {
   await tomConsole(page, synced);
-  await expect(page.getByRole('button', { name: 'Refresh .tdf' }).first()).toBeVisible();
+  await expect(saved(page)).toContainText('Saved by TOM');
   await page.evaluate(() => {
     const file = (window as unknown as { tdfFile: { text: string; modified: number } }).tdfFile;
     file.text = file.text.replace('outcome="1"', 'outcome="7"');
@@ -912,61 +1039,125 @@ test('a TOM console says when the file TOM saved does not parse', async ({ page 
   await expect(page.getByText('Could not parse the .tdf: Unknown match outcome "7"')).toBeVisible();
 });
 
-test('a TOM console pairs the next round into the file once every result is in', async ({ page }) => {
-  const pod = tdf.pods[0]!;
-  const round = pod.rounds.at(-1)!;
-  const pending = round.matches
-    .filter(m => m.p2 !== null && m.outcome === 'pending')
-    .map(m => ({
-      pod: pod.category,
-      round: round.number,
-      table: m.table,
-      p1: m.p1,
-      p2: m.p2,
-      outcome: 'p1' as const,
-      at: 0
-    }));
-  const settled = () => ({ status: 200, json: { ...tomManage(), pending, version: 5, revision: 'next' } });
-  const asked: unknown[] = [];
-  // The site pairs over the results entered on it, as the pairing function does for a TOM event.
-  const paired = applyCommand(
-    applyPending(tdf, pending),
-    { type: 'pairRound', pod: pod.category },
-    { now: 0, localTime: '09/30/2026 13:00:00', season: 2027, random: seededRandom(7) }
-  );
-  const pairing = (body: unknown) => {
-    asked.push(body);
-    return paired.ok
-      ? { status: 200, json: { tournament: paired.tournament } }
-      : { status: 400, json: { error: paired.error } };
-  };
-  await tomConsole(page, settled, { manage: { ...tomManage(), pending }, pairing });
-  await expect(page.getByRole('button', { name: 'Write 2 results to .tdf' })).toBeVisible();
-  const sent = page.waitForRequest(
-    request => request.url().endsWith('/sync') && request.postDataJSON().tournament.pods[0].rounds.length === 3
-  );
-  await page.getByRole('button', { name: 'Pair round 3' }).click();
-  const ask = page.getByRole('group', { name: 'Pair into the .tdf' });
-  await expect(ask).toContainText('Close the event in TOM before writing, then reopen the file in TOM.');
-  await ask.getByRole('button', { name: 'Pair round 3' }).click();
-  const followed = await sent;
-  expect(asked).toEqual([expect.objectContaining({ pod: pod.category, base: 'next' })]);
-  expect(followed.postDataJSON().base).toBe('next');
-  const written = parseTdf(
-    await page.evaluate(() => (window as unknown as { tdfFile: { text: string } }).tdfFile.text)
-  );
-  const [, second, third] = written.pods[0]!.rounds;
-  expect(second?.matches.every(m => m.outcome !== 'pending')).toBe(true);
-  expect(third?.number).toBe(3);
-  expect(third?.matches.filter(m => m.p2 !== null).every(m => m.outcome === 'pending')).toBe(true);
+test('a TOM console never offers to pair a round, even with every result in', async ({ page }) => {
+  const pending = openPending();
+  await tomConsole(page, () => ({ status: 200, json: { ...tomManage(), pending, version: 5, revision: 'next' } }), {
+    manage: { ...tomManage(), pending }
+  });
+  await expect(saved(page)).toContainText('Saved by TOM');
+  await expect(page.getByRole('button', { name: /^Pair / })).toHaveCount(0);
 });
 
-test('a TOM console offers no next round once TOM has finalized the file', async ({ page }) => {
-  const finalized = parseTdf(readFileSync(new URL('../fixtures/tdf/cup-finalized.tdf', import.meta.url), 'utf8'));
-  const done = { ...tomManage(), tournament: finalized };
-  await tomConsole(page, () => ({ status: 200, json: { ...done, version: 5, revision: 'next' } }), { manage: done });
-  await expect(page.getByRole('button', { name: 'Refresh .tdf' }).first()).toBeVisible();
-  await expect(page.getByRole('button', { name: /^Pair / })).toHaveCount(0);
+test('a TOM console says when TOM last saved, how often once it has seen, and when TOM goes quiet', async ({
+  page
+}) => {
+  await page.clock.install({ time: Date.parse('2026-10-15T20:30:00Z') });
+  await tomConsole(page, synced);
+  /** TOM saves now, and the head has read that save once it shows the save's time. */
+  const saveRead = async () => {
+    await tomSaves(page);
+    const at = await page.evaluate(() => new Date().toLocaleTimeString('en', { timeStyle: 'short' }));
+    await expect(saved(page)).toContainText(`Saved by TOM just now${at}`);
+  };
+  await saveRead();
+  await expect(saved(page)).not.toContainText('TOM saves about every');
+  for (let save = 0; save < 2; save += 1) {
+    await page.clock.fastForward(5 * 60_000);
+    await saveRead();
+  }
+  await expect(saved(page)).toContainText('TOM saves about every 5 min');
+  await expect(saved(page)).not.toHaveClass(/is-late/);
+  await page.clock.fastForward(11 * 60_000);
+  await expect(saved(page)).toContainText('Saved by TOM 11 min ago');
+  await expect(saved(page)).toContainText('TOM usually saves every 5 min');
+  await expect(saved(page)).toHaveClass(/is-late/);
+});
+
+test('a TOM console writes results into the file only once TOM is closed, and holds them until TOM saves them', async ({
+  page
+}) => {
+  const pending = openPending();
+  let answer = { ...tomManage(), pending, version: 5, revision: 'next' };
+  const bodies: string[] = [];
+  await tomConsole(
+    page,
+    body => {
+      bodies.push(body);
+      return { status: 200, json: answer };
+    },
+    { manage: { ...tomManage(), pending } }
+  );
+  const write = page.getByRole('button', { name: 'Write 2 results to .tdf' });
+  await write.click();
+  const ask = page.getByRole('group', { name: 'Write results to the .tdf' });
+  await expect(ask).toContainText('Close the event in TOM first, then reopen the .tdf in TOM once it’s written.');
+  await page.keyboard.press('Escape');
+  await expect(ask).toHaveCount(0);
+  await expect(write).toBeFocused();
+  await write.click();
+  await ask.getByRole('button', { name: 'TOM is closed, write' }).click();
+  await expect(saved(page)).toContainText('Results written · reopen the .tdf in TOM');
+  const text = await page.evaluate(() => (window as unknown as { tdfFile: { text: string } }).tdfFile.text);
+  const [, second] = parseTdf(text).pods[0]!.rounds;
+  expect(second?.matches.every(m => m.outcome !== 'pending')).toBe(true);
+  // The written file is not a save of TOM's: reading it again sends nothing, so the results stay pending.
+  const sent = bodies.length;
+  await (await tomFile(page)).getByRole('button', { name: 'Refresh .tdf' }).click();
+  await page.getByRole('tab', { name: 'Pairings' }).click();
+  expect(bodies.length).toBe(sent);
+  // Writing again before TOM has saved sends nothing either: the file is still this page's own write.
+  const modified = () => page.evaluate(() => (window as unknown as { tdfFile: { modified: number } }).tdfFile.modified);
+  const before = await modified();
+  await write.click();
+  await ask.getByRole('button', { name: 'TOM is closed, write' }).click();
+  await expect(write).toBeFocused();
+  await expect.poll(modified).toBeGreaterThan(before);
+  expect(bodies.length).toBe(sent);
+  // TOM opens the file again and saves it, results and all.
+  answer = { ...tomManage(), pending: [], version: 6, revision: 'saved' };
+  await tomSaves(page);
+  await expect.poll(() => bodies.length).toBe(sent + 1);
+  await expect(saved(page)).not.toContainText('Results written');
+  await expect(write).toHaveCount(0);
+});
+
+test('a TOM console remembers its write across a reload, and sends it up only once TOM has saved', async ({ page }) => {
+  const pending = openPending();
+  const bodies: string[] = [];
+  await tomConsole(
+    page,
+    body => {
+      bodies.push(body);
+      return { status: 200, json: { ...tomManage(), pending, version: 5, revision: 'next' } };
+    },
+    { manage: { ...tomManage(), pending } }
+  );
+  const original = await page.evaluate(() => (window as unknown as { tdfFile: { text: string } }).tdfFile.text);
+  await page.getByRole('button', { name: 'Write 2 results to .tdf' }).click();
+  await page.getByRole('button', { name: 'TOM is closed, write' }).click();
+  await expect(saved(page)).toContainText('Results written · reopen the .tdf in TOM');
+  const sent = bodies.length;
+  await page.reload();
+  // The page could not keep the file's handle, so the organizer links it again.
+  await page.getByRole('button', { name: 'Link .tdf file' }).click();
+  await expect(saved(page)).toContainText('Results written · reopen the .tdf in TOM');
+  expect(bodies.length).toBe(sent);
+  await tomSaves(page, original);
+  await expect(saved(page)).toContainText('TOM saved over the written results');
+});
+
+test('a TOM console says when TOM, left open, saved over the results written into its file', async ({ page }) => {
+  const pending = openPending();
+  await tomConsole(page, () => ({ status: 200, json: { ...tomManage(), pending, version: 5, revision: 'next' } }), {
+    manage: { ...tomManage(), pending }
+  });
+  const original = await page.evaluate(() => (window as unknown as { tdfFile: { text: string } }).tdfFile.text);
+  await page.getByRole('button', { name: 'Write 2 results to .tdf' }).click();
+  await page.getByRole('button', { name: 'TOM is closed, write' }).click();
+  await expect(saved(page)).toContainText('Results written · reopen the .tdf in TOM');
+  await tomSaves(page, original);
+  await expect(saved(page)).toContainText('TOM saved over the written results');
+  await expect(page.getByRole('button', { name: 'Write 2 results to .tdf' })).toBeVisible();
 });
 
 for (const suffix of ['', '?screen=1', '?stream=table&table=1']) {
@@ -1288,7 +1479,7 @@ test('TOM creation opens the known event when handle persistence fails', async (
   await page.getByRole('checkbox', { name: 'I’ve created this event in Play! Tools' }).check();
   await page.getByRole('button', { name: 'Create event' }).click();
   await expect(page).toHaveURL(new RegExp(`/host/${CODE}`));
-  await expect(page.getByRole('region', { name: 'TOM file' })).toContainText('Manual snapshot');
+  await expect(page.getByRole('button', { name: 'Link .tdf file' })).toBeVisible();
   expect(await page.evaluate(() => Object.keys(localStorage).filter(key => key.startsWith('cm-event-setup:')))).toEqual(
     []
   );
@@ -1305,20 +1496,20 @@ test('automatic TOM polling preserves the last import timestamp and manual uploa
     manual.push((JSON.parse(body) as { manual?: boolean }).manual);
     return { status: 200, json: { ...tomManage(), version: 5, revision: 'next' } };
   });
-  const strip = page.getByRole('region', { name: 'TOM file' });
-  await expect(strip).toContainText('Automatically following');
-  await expect(strip).toContainText('Last imported');
-  const before = await strip.locator('.tm-file-line').innerText();
+  await expect(saved(page)).toContainText('Saved by TOM');
+  const file = await tomFile(page);
+  await expect(file).toContainText('Following');
+  await expect(file).toContainText('Last imported');
+  const before = await file.locator('.tm-file-line').innerText();
   await page.clock.fastForward(10_000);
-  expect(await strip.locator('.tm-file-line').innerText()).toBe(before);
+  expect(await file.locator('.tm-file-line').innerText()).toBe(before);
   expect(syncs).toBe(1);
-  await strip.getByRole('button', { name: 'More' }).click();
-  await strip
+  await file
     .locator('input[type="file"]')
     .setInputFiles({ name: 'manual.tdf', mimeType: 'text/xml', buffer: Buffer.from(TDF_SOURCE) });
-  await expect(strip).toContainText('Manual snapshot');
-  await expect(strip.getByRole('button', { name: 'Link .tdf file' })).toBeVisible();
-  await expect(strip.getByRole('button', { name: 'Refresh .tdf' })).toHaveCount(0);
+  await expect(file).toContainText('Not linked');
+  await expect(page.getByRole('button', { name: 'Link .tdf file' })).toBeVisible();
+  await expect(file.getByRole('button', { name: 'Refresh .tdf' })).toHaveCount(0);
   expect(syncs).toBe(2);
   await page.clock.fastForward(10_000);
   expect(syncs).toBe(2);
@@ -1333,16 +1524,17 @@ test('manual TOM uploads show browser capability and the imported snapshot time'
     () => ({ status: 200, json: { ...tomManage(), lastImportAt, version: 5, revision: 'next' } }),
     { following: false }
   );
-  const strip = page.getByRole('region', { name: 'TOM file' });
-  await expect(strip).toContainText('Manual snapshot');
-  await expect(strip).toContainText('This browser cannot follow files');
-  await expect(strip.getByRole('button', { name: 'Link .tdf file' })).toHaveCount(0);
-  const before = await strip.locator('.tm-file-line').innerText();
-  await strip
-    .locator('input[type="file"]')
+  await expect(page.getByRole('button', { name: 'Upload .tdf' })).toBeVisible();
+  const file = await tomFile(page);
+  await expect(file).toContainText('Not linked');
+  await expect(file).toContainText('This browser cannot follow files');
+  await expect(page.getByRole('button', { name: 'Link .tdf file' })).toHaveCount(0);
+  const before = await file.locator('.tm-file-line').innerText();
+  await page
+    .locator('.tm-tom-status input[type="file"]')
     .setInputFiles({ name: 'manual.tdf', mimeType: 'text/xml', buffer: Buffer.from(TDF_SOURCE) });
-  await expect(strip.locator('.tm-file-line')).not.toHaveText(before);
-  await expect(strip).toContainText('Manual snapshot');
+  await expect(file.locator('.tm-file-line')).not.toHaveText(before);
+  await expect(file).toContainText('Not linked');
 });
 
 test('a failed manual upload preserves automatic TOM following', async ({ page }) => {
@@ -1351,23 +1543,23 @@ test('a failed manual upload preserves automatic TOM following', async ({ page }
     syncs += 1;
     return synced();
   });
-  const strip = page.getByRole('region', { name: 'TOM file' });
-  await expect(strip).toContainText('Automatically following');
-  await strip.getByRole('button', { name: 'More' }).click();
-  await strip
+  await expect(saved(page)).toContainText('Saved by TOM');
+  const file = await tomFile(page);
+  await expect(file).toContainText('Following');
+  await file
     .locator('input[type="file"]')
     .setInputFiles({ name: 'broken.tdf', mimeType: 'text/xml', buffer: Buffer.from('<broken>') });
-  await expect(strip).toContainText('Could not parse the .tdf');
-  await expect(strip).toContainText('Automatically following');
+  await expect(page.getByText('Could not parse the .tdf')).toBeVisible();
+  await expect(file).toContainText('Following');
   expect(syncs).toBe(1);
   await page.evaluate(() => {
     const file = (window as unknown as { tdfFile: { text: string; modified: number } }).tdfFile;
     file.text = file.text.replace('Fixture Challenge', 'Updated Challenge');
     file.modified += 1;
   });
-  await strip.getByRole('button', { name: 'Refresh .tdf' }).click();
+  await file.getByRole('button', { name: 'Refresh .tdf' }).click();
   await expect.poll(() => syncs).toBe(2);
-  await expect(strip.locator('.tm-error')).toHaveCount(0);
+  await expect(page.getByText('Could not parse the .tdf')).toHaveCount(0);
 });
 
 for (const size of [
