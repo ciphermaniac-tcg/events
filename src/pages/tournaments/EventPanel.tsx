@@ -30,6 +30,7 @@ import {
   rotateStaffToken,
   saveSettings
 } from '../../lib/tournament/api';
+import { currencySymbol } from '../../lib/events/format';
 import { intlLocale, t } from '../../lib/i18n';
 import { latestValue } from '../../lib/resource';
 import { downloadBlob } from '../../lib/download';
@@ -40,6 +41,7 @@ import { FormatSelect } from './FormatSelect';
 import { EndEventStep } from './NextStep';
 import { session } from './session';
 import type { ManageState } from './manageState';
+import '../../styles/pages/tournament-store-forms.css';
 import { DecklistsSwitch, EventTypeSwitch, RoundsSelect } from './SettingChoices';
 import { ArchetypesSelect, SettingRow, Toggle } from './SettingControls';
 import { type Logistics, LogisticsRows } from './LogisticsRows';
@@ -198,12 +200,20 @@ function EventDetails(props: { state: ManageState; manage: Manage }) {
 type PlayerSettings = Logistics &
   Pick<
     TournamentSettings,
-    'details' | 'format' | 'startsAt' | 'deckVisibility' | 'sanctioned' | 'playerReporting' | 'decklists'
+    | 'details'
+    | 'format'
+    | 'startsAt'
+    | 'deckVisibility'
+    | 'sanctioned'
+    | 'playerReporting'
+    | 'decklists'
+    | 'entryFee'
+    | 'playerCap'
   >;
 
 const pickPlayerSettings = (settings: TournamentSettings): PlayerSettings => {
   const { details, format, startsAt, deckVisibility, sanctioned, playerReporting, decklists } = settings;
-  const { timeZone, checkInAt, venue, address } = settings;
+  const { timeZone, checkInAt, venue, address, entryFee, playerCap } = settings;
   return {
     details,
     format,
@@ -215,9 +225,44 @@ const pickPlayerSettings = (settings: TournamentSettings): PlayerSettings => {
     deckVisibility,
     sanctioned,
     playerReporting,
-    decklists
+    decklists,
+    entryFee,
+    playerCap
   };
 };
+
+/** What the cap row says: how to have none, or that a cap under who is in takes nobody new and removes nobody. */
+const capNote = (cap: number, registered: number) =>
+  cap > 0 && cap < registered
+    ? t('{n} players are already registered. Nobody is removed, but no one new can register.', { n: registered })
+    : t('Leave blank for no cap.');
+
+/** A number field's value as a setting: blank is 0, and so is anything the field could not read. */
+const fieldNumber = (input: HTMLInputElement) => (Number.isFinite(input.valueAsNumber) ? input.valueAsNumber : 0);
+
+/** The entry fee, behind the symbol of the currency the event's country uses. */
+function FeeField(props: { id: string; country: string; value: number; onChange: (value: number) => void }) {
+  const symbol = () => currencySymbol(props.country) ?? '$';
+  return (
+    <span class='tm-night-fee'>
+      <span class='tm-fee-symbol' aria-hidden='true'>
+        {symbol()}
+      </span>
+      <input
+        id={props.id}
+        class='tm-input tm-set-minutes'
+        style={{ 'padding-left': `calc(14px + ${symbol().length}ch)` }}
+        type='number'
+        inputMode='decimal'
+        min={0}
+        step={0.01}
+        max={SETTINGS_LIMITS.entryFee}
+        value={props.value || ''}
+        onInput={e => props.onChange(fieldNumber(e.currentTarget))}
+      />
+    </span>
+  );
+}
 
 function ForPlayers(props: { state: ManageState; manage: Manage }) {
   // eslint-disable-next-line solid/reactivity -- one draft per event, kept across tabs (see settingsDrafts)
@@ -231,6 +276,7 @@ function ForPlayers(props: { state: ManageState; manage: Manage }) {
     ) as unknown as PlayerSettings;
   };
   const set = <K extends keyof PlayerSettings>(key: K, value: PlayerSettings[K]) => store.set(key, value, saved());
+  const registered = () => props.manage.tournament.players.filter(player => player.droppedAfter === null).length;
   async function save() {
     const { code } = props.manage;
     const changes = store.changes(saved());
@@ -255,6 +301,26 @@ function ForPlayers(props: { state: ManageState; manage: Manage }) {
         />
       </SettingRow>
       <LogisticsRows id='set' value={draft()} onChange={set} />
+      <SettingRow label={t('Entry fee')} for='set-fee' note={t('Leave blank for a free event.')}>
+        <FeeField
+          id='set-fee'
+          country={props.manage.tournament.info.country}
+          value={draft().entryFee}
+          onChange={value => set('entryFee', value)}
+        />
+      </SettingRow>
+      <SettingRow label={t('Player cap')} for='set-cap' note={capNote(draft().playerCap, registered())}>
+        <input
+          id='set-cap'
+          class='tm-input tm-set-minutes'
+          type='number'
+          inputMode='numeric'
+          min={0}
+          max={SETTINGS_LIMITS.playerCap}
+          value={draft().playerCap || ''}
+          onInput={e => set('playerCap', Math.trunc(fieldNumber(e.currentTarget)))}
+        />
+      </SettingRow>
       <SettingRow label={t('Format')} for='set-format'>
         <FormatSelect id='set-format' value={draft().format} onChange={value => set('format', value)} />
       </SettingRow>

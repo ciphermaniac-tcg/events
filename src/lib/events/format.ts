@@ -281,6 +281,18 @@ export function addressParts(address: string, cc: string): AddressParts | null {
   return null;
 }
 
+/** The currency an event in the country takes its fee in: US dollars where the country's is not known. */
+export const currencyOf = (cc: string): string => CURRENCY[cc.trim().toUpperCase()] ?? 'USD';
+
+/** An entry fee in the event's currency, as the reader writes money ("$10.00", "R$ 25,00"). */
+export function formatFee(amount: number, cc: string): string {
+  return new Intl.NumberFormat(intlLocale(), {
+    style: 'currency',
+    currency: currencyOf(cc),
+    currencyDisplay: 'narrowSymbol'
+  }).format(amount);
+}
+
 /** The symbol of the country's currency as fees are shown ("$", "€", "£"); null for a country with none known. */
 export function currencySymbol(cc: string): string | null {
   const currency = CURRENCY[cc.trim().toUpperCase()];

@@ -65,6 +65,7 @@ import {
 import type { Tab as DashboardTab } from './Dashboard';
 import { TournamentHero } from './Hero';
 import { createNow } from './now';
+import { formatFee } from '../../lib/events/format';
 import { EventLogistics } from './EventLogistics';
 import { PlayerSheet } from './PlayerSheet';
 import { PublicPairings } from './PublicPairings';
@@ -754,6 +755,7 @@ function Hero(props: { view: TournamentView }) {
     [
       eventDate(settings(), info().startDate),
       settings().format,
+      settings().entryFee > 0 && t('{amount} entry', { amount: formatFee(settings().entryFee, info().country) }),
       place(),
       tn(props.view.tournament.players.length, '{n} player', '{n} players'),
       // A finished event's date already says when; an unknown time says nothing.

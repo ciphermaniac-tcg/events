@@ -79,6 +79,13 @@ export interface TournamentSettings {
    * cut and ending the event ahead of another round.
    */
   roundCap: number;
+  /**
+   * What a player pays to enter, in the major unit of the currency the
+   * event's country uses (see currencyOf); 0 for a free event.
+   */
+  entryFee: number;
+  /** The most players who can register themselves; 0 for no cap. Staff may add past it. */
+  playerCap: number;
 }
 
 export const DEFAULT_SETTINGS: TournamentSettings = {
@@ -97,7 +104,9 @@ export const DEFAULT_SETTINGS: TournamentSettings = {
   // Events made before the choice existed asked for Player IDs, so they stay sanctioned.
   sanctioned: true,
   playerReporting: false,
-  roundCap: 0
+  roundCap: 0,
+  entryFee: 0,
+  playerCap: 0
 };
 
 export const SETTINGS_LIMITS = {
@@ -105,6 +114,8 @@ export const SETTINGS_LIMITS = {
   format: 40,
   archetype: 60,
   roundCap: 15,
+  entryFee: 100_000,
+  playerCap: 2048,
   venue: 120,
   address: 200
 } as const;
@@ -120,6 +131,15 @@ const SETTING_CHECKS: { [K in keyof TournamentSettings]: SettingCheck } = {
   decklists: value => DECKLIST_MODES.includes(value as DecklistMode),
   roundCap: value =>
     typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= SETTINGS_LIMITS.roundCap,
+  entryFee: value =>
+    typeof value === 'number' &&
+    Number.isFinite(value) &&
+    value >= 0 &&
+    value <= SETTINGS_LIMITS.entryFee &&
+    // Whole cents: a typed 12.35 is 1234.9999… cents in floating point.
+    Math.abs(value * 100 - Math.round(value * 100)) < 1e-6,
+  playerCap: value =>
+    typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= SETTINGS_LIMITS.playerCap,
   finished: value => typeof value === 'boolean',
   idle: value => typeof value === 'boolean',
   sanctioned: value => typeof value === 'boolean',

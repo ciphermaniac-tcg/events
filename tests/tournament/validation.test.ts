@@ -228,3 +228,15 @@ test('XML entities decode and encode', () => {
   assert.equal(decodeEntities('&amp;&lt;&gt;&quot;&apos;&#233;&#x41;&unknown;'), '&<>"\'éA&unknown;');
   assert.equal(encodeEntities('<a href="x">&</a>'), '&lt;a href=&quot;x&quot;&gt;&amp;&lt;/a&gt;');
 });
+
+test('an entry fee is whole cents in range, and a player cap a whole count', () => {
+  assert.equal(readSettings({ entryFee: 12.35 }, DEFAULT_SETTINGS)?.entryFee, 12.35);
+  assert.equal(readSettings({ entryFee: 0 }, DEFAULT_SETTINGS)?.entryFee, 0);
+  assert.equal(readSettings({ entryFee: 1.005 }, DEFAULT_SETTINGS), null);
+  assert.equal(readSettings({ entryFee: -1 }, DEFAULT_SETTINGS), null);
+  assert.equal(readSettings({ entryFee: '10' }, DEFAULT_SETTINGS), null);
+  assert.equal(readSettings({ entryFee: 100_001 }, DEFAULT_SETTINGS), null);
+  assert.equal(readSettings({ playerCap: 48 }, DEFAULT_SETTINGS)?.playerCap, 48);
+  assert.equal(readSettings({ playerCap: 4.5 }, DEFAULT_SETTINGS), null);
+  assert.equal(readSettings({ playerCap: -1 }, DEFAULT_SETTINGS), null);
+});
