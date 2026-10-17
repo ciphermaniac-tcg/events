@@ -151,7 +151,10 @@ CREATE TABLE IF NOT EXISTS tournaments (
   head_judge TEXT,
   -- The highest round each pod has ever paired, as JSON; only ever rises
   -- (shared/tournament/corrections.ts).
-  paired_through TEXT NOT NULL DEFAULT '{}'
+  paired_through TEXT NOT NULL DEFAULT '{}',
+  -- What staff checked for each player before round 1, as JSON
+  -- (shared/tournament/checkins.ts).
+  checkins TEXT NOT NULL DEFAULT '{}'
 );
 CREATE INDEX IF NOT EXISTS tournaments_of_store ON tournaments (store_id) WHERE store_id IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS tournaments_one_community_day ON tournaments (owner_id, community_day)

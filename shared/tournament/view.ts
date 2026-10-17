@@ -13,6 +13,7 @@ import { divisionFor, eventSeason } from './divisions.js';
 import { isTimeZone, isWallClock } from './timeZone.js';
 import { SANCTIONED, sanctionedMinutesError } from './structure.js';
 import { type PlayerClaim, shortLastNames } from './identify.js';
+import type { CheckIns } from './checkins.js';
 import type { PlayerProfile } from './profile.js';
 import type { PairedThrough } from './corrections.js';
 import type { PlayerReport } from './reports.js';
@@ -501,6 +502,8 @@ export interface Manage {
   settings: TournamentSettings;
   /** POP ID to archetype label. */
   decks: Record<string, string>;
+  /** What staff checked for each player before round 1; absent from a console answer made before check-in. */
+  checkins?: CheckIns;
   /** The highest round each pod has ever paired, which closes the correction window (see corrections.ts). */
   pairedThrough?: PairedThrough;
   role: Role;

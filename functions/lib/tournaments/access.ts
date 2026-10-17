@@ -252,6 +252,7 @@ export function manageView(access: Pick<StaffAccess, 'row' | 'role'>): Manage {
     requests: row.requests,
     settings: row.settings,
     decks: row.decks,
+    checkins: row.checkins,
     pairedThrough: row.pairedThrough ?? {},
     role,
     staffToken: role === 'owner' ? row.staffToken : null,

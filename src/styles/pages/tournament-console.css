@@ -1149,3 +1149,56 @@
 .tm-console .tm-deck-cell .tl-picker .search {
   font-weight: 500;
 }
+
+/* ---------- Check-in, before round 1 ---------- */
+.tm-console .tm-check-col {
+  width: 72px;
+  text-align: center;
+}
+.tm-check-count {
+  display: block;
+  font-weight: 400;
+}
+.tm-check-box {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--accent-fill);
+}
+.tm-check-gate {
+  display: grid;
+  gap: var(--space-2);
+}
+.tm-check-list {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.tm-check-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.tm-check-warn {
+  font-weight: 600;
+  color: var(--negative);
+}
+.tm-check-done {
+  font-weight: 600;
+  color: var(--positive);
+}
+.tm-check-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.tm-check-name {
+  display: none;
+}
+@media (max-width: 900px) {
+  .tm-check-name {
+    display: inline;
+  }
+}

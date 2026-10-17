@@ -27,6 +27,7 @@ import {
 } from '../../../shared/tournament/view.js';
 import { type PlayerReport, pruneReports } from '../../../shared/tournament/reports.js';
 import { type PlayerRequest, withRequestIds } from '../../../shared/tournament/requests.js';
+import type { CheckIns } from '../../../shared/tournament/checkins.js';
 import { randomToken, sessionHash, sessionUserQuery, type User, userFromRow, type UserRow } from '../auth/session.js';
 import { displayNameSql } from '../accounts/handles.js';
 import { firstRow, rowsChanged } from '../d1.js';
@@ -54,6 +55,8 @@ export interface TournamentRow {
   keys: Record<string, string>;
   /** POP ID to archetype label. */
   decks: Record<string, string>;
+  /** What staff checked for each player before round 1 (see shared/tournament/checkins.ts). */
+  checkins: CheckIns;
   staffToken: string;
   version: number;
   updatedAt: number;
@@ -79,6 +82,7 @@ interface RawRow {
   settings: string;
   player_keys: string;
   decks: string;
+  checkins?: string | null;
   staff_token: string;
   version: number;
   updated_at: number;
@@ -109,6 +113,7 @@ function fromRaw(raw: RawRow): TournamentRow {
     settings: storedSettings(JSON.parse(raw.settings) as Record<string, unknown>),
     keys: JSON.parse(raw.player_keys) as Record<string, string>,
     decks: JSON.parse(raw.decks) as Record<string, string>,
+    checkins: JSON.parse(raw.checkins ?? '{}') as CheckIns,
     staffToken: raw.staff_token,
     version: raw.version,
     updatedAt: raw.updated_at,
@@ -358,7 +363,7 @@ export async function createTournament(db: D1Like, input: NewTournament): Promis
       });
     checkCreationAdmission(results, input, attempt);
     if (rowsChanged(results[admission.length + 1]) === 1) {
-      const empty = { pending: [], reports: [], requests: [], decks: {} };
+      const empty = { pending: [], reports: [], requests: [], decks: {}, checkins: {} };
       const made = { code, ownerId, mode, tournament, settings, keys, staffToken, version: 1, updatedAt: now };
       const paired = pairedThrough({}, tournament);
       return { ...made, ...empty, storeId, communityDay, lastImportAt, pairedThrough: paired, headJudge: null };
@@ -416,6 +421,7 @@ export interface Changes {
   correction?: CorrectionWrite;
   settings?: TournamentSettings;
   decks?: Record<string, string>;
+  checkins?: CheckIns;
   /** A Community organizer's event moving to another day (see dayChange). */
   communityDay?: string;
 }
@@ -485,7 +491,7 @@ function documentColumns(tournament: Tournament | undefined, next: TournamentRow
 
 /** The columns a change writes, and their values: only what it changed. */
 function columnsFor(changes: Changes, next: TournamentRow): [string, string][] {
-  const { tournament, pending, settings, decks, communityDay } = changes;
+  const { tournament, pending, settings, decks, checkins, communityDay } = changes;
   const columns: [string, string | false | undefined][] = [
     ['community_day', communityDay],
     ['last_import_at', changes.lastImportAt?.toString()],
@@ -493,6 +499,7 @@ function columnsFor(changes: Changes, next: TournamentRow): [string, string][] {
     ['pending', pending && JSON.stringify(pending)],
     ['settings', settings && JSON.stringify(settings)],
     ['decks', decks && JSON.stringify(decks)],
+    ['checkins', checkins && JSON.stringify(checkins)],
     ['requests', changes.requests && JSON.stringify(changes.requests)],
     // Reports follow the results and the reporting setting, so any of those rewrites them.
     ['reports', (changes.reports ?? tournament ?? pending ?? settings) && JSON.stringify(next.reports)]

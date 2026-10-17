@@ -12,6 +12,7 @@ import { expect, type Page } from '@playwright/test';
 import { chunkOf } from './build-manifest';
 import { test } from './network-guard';
 
+import { type CheckIns, type CheckMark, withMark } from '../../shared/tournament/checkins';
 import type { Command } from '../../shared/tournament/commands';
 import type { PlayerReport } from '../../shared/tournament/reports';
 import type { PlayerRequest } from '../../shared/tournament/requests';
@@ -98,6 +99,7 @@ async function mockConsole(
     requests,
     settings,
     decks: {},
+    checkins: {} as CheckIns,
     role: 'owner',
     staffToken: 'invite',
     store: 'store-1'
@@ -117,6 +119,12 @@ async function mockConsole(
         manage.tournament = runCommands(manage.tournament, command);
         manage.version += 1;
       }
+      return route.fulfill({ json: manage });
+    }
+    if (url.pathname === `/api/tournaments/${CODE}/checkins`) {
+      const check = route.request().postDataJSON() as { playerId: string; mark: CheckMark; on: boolean };
+      manage.checkins = withMark(manage.checkins, check.playerId, check.mark, check.on);
+      manage.version += 1;
       return route.fulfill({ json: manage });
     }
     if (url.pathname === `/api/tournaments/${CODE}/corrections`) {
@@ -1361,4 +1369,26 @@ test('an invite link joins the staff before the console reads the event', async 
   await expect
     .poll(() => order.slice(0, 2))
     .toEqual([`POST /api/tournaments/${CODE}/staff`, `GET /api/tournaments/${CODE}/manage`]);
+});
+
+test('before round 1 staff tick who paid, and the console names who is still open @mobile', async ({ page }) => {
+  await mockConsole(page, event(3, 0, false), settingsOf({ entryFee: 10, playerCap: 2 }));
+  // Before round 1 the console opens on its players.
+  await expect(page.getByRole('tabpanel', { name: 'Players' })).toBeVisible();
+  await expect(page.getByText('3 / 2 players · 1 over the cap')).toBeVisible();
+  const open = page.locator('.tm-check-gate');
+  await expect(open).toContainText('3 players aren’t checked in.');
+  await page.getByRole('checkbox', { name: 'Paid: Player1 Test' }).check();
+  await expect(open).toContainText('2 players aren’t checked in.');
+  await open
+    .getByRole('listitem')
+    .filter({ hasText: 'Player2 Test' })
+    .getByRole('button', { name: 'Mark paid' })
+    .click();
+  await open
+    .getByRole('listitem')
+    .filter({ hasText: 'Player3 Test' })
+    .getByRole('button', { name: 'Mark paid' })
+    .click();
+  await expect(page.getByText('Everyone is checked in.')).toBeVisible();
 });

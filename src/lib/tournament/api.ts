@@ -16,6 +16,7 @@ import type { PenaltyJudge, PenaltyNoteEntry, PenaltyNoteInput } from '../../../
 import type { ApproverRole, CorrectionEntry, CorrectionRequest } from '../../../shared/tournament/corrections';
 import type { StaffAccount } from '../../../shared/tournament/staffRecords';
 import { tomDateTime } from '../../../shared/tournament/divisions';
+import type { CheckMark } from '../../../shared/tournament/checkins';
 import type { PlayerClaim } from '../../../shared/tournament/identify';
 import type { PlayerProfile } from '../../../shared/tournament/profile';
 import type { ReturningPlayer } from '../../../shared/tournament/returningPlayers';
@@ -408,6 +409,10 @@ export const withdrawDecklist = (
   owner: Pick<PlayerProfile, 'popId' | 'firstName' | 'lastName'>,
   token: string | null
 ) => call<null>(`${base(code)}/decklists?${listOwner(owner, token ?? undefined)}`, { method: 'DELETE' });
+
+/** Staff tick or clear one check for a player before round 1 (see shared/tournament/checkins.ts). */
+export const saveCheckIn = (code: string, check: { playerId: string; mark: CheckMark; on: boolean }) =>
+  call<Manage>(`${base(code)}/checkins`, json('PUT', check));
 
 /** Every entry in the event's deck check record, with the staff a check may name as its checker. */
 export interface DeckCheckRecord {

@@ -10,7 +10,8 @@
 import { applyCommand as applySiteClock } from '../../../shared/tournament/legacyCommands.js';
 import { applyCommand, type Command } from '../../../shared/tournament/commands.js';
 import { lockedRound } from '../../../shared/tournament/corrections.js';
-import { isOpenMatch } from '../../../shared/tournament/rounds.js';
+import { checkInError } from '../../../shared/tournament/checkins.js';
+import { hasStarted, isOpenMatch } from '../../../shared/tournament/rounds.js';
 import { withSiteClocks } from '../../../shared/tournament/tomClock.js';
 import type { Tournament } from '../../../shared/tournament/types.js';
 import { applyPending, isSanctioned, prunePending, withPending } from '../../../shared/tournament/view.js';
@@ -62,10 +63,17 @@ function commandRefusal(row: TournamentRow, command: Command): string | null {
   if (row.mode === 'tom') {
     return TOM_COMMANDS.has(command.type) ? null : msg('Please make this change in TOM.');
   }
+  if (command.type === 'pairRound') {
+    return firstPairingRefusal(row);
+  }
   // On the site, a round whose records locked stays locked, even if deleting the rounds after it made it the
   // latest again (TOM keeps its own events' records).
   return command.type === 'reportResult' ? lockedRound(row.pairedThrough?.[command.pod] ?? 0, command.round) : null;
 }
+
+/** Round 1 waits on staff checking in everyone still in (see shared/tournament/checkins.ts); later rounds do not. */
+const firstPairingRefusal = (row: TournamentRow): string | null =>
+  hasStarted(row.tournament) ? null : checkInError(row, row.tournament.players, row.checkins);
 
 export function commandChanges(row: TournamentRow, command: Command, localTime: unknown): Changes | string {
   const refusal = commandRefusal(row, command);

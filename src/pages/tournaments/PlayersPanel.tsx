@@ -38,6 +38,7 @@ import { birthDateFor } from './ProfileFields';
 import { StaffRequests } from './StaffRequests';
 import { Squares } from './Squares';
 import { ReturningPlayerField } from './ReturningPlayerField';
+import { capCount, CheckInBox, CheckInCells, CheckInHeads, createSiteRegistrants, showsCheckIn } from './CheckIn';
 
 /**
  * A new player: a name, and at a sanctioned event their Player ID and birth
@@ -341,6 +342,9 @@ function PlayerRow(props: RowProps) {
       <Show when={decksEnabled(props.manage.settings)} fallback={<DeckOffCell />}>
         <DeckCell {...props} />
       </Show>
+      <Show when={showsCheckIn(props.manage)}>
+        <CheckInCells state={props.state} manage={props.manage} id={props.player.id} name={playerName(props.player)} />
+      </Show>
       <Show when={swiss()} fallback={<td class='tm-extra-col' />}>
         <PlayerActions state={props.state} manage={props.manage} player={props.player} />
       </Show>
@@ -366,8 +370,14 @@ export function PlayersPanel(props: { state: ManageState; manage: Manage }) {
       .filter(p => !q || playerName(p).toLowerCase().includes(q) || p.id.includes(q))
       .sort((a, b) => a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName));
   });
+  // At a TOM event before round 1, whoever registered on the site and is not in TOM's file yet.
+  const registrants = createSiteRegistrants(() => props.manage);
   const count = () => {
     const all = props.manage.tournament.players.length;
+    const capped = capCount(props.manage, props.manage.tournament.players.filter(p => p.droppedAfter === null).length);
+    if (players().length === all && capped) {
+      return capped;
+    }
     return players().length === all
       ? tn(all, '{n} players', '{n} players')
       : tn(all, '{shown} of {n} players', '{shown} of {n} players', { shown: players().length });
@@ -378,6 +388,7 @@ export function PlayersPanel(props: { state: ManageState; manage: Manage }) {
         <AddPlayer state={props.state} code={props.manage.code} sanctioned={sanctioned()} late={started()} />
       </Show>
       <StaffRequests state={props.state} manage={props.manage} />
+      <CheckInBox state={props.state} manage={props.manage} extra={registrants()} />
       <section class='tm-box'>
         <div class='tm-box-bar'>
           <input
@@ -410,6 +421,12 @@ export function PlayersPanel(props: { state: ManageState; manage: Manage }) {
                     </span>
                   </Show>
                 </th>
+                <Show when={showsCheckIn(props.manage)}>
+                  <CheckInHeads
+                    manage={props.manage}
+                    players={[...props.manage.tournament.players, ...registrants()]}
+                  />
+                </Show>
                 <th>
                   <span class='sr-only'>{t('Actions')}</span>
                 </th>
@@ -426,6 +443,28 @@ export function PlayersPanel(props: { state: ManageState; manage: Manage }) {
                     showRounds={started()}
                     decks={decks()}
                   />
+                )}
+              </For>
+              <For each={registrants()}>
+                {player => (
+                  <tr>
+                    <td class='tm-who'>
+                      <span class='tm-who-name'>
+                        <span class='tm-name'>{playerName(player)}</span>
+                      </span>
+                      <span class='tm-who-sub tm-num'>{player.id}</span>
+                    </td>
+                    <td />
+                    <Show when={showsCheckIn(props.manage)}>
+                      <CheckInCells
+                        state={props.state}
+                        manage={props.manage}
+                        id={player.id}
+                        name={playerName(player)}
+                      />
+                    </Show>
+                    <td class='tm-extra-col' />
+                  </tr>
                 )}
               </For>
             </tbody>

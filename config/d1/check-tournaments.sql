@@ -15,7 +15,7 @@ SELECT user_id, code FROM history_hidden WHERE 0;
 SELECT user_id, links, pins FROM profile_preferences WHERE 0;
 SELECT code, version, player_id, report, account_id, claimed_at FROM report_history WHERE 0;
 SELECT store_id, id, name, options FROM display_presets WHERE 0;
-SELECT head_judge, paired_through FROM tournaments WHERE 0;
+SELECT head_judge, paired_through, checkins FROM tournaments WHERE 0;
 SELECT id, player_id, round, checker_id, result, recorded_by, removed FROM deck_checks INDEXED BY deck_checks_replaced
  WHERE replaces IS NOT NULL LIMIT 0;
 SELECT id, player_id, round, judge_id, penalty, recorded_by, removed FROM penalty_notes INDEXED BY penalty_notes_replaced
