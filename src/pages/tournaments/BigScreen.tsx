@@ -265,9 +265,8 @@ function BracketRows(props: { view: TournamentView; pod: Pod; heading: boolean }
   const names = createMemo(() => namesById(props.view.tournament));
   return (
     <section class='tm-screen-pod'>
-      <Show when={props.heading}>
-        <h2 class='tm-screen-pod-head'>{podLabel(props.pod)}</h2>
-      </Show>
+      {/* Always there, so the rounds' own headings sit under one; shown only beside another division. */}
+      <h2 class={props.heading ? 'tm-screen-pod-head' : 'sr-only'}>{podLabel(props.pod)}</h2>
       <CutBracket
         tournament={props.view.tournament}
         pod={props.pod}

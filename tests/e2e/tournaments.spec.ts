@@ -612,7 +612,7 @@ test('a sanctioned setup asks who pairs: TOM goes on from its file, and Cipherma
     'aria-checked',
     'true'
   );
-  await expect(page.getByRole('note', { name: /^Where rounds are paired and results are kept\./ })).toHaveCount(1);
+  await expect(page.getByRole('button', { name: /^Where rounds are paired and results are kept\./ })).toHaveCount(1);
   await pairing.getByRole('radio', { name: 'TOM', exact: true }).click();
   await expect(page.getByText('From the .tdf')).toBeVisible();
   await expect(page.getByRole('textbox', { name: 'Event name' })).toHaveCount(0);
