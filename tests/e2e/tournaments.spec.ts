@@ -451,10 +451,10 @@ test('a signed-out organizer is offered sign-in, not a console @mobile', async (
   // The site's own head, and none of the main site's nav.
   await expect(page.getByRole('link', { name: 'Ciphermaniac Events' })).toHaveAttribute('href', '/');
   await expect(page.getByRole('link', { name: 'Cards', exact: true })).toHaveCount(0);
-  // The sample event plays on the real engine, its standings cut to the top eight.
-  const sample = page.getByRole('region', { name: 'Sample event' });
-  await expect(sample.locator('.tm-sim-stand .sr-only li')).toHaveCount(8);
-  await expect(sample.getByText('Round 1', { exact: true })).toBeVisible();
+  // The sample event plays on the real engine, opening already paired on the big screen.
+  const screen = page.getByRole('img', { name: 'A sample event on the big screen' });
+  await expect(screen.locator('.tm-hs-tables li')).toHaveCount(6);
+  await expect(screen.locator('.tm-hs-status')).toContainText('Round 1 of 5');
   // The head's Sign in jumps to the hero's sign-in, every time it is pressed.
   await page.getByRole('link', { name: 'Sign in', exact: true }).click();
   await expect(page).toHaveURL(/#sign-in$/);

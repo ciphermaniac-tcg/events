@@ -1,128 +1,79 @@
 /**
- * The home page, for someone signed out: what running an event here is, and the way
- * in for organizers. It stands as its own product, Ciphermaniac Events, with
- * its own head in place of the site's nav. The hero plays a sample event on
- * the real pairing engine (SampleEvent); below it, one band for each thing
- * the site does that TOM can't, then three of what any event needs, each
- * with its picture (HostHomeArt).
+ * The home page, for someone signed out: Ciphermaniac Events at night. The
+ * headline and the way in, then one sample event (sampleRun) played out on
+ * every surface a real one uses: the room's big screen, the organizer's
+ * console to click around in, a player's phone, and a player's profile. Then
+ * the features, drifting in three rows (FeatureReels), and the way in again.
+ * The page is dark whatever the reader's mode; it marks the body while shown.
  */
 
-import { For, type JSX, onCleanup } from 'solid-js';
+import { onCleanup, onMount } from 'solid-js';
 import type { SignInOffer } from '../../lib/tournament/api';
-import { msg, t, tx } from '../../lib/i18n';
-import { DecklistArt, FieldArt, PhoneArt, ProfileArt, ResultsArt, ScreenArt, StreamArt, TdfArt } from './HostHomeArt';
-import { SampleEvent } from './SampleEvent';
+import { t, tx } from '../../lib/i18n';
+import { FeatureReels } from './FeatureReels';
+import { HomeConsole } from './HomeConsole';
+import { HomePhone } from './HomePhone';
+import { HomeProfile } from './HomeProfile';
+import { HomeScreen } from './HomeScreen';
+import { createSampleRun } from './sampleRun';
 import { SignIn } from './SignIn';
 import '../../styles/pages/tournament-home.css';
 
-interface Point {
-  name: string;
-  art: () => JSX.Element;
-  text: string;
-}
-
-const BANDS: Point[] = [
-  {
-    name: msg('Opens any .tdf'),
-    art: TdfArt,
-    text: msg(
-      'Open the .tdf from TOM and carry on in either one. Pairings, standings and the file itself follow TOM’s rules.'
-    )
-  },
-  {
-    name: msg('Mobile reporting'),
-    art: PhoneArt,
-    text: msg(
-      'Players can find their table, watch the round clock, and report round results from their phones, all without an account.'
-    )
-  },
-  {
-    name: msg('Player profiles'),
-    art: ProfileArt,
-    text: msg('Anyone with an account gets a public page of every event they’ve played, records and decks included.')
-  },
-  {
-    name: msg('Big-screen interface'),
-    art: ScreenArt,
-    text: msg('A dynamic second screen interface for your space’s TVs shows pairings, a round timer, and standings.')
-  },
-  {
-    name: msg('Stream setup ready'),
-    art: StreamArt,
-    text: msg('Add an automatic overlay to your stream setup, showing players, records, and deck archetypes.')
-  }
-];
-
-const FEATURES: Point[] = [
-  {
-    name: msg('Responsive admin console'),
-    art: ResultsArt,
-    text: msg('Manage ties, penalties, static seating, and latecomers from a user-friendly interface.')
-  },
-  {
-    name: msg('Decklists ahead of time'),
-    art: DecklistArt,
-    text: msg(
-      'Players submit their lists ahead of time. Card counts and copy limits are checked as they type, and you review the rest.'
-    )
-  },
-  {
-    name: msg('Field breakdown'),
-    art: FieldArt,
-    text: msg('See your event’s meta share and archetype performance.')
-  }
-];
-
-/** Marks an element `is-in` while most of it is on screen, so its picture plays only then. */
-function watchInView(el: HTMLElement) {
-  const observer = new IntersectionObserver(
-    entries => entries.forEach(entry => el.classList.toggle('is-in', entry.isIntersecting)),
-    { threshold: 0.35 }
-  );
-  observer.observe(el);
-  onCleanup(() => observer.disconnect());
-}
-
-function PointView(props: { point: Point }) {
-  return (
-    <div class='tm-home-point' ref={watchInView}>
-      <div class='tm-art'>{props.point.art()}</div>
-      <div>
-        <h2>{t(props.point.name)}</h2>
-        <p>{t(props.point.text)}</p>
-      </div>
-    </div>
-  );
-}
+/** The page's ground, which the browser's bar takes while it shows. */
+const NIGHT = '#161615';
 
 export function HostHome(props: { offer: SignInOffer }) {
-  const signIn = () => <SignIn offer={props.offer} next='/' />;
+  const run = createSampleRun();
+  onMount(() => {
+    document.body.classList.add('tm-home-mode');
+    // The browser's bar matches the night page, and goes back as it was.
+    const bars = [...document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]')];
+    const before = bars.map(bar => bar.content);
+    bars.forEach(bar => bar.setAttribute('content', NIGHT));
+    onCleanup(() => {
+      document.body.classList.remove('tm-home-mode');
+      bars.forEach((bar, i) => bar.setAttribute('content', before[i] ?? NIGHT));
+    });
+  });
   return (
     <div class='tm-home'>
       <section class='tm-home-hero'>
-        <div>
-          <h1>{tx('Run your Pokémon{br}TCG events better', { br: <br /> })}</h1>
-          <p class='tm-home-lede'>
-            {t(
-              'Pair rounds, take results from players’ phones and publish standings, for sanctioned and unsanctioned Pokémon TCG events alike.'
-            )}
-          </p>
-          <div class='tm-home-signin' id='sign-in'>
-            {signIn()}
-          </div>
+        <h1 class='tm-home-big'>
+          {/* A space before the break, so the heading reads as words where it is not drawn. */}
+          {tx('Run your Pokémon{br}TCG events better', { br: [' ', <br />] })}
+        </h1>
+        <div class='tm-home-signin' id='sign-in'>
+          <SignIn offer={props.offer} next='/' stacked />
         </div>
-        <SampleEvent />
       </section>
-      <div class='tm-home-bands'>
-        <For each={BANDS}>{point => <PointView point={point} />}</For>
+      <div class='tm-home-tv'>
+        <HomeScreen run={run} />
       </div>
-      <div class='tm-home-features'>
-        <For each={FEATURES}>{point => <PointView point={point} />}</For>
+      <section class='tm-home-part'>
+        <h2>{t('Responsive admin console')}</h2>
+        <div class='tm-home-frame tm-home-console'>
+          <HomeConsole run={run} />
+        </div>
+      </section>
+      <div class='tm-home-pair'>
+        <section class='tm-home-part'>
+          <h2>{t('Mobile reporting')}</h2>
+          <div class='tm-home-frame tm-home-phone'>
+            <HomePhone run={run} />
+          </div>
+        </section>
+        <section class='tm-home-part'>
+          <h2>{t('Player profiles')}</h2>
+          <div class='tm-home-frame tm-home-profile'>
+            <HomeProfile run={run} />
+          </div>
+        </section>
       </div>
-      <div class='tm-home-end'>
-        <strong>{t('Ready for your next event?')}</strong>
-        {signIn()}
-      </div>
+      <FeatureReels />
+      <section class='tm-home-end'>
+        <h2 class='tm-home-big'>{t('Ready for your next event?')}</h2>
+        <SignIn offer={props.offer} next='/' />
+      </section>
     </div>
   );
 }
