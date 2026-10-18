@@ -11,7 +11,8 @@ import { TabPanel, Tabs } from '@ciphermaniac/design/components/Tabs';
 import { SAMPLE_CODE, type SampleTable } from '../../lib/tournament/sampleEvent';
 import { msg, t, tn } from '../../lib/i18n';
 import { SampleDeck } from './SampleDeck';
-import { markOf, recordOf, SAMPLE_ROUNDS, type SampleRun } from './sampleRun';
+import { markOf, recordOf } from '../../lib/tournament/sampleSchedule';
+import { SAMPLE_ROUNDS, type SampleRun } from './sampleRun';
 
 type Tab = 'pairings' | 'players' | 'standings' | 'decklists' | 'penalties' | 'settings';
 

@@ -8,7 +8,8 @@ import { For } from 'solid-js';
 import { SAMPLE_CODE, SAMPLE_QR } from '../../lib/tournament/sampleEvent';
 import { t, tn } from '../../lib/i18n';
 import { QrCode } from './QrCode';
-import { markOf, recordOf, SAMPLE_ROUNDS, type SampleRun } from './sampleRun';
+import { markOf, recordOf } from '../../lib/tournament/sampleSchedule';
+import { SAMPLE_ROUNDS, type SampleRun } from './sampleRun';
 
 /** Tables the preview shows. */
 const SHOWN = 6;

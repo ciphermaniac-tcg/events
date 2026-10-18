@@ -9,7 +9,8 @@ import type { SampleTable } from '../../lib/tournament/sampleEvent';
 import { t } from '../../lib/i18n';
 import { SampleDeck } from './SampleDeck';
 import { roundStatus } from './HomeScreen';
-import { markOf, recordOf, SAMPLE_FOCUS, type SampleRun } from './sampleRun';
+import { markOf, recordOf } from '../../lib/tournament/sampleSchedule';
+import { SAMPLE_FOCUS, type SampleRun } from './sampleRun';
 
 /** Tables the phone's list shows. */
 const SHOWN = 3;

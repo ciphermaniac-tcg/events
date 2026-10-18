@@ -11,7 +11,8 @@ import { dayLabel, eventDay } from '../../lib/tournament/history';
 import { t } from '../../lib/i18n';
 import { Badges } from './Badges';
 import { SampleDeck } from './SampleDeck';
-import { recordOf, SAMPLE_FOCUS, type SampleRun } from './sampleRun';
+import { recordOf } from '../../lib/tournament/sampleSchedule';
+import { SAMPLE_FOCUS, type SampleRun } from './sampleRun';
 
 /** Reese's Discord avatar, kept here so the page asks nobody else for it. */
 const AVATAR = '/img/rosematcha.webp';
