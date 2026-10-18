@@ -61,7 +61,7 @@ import { jsonError, noContent } from '../../../lib/api/responses.js';
 import { type Context, sameOrigin } from '../../../lib/auth/env.js';
 import { sha256 } from '../../../lib/auth/session.js';
 import { rowsChanged } from '../../../lib/d1.js';
-import { type Access, codeOf, open, openForStaff, privateJson } from '../../../lib/tournaments/access.js';
+import { type Access, codeOf, open, openForStaff, privateJson, staffWrites } from '../../../lib/tournaments/access.js';
 import { archetypeRules } from '../../../lib/tournaments/archetypeRules.js';
 import { admitTry, clearFailures, forgive, LOCKED_OUT } from '../../../lib/tournaments/attempts.js';
 import { publishAfter } from '../../../lib/tournaments/publish.js';
@@ -837,13 +837,14 @@ export async function onRequestPatch(context: Context<'code'>): Promise<Response
   if (!details) {
     return jsonError('Say whose list to unlock', 400);
   }
-  await access.db
-    .prepare('UPDATE decklists SET owner_token = NULL, account = NULL WHERE code = ? AND user_id = ?')
-    .bind(access.row.code, identityKey(details, isSanctioned(access.row)))
-    .run();
-  // Staff vouch for the player, so their Player ID's wrong birth years are forgiven too.
-  if (isSanctioned(access.row)) {
-    await clearFailures(access.db, access.row.code, details.popId);
-  }
-  return noContent();
+  const { db, row } = access;
+  return staffWrites(access, guard => [
+    db
+      .prepare(
+        `UPDATE decklists SET owner_token = NULL, account = NULL WHERE code = ? AND user_id = ? AND ${guard.sql}`
+      )
+      .bind(row.code, identityKey(details, isSanctioned(row)), ...guard.values),
+    // Staff vouch for the player, so their Player ID's wrong birth years are forgiven too.
+    ...(isSanctioned(row) ? [clearFailures(db, row.code, details.popId, guard)] : [])
+  ]);
 }

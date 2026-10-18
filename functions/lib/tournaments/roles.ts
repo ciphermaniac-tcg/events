@@ -8,6 +8,7 @@
  */
 
 import type { Role } from '../../../shared/tournament/view.js';
+import type { Guard } from '../d1.js';
 
 /** Whether account `who` (an SQL expression) organizes the event in `tournaments`: its owner, or its store's Owner or a Manager. */
 export const organizes = (who: string) =>
@@ -42,3 +43,13 @@ export const asksStill = (asker: Asker, hash = '?', now = '?') =>
   `AND ${asker.role === 'owner' ? organizes('asking.user_id') : onStaff('asking.user_id')})`;
 
 export const askerValues = (asker: Asker): [string, number] => [asker.hash, Date.now()];
+
+/**
+ * That the asker still holds their role at event `code`, for a write to a
+ * table beside `tournaments`: one that runs on its own, outside the event's
+ * own write and its gate (see store.ts).
+ */
+export const askerStands = (code: string, asker: Asker): Guard => ({
+  sql: `EXISTS (SELECT 1 FROM tournaments WHERE code = ? AND ${asksStill(asker)})`,
+  values: [code, ...askerValues(asker)]
+});

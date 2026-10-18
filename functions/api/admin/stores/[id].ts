@@ -13,24 +13,23 @@
 
 import { readJsonObject } from '../../../lib/api/body.js';
 import { jsonError } from '../../../lib/api/responses.js';
-import { openForAdmin } from '../../../lib/auth/admin.js';
+import { type AdminAccess, answerAdminMiss, openForAdmin } from '../../../lib/auth/admin.js';
 import { type Context, param } from '../../../lib/auth/env.js';
 import { adminStore, makeManager, makeOwner } from '../../../lib/stores/admin.js';
 import { readLeagueId } from '../../../../shared/accounts/stores.js';
 import { breaksLeague, certifyStore, setStatus } from '../../../lib/stores/db.js';
 import { publishStores } from '../../../lib/stores/publish.js';
 import { privateJson } from '../../../lib/tournaments/access.js';
-import type { D1Like } from '../../../lib/types.js';
 
 export async function onRequestPost(context: Context<'id'>): Promise<Response> {
   const access = await openForAdmin(context);
   if (access instanceof Response) {
     return access;
   }
-  const { db, admin } = access;
+  const { db } = access;
   const id = param(context.params.id);
   const body = (await readJsonObject(context.request, 512)) ?? {};
-  const acting = act(db, { id, adminId: admin.id, body });
+  const acting = act(access, id, body);
   if (acting === null) {
     return jsonError('Set a status, a manager, an owner or a league', 400);
   }
@@ -44,29 +43,29 @@ export async function onRequestPost(context: Context<'id'>): Promise<Response> {
     return jsonError('Another store has that league', 409);
   }
   if (!landed) {
-    return jsonError('No such store or account', 404);
+    return answerAdminMiss(context, () => jsonError('No such store or account', 404));
   }
   await publishStores(context);
   const store = await adminStore(db, id);
   return store ? privateJson({ store }) : jsonError('No such store', 404);
 }
 
-/** Does what the body asks: whether it landed, or null when it asks nothing this route does. */
-function act(
-  db: D1Like,
-  asked: { id: string; adminId: string; body: Record<string, unknown> }
-): Promise<boolean> | null {
-  const { id, adminId, body } = asked;
+/**
+ * Does what the body asks, each write only while the asker is still an
+ * Admin: whether it landed, or null when it asks nothing this route does.
+ */
+function act(access: AdminAccess, id: string, body: Record<string, unknown>): Promise<boolean> | null {
+  const { db, admin, guard } = access;
   const { status, manager, owner, league } = body;
   if (status === 'active' || status === 'revoked') {
-    return setStatus(db, id, status, adminId);
+    return setStatus(db, id, { status, adminId: admin.id }, guard);
   }
   const leagueId = typeof league === 'string' ? readLeagueId(league) : null;
   if (leagueId) {
-    return certifyStore(db, id, leagueId, Date.now());
+    return certifyStore(db, id, { leagueId, now: Date.now() }, guard);
   }
   if (typeof manager === 'string' && manager) {
-    return makeManager(db, id, manager);
+    return makeManager(db, id, manager, guard);
   }
-  return typeof owner === 'string' && owner ? makeOwner(db, id, owner) : null;
+  return typeof owner === 'string' && owner ? makeOwner(db, id, owner, guard) : null;
 }

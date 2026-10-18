@@ -18,8 +18,8 @@
 
 import { isSanctioned } from '../../../shared/tournament/view.js';
 import { randomToken, sha256, type User } from '../auth/session.js';
-import { firstRow, rowsChanged } from '../d1.js';
-import type { D1Like } from '../types.js';
+import { firstRow, type Guard, rowsChanged } from '../d1.js';
+import type { D1Like, D1Statement } from '../types.js';
 import { loadTournament, type TournamentRow } from './store.js';
 import { msg } from '../../../shared/i18n.js';
 
@@ -35,6 +35,10 @@ export interface Claim {
   /** Original claimant metadata, captured before a seat can be released or replaced. */
   account: string | null;
   claimedAt: number;
+  /** The seat's token hash, which only this claim of the player has: a release and a new claim make another. */
+  seat: string;
+  /** Whether the asker holds the seat by its token or device, rather than only as the account it is linked to. */
+  holder: boolean;
 }
 
 /** The answer when the asking account is already another player at this event: that player's ID. */
@@ -199,7 +203,9 @@ async function standingFor(seat: Seat, row: ClaimRow, asker: Asker): Promise<Sta
         device: row.device,
         linked,
         account: linked ? seat.account : row.user_id,
-        claimedAt: row.claimed_at
+        claimedAt: row.claimed_at,
+        seat: row.token_hash,
+        holder
       }
     : linked;
 }
@@ -267,14 +273,40 @@ async function claim(seat: Seat, asker: Asker): Promise<Standing> {
       device: row.device,
       linked: row.user_id !== null,
       account: row.user_id,
-      claimedAt: row.claimed_at
+      claimedAt: row.claimed_at,
+      seat: row.token_hash,
+      holder: true
     };
   }
   // Nothing stored and the account free: the event changed since the read.
   return elsewhere(seat, held) ?? (row ? standingFor(seat, row, asker) : STALE);
 }
 
-/** Lets another device or account claim `playerId`, as staff do when a player changes phones. */
-export async function releaseReporter(db: D1Like, code: string, playerId: string): Promise<void> {
-  await db.prepare('DELETE FROM report_devices WHERE code = ? AND player_id = ?').bind(code, playerId).run();
+/**
+ * That `claim` still reports for `playerId` at the event, for a write it
+ * lands only while (see store.ts's mutateHeld): the very seat it was had on,
+ * not one released and claimed again since, and when the asker holds it
+ * only as its account, the account still signed in by the session `session`
+ * hashes, and at a sanctioned event still holding the player's POP ID.
+ */
+export function seatHeld(row: TournamentRow, playerId: string, claim: Claim, session: string | null): Guard {
+  const seat =
+    'EXISTS (SELECT 1 FROM report_devices seat WHERE seat.code = ? AND seat.player_id = ? AND seat.token_hash = ?';
+  const values = [row.code, playerId, claim.seat];
+  if (claim.holder) {
+    return { sql: `${seat})`, values };
+  }
+  return {
+    sql:
+      `${seat} AND EXISTS (SELECT 1 FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? ` +
+      'AND s.expires_at > ? AND u.age_checked_at IS NOT NULL AND u.id = seat.user_id AND (? = 0 OR u.pop_id = seat.player_id)))',
+    values: [...values, session ?? '', Date.now(), isSanctioned(row) ? 1 : 0]
+  };
+}
+
+/** Lets another device or account claim `playerId` while `guard` holds, as staff do when a player changes phones. */
+export function releaseReporter(db: D1Like, code: string, playerId: string, guard: Guard): D1Statement {
+  return db
+    .prepare(`DELETE FROM report_devices WHERE code = ? AND player_id = ? AND ${guard.sql}`)
+    .bind(code, playerId, ...guard.values);
 }

@@ -30,7 +30,7 @@ import { type PlayerRequest, withRequestIds } from '../../../shared/tournament/r
 import type { CheckIns } from '../../../shared/tournament/checkins.js';
 import { randomToken, sessionHash, sessionUserQuery, type User, userFromRow, type UserRow } from '../auth/session.js';
 import { displayNameSql } from '../accounts/handles.js';
-import { firstRow, rowsChanged } from '../d1.js';
+import { firstRow, type Guard, rowsChanged } from '../d1.js';
 import type { D1Like, D1Statement } from '../types.js';
 import { deleteWrites, firstIndexWrites, rosterWrites } from './rosterWrites.js';
 import { correctionGuard, type CorrectionWrite, correctionWrites } from './corrections.js';
@@ -513,30 +513,34 @@ function columnsFor(changes: Changes, next: TournamentRow): [string, string][] {
   return columns.filter((column): column is [string, string] => typeof column[1] === 'string');
 }
 
+/** A staff asker's standing, as what must still hold where their change lands (see roles.ts). */
+const askerStanding = (asker: Asker): Guard => ({ sql: asksStill(asker), values: askerValues(asker) });
+
 /**
- * The two writes that hold a staff change to its asker's standing as it lands,
- * one first in its batch and one last. Where the asker no longer holds their
- * role (removed from staff or the store, signed out), the first turns the
- * event's version aside, to its negative, so each write between, every one of
- * which names the version read or the one it makes, misses; the last turns it
- * back. The batch then changes nothing, and `mutate` reads the event and the
- * asker's role again. A batch is one transaction: nothing outside it sees the
- * version turned, and a guard that holds as it starts holds to its end.
+ * The two writes that hold a change to its asker's standing as it lands, one
+ * first in its batch and one last. Where the standing no longer holds (staff
+ * removed from staff or the store or signed out, a player's reporting seat
+ * released), the first turns the event's version aside, to its negative, so
+ * each write between, every one of which names the version read or the one
+ * it makes, misses; the last turns it back. The batch then changes nothing,
+ * and the caller reads the event and the standing again. A batch is one
+ * transaction: nothing outside it sees the version turned, and a guard that
+ * holds as it starts holds to its end.
  */
-function askerGate(db: D1Like, row: TournamentRow, asker: Asker | undefined): [D1Statement[], D1Statement[]] {
-  if (!asker) {
+function askerGate(db: D1Like, row: TournamentRow, standing: Guard | undefined): [D1Statement[], D1Statement[]] {
+  if (!standing) {
     return [[], []];
   }
   const turn = 'UPDATE tournaments SET version = -version WHERE code = ? AND ';
   return [
-    [db.prepare(`${turn}version = ? AND NOT ${asksStill(asker)}`).bind(row.code, row.version, ...askerValues(asker))],
+    [db.prepare(`${turn}version = ? AND NOT ${standing.sql}`).bind(row.code, row.version, ...standing.values)],
     [db.prepare(`${turn}version < 0`).bind(row.code)]
   ];
 }
 
 /**
- * Writes the changes if the row is still at `row.version`, and the asker, when
- * there is one, still holds their role (see askerGate). Only the columns the
+ * Writes the changes if the row is still at `row.version`, and the asker's
+ * standing, when there is one, still holds (see askerGate). Only the columns the
  * change touches are written, so a result reported mid-event does not send
  * the whole document back. A change to the player list or to whether the
  * event is sanctioned also keeps the history index, in the same batch and on
@@ -548,7 +552,7 @@ async function saveTournament(
   db: D1Like,
   row: TournamentRow,
   input: Changes,
-  asker?: Asker
+  standing?: Guard
 ): Promise<TournamentRow | null> {
   const changes =
     row.settings.idle && !input.settings ? { ...input, settings: { ...row.settings, idle: false } } : input;
@@ -569,7 +573,7 @@ async function saveTournament(
     ...(changes.reportEvidence ? reportEvidenceWrites(db, row, changes.reportEvidence) : []),
     ...(changes.correction ? correctionWrites(db, row, changes.correction) : [])
   ];
-  const [check, restore] = askerGate(db, row, asker);
+  const [check, restore] = askerGate(db, row, standing);
   const before = [...check, ...roster, ...evidence];
   const results = await db.batch([...before, update, ...ending, ...winWrites(db, row, next), ...restore]);
   return rowsChanged(results[before.length]) === 1 ? { ...next, version: row.version + 1, updatedAt } : null;
@@ -654,17 +658,65 @@ export async function readAgain(
  * hold the role it was judged with, and a miss reads their role again with
  * the row, so a change never outlives the asker's place on staff.
  */
-export async function mutate(db: D1Like, read: TournamentRow, change: Change, asker?: Asker): Promise<Mutation> {
-  let current: { row: TournamentRow; asker?: Asker } = { row: read, asker };
+export function mutate(db: D1Like, read: TournamentRow, change: Change, asker?: Asker): Promise<Mutation> {
+  return retried(db, { row: read, ...writerOf(asker) }, change, async () => {
+    const fresh = await readAgain(db, read.code, asker);
+    return 'error' in fresh ? fresh : { row: fresh.row, ...writerOf(fresh.asker) };
+  });
+}
+
+/**
+ * What a change from a player holds to: their standing, as SQL over the
+ * event's `tournaments` row, and what they are told once it no longer holds.
+ */
+export interface Held {
+  standing: Guard;
+  refusal: Refused;
+}
+
+/**
+ * As `mutate`, for a change only `held.standing` lets the asker make: each try
+ * lands only while it holds, and a miss where it no longer does ends with
+ * `held.refusal`, never with a try on a standing had afresh.
+ */
+export function mutateHeld(db: D1Like, read: TournamentRow, change: Change, held: Held): Promise<Mutation> {
+  const writer = { role: null, standing: held.standing };
+  return retried(db, { row: read, ...writer }, change, async () => {
+    if (!(await holds(db, read.code, held.standing))) {
+      return held.refusal;
+    }
+    const row = await loadTournament(db, read.code);
+    return row ? { row, ...writer } : { error: msg('No such tournament'), status: 404 };
+  });
+}
+
+/** Who a try writes as: the role its change is judged with, and the standing it lands only while (see askerGate). */
+interface Writer {
+  row: TournamentRow;
+  role: Role | null;
+  standing?: Guard;
+}
+
+const writerOf = (asker: Asker | undefined) =>
+  asker ? { role: asker.role, standing: askerStanding(asker) } : { role: null };
+
+/** Tries `change` until it lands or is refused, reading the event and the writer `again` after each miss. */
+async function retried(
+  db: D1Like,
+  first: Writer,
+  change: Change,
+  again: () => Promise<Writer | Refused>
+): Promise<Mutation> {
+  let current = first;
   for (let tries = 1; ; tries += 1) {
-    const outcome = await tryChange(db, current.row, change, current.asker);
+    const outcome = await attempt(db, current, change);
     if (outcome) {
       return outcome;
     }
     if (tries === MAX_TRIES) {
       return { error: 'Busy; try again', status: 409 };
     }
-    const fresh = await readAgain(db, read.code, current.asker);
+    const fresh = await again();
     if ('error' in fresh) {
       return fresh;
     }
@@ -672,42 +724,47 @@ export async function mutate(db: D1Like, read: TournamentRow, change: Change, as
   }
 }
 
-/** Whether the event is still at the version `row` read, and the asker, when there is one, still holds their role. */
-async function stillStands(db: D1Like, row: TournamentRow, asker: Asker | undefined): Promise<boolean> {
+/** Whether the event at `code` stands as `standing` says, at whatever version. */
+async function holds(db: D1Like, code: string, standing: Guard): Promise<boolean> {
   const found = await db
-    .prepare(
-      `SELECT 1 AS yes FROM tournaments WHERE code = ? AND version = ?${asker ? ` AND ${asksStill(asker)}` : ''}`
-    )
-    .bind(row.code, row.version, ...(asker ? askerValues(asker) : []))
+    .prepare(`SELECT 1 AS yes FROM tournaments WHERE code = ? AND ${standing.sql}`)
+    .bind(code, ...standing.values)
     .first<{ yes: number }>();
   return found !== null;
 }
+
+/** Whether the event is still at the version `row` read, and the writer's standing, when there is one, still holds. */
+const stillStands = (db: D1Like, row: TournamentRow, standing: Guard | undefined) =>
+  holds(db, row.code, {
+    sql: `version = ?${standing ? ` AND ${standing.sql}` : ''}`,
+    values: [row.version, ...(standing?.values ?? [])]
+  });
 
 /**
  * One read-change-write, never tried again from a fresh read: for a change
  * staff approved against the event as they saw it. Null when another write
  * got there first, or the asker no longer holds their role.
  */
-export async function tryChange(
-  db: D1Like,
-  row: TournamentRow,
-  change: Change,
-  asker?: Asker
-): Promise<Mutation | null> {
-  const changes = change(row, asker?.role ?? null);
+export const tryChange = (db: D1Like, row: TournamentRow, change: Change, asker?: Asker): Promise<Mutation | null> =>
+  attempt(db, { row, ...writerOf(asker) }, change);
+
+/** One read-change-write as `writer`; null when another write got there first, or their standing no longer holds. */
+async function attempt(db: D1Like, writer: Writer, change: Change): Promise<Mutation | null> {
+  const { row, role: judged, standing } = writer;
+  const changes = change(row, judged);
   if (typeof changes === 'string') {
     return { error: changes, status: 400 };
   }
   if ('error' in changes) {
     return changes;
   }
-  const role = asker ? { role: asker.role } : {};
+  const role = judged ? { role: judged } : {};
   // A change that changes nothing writes nothing: no new version, nothing to publish. It was judged on the
-  // row as read, though, so it holds only while the row and the asker stand as they did; else try again.
+  // row as read, though, so it holds only while the row and the writer stand as they did; else try again.
   if (Object.keys(changes).length === 0) {
-    return (await stillStands(db, row, asker)) ? { row, ...role } : null;
+    return (await stillStands(db, row, standing)) ? { row, ...role } : null;
   }
-  const saved = await saveTournament(db, row, changes, asker).catch((error: unknown) => {
+  const saved = await saveTournament(db, row, changes, standing).catch((error: unknown) => {
     if (error instanceof TooLarge) {
       return error;
     }
@@ -892,7 +949,7 @@ export async function deleteTournament(
 ): Promise<Refused | null> {
   let current: { row: TournamentRow; asker?: Asker } = { row, asker };
   for (let tries = 1; ; tries += 1) {
-    const [check, restore] = askerGate(db, current.row, current.asker);
+    const [check, restore] = askerGate(db, current.row, current.asker && askerStanding(current.asker));
     const before = [...check, ...deleteWrites(db, current.row)];
     const gone = db
       .prepare('DELETE FROM tournaments WHERE code = ? AND version = ?')

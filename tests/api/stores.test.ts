@@ -582,7 +582,7 @@ test('a hand-over that lands after another leaves the store one Owner', async ()
   const [ownerId, helperId, otherId] = [await idOf(owner), await idOf(helper), await idOf(other)];
   const db = env.TOURNAMENT_DB as ReturnType<typeof sqliteD1>;
   // The Owner's other tab hands the store to Other after this request read the Owner as the Owner.
-  env.TOURNAMENT_DB = racing(db, "UPDATE store_members SET role = 'manager'", () => {
+  env.TOURNAMENT_DB = racing(db, "UPDATE store_members SET role = 'handing'", () => {
     db.raw.prepare("UPDATE store_members SET role = 'manager' WHERE user_id = ?").run(ownerId);
     db.raw.prepare("UPDATE store_members SET role = 'owner' WHERE user_id = ?").run(otherId);
   });

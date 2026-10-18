@@ -11,7 +11,7 @@
 import { holderOf, roleHolderQuery, type RoleHolderRow } from '../../../lib/accounts/organizers.js';
 import { readJsonObject } from '../../../lib/api/body.js';
 import { jsonError } from '../../../lib/api/responses.js';
-import { openForAdmin } from '../../../lib/auth/admin.js';
+import { answerAdminMiss, openForAdmin } from '../../../lib/auth/admin.js';
 import { type Context, param } from '../../../lib/auth/env.js';
 import { firstRow, rowsChanged } from '../../../lib/d1.js';
 import { privateJson } from '../../../lib/tournaments/access.js';
@@ -25,16 +25,19 @@ export async function onRequestPost(context: Context<'id'>): Promise<Response> {
   if (role !== 'community' && role !== 'revoked') {
     return jsonError('Revoke or reinstate', 400);
   }
-  const { db, admin } = access;
+  const { db, admin, guard } = access;
   const id = param(context.params.id);
   const [changed, account] = await db.batch([
     db
-      .prepare("UPDATE users SET role = ?, role_at = ?, role_by = ? WHERE id = ? AND role IN ('community', 'revoked')")
-      .bind(role, Date.now(), admin.id, id),
+      .prepare(
+        "UPDATE users SET role = ?, role_at = ?, role_by = ? WHERE id = ? AND role IN ('community', 'revoked') " +
+          `AND ${guard.sql}`
+      )
+      .bind(role, Date.now(), admin.id, id, ...guard.values),
     roleHolderQuery(db, id)
   ]);
   const row = firstRow<RoleHolderRow>(account);
   return rowsChanged(changed) === 1 && row
     ? privateJson({ account: holderOf(row) })
-    : jsonError('Not an organizer', 404);
+    : answerAdminMiss(context, () => jsonError('Not an organizer', 404));
 }

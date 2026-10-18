@@ -9,10 +9,12 @@
 import assert from 'node:assert/strict';
 import { beforeEach, test } from 'node:test';
 
+import * as decklists from '../../functions/api/tournaments/[code]/decklists.ts';
 import * as event from '../../functions/api/tournaments/[code]/index.ts';
 import * as headJudge from '../../functions/api/tournaments/[code]/head-judge.ts';
 import * as manage from '../../functions/api/tournaments/[code]/manage.ts';
 import * as penaltyNotes from '../../functions/api/tournaments/[code]/penalty-notes.ts';
+import * as report from '../../functions/api/tournaments/[code]/report.ts';
 import * as staff from '../../functions/api/tournaments/[code]/staff.ts';
 import type { TournamentEnv } from '../../functions/lib/auth/env.ts';
 import { loadTournament } from '../../functions/lib/tournaments/store.ts';
@@ -23,11 +25,13 @@ import { racing, sqliteD1 } from '../__utils__/sqliteD1.ts';
 let env: TournamentEnv;
 let db: ReturnType<typeof sqliteD1>;
 const { hit, signIn } = apiCalls(() => env);
-const { newSwiss, send, addPlayers, settle } = eventCalls(hit);
+const { newSwiss, send, addPlayers, settle, playerSays } = eventCalls(hit);
 
 beforeEach(() => {
   db = sqliteD1('tournaments.sql');
   env = { TOURNAMENT_DB: db, DEV_LOGIN: 'true' };
+  decklists._resetRateLimitStore();
+  report._resetRateLimitStore();
 });
 
 const count = (sql: string, ...values: string[]) =>
@@ -204,4 +208,114 @@ test('an organizer still in place deletes the event after another write, and aga
   env.TOURNAMENT_DB = db;
   assert.deepEqual(kept(code), [0, 0, 0]);
   assert.equal((await remove(code, owner)).status, 404);
+});
+
+const NOT_STAFF = 'Only this event’s staff can do that';
+
+/**
+ * The organizer's event with its helper, taking lists: one sent for Player
+ * ID 4242 from a device, and two wrong birth years counted against it.
+ */
+async function withList() {
+  const setup = await withHelper();
+  await settle(setup.code, setup.owner, { decklists: 'open' });
+  const sent = await hit(decklists.onRequestPut as Handler, '/decklists', at(setup.code), {
+    method: 'PUT',
+    body: {
+      profile: { popId: '4242', firstName: 'A', lastName: 'B', birthDate: '01/01/1990' },
+      deck: '60 Basic {P} Energy SVE 5',
+      archetype: null
+    }
+  });
+  assert.equal(sent.status, 200, JSON.stringify(sent.json));
+  db.raw
+    .prepare('INSERT OR REPLACE INTO identify_failures (code, pop_id, failures, locked_until) VALUES (?, ?, 2, 0)')
+    .run(setup.code, '4242');
+  return setup;
+}
+
+const unlock = (code: string, cookie: string) =>
+  hit(decklists.onRequestPatch as Handler, '/decklists?popId=4242', at(code), { method: 'PATCH', cookie });
+
+/** Whether the list under 4242 is still its device's, and how many wrong years stand against 4242. */
+function lockedList(code: string) {
+  env.TOURNAMENT_DB = db;
+  return {
+    owned: count('decklists WHERE code = ? AND user_id = ? AND owner_token IS NOT NULL', code, 'pop:4242'),
+    failures: count('identify_failures WHERE code = ? AND pop_id = ?', code, '4242')
+  };
+}
+
+const UNLOCKING = 'UPDATE decklists SET owner_token';
+
+test('an organizer gone from the store meanwhile unlocks no list and forgives no wrong birth year', async () => {
+  const { owner, code } = await withList();
+  meanwhile(UNLOCKING, () => db.raw.prepare("DELETE FROM store_members WHERE role = 'owner'").run());
+  const unlocked = await unlock(code, owner);
+  assert.deepEqual([unlocked.status, unlocked.json.error], [403, NOT_STAFF]);
+  assert.deepEqual(lockedList(code), { owned: 1, failures: 1 });
+});
+
+test('staff taken off the event meanwhile unlock no list and forgive no wrong birth year', async () => {
+  const { code, helper } = await withList();
+  meanwhile(UNLOCKING, () => db.raw.prepare('DELETE FROM staff WHERE code = ?').run(code));
+  const unlocked = await unlock(code, helper);
+  assert.deepEqual([unlocked.status, unlocked.json.error], [403, NOT_STAFF]);
+  assert.deepEqual(lockedList(code), { owned: 1, failures: 1 });
+});
+
+test('staff signed out meanwhile unlock no list and forgive no wrong birth year', async () => {
+  const { code, helper } = await withList();
+  meanwhile(UNLOCKING, () => db.raw.prepare('DELETE FROM sessions WHERE user_id = ?').run(userId('helper')));
+  const unlocked = await unlock(code, helper);
+  assert.equal(unlocked.status, 401);
+  assert.deepEqual(lockedList(code), { owned: 1, failures: 1 });
+});
+
+test('an organizer moved down to staff meanwhile still unlocks a list, as any of its staff may', async () => {
+  const { owner, code } = await withList();
+  meanwhile(UNLOCKING, () => db.raw.prepare("UPDATE store_members SET role = 'staff'").run());
+  assert.equal((await unlock(code, owner)).status, 204);
+  assert.deepEqual(lockedList(code), { owned: 0, failures: 0 });
+});
+
+test('staff unlocking a list nobody sent still forgive its wrong birth years, and unlocking nothing answers alike', async () => {
+  const { code, helper } = await withList();
+  db.raw.prepare('DELETE FROM decklists WHERE code = ?').run(code);
+  assert.equal((await unlock(code, helper)).status, 204);
+  assert.deepEqual(lockedList(code), { owned: 0, failures: 0 });
+  assert.equal((await unlock(code, helper)).status, 204);
+});
+
+/** The organizer's event with its helper, players reporting, player 900's seat claimed and a wrong year against them. */
+async function withSeat() {
+  const setup = await withHelper();
+  await settle(setup.code, setup.owner, { playerReporting: true });
+  assert.equal((await playerSays(setup.code, { popId: '900', device: 'phone' })).json.reporter, true);
+  db.raw
+    .prepare('INSERT OR REPLACE INTO identify_failures (code, pop_id, failures, locked_until) VALUES (?, ?, 2, 0)')
+    .run(setup.code, '900');
+  return setup;
+}
+
+const releaseSeat = (code: string, cookie: string) =>
+  hit(report.onRequestDelete as Handler, '/report?player=900', at(code), { method: 'DELETE', cookie });
+
+const seated = (code: string) => {
+  env.TOURNAMENT_DB = db;
+  return [count('report_devices WHERE code = ?', code), count('identify_failures WHERE code = ?', code)];
+};
+
+test('staff taken off the event meanwhile release no reporting seat and forgive no wrong birth year', async () => {
+  const { code, helper } = await withSeat();
+  meanwhile('DELETE FROM report_devices', () => db.raw.prepare('DELETE FROM staff WHERE code = ?').run(code));
+  const released = await releaseSeat(code, helper);
+  assert.deepEqual([released.status, released.json.error], [403, NOT_STAFF]);
+  assert.deepEqual(seated(code), [1, 1]);
+});
+
+test('staff still on the event release the seat and forgive its wrong birth years together', async () => {
+  const { code, helper } = await withSeat();
+  assert.equal((await releaseSeat(code, helper)).status, 204);
+  assert.deepEqual(seated(code), [0, 0]);
 });

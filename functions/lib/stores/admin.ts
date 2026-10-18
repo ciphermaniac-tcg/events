@@ -2,9 +2,9 @@
 
 import type { StoreStatus } from '../../../shared/accounts/stores.js';
 import { displayNameSql } from '../accounts/handles.js';
-import { rowsChanged } from '../d1.js';
-import { handOver } from './db.js';
-import type { D1Like } from '../types.js';
+import { firstRow, type Guard, rowsChanged } from '../d1.js';
+import { handOverWrites } from './db.js';
+import type { D1Like, D1Statement } from '../types.js';
 
 export interface AdminStore {
   id: string;
@@ -63,38 +63,43 @@ export async function adminStore(db: D1Like, id: string): Promise<AdminStore | n
   return row && fromRow(row);
 }
 
-/**
- * Makes the account a Manager of the store, joining it if it was not in it;
- * its Owner stays its Owner. False when either is missing.
- */
-export async function makeManager(db: D1Like, storeId: string, userId: string): Promise<boolean> {
-  const done = await db
+/** The write that makes the account a Manager of the store, joining it if need be, while `guard` holds; its Owner stays its Owner. */
+const managerWrite = (db: D1Like, storeId: string, userId: string, guard: Guard): D1Statement =>
+  db
     .prepare(
       "INSERT INTO store_members (store_id, user_id, role, added_at) SELECT s.id, u.id, 'manager', ? " +
-        'FROM stores s JOIN users u ON u.id = ? WHERE s.id = ? ' +
+        `FROM stores s JOIN users u ON u.id = ? WHERE s.id = ? AND ${guard.sql} ` +
         "ON CONFLICT (store_id, user_id) DO UPDATE SET role = CASE store_members.role WHEN 'owner' THEN 'owner' " +
         "ELSE 'manager' END"
     )
-    .bind(Date.now(), userId, storeId)
-    .run();
-  return rowsChanged(done) === 1;
+    .bind(Date.now(), userId, storeId, ...guard.values);
+
+/**
+ * Makes the account a Manager of the store, joining it if it was not in it,
+ * while the Admin's `guard` holds; its Owner stays its Owner. False when
+ * either is missing, or the guard no longer held.
+ */
+export async function makeManager(db: D1Like, storeId: string, userId: string, guard: Guard): Promise<boolean> {
+  return rowsChanged(await managerWrite(db, storeId, userId, guard).run()) === 1;
 }
 
 /**
  * Hands the store to the account, joining it first if it was not in it: how
- * a store changes hands when its Owner cannot do it. The Owner before becomes
- * a Manager. False when the store or the account is missing.
+ * a store changes hands when its Owner cannot do it, or gets one when it has
+ * none. The Owner before becomes a Manager. Every write, and the read that
+ * says whether the account owns the store after, holds to the Admin's
+ * `guard`, in one transaction. False when the store or the account is
+ * missing, or the guard no longer held.
  */
-export async function makeOwner(db: D1Like, storeId: string, userId: string): Promise<boolean> {
-  return (
-    (await makeManager(db, storeId, userId)) && ((await handOver(db, storeId, userId)) || isOwner(db, storeId, userId))
-  );
-}
-
-async function isOwner(db: D1Like, storeId: string, userId: string): Promise<boolean> {
-  const row = await db
-    .prepare("SELECT 1 AS yes FROM store_members WHERE store_id = ? AND user_id = ? AND role = 'owner'")
-    .bind(storeId, userId)
-    .first<{ yes: number }>();
-  return row !== null;
+export async function makeOwner(db: D1Like, storeId: string, userId: string, guard: Guard): Promise<boolean> {
+  const results = await db.batch([
+    managerWrite(db, storeId, userId, guard),
+    ...handOverWrites(db, storeId, userId, { guard, mend: guard }),
+    db
+      .prepare(
+        `SELECT 1 AS yes FROM store_members WHERE store_id = ? AND user_id = ? AND role = 'owner' AND ${guard.sql}`
+      )
+      .bind(storeId, userId, ...guard.values)
+  ]);
+  return firstRow<{ yes: number }>(results.at(-1)) !== null;
 }

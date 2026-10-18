@@ -11,9 +11,9 @@ import type { Store } from '../../../shared/accounts/types.js';
 import { jsonError } from '../api/responses.js';
 import { type Context, param, sameOrigin } from '../auth/env.js';
 import { sessionHash, sessionUserQuery, type User, userFromRow, type UserRow } from '../auth/session.js';
-import { firstRow } from '../d1.js';
+import { firstRow, type Guard } from '../d1.js';
 import type { D1Like } from '../types.js';
-import { type Guard, loadStore } from './db.js';
+import { loadStore } from './db.js';
 import { msg } from '../../../shared/i18n.js';
 
 export interface StoreAccess {

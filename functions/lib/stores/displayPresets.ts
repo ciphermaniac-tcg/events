@@ -1,7 +1,6 @@
 import { type DisplayPreset, MAX_DISPLAY_PRESETS } from '../../../shared/tournament/display.js';
-import { rowsChanged } from '../d1.js';
+import { type Guard, rowsChanged } from '../d1.js';
 import type { D1Like } from '../types.js';
-import type { Guard } from './db.js';
 
 export async function displayPresets(db: D1Like, storeId: string): Promise<DisplayPreset[]> {
   const { results } = await db

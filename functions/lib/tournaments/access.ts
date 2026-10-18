@@ -23,11 +23,12 @@ import { lookupPlayers } from '../../../shared/tournament/lookup.js';
 import type { Player } from '../../../shared/tournament/types.js';
 import { publicReports } from '../../../shared/tournament/reports.js';
 import { publicRequests } from '../../../shared/tournament/requests.js';
-import { jsonError, jsonResponse } from '../api/responses.js';
+import { jsonError, jsonResponse, noContent } from '../api/responses.js';
 import { type Context, param, sameOrigin } from '../auth/env.js';
 import type { User } from '../auth/session.js';
-import type { D1Like } from '../types.js';
-import type { Asker } from './roles.js';
+import { type Guard, rowsChanged } from '../d1.js';
+import type { D1Like, D1Statement } from '../types.js';
+import { type Asker, askerStands } from './roles.js';
 import { shownDecks } from './decks.js';
 import {
   type Change,
@@ -130,6 +131,19 @@ export async function answerMiss(
     return jsonError(again.error, again.status);
   }
   return ownerRefusal && again.asker?.role !== 'owner' ? jsonError(ownerRefusal, 403) : otherwise();
+}
+
+/**
+ * Writes any of the event's staff may make beside the event, in one
+ * transaction, each built on the guard that the asker is still on its staff
+ * in whatever role: all of them land or none. Answers 204 when any landed,
+ * or when the asker is still on staff and there was simply nothing to
+ * change; otherwise why the asker may no longer write.
+ */
+export async function staffWrites(access: StaffAccess, writes: (guard: Guard) => D1Statement[]): Promise<Response> {
+  const guard = askerStands(access.row.code, { hash: access.hash, role: 'staff' });
+  const results = await access.db.batch(writes(guard));
+  return results.some(result => rowsChanged(result) > 0) ? noContent() : answerMiss(access, noContent);
 }
 
 /**

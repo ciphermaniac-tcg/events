@@ -28,7 +28,7 @@ import type {
 import { shortLastNames } from '../../../shared/tournament/identify.js';
 import { randomToken, sha256 } from '../auth/session.js';
 import { displayNameSql } from '../accounts/handles.js';
-import { rowsChanged } from '../d1.js';
+import { type Guard, rowsChanged } from '../d1.js';
 import type { D1Like, D1Statement } from '../types.js';
 
 /** How long a store's invite link lets someone in. */
@@ -101,12 +101,6 @@ export interface NewStore {
   nights: LeagueNight[];
 }
 
-/** A condition every write of a batch holds to, with its bound values. */
-export interface Guard {
-  sql: string;
-  values: unknown[];
-}
-
 const ALWAYS: Guard = { sql: '1 = 1', values: [] };
 
 /** A store to make: under `id`, with its first member in their role, at `now`, each write only while `guard` holds. */
@@ -166,10 +160,15 @@ export function storeInserts(db: D1Like, making: StoreMaking): D1Statement[] {
  * on the locator. False when there is no such unsanctioned store; the
  * unique league index refuses a league another store has.
  */
-export async function certifyStore(db: D1Like, id: string, leagueId: string, now: number): Promise<boolean> {
+export async function certifyStore(
+  db: D1Like,
+  id: string,
+  certified: { leagueId: string; now: number },
+  guard: Guard
+): Promise<boolean> {
   const done = await db
-    .prepare('UPDATE stores SET league_id = ?, updated_at = ? WHERE id = ? AND league_id IS NULL')
-    .bind(leagueId, now, id)
+    .prepare(`UPDATE stores SET league_id = ?, updated_at = ? WHERE id = ? AND league_id IS NULL AND ${guard.sql}`)
+    .bind(certified.leagueId, certified.now, id, ...guard.values)
     .run();
   return rowsChanged(done) > 0;
 }
@@ -229,15 +228,16 @@ export async function saveNights(
   return rowsChanged(done) === 1;
 }
 
+/** Sets the store's status as the Admin `adminId`, while `guard` holds. */
 export async function setStatus(
   db: D1Like,
   id: string,
-  status: 'active' | 'revoked',
-  adminId: string
+  set: { status: 'active' | 'revoked'; adminId: string },
+  guard: Guard
 ): Promise<boolean> {
   const done = await db
-    .prepare('UPDATE stores SET status = ?, status_at = ?, status_by = ? WHERE id = ?')
-    .bind(status, Date.now(), adminId, id)
+    .prepare(`UPDATE stores SET status = ?, status_at = ?, status_by = ? WHERE id = ? AND ${guard.sql}`)
+    .bind(set.status, Date.now(), set.adminId, id, ...guard.values)
     .run();
   return rowsChanged(done) === 1;
 }
@@ -292,31 +292,56 @@ export async function setMemberRole(
   return rowsChanged(done) === 1;
 }
 
+/** Holds nowhere: a store with no Owner is mended by no one but an Admin. */
+const NEVER: Guard = { sql: '0', values: [] };
+
 /**
- * Hands the store to `userId`, someone already in it: the Owner becomes a
- * Manager and they become the Owner, in one transaction. The first write
- * holds only while `guard` does and `userId` is in the store and not its
- * Owner; the second only once the store has no Owner, so it lands only when
- * the first did (or the store had none, which an Admin mends this way). The
- * unique index on Owners refuses a second either way. False when nothing
- * was handed over.
+ * The writes that hand the store to `userId`, someone already in it: the
+ * Owner becomes a Manager and they become the Owner, in one transaction.
+ * The first marks the Owner as handing it over, only while `guard` holds
+ * and `userId` is in the store and not its Owner. The second makes them the
+ * Owner only where the first marked one, or where the store has no Owner
+ * and `mend` holds, which is how an Admin gives an ownerless store one; a
+ * store that lost its Owner meanwhile is never handed over on the strength
+ * of a guard that no longer held. The last makes the one marked a Manager,
+ * or the Owner again should nobody have taken it. The mark lives only
+ * inside the transaction, and the unique index on Owners refuses a second.
  */
-export async function handOver(db: D1Like, storeId: string, userId: string, guard: Guard = ALWAYS): Promise<boolean> {
-  const [, made] = await db.batch([
+export function handOverWrites(
+  db: D1Like,
+  storeId: string,
+  userId: string,
+  authority: { guard: Guard; mend?: Guard }
+): D1Statement[] {
+  const { guard, mend = NEVER } = authority;
+  return [
     db
       .prepare(
-        "UPDATE store_members SET role = 'manager' WHERE store_id = ? AND role = 'owner' AND EXISTS " +
+        "UPDATE store_members SET role = 'handing' WHERE store_id = ? AND role = 'owner' AND EXISTS " +
           "(SELECT 1 FROM store_members t WHERE t.store_id = ? AND t.user_id = ? AND t.role <> 'owner') " +
           `AND ${guard.sql}`
       )
       .bind(storeId, storeId, userId, ...guard.values),
     db
       .prepare(
-        "UPDATE store_members SET role = 'owner' WHERE store_id = ?1 AND user_id = ?2 AND NOT EXISTS " +
-          "(SELECT 1 FROM store_members o WHERE o.store_id = ?1 AND o.role = 'owner')"
+        "UPDATE store_members SET role = 'owner' WHERE store_id = ?1 AND user_id = ?2 AND role <> 'handing' " +
+          "AND NOT EXISTS (SELECT 1 FROM store_members o WHERE o.store_id = ?1 AND o.role = 'owner') " +
+          "AND (EXISTS (SELECT 1 FROM store_members h WHERE h.store_id = ?1 AND h.role = 'handing') " +
+          `OR ${mend.sql})`
       )
-      .bind(storeId, userId)
-  ]);
+      .bind(storeId, userId, ...mend.values),
+    db
+      .prepare(
+        "UPDATE store_members SET role = CASE WHEN EXISTS (SELECT 1 FROM store_members o WHERE o.store_id = ?1 AND o.role = 'owner') " +
+          "THEN 'manager' ELSE 'owner' END WHERE store_id = ?1 AND role = 'handing'"
+      )
+      .bind(storeId)
+  ];
+}
+
+/** Hands the store over as `handOverWrites` does, for its Owner; false when nothing was handed over. */
+export async function handOver(db: D1Like, storeId: string, userId: string, guard: Guard): Promise<boolean> {
+  const [, made] = await db.batch(handOverWrites(db, storeId, userId, { guard }));
   return rowsChanged(made) === 1;
 }
 

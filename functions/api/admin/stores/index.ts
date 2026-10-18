@@ -11,9 +11,10 @@
 import { readUnsanctionedStore } from '../../../../shared/accounts/stores.js';
 import { readJsonObject } from '../../../lib/api/body.js';
 import { jsonError } from '../../../lib/api/responses.js';
-import { openForAdmin } from '../../../lib/auth/admin.js';
+import { answerAdminMiss, openForAdmin } from '../../../lib/auth/admin.js';
 import type { Context } from '../../../lib/auth/env.js';
 import { randomToken } from '../../../lib/auth/session.js';
+import { both } from '../../../lib/d1.js';
 import { adminStore, adminStores } from '../../../lib/stores/admin.js';
 import { storeInserts } from '../../../lib/stores/db.js';
 import { privateJson } from '../../../lib/tournaments/access.js';
@@ -36,8 +37,8 @@ export async function onRequestPost(context: Context): Promise<Response> {
   const id = randomToken(12);
   const { owner, details, place, timeZone } = read;
   const store = { leagueId: null, details, lat: place?.lat ?? null, lon: place?.lon ?? null, timeZone, nights: [] };
-  const guard = { sql: 'EXISTS (SELECT 1 FROM users WHERE id = ?)', values: [owner] };
+  const guard = both(access.guard, { sql: 'EXISTS (SELECT 1 FROM users WHERE id = ?)', values: [owner] });
   await db.batch(storeInserts(db, { id, store, member: { id: owner, role: 'owner' }, now: Date.now(), guard }));
   const made = await adminStore(db, id);
-  return made ? privateJson({ store: made }, 201) : jsonError('No such account', 404);
+  return made ? privateJson({ store: made }, 201) : answerAdminMiss(context, () => jsonError('No such account', 404));
 }

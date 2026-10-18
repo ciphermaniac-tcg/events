@@ -27,21 +27,29 @@ import type { PodCategory } from '../../../../shared/tournament/types.js';
 import { applyPending, isSanctioned, type TournamentSettings } from '../../../../shared/tournament/view.js';
 import { readJsonObject } from '../../../lib/api/body.js';
 import { createRateLimiter, rateLimitAddress } from '../../../lib/api/rateLimiter.js';
-import { jsonError, noContent } from '../../../lib/api/responses.js';
+import { jsonError } from '../../../lib/api/responses.js';
 import { type Context, sameOrigin } from '../../../lib/auth/env.js';
-import { type Access, open, openForStaff, privateJson, publicViewOf } from '../../../lib/tournaments/access.js';
+import {
+  type Access,
+  open,
+  openForStaff,
+  privateJson,
+  publicViewOf,
+  staffWrites
+} from '../../../lib/tournaments/access.js';
 import { publishAfter } from '../../../lib/tournaments/publish.js';
 import {
   type Asker,
   type Claim,
   claimReporter,
   type Elsewhere,
-  releaseReporter
+  releaseReporter,
+  seatHeld
 } from '../../../lib/tournaments/reporters.js';
 import { reportEvidence } from '../../../lib/tournaments/reportHistory.js';
 import { playerRequestChanges } from '../../../lib/tournaments/requests.js';
 import { admitTry, clearFailures, LOCKED_OUT } from '../../../lib/tournaments/attempts.js';
-import { type Changes, mutate, type TournamentRow } from '../../../lib/tournaments/store.js';
+import { type Changes, type Held, mutateHeld, type TournamentRow } from '../../../lib/tournaments/store.js';
 import { msg } from '../../../../shared/i18n.js';
 
 type Body = Record<string, unknown>;
@@ -161,6 +169,16 @@ const linkedElsewhere = (row: TournamentRow, standing: Elsewhere) =>
   privateJson({ error: 'You’re linked to another player here', linkedKey: row.keys[standing.elsewhere] ?? null }, 409);
 
 /**
+ * What the asker's change holds to as it lands: the seat they reported from
+ * still theirs. One released, or released and claimed again, since they were
+ * found to hold it turns the change away, retries included.
+ */
+const heldBy = (access: Access, id: string, claim: Claim): Held => ({
+  standing: seatHeld(access.row, id, claim, access.hash),
+  refusal: { error: NOT_REPORTER, status: 403 }
+});
+
+/**
  * What the answer says of the asker: the token when its device just claimed
  * the player, whether it reports, and whether the player is its account's.
  */
@@ -192,7 +210,7 @@ async function report(context: Context<'code'>, access: Access, body: Body, who:
     account: standing.account,
     claimedAt: standing.claimedAt
   };
-  const outcome = await mutate(db, row, r => reportChanges(r, filing));
+  const outcome = await mutateHeld(db, row, r => reportChanges(r, filing), heldBy(access, who.id, standing));
   if ('error' in outcome) {
     return jsonError(outcome.error, outcome.status);
   }
@@ -222,7 +240,12 @@ async function ask(context: Context<'code'>, access: Access, body: Body, id: str
     return jsonError(NOT_REPORTER, 403);
   }
   const request = { id: crypto.randomUUID(), player: id, kind, cancel: body.cancel === true, at: Date.now() };
-  const outcome = await mutate(access.db, access.row, row => playerRequestChanges(row, request));
+  const outcome = await mutateHeld(
+    access.db,
+    access.row,
+    row => playerRequestChanges(row, request),
+    heldBy(access, id, standing)
+  );
   if ('error' in outcome) {
     return jsonError(outcome.error, outcome.error === TOO_SOON ? 429 : outcome.status);
   }
@@ -263,10 +286,12 @@ export async function onRequestDelete(context: Context<'code'>): Promise<Respons
   if (!access.row.tournament.players.some(p => p.id === player)) {
     return jsonError('No such player', 404);
   }
-  await releaseReporter(access.db, access.row.code, player);
-  // Staff vouch for the player, so their Player ID's wrong birth years are forgiven too.
-  await clearFailures(access.db, access.row.code, player);
-  return noContent();
+  const { db, row } = access;
+  return staffWrites(access, guard => [
+    releaseReporter(db, row.code, player, guard),
+    // Staff vouch for the player, so their Player ID's wrong birth years are forgiven too.
+    clearFailures(db, row.code, player, guard)
+  ]);
 }
 
 /** At a sanctioned event, the Player ID asked about when it is on the event's list: the one a wrong year counts against. */

@@ -10,9 +10,9 @@
 import { isPopId } from '../../../shared/tournament/profile.js';
 import { readJsonObject } from '../../lib/api/body.js';
 import { jsonError } from '../../lib/api/responses.js';
-import { openForAdmin } from '../../lib/auth/admin.js';
+import { answerAdminMiss, openForAdmin } from '../../lib/auth/admin.js';
 import type { Context } from '../../lib/auth/env.js';
-import { firstRow, rowsChanged } from '../../lib/d1.js';
+import { firstRow, type Guard, rowsChanged } from '../../lib/d1.js';
 import { privateJson } from '../../lib/tournaments/access.js';
 import type { D1Like, D1Statement } from '../../lib/types.js';
 import { msg } from '../../../shared/i18n.js';
@@ -43,30 +43,26 @@ const TAKEN_FROM = 'pop_id = ?1 AND id IS NOT ?2 AND (?2 IS NULL OR EXISTS (SELE
  * The move's statements, in one batch, so it lands whole or not at all: who
  * held the POP ID; that holder's players under it let go, and the POP ID off
  * it; then the new holder's players under its old POP ID let go, and the
- * POP ID on it.
+ * POP ID on it. Every write holds to `guard`, the asker still an Admin, its
+ * values bound after the POP ID and the account (?1 and ?2).
  */
-function moveStatements(db: D1Like, { popId, to }: Move): D1Statement[] {
+function moveStatements(db: D1Like, { popId, to }: Move, guard: Guard): D1Statement[] {
+  const write = (sql: string) => db.prepare(`${sql} AND ${guard.sql}`).bind(popId, to, ...guard.values);
   const taken = [
     db.prepare('SELECT id FROM users WHERE pop_id = ?').bind(popId),
-    db
-      .prepare(
-        `DELETE FROM report_devices WHERE player_id = ?1 AND user_id = (SELECT id FROM users WHERE ${TAKEN_FROM})`
-      )
-      .bind(popId, to),
-    db.prepare(`UPDATE users SET pop_id = NULL WHERE ${TAKEN_FROM}`).bind(popId, to)
+    write(`DELETE FROM report_devices WHERE player_id = ?1 AND user_id = (SELECT id FROM users WHERE ${TAKEN_FROM})`),
+    write(`UPDATE users SET pop_id = NULL WHERE ${TAKEN_FROM}`)
   ];
   if (to === null) {
     return taken;
   }
   return [
     ...taken,
-    db
-      .prepare(
-        'DELETE FROM report_devices WHERE user_id = ?2 AND player_id = (SELECT pop_id FROM users WHERE id = ?2) ' +
-          'AND player_id <> ?1'
-      )
-      .bind(popId, to),
-    db.prepare('UPDATE users SET pop_id = ?1 WHERE id = ?2').bind(popId, to)
+    write(
+      'DELETE FROM report_devices WHERE user_id = ?2 AND player_id = (SELECT pop_id FROM users WHERE id = ?2) ' +
+        'AND player_id <> ?1'
+    ),
+    write('UPDATE users SET pop_id = ?1 WHERE id = ?2')
   ];
 }
 
@@ -79,9 +75,11 @@ export async function onRequestPost(context: Context): Promise<Response> {
   if (typeof move === 'string') {
     return jsonError(move, 400);
   }
-  const results = await access.db.batch(moveStatements(access.db, move));
-  if (move.to !== null && rowsChanged(results.at(-1)) === 0) {
-    return jsonError('No such account', 404);
-  }
-  return privateJson({ from: firstRow<{ id: string }>(results[0])?.id ?? null, to: move.to });
+  const results = await access.db.batch(moveStatements(access.db, move, access.guard));
+  const answer = () =>
+    move.to !== null && rowsChanged(results.at(-1)) === 0
+      ? jsonError('No such account', 404)
+      : privateJson({ from: firstRow<{ id: string }>(results[0])?.id ?? null, to: move.to });
+  // Nothing moved: the move was already made, or the asker lost the role or signed out meanwhile.
+  return results.slice(1).some(result => rowsChanged(result) > 0) ? answer() : answerAdminMiss(context, answer);
 }

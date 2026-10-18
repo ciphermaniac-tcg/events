@@ -16,16 +16,16 @@ import {
   storeOf
 } from '../../../lib/accounts/applications.js';
 import { randomToken } from '../../../lib/auth/session.js';
-import { breaksLeague, type Guard, storeInserts } from '../../../lib/stores/db.js';
+import { breaksLeague, storeInserts } from '../../../lib/stores/db.js';
 import { publishStores } from '../../../lib/stores/publish.js';
 import { roleForRelationship, type StoreApplication } from '../../../../shared/accounts/stores.js';
 import { readJsonObject } from '../../../lib/api/body.js';
 import { jsonError } from '../../../lib/api/responses.js';
-import { openForAdmin } from '../../../lib/auth/admin.js';
+import { type AdminAccess, answerAdminMiss, openForAdmin } from '../../../lib/auth/admin.js';
 import { type Context, param } from '../../../lib/auth/env.js';
-import { firstRow, rowsChanged } from '../../../lib/d1.js';
+import { both, firstRow, rowsChanged } from '../../../lib/d1.js';
 import { privateJson } from '../../../lib/tournaments/access.js';
-import type { D1Like, D1Statement } from '../../../lib/types.js';
+import type { D1Statement } from '../../../lib/types.js';
 import { msg, msgf } from '../../../../shared/i18n.js';
 
 interface Decision {
@@ -48,22 +48,23 @@ function readDecision(body: Record<string, unknown> | null): Decision | string {
 
 /**
  * The decision's writes, then the Application read back. Each write holds only while the
- * Application is still pending, inside the one transaction a batch is, so
- * two Admins deciding at once cannot both land, and no store is made for an
- * Application someone else rejected meanwhile.
+ * Application is still pending and the asker still an Admin, inside the one
+ * transaction a batch is, so two Admins deciding at once cannot both land,
+ * no store is made for an Application someone else rejected meanwhile, and
+ * nothing lands for an Admin who lost the role or signed out meanwhile.
  */
 function decisionWrites(
-  db: D1Like,
+  access: AdminAccess,
   application: { id: string; userId: string; store: StoreApplication | null },
-  decision: Decision,
-  adminId: string
+  decision: Decision
 ): D1Statement[] {
+  const { db, admin } = access;
   const { id, userId, store } = application;
   const now = Date.now();
-  const pending: Guard = {
+  const pending = both(access.guard, {
     sql: "EXISTS (SELECT 1 FROM applications WHERE id = ? AND status = 'pending')",
     values: [id]
-  };
+  });
   const made =
     decision.approve && store
       ? storeInserts(db, {
@@ -84,9 +85,9 @@ function decisionWrites(
   const decide = db
     .prepare(
       'UPDATE applications SET status = ?2, decided_at = ?3, decided_by = ?4, note = ?5 ' +
-        "WHERE id = ?1 AND status = 'pending'"
+        `WHERE id = ?1 AND status = 'pending' AND ${access.guard.sql}`
     )
-    .bind(id, decision.approve ? 'approved' : 'rejected', now, adminId, decision.note);
+    .bind(id, decision.approve ? 'approved' : 'rejected', now, admin.id, decision.note, ...access.guard.values);
   const read = db.prepare(`${ADMIN_APPLICATIONS} WHERE a.id = ?`).bind(id);
   return [...made, decide, read];
 }
@@ -113,7 +114,7 @@ export async function onRequestPost(context: Context<'id'>): Promise<Response> {
     return jsonError('This application asks for no store; reject it so they can apply again', 400);
   }
   const application = { id: found.id, userId: found.user_id, store };
-  const results = await db.batch(decisionWrites(db, application, decision, access.admin.id)).catch((error: unknown) => {
+  const results = await db.batch(decisionWrites(access, application, decision)).catch((error: unknown) => {
     if (breaksLeague(error)) {
       return null;
     }
@@ -127,7 +128,7 @@ export async function onRequestPost(context: Context<'id'>): Promise<Response> {
     return jsonError('No such application', 404);
   }
   if (rowsChanged(results.at(-2)) === 0) {
-    return jsonError('Already decided', 409);
+    return answerAdminMiss(context, () => jsonError('Already decided', 409));
   }
   if (decision.approve) {
     await publishStores(context);

@@ -15,7 +15,8 @@
  * forgiven once it lands.
  */
 
-import type { D1Like } from '../types.js';
+import type { Guard } from '../d1.js';
+import type { D1Like, D1Statement } from '../types.js';
 import { msg } from '../../../shared/i18n.js';
 
 export const FREE_TRIES = 5;
@@ -81,7 +82,9 @@ interface Try {
 export const admitTry = ({ db, code, popId, right, now }: Try) =>
   right ? admitRight(db, code, popId, now) : countTry(db, code, popId, now);
 
-/** Forgets a Player ID's wrong tries outright: staff vouch for the player. */
-export function clearFailures(db: D1Like, code: string, popId: string) {
-  return db.prepare('DELETE FROM identify_failures WHERE code = ? AND pop_id = ?').bind(code, popId).run();
+/** Forgets a Player ID's wrong tries outright, while `guard` holds: staff vouch for the player. */
+export function clearFailures(db: D1Like, code: string, popId: string, guard: Guard): D1Statement {
+  return db
+    .prepare(`DELETE FROM identify_failures WHERE code = ? AND pop_id = ? AND ${guard.sql}`)
+    .bind(code, popId, ...guard.values);
 }
