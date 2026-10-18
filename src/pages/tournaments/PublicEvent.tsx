@@ -620,7 +620,7 @@ function EventBody(props: {
 
   return (
     <>
-      <Show when={asks()}>
+      <Show when={started() && asks()}>
         <YourMatch
           view={props.view}
           me={me()}
