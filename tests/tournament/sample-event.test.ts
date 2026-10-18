@@ -9,6 +9,8 @@ import test from 'node:test';
 import { seededRandom } from '../../shared/tournament/random.ts';
 import {
   playSampleEvent,
+  reportOrder,
+  SAMPLE_DECKS,
   SAMPLE_PLAYERS,
   sampleStandings,
   type SampleTable
@@ -87,4 +89,36 @@ test('players level on points keep their seats', () => {
     sampleStandings(players, [{ p1: 'A', p2: 'B', winner: 'A' }]).map(s => s.name),
     ['A', 'D', 'C', 'B']
   );
+});
+
+test('every sample player has a deck with at least one sprite', () => {
+  for (const name of SAMPLE_PLAYERS) {
+    const deck = SAMPLE_DECKS[name];
+    assert.ok(deck, `${name} has no deck`);
+    assert.ok(deck.icons.length > 0 && deck.icons.length <= 2, `${name}'s deck draws ${deck.icons.length} sprites`);
+  }
+});
+
+test('results come in with the bye first, ties last, and every table once', () => {
+  const tables: SampleTable[] = [
+    { p1: 'A', p2: 'B', winner: null },
+    { p1: 'C', p2: 'D', winner: 'C' },
+    { p1: 'E', p2: 'F', winner: 'F' },
+    { p1: 'G', p2: 'H', winner: null },
+    { p1: 'I', p2: 'J', winner: 'J' },
+    { p1: 'K', p2: null, winner: 'K' }
+  ];
+  for (let seed = 1; seed <= 20; seed += 1) {
+    const order = reportOrder(tables, seededRandom(seed));
+    assert.deepEqual([...order].sort(), [0, 1, 2, 3, 4, 5]);
+    assert.equal(order[0], 5, 'the bye comes in first');
+    assert.deepEqual(new Set(order.slice(-2)), new Set([0, 3]), 'the ties come in last');
+  }
+});
+
+test('the decided tables do not always come in top down', () => {
+  const tables = playSampleEvent(SAMPLE_PLAYERS, 1, seededRandom(2))[0] as SampleTable[];
+  const orders = new Set(Array.from({ length: 10 }, (_, seed) => reportOrder(tables, seededRandom(seed + 1)).join()));
+  assert.ok(orders.size > 1);
+  assert.ok([...orders].some(order => order !== tables.map((_, i) => i).join()));
 });

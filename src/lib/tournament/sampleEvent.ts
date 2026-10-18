@@ -1,11 +1,16 @@
 /**
  * The sample event the home page plays: real Swiss pairings from the
  * engine events run on, with each table's result drawn at random. The page
- * steps through the rounds a result at a time.
+ * steps through the rounds a result at a time, in the order a room reports
+ * them (reportOrder).
  */
 
 import { pairSwiss } from '../../../shared/tournament/pairing';
-import type { Random } from '../../../shared/tournament/random';
+import { type Random, shuffled } from '../../../shared/tournament/random';
+
+/** The sample's event code. Its QR code is a joke for whoever scans it. */
+export const SAMPLE_CODE = 'K7RW2P';
+export const SAMPLE_QR = 'https://youtu.be/dQw4w9WgXcQ';
 
 /** The sample's sixteen players, friends of the site who lent their names. */
 export const SAMPLE_PLAYERS: readonly string[] = [
@@ -21,11 +26,39 @@ export const SAMPLE_PLAYERS: readonly string[] = [
   'Jasmine Dickinson',
   'Reese Lundquist',
   'Macey Marlowe',
-  'Christopher Dilday',
+  'Cynthia Rodriguez',
   'Jessie Espinoza',
   'Kaycee Adams',
-  'Chris Colunga'
+  'Jane Ester'
 ];
+
+export interface SampleDeck {
+  label: string;
+  /** Sprite slugs, as the site's archetype icon map names them. */
+  icons: string[];
+}
+
+const deck = (label: string, ...icons: string[]): SampleDeck => ({ label, icons });
+
+/** What each sample player is known to play: current decks, drawn the way the site draws them. */
+export const SAMPLE_DECKS: Readonly<Record<string, SampleDeck>> = {
+  'Annie Haberstroh': deck('Dragapult Dusknoir', 'dragapult', 'dusknoir'),
+  'Olivia Battaglia': deck('Slowking', 'slowking'),
+  'Lake Lubrano': deck("N's Zoroark", 'zoroark'),
+  'Andrew Hedrick': deck('Dragapult Hammers', 'dragapult', 'crushing-hammer'),
+  'Iris Morgan': deck('Alakazam Dudunsparce', 'alakazam', 'dudunsparce'),
+  'Sky Delsol': deck('Mega Excadrill', 'excadrill-mega'),
+  'Colby Rose': deck('Lucario Hariyama', 'lucario-mega', 'hariyama'),
+  'James Musser': deck('Dhelmise', 'dhelmise', 'banette'),
+  'Emma Hagen': deck('Basic Box', 'ogerpon', 'clefairy'),
+  'Jasmine Dickinson': deck('Ogerpon Meganium Hydrapple', 'ogerpon', 'hydrapple'),
+  'Reese Lundquist': deck('Basic Box', 'ogerpon', 'clefairy'),
+  'Macey Marlowe': deck('Lopunny Dudunsparce', 'lopunny-mega', 'dudunsparce'),
+  'Cynthia Rodriguez': deck('Festival Lead', 'dipplin', 'thwackey'),
+  'Jessie Espinoza': deck('Sharpedo Toxtricity', 'sharpedo-mega', 'toxtricity'),
+  'Kaycee Adams': deck("Cynthia's Garchomp", 'garchomp'),
+  'Jane Ester': deck('Dragapult', 'dragapult')
+};
 
 export interface SampleTable {
   p1: string;
@@ -137,4 +170,17 @@ export function sampleStandings(players: readonly string[], tables: readonly Sam
   return players
     .map(name => standingOf(name, tables))
     .sort((a, b) => b.points - a.points || (seat.get(a.name) ?? 0) - (seat.get(b.name) ?? 0));
+}
+
+/**
+ * The order a round's results come in, as table indexes: the bye at once,
+ * since nobody reports it, then the decided tables at random, and the ties
+ * last, as tables that play to time do.
+ */
+export function reportOrder(tables: readonly SampleTable[], random: Random): number[] {
+  const indexes = tables.map((_, i) => i);
+  const bye = indexes.filter(i => tables[i]?.p2 === null);
+  const ties = indexes.filter(i => tables[i]?.p2 !== null && tables[i]?.winner === null);
+  const decided = indexes.filter(i => tables[i]?.p2 !== null && tables[i]?.winner !== null);
+  return [...bye, ...shuffled(decided, random), ...shuffled(ties, random)];
 }
