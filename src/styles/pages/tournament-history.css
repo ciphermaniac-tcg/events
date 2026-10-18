@@ -29,7 +29,8 @@
   background: color-mix(in srgb, var(--fg) 8%, var(--surface));
 }
 .tm-page .tm-hist .data tbody td {
-  border-bottom-color: var(--rule);
+  /* Tall unstriped rows: a rule, not the shared zebra, tells them apart. */
+  border-bottom: 1px solid var(--rule);
 }
 .tm-hist .data td {
   height: 58px;
