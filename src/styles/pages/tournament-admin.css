@@ -55,7 +55,7 @@
 /* The applicant's own words, kept as they wrote them, at reading length. */
 .tm-app-explanation {
   max-width: 70ch;
-  font-size: var(--text-base);
+  font-size: var(--text-body);
   line-height: 1.5;
   white-space: pre-line;
   overflow-wrap: anywhere;
