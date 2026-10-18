@@ -194,7 +194,7 @@ test('an Admin approves an Application with a note, and it shows as decided in p
   await page.goto('/admin');
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Admin');
   const first = page.locator('.tm-app').first();
-  await expect(first.locator('h3')).toHaveText('Mary Jackson');
+  await expect(first.locator('h2')).toHaveText('Mary Jackson');
   await expect(first).toContainText('7200001');
   await expect(first).toContainText('mary@example.com');
   await expect(first).toContainText('I run the Thursday league at the card shop.');

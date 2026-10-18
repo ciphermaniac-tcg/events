@@ -18,7 +18,7 @@
 .tm-box-bar + :is(.tm-app, .tm-found) {
   border-top: 0;
 }
-:is(.tm-app, .tm-found) h3 {
+:is(.tm-app, .tm-found) h2 {
   margin: 0 0 var(--space-2);
   font-size: var(--text-lg);
   font-weight: 600;

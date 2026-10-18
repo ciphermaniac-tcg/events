@@ -145,10 +145,10 @@ function ApplicationRow(props: {
   return (
     <article class='tm-app'>
       <div class='tm-app-who'>
-        <h3 id={`app-${a().id}`}>
+        <h2 id={`app-${a().id}`}>
           {a().applied.firstName} {a().applied.lastName}
           <Show when={DECIDED[a().status]}>{word => <span class='tm-flag'>{t(word())}</span>}</Show>
-        </h3>
+        </h2>
         <dl class='tm-app-facts'>
           <Fact label={t('POP ID')} value={a().applied.popId} />
           <Fact label={t('Account')} value={a().account.name} />

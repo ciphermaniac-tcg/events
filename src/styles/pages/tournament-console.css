@@ -575,11 +575,11 @@
 .tm-console .tm-lists .tm-check-split .tm-list-columns {
   padding: 0;
 }
-.tm-console .tm-check-side h4 {
+.tm-console .tm-check-side h2 {
   margin: 0 0 var(--space-1);
   font-size: var(--text-base);
 }
-.tm-console .tm-check-side h4:not(:first-child) {
+.tm-console .tm-check-side h2:not(:first-child) {
   margin-top: var(--space-4);
 }
 .tm-console .tm-check-list,

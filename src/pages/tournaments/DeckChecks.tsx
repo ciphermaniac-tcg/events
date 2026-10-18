@@ -339,7 +339,7 @@ export function DeckCheckSide(props: SideProps) {
   }
   return (
     <div class='tm-check-side'>
-      <h4>{t('Deck checks')}</h4>
+      <h2>{t('Deck checks')}</h2>
       <Show
         when={!props.checks.failed()}
         fallback={
@@ -370,7 +370,7 @@ export function DeckCheckSide(props: SideProps) {
         when={props.latestRound > 0}
         fallback={<p class='muted'>{t('Checks are recorded once round 1 is paired.')}</p>}
       >
-        <h4>{draft().replaces ? t('Edit check') : t('Record a check')}</h4>
+        <h2>{draft().replaces ? t('Edit check') : t('Record a check')}</h2>
         <CheckForm
           draft={draft()}
           latestRound={props.latestRound}

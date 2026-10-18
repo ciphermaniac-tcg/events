@@ -82,10 +82,10 @@ function FoundRow(props: { account: FoundAccount; onChanged: (lookup: string) =>
   return (
     <article class='tm-found'>
       <div class='tm-found-who'>
-        <h3>
+        <h2>
           {a().name}
           <Show when={a().role}>{role => <span class='tm-flag'>{t(ROLE_WORDS[role()])}</span>}</Show>
-        </h3>
+        </h2>
         <dl class='tm-app-facts'>
           <div>
             <dt>{t('POP ID')}</dt>
