@@ -24,6 +24,11 @@
 .live-deck-picker .tl-list li {
   grid-template-columns: 46px 1fr auto;
 }
+.live-deck-picker .type-archetype-icon {
+  width: 26px;
+  height: 26px;
+  object-fit: contain;
+}
 
 .page {
   max-width: 1180px;

@@ -12,14 +12,11 @@
  * Loaded once per format per page and shared by every picker on it.
  */
 
-import { type Accessor, createMemo, createResource } from 'solid-js';
 import { fetchArchetypeLabels, fetchOnlineArchetypes } from '../../lib/data';
 import { fetchFormatArchetypes, loadTierFormats, STANDARD_FORMAT_ID, tierFormats } from '../../lib/data/formats';
 import { loadSpecies } from '../../lib/deckIcons';
-import { latestValue } from '../../lib/resource';
 import type { ReportedDeck } from '../live/reportedDeck';
 import { learnDeckIcons } from './DeckIcons';
-import { eventDecks } from './eventDecks';
 
 async function standardDecks(): Promise<ReportedDeck[]> {
   const [online, labels] = await Promise.all([
@@ -91,15 +88,6 @@ export function decksFor(format: string): Promise<ReportedDeck[]> {
   const decks = load(format);
   loaded.set(format, decks);
   return decks;
-}
-
-/** The picker's options for the event's format, with the decks already entered at the event. */
-export function createDeckOptions(
-  format: Accessor<string>,
-  inEvent: Accessor<readonly string[]> = () => []
-): Accessor<ReportedDeck[]> {
-  const [decks] = createResource(format, decksFor);
-  return createMemo(() => eventDecks(latestValue(decks) ?? [], inEvent()));
 }
 
 /**

@@ -51,16 +51,20 @@ export function DeckCombo(props: {
       emptyLabel={t('Nothing matches.')}
       width={props.width}
     >
-      {(deck, query) => <DeckOption deck={deck} query={query} />}
+      {(deck, query) => <DeckOption deck={deck} query={query} typeFormat={props.decks.length === 11} />}
     </Combo>
   );
 }
 
-function DeckOption(props: { deck: ReportedDeck; query: string }) {
+function DeckOption(props: { deck: ReportedDeck; query: string; typeFormat: boolean }) {
   const parts = () => splitMatch(props.deck.label, props.query);
   return (
     <>
-      <ArchetypeIcons slugs={deckIcons(props.deck)} size={26} reserveSlot />
+      {props.typeFormat ? (
+        <img class='type-archetype-icon' src={`/img/type-icons/${props.deck.label.toLowerCase()}.svg`} alt='' />
+      ) : (
+        <ArchetypeIcons slugs={deckIcons(props.deck)} size={26} reserveSlot />
+      )}
       <b>
         {parts()[0]}
         <mark>{parts()[1]}</mark>
