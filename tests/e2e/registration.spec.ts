@@ -194,7 +194,13 @@ test('a registered Player ID asks its birth year, then opens the registration to
   await expect(page.locator('.tm-reg-who')).toContainText('Avery Chen');
   await expect(page.getByRole('textbox', { name: 'Decklist' })).toHaveValue(DECK);
   await expect(page.getByText('Changes close at')).toBeVisible();
-  await page.getByRole('button', { name: 'More' }).click();
+  const more = page.getByRole('button', { name: 'More' });
+  await more.click();
+  // The menu hangs from its button at its own width, not stretched across the page.
+  const menu = (await page.getByRole('group', { name: /^More for / }).boundingBox()) ?? { x: 0, width: Infinity };
+  const trigger = (await more.boundingBox()) ?? { x: 0, width: 0 };
+  expect(menu.width).toBeLessThan(320);
+  expect(Math.abs(menu.x + menu.width - (trigger.x + trigger.width))).toBeLessThan(2);
   await page.getByRole('button', { name: 'Change name' }).click();
   await page.getByRole('textbox', { name: 'First name' }).fill('Avery J.');
   await page.getByText('In person').click();

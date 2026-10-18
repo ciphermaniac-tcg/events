@@ -1997,6 +1997,7 @@ tr.is-in .tm-place {
 }
 .tm-menu-fixed {
   position: fixed;
+  right: auto;
   z-index: 40;
 }
 .tm-menu-field {
