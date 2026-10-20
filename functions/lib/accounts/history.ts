@@ -53,7 +53,7 @@ const MAX_ENTRIES = 500;
 
 /** The event's columns an entry needs, `player` being the player's ID there. */
 const entryColumns = (player: string) =>
-  `t.code, t.mode, t.updated_at, json_extract(t.player_keys, '$."' || ${player} || '"') AS key, ` +
+  `t.code, t.mode, t.version, t.updated_at, json_extract(t.player_keys, '$."' || ${player} || '"') AS key, ` +
   "json_extract(t.state, '$.info.name') AS name, json_extract(t.state, '$.info.startDate') AS start_date, " +
   "json_extract(t.settings, '$.startsAt') AS starts_at, json_extract(t.settings, '$.format') AS format, " +
   `json_extract(t.settings, '$.finished') AS finished, ${pairedRounds('t.state')} AS rounds, ` +
@@ -63,6 +63,7 @@ const entryColumns = (player: string) =>
 interface EntryRow {
   code: string;
   mode: string;
+  version: number;
   updated_at: number;
   key: string | null;
   name: string | null;
@@ -167,7 +168,8 @@ const entryOf = (row: EntryRow & { key: string }): HistoryEntry => ({
   startsAt: row.starts_at ?? DEFAULT_SETTINGS.startsAt,
   format: row.format ?? DEFAULT_SETTINGS.format,
   mode: row.mode === 'tom' ? 'tom' : 'swiss',
-  status: statusOf(row)
+  status: statusOf(row),
+  version: row.version
 });
 
 /** When the event is, to sort by: its start time, or else its date, as text that sorts. */

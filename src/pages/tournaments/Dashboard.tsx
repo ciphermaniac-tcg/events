@@ -32,6 +32,7 @@ import { canCreateEvents } from '../../../shared/accounts/stores';
 import { rovingIndex } from '@ciphermaniac/design/lib/roving';
 import { Skeleton } from '@ciphermaniac/design/components/Skeleton';
 import { fetchHistory, listTournaments, type Me, type TournamentSummary } from '../../lib/tournament/api';
+import { accountList } from '../../lib/tournament/accountMemory';
 import { applicantStage, fetchApplication } from '../../lib/tournament/applications';
 import { latestValue } from '../../lib/resource';
 import { pendingApplications } from './pendingApplications';
@@ -71,7 +72,8 @@ interface Shown {
   count: number;
 }
 
-const settled = (resource: Resource<unknown>) => resource.state === 'ready' || resource.state === 'errored';
+/** Answered, or showing a kept answer while it is read again. */
+const settled = (resource: Resource<unknown>) => resource.state !== 'unresolved' && resource.state !== 'pending';
 
 /**
  * The tabs, as a strip under the heading (`wide`) or the phone's bottom bar;
@@ -139,17 +141,24 @@ function TabList(props: {
 }
 
 export function Dashboard(props: {
+  /** The account the lists belong to; another account is another dashboard. */
+  account: string;
   user: Me;
   organizing: (events: readonly TournamentSummary[], application: Resource<MyApplication | null>) => JSX.Element;
 }) {
   const [params, setParams] = useSearchParams<{ tab?: string; new?: string; section?: string }>();
-  const [events, { refetch: retryEvents }] = createResource(() => listTournaments().then(answer => answer.tournaments));
-  const [history, { refetch }] = createResource(() => fetchHistory().then(answer => answer.entries));
+  // Both lists open on this tab's last answer, if any, while they are read again.
+  const account = untrack(() => props.account);
+  const [events, { refetch: retryEvents }] = accountList('events', account, () =>
+    listTournaments().then(answer => answer.tournaments)
+  );
+  const [history, { refetch }] = accountList('history', account, fetchHistory);
   const admin = () => isAdmin(props.user.role);
 
   const runningNow = () => (latestValue(events) ?? []).filter(event => !event.finished && event.rounds > 0).length;
   // A History unread for an error counts nothing here; the Playing tab says why.
-  const playingNow = () => (history.error ? [] : (latestValue(history) ?? [])).filter(e => e.status === 'live').length;
+  const playingNow = () =>
+    (history.error ? [] : (latestValue(history)?.entries ?? [])).filter(e => e.status === 'live').length;
   const mayCreate = () => canCreateEvents(props.user.role, props.user.stores);
   // An account that may not start events is asked where its Application stands: one under way
   // shows the Organizing tab, where ApplicantLine says so, and one approved since the session

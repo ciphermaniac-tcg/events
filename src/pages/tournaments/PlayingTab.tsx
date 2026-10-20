@@ -10,9 +10,9 @@ import { A } from '@solidjs/router';
 import { MAIN_SITE } from '../../lib/constants';
 import { t } from '../../lib/i18n';
 import { createResource, For, type Resource, Show } from 'solid-js';
-import { type HistoryEntry } from '../../lib/tournament/api';
+import { type HistoryEntry, type OwnHistory } from '../../lib/tournament/api';
 import { loadEntry } from '../../lib/tournament/historyCopies';
-import { resolved } from '../../lib/resource';
+import { latestValue, resolved } from '../../lib/resource';
 import { DeckIcons } from './DeckIcons';
 import { ResourceFallback } from './Field';
 import { HistoryList } from './HistoryList';
@@ -106,8 +106,8 @@ function Welcome() {
   );
 }
 
-export function PlayingTab(props: { history: Resource<HistoryEntry[]>; onRetry: () => void }) {
-  const entries = () => resolved(props.history);
+export function PlayingTab(props: { history: Resource<OwnHistory>; onRetry: () => void }) {
+  const entries = () => latestValue(props.history)?.entries;
   const byStatus = (status: HistoryEntry['status']) => (entries() ?? []).filter(entry => entry.status === status);
   const finished = () => byStatus('finished');
   return (

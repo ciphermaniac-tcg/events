@@ -73,7 +73,8 @@ const ENTRIES: HistoryEntry[] = [
     startsAt: '',
     format: 'Standard',
     mode: 'tom',
-    status: 'live'
+    status: 'live',
+    version: 1
   },
   {
     code: 'GONE01',
@@ -83,7 +84,8 @@ const ENTRIES: HistoryEntry[] = [
     startsAt: '',
     format: 'Standard',
     mode: 'swiss',
-    status: 'finished'
+    status: 'finished',
+    version: 1
   },
   {
     code: 'CUP001',
@@ -93,7 +95,8 @@ const ENTRIES: HistoryEntry[] = [
     startsAt: '',
     format: 'Standard',
     mode: 'swiss',
-    status: 'finished'
+    status: 'finished',
+    version: 1
   }
 ];
 
@@ -182,6 +185,41 @@ test('History lists the account’s events with place and record from each copy,
   await expect(rounds.nth(1)).toContainText('In progress');
   expect([...new Set(read)].sort()).toEqual(['CUP001', 'GONE01', 'LIVE01']);
   expect(errors).toEqual([]);
+});
+
+test('a reload of a signed-in tab draws History before the session is read again, and gives way when it reads signed out', async ({
+  page
+}) => {
+  await mockAccount(page);
+  await publishCopies(page);
+  await page.goto('/history');
+  const rows = page.locator('.tm-hist tbody tr.is-link');
+  await expect(rows).toHaveCount(2);
+  let answer = () => {};
+  await page.route('**/api/me', route => {
+    answer = () => void route.fulfill({ json: { user: null, providers: ['google'] } });
+  });
+  await page.reload();
+  await expect(rows).toHaveCount(2);
+  answer();
+  await expect(page.getByRole('link', { name: 'Sign in with Google' })).toBeVisible();
+  await expect(rows).toHaveCount(0);
+});
+
+test('an event’s link rested on reads the event ahead of the click, and the page takes that read', async ({ page }) => {
+  await mockAccount(page);
+  const read = await publishCopies(page);
+  await page.goto('/history');
+  const cup = page.locator('.tm-hist tbody tr.is-link').filter({ hasText: 'Fixture Cup' });
+  await cup.getByRole('button', { name: 'Show rounds' }).click();
+  const link = page.getByRole('link', { name: 'Event page' });
+  const before = read.filter(code => code === 'CUP001').length;
+  await link.hover();
+  await expect.poll(() => read.filter(code => code === 'CUP001').length).toBe(before + 1);
+  await link.click();
+  await expect(page).toHaveURL(/\/t\/CUP001$/);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Apart');
+  expect(read.filter(code => code === 'CUP001').length).toBe(before + 1);
 });
 
 test('History signed out offers sign-in, and asks for no History', async ({ page }) => {

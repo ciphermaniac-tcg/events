@@ -468,13 +468,19 @@ export function HostIndex() {
       <SessionGate>
         {s => (
           <Show when={s().user} fallback={<HostHome offer={s()} />}>
+            {/* Keyed on the account: a kept session can give way to another one. */}
             {user => (
-              <Dashboard
-                user={user()}
-                organizing={(events, application) => (
-                  <Organizer events={events} application={application} onOpened={opened} />
+              <Show when={user().id} keyed>
+                {account => (
+                  <Dashboard
+                    account={account}
+                    user={user()}
+                    organizing={(events, application) => (
+                      <Organizer events={events} application={application} onOpened={opened} />
+                    )}
+                  />
                 )}
-              />
+              </Show>
             )}
           </Show>
         )}

@@ -5,9 +5,10 @@
  */
 
 import { SessionGate } from './SessionGate';
-import { createResource, onMount, Show } from 'solid-js';
+import { onMount, Show, untrack } from 'solid-js';
 import { fetchHistory, type SignInOffer } from '../../lib/tournament/api';
-import { resolved } from '../../lib/resource';
+import { accountList } from '../../lib/tournament/accountMemory';
+import { latestValue } from '../../lib/resource';
 import { ResourceFallback } from './Field';
 import { TournamentHero } from './Hero';
 import { ProfileHistory } from './ProfileHistory';
@@ -33,9 +34,14 @@ function SignedOut(props: { offer: SignInOffer }) {
   );
 }
 
-function MyHistory() {
-  const [history, { refetch }] = createResource(fetchHistory);
-  const entries = () => resolved(history);
+function MyHistory(props: { account: string }) {
+  // Opens on this tab's last answer, if any, while History is read again.
+  const [history, { refetch }] = accountList(
+    'history',
+    untrack(() => props.account),
+    fetchHistory
+  );
+  const entries = () => latestValue(history);
   return (
     <>
       <TournamentHero title={t('History')} tab='playing' />
@@ -55,7 +61,12 @@ export function HistoryPage() {
       <SessionGate>
         {s => (
           <Show when={s().user} fallback={<SignedOut offer={s()} />}>
-            <MyHistory />
+            {/* Keyed on the account: a kept session can give way to another one. */}
+            {user => (
+              <Show when={user().id} keyed>
+                {account => <MyHistory account={account} />}
+              </Show>
+            )}
           </Show>
         )}
       </SessionGate>

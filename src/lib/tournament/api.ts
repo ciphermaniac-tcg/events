@@ -144,8 +144,10 @@ export const deleteAccount = (confirm: string) => call<null>('/api/me', json('DE
 
 export const signOut = () => call<null>('/api/auth/logout', { method: 'POST' });
 
-/** The signed-in account's History, newest first. */
-export const fetchHistory = () => call<Pick<PublicProfile, 'entries' | 'activity'>>('/api/history');
+export type OwnHistory = Pick<PublicProfile, 'entries' | 'activity'>;
+
+/** The signed-in account's History, newest first, and the events it ran or staffed. */
+export const fetchHistory = () => call<OwnHistory>('/api/history');
 export const fetchProfilePreferences = () => call<ProfilePreferences>('/api/me/profile');
 export const saveProfileLinks = (links: ProfileLinks) =>
   call<{ links: ProfileLinks }>('/api/me/profile', json('PUT', { links }));
@@ -202,9 +204,7 @@ const base = (code: string) => `/api/tournaments/${encodeURIComponent(code)}`;
  * answer (`cache: 'default'`).
  */
 export function fetchPublished(code: string, cache: RequestCache = 'no-cache'): Promise<PublishedView | null> {
-  const started = early?.code === code ? early.read : null;
-  early = null;
-  return started ?? readPublished(code, cache);
+  return early.take(code) ?? readPublished(code, cache);
 }
 
 async function readPublished(code: string, cache: RequestCache = 'no-cache'): Promise<PublishedView | null> {
@@ -215,22 +215,57 @@ async function readPublished(code: string, cache: RequestCache = 'no-cache'): Pr
   return response.ok ? ((await response.json()) as PublishedView) : null;
 }
 
-let early: { code: string; read: Promise<PublishedView | null> } | null = null;
+/** How long a read started ahead stays worth taking once answered: a page opened later reads afresh. */
+const HEAD_START_MS = 15_000;
+
+/**
+ * One read started ahead of the page that takes it, by event code: taken
+ * once, and only while under way or lately answered.
+ */
+function headStart<T>() {
+  let held: { code: string; read: Promise<T>; answeredAt?: number } | null = null;
+  const fresh = (code: string) =>
+    held?.code === code && (held.answeredAt === undefined || Date.now() - held.answeredAt < HEAD_START_MS);
+  return {
+    start(code: string, read: () => Promise<T>): void {
+      if (fresh(code)) {
+        return;
+      }
+      const started: NonNullable<typeof held> = { code, read: read() };
+      const answered = () => {
+        started.answeredAt = Date.now();
+      };
+      started.read.then(answered, answered);
+      held = started;
+    },
+    /** The read for this event, if fresh; another event's read is left for its page. */
+    take(code: string): Promise<T> | null {
+      if (held?.code !== code) {
+        return null;
+      }
+      const read = fresh(code) ? held.read : null;
+      held = null;
+      return read;
+    }
+  };
+}
+
+const early = headStart<PublishedView | null>();
 
 /**
  * Starts reading an event's published view while the code of the page that
- * shows it is still loading, so the two arrive side by side; the page's first
- * `fetchPublished` takes this read.
+ * shows it is still loading, or before its link is followed, so the two arrive
+ * side by side; the page's first `fetchPublished` takes this read.
  */
 export function preloadPublished(code: string): void {
-  early = { code, read: readPublished(code).catch(() => null) };
+  early.start(code, () => readPublished(code).catch(() => null));
 }
 
 /** The public view, or null when it has not changed since `since`. */
 export const fetchView = (code: string, since?: number) =>
   call<TournamentView | null>(since ? `${base(code)}?since=${since}` : base(code));
 
-let earlyManage: { code: string; read: Promise<Manage | null> } | null = null;
+const earlyManage = headStart<Manage | null>();
 
 /**
  * Starts reading the console's copy while the console's code is still loading,
@@ -238,17 +273,22 @@ let earlyManage: { code: string; read: Promise<Manage | null> } | null = null;
  * `fetchManage` takes this read, and its refusal too.
  */
 export function preloadManage(code: string): void {
-  const read = call<Manage | null>(`${base(code)}/manage`);
-  // The console takes the refusal when it asks; until then it is nobody's to report.
-  read.catch(() => undefined);
-  earlyManage = { code, read };
+  earlyManage.start(code, () => {
+    const read = call<Manage | null>(`${base(code)}/manage`);
+    // The console takes the refusal when it asks; until then it is nobody's to report.
+    read.catch(() => undefined);
+    return read;
+  });
 }
 
 /** The console's copy, or null when it has not changed since `since`. */
 export function fetchManage(code: string, since?: number) {
-  const started = since === undefined && earlyManage?.code === code ? earlyManage.read : null;
-  earlyManage = null;
-  return started ?? call<Manage | null>(since ? `${base(code)}/manage?since=${since}` : `${base(code)}/manage`);
+  // Taken either way: a look for changes comes after the console's first read.
+  const started = earlyManage.take(code);
+  return (
+    (since === undefined ? started : null) ??
+    call<Manage | null>(since ? `${base(code)}/manage?since=${since}` : `${base(code)}/manage`)
+  );
 }
 
 /** Sends one command, stamped with the venue's clock (see functions/lib/tournaments/commandContext.ts). */

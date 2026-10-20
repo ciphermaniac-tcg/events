@@ -22,8 +22,10 @@ import { session } from './tournaments/session';
 
 const SettingsPage = lazy(() => import('./tournaments/SettingsPage').then(m => ({ default: m.SettingsPage })));
 const HostIndex = lazy(() => import('./tournaments/HostIndex').then(m => ({ default: m.HostIndex })));
-const ManageEvent = lazy(() => import('./tournaments/ManageEvent').then(m => ({ default: m.ManageEvent })));
-const PublicEvent = lazy(() => import('./tournaments/PublicEvent').then(m => ({ default: m.PublicEvent })));
+const ManageEvent = lazy(() => loadManageEvent().then(m => ({ default: m.ManageEvent })));
+const loadPublicEvent = () => import('./tournaments/PublicEvent');
+const loadManageEvent = () => import('./tournaments/ManageEvent');
+const PublicEvent = lazy(() => loadPublicEvent().then(m => ({ default: m.PublicEvent })));
 const HistoryPage = lazy(() => import('./tournaments/HistoryPage').then(m => ({ default: m.HistoryPage })));
 const ProfilePage = lazy(() => import('./tournaments/ProfilePage').then(m => ({ default: m.ProfilePage })));
 const ApplyPage = lazy(() => import('./tournaments/ApplyPage').then(m => ({ default: m.ApplyPage })));
@@ -33,17 +35,53 @@ const TermsPage = lazy(() => import('./tournaments/TermsPage').then(m => ({ defa
 const AdminPage = lazy(() => import('./tournaments/AdminPage').then(m => ({ default: m.AdminPage })));
 const StoreRoutes = lazy(() => import('./tournaments/StoreRoutes').then(m => ({ default: m.StoreRoutes })));
 
-// A page opened on an event asks for it now, as this module loads, so the event and the
-// public page's own code arrive side by side instead of one after the other.
-const opened = /^\/t\/(\w+)/.exec(window.location.pathname)?.[1];
-if (opened) {
-  preloadPublished(opened.toUpperCase());
+/**
+ * Asks for an event page's data, and with `code` its code too, so they arrive
+ * side by side instead of one after the other. An invite link joins the staff
+ * before the event is read (see ManageEvent), so it waits. Code is asked for
+ * only once the page is on its way: a tab older than the deploy reloads when
+ * a chunk is missing (see preloadRecovery.ts), which a link rested on must not do.
+ */
+function preloadEvent({ pathname, search }: Pick<Location, 'pathname' | 'search'>, code: boolean): void {
+  const [, page, event = ''] = /^\/(t|host)\/(\w+)/.exec(pathname) ?? [];
+  if (page === 't') {
+    preloadPublished(event.toUpperCase());
+  } else if (page === 'host' && !new URLSearchParams(search).has('invite')) {
+    preloadManage(event.toUpperCase());
+  } else {
+    return;
+  }
+  if (code) {
+    void (page === 't' ? loadPublicEvent() : loadManageEvent()).catch(() => undefined);
+  }
 }
-// The console the same way. An invite link joins the staff before the event is read (see ManageEvent), so it waits.
-const managed = /^\/host\/(\w+)/.exec(window.location.pathname)?.[1];
-if (managed && !new URLSearchParams(window.location.search).has('invite')) {
-  preloadManage(managed.toUpperCase());
+
+/** A link this tab follows, under the event's target. */
+function linkOf(event: Event): HTMLAnchorElement | null {
+  const link = event.target instanceof Element ? event.target.closest('a') : null;
+  return link && !link.target && link.origin === window.location.origin ? link : null;
 }
+
+// A page opened on an event asks for it now, as this module loads.
+preloadEvent(window.location, true);
+
+// And an event's link as it is pressed, or rested on with a mouse: the click comes
+// a beat later, and the page can be on its way by then.
+let resting: ReturnType<typeof setTimeout> | undefined;
+document.addEventListener('pointerdown', event => {
+  const link = event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey ? linkOf(event) : null;
+  if (link) {
+    preloadEvent(link, true);
+  }
+});
+document.addEventListener('pointerover', event => {
+  clearTimeout(resting);
+  const link = event.pointerType === 'mouse' ? linkOf(event) : null;
+  if (link) {
+    resting = setTimeout(() => preloadEvent(link, false), 80);
+  }
+});
+document.addEventListener('pointerout', () => clearTimeout(resting));
 
 export function TournamentsPage() {
   const location = useLocation();

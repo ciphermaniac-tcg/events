@@ -378,12 +378,15 @@ test('an account’s History lists the sanctioned events its POP ID plays in, as
     startsAt: '2026-10-10T11:00',
     format: 'Expanded',
     mode: 'swiss',
-    status: 'upcoming'
+    status: 'upcoming',
+    version: (await loadTournament(db(), code))?.version
   });
   await send(code, owner, { type: 'pairRound', pod: 'masters' });
   assert.equal((await historyOf(player)).json.entries[0].status, 'live');
   await settle(code, owner, { finished: true });
-  assert.equal((await historyOf(player)).json.entries[0].status, 'finished');
+  const [finished] = (await historyOf(player)).json.entries as HistoryEntry[];
+  assert.equal(finished?.status, 'finished');
+  assert.ok((finished?.version ?? 0) > (entry?.version ?? 0), 'each change moves the version on');
   await settle(code, owner, { sanctioned: false });
   assert.deepEqual(await codesOf(player), [], 'an event no longer sanctioned leaves History');
   await settle(code, owner, { sanctioned: true });

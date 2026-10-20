@@ -22,6 +22,7 @@ import { ErrorLine } from './Field';
 import { msg, t, tx } from '../../lib/i18n';
 import { Modal } from './Modal';
 import { clearSession } from './session';
+import { forgetAccountMemory } from '../../lib/tournament/accountMemory';
 import { SettingRow } from './SettingControls';
 import '../../styles/pages/tournament-store-apply.css';
 import '../../styles/pages/tournament-my-data.css';
@@ -191,6 +192,7 @@ function WipeDialog(props: { open: boolean; onClose: () => void; onWiped: (user:
     setError(null);
     try {
       props.onWiped((await wipeData(parts())).user);
+      forgetAccountMemory();
       close();
     } catch (err) {
       setError(err);

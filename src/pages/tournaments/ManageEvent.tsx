@@ -535,10 +535,12 @@ export function ManageEvent(props: { code: string }) {
   }
 
   // Without an invite the event is read at once, beside the account: the server says who may.
+  // Someone signed in, not each answer about them: a kept session read again must not join twice.
+  const signedIn = createMemo(() => Boolean(user()));
   createEffect(() => {
     const { code } = props;
     const { invite } = params;
-    if (invite && !user()) {
+    if (invite && !signedIn()) {
       return;
     }
     // Untracked: the read looks at the copy it holds, and must not run again each time that copy changes.

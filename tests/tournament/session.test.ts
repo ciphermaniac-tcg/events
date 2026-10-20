@@ -3,15 +3,14 @@
  * resource, which needs the browser build of solid-js, so it runs in a child.
  */
 
-import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 
+import { passesUnderBrowserBuild } from '../__utils__/browserBuild.ts';
+
 test('the shared session behaves under the browser build of solid-js', () => {
-  const run = spawnSync(
-    process.execPath,
-    ['--conditions=browser', '--import', 'tsx', '--test', 'tests/tournament/session.browser.ts'],
-    { encoding: 'utf8' }
-  );
-  assert.equal(run.status, 0, run.stdout + run.stderr);
+  passesUnderBrowserBuild('tests/tournament/session.browser.ts');
+});
+
+test('a tab that was signed in opens on that session under the browser build of solid-js', () => {
+  passesUnderBrowserBuild('tests/tournament/kept-session.browser.ts');
 });

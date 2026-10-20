@@ -10,7 +10,10 @@ import assert from 'node:assert/strict';
 import test, { afterEach, mock } from 'node:test';
 
 import type { Session } from '../../src/lib/tournament/api.ts';
-import { clearSession, leaveSession, session, setSession } from '../../src/pages/tournaments/session.ts';
+
+// The module reads the session as it loads, so the server answers before it does: nobody signed in.
+globalThis.fetch = async () => Response.json({ user: null, providers: [] });
+const { clearSession, leaveSession, session, setSession } = await import('../../src/pages/tournaments/session.ts');
 
 afterEach(() => mock.restoreAll());
 

@@ -267,7 +267,8 @@ test('a History row takes the names, and the decks only while the public may see
     startsAt: '',
     format: 'Standard',
     mode: 'tom' as const,
-    status: 'live' as const
+    status: 'live' as const,
+    version: 1
   };
   const hidden = readEntry(entry, view);
   assert.deepEqual(hidden?.decks, {});

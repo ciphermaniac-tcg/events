@@ -34,6 +34,8 @@ export interface HistoryEntry {
   mode: TournamentMode;
   /** Finished once the organizer closes it, live from its first round, upcoming before. */
   status: 'upcoming' | 'live' | 'finished';
+  /** The event's version, which every write bumps: a copy read at this version or later is current. */
+  version: number;
 }
 
 /** A public profile: the name it shows, the account's username and picture, and its History. Never its POP ID or email. */

@@ -311,12 +311,49 @@ test('a published view asked for ahead of its page is read once, and only for th
   assert.equal(sent.length, 1, 'the page takes the read already under way');
   await fetchPublished('ABC');
   assert.equal(sent.length, 2, 'and reads afresh from then on');
-  preloadPublished('ABC');
+  preloadPublished('XYZ');
+  await fetchPublished('ABC');
+  assert.match(sent.at(-1)?.url ?? '', /ABC\.json$/, 'another event is not answered with this one');
   await fetchPublished('XYZ');
-  assert.match(sent.at(-1)?.url ?? '', /XYZ\.json$/, 'another event is not answered with this one');
   globalThis.fetch = (() => Promise.reject(new Error('offline'))) as unknown as typeof fetch;
   preloadPublished('ABC');
   assert.equal(await fetchPublished('ABC'), null, 'a read that failed ahead of the page is an unreadable file');
+});
+
+test('an event asked for again while its read is fresh is read once, and a stale read is not taken', async t => {
+  answer(200, { code: 'ABC', version: 3 });
+  const now = t.mock.method(Date, 'now', () => 1_000);
+  preloadPublished('ABC');
+  preloadPublished('ABC');
+  preloadManage('ABC');
+  preloadManage('ABC');
+  assert.equal(sent.length, 2, 'one read of each');
+  await fetchPublished('ABC');
+  await fetchManage('ABC');
+  assert.equal(sent.length, 2);
+  preloadPublished('ABC');
+  preloadManage('ABC');
+  await fetchPublished('XYZ');
+  await fetchManage('XYZ');
+  assert.equal(sent.length, 6, 'another event is read beside them');
+  now.mock.mockImplementation(() => 16_000);
+  await fetchPublished('ABC');
+  await fetchManage('ABC');
+  assert.equal(sent.length, 8, 'a page opened long after they answered reads afresh');
+});
+
+test('a read started ahead is taken however long it is under way', async t => {
+  const now = t.mock.method(Date, 'now', () => 1_000);
+  let release = () => {};
+  globalThis.fetch = (() =>
+    new Promise<Response>(resolve => {
+      release = () => resolve(Response.json({ code: 'ABC', version: 3 }));
+    })) as unknown as typeof fetch;
+  preloadPublished('ABC');
+  now.mock.mockImplementation(() => 60_000);
+  const read = fetchPublished('ABC');
+  release();
+  assert.deepEqual(await read, { code: 'ABC', version: 3 });
 });
 
 test('a console copy asked for ahead of its page is read once, and only for that event', async () => {
@@ -329,9 +366,10 @@ test('a console copy asked for ahead of its page is read once, and only for that
   preloadManage('ABC');
   await fetchManage('ABC', 3);
   assert.equal(sent.at(-1)?.url, '/api/tournaments/ABC/manage?since=3', 'a look for changes is never answered early');
-  preloadManage('ABC');
+  preloadManage('XYZ');
+  await fetchManage('ABC');
+  assert.equal(sent.at(-1)?.url, '/api/tournaments/ABC/manage', 'another event is not answered with this one');
   await fetchManage('XYZ');
-  assert.equal(sent.at(-1)?.url, '/api/tournaments/XYZ/manage', 'another event is not answered with this one');
   answer(401, { error: 'Sign in to run this event' });
   preloadManage('ABC');
   await assert.rejects(fetchManage('ABC'), (error: unknown) => error instanceof ApiError && error.status === 401);
