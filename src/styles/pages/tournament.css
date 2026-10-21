@@ -401,6 +401,8 @@ body[data-mode='dark'] .tm-sso-google:hover {
   .tm-signin {
     display: grid;
   }
+}
+@media (max-width: 640px), (pointer: coarse) {
   .tm-sso {
     height: 44px;
   }
@@ -527,7 +529,7 @@ body[data-mode='dark'] .tm-sso-google:hover {
   padding: 10px 14px;
   border-top: 1px solid var(--rule);
 }
-@media (max-width: 640px) {
+@media (max-width: 640px), (pointer: coarse) {
   .tm-signin-split {
     --signin-control: 44px;
   }
@@ -1068,6 +1070,13 @@ body[data-mode='dark'] :is(.tm-input, .tm-select) {
     display: inline-flex;
     align-items: center;
     min-height: 44px;
+  }
+  /* Sign-in's ways out are words under the submit button: read as actions, and as large a target. */
+  .tm-signin-swap {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    font-size: var(--text-body);
   }
   .tm-hero .hero-meta a,
   .tm-bar-link {

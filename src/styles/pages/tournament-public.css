@@ -160,12 +160,6 @@
     width: 100%;
     justify-content: space-between;
   }
-  .tm-you-end .btn,
-  .tm-you-who .btn,
-  .tm-identify .btn,
-  .tm-you-signin {
-    min-height: 44px;
-  }
   .tm-identify .tm-field,
   .tm-identify .btn {
     flex-basis: 100%;
@@ -227,7 +221,14 @@
 .tm-registered strong {
   font-weight: 600;
 }
-@media (max-width: 640px) {
+@media (max-width: 640px), (pointer: coarse) {
+  .tm-you-end .btn,
+  .tm-you-who .btn,
+  .tm-identify .btn,
+  .tm-you-signin,
+  .tm-sheet-foot .btn {
+    min-height: 44px;
+  }
   .tm-registered .tm-seat-link {
     min-height: 44px;
   }
@@ -360,7 +361,6 @@
   .tm-sheet-foot .btn {
     flex: 1;
     justify-content: center;
-    min-height: 44px;
   }
 }
 

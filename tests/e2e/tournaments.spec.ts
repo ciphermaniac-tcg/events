@@ -1704,6 +1704,14 @@ for (const size of [
     expect(geometry.top).toBeGreaterThanOrEqual(0);
     expect(geometry.bottom).toBeLessThanOrEqual(geometry.height);
     expect(geometry.stats.every(stat => stat.value <= stat.cell)).toBe(true);
+    // A landscape phone is wider than the phone layout but still a finger's tap.
+    if (await page.evaluate(() => matchMedia('(pointer: coarse)').matches)) {
+      const taps = await page
+        .locator('.tm-sheet-foot .btn, .tm-you-signin')
+        .evaluateAll(els => els.map(el => el.getBoundingClientRect().height));
+      expect(taps.length).toBeGreaterThan(0);
+      expect(taps.every(height => height >= 44)).toBe(true);
+    }
     await sheet.getByRole('button', { name: 'This is me', exact: true }).click();
     await expect(sheet.getByRole('button', { name: 'Confirm', exact: true })).toBeVisible();
     await expect(sheet.getByRole('button', { name: 'Close', exact: true })).toBeInViewport();

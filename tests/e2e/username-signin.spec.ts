@@ -293,6 +293,17 @@ test('when Clerk refuses, the form says why, marks the fields, and can be sent a
   expect(posted).toEqual([]);
 });
 
+test('on a phone, the ways out under the submit button are finger-sized @mobileOnly', async ({ page }) => {
+  await mockSite(page, ['google', 'clerk']);
+  await page.goto('/settings');
+  await openForm(page);
+  for (const name of ['Create an account', 'Forgot password?', 'Back']) {
+    const box = await page.getByRole('button', { name, exact: true }).boundingBox();
+    // To the hundredth of a pixel: layout can land a hair under a whole one, as 43.99997.
+    expect(Math.round((box?.height ?? 0) * 100) / 100, name).toBeGreaterThanOrEqual(44);
+  }
+});
+
 test('with no provider to prefer, the form shows from the start', async ({ page }) => {
   await mockSite(page, ['clerk']);
   await page.goto('/settings');

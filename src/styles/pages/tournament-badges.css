@@ -131,3 +131,12 @@
   flex: none;
   color: var(--badge);
 }
+/* Under a finger each badge takes a 44px tap, as the head bar's controls do,
+   without the packed row growing to fit it. */
+@media (max-width: 640px), (pointer: coarse) {
+  :is(.info-tip.tm-badge, .tm-badge-more > button)::before {
+    content: '';
+    position: absolute;
+    inset: -8px;
+  }
+}

@@ -95,11 +95,13 @@
     width: 56px;
     height: 56px;
   }
+  .tm-profile-links {
+    margin: 0 0 0 -11px;
+  }
+}
+@media (max-width: 640px), (pointer: coarse) {
   .tm-profile-links a {
     min-height: 44px;
     min-width: 40px;
-  }
-  .tm-profile-links {
-    margin: 0 0 0 -11px;
   }
 }

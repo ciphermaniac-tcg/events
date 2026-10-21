@@ -164,6 +164,9 @@
 .site-head-signin {
   position: relative;
 }
+.site-head-name {
+  align-self: stretch;
+}
 @media (max-width: 640px) {
   .site-head-row {
     padding: 0 max(var(--space-3), env(safe-area-inset-right)) 0 max(var(--space-3), env(safe-area-inset-left));
@@ -219,6 +222,17 @@
 }
 .site-footer .chip {
   font-size: 12px;
+}
+/* Small words, still a 44px tap under a finger. */
+@media (max-width: 640px), (pointer: coarse) {
+  .site-footer-links {
+    gap: 0 18px;
+  }
+  .site-footer-links a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
 }
 
 @media (max-width: 900px) {
