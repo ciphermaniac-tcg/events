@@ -50,6 +50,7 @@ import {
   playerName,
   type Pod,
   POD_LABELS,
+  type PodCategory,
   type Round,
   type Tournament
 } from '../../../shared/tournament/types';
@@ -400,10 +401,18 @@ export function roundStatus(progress: PodProgress, finished: boolean, rounds: nu
   return open === 0 ? t('{round} complete', { round: name }) : t('{round} in progress', { round: name });
 }
 
+/** The division a status describes: the first of `prefer` playing a round, else the first playing one. */
+function statusPod(playing: Pod[], prefer: readonly (PodCategory | null | undefined)[]): Pod | undefined {
+  const preferred = prefer.map(category => playing.find(pod => pod.category === category)).find(Boolean);
+  return preferred ?? playing[0];
+}
+
 /**
  * Where the event stands, for the public page and the big screen: who is
  * registered and when round 1 starts, the round in play, or how it finished.
  * `firstRound` is the start time already formatted, or null when unset.
+ * Divisions playing rounds of their own lead with the division's name, and
+ * describe the first of `prefer` that plays one: the viewer's, say.
  */
 export function eventStatus(
   tournament: Tournament,
@@ -413,10 +422,12 @@ export function eventStatus(
     firstRound: string | null;
     /** The event's round cap (see TournamentSettings), or null where TOM decides the rounds. */
     roundCap: number | null;
+    prefer?: readonly (PodCategory | null | undefined)[];
   },
   now: number
 ): string[] {
-  const pod = livePods(tournament).find(p => p.rounds.length > 0);
+  const playing = livePods(tournament).filter(p => p.rounds.length > 0);
+  const pod = statusPod(playing, event.prefer ?? []);
   if (!pod) {
     const players = tournament.players.filter(player => player.droppedAfter === null).length;
     return [
@@ -433,12 +444,13 @@ export function eventStatus(
   }
   const progress = podProgress(pod, event.pending);
   const { round } = progress;
-  return statusParts(
+  const parts = statusParts(
     progress,
     false,
     round ? clockState({ round, now }) : null,
     event.roundCap === null ? null : plannedRounds(pod, event.roundCap, eventTypeOf(tournament), tournament)
   );
+  return playing.length > 1 ? [podLabel(pod), ...parts] : parts;
 }
 
 /** A match's result as the pairings show it. */

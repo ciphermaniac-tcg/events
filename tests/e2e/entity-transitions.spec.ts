@@ -384,7 +384,7 @@ for (const failure of [
       await page.clock.fastForward(failure.status === 401 ? 15_000 : 45_000);
       await expect(page.getByText(failure.label, { exact: true })).toBeVisible({ timeout: 1_000 });
     }).toPass();
-    await expect(page.getByText(/Last updated/)).toBeVisible();
+    await expect(page.getByText(/Last checked/)).toBeVisible();
     await expect(page.getByText(/not updating/)).toBeVisible();
     await page.route('**/api/tournaments/FIRST/manage*', route => route.fulfill({ status: 204 }));
     await page.getByRole('button', { name: 'Retry', exact: true }).click();

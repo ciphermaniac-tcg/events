@@ -1290,7 +1290,7 @@ for (const suffix of ['', '?screen=1']) {
     await expect(page.locator('.tm-live-data')).toHaveCount(0);
     await page.clock.fastForward(30_000);
     await expect(page.getByText('Connection unavailable', { exact: true })).toBeVisible();
-    await expect(page.getByText('Last updated', { exact: false })).toBeVisible();
+    await expect(page.getByText('Last checked', { exact: false })).toBeVisible();
     await page.route(`**/api/tournaments/${CODE}?since=*`, route => route.fulfill({ status: 204 }));
     if (suffix) {
       // The clock stops, and says where the room cannot miss it that it has.
@@ -2086,6 +2086,14 @@ test('with divisions on their own clocks, the running one leads and the one wait
   await expect(side).toHaveCount(1);
   await expect(side.first()).toContainText('Not started');
   await expect(side.first().locator('p')).toHaveText('Masters · Round 2');
+  // Each clock names its division, so the header does not speak for one of them.
+  await expect(page.locator('.tm-screen-status')).toHaveCount(0);
+  // The public page describes the division running, then the one a visitor picks.
+  await page.goto(`/t/${CODE}`);
+  const status = page.locator('.tm-public .tm-status');
+  await expect(status).toHaveText(/^Seniors · Round 2 · /);
+  await page.getByRole('radio', { name: 'Masters', exact: true }).click();
+  await expect(status).toHaveText(/^Masters · Round 2 · /);
 });
 
 test('a store event picks its big screen preset on the Settings tab', async ({ page }) => {

@@ -51,11 +51,13 @@ function Caption(props: {
 }) {
   const stale = useContext(StaleSince);
   const text = () => {
-    const since = stale();
-    if (props.lead && since !== null) {
-      return t('Not updated since {time}', { time: checkedTime(since) });
+    const behind = stale();
+    if (props.lead && behind !== null) {
+      return t('Not updated since {time}', { time: checkedTime(behind.checkedAt) });
     }
-    return [props.label ?? props.clock.label, ...notes(props.clock, props.pending, since ?? props.now)].join(' · ');
+    return [props.label ?? props.clock.label, ...notes(props.clock, props.pending, behind?.since ?? props.now)].join(
+      ' · '
+    );
   };
   return <p>{text()}</p>;
 }

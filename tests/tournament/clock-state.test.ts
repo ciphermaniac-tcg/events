@@ -67,7 +67,7 @@ test('a table on extra time runs past the round, extended, until its own time is
   );
 });
 
-test('a stale clock stops where it was at the last good check, whatever its phase was', () => {
+test('a stale clock stops where it was when the page fell behind, whatever its phase was', () => {
   const stale = clockState({ round: round(), now: at(500), staleSince: at(200) });
   assert.deepEqual(stale, { phase: 'stale', left: 400, time: '6:40' });
   assert.deepEqual(clockState({ round: round(), now: at(900), staleSince: at(200) }), stale, 'it does not tick');

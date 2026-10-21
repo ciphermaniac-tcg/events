@@ -20,7 +20,7 @@ export function LiveDataStatus(props: { data?: LiveData; onRetry?: () => void })
     <Show when={liveDataStale(data(), now())}>
       <div class='tm-live-data' role='status'>
         <span>{label()}</span>
-        <span>{tx('Last updated {time}', { time: <time>{time()}</time> })}</span>
+        <span>{tx('Last checked {time}', { time: <time>{time()}</time> })}</span>
         <Show when={props.onRetry}>
           {retry => (
             <button type='button' class='btn btn-secondary' onClick={() => retry()()}>

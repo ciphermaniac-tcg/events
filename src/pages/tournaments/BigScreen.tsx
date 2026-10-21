@@ -53,6 +53,7 @@ import { latestRound, livePods, sortMatches, withSwiss } from '../../../shared/t
 import type { LiveData } from '../../lib/tournament/liveData';
 import { LiveDataStatus } from './LiveDataStatus';
 import { DivisionClocks } from './DivisionClocks';
+import { divisionClocks } from './clockOrder';
 import { StaleSince } from './Clock';
 import { DeckIcons } from './DeckIcons';
 import { createNow } from './now';
@@ -511,12 +512,19 @@ export function BigScreen(props: { view: TournamentView; liveData?: LiveData; on
         pending: props.view.pending,
         finished: props.view.settings.finished,
         firstRound: firstRoundTime(props.view.settings.startsAt),
-        roundCap: roundCapOf(props.view)
+        roundCap: roundCapOf(props.view),
+        // The division the room most likely asks about: the clock nearest its end (see clockOrder).
+        prefer: [divisionClocks(pods(), props.view.pending, now())[0]?.pod.category]
       },
-      stale() ?? now()
+      stale()?.since ?? now()
     );
-  // The clock's own words would repeat the clock under the header.
-  const statusShown = () => (phase() === 'clock' ? status().slice(0, 2) : status());
+  // The clock's own words would repeat the clock under the header, and divisions on clocks of their own name themselves.
+  const statusShown = () => {
+    if (phase() !== 'clock') {
+      return status();
+    }
+    return pods().length > 1 ? [] : status().slice(0, 2);
+  };
   let hide: ReturnType<typeof setTimeout> | undefined;
   const reveal = () => {
     setControls(true);
@@ -568,12 +576,14 @@ export function BigScreen(props: { view: TournamentView; liveData?: LiveData; on
       <header class='tm-screen-head'>
         <div class='tm-screen-text'>
           <h1 class='tm-screen-title'>{props.view.tournament.info.name}</h1>
-          <p class='tm-screen-status'>
-            <strong>{statusShown()[0]}</strong>
-            <Show when={statusShown().length > 1}>
-              <span class='muted'> · {statusShown().slice(1).join(' · ')}</span>
-            </Show>
-          </p>
+          <Show when={statusShown().length > 0}>
+            <p class='tm-screen-status'>
+              <strong>{statusShown()[0]}</strong>
+              <Show when={statusShown().length > 1}>
+                <span class='muted'> · {statusShown().slice(1).join(' · ')}</span>
+              </Show>
+            </p>
+          </Show>
           <LiveDataStatus data={props.liveData} />
         </div>
         <Show when={phase() !== 'roster'}>

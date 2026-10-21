@@ -17,6 +17,7 @@ import {
   createResource,
   createSignal,
   For,
+  type JSX,
   lazy,
   onCleanup,
   onMount,
@@ -71,12 +72,14 @@ import {
   firstRoundTime,
   namesById,
   podLabel,
+  podProgress,
   roundCapOf
 } from '../../lib/tournament/present';
 import type { Tab as DashboardTab } from './Dashboard';
 import { TournamentHero } from './Hero';
 import { createNow } from './now';
 import { StaleSince } from './Clock';
+import { divisionClocks } from './clockOrder';
 import { formatFee } from '../../lib/events/format';
 import { EventLogistics } from './EventLogistics';
 import { PlayerSheet } from './PlayerSheet';
@@ -222,6 +225,13 @@ function createView(code: () => string, signedIn: () => boolean, options: { ever
         whoAmI();
       }
     }, Date.now);
+    // Back in view, the page waits for the look it starts before calling itself behind.
+    const shown = () => {
+      if (!document.hidden) {
+        setFreshness(data => ({ ...data, shownAt: Date.now() }));
+      }
+    };
+    document.addEventListener('visibilitychange', shown);
     const unsubscribe = onChange(code(), version => {
       if (version > (latestValue(view)?.version ?? 0)) {
         announced = Math.max(announced, version);
@@ -233,6 +243,7 @@ function createView(code: () => string, signedIn: () => boolean, options: { ever
       unsubscribe();
       forget();
       forgetViewer();
+      document.removeEventListener('visibilitychange', shown);
     });
   });
   /** Takes a fresher copy handed over by an action, such as a player's report. */
@@ -551,6 +562,8 @@ function EventBody(props: {
   /** Asks the API who the viewer is, when the page has reason to think it changed. */
   onWhoAmI: () => void;
   onUnlinked: () => void;
+  /** Under the hero: how fresh the page's copy of the event is. */
+  notice: JSX.Element;
 }) {
   const [params, setParams] = useSearchParams<{ tab?: string }>();
   const [podChoice, setPodChoice] = createSignal<PodCategory | null>(null);
@@ -632,6 +645,8 @@ function EventBody(props: {
 
   return (
     <>
+      <Hero view={props.view} prefer={[podChoice(), myPod()]} />
+      {props.notice}
       <Show when={started() && asks()}>
         <YourMatch
           view={props.view}
@@ -772,9 +787,11 @@ function dashboardTab(viewer: TournamentView['viewer']): DashboardTab | undefine
   return viewer.me ? 'playing' : undefined;
 }
 
-function Hero(props: { view: TournamentView }) {
+/** `prefer`: the divisions the status should describe, in order (see eventStatus); the leading clock's follows. */
+function Hero(props: { view: TournamentView; prefer: (PodCategory | null)[] }) {
   const now = createNow();
   const stale = useContext(StaleSince);
+  const lead = () => divisionClocks(livePods(props.view.tournament), props.view.pending, now())[0]?.pod.category;
   const info = () => props.view.tournament.info;
   const settings = () => props.view.settings;
   const status = () =>
@@ -784,11 +801,13 @@ function Hero(props: { view: TournamentView }) {
         pending: props.view.pending,
         finished: settings().finished,
         firstRound: firstRoundTime(settings().startsAt),
-        roundCap: roundCapOf(props.view)
+        roundCap: roundCapOf(props.view),
+        prefer: [...props.prefer, lead()]
       },
-      stale() ?? now()
+      stale()?.since ?? now()
     ).join(' · ');
   const place = () => [info().city, info().state].filter(Boolean).join(', ');
+  const playing = () => livePods(props.view.tournament).some(pod => podProgress(pod, props.view.pending).open > 0);
   const parts = () =>
     [
       eventDate(settings(), info().startDate),
@@ -796,9 +815,10 @@ function Hero(props: { view: TournamentView }) {
       settings().entryFee > 0 && t('{amount} entry', { amount: formatFee(settings().entryFee, info().country) }),
       place(),
       tn(props.view.tournament.players.length, '{n} player', '{n} players'),
-      // A finished event's date already says when; an unknown time says nothing.
+      // A finished event's date already says when; an unknown time says nothing; mid-round, the clock says the page is live.
       !settings().finished &&
         props.view.updatedAt > 0 &&
+        !playing() &&
         t('Updated {time}', { time: updatedLabel(props.view.updatedAt) })
     ].filter(Boolean);
   return (
@@ -932,9 +952,14 @@ export function PublicEvent(props: { code: string; session: Session | undefined 
             }
           >
             <div class='tm-page tm-public'>
-              <Hero view={v()} />
-              <LiveDataStatus data={freshness()} onRetry={retry} />
-              <EventBody view={v()} session={props.session} onView={take} onWhoAmI={whoAmI} onUnlinked={unlinked} />
+              <EventBody
+                view={v()}
+                session={props.session}
+                onView={take}
+                onWhoAmI={whoAmI}
+                onUnlinked={unlinked}
+                notice={<LiveDataStatus data={freshness()} onRetry={retry} />}
+              />
             </div>
           </Show>
         </StaleSince.Provider>

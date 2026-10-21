@@ -12,14 +12,14 @@ import type { Round } from '../../../shared/tournament/types';
  * running: counting down the round's time. extended: counting down a table's
  * extra time once the round's is out. paused: stopped by staff. over: no
  * time left, extra time included. stale: the page has not heard from the
- * event for a while, so the clock stops where it was last known to be.
+ * event for a while, so the clock stops where it was when the page fell behind.
  * done: the table or round has its result, and the clock has nothing to count.
  */
 export type ClockPhase = 'running' | 'extended' | 'paused' | 'over' | 'stale' | 'done';
 
 export interface ClockState {
   phase: ClockPhase;
-  /** Seconds left with any extra time, below zero once over; as of the last good check while stale. */
+  /** Seconds left with any extra time, below zero once over; as of the moment the page fell behind while stale. */
   left: number;
   /** `left` as m:ss, without a sign. */
   time: string;
@@ -32,7 +32,7 @@ export interface ClockInput {
   extraSeconds?: number;
   /** The table, or the whole round, has its result. */
   done?: boolean;
-  /** When the page last heard from the event, while what it has is stale; null or absent while fresh. */
+  /** When the page fell behind the event, while what it has is stale; null or absent while fresh. */
   staleSince?: number | null;
 }
 

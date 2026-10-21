@@ -582,6 +582,23 @@ test('the public status names registration, the round in play, or how the event 
   assert.deepEqual(eventStatus(chosen, finished, 0), ['Finished', `${swiss} round${swiss === 1 ? '' : 's'}`]);
 });
 
+test('with divisions on rounds of their own, the status names the division it describes, the viewer’s first', () => {
+  const latest = pod.rounds.at(-1) as Round;
+  const juniors = { ...pod, category: 'junior' as const, rounds: [{ ...latest, number: 1 }] };
+  const masters = { ...pod, category: 'masters' as const };
+  const split = { ...CHALLENGE, pods: [juniors, masters] };
+  const event = { pending: [], finished: false, firstRound: null, roundCap: null };
+  assert.deepEqual(eventStatus(split, event, 0).slice(0, 2), ['Juniors', 'Round 1'], 'nobody preferred: the first');
+  assert.deepEqual(eventStatus(split, { ...event, prefer: [null, 'masters'] }, 0).slice(0, 2), ['Masters', 'Round 2']);
+  assert.deepEqual(
+    eventStatus(split, { ...event, prefer: ['senior', 'junior'] }, 0).slice(0, 2),
+    ['Juniors', 'Round 1'],
+    'a division with no round is passed over'
+  );
+  const alone = { ...CHALLENGE, pods: [masters] };
+  assert.equal(eventStatus(alone, { ...event, prefer: ['masters'] }, 0)[0], 'Round 2', 'one division needs no name');
+});
+
 test('places read as ordinals and results as the pairings show them', () => {
   assert.deepEqual([1, 2, 3, 4, 11, 12, 13, 21, 22, 101, 111].map(ordinal), [
     '1st',

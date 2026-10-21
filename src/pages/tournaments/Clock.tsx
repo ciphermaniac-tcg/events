@@ -3,14 +3,15 @@ import type { Round } from '../../../shared/tournament/types';
 import { t } from '../../lib/i18n';
 import { clockWords } from '../../lib/tournament/present';
 import { type ClockState, clockState } from '../../lib/tournament/clockState';
+import type { Stale } from '../../lib/tournament/liveData';
 import { createNow } from './now';
 
 /**
- * When the page last heard from the event, while what it has is stale; null
- * while fresh. A page that keeps up with the event provides it, and every
- * clock in it stops where it was last known to be.
+ * Where the page stands while what it has is stale; null while fresh. A page
+ * that keeps up with the event provides it, and every clock in it stops at
+ * the moment the page fell behind.
  */
-export const StaleSince = createContext<Accessor<number | null>>(() => null);
+export const StaleSince = createContext<Accessor<Stale | null>>(() => null);
 
 /** The face across a room: the time, or once there is none left, the word. Its caption says the rest. */
 const clockFace = (state: ClockState) => (state.left <= 0 ? t('Time') : state.time);
@@ -36,7 +37,7 @@ export function Clock(props: {
       now: now(),
       extraSeconds: props.extraSeconds,
       done: props.done,
-      staleSince: staleSince()
+      staleSince: staleSince()?.since
     });
   const shown = () => {
     const current = state();
