@@ -135,7 +135,9 @@ test('the organizer corrects a round 1 result during round 2, after seeing what 
   await expect(dialog).toContainText('Round 3 pairs from the corrected standings.');
 
   await dialog.getByRole('button', { name: 'Apply correction' }).click();
-  await expect(dialog.getByRole('alert')).toHaveText('Say which slip and what was wrong');
+  // Under the note, where it is fixed.
+  await expect(dialog.locator('#correction-note-error')).toHaveText('Say which slip and what was wrong');
+  await expect(dialog.getByLabel('Note')).toHaveAttribute('aria-invalid', 'true');
   expect(sent).toHaveLength(0);
   await dialog.getByLabel('Note').fill('Slip for table 1 has the wrong winner circled.');
   await dialog.getByRole('button', { name: 'Apply correction' }).click();

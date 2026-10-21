@@ -1545,6 +1545,14 @@ tr.is-in .tm-place {
 .tm-set-control > .tm-set-minutes {
   width: 96px;
 }
+/* A field's error goes under it. */
+.tm-set-control:has(> .tm-error) {
+  flex-wrap: wrap;
+}
+.tm-set-control > .tm-error {
+  flex-basis: 100%;
+  margin: var(--space-1) 0 0;
+}
 .tm-set-control > .tm-textarea {
   max-width: 520px;
 }

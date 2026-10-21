@@ -13,6 +13,7 @@ import {
   type JSX,
   lazy,
   Match,
+  on,
   onCleanup,
   onMount,
   Show,
@@ -439,6 +440,34 @@ function TabBar(props: { tabs: TabOption[]; selected: Tab; onSelect: (tab: Tab) 
   );
 }
 
+/**
+ * Why something the console tried did not happen, above the tabs, and
+ * brought into view when it is set (`follow`): a row action far down the
+ * roster would otherwise fail out of sight. Pairings keeps a failed result in
+ * its row, so there the page stays where it is.
+ */
+function ConsoleError(props: { message: string | null; follow: boolean }) {
+  let line: HTMLDivElement | undefined;
+  createEffect(
+    on(
+      () => props.message,
+      message => {
+        if (message && untrack(() => props.follow)) {
+          queueMicrotask(() => line?.scrollIntoView({ block: 'nearest' }));
+        }
+      }
+    )
+  );
+  // Only while there is something to say, so an empty line takes no room in the page.
+  return (
+    <Show when={props.message}>
+      <div ref={line}>
+        <ErrorLine message={props.message} />
+      </div>
+    </Show>
+  );
+}
+
 /** Whether any pod has a round paired: until then the Pairings tab has nothing to show. */
 const hasStarted = (manage: Manage) => manage.tournament.pods.some(p => latestRound(p) !== undefined);
 
@@ -511,7 +540,7 @@ function Console(props: { state: ReturnType<typeof createManage>; manage: Manage
           ariaLabel={t('Division')}
         />
       </Show>
-      <ErrorLine message={props.state.error()} />
+      <ConsoleError message={props.state.error()} follow={tab() !== 'round'} />
       <TabPanel tabs='console' selected={tab()}>
         <Show when={tab() === 'round'}>
           <Show when={pod()} fallback={<p class='muted'>{t('Add players to start pairing.')}</p>}>

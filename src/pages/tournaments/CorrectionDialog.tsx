@@ -116,6 +116,8 @@ export function CorrectionDialog(props: {
   const [outcome, setOutcome] = createSignal<Outcome>(match.outcome);
   const [note, setNote] = createSignal('');
   const [error, setError] = createSignal<string | null>(null);
+  // Under the note, where it is fixed; what the server says stays by the buttons.
+  const [noteMissing, setNoteMissing] = createSignal(false);
   const [saving, setSaving] = createSignal(false);
   const changed = () => outcome() !== match.outcome;
   // Read against the event as it stands now, so the preview is what the server is sent.
@@ -134,7 +136,7 @@ export function CorrectionDialog(props: {
   );
   async function apply() {
     if (!note().trim()) {
-      setError(t('Say which slip and what was wrong'));
+      setNoteMissing(true);
       return;
     }
     setSaving(true);
@@ -180,17 +182,28 @@ export function CorrectionDialog(props: {
               ariaLabel={t('Corrected result')}
             />
           </div>
-          <label class='tm-correction-field'>
-            {t('Note')}
+          <div class='tm-correction-field'>
+            <label for='correction-note'>{t('Note')}</label>
             <textarea
+              id='correction-note'
               class='tm-input tm-textarea'
               rows={2}
               maxLength={CORRECTION_LIMITS.note}
               placeholder={t('Which slip, and what was wrong')}
               value={note()}
-              onInput={e => setNote(e.currentTarget.value)}
+              aria-invalid={noteMissing() || undefined}
+              aria-describedby={noteMissing() ? 'correction-note-error' : undefined}
+              onInput={e => {
+                setNote(e.currentTarget.value);
+                setNoteMissing(false);
+              }}
             />
-          </label>
+            <Show when={noteMissing()}>
+              <span id='correction-note-error' class='tm-problem' role='alert'>
+                {t('Say which slip and what was wrong')}
+              </span>
+            </Show>
+          </div>
           <p class='muted tm-correction-who'>{t('Approving as {who}', { who: props.approving })}</p>
           <Show
             when={preview()}

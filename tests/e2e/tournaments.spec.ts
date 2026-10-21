@@ -1486,6 +1486,11 @@ test('setup recovers after cancel and reload and refuses invalid minutes @mobile
   const minutes = page.getByRole('spinbutton', { name: 'Swiss round minutes' });
   await minutes.fill('');
   await expect(page.getByRole('button', { name: 'Create event' })).toBeDisabled();
+  // The reason sits under the field it is about.
+  await expect(minutes).toHaveAttribute('aria-describedby', 'setup-minutes-status');
+  await expect(minutes.locator('xpath=..').locator('#setup-minutes-status')).toHaveText(
+    'Enter whole minutes from 1 to 180'
+  );
   await page.locator('.tm-setup').evaluate(form => form.dispatchEvent(new Event('submit', { bubbles: true })));
   expect(submissions).toEqual([]);
   await page.getByRole('button', { name: 'Cancel', exact: true }).click();

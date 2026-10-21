@@ -1733,6 +1733,23 @@ test('dropping a player from the check-in line asks first', async ({ page }) => 
   await expect.poll(() => sent.at(-1)).toMatchObject({ type: 'dropPlayer' });
 });
 
+test('a staff removal that fails says so in the staff list', async ({ page }) => {
+  await mockConsole(page, event(8, 0, true), settingsOf({}));
+  await page.route(`**/api/tournaments/${CODE}/staff*`, route =>
+    route.request().method() === 'DELETE'
+      ? route.fulfill({ status: 503, json: { error: 'Try again shortly' } })
+      : route.fulfill({ json: { staff: [{ id: 'u9', name: 'Sam Judge', joinedAt: null }] } })
+  );
+  await page.getByRole('tab', { name: 'Settings' }).click();
+  const list = page.locator('.tm-staff-list');
+  await list.getByRole('button', { name: 'Remove' }).click();
+  await list
+    .getByRole('group', { name: 'Remove Sam Judge from staff?' })
+    .getByRole('button', { name: 'Remove' })
+    .click();
+  await expect(list.getByRole('alert')).toHaveText('Try again shortly');
+});
+
 test('a cold console asks for the event while its own code is on the way, and its Pairings code before the event lands', async ({
   page
 }) => {

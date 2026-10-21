@@ -408,6 +408,11 @@ function SwissRows(props: {
           value={props.roundTime}
           onInput={e => props.onRoundTime(e.currentTarget.value)}
         />
+        <Show when={props.invalidMinutes}>
+          <span id='setup-minutes-status' class='tm-error' role='status'>
+            {t('Enter whole minutes from 1 to 180')}
+          </span>
+        </Show>
       </SettingRow>
       <SettingRow label={t('Swiss rounds')} for='setup-rounds'>
         <RoundsSelect
@@ -506,11 +511,6 @@ function SetupFooter(props: {
             count: CREATIONS_PER_DAY.community
           })}
           <Show when={props.dayTaken}> {t('An event already uses {day}.', { day: props.day })}</Show>
-        </p>
-      </Show>
-      <Show when={props.invalidMinutes}>
-        <p id='setup-minutes-status' class='tm-error' role='status'>
-          {t('Enter whole minutes from 1 to 180')}
         </p>
       </Show>
       <div class='tm-setup-foot'>

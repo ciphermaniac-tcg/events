@@ -580,11 +580,16 @@ function StaffList(props: { manage: Manage; onRemove: () => void }) {
   );
   // Only the organizer sees this list, so the organizer is whoever is signed in.
   const organizer = () => latestValue(session)?.user?.name;
+  // Said under the list, beside the row that failed, rather than dropped.
+  const [failed, setFailed] = createSignal<string | null>(null);
   async function remove(id: string) {
-    const result = await removeStaff(props.manage.code, id).catch(() => null);
-    if (result) {
+    setFailed(null);
+    try {
+      const result = await removeStaff(props.manage.code, id);
       mutate(result.staff);
       props.onRemove();
+    } catch (err) {
+      setFailed(errorText(err));
     }
   }
   return (
@@ -619,6 +624,13 @@ function StaffList(props: { manage: Manage; onRemove: () => void }) {
             </li>
           )}
         </For>
+        <Show when={failed()}>
+          {message => (
+            <li class='tm-error' role='alert'>
+              {message()}
+            </li>
+          )}
+        </Show>
       </ul>
     </SettingRow>
   );
