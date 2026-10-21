@@ -865,7 +865,9 @@ test('each league night keeps its fields on one line, and stacks them whole on a
     } else {
       expect(spread, `${width}`).toBeGreaterThan(40);
     }
-    await expect(night.locator('input').first()).toHaveCSS('font-size', width <= 640 ? '16px' : '14px');
+    // 16px where iOS would zoom into anything smaller: a narrow window, or any touch screen.
+    const touch = test.info().project.name === 'mobile';
+    await expect(night.locator('input').first()).toHaveCSS('font-size', width <= 640 || touch ? '16px' : '14px');
   }
 });
 

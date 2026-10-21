@@ -916,6 +916,25 @@ test('a player is corrected from their menu: the name, and a sanctioned event’
     .toMatchObject({ type: 'editPlayer', lastName: 'Tester', birthDate: '02/27/1988' });
 });
 
+test('the console draws the house focus ring: one ring on a field, 2px on a button', async ({ page }) => {
+  await mockConsole(page, event(4, 0, false), settingsOf({}));
+  const form = page.getByRole('form', { name: 'Add a player' });
+  const field = form.getByLabel('First name');
+  await field.click();
+  // A field's ring is its border and box-shadow, with no outline floating outside it.
+  await expect(field).toHaveCSS('outline-style', 'none');
+  // Onward by keyboard to the first button.
+  for (let presses = 0; presses < 8; presses += 1) {
+    await page.keyboard.press('Tab');
+    if (await page.evaluate(() => document.activeElement?.tagName === 'BUTTON')) {
+      break;
+    }
+  }
+  const focused = page.locator('button:focus');
+  await expect(focused).toHaveCSS('outline-width', '2px');
+  await expect(focused).toHaveCSS('outline-offset', '2px');
+});
+
 test('a sanctioned event adds a player only with their Player ID and birth year', async ({ page }) => {
   const sent = await mockConsole(page, event(4, 0, false), settingsOf({ sanctioned: true }));
   const form = page.getByRole('form', { name: 'Add a player' });
@@ -1920,4 +1939,22 @@ test('before round 1 staff tick who paid, and the console names who is still ope
     .getByRole('button', { name: 'Mark paid' })
     .click();
   await expect(page.getByText('Everyone is checked in.')).toBeVisible();
+});
+
+/** The font size of every visible text field on the page, which iOS zooms into below 16px. */
+const fieldSizes = (page: Page) =>
+  page
+    .locator('main :is(input:not([type=checkbox], [type=radio]), select, textarea):visible')
+    .evaluateAll(fields => fields.map(field => getComputedStyle(field).fontSize));
+
+test.describe('on a phone held sideways', () => {
+  test.use({ viewport: { width: 844, height: 390 }, hasTouch: true, isMobile: true });
+
+  test('fields stay at 16px, so focusing one doesn’t zoom the page', async ({ page }) => {
+    await mockConsole(page, event(8, 1, true), settingsOf({}));
+    await expect(page.locator('.tm-matches tbody tr').first()).toBeVisible();
+    const sizes = await fieldSizes(page);
+    expect(sizes.length).toBeGreaterThan(0);
+    expect(new Set(sizes)).toEqual(new Set(['16px']));
+  });
 });

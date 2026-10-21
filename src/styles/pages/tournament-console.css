@@ -161,7 +161,7 @@
   position: fixed;
   inset: 0;
   z-index: 60;
-  background: color-mix(in srgb, #000 45%, transparent);
+  background: var(--scrim);
 }
 .tm-console .tm-result-sheet {
   position: fixed;
@@ -962,10 +962,6 @@
   color: var(--muted);
 }
 
-.tm-console :focus-visible {
-  outline: 3px solid var(--focus-color);
-  outline-offset: 3px;
-}
 .tm-console .tm-result.is-asking .tm-result-label {
   text-overflow: ellipsis;
   font-size: var(--text-base);

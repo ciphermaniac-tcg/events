@@ -234,15 +234,17 @@
   .tm-found-acts > .tm-row-actions {
     justify-content: flex-start;
   }
-  /* Under 16px, iOS zooms the page when a field takes focus. */
-  .tm-admin .tm-input.tm-mono {
-    font-size: 16px;
-  }
   .tm-app-decide-row .btn {
     flex: 1;
     justify-content: center;
   }
   .tm-app-decide-row .tm-input {
     flex-basis: 100%;
+  }
+}
+/* Under 16px, iOS zooms the page when a field takes focus: on any touch screen, landscape and tablets too. */
+@media (max-width: 640px), (pointer: coarse) {
+  .tm-admin .tm-input.tm-mono {
+    font-size: 16px;
   }
 }

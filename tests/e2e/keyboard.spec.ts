@@ -28,6 +28,8 @@ test('the first Tab reaches the skip link, which moves focus to the content', as
   await expect(skip).toBeInViewport();
   await page.keyboard.press('Enter');
   await expect(page.getByRole('main')).toBeFocused();
+  // Focus lands there without framing the whole page.
+  await expect(page.getByRole('main')).toHaveCSS('outline-style', 'none');
   await expect(page).toHaveURL(/\/privacy$/);
 });
 

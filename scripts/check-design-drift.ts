@@ -23,6 +23,7 @@ import { execSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { checkSheet, parseRules } from './quality/designDrift';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const BASELINE = join(ROOT, 'config', 'design-drift-baseline.json');
@@ -37,21 +38,6 @@ const LIST = process.argv.includes('--list');
  */
 const EXEMPT_SHEETS = ['pages/social-graphics.css', 'pages/label-maker.css'];
 
-/** Sizes on the named scale in tokens.css, plus those still pending a ruling. */
-const SCALE = new Set([9, 10.5, 11, 12, 13, 15, 18, 22, 30]);
-/** Not yet on the scale — tracked by the "Type scale" ruling, allowed for now. */
-const PENDING_SIZES = new Set([14, 16, 17]);
-/** One-off display sizes: hero overrides, the survey completion screen. */
-const DISPLAY_SIZES = new Set([19, 20, 26, 28, 32, 40]);
-
-/** Literal px values that have a radius token and should use it. */
-const RADIUS_TOKENS: Record<string, string> = {
-  '6px': '--radius-sm',
-  '10px': '--radius-md',
-  '14px': '--radius-lg',
-  '999px': '--radius-pill'
-};
-
 interface Finding {
   /** Stable identity across line moves: sheet + rule id + selector. */
   key: string;
@@ -60,156 +46,6 @@ interface Finding {
   rule: string;
   message: string;
 }
-
-interface CssRule {
-  selector: string;
-  body: string;
-  line: number;
-}
-
-/** Flat split into top-level-ish rules. Enough for declaration-level checks. */
-function parseRules(source: string): CssRule[] {
-  const stripped = source.replace(/\/\*[\s\S]*?\*\//g, comment => comment.replace(/[^\n]/g, ' '));
-  const rules: CssRule[] = [];
-  const re = /([^{}]+)\{([^{}]*)\}/g;
-  let match: RegExpExecArray | null;
-  while ((match = re.exec(stripped)) !== null) {
-    const selector = match[1].trim().replace(/\s+/g, ' ');
-    if (!selector || selector.startsWith('@')) {
-      continue;
-    }
-    rules.push({
-      selector,
-      body: match[2],
-      line: stripped.slice(0, match.index).split('\n').length
-    });
-  }
-  return rules;
-}
-
-function decl(body: string, prop: string): string | undefined {
-  const re = new RegExp(`(?:^|;)\\s*${prop}\\s*:\\s*([^;]+)`, 'i');
-  return re.exec(body)?.[1]?.trim();
-}
-
-interface CheckContext {
-  /** Selectors in this sheet that take a ring on behalf of a descendant. */
-  focusWithin: string[];
-}
-
-interface Hit {
-  rule: string;
-  message: string;
-}
-
-type Check = (rule: CssRule, ctx: CheckContext) => Hit[];
-
-const CHECKS: Check[] = [
-  // Ruling: "Type scale". One named scale; no eyeballed half-steps.
-  rule => {
-    const value = decl(rule.body, 'font-size');
-    if (!value || value.includes('var(') || value.includes('clamp(') || value.includes('em') || value === 'inherit') {
-      return [];
-    }
-    const px = Number.parseFloat(value);
-    if (Number.isNaN(px) || SCALE.has(px) || PENDING_SIZES.has(px) || DISPLAY_SIZES.has(px)) {
-      return [];
-    }
-    if (/\bimg\b/.test(rule.selector)) {
-      return []; // sizes alt text when the image 404s, not typography
-    }
-    return [
-      {
-        rule: 'type-scale',
-        message: `font-size: ${value} is off the scale (tokens.css names 9/10.5/11/12/13/15/18/22/30)`
-      }
-    ];
-  },
-
-  // Ruling: "Floating layers". Depth in the page is drawn with an edge and a
-  // fill, never cast; a menu, popover, sheet or dialog casts the one
-  // --shadow-float. The focus ring, hairlines and state rings are box-shadows
-  // by mechanism, not elevation, and keep their own checks.
-  rule => {
-    const value = decl(rule.body, 'box-shadow');
-    if (!value || value === 'none' || value.includes('var(--focus-ring') || value === 'var(--shadow-float)') {
-      return [];
-    }
-    if (/^\s*inset\b/.test(value) || value.includes('0 0 0')) {
-      return []; // hairlines and rings, handled by their own checks
-    }
-    if (/-?\d+px\s+-?\d+px\s+0\s+0/.test(value)) {
-      return [
-        {
-          rule: 'offset-shadow',
-          message: `flat offset shadow "${value}" — only a floating layer casts a shadow, and it is var(--shadow-float)`
-        }
-      ];
-    }
-    // A shadow's third length is its blur radius.
-    const lengths = value.split(/\s+/).filter(part => /^-?\d*\.?\d+(px|rem|em)?$/.test(part));
-    const blur = lengths[2];
-    if (blur !== undefined && Number.parseFloat(blur) !== 0) {
-      return [
-        {
-          rule: 'no-blur-shadow',
-          message: `blurred shadow "${value}" — only a floating layer casts a shadow, and it is var(--shadow-float)`
-        }
-      ];
-    }
-    return [];
-  },
-
-  // Ruling: "Chip shape" / shape tokens. A literal that has a token must use it.
-  rule => {
-    const value = decl(rule.body, 'border-radius');
-    if (!value || value.includes('var(')) {
-      return [];
-    }
-    const token = RADIUS_TOKENS[value.trim()];
-    return token ? [{ rule: 'radius-token', message: `border-radius: ${value} — use var(${token})` }] : [];
-  },
-
-  // Ruling: "Focus indicator". One ring, one opacity, via the token.
-  (rule, ctx) => {
-    const found: Hit[] = [];
-    const shadow = decl(rule.body, 'box-shadow');
-    if (shadow && /0 0 0 3px color-mix/.test(shadow)) {
-      found.push({ rule: 'focus-ring-token', message: 'hand-rolled focus ring — use var(--focus-ring)' });
-    }
-    const outline = decl(rule.body, 'outline');
-    const base = rule.selector.replace(/:focus(-visible)?\b.*$/, '').trim();
-    const ancestorRings = ctx.focusWithin.some(sel => base.startsWith(sel) && base !== sel);
-    if (outline === 'none' && !shadow && !/:focus-within/.test(rule.selector) && !ancestorRings) {
-      found.push({ rule: 'focus-suppressed', message: 'outline: none with no replacement ring' });
-    }
-    return found;
-  },
-
-  // Ruling: "No caps". Labels, captions and column heads are set in sentence
-  // case and take their rank from weight and size. The canvas-export sheets
-  // are exempt, as for every ruling.
-  rule => {
-    if (decl(rule.body, 'text-transform') !== 'uppercase') {
-      return [];
-    }
-    return [
-      { rule: 'no-caps', message: 'text-transform: uppercase — set the label in sentence case; weight carries rank' }
-    ];
-  },
-
-  // Ruling: disabled state. One opacity, one cursor.
-  rule => {
-    if (!/:disabled|\[disabled\]|\[aria-disabled='true'\]|\.disabled\b/.test(rule.selector)) {
-      return [];
-    }
-    const opacity = decl(rule.body, 'opacity');
-    if (!opacity || opacity === '0.4') {
-      return [];
-    }
-    return [{ rule: 'disabled-state', message: `disabled opacity ${opacity} — the house value is 0.4` }];
-  }
-];
 
 function sheetFiles(): string[] {
   return execSync('git ls-files src/styles', { cwd: ROOT, encoding: 'utf8' })
@@ -225,24 +61,14 @@ function collectFindings(): Finding[] {
     if (EXEMPT_SHEETS.includes(short)) {
       continue;
     }
-    const rules = parseRules(readFileSync(join(ROOT, file), 'utf8'));
-    const ctx: CheckContext = {
-      focusWithin: rules
-        .filter(r => r.selector.includes(':focus-within'))
-        .map(r => r.selector.replace(':focus-within', '').trim())
-    };
-    for (const rule of rules) {
-      for (const check of CHECKS) {
-        for (const hit of check(rule, ctx)) {
-          findings.push({
-            key: `${short}|${hit.rule}|${rule.selector}`,
-            file: short,
-            line: rule.line,
-            rule: hit.rule,
-            message: hit.message
-          });
-        }
-      }
+    for (const { rule, hit } of checkSheet(readFileSync(join(ROOT, file), 'utf8'))) {
+      findings.push({
+        key: `${short}|${hit.rule}|${rule.selector}`,
+        file: short,
+        line: rule.line,
+        rule: hit.rule,
+        message: hit.message
+      });
     }
   }
   return findings;

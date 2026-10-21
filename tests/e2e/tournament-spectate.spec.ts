@@ -104,6 +104,19 @@ test('a deck the icon map doesn’t know stands as the Substitute doll, not as n
   await expect(page.locator('.tm-matches .tm-deck')).toHaveCount(2);
 });
 
+test('the player sheet dims the page in dark mode too, and floats over it', async ({ page }) => {
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await mockApi(page);
+  await page.goto(`/t/${CODE}`);
+  await page.locator('.tm-matches .tm-seat-link').first().click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  // One scrim for every modal layer: black at 45%, never the page's own pale ink.
+  expect(await page.locator('.tm-scrim').evaluate(el => getComputedStyle(el).backgroundColor)).toBe(
+    'rgba(0, 0, 0, 0.45)'
+  );
+  expect(await page.locator('.tm-sheet').evaluate(el => getComputedStyle(el).boxShadow)).not.toBe('none');
+});
+
 test('a spectator narrows the pairings to the tables playing, one deck, or the players they follow @mobile', async ({
   page
 }) => {
@@ -267,4 +280,23 @@ test('a stream bar is sized for a broadcast inside title-safe, and a producer ca
   await page.goto(`/t/${CODE}?stream=table&table=${table}&scale=1.5`);
   await expect(page.locator('.tm-stream-bar')).toBeVisible();
   expect(await size('.tm-stream-name')).toBe(60);
+});
+
+/** The font size of every visible text field on the page, which iOS zooms into below 16px. */
+const fieldSizes = (page: Page) =>
+  page
+    .locator('main :is(input:not([type=checkbox], [type=radio]), select, textarea):visible')
+    .evaluateAll(fields => fields.map(field => getComputedStyle(field).fontSize));
+
+test.describe('on a phone held sideways', () => {
+  test.use({ viewport: { width: 844, height: 390 }, hasTouch: true, isMobile: true });
+
+  test('fields stay at 16px, so focusing one doesn’t zoom the page', async ({ page }) => {
+    await mockApi(page);
+    await page.goto(`/t/${CODE}`);
+    await expect(page.locator('.tm-matches tbody tr').first()).toBeVisible();
+    const sizes = await fieldSizes(page);
+    expect(sizes.length).toBeGreaterThan(0);
+    expect(new Set(sizes)).toEqual(new Set(['16px']));
+  });
 });

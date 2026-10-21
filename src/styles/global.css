@@ -8,11 +8,24 @@ body[data-mode] {
   /* The site head's height, and the sticky offset for rows that park beneath it. */
   --topnav-h: 44px;
 }
+/* What a modal layer dims the page with, in either mode. A dialog's backdrop
+   doesn't inherit from the page in every browser, so it is named too. */
+:root,
+::backdrop {
+  --scrim: color-mix(in srgb, #000 45%, transparent);
+}
 
 #root {
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
+}
+
+/* Focus is moved to the content on a new page and by the skip link; the frame
+   a keyboard focus would draw around the whole of it reads as a fault. The
+   heading or control the reader tabs to still takes its own ring. */
+main.page[tabindex='-1']:focus {
+  outline: none;
 }
 
 main.page {

@@ -240,7 +240,7 @@
   position: fixed;
   inset: 0;
   z-index: 60;
-  background: color-mix(in srgb, var(--fg) 18%, transparent);
+  background: var(--scrim);
 }
 .tm-sheet {
   position: fixed;
@@ -253,6 +253,7 @@
   width: min(440px, 100vw);
   background: var(--surface);
   border-left: 1px solid var(--border);
+  box-shadow: var(--shadow-float);
 }
 .tm-sheet-head {
   display: flex;

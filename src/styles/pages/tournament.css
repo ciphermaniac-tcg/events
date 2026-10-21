@@ -617,8 +617,8 @@ body[data-mode='dark'] :is(.tm-input, .tm-select) {
   min-height: 260px;
   font-family: ui-monospace, 'SF Mono', Menlo, monospace;
 }
-@media (max-width: 640px) {
-  /* Under 16px, iOS zooms the page when a field takes focus. */
+/* Under 16px, iOS zooms the page when a field takes focus: on any touch screen, landscape and tablets too. */
+@media (max-width: 640px), (pointer: coarse) {
   .tm-input,
   .tm-select {
     font-size: 16px;
@@ -2087,7 +2087,7 @@ tr.is-in .tm-place {
   color: var(--fg);
 }
 .tm-modal::backdrop {
-  background: color-mix(in srgb, var(--bg) 72%, transparent);
+  background: var(--scrim);
 }
 .tm-modal .tm-box-bar {
   padding: var(--space-3) var(--space-4);
