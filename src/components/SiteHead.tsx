@@ -36,7 +36,7 @@ export function SiteHead() {
                   when={location.pathname === '/'}
                   fallback={
                     <A
-                      class='btn btn-primary site-head-signin'
+                      class='btn btn-secondary site-head-signin'
                       href={`/settings?${new URLSearchParams({ next: `${location.pathname}${location.search}` })}`}
                     >
                       {t('Sign in')}
@@ -44,7 +44,7 @@ export function SiteHead() {
                   }
                 >
                   {/* The browser's own jump: the router ignores a second click on the same hash. */}
-                  <a class='btn btn-primary site-head-signin' href='#sign-in' rel='external'>
+                  <a class='btn btn-secondary site-head-signin' href='#sign-in' rel='external'>
                     {t('Sign in')}
                   </a>
                 </Show>
