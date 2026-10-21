@@ -1,7 +1,8 @@
 /**
  * The admin page's POP IDs tab, where a dispute from the feedback form is
  * settled: look an account up by POP ID, email or account ID, then move its
- * POP ID to another account (named by its ID) or clear it, each asked first.
+ * POP ID to another account (named by its ID, then shown by name) or clear
+ * it, each asked first, naming the accounts.
  * History follows the POP ID. The lookup is read again after a change, so
  * the rows show where the POP ID now is.
  */
@@ -14,17 +15,39 @@ import { t } from '../../lib/i18n';
 import { findAccounts, movePopId, ROLE_WORDS } from '../../lib/tournament/admin';
 import { dayOf } from '../../lib/tournament/applications';
 import { latestValue } from '../../lib/resource';
-import { ConfirmAction } from './ConfirmAction';
+import { ConfirmAction, ConfirmDialog } from './ConfirmAction';
 import { ErrorLine } from './Field';
 
-/** Move to account: the account ID it goes to, then the move, asked first. */
+/** The account an ID names, or null when it names none. */
+const accountById = (id: string) =>
+  findAccounts(id).then(answer => answer.accounts.find(account => account.id === id) ?? null);
+
+/**
+ * Move to account: the account ID it goes to, then the move, asked in a
+ * dialog that names both accounts, so a pasted ID is checked against the
+ * person it belongs to. An ID that names no account is refused in place.
+ */
 function MoveForm(props: { account: FoundAccount & { popId: string }; onMoved: () => void; onCancel: () => void }) {
   const [target, setTarget] = createSignal('');
+  const [to, setTo] = createSignal<FoundAccount | null>(null);
   const [error, setError] = createSignal<string | null>(null);
-  async function move() {
+  async function lookUp() {
     setError(null);
+    const id = target().trim();
     try {
-      await movePopId(props.account.popId, target().trim());
+      const account = await accountById(id);
+      if (account) {
+        setTo(account);
+      } else {
+        setError(t('No account has the ID {id}', { id }));
+      }
+    } catch (err) {
+      setError(errorText(err));
+    }
+  }
+  async function move(account: FoundAccount) {
+    try {
+      await movePopId(props.account.popId, account.id);
       props.onMoved();
     } catch (err) {
       setError(errorText(err));
@@ -48,15 +71,34 @@ function MoveForm(props: { account: FoundAccount & { popId: string }; onMoved: (
           value={target()}
           onInput={event => setTarget(event.currentTarget.value)}
         />
-        <ConfirmAction
+        <button
+          type='button'
           class='btn btn-secondary'
-          label={t('Move')}
-          question={t('Move {popId} to {account}?', { popId: props.account.popId, account: target().trim() })}
           disabled={target().trim() === '' || target().trim() === props.account.id}
-          onConfirm={() => void move()}
-        />
+          onClick={() => void lookUp()}
+        >
+          {t('Move')}
+        </button>
       </div>
       <ErrorLine message={error()} />
+      <ConfirmDialog
+        open={to() !== null}
+        question={t('Move {popId} to {name}?', { popId: props.account.popId, name: to()?.name ?? '' })}
+        scope={t('{popId} and its history leave {from} for {to}, who joined {date}.', {
+          popId: props.account.popId,
+          from: props.account.name,
+          to: to()?.name ?? '',
+          date: dayOf(to()?.createdAt ?? 0)
+        })}
+        confirmLabel={t('Move')}
+        onConfirm={() => {
+          const account = to();
+          if (account) {
+            void move(account);
+          }
+        }}
+        onClose={() => setTo(null)}
+      />
     </div>
   );
 }
@@ -122,7 +164,7 @@ function FoundRow(props: { account: FoundAccount; onChanged: (lookup: string) =>
                   <ConfirmAction
                     class='btn btn-ghost'
                     label={t('Clear')}
-                    question={t('Clear {popId}?', { popId: popId() })}
+                    question={t('Clear {popId} from {name}?', { popId: popId(), name: a().name })}
                     danger
                     onConfirm={() => void clear(popId())}
                   />

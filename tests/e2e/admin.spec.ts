@@ -68,6 +68,24 @@ const FOUND: FoundAccount = {
   createdAt: DAY
 };
 
+/** The account a POP ID's move is checked against. */
+const OTHER: FoundAccount = {
+  id: 'Other_account_01',
+  name: 'Ben Ortiz',
+  email: null,
+  popId: null,
+  role: null,
+  createdAt: DAY
+};
+
+/** What a lookup finds: no one for POP ID 404 or the account ID nobody, Ben by his ID, else Mary. */
+function foundFor(query: URLSearchParams): FoundAccount[] {
+  if (query.get('popId') === '404' || query.get('id') === 'nobody') {
+    return [];
+  }
+  return query.get('id') === OTHER.id ? [OTHER] : [FOUND];
+}
+
 const USERS: AdminUser[] = [
   { ...FOUND, handle: 'mary' },
   {
@@ -163,10 +181,7 @@ async function mockAdmin(page: Page, user: typeof ADMIN | null = ADMIN, decidedE
       return route.fulfill({ json: { users: USERS } });
     }
     if (url.pathname === '/api/admin/accounts') {
-      return route.fulfill({ json: { accounts: url.searchParams.get('popId') === '404' ? [] : [FOUND] } });
-    }
-    if (url.pathname === '/api/admin/pop-ids' && body?.accountId === 'nobody') {
-      return route.fulfill({ status: 404, json: { error: 'No such account' } });
+      return route.fulfill({ json: { accounts: foundFor(url.searchParams) } });
     }
     if (url.pathname === '/api/admin/pop-ids') {
       return route.fulfill({ json: { from: FOUND.id, to: body?.accountId ?? null } });
@@ -200,7 +215,7 @@ test('an Admin approves an Application with a note, and it shows as decided in p
   await expect(first).toContainText('I run the Thursday league at the card shop.');
   const count = page.locator('.tm-apps > .tm-box-bar');
   await expect(count).toContainText('2 pending');
-  await first.getByLabel('Note').fill('Welcome aboard');
+  await first.getByLabel('Note to applicant').fill('Welcome aboard');
   await first.getByRole('button', { name: 'Approve' }).click();
   await expect(first.locator('.tm-flag')).toHaveText('Approved');
   await expect(first).toContainText('by Reese');
@@ -216,6 +231,8 @@ test('an Admin rejects one, and reads the decided ones by status', async ({ page
   await page.goto('/admin');
   const second = page.locator('.tm-app').nth(1);
   await second.getByRole('button', { name: 'Reject' }).click();
+  expect(adminAsks(asks).filter(a => a.method === 'POST')).toEqual([]);
+  await second.getByRole('group', { name: 'Reject Mary Jackson?' }).getByRole('button', { name: 'Reject' }).click();
   await expect(second.locator('.tm-flag')).toHaveText('Rejected');
   await page.getByRole('radiogroup', { name: 'Status' }).getByRole('radio', { name: 'Rejected' }).click();
   await expect(page.locator('.tm-app')).toHaveCount(1);
@@ -241,10 +258,16 @@ test('an Admin revokes a Community organizer, asked first, and reinstates them; 
   await expect(ada).toContainText('Community organizer');
   await expect(page.getByRole('row', { name: /Reese/ }).getByRole('button')).toHaveCount(0);
   await ada.getByRole('button', { name: 'Revoke' }).click();
-  await ada.getByRole('group', { name: 'Revoke access?' }).getByRole('button', { name: 'Revoke' }).click();
+  await ada
+    .getByRole('group', { name: 'Revoke access for Ada Lovelace?' })
+    .getByRole('button', { name: 'Revoke' })
+    .click();
   await expect(ada).toContainText('Revoked');
   await ada.getByRole('button', { name: 'Reinstate' }).click();
-  await ada.getByRole('group', { name: 'Reinstate access?' }).getByRole('button', { name: 'Reinstate' }).click();
+  await ada
+    .getByRole('group', { name: 'Reinstate access for Ada Lovelace?' })
+    .getByRole('button', { name: 'Reinstate' })
+    .click();
   await expect(ada.getByRole('button', { name: 'Revoke' })).toBeVisible();
   expect(adminAsks(asks).filter(a => a.method === 'POST')).toEqual([
     { method: 'POST', path: '/api/admin/organizers/ada', body: { role: 'revoked' } },
@@ -264,13 +287,12 @@ test('an Admin looks a POP ID up, moves it to another account and clears it, eac
   await found.getByRole('button', { name: 'Move to account…' }).click();
   await found.getByLabel('Account ID').fill('Other_account_01');
   await found.getByRole('button', { name: 'Move' }).click();
-  await found
-    .getByRole('group', { name: 'Move 7200001 to Other_account_01?' })
-    .getByRole('button', { name: 'Move' })
-    .click();
+  const move = page.getByRole('dialog', { name: 'Move 7200001 to Ben Ortiz?' });
+  await expect(move).toContainText('7200001 and its history leave Mary for Ben Ortiz, who joined');
+  await move.getByRole('button', { name: 'Move' }).click();
   await expect(found.getByRole('button', { name: 'Move to account…' })).toBeVisible();
   await found.getByRole('button', { name: 'Clear' }).click();
-  await found.getByRole('group', { name: 'Clear 7200001?' }).getByRole('button', { name: 'Clear' }).click();
+  await found.getByRole('group', { name: 'Clear 7200001 from Mary?' }).getByRole('button', { name: 'Clear' }).click();
   await expect.poll(() => adminAsks(asks).filter(a => a.method === 'POST').length).toBe(2);
   expect(adminAsks(asks).map(a => `${a.method} ${a.path}`)).toContain('GET /api/admin/accounts?popId=7200001');
   expect(adminAsks(asks).filter(a => a.method === 'POST')).toEqual([
@@ -307,8 +329,9 @@ test('a lookup that finds no one says so, the same lookup asks again, and a move
   await found.getByRole('button', { name: 'Move to account…' }).click();
   await found.getByLabel('Account ID', { exact: true }).fill('nobody');
   await found.getByRole('button', { name: 'Move' }).click();
-  await found.getByRole('group', { name: 'Move 7200001 to nobody?' }).getByRole('button', { name: 'Move' }).click();
-  await expect(found.getByRole('alert')).toHaveText('No such account');
+  await expect(found.getByRole('alert')).toHaveText('No account has the ID nobody');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  expect(adminAsks(asks).filter(a => a.method === 'POST')).toEqual([]);
 });
 
 test('a cleared POP ID leaves its account in sight, looked up by its ID', async ({ page }) => {
@@ -317,7 +340,7 @@ test('a cleared POP ID leaves its account in sight, looked up by its ID', async 
   await page.getByLabel('POP ID, email or account ID').fill('7200001');
   await page.getByRole('button', { name: 'Look up' }).click();
   await page.locator('.tm-found').getByRole('button', { name: 'Clear' }).click();
-  await page.getByRole('group', { name: 'Clear 7200001?' }).getByRole('button', { name: 'Clear' }).click();
+  await page.getByRole('group', { name: 'Clear 7200001 from Mary?' }).getByRole('button', { name: 'Clear' }).click();
   await expect(page.getByLabel('POP ID, email or account ID')).toHaveValue(FOUND.id);
   await expect.poll(() => adminAsks(asks).at(-1)?.path).toBe(`/api/admin/accounts?id=${FOUND.id}`);
 });

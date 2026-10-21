@@ -34,7 +34,11 @@ function Access(props: { account: RoleHolder; onChanged: (account: RoleHolder) =
     <Show when={props.account.role !== 'admin'}>
       <ConfirmAction
         label={revoking() ? t('Revoke') : tc('organizer access', 'Reinstate')}
-        question={revoking() ? t('Revoke access?') : t('Reinstate access?')}
+        question={
+          revoking()
+            ? t('Revoke access for {name}?', { name: props.account.name })
+            : t('Reinstate access for {name}?', { name: props.account.name })
+        }
         danger={revoking()}
         onConfirm={() => void change()}
       />

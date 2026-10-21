@@ -22,6 +22,7 @@ import { recountApplications } from './pendingApplications';
 import { dayOf } from '../../lib/tournament/applications';
 import { RELATIONSHIP_LABELS, STORE_ROLE_WORDS } from '../../lib/tournament/stores';
 import { resolved } from '../../lib/resource';
+import { ConfirmAction } from './ConfirmAction';
 import { ErrorLine, RetryError } from './Field';
 import '../../styles/pages/tournament-admin.css';
 
@@ -93,7 +94,7 @@ function Decide(props: {
   return (
     <div class='tm-app-decide'>
       <label class='tm-label' for={id()}>
-        {t('Note')}
+        {t('Note to applicant')} <span class='muted tm-optional'>{t('optional')}</span>
       </label>
       <div class='tm-app-decide-row'>
         <input
@@ -113,15 +114,16 @@ function Decide(props: {
         >
           {t('Approve')}
         </button>
-        <button
-          type='button'
+        <ConfirmAction
           class='btn btn-ghost'
-          aria-describedby={who()}
+          label={t('Reject')}
+          question={t('Reject {name}?', {
+            name: `${props.application.applied.firstName} ${props.application.applied.lastName}`
+          })}
+          danger
           disabled={busy()}
-          onClick={() => void decide('reject')}
-        >
-          {t('Reject')}
-        </button>
+          onConfirm={() => void decide('reject')}
+        />
       </div>
       <ErrorLine message={error()} />
     </div>
