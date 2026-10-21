@@ -41,6 +41,7 @@ import { Squares } from './Squares';
 import { ReturningPlayerField } from './ReturningPlayerField';
 import { capCount, CheckInBox, CheckInCells, CheckInHeads, createSiteRegistrants, showsCheckIn } from './CheckIn';
 import { inRoster, isRosterFilter, type RosterFilter } from './rosterFilter';
+import { byLastName, sortName } from './playerSearch';
 import { notCheckedIn } from '../../../shared/tournament/checkins';
 import { Segmented } from '@ciphermaniac/design/components/Segmented';
 
@@ -329,7 +330,7 @@ function PlayerRow(props: RowProps) {
     <tr classList={{ 'is-dropped': props.player.droppedAfter !== null }}>
       <td class='tm-who'>
         <span class='tm-who-name'>
-          <span class='tm-name'>{playerName(props.player)}</span>
+          <span class='tm-name'>{sortName(props.player)}</span>
           <Show
             when={props.player.late || joinedLate(playerPod(props.manage.tournament, props.player.id), props.player.id)}
           >
@@ -404,9 +405,7 @@ export function PlayersPanel(props: { state: ManageState; manage: Manage }) {
     startDate: () => props.manage.tournament.info.startDate
   });
   const players = createMemo(() =>
-    props.manage.tournament.players
-      .filter(p => inRoster(props.manage, p, filter(), query()))
-      .sort((a, b) => a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName))
+    props.manage.tournament.players.filter(p => inRoster(props.manage, p, filter(), query())).sort(byLastName)
   );
   // At a TOM event before round 1, whoever registered on the site and is not in TOM's file yet.
   const siteRegistrants = createSiteRegistrants(() => props.manage);
@@ -500,7 +499,7 @@ export function PlayersPanel(props: { state: ManageState; manage: Manage }) {
                   <tr>
                     <td class='tm-who'>
                       <span class='tm-who-name'>
-                        <span class='tm-name'>{playerName(player)}</span>
+                        <span class='tm-name'>{sortName(player)}</span>
                       </span>
                       <span class='tm-who-sub tm-num'>{player.id}</span>
                     </td>

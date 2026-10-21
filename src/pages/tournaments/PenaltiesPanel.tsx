@@ -35,6 +35,9 @@ import {
 import { latestValue } from '../../lib/resource';
 import { intlLocale, t, tn, tx } from '../../lib/i18n';
 import { Segmented } from '@ciphermaniac/design/components/Segmented';
+import { Combo, splitMatch } from '@ciphermaniac/design/components/Combo';
+import { seatOf } from '../../lib/tournament/present';
+import { byLastName, findPlayers, sortName } from './playerSearch';
 import { ConfirmAction } from './ConfirmAction';
 import type { ManageState } from './manageState';
 import { session } from './session';
@@ -42,8 +45,6 @@ import { session } from './session';
 const timeOf = (at: number) => new Date(at).toLocaleTimeString(intlLocale(), { hour: 'numeric', minute: '2-digit' });
 
 const nameOr = (name: string | null) => name ?? t('Deleted account');
-
-const fullName = (player: Pick<Player, 'firstName' | 'lastName'>) => `${player.firstName} ${player.lastName}`;
 
 /** Someone not on the staff, by a name typed in: the judge select's last choice. */
 const SOMEONE_ELSE = '';
@@ -133,6 +134,10 @@ const rounds = (latest: number) => Array.from({ length: latest }, (_, i) => late
 interface FormProps {
   draft: Draft;
   players: Player[];
+  /** The players a typed name, table number or Player ID finds (see findPlayers). */
+  search: (query: string) => Player[];
+  /** The table a player sits at this round, shown beside their name. */
+  seat: (playerId: string) => number | 'bye' | null;
   latestOf: (playerId: string) => number;
   judges: { id: string; name: string }[];
   saving: boolean;
@@ -140,6 +145,42 @@ interface FormProps {
   onChange: (draft: Draft) => void;
   onSave: () => void;
   onCancel: () => void;
+}
+
+function PlayerOption(props: { name: string; query: string; seat: string }) {
+  const parts = () => splitMatch(props.name, props.query);
+  return (
+    <>
+      <b>
+        {parts()[0]}
+        <mark>{parts()[1]}</mark>
+        {parts()[2]}
+      </b>
+      <span>{props.seat}</span>
+    </>
+  );
+}
+
+/** The player a note is about, found by name, Player ID or table number, listed as "Last, First". */
+function PlayerCombo(props: FormProps & { onPick: (playerId: string) => void }) {
+  const seat = (player: Player) => {
+    const at = props.seat(player.id);
+    return at === null ? '' : at === 'bye' ? t('Bye') : t('Table {table}', { table: at });
+  };
+  return (
+    <Combo<Player>
+      placeholder={t('Choose a player')}
+      options={props.players}
+      browse={props.players}
+      label={sortName}
+      search={props.search}
+      selected={props.players.find(player => player.id === props.draft.playerId)}
+      emptyLabel={t('No players match.')}
+      onPick={player => props.onPick(player.id)}
+    >
+      {(player, query) => <PlayerOption name={sortName(player)} query={query} seat={seat(player)} />}
+    </Combo>
+  );
 }
 
 function NoteForm(props: FormProps) {
@@ -154,10 +195,10 @@ function NoteForm(props: FormProps) {
         props.onSave();
       }}
     >
-      <Select label={t('Player')} value={props.draft.playerId} onChange={setPlayer}>
-        <option value=''>{t('Choose a player')}</option>
-        <For each={props.players}>{player => <option value={player.id}>{fullName(player)}</option>}</For>
-      </Select>
+      <label>
+        {t('Player')}
+        <PlayerCombo {...props} onPick={setPlayer} />
+      </label>
       <Select label={t('Round')} value={props.draft.round} onChange={value => set({ round: Number(value) })}>
         <For each={rounds(props.latestOf(props.draft.playerId))}>
           {round => <option value={round}>{t('Round {round}', { round })}</option>}
@@ -481,9 +522,7 @@ export function PenaltiesPanel(props: { state: ManageState; manage: Manage }) {
   const latest = createMemo(() => Math.max(0, ...props.manage.tournament.players.map(player => latestOf(player.id))));
   // A player is only written up for a round they were paired in; a late entry waits for their first.
   const players = createMemo(() =>
-    props.manage.tournament.players
-      .filter(player => latestOf(player.id) > 0)
-      .sort((a, b) => a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName))
+    props.manage.tournament.players.filter(player => latestOf(player.id) > 0).sort(byLastName)
   );
 
   const [draft, setDraft] = createSignal(fresh(latest(), me()));
@@ -560,6 +599,8 @@ export function PenaltiesPanel(props: { state: ManageState; manage: Manage }) {
           <NoteForm
             draft={draft()}
             players={players()}
+            search={query => findPlayers(props.manage.tournament, players(), query)}
+            seat={id => seatOf(props.manage.tournament, id)}
             latestOf={id => (id ? latestOf(id) : latest())}
             judges={notes.judges()}
             saving={saving()}

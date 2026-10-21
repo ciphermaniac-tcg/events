@@ -6,7 +6,7 @@
  * deck checks in among the notes when asked.
  */
 
-import { expect, type Page, type Route } from '@playwright/test';
+import { expect, type Locator, type Page, type Route } from '@playwright/test';
 import { test } from './network-guard';
 import { deferred } from '../__utils__/deferred';
 
@@ -19,6 +19,18 @@ import { DEFAULT_SETTINGS } from '../../shared/tournament/view';
 import { organizerMe, runCommands } from './console-fixture';
 
 const CODE = 'PEN001';
+
+/**
+ * Picks a player in the form's typeahead by first name, as listed: "Test, Ada".
+ * Tried again if the list closes under the click: the box closes a moment
+ * after it loses focus, and a test refocuses it faster than anyone could.
+ */
+async function pickPlayer(form: Locator, firstName: string) {
+  await expect(async () => {
+    await form.getByLabel('Player').fill(firstName);
+    await form.getByRole('option', { name: new RegExp(`^Test, ${firstName}`) }).click({ timeout: 1000 });
+  }).toPass();
+}
 
 const adds: Command[] = ['Ada', 'Ben', 'Cy', 'Di'].map(firstName => ({
   type: 'addPlayer',
@@ -158,7 +170,7 @@ test('a Disqualification note offers the disqualification itself, asked first', 
     return manageRoute(route, runCommands(t, { type: 'disqualifyPlayer', id: ada }), 'off');
   });
   const form = page.locator('.tm-penalty-form');
-  await form.getByLabel('Player').selectOption({ label: 'Ada Test' });
+  await pickPlayer(form, 'Ada');
   await form.getByLabel('Penalty').selectOption({ label: 'Disqualification' });
   await form.getByRole('button', { name: 'Save note' }).click();
   const offer = page.getByRole('status').filter({ hasText: 'Disqualification noted for Ada Test.' });
@@ -195,7 +207,7 @@ test('a penalty note is recorded, edited and removed, and changes nothing else',
 
   await form.getByRole('button', { name: 'Save note' }).click();
   await expect(form.getByRole('alert')).toHaveText('Choose a player');
-  await form.getByLabel('Player').selectOption({ label: 'Ada Test' });
+  await pickPlayer(form, 'Ada');
   await form.getByLabel('Penalty').selectOption({ label: 'Game Loss' });
   await expect(form).toContainText('A note only.');
   await form.getByLabel('Notes').fill('Drew two extra cards.');
@@ -238,45 +250,59 @@ test('a note saved while the next is typed keeps the next, as does removing a no
   page
 }) => {
   const t = runCommands(emptyTournament({ name: 'Friday League' }), ...adds, { type: 'pairRound', pod: 'masters' });
-  const ben = t.players.find(player => player.firstName === 'Ben')?.id ?? '';
   const answer = deferred<void>();
   await mockConsole(page, t, 'off', answer.promise);
   const form = page.locator('.tm-penalty-form');
   const log = page.locator('.tm-penalty-log');
-  await form.getByLabel('Player').selectOption({ label: 'Ada Test' });
+  await pickPlayer(form, 'Ada');
   await form.getByLabel('Penalty').selectOption({ label: 'Game Loss' });
   await form.getByRole('button', { name: 'Save note' }).click();
   await expect(form.getByRole('button', { name: 'Save note' })).toBeDisabled();
-  await form.getByLabel('Player').selectOption({ label: 'Ben Test' });
+  await pickPlayer(form, 'Ben');
   await form.getByLabel('Notes').fill('Slow play, second time.');
   answer.resolve();
   await expect(log.locator('tbody tr')).toHaveCount(1);
   await expect(log).toContainText('Ada Test');
-  await expect(form.getByLabel('Player')).toHaveValue(ben);
+  await expect(form.getByLabel('Player')).toHaveValue('Test, Ben');
   await expect(form.getByLabel('Notes')).toHaveValue('Slow play, second time.');
 
   await log.getByRole('button', { name: 'Remove' }).click();
   await log.getByRole('group', { name: 'Remove this penalty note?' }).getByRole('button', { name: 'Remove' }).click();
   await expect(page.getByText('No penalty notes yet.')).toBeVisible();
-  await expect(form.getByLabel('Player')).toHaveValue(ben);
+  await expect(form.getByLabel('Player')).toHaveValue('Test, Ben');
   await expect(form.getByLabel('Notes')).toHaveValue('Slow play, second time.');
 
   await form.getByLabel('Penalty').selectOption({ label: 'Caution' });
   await form.getByRole('button', { name: 'Save note' }).click();
   await expect(form.getByLabel('Player')).toHaveValue('');
   await log.getByRole('button', { name: 'Edit' }).click();
-  await expect(form.getByLabel('Player')).toHaveValue(ben);
+  await expect(form.getByLabel('Player')).toHaveValue('Test, Ben');
   await log.getByRole('button', { name: 'Remove' }).click();
   await log.getByRole('group', { name: 'Remove this penalty note?' }).getByRole('button', { name: 'Remove' }).click();
   await expect(page.getByText('Record a penalty')).toBeVisible();
   await expect(form.getByLabel('Player')).toHaveValue('');
 });
 
+test('the player is found by the table they sit at, and listed by last name', async ({ page }) => {
+  const t = runCommands(emptyTournament({ name: 'Friday League' }), ...adds, { type: 'pairRound', pod: 'masters' });
+  const table = t.pods[0]!.rounds[0]!.matches.find(match => match.p2 !== null)!;
+  const names = new Map(t.players.map(player => [player.id, `Test, ${player.firstName}`]));
+  await mockConsole(page, t);
+  const form = page.locator('.tm-penalty-form');
+  await form.getByLabel('Player').fill(String(table.table));
+  // The table's players lead, by last name then first; any Player ID that starts with the number follows them.
+  const seated = [names.get(table.p1)!, names.get(table.p2!)!].sort();
+  await expect(form.getByRole('option').nth(0)).toHaveText(`${seated[0]}Table ${table.table}`);
+  await expect(form.getByRole('option').nth(1)).toHaveText(`${seated[1]}Table ${table.table}`);
+  await form.getByRole('option').first().click();
+  await expect(form.getByLabel('Player')).toHaveValue(seated[0]!);
+});
+
 test('deck checks read in among the notes when the event takes decklists', async ({ page }) => {
   const t = runCommands(emptyTournament({ name: 'Friday League' }), ...adds, { type: 'pairRound', pod: 'masters' });
   await mockConsole(page, t, 'closed');
   const form = page.locator('.tm-penalty-form');
-  await form.getByLabel('Player').selectOption({ label: 'Ben Test' });
+  await pickPlayer(form, 'Ben');
   await form.getByLabel('Penalty').selectOption({ label: 'Caution' });
   await form.getByRole('button', { name: 'Save note' }).click();
   const log = page.locator('.tm-penalty-log');
@@ -296,10 +322,10 @@ test('a row a search or round keeps is the same row, still open as it was', asyn
   const form = page.locator('.tm-penalty-form');
   const log = page.locator('.tm-penalty-log');
   for (const [player, penalty] of [
-    ['Ada Test', 'Game Loss'],
-    ['Ben Test', 'Caution']
+    ['Ada', 'Game Loss'],
+    ['Ben', 'Caution']
   ] as const) {
-    await form.getByLabel('Player').selectOption({ label: player });
+    await pickPlayer(form, player);
     await form.getByLabel('Penalty').selectOption({ label: penalty });
     await form.getByRole('button', { name: 'Save note' }).click();
     await expect(form.getByLabel('Player')).toHaveValue('');
@@ -333,7 +359,7 @@ test('deck checks that could not be read say so beside the notes, with a retry',
       : route.fulfill({ json: { entries: [check(ben)], checkers: JUDGES } });
   });
   const form = page.locator('.tm-penalty-form');
-  await form.getByLabel('Player').selectOption({ label: 'Ada Test' });
+  await pickPlayer(form, 'Ada');
   await form.getByLabel('Penalty').selectOption({ label: 'Caution' });
   await form.getByRole('button', { name: 'Save note' }).click();
   const log = page.locator('.tm-penalty-log');
