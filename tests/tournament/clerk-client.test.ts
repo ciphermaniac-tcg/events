@@ -19,6 +19,7 @@ import {
   passwordSignUp,
   postClerkToken,
   prepareClerk,
+  problemOf,
   type Step
 } from '../../src/lib/tournament/clerk.ts';
 
@@ -569,4 +570,28 @@ test('Clerk’s refusals read as words: known codes as ours, others as Clerk’s
   assert.equal(clerkProblem({ errors: [] }), 'Sign-in failed. Try again.');
   assert.equal(clerkProblem(new Error('network')), 'Sign-in failed. Try again.');
   assert.equal(clerkProblem(null), 'Sign-in failed. Try again.');
+});
+
+test('a refusal names the one field Clerk says it is about, and never which of a username or password was wrong', () => {
+  const of = (code: string, paramName?: string) => problemOf({ errors: [{ code, meta: { paramName } }] });
+  assert.deepEqual(of('form_identifier_exists', 'username'), {
+    text: 'That username is taken.',
+    field: 'username',
+    emailTaken: false
+  });
+  assert.deepEqual(of('form_identifier_exists', 'email_address'), {
+    text: 'An account already exists with that email.',
+    field: 'email',
+    emailTaken: true
+  });
+  assert.equal(of('form_password_pwned', 'password').field, 'password');
+  assert.equal(of('form_code_incorrect', 'code').field, 'code');
+  assert.equal(of('form_password_incorrect', 'password').field, null);
+  assert.equal(of('form_identifier_not_found', 'identifier').field, null);
+  assert.equal(of('user_locked').field, null);
+  assert.deepEqual(problemOf(new Error('network')), {
+    text: 'Sign-in failed. Try again.',
+    field: null,
+    emailTaken: false
+  });
 });

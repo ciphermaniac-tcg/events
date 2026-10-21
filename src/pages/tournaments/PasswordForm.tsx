@@ -10,8 +10,9 @@ import {
   Switch
 } from 'solid-js';
 import { PASSWORD_MIN } from '../../../shared/accounts/clerk';
-import { t } from '../../lib/i18n';
-import type { Step } from '../../lib/tournament/clerk';
+import { t, tx } from '../../lib/i18n';
+import type { Problem as Refusal, Step } from '../../lib/tournament/clerk';
+import { ContactLink } from './ContactLink';
 
 /** The Clerk client, loaded on first use so the pages that only show this form don't carry it. */
 const clerkClient = () => import('../../lib/tournament/clerk');
@@ -31,7 +32,7 @@ interface Flow {
   /** What is typed in the field. */
   field: (name: keyof Draft) => string;
   setField: (name: keyof Draft, value: string) => void;
-  problem: Accessor<string | null>;
+  problem: Accessor<Refusal | null>;
   busy: Accessor<boolean>;
   /** Asks Clerk, then shows the step it answers, or the problem. */
   run: (action: Action<Step>) => void;
@@ -58,9 +59,17 @@ interface TextFieldProps {
   first?: boolean;
 }
 
-/** A labelled field over one of the draft's values, marked when Clerk refused. */
+/**
+ * A labelled field over one of the draft's values, marked when Clerk refused
+ * it, with the refusal under it; a refusal about the whole form marks every
+ * field and shows above the buttons (Problem).
+ */
 function TextField(props: TextFieldProps) {
   const hintId = createUniqueId();
+  const errorId = createUniqueId();
+  const refused = () => props.flow.problem();
+  const own = () => (refused()?.field === props.name ? refused()?.text : undefined);
+  const described = () => [props.hint && hintId, own() && errorId].filter(Boolean).join(' ') || undefined;
   let input: HTMLInputElement | undefined;
   onMount(() => {
     if (props.first && props.flow.focus) {
@@ -81,8 +90,8 @@ function TextField(props: TextFieldProps) {
         spellcheck={false}
         minLength={props.minLength}
         required
-        aria-invalid={props.flow.problem() ? 'true' : undefined}
-        aria-describedby={props.hint ? hintId : undefined}
+        aria-invalid={refused() && (refused()?.field ?? props.name) === props.name ? 'true' : undefined}
+        aria-describedby={described()}
         value={props.flow.field(props.name)}
         onInput={event => props.flow.setField(props.name, event.currentTarget.value)}
       />
@@ -91,16 +100,24 @@ function TextField(props: TextFieldProps) {
           {props.hint}
         </span>
       </Show>
+      <Show when={own()}>
+        {text => (
+          <span class='tm-error' id={errorId} role='alert'>
+            {text()}
+          </span>
+        )}
+      </Show>
     </label>
   );
 }
 
+/** A refusal about the whole form, not one field, above its buttons. */
 function Problem(props: { flow: Flow }) {
   return (
-    <Show when={props.flow.problem()}>
-      {text => (
+    <Show when={props.flow.problem()?.field === null && props.flow.problem()}>
+      {refused => (
         <p class='tm-error' role='alert'>
-          {text()}
+          {refused().text}
         </p>
       )}
     </Show>
@@ -169,8 +186,17 @@ function Credentials(props: { flow: Flow; mode: 'in' | 'up' }) {
           <Swap flow={props.flow} onClick={() => props.flow.restart(making() ? 'in' : 'up')}>
             {making() ? t('I have an account') : t('Create an account')}
           </Swap>
-          <Show when={!making()}>
-            <Swap flow={props.flow} onClick={() => props.flow.restart('forgot')}>
+          <Show when={!making() || props.flow.problem()?.emailTaken}>
+            <Swap
+              flow={props.flow}
+              onClick={() => {
+                // An account already has the email: the reset starts from it.
+                if (making()) {
+                  props.flow.setField('username', trimmed(props.flow, 'email'));
+                }
+                props.flow.restart('forgot');
+              }}
+            >
               {t('Forgot password?')}
             </Swap>
           </Show>
@@ -319,6 +345,7 @@ function Reset(props: { flow: Flow; step: PendingOf<'reset'> }) {
         hint={t('If the account has an email, a code is on its way.')}
         first
       />
+      <p class='tm-signin-hint'>{tx('No code? {contact}', { contact: <ContactLink /> })}</p>
       <TextField
         flow={props.flow}
         name='password'
@@ -367,7 +394,7 @@ function StepParts(props: { flow: Flow; step: Pending }) {
 export function UsernameForm(props: { publishableKey: string; next: string; focus?: boolean }) {
   const [mode, setMode] = createSignal<Mode>('in');
   const [step, setStep] = createSignal<Pending | null>(null);
-  const [problem, setProblem] = createSignal<string | null>(null);
+  const [problem, setProblem] = createSignal<Refusal | null>(null);
   const [busy, setBusy] = createSignal(false);
   const [moved, setMoved] = createSignal(false);
   const [draft, setDraft] = createSignal<Draft>({ username: '', email: '', password: '', code: '' });
@@ -393,7 +420,7 @@ export function UsernameForm(props: { publishableKey: string; next: string; focu
       }
       return { clerk, answer: await action(clerk, props.publishableKey) };
     } catch (error) {
-      setProblem(clerk?.clerkProblem(error) ?? t('Sign-in failed. Try again.'));
+      setProblem(clerk?.problemOf(error) ?? { text: t('Sign-in failed. Try again.'), field: null, emailTaken: false });
       setBusy(false);
       return null;
     }

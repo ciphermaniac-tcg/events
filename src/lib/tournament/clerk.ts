@@ -394,3 +394,38 @@ export function clerkProblem(error: unknown): string {
   }
   return first?.longMessage ?? first?.message ?? t('Sign-in failed. Try again.');
 }
+
+/** A field of the form, as Clerk names it. */
+const FIELDS = new Map<string, ProblemField>([
+  ['username', 'username'],
+  ['email_address', 'email'],
+  ['password', 'password'],
+  ['code', 'code']
+]);
+
+/** Refusals that say the username or password was wrong, without telling which: neither field is singled out. */
+const EITHER = new Set(['form_identifier_not_found', 'form_password_incorrect']);
+
+export type ProblemField = 'username' | 'email' | 'password' | 'code';
+
+/**
+ * A refusal as the form shows it: its words, the one field it is about
+ * (null when it is about the whole form), and whether it says an account
+ * already has the email, which offers signing in or a reset instead.
+ */
+export interface Problem {
+  text: string;
+  field: ProblemField | null;
+  emailTaken: boolean;
+}
+
+export function problemOf(error: unknown): Problem {
+  const first = firstError(error);
+  const code = first?.code ?? '';
+  const field = EITHER.has(code) ? null : (FIELDS.get(first?.meta?.paramName ?? '') ?? null);
+  return {
+    text: clerkProblem(error),
+    field,
+    emailTaken: code === 'form_identifier_exists' && field === 'email'
+  };
+}

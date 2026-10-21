@@ -304,6 +304,49 @@ test('on a phone, the ways out under the submit button are finger-sized @mobileO
   }
 });
 
+test('a refusal about one field sits under that field and marks it alone', async ({ page }) => {
+  await mockSite(page, ['clerk']);
+  await page.addInitScript(() => {
+    (window as any).clerkFake = { error: { code: 'form_identifier_exists', meta: { paramName: 'username' } } };
+  });
+  await page.goto('/settings');
+  await form(page).getByRole('button', { name: 'Create an account' }).click();
+  await fill(page, 'pat_plays', 'a long enough password');
+  await form(page).getByLabel('Email').fill('pat@example.com');
+  await form(page).getByRole('button', { name: 'Create account' }).click();
+  const username = form(page).getByRole('textbox', { name: /^Username/ });
+  await expect(username).toHaveAttribute('aria-invalid', 'true');
+  await expect(username).toHaveAccessibleDescription('That username is taken.');
+  await expect(form(page).getByLabel('Email')).not.toHaveAttribute('aria-invalid', 'true');
+  await expect(form(page).getByLabel('Password')).not.toHaveAttribute('aria-invalid', 'true');
+  await expect(form(page).locator(':scope > p.tm-error')).toHaveCount(0);
+});
+
+test('an email that already has an account offers its reset, and the reset says who to ask when no code comes', async ({
+  page
+}) => {
+  await mockSite(page, ['clerk']);
+  await page.addInitScript(() => {
+    (window as any).clerkFake = { error: { code: 'form_identifier_exists', meta: { paramName: 'email_address' } } };
+  });
+  await page.goto('/settings');
+  await form(page).getByRole('button', { name: 'Create an account' }).click();
+  await expect(form(page).getByRole('button', { name: 'Forgot password?' })).toHaveCount(0);
+  await fill(page, 'pat_plays', 'a long enough password');
+  await form(page).getByLabel('Email').fill('pat@example.com');
+  await form(page).getByRole('button', { name: 'Create account' }).click();
+  await expect(form(page).getByLabel('Email')).toHaveAccessibleDescription(
+    'An account already exists with that email.'
+  );
+  await form(page).getByRole('button', { name: 'Forgot password?' }).click();
+  await expect(form(page).getByLabel('Username or email')).toHaveValue('pat@example.com');
+  await form(page).getByRole('button', { name: 'Send code' }).click();
+  await expect(form(page).getByRole('link', { name: 'Contact us' })).toHaveAttribute(
+    'href',
+    'https://ciphermaniac.com/feedback'
+  );
+});
+
 test('with no provider to prefer, the form shows from the start', async ({ page }) => {
   await mockSite(page, ['clerk']);
   await page.goto('/settings');
