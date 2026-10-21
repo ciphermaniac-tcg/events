@@ -81,6 +81,7 @@
     "one": "{n} mesa registrada",
     "other": "las {n} mesas registradas"
   },
+  "All ‖ players": "Todos",
   "Allow access to {file}": "Permitir acceso a {file}",
   "allow access to the .tdf to enter results": "permite el acceso al .tdf para registrar resultados",
   "Allows organizer entry of player deck archetypes. “Shown once the event ends” shows archetypes at the time of final standings and “Shown during the event” shows archetypes at the time of entry during your event.": "Permite que el organizador registre el arquetipo del mazo de cada jugador. Con “Visibles al terminar el torneo”, los arquetipos aparecen junto a la clasificación final; con “Visibles durante el torneo”, aparecen en cuanto se registran.",
@@ -312,12 +313,18 @@
     "other": "Descargar .tdf con {n} resultados"
   },
   "Drop": "Registrar abandono",
+  "Drop all {n}": "Registrar los {n} abandonos",
   "Drop {name}? You can reinstate them until the next round is paired.": "¿Registrar el abandono de {name}? Puedes reincorporarlo hasta que se empareje la siguiente ronda.",
   "Drop confirmed": "Abandono confirmado",
   "Drop declined": "Abandono rechazado",
   "drop in TOM": "márcalo como abandono en TOM",
   "Drop requested": "Abandono solicitado",
   "Drop requests": "Solicitudes de abandono",
+  "Drop {n}": "Registrar {n} abandonos",
+  "Drop {n} players who aren’t checked in?": {
+    "one": "¿Registrar el abandono de {n} jugador sin check-in?",
+    "other": "¿Registrar el abandono de {n} jugadores sin check-in?"
+  },
   "Drop ‖ request": "Abandono",
   "Dropped": "Abandonó",
   "dropped after round {round}": "abandonó tras la ronda {round}",
@@ -627,6 +634,7 @@
   "Not applied": "No se aplicó",
   "Not approved": "No aprobada",
   "Not checked": "Sin revisar",
+  "Not checked in": "Sin check-in",
   "Not enough players for that cut": "No hay suficientes jugadores para ese top cut",
   "Not entered": "Sin inscribir",
   "Not found": "No se encontró",

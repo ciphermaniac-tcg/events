@@ -4,17 +4,23 @@
  * (Paid with an entry fee, In TOM at a TOM event, List received from anyone
  * handing in a paper list), each with how many are ticked, and above the list
  * who is still open. An event the site pairs waits on them for round 1, so
- * each comes with what lets it go: marking them, or dropping them. A TOM
- * event pairs in TOM, so it gets the count, and a warning if TOM's round 1
- * came in with anyone still open.
+ * each comes with what lets it go: marking them, or dropping them, one by one
+ * or all at once. A long line of them is only counted there, and the roster's
+ * Not checked in filter lists them (see rosterFilter), rather than the same
+ * names twice. A TOM event pairs in TOM, so it gets the count, and a warning
+ * if TOM's round 1 came in with anyone still open.
+ *
+ * Each tick and drop is saved on its own: only the box or button on its way
+ * waits, so a desk working through a line never loses a click to another.
  */
 
-import { createResource, For, Show } from 'solid-js';
+import { createResource, createSignal, For, Show } from 'solid-js';
 import { type CheckMark, marksFor, notCheckedIn, openMarks } from '../../../shared/tournament/checkins';
 import { hasStarted } from '../../../shared/tournament/rounds';
 import { type Player, playerName } from '../../../shared/tournament/types';
 import { fetchDecklists, type Manage, saveCheckIn } from '../../lib/tournament/api';
-import { msg, t } from '../../lib/i18n';
+import { msg, t, tn } from '../../lib/i18n';
+import { ConfirmAction } from './ConfirmAction';
 import type { ManageState } from './manageState';
 import { registrantsSource, siteRegistrants } from './siteRegistrants';
 
@@ -31,9 +37,61 @@ const MARK_ACTIONS: Partial<Record<CheckMark, string>> = {
 
 const checkins = (manage: Manage) => manage.checkins ?? {};
 
+/** Above this many players still open, the list above the roster is only counted. */
+const LISTED_MAX = 10;
+
+/** What is on its way, by player and check (or drop): only that control waits for its answer. */
+const [saving, setSaving] = createSignal<ReadonlySet<string>>(new Set());
+const keyOf = (playerId: string, what: CheckMark | 'drop') => `${playerId}|${what}`;
+const isSaving = (playerId: string, what: CheckMark | 'drop') => saving().has(keyOf(playerId, what));
+
+async function saved(key: string, request: () => Promise<boolean>): Promise<boolean> {
+  setSaving(keys => new Set(keys).add(key));
+  try {
+    return await request();
+  } finally {
+    setSaving(keys => new Set([...keys].filter(held => held !== key)));
+  }
+}
+
 /** Ticks or clears one check, through the console's state so the answer is the event shown. */
 function tick(state: ManageState, code: string, check: { playerId: string; mark: CheckMark; on: boolean }) {
-  void state.run(() => saveCheckIn(code, check));
+  return saved(keyOf(check.playerId, check.mark), () => state.run(() => saveCheckIn(code, check)));
+}
+
+/** Ticks or clears a box, answering with what it should show: what the event has once the server refused it, not the click. */
+async function ticked(state: ManageState, manage: Manage, check: { playerId: string; mark: CheckMark; on: boolean }) {
+  return (await tick(state, manage.code, check))
+    ? check.on
+    : checkins(state.data() ?? manage)[check.playerId]?.[check.mark] === true;
+}
+
+const drop = (state: ManageState, id: string) => saved(keyOf(id, 'drop'), () => state.send({ type: 'dropPlayer', id }));
+
+/** Whether a player is still open in the event as the console has it now. */
+function stillOpen(state: ManageState, player: Player): boolean {
+  const manage = state.data();
+  return manage !== null && notCheckedIn(manage, [player], checkins(manage)).length > 0;
+}
+
+/** While Drop all works through its list: its button waits for the last answer. */
+const [droppingAll, setDroppingAll] = createSignal(false);
+
+/**
+ * Drops each player listed when staff confirmed, one after another, stopping
+ * at the first the server refuses. Anyone checked in since is passed over.
+ */
+async function dropAll(state: ManageState, players: readonly Player[]) {
+  setDroppingAll(true);
+  try {
+    for (const player of players) {
+      if (stillOpen(state, player) && !(await drop(state, player.id))) {
+        return;
+      }
+    }
+  } finally {
+    setDroppingAll(false);
+  }
 }
 
 /** The checks the event asks of anyone, in column order: a list only once someone chose paper. */
@@ -75,11 +133,14 @@ export function CheckInCells(props: { state: ManageState; manage: Manage; id: st
                 type='checkbox'
                 class='tm-check-box'
                 checked={held()?.[mark] === true}
-                disabled={props.state.busy()}
+                disabled={isSaving(props.id, mark)}
                 aria-label={`${t(MARK_LABELS[mark])}: ${props.name}`}
-                onChange={e =>
-                  tick(props.state, props.manage.code, { playerId: props.id, mark, on: e.currentTarget.checked })
-                }
+                onChange={e => {
+                  const box = e.currentTarget;
+                  void ticked(props.state, props.manage, { playerId: props.id, mark, on: box.checked }).then(on => {
+                    box.checked = on;
+                  });
+                }}
               />
               {/* The column's name, where a phone lays the row out without its head. */}
               <span class='tm-check-name' aria-hidden='true'>
@@ -93,49 +154,66 @@ export function CheckInCells(props: { state: ManageState; manage: Manage; id: st
   );
 }
 
-/** Who still holds round 1 back, with what lets each go. */
-function Blockers(props: { state: ManageState; manage: Manage; open: readonly Player[] }) {
+/** One player still open, with what lets them go: the checks staff can mark here, or a drop. */
+function Blocker(props: { state: ManageState; manage: Manage; player: Player }) {
+  const name = () => playerName(props.player);
   return (
-    <div class='tm-box-bar tm-check-gate'>
-      <strong>
-        {props.open.length === 1
-          ? t('1 player isn’t checked in.')
-          : t('{n} players aren’t checked in.', { n: props.open.length })}
-      </strong>
-      <ul class='tm-check-list'>
-        <For each={props.open}>
-          {player => (
-            <li>
-              <span>{playerName(player)}</span>
-              <span class='tm-grow' />
-              <For each={openMarks(props.manage, checkins(props.manage)[player.id])}>
-                {mark => (
-                  <Show when={MARK_ACTIONS[mark]}>
-                    {label => (
-                      <button
-                        type='button'
-                        class='btn btn-secondary tm-small'
-                        disabled={props.state.busy()}
-                        onClick={() => tick(props.state, props.manage.code, { playerId: player.id, mark, on: true })}
-                      >
-                        {t(label())}
-                      </button>
-                    )}
-                  </Show>
-                )}
-              </For>
+    <li>
+      <span>{name()}</span>
+      <span class='tm-grow' />
+      <For each={openMarks(props.manage, checkins(props.manage)[props.player.id])}>
+        {mark => (
+          <Show when={MARK_ACTIONS[mark]}>
+            {label => (
               <button
                 type='button'
-                class='btn btn-ghost tm-small'
-                disabled={props.state.busy()}
-                onClick={() => void props.state.send({ type: 'dropPlayer', id: player.id })}
+                class='btn btn-secondary tm-small'
+                disabled={isSaving(props.player.id, mark)}
+                onClick={() => void tick(props.state, props.manage.code, { playerId: props.player.id, mark, on: true })}
               >
-                {t('Drop')}
+                {t(label())}
               </button>
-            </li>
-          )}
-        </For>
-      </ul>
+            )}
+          </Show>
+        )}
+      </For>
+      <ConfirmAction
+        label={t('Drop')}
+        question={t('Drop {name}? You can reinstate them until the next round is paired.', { name: name() })}
+        danger
+        disabled={isSaving(props.player.id, 'drop')}
+        onConfirm={() => void drop(props.state, props.player.id)}
+      />
+    </li>
+  );
+}
+
+/**
+ * Who still holds round 1 back: how many, a way to drop them all, and while
+ * there are few, each with what lets them go.
+ */
+function Blockers(props: { state: ManageState; manage: Manage; open: readonly Player[] }) {
+  const n = () => props.open.length;
+  return (
+    <div class='tm-box-bar tm-check-gate'>
+      <div class='tm-check-head'>
+        <strong>{n() === 1 ? t('1 player isn’t checked in.') : t('{n} players aren’t checked in.', { n: n() })}</strong>
+        <Show when={n() > 1}>
+          <ConfirmAction
+            label={t('Drop all {n}', { n: n() })}
+            question={tn(n(), 'Drop {n} player who isn’t checked in?', 'Drop {n} players who aren’t checked in?')}
+            confirmLabel={t('Drop {n}', { n: n() })}
+            danger
+            disabled={droppingAll()}
+            onConfirm={() => void dropAll(props.state, props.open)}
+          />
+        </Show>
+      </div>
+      <Show when={n() <= LISTED_MAX}>
+        <ul class='tm-check-list'>
+          <For each={props.open}>{player => <Blocker state={props.state} manage={props.manage} player={player} />}</For>
+        </ul>
+      </Show>
     </div>
   );
 }

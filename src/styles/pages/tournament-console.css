@@ -1173,6 +1173,9 @@
   display: grid;
   gap: var(--space-2);
 }
+.tm-check-gate .tm-check-head {
+  gap: var(--space-2);
+}
 .tm-check-list {
   display: grid;
   gap: var(--space-2);

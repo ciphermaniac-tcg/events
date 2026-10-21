@@ -1650,6 +1650,89 @@ test('a drop confirmed from the pairing check leaves the pairing one press away'
   await expect.poll(() => sent.at(-1)).toMatchObject({ type: 'pairRound' });
 });
 
+test('a long check-in line is counted, filtered on the roster, and dropped all at once after asking', async ({
+  page
+}) => {
+  const t = event(12, 0, false);
+  const sent = await mockConsole(page, t, settingsOf({ entryFee: 10 }));
+  const gate = page.locator('.tm-check-gate');
+  await expect(gate).toContainText('12 players aren’t checked in.');
+  // The roster lists them; the box above it only counts them.
+  await expect(gate.getByRole('listitem')).toHaveCount(0);
+  const show = page.getByRole('radiogroup', { name: 'Show' });
+  await show.getByRole('radio', { name: /Not checked in/ }).click();
+  await expect(page).toHaveURL(/show=unchecked/);
+  // Clicked, not checked: the row leaves the filter as soon as the tick is saved, so its ticked state may never be seen.
+  await page.getByRole('checkbox', { name: 'Paid: Player1 Test' }).click();
+  await expect(page.getByRole('checkbox', { name: 'Paid: Player1 Test' })).toHaveCount(0);
+  await expect(show.getByRole('radio', { name: /Not checked in/ })).toHaveText('Not checked in11');
+  // The first drop waits on its answer while the desk checks a latecomer in.
+  let answer = () => undefined as void;
+  const held = new Promise<void>(resolve => {
+    answer = resolve;
+  });
+  await page.route(`**/api/tournaments/${CODE}/commands`, async route => {
+    await held;
+    return route.fallback();
+  });
+  await gate.getByRole('button', { name: 'Drop all 11' }).click();
+  const asking = gate.getByRole('group', { name: 'Drop 11 players who aren’t checked in?' });
+  await asking.getByRole('button', { name: 'Drop 11' }).click();
+  await expect(gate.getByRole('button', { name: /^Drop all/ })).toBeDisabled();
+  await page.getByRole('checkbox', { name: 'Paid: Player12 Test' }).check();
+  await expect(page.getByRole('checkbox', { name: 'Paid: Player12 Test' })).toHaveCount(0);
+  answer();
+  const dropped = () => sent.flatMap(command => (command.type === 'dropPlayer' ? [command.id] : []));
+  // Everyone listed at the question but the two checked in: Player1 before it, Player12 during it.
+  await expect.poll(dropped).toEqual(t.players.slice(1, 11).map(player => player.id));
+  await expect(gate.getByRole('button', { name: /^Drop all/ })).toBeEnabled();
+});
+
+test('a check-in tick the server refuses goes back to unticked', async ({ page }) => {
+  await mockConsole(page, event(3, 0, false), settingsOf({ entryFee: 10 }));
+  await page.route(`**/api/tournaments/${CODE}/checkins`, route =>
+    route.fulfill({ status: 503, json: { error: 'Try again shortly' } })
+  );
+  const box = page.getByRole('checkbox', { name: 'Paid: Player1 Test' });
+  await box.click();
+  await expect(box).toBeEnabled();
+  await expect(box).not.toBeChecked();
+});
+
+test('a check-in tick waits on its own answer, not every other box on the page', async ({ page }) => {
+  await mockConsole(page, event(3, 0, false), settingsOf({ entryFee: 10 }));
+  let answer = () => undefined as void;
+  const held = new Promise<void>(resolve => {
+    answer = resolve;
+  });
+  await page.route(`**/api/tournaments/${CODE}/checkins`, async route => {
+    await held;
+    return route.fallback();
+  });
+  const first = page.getByRole('checkbox', { name: 'Paid: Player1 Test' });
+  await first.check();
+  await expect(first).toBeDisabled();
+  await expect(page.getByRole('checkbox', { name: 'Paid: Player2 Test' })).toBeEnabled();
+  const gate = page.locator('.tm-check-gate');
+  await expect(
+    gate.getByRole('listitem').filter({ hasText: 'Player3 Test' }).getByRole('button', { name: 'Mark paid' })
+  ).toBeEnabled();
+  answer();
+  await expect(first).toBeEnabled();
+});
+
+test('dropping a player from the check-in line asks first', async ({ page }) => {
+  const sent = await mockConsole(page, event(3, 0, false), settingsOf({ entryFee: 10 }));
+  const row = page.locator('.tm-check-gate').getByRole('listitem').filter({ hasText: 'Player2 Test' });
+  await row.getByRole('button', { name: 'Drop' }).click();
+  expect(sent).toHaveLength(0);
+  await row
+    .getByRole('group', { name: 'Drop Player2 Test? You can reinstate them until the next round is paired.' })
+    .getByRole('button', { name: 'Drop' })
+    .click();
+  await expect.poll(() => sent.at(-1)).toMatchObject({ type: 'dropPlayer' });
+});
+
 test('a cold console asks for the event while its own code is on the way, and its Pairings code before the event lands', async ({
   page
 }) => {

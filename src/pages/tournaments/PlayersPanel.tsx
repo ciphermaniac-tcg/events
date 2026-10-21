@@ -25,7 +25,7 @@ import {
 import { decksEnabled, isSanctioned } from '../../../shared/tournament/view';
 import { type Manage, releaseReporter } from '../../lib/tournament/api';
 import { matchHistory } from '../../lib/tournament/present';
-import { t, tn } from '../../lib/i18n';
+import { t, tc, tn } from '../../lib/i18n';
 import type { ReportedDeck } from '../live/reportedDeck';
 import { OptionsMenu } from './OptionsMenu';
 import { ConfirmAction } from './ConfirmAction';
@@ -40,6 +40,9 @@ import { StaffRequests } from './StaffRequests';
 import { Squares } from './Squares';
 import { ReturningPlayerField } from './ReturningPlayerField';
 import { capCount, CheckInBox, CheckInCells, CheckInHeads, createSiteRegistrants, showsCheckIn } from './CheckIn';
+import { inRoster, isRosterFilter, type RosterFilter } from './rosterFilter';
+import { notCheckedIn } from '../../../shared/tournament/checkins';
+import { Segmented } from '@ciphermaniac/design/components/Segmented';
 
 /**
  * A new player: a name, and at a sanctioned event their Player ID and birth
@@ -361,9 +364,36 @@ function PlayerRow(props: RowProps) {
   );
 }
 
+/** The roster's filter, while check-in is open: everyone, or only who is not checked in. */
+function RosterShow(props: { selected: RosterFilter; open: number; onSelect: (value: RosterFilter) => void }) {
+  return (
+    <Segmented
+      options={[
+        { value: 'all', label: tc('players', 'All') },
+        {
+          value: 'unchecked',
+          label: (
+            <>
+              {t('Not checked in')}
+              <Show when={props.open > 0}>
+                <span class='tm-count'>{props.open}</span>
+              </Show>
+            </>
+          )
+        }
+      ]}
+      selected={props.selected}
+      onSelect={value => props.onSelect(value)}
+      ariaLabel={t('Show')}
+    />
+  );
+}
+
 export function PlayersPanel(props: { state: ManageState; manage: Manage }) {
-  const [, setParams] = useSearchParams<{ tab?: string }>();
+  // In the URL beside the tab, so a reload keeps the list it showed.
+  const [params, setParams] = useSearchParams<{ tab?: string; show?: string }>();
   const [query, setQuery] = createSignal('');
+  const filter = (): RosterFilter => (isRosterFilter(params.show) && showsCheckIn(props.manage) ? params.show : 'all');
   const season = () => eventSeason(props.manage.tournament);
   const swiss = () => props.manage.mode === 'swiss';
   const sanctioned = () => isSanctioned(props.manage);
@@ -373,14 +403,17 @@ export function PlayersPanel(props: { state: ManageState; manage: Manage }) {
     inEvent: () => Object.values(props.manage.decks),
     startDate: () => props.manage.tournament.info.startDate
   });
-  const players = createMemo(() => {
-    const q = query().trim().toLowerCase();
-    return [...props.manage.tournament.players]
-      .filter(p => !q || playerName(p).toLowerCase().includes(q) || p.id.includes(q))
-      .sort((a, b) => a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName));
-  });
+  const players = createMemo(() =>
+    props.manage.tournament.players
+      .filter(p => inRoster(props.manage, p, filter(), query()))
+      .sort((a, b) => a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName))
+  );
   // At a TOM event before round 1, whoever registered on the site and is not in TOM's file yet.
-  const registrants = createSiteRegistrants(() => props.manage);
+  const siteRegistrants = createSiteRegistrants(() => props.manage);
+  const registrants = () => siteRegistrants().filter(p => inRoster(props.manage, p, filter(), query()));
+  const unchecked = () =>
+    notCheckedIn(props.manage, [...props.manage.tournament.players, ...siteRegistrants()], props.manage.checkins ?? {})
+      .length;
   const count = () => {
     const all = props.manage.tournament.players.length;
     const capped = capCount(props.manage, props.manage.tournament.players.filter(p => p.droppedAfter === null).length);
@@ -397,7 +430,7 @@ export function PlayersPanel(props: { state: ManageState; manage: Manage }) {
         <AddPlayer state={props.state} code={props.manage.code} sanctioned={sanctioned()} late={started()} />
       </Show>
       <StaffRequests state={props.state} manage={props.manage} />
-      <CheckInBox state={props.state} manage={props.manage} extra={registrants()} />
+      <CheckInBox state={props.state} manage={props.manage} extra={siteRegistrants()} />
       <section class='tm-box'>
         <div class='tm-box-bar'>
           <input
@@ -409,6 +442,14 @@ export function PlayersPanel(props: { state: ManageState; manage: Manage }) {
             onInput={e => setQuery(e.currentTarget.value)}
           />
           <span class='muted tm-num'>{count()}</span>
+          <Show when={showsCheckIn(props.manage)}>
+            <span class='tm-grow' />
+            <RosterShow
+              selected={filter()}
+              open={unchecked()}
+              onSelect={value => setParams({ show: value === 'all' ? undefined : value }, { replace: true })}
+            />
+          </Show>
         </div>
         <div class='table-wrap'>
           <table class='data tm-roster'>
@@ -433,7 +474,7 @@ export function PlayersPanel(props: { state: ManageState; manage: Manage }) {
                 <Show when={showsCheckIn(props.manage)}>
                   <CheckInHeads
                     manage={props.manage}
-                    players={[...props.manage.tournament.players, ...registrants()]}
+                    players={[...props.manage.tournament.players, ...siteRegistrants()]}
                   />
                 </Show>
                 <th>
