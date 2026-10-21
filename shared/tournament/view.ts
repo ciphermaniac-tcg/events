@@ -121,7 +121,12 @@ export const SETTINGS_LIMITS = {
   address: 200
 } as const;
 
+/** Soonest first: how soon each setting shows decks to players. */
 const VISIBILITIES: readonly DeckVisibility[] = ['always', 'after', 'off'];
+
+/** Whether `next` shows decks to players sooner than `now` does: the organizer's call alone, on the server and in the console. */
+export const showsDecksSooner = (next: DeckVisibility, now: DeckVisibility) =>
+  VISIBILITIES.indexOf(next) < VISIBILITIES.indexOf(now);
 const DECKLIST_MODES: readonly DecklistMode[] = ['off', 'open', 'closed'];
 
 type SettingCheck = (value: unknown) => boolean;

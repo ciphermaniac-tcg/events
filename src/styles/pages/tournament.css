@@ -2014,6 +2014,15 @@ tr.is-in .tm-place {
   padding: var(--space-1);
   white-space: normal;
 }
+/* The question takes its own lines above its answers, at a width that reads. */
+.tm-menu .tm-confirm {
+  max-width: 26em;
+}
+.tm-menu .tm-confirm-label {
+  flex-basis: 100%;
+  text-align: start;
+  white-space: normal;
+}
 .tm-menu-item:hover,
 .tm-menu-item:focus-visible {
   background: var(--surface-2);

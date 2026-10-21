@@ -333,6 +333,7 @@ export function EventSetup(props: {
             invalidMinutes={invalidMinutes()}
             needsName={needsName()}
             shortRounds={shortRounds()}
+            unconfirmed={needsPlayTools() === true && !playToolsConfirmed()}
             cannotCreate={cannotCreate()}
             onCancel={props.onCancel}
           />
@@ -428,7 +429,11 @@ function SwissRows(props: {
  */
 function PairingRow(props: { tom: boolean; onChange: (tom: boolean) => void }) {
   return (
-    <SettingRow label={t('Pairing and results')} info={<SettingInfo text={SETTING_INFO.pairing} />}>
+    <SettingRow
+      label={t('Pairing and results')}
+      info={<SettingInfo text={SETTING_INFO.pairing} />}
+      note={t('Can’t be changed after the event is created')}
+    >
       <Toggle
         label={t('Pairing and results')}
         value={props.tom}
@@ -467,6 +472,20 @@ function PlayToolsRow(props: { confirmed: boolean; onConfirm: (value: boolean) =
   );
 }
 
+/**
+ * Why Create event can't be pressed yet, the first of what holds it back, or
+ * null. Minutes out of range and a date taken say so above the foot.
+ */
+function blockedReason(why: { needsName: boolean; shortRounds: boolean; unconfirmed: boolean }): string | null {
+  if (why.needsName) {
+    return t('Name the event to create it');
+  }
+  if (why.shortRounds) {
+    return t('Sanctioned rounds are at least {minutes} minutes', { minutes: SANCTIONED.minutes });
+  }
+  return why.unconfirmed ? t('Confirm the event is in Play! Tools to create it') : null;
+}
+
 function SetupFooter(props: {
   limited: boolean;
   dayTaken: boolean;
@@ -474,6 +493,8 @@ function SetupFooter(props: {
   invalidMinutes: boolean;
   needsName: boolean;
   shortRounds: boolean;
+  /** A sanctioned event not yet confirmed as created in Play! Tools. */
+  unconfirmed: boolean;
   cannotCreate: boolean;
   onCancel: () => void;
 }) {
@@ -493,14 +514,7 @@ function SetupFooter(props: {
         </p>
       </Show>
       <div class='tm-setup-foot'>
-        <Show when={props.needsName}>
-          <span class='muted'>{t('Name the event to create it')}</span>
-        </Show>
-        <Show when={!props.needsName && props.shortRounds}>
-          <span class='muted'>
-            {t('Sanctioned rounds are at least {minutes} minutes', { minutes: SANCTIONED.minutes })}
-          </span>
-        </Show>
+        <Show when={blockedReason(props)}>{reason => <span class='muted'>{reason()}</span>}</Show>
         <button type='submit' class='btn btn-primary' disabled={props.cannotCreate}>
           {t('Create event')}
         </button>

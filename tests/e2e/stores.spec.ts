@@ -541,6 +541,9 @@ test('store settings: staff change role, invite links show once and withdraw', a
   await page.keyboard.press('Escape');
   expect(sentTo(asks, 'PATCH', '/api/stores/store-1/members')).toEqual([{ user: 'acct-2', role: 'manager' }]);
 
+  await expect(
+    page.getByText('Staff run the store’s events. Managers also edit the store, its staff and league nights.')
+  ).toBeVisible();
   await page.getByRole('button', { name: 'Invite staff' }).click();
   const link = page.getByLabel('Staff invite link');
   await expect(link).toHaveValue(/\/stores\/join\?invite=k3QwP9zXr2$/);

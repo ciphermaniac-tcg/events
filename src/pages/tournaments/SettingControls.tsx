@@ -9,7 +9,7 @@
  */
 
 import { For, type JSX, Show } from 'solid-js';
-import type { DeckVisibility } from '../../../shared/tournament/view';
+import { type DeckVisibility, showsDecksSooner } from '../../../shared/tournament/view';
 import { Segmented } from '@ciphermaniac/design/components/Segmented';
 import { msg, t } from '../../lib/i18n';
 
@@ -71,17 +71,23 @@ export function Toggle(props: {
   );
 }
 
-/** Whether and when players see each other's archetypes, or archetypes disabled for the event. */
+/**
+ * Whether and when players see each other's archetypes, or archetypes
+ * disabled for the event. `soonest`: the soonest the one choosing may pick,
+ * the choices past it disabled.
+ */
 export function ArchetypesSelect(props: {
   id: string;
   value: DeckVisibility;
+  soonest?: DeckVisibility;
   onChange: (value: DeckVisibility) => void;
 }) {
+  const sooner = (value: DeckVisibility) => props.soonest !== undefined && showsDecksSooner(value, props.soonest);
   return (
     <select id={props.id} class='tm-select' onChange={e => props.onChange(e.currentTarget.value as DeckVisibility)}>
-      <For each={Object.entries(VISIBILITY_LABELS)}>
+      <For each={Object.entries(VISIBILITY_LABELS) as [DeckVisibility, string][]}>
         {([value, label]) => (
-          <option value={value} selected={props.value === value}>
+          <option value={value} selected={props.value === value} disabled={sooner(value)}>
             {t(label)}
           </option>
         )}

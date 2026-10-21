@@ -501,7 +501,7 @@ function Console(props: { state: ReturnType<typeof createManage>; manage: Manage
           <DecklistsPanel state={props.state} manage={props.manage} />
         </Show>
         <Show when={tab() === 'penalties'}>
-          <PenaltiesPanel manage={props.manage} />
+          <PenaltiesPanel state={props.state} manage={props.manage} />
         </Show>
         <Show when={tab() === 'event'}>
           <EventPanel state={props.state} manage={props.manage} tom={tom} />

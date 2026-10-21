@@ -520,6 +520,8 @@ test('sanctioned setup requires Play! Tools confirmation; local setup skips it @
   await sanctioned.getByRole('radio', { name: 'Yes', exact: true }).click();
   await expect(confirmation).not.toBeChecked();
   await expect(create).toBeDisabled();
+  const reason = page.locator('.tm-setup-foot').getByText('Confirm the event is in Play! Tools to create it');
+  await expect(reason).toBeVisible();
   await expect(page.getByRole('link', { name: 'Play! Tools', exact: true })).toHaveAttribute(
     'href',
     'https://play-tools.pokemon.com/'
@@ -533,6 +535,7 @@ test('sanctioned setup requires Play! Tools confirmation; local setup skips it @
   expect(submissions).toEqual([]);
   await confirmation.check();
   await expect(create).toBeEnabled();
+  await expect(reason).toHaveCount(0);
   await confirmation.uncheck();
   await expect(create).toBeDisabled();
   await sanctioned.getByRole('radio', { name: 'No', exact: true }).click();
@@ -614,6 +617,7 @@ test('a sanctioned setup asks who pairs: TOM goes on from its file, and Cipherma
     'true'
   );
   await expect(page.getByRole('note', { name: /^Where rounds are paired and results are kept\./ })).toHaveCount(1);
+  await expect(page.getByText('Can’t be changed after the event is created')).toBeVisible();
   await pairing.getByRole('radio', { name: 'TOM', exact: true }).click();
   await expect(page.getByText('From the .tdf')).toBeVisible();
   await expect(page.getByRole('textbox', { name: 'Event name' })).toHaveCount(0);

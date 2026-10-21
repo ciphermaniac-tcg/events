@@ -14,7 +14,7 @@ import { createResource, createSignal, For, type JSX, Show, untrack } from 'soli
 import { eventTimeLimits } from '../../../shared/tournament/create';
 import { eventTypeOf, recommendedStructure, SANCTIONED } from '../../../shared/tournament/structure';
 import type { EventType } from '../../../shared/tournament/types';
-import { swissAttendance } from '../../../shared/tournament/rounds';
+import { hasStarted, swissAttendance } from '../../../shared/tournament/rounds';
 import { isSanctioned, SETTINGS_LIMITS, type TournamentSettings } from '../../../shared/tournament/view';
 import type { DisplayPreset } from '../../../shared/tournament/display';
 import {
@@ -50,7 +50,11 @@ import { type Logistics, LogisticsRows } from './LogisticsRows';
 import { reportingInfo, SETTING_INFO, SettingInfo } from './SettingInfo';
 import { TomFileRow, type TomLink } from './TomSyncPanel';
 
-/** A box of settings with its heading, and a foot with Save and whether anything is unsaved. */
+/**
+ * A box of settings with its heading, and a foot with Save and whether
+ * anything is unsaved. Save is the view's primary only while its box has
+ * changes to save, so the tab holds one at a time beside the head's step.
+ */
 function SettingsBox(props: {
   title: string;
   dirty: boolean;
@@ -73,7 +77,11 @@ function SettingsBox(props: {
           <Show when={props.dirty}>
             <span class='muted'>{t('Unsaved changes')}</span>
           </Show>
-          <button type='submit' class='btn btn-primary' disabled={props.busy || !props.dirty}>
+          <button
+            type='submit'
+            class={props.dirty ? 'btn btn-primary' : 'btn btn-secondary'}
+            disabled={props.busy || !props.dirty}
+          >
             {t('Save')}
           </button>
         </div>
@@ -111,6 +119,9 @@ const eventFields = (manage: Manage): EventFields => {
     roundCap: manage.settings.roundCap
   };
 };
+
+/** What a row says once round 1 is paired: when a change made now takes effect. Nothing before. */
+const midEvent = (manage: Manage, note: string) => (hasStarted(manage.tournament) ? note : undefined);
 
 function EventDetails(props: { state: ManageState; manage: Manage }) {
   // eslint-disable-next-line solid/reactivity -- one draft per event, kept across tabs (see settingsDrafts)
@@ -154,7 +165,10 @@ function EventDetails(props: { state: ManageState; manage: Manage }) {
           onInput={e => set('name', e.currentTarget.value)}
         />
       </SettingRow>
-      <SettingRow label={t('Event type')}>
+      <SettingRow
+        label={t('Event type')}
+        note={midEvent(props.manage, t('Changes the top cut still to come. Rounds played stay as they are.'))}
+      >
         <EventTypeSwitch
           value={field('eventType')}
           types={props.manage.store === null && !isSanctioned(props.manage) ? ['local', 'prerelease'] : undefined}
@@ -186,7 +200,11 @@ function EventDetails(props: { state: ManageState; manage: Manage }) {
           onInput={e => set('finalsRoundTime', Number(e.currentTarget.value))}
         />
       </SettingRow>
-      <SettingRow label={t('Swiss rounds')} for='info-rounds'>
+      <SettingRow
+        label={t('Swiss rounds')}
+        for='info-rounds'
+        note={midEvent(props.manage, t('The next step follows the new count.'))}
+      >
         <RoundsSelect
           id='info-rounds'
           value={field('roundCap')}
@@ -327,7 +345,13 @@ function ForPlayers(props: { state: ManageState; manage: Manage }) {
         <FormatSelect id='set-format' value={draft().format} onChange={value => set('format', value)} />
       </SettingRow>
       <SettingRow label={t('Archetypes')} for='set-decks' info={<SettingInfo text={SETTING_INFO.archetypes} />}>
-        <ArchetypesSelect id='set-decks' value={draft().deckVisibility} onChange={v => set('deckVisibility', v)} />
+        {/* Showing decks sooner than the event does now is the organizer's call alone (see settings.ts). */}
+        <ArchetypesSelect
+          id='set-decks'
+          value={draft().deckVisibility}
+          soonest={props.manage.role === 'owner' ? undefined : props.manage.settings.deckVisibility}
+          onChange={v => set('deckVisibility', v)}
+        />
       </SettingRow>
       {/* Only a store's event is sanctioned; one sanctioned before stores existed can still be turned off. */}
       <Show when={props.manage.mode === 'swiss' && (props.manage.store !== null || props.manage.settings.sanctioned)}>
@@ -341,14 +365,22 @@ function ForPlayers(props: { state: ManageState; manage: Manage }) {
           />
         </SettingRow>
       </Show>
-      <SettingRow label={t('Mobile result reporting')} info={<SettingInfo text={reportingInfo(draft().sanctioned)} />}>
+      <SettingRow
+        label={t('Mobile result reporting')}
+        info={<SettingInfo text={reportingInfo(draft().sanctioned)} />}
+        note={midEvent(props.manage, t('Applies to open tables at once.'))}
+      >
         <Toggle
           label={t('Mobile result reporting')}
           value={draft().playerReporting}
           onChange={v => set('playerReporting', v)}
         />
       </SettingRow>
-      <SettingRow label={t('Decklists')} info={<SettingInfo text={SETTING_INFO.decklists} />}>
+      <SettingRow
+        label={t('Decklists')}
+        info={<SettingInfo text={SETTING_INFO.decklists} />}
+        note={midEvent(props.manage, t('Players can’t send lists once round 1 is paired.'))}
+      >
         <DecklistsSwitch value={draft().decklists} onChange={v => set('decklists', v)} />
       </SettingRow>
       <SettingRow label={t('Event description')} for='set-details'>
@@ -430,7 +462,19 @@ function StaffInvite(props: { state: ManageState; manage: Manage }) {
     <section>
       <h2 class='tm-subhead tm-box-head'>{t('Staff')}</h2>
       <div class='tm-box'>
-        <SettingRow label={t('Invite link')}>
+        <SettingRow
+          label={t('Invite link')}
+          note={
+            // A store's event is organized by its Owner and every Manager, not by one account.
+            props.manage.store
+              ? t(
+                  'Staff can enter results, manage players and change settings. Only the store’s owner and managers can invite or remove staff and delete the event.'
+                )
+              : t(
+                  'Staff can enter results, manage players and change settings. Only you can invite or remove staff and delete the event.'
+                )
+          }
+        >
           <span class='tm-set-inline tm-invite'>
             <Show
               when={revealed()}
@@ -707,6 +751,10 @@ function TomFile(props: { link: TomLink }) {
 export function EventPanel(props: { state: ManageState; manage: Manage; tom: TomLink | null }) {
   return (
     <div class='tm-panel tm-event-panel'>
+      {/* Staff change the organizer's event, so they are told a save reaches everyone. */}
+      <Show when={props.manage.role !== 'owner'}>
+        <p class='muted'>{t('Settings saved here change the event for everyone.')}</p>
+      </Show>
       <Show when={props.manage.mode === 'swiss'}>
         <EventDetails state={props.state} manage={props.manage} />
       </Show>

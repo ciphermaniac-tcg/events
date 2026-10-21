@@ -61,7 +61,7 @@ function noteFrom(body: Body, playerName: string): Omit<PenaltyNoteEntry, 'id' |
   };
 }
 
-function manageRoute(route: Route, tournament: Tournament, decklists: 'off' | 'closed') {
+function manageRoute(route: Route, tournament: Tournament, decklists: 'off' | 'closed', mode = 'swiss') {
   const url = new URL(route.request().url());
   if (url.searchParams.has('since')) {
     return route.fulfill({ status: 204 });
@@ -69,7 +69,7 @@ function manageRoute(route: Route, tournament: Tournament, decklists: 'off' | 'c
   return route.fulfill({
     json: {
       code: CODE,
-      mode: 'swiss',
+      mode,
       version: 3,
       updatedAt: 0,
       tournament,
@@ -146,6 +146,42 @@ test('the Penalties tab waits for round 1 to be paired', async ({ page }) => {
   await mockConsole(page, runCommands(emptyTournament({ name: 'Friday League' }), ...adds));
   await expect(page.getByRole('tab', { name: 'Players' })).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByRole('tab', { name: 'Penalties' })).toHaveAttribute('aria-disabled', 'true');
+});
+
+test('a Disqualification note offers the disqualification itself, asked first', async ({ page }) => {
+  const t = runCommands(emptyTournament({ name: 'Friday League' }), ...adds, { type: 'pairRound', pod: 'masters' });
+  const ada = t.players.find(player => player.firstName === 'Ada')?.id ?? '';
+  await mockConsole(page, t);
+  const commands: unknown[] = [];
+  await page.route(`**/api/tournaments/${CODE}/commands`, route => {
+    commands.push(route.request().postDataJSON());
+    return manageRoute(route, runCommands(t, { type: 'disqualifyPlayer', id: ada }), 'off');
+  });
+  const form = page.locator('.tm-penalty-form');
+  await form.getByLabel('Player').selectOption({ label: 'Ada Test' });
+  await form.getByLabel('Penalty').selectOption({ label: 'Disqualification' });
+  await form.getByRole('button', { name: 'Save note' }).click();
+  const offer = page.getByRole('status').filter({ hasText: 'Disqualification noted for Ada Test.' });
+  await offer.getByRole('button', { name: 'Disqualify Ada Test' }).click();
+  expect(commands).toEqual([]);
+  await offer.getByRole('group', { name: 'Disqualify Ada Test?' }).getByRole('button', { name: 'Disqualify' }).click();
+  await expect.poll(() => commands.length).toBe(1);
+  expect(commands[0]).toMatchObject({ command: { type: 'disqualifyPlayer', id: ada } });
+  await expect(offer).toHaveCount(0);
+});
+
+test('a Disqualification note at a TOM event offers nothing the server would refuse', async ({ page }) => {
+  const t = runCommands(emptyTournament({ name: 'Friday League' }), ...adds, { type: 'pairRound', pod: 'masters' });
+  const writes = await mockConsole(page, t);
+  await page.route(`**/api/tournaments/${CODE}/manage*`, route => manageRoute(route, t, 'off', 'tom'));
+  await page.reload();
+  const form = page.locator('.tm-penalty-form');
+  await pickPlayer(form, 'Ada');
+  await form.getByLabel('Penalty').selectOption({ label: 'Disqualification' });
+  await form.getByRole('button', { name: 'Save note' }).click();
+  await expect.poll(() => writes.length).toBe(1);
+  await expect(page.getByText('Disqualification noted for Ada Test.')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Disqualify Ada Test' })).toHaveCount(0);
 });
 
 test('a penalty note is recorded, edited and removed, and changes nothing else', async ({ page }) => {

@@ -19,6 +19,7 @@ import {
   DEFAULT_SETTINGS,
   readSettings,
   sanctionedSettingsError,
+  showsDecksSooner,
   storedSettings
 } from '../../shared/tournament/view.ts';
 import { decodeEntities, encodeEntities } from '../../shared/tournament/xml.ts';
@@ -239,4 +240,11 @@ test('an entry fee is whole cents in range, and a player cap a whole count', () 
   assert.equal(readSettings({ playerCap: 48 }, DEFAULT_SETTINGS)?.playerCap, 48);
   assert.equal(readSettings({ playerCap: 4.5 }, DEFAULT_SETTINGS), null);
   assert.equal(readSettings({ playerCap: -1 }, DEFAULT_SETTINGS), null);
+});
+
+test('showing decks sooner means off to after to always, the one rule the console and the server ask', () => {
+  assert.equal(showsDecksSooner('after', 'off'), true);
+  assert.equal(showsDecksSooner('always', 'after'), true);
+  assert.equal(showsDecksSooner('off', 'always'), false);
+  assert.equal(showsDecksSooner('after', 'after'), false);
 });

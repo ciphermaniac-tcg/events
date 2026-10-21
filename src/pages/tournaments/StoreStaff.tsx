@@ -293,6 +293,9 @@ export function StoreStaff(props: { storeId: string }) {
               <button type='button' class='btn btn-ghost' disabled={busy()} onClick={() => invite('manager')}>
                 {t('Invite a manager')}
               </button>
+              <span class='muted'>
+                {t('Staff run the store’s events. Managers also edit the store, its staff and league nights.')}
+              </span>
             </div>
           </div>
         )}

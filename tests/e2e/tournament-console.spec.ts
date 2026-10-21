@@ -82,7 +82,8 @@ async function mockConsole(
   settings: TournamentSettings,
   reports: readonly PlayerReport[] = [],
   apply = false,
-  requests: PlayerRequest[] = []
+  requests: PlayerRequest[] = [],
+  role: 'owner' | 'staff' = 'owner'
 ) {
   const sent: Command[] = [];
   const answers: unknown[] = [];
@@ -100,7 +101,7 @@ async function mockConsole(
     settings,
     decks: {},
     checkins: {} as CheckIns,
-    role: 'owner',
+    role,
     staffToken: 'invite',
     store: 'store-1'
   };
@@ -196,6 +197,47 @@ test('a re-pair with nothing reported has no results to keep', async ({ page }) 
   await expect(asking.getByLabel('Keep reported results')).toHaveCount(0);
   await asking.getByRole('button', { name: 'Re-pair' }).click();
   await expect.poll(() => sent.at(-1)).toEqual({ type: 'repairRound', pod: 'masters', keepReported: true });
+});
+
+test('the organizer is told what staff can do, and staff that their settings reach everyone', async ({ page }) => {
+  await mockConsole(page, event(8, 1, false), settingsOf({}));
+  await page.getByRole('tab', { name: 'Settings', exact: true }).click();
+  await expect(page.getByText('Staff can enter results, manage players and change settings.')).toBeVisible();
+  // A store's event: its owner and managers all organize it.
+  await expect(page.getByText('Only the store’s owner and managers can invite or remove staff')).toBeVisible();
+  await expect(page.getByText('Settings saved here change the event for everyone.')).toHaveCount(0);
+  await page.unrouteAll();
+  await mockConsole(page, event(8, 1, false), settingsOf({}), [], false, [], 'staff');
+  await page.getByRole('tab', { name: 'Settings', exact: true }).click();
+  await expect(page.getByText('Settings saved here change the event for everyone.')).toBeVisible();
+  await expect(page.getByText('Staff can enter results, manage players and change settings.')).toHaveCount(0);
+});
+
+test('once round 1 is paired, settings say when a change takes effect', async ({ page }) => {
+  await mockConsole(page, event(8, 0, false), settingsOf({}));
+  await page.getByRole('tab', { name: 'Settings', exact: true }).click();
+  await expect(page.locator('.tm-event-panel')).toBeVisible();
+  await expect(page.getByText('The next step follows the new count.')).toHaveCount(0);
+  await page.unrouteAll();
+  await mockConsole(page, event(8, 0, true), settingsOf({}));
+  await page.getByRole('tab', { name: 'Settings', exact: true }).click();
+  for (const note of [
+    'Changes the top cut still to come. Rounds played stay as they are.',
+    'The next step follows the new count.',
+    'Applies to open tables at once.',
+    'Players can’t send lists once round 1 is paired.'
+  ]) {
+    await expect(page.getByText(note)).toBeVisible();
+  }
+});
+
+test('staff are offered no archetype choice that shows decks sooner than the event does', async ({ page }) => {
+  await mockConsole(page, event(8, 1, false), settingsOf({ deckVisibility: 'after' }), [], false, [], 'staff');
+  await page.getByRole('tab', { name: 'Settings', exact: true }).click();
+  const archetypes = page.locator('#set-decks');
+  await expect(archetypes.locator('option[value="always"]')).toBeDisabled();
+  await expect(archetypes.locator('option[value="after"]')).toBeEnabled();
+  await expect(archetypes.locator('option[value="off"]')).toBeEnabled();
 });
 
 test('deleting an event with players counts what goes and waits for its code to be typed', async ({ page }) => {
@@ -767,6 +809,25 @@ test('a player row keeps its rarer actions and fixed table under its menu', asyn
   await expect(menu).toHaveCount(0);
 });
 
+test('drop and disqualify each say what follows them', async ({ page }) => {
+  const sent = await mockConsole(page, event(4, 1, false), settingsOf({}));
+  await page.getByRole('tab', { name: 'Players', exact: true }).click();
+  await page.getByRole('button', { name: 'More for Player1 Test' }).click();
+  await page.getByRole('button', { name: 'Drop', exact: true }).click();
+  const drop = page.getByRole('group', {
+    name: 'Drop Player1 Test? You can reinstate them until the next round is paired.'
+  });
+  await drop.getByRole('button', { name: 'Keep' }).click();
+  await page.getByRole('button', { name: 'Disqualify', exact: true }).click();
+  const disqualify = page.getByRole('group', {
+    name: 'Disqualify Player1 Test? It goes in the event file. Write the penalty note under Penalties.'
+  });
+  const box = await disqualify.boundingBox();
+  expect((box?.x ?? 0) + (box?.width ?? Infinity)).toBeLessThanOrEqual(page.viewportSize()?.width ?? 0);
+  await disqualify.getByRole('button', { name: 'Disqualify' }).click();
+  await expect.poll(() => sent.at(-1)).toMatchObject({ type: 'disqualifyPlayer' });
+});
+
 test('a player is corrected from their menu: the name, and a sanctioned event’s birth year', async ({ page }) => {
   const sent = await mockConsole(page, event(4, 0, true), settingsOf({ sanctioned: true }));
   await page.getByRole('tab', { name: 'Players' }).click();
@@ -796,14 +857,18 @@ test('a sanctioned event adds a player only with their Player ID and birth year'
   const sent = await mockConsole(page, event(4, 0, false), settingsOf({ sanctioned: true }));
   const form = page.getByRole('form', { name: 'Add a player' });
   const add = form.getByRole('button', { name: 'Add player' });
+  const why = form.getByText('Player ID and birth year are needed at a sanctioned event');
+  await expect(why).toHaveCount(0);
   await form.getByLabel('First name').fill('Sam');
   await form.getByLabel('Last name').fill('Lee');
   await form.getByLabel('Birth year').fill('2001');
   await expect(add).toBeDisabled();
+  await expect(why).toBeVisible();
   await form.getByLabel('Player ID').fill('4242');
   await form.getByLabel('Birth year').fill('');
   await expect(add).toBeDisabled();
   await form.getByLabel('Birth year').fill('2001');
+  await expect(why).toHaveCount(0);
   await add.click();
   await expect
     .poll(() => sent.at(-1))
@@ -813,7 +878,12 @@ test('a sanctioned event adds a player only with their Player ID and birth year'
 test('an unsaved setting survives a switch to another tab', async ({ page }) => {
   const sent = await mockConsole(page, event(4, 0, true), settingsOf({}));
   await page.getByRole('tab', { name: 'Settings' }).click();
+  const saves = page.locator('.tm-set-foot').getByRole('button', { name: 'Save' });
+  // A Save is the tab's primary only while its box has something to save.
+  await expect(saves.first()).toHaveClass(/btn-secondary/);
+  await expect(page.locator('.tm-set-foot .btn-primary')).toHaveCount(0);
   await page.getByLabel('Event description').fill('Doors at nine');
+  await expect(page.locator('.tm-set-foot .btn-primary')).toHaveCount(1);
   await page.getByLabel('Event name').fill('Friday Night League');
   await page.getByRole('tab', { name: 'Pairings' }).click();
   await page.getByRole('tab', { name: 'Settings' }).click();

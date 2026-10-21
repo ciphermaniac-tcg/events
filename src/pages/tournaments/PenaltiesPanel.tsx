@@ -22,7 +22,7 @@ import {
   standingNotes
 } from '../../../shared/tournament/penaltyNotes';
 import { latestRoundOf } from '../../../shared/tournament/staffRecords';
-import type { Player } from '../../../shared/tournament/types';
+import { type Player, playerName } from '../../../shared/tournament/types';
 import {
   errorText,
   fetchDeckChecks,
@@ -36,6 +36,7 @@ import { latestValue } from '../../lib/resource';
 import { intlLocale, t, tn, tx } from '../../lib/i18n';
 import { Segmented } from '@ciphermaniac/design/components/Segmented';
 import { ConfirmAction } from './ConfirmAction';
+import type { ManageState } from './manageState';
 import { session } from './session';
 
 const timeOf = (at: number) => new Date(at).toLocaleTimeString(intlLocale(), { hour: 'numeric', minute: '2-digit' });
@@ -437,7 +438,43 @@ function LogState(props: {
   );
 }
 
-export function PenaltiesPanel(props: { manage: Manage }) {
+/**
+ * A note is only a note: once a Disqualification is written up, the strip
+ * offers the disqualification itself, which goes in the event file, until
+ * the player is out of the event. Not where the server would refuse it: a
+ * TOM event disqualifies in TOM, and an ended one takes no changes.
+ */
+function DisqualifyOffer(props: { state: ManageState; manage: Manage; id: string | null; onDone: () => void }) {
+  const offers = () => props.manage.mode === 'swiss' && !props.manage.settings.finished;
+  const player = () =>
+    offers() ? props.manage.tournament.players.find(p => p.id === props.id && p.droppedAfter === null) : undefined;
+  return (
+    <Show when={player()}>
+      {who => (
+        <div class='tm-strip is-note' role='status'>
+          <span>{t('Disqualification noted for {name}.', { name: playerName(who()) })}</span>
+          <span class='tm-grow' />
+          <ConfirmAction
+            class='btn btn-secondary tm-small'
+            label={t('Disqualify {name}', { name: playerName(who()) })}
+            question={t('Disqualify {name}?', { name: playerName(who()) })}
+            confirmLabel={t('Disqualify')}
+            danger
+            disabled={props.state.busy()}
+            onConfirm={() => {
+              // The strip goes with the offer, so the player is read before it does.
+              const { id } = who();
+              props.onDone();
+              void props.state.send({ type: 'disqualifyPlayer', id });
+            }}
+          />
+        </div>
+      )}
+    </Show>
+  );
+}
+
+export function PenaltiesPanel(props: { state: ManageState; manage: Manage }) {
   const notes = createPenaltyNotes(() => props.manage.code);
   const me = () => latestValue(session)?.user?.id ?? null;
   const latestOf = (playerId: string) => latestRoundOf(props.manage.tournament, playerId);
@@ -452,6 +489,8 @@ export function PenaltiesPanel(props: { manage: Manage }) {
   const [draft, setDraft] = createSignal(fresh(latest(), me()));
   const [saving, setSaving] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
+  /** The player a Disqualification note was just saved for, offered the disqualification itself. */
+  const [offered, setOffered] = createSignal<string | null>(null);
   const [query, setQuery] = createSignal('');
   const [round, setRound] = createSignal(0);
   const [shown, setShown] = createSignal<Shown>('notes');
@@ -473,7 +512,7 @@ export function PenaltiesPanel(props: { manage: Manage }) {
     setError(null);
   };
   /** Sends a write and takes its answer; the form starts again only if it still holds what `done` says was written. */
-  async function write(request: () => Promise<PenaltyNoteRecord>, done: (now: Draft) => boolean) {
+  async function write(request: () => Promise<PenaltyNoteRecord>, done: (now: Draft) => boolean): Promise<boolean> {
     setSaving(true);
     setError(null);
     try {
@@ -481,8 +520,10 @@ export function PenaltiesPanel(props: { manage: Manage }) {
       if (done(draft())) {
         reset();
       }
+      return true;
     } catch (err) {
       setError(errorText(err));
+      return false;
     } finally {
       setSaving(false);
     }
@@ -501,10 +542,15 @@ export function PenaltiesPanel(props: { manage: Manage }) {
     void write(
       () => recordPenaltyNote(code, note),
       now => now === sent
-    );
+    ).then(saved => {
+      if (saved && penalty === 'disqualification') {
+        setOffered(playerId);
+      }
+    });
   }
   return (
     <div class='tm-panel'>
+      <DisqualifyOffer state={props.state} manage={props.manage} id={offered()} onDone={() => setOffered(null)} />
       <section class='tm-box'>
         <div class='tm-box-bar'>
           <strong>{draft().replaces ? t('Edit note') : t('Record a penalty')}</strong>

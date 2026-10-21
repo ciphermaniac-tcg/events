@@ -8,10 +8,10 @@
  */
 
 import {
-  type DeckVisibility,
   readSettings,
   type Role,
   sanctionedSettingsError,
+  showsDecksSooner,
   type TournamentSettings
 } from '../../../../shared/tournament/view.js';
 import { applyLifecycleOperation } from '../../../../shared/tournament/lifecycle.js';
@@ -26,14 +26,11 @@ import { answerStaff } from '../../../lib/tournaments/answers.js';
 import { type Change, changesNothing, dayChange, type TournamentRow } from '../../../lib/tournaments/store.js';
 import { msg } from '../../../../shared/i18n.js';
 
-/** How soon each setting shows decks to players: higher is sooner. */
-const OPENNESS: Record<DeckVisibility, number> = { off: 0, after: 1, always: 2 };
-
 const SOONER = msg('Only the organizer can show decks sooner');
 
 /** Whether the settings show decks sooner than the row does, which only the organizer may. */
 const showsSooner = (role: Role | null, row: TournamentRow, next: TournamentSettings) =>
-  role !== 'owner' && OPENNESS[next.deckVisibility] > OPENNESS[row.settings.deckVisibility];
+  role !== 'owner' && showsDecksSooner(next.deckVisibility, row.settings.deckVisibility);
 
 /**
  * Whether the row's event may become sanctioned: it is a store's, and the

@@ -121,6 +121,10 @@ function AddPlayer(props: { state: ManageState; code: string; sanctioned: boolea
           {props.late ? t('Add late player') : t('Add player')}
         </button>
       </div>
+      {/* Why Add stays grey once a name is in: the rest a sanctioned event needs. */}
+      <Show when={!identified() && (first().trim() || last().trim())}>
+        <p class='tm-box-bar muted'>{t('Player ID and birth year are needed at a sanctioned event')}</p>
+      </Show>
     </form>
   );
 }
@@ -258,14 +262,18 @@ function PlayerActions(props: { state: ManageState; manage: Manage; player: Play
             <Show when={!ended() && dropped() === null}>
               <ConfirmAction
                 label={t('Drop')}
-                question={t('Drop {name}?', { name: playerName(props.player) })}
+                question={t('Drop {name}? You can reinstate them until the next round is paired.', {
+                  name: playerName(props.player)
+                })}
                 class='tm-menu-item'
                 danger
                 onConfirm={() => send('dropPlayer')}
               />
               <ConfirmAction
                 label={t('Disqualify')}
-                question={t('Disqualify {name}?', { name: playerName(props.player) })}
+                question={t('Disqualify {name}? It goes in the event file. Write the penalty note under Penalties.', {
+                  name: playerName(props.player)
+                })}
                 class='tm-menu-item'
                 danger
                 onConfirm={() => send('disqualifyPlayer')}
