@@ -8,7 +8,7 @@
 import { createSignal, Show } from 'solid-js';
 import type { Pod, Round } from '../../../shared/tournament/types';
 import { t, tn } from '../../lib/i18n';
-import { clockLabel } from '../../lib/tournament/present';
+import { clockTime } from '../../lib/tournament/clockState';
 import { Clock } from './Clock';
 import { ConfirmAction } from './ConfirmAction';
 import type { ManageState } from './manageState';
@@ -23,7 +23,7 @@ export function ClockControls(props: { state: ManageState; pod: Pod; round: Roun
       <span class='tm-clock-face'>
         <Clock round={props.round} />
         <Show when={!running() && !props.round.startTime}>
-          <span class='tm-clock num is-paused'>{clockLabel(props.round, 0)}</span>
+          <span class='tm-clock num is-paused'>{clockTime(props.round.timeLeft)}</span>
         </Show>
       </span>
       <button type='button' onClick={() => send(running() ? 'stopClock' : 'startClock')}>

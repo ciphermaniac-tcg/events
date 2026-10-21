@@ -40,14 +40,34 @@ const round = VIEW.tournament.pods[0]?.rounds.at(-1);
 const matches = round?.matches ?? [];
 const playing = matches.filter(m => m.p2 !== null && m.outcome === 'pending');
 
-async function mockApi(page: Page) {
+async function mockApi(page: Page, view = VIEW) {
   await page.route('**/api/**', route => {
     const url = new URL(route.request().url());
     if (url.pathname === '/api/me') {
       return route.fulfill({ json: { user: null, providers: [] } });
     }
-    return url.searchParams.has('since') ? route.fulfill({ status: 204 }) : route.fulfill({ json: VIEW });
+    return url.searchParams.has('since') ? route.fulfill({ status: 204 }) : route.fulfill({ json: view });
   });
+}
+
+const NOW = Date.UTC(2026, 9, 3, 16);
+
+/** The round a minute past its time at NOW, every table with two players given five minutes more. */
+function extendedView(): TournamentView {
+  const pod = VIEW.tournament.pods[0]!;
+  const latest = pod.rounds.at(-1)!;
+  const extended = {
+    ...latest,
+    status: 'started' as const,
+    startTime: '10/03/2026 15:00:00',
+    clockStartedAt: NOW - 120_000,
+    timeLeft: 60,
+    matches: latest.matches.map(m => (m.p2 ? { ...m, timeExtension: { seconds: 300, reason: '' } } : m))
+  };
+  return {
+    ...VIEW,
+    tournament: { ...VIEW.tournament, pods: [{ ...pod, rounds: [...pod.rounds.slice(0, -1), extended] }] }
+  };
 }
 
 test('a cold event load resolves named archetype icons without opening a deck picker @mobile', async ({ page }) => {
@@ -113,4 +133,43 @@ test('a stream overlay shows one table on a transparent page, and says when it i
   expect(background).toBe('rgba(0, 0, 0, 0)');
   await page.goto(`/t/${CODE}?stream=table&table=99`);
   await expect(page.locator('.tm-stream-bar')).toHaveText('Table 99 is not in play');
+});
+
+test('the stream counts its table’s extra time, and its clock stops once the table has a result', async ({ page }) => {
+  await page.clock.install({ time: NOW });
+  await mockApi(page, extendedView());
+  const [open] = playing;
+  await page.goto(`/t/${CODE}?stream=table&table=${open?.table ?? 1}`);
+  const clock = page.locator('.tm-stream-clock');
+  // A minute over the round, with five minutes more: about four left at the table, not time called.
+  await expect(clock).toHaveText(/^[34]:\d\d$/);
+  await expect(clock).not.toHaveClass(/is-over/);
+  await expect(page.locator('.tm-stream-mid')).toContainText('+5 min');
+  const decided = matches.find(m => m.p2 !== null && m.outcome !== 'pending');
+  await page.goto(`/t/${CODE}?stream=table&table=${decided?.table ?? 1}`);
+  await expect(page.locator('.tm-stream-mark')).toHaveCount(2);
+  await expect(clock).toHaveCount(0);
+});
+
+test('the big screen marks the tables on extra time once the round’s time is out', async ({ page }) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await page.clock.install({ time: NOW });
+  await mockApi(page, extendedView());
+  await page.goto(`/t/${CODE}?screen=1`);
+  await expect(page.locator('.tm-screen-mid .tm-screen-extra')).toHaveCount(playing.length);
+  await expect(page.locator('.tm-screen-mid .tm-screen-extra').first()).toHaveText('+5 min');
+  // Time is called in words, not by a minus sign: the face says so, the caption says when.
+  await expect(page.locator('.tm-screen-big-clock').getByRole('timer')).toHaveText('Time');
+  await expect(page.locator('.tm-screen-big-clock p')).toHaveText(
+    new RegExp(`· Called 1:\\d\\d ago · ${playing.length} tables on extra time$`)
+  );
+});
+
+test('a paused stream clock says so in words', async ({ page }) => {
+  const view = extendedView();
+  const latest = view.tournament.pods[0]!.rounds.at(-1)!;
+  Object.assign(latest, { clockStartedAt: null, timeLeft: 725 });
+  await mockApi(page, view);
+  await page.goto(`/t/${CODE}?stream=table&table=${playing[0]?.table ?? 1}`);
+  await expect(page.locator('.tm-stream-clock')).toHaveText('Paused · 17:05');
 });

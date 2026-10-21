@@ -32,9 +32,9 @@ import {
   latestRound,
   livePods,
   regularRounds,
-  secondsLeft,
   swissAttendance
 } from '../../../shared/tournament/rounds';
+import { type ClockState, clockState } from './clockState';
 import { ordinal } from '../format';
 import { intlLocale, msg, t, tc, tn } from '../i18n';
 import { divisionLookup } from '../../../shared/tournament/divisions';
@@ -338,11 +338,24 @@ export function endGaps(event: EndingEvent): EndGap[] {
   });
 }
 
-/** "Round 2 of 5" while a Swiss round is within the plan's `rounds`; the round's own name past it or without one. */
-/** A clock past zero reads as time over rather than a negative time left. */
-const timeWords = (clock: string) =>
-  clock.startsWith('-') ? t('{time} over', { time: clock.slice(1) }) : t('{time} left', { time: clock });
+/**
+ * A clock in words, the one place that puts them to its phase: past zero it
+ * reads as time over rather than a negative time left, and a paused one says
+ * so. On its face (a clock's own text) the time stands alone; `left` words it
+ * for a sentence, as the status line does.
+ */
+export function clockWords(clock: ClockState, left = false): string {
+  const time = { time: clock.time };
+  if (clock.left <= 0) {
+    return t('{time} over', time);
+  }
+  if (clock.phase === 'paused') {
+    return left ? t('{time} left, paused', time) : t('Paused · {time}', time);
+  }
+  return left ? t('{time} left', time) : clock.time;
+}
 
+/** "Round 2 of 5" while a Swiss round is within the plan's `rounds`; the round's own name past it or without one. */
 function roundOf(progress: PodProgress & { round: Round }, rounds: number | null): string {
   const { round } = progress;
   return round.kind === 'swiss' && rounds !== null && round.number <= rounds
@@ -354,7 +367,7 @@ function roundOf(progress: PodProgress & { round: Round }, rounds: number | null
 export function statusParts(
   progress: PodProgress,
   finished: boolean,
-  clock: string | null,
+  clock: ClockState | null,
   rounds: number | null = null
 ): string[] {
   const { round, open, tables } = progress;
@@ -368,7 +381,7 @@ export function statusParts(
     return [progress.label, t('final played')];
   }
   const doing = open === 0 ? allInWords(tables, round.kind) : playingWords(open, round.kind);
-  return [roundOf({ ...progress, round }, rounds), doing, ...(open > 0 && clock ? [timeWords(clock)] : [])];
+  return [roundOf({ ...progress, round }, rounds), doing, ...(open > 0 && clock ? [clockWords(clock, true)] : [])];
 }
 
 /** The console's lead: the round and whether it is still playing, or where the event stands before and after its rounds. */
@@ -420,11 +433,10 @@ export function eventStatus(
   }
   const progress = podProgress(pod, event.pending);
   const { round } = progress;
-  const clock = round && (round.clockStartedAt != null || round.startTime) ? clockLabel(round, now) : null;
   return statusParts(
     progress,
     false,
-    clock,
+    round ? clockState({ round, now }) : null,
     event.roundCap === null ? null : plannedRounds(pod, event.roundCap, eventTypeOf(tournament), tournament)
   );
 }
@@ -592,14 +604,6 @@ export function seatOf(tournament: Tournament, playerId: string): number | 'bye'
     return null;
   }
   return match.p2 === null ? 'bye' : match.table;
-}
-
-/** m:ss, with a minus once time is up. */
-export function clockLabel(round: Round, now: number, extraSeconds = 0): string {
-  const left = secondsLeft(round, now) + extraSeconds;
-  const sign = left < 0 ? '-' : '';
-  const abs = Math.abs(left);
-  return `${sign}${Math.floor(abs / 60)}:${String(abs % 60).padStart(2, '0')}`;
 }
 
 export interface DeckShare {

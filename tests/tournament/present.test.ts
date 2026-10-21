@@ -7,6 +7,7 @@
 import { divisionLookup } from '../../shared/tournament/divisions.ts';
 import { juniorsCutApart } from '../__utils__/divisionCuts.ts';
 import assert from 'node:assert/strict';
+import { type ClockPhase, clockTime } from '../../src/lib/tournament/clockState.ts';
 import { readFileSync } from 'node:fs';
 import test, { describe } from 'node:test';
 
@@ -23,7 +24,6 @@ import { ordinal } from '../../src/lib/format.ts';
 import {
   champion,
   changeQuestion,
-  clockLabel,
   currentMatchOf,
   cutSplit,
   deckBreakdown,
@@ -174,13 +174,6 @@ test('a table’s records count its result as soon as it shows', () => {
   assert.equal(recordsSoFar(pod, missed, match => match.outcome).get(open.p1), bump(before.get(open.p1), 1));
   const cut = { ...round2, kind: 'elimination' as const };
   assert.equal(recordsSoFar(pod, cut, () => 'p1').get(open.p1), before.get(open.p1), 'a top cut keeps Swiss records');
-});
-
-test('the clock counts down and past zero', () => {
-  const running = { ...round2, timeLeft: 90, clockStartedAt: 0 };
-  assert.equal(clockLabel(running, 30_000), '1:00');
-  assert.equal(clockLabel(running, 95_000), '-0:05');
-  assert.equal(clockLabel(running, 95_000, 300), '4:55');
 });
 
 test('the deck breakdown counts players and decided matches', () => {
@@ -388,13 +381,19 @@ test('a cut round leads to the next stage by name, and a finished final crowns i
 
 test('the status sentence names the round, what is still playing and the clock', () => {
   const open = podProgress(pod, []);
-  assert.deepEqual(statusParts(open, false, '23:41'), [
+  const clock = (phase: ClockPhase, left: number) => ({ phase, left, time: clockTime(left) });
+  assert.deepEqual(statusParts(open, false, clock('running', 1421)), [
     'Round 2',
     `${open.open} ${open.open === 1 ? 'table' : 'tables'} playing`,
     '23:41 left'
   ]);
-  assert.equal(statusParts(open, false, '-4:05')[2], '4:05 over', 'past time reads as over, not negative');
-  assert.deepEqual(statusParts({ ...open, open: 0 }, false, '23:41'), ['Round 2', `all ${open.tables} tables in`]);
+  assert.equal(statusParts(open, false, clock('over', -245))[2], '4:05 over', 'past time reads as over, not negative');
+  assert.equal(statusParts(open, false, clock('paused', 1421))[2], '23:41 left, paused', 'a paused clock says so');
+  assert.equal(statusParts(open, false, clock('stale', 1421))[2], '23:41 left', 'a stale clock holds its last time');
+  assert.deepEqual(statusParts({ ...open, open: 0 }, false, clock('running', 1421)), [
+    'Round 2',
+    `all ${open.tables} tables in`
+  ]);
   assert.deepEqual(statusParts(NO_ROUND, false, null), ['Registration']);
   assert.deepEqual(statusParts(open, true, null), ['Finished']);
 });

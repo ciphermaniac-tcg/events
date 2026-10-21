@@ -11,7 +11,18 @@
 
 import { keepBrowserMemory, readBrowserMemory } from '../../lib/tournament/browserMemory';
 import { A, useSearchParams } from '@solidjs/router';
-import { createEffect, createMemo, createResource, createSignal, For, lazy, onCleanup, onMount, Show } from 'solid-js';
+import {
+  createEffect,
+  createMemo,
+  createResource,
+  createSignal,
+  For,
+  lazy,
+  onCleanup,
+  onMount,
+  Show,
+  useContext
+} from 'solid-js';
 import { hasStarted, latestRound, livePods, playerPod, podOf, regularRounds } from '../../../shared/tournament/rounds';
 import { recordLabel, swissStandings } from '../../../shared/tournament/standings';
 import { type Pod, POD_CATEGORIES, type PodCategory, type Round } from '../../../shared/tournament/types';
@@ -65,6 +76,7 @@ import {
 import type { Tab as DashboardTab } from './Dashboard';
 import { TournamentHero } from './Hero';
 import { createNow } from './now';
+import { StaleSince } from './Clock';
 import { formatFee } from '../../lib/events/format';
 import { EventLogistics } from './EventLogistics';
 import { PlayerSheet } from './PlayerSheet';
@@ -76,7 +88,7 @@ import '../../styles/pages/tournament-public.css';
 import { pageTitle } from '../../lib/title';
 import { RoundStepper } from './RoundStepper';
 import { ErrorState } from '@ciphermaniac/design/components/ErrorState';
-import { EMPTY_LIVE_DATA, type LiveData, liveFailure } from '../../lib/tournament/liveData';
+import { EMPTY_LIVE_DATA, type LiveData, liveFailure, staleSince } from '../../lib/tournament/liveData';
 import { LiveDataStatus } from './LiveDataStatus';
 import { MAIN_SITE } from '../../lib/constants';
 import { intlLocale, t, tn } from '../../lib/i18n';
@@ -762,6 +774,7 @@ function dashboardTab(viewer: TournamentView['viewer']): DashboardTab | undefine
 
 function Hero(props: { view: TournamentView }) {
   const now = createNow();
+  const stale = useContext(StaleSince);
   const info = () => props.view.tournament.info;
   const settings = () => props.view.settings;
   const status = () =>
@@ -773,7 +786,7 @@ function Hero(props: { view: TournamentView }) {
         firstRound: firstRoundTime(settings().startsAt),
         roundCap: roundCapOf(props.view)
       },
-      now()
+      stale() ?? now()
     ).join(' · ');
   const place = () => [info().city, info().state].filter(Boolean).join(', ');
   const parts = () =>
@@ -847,6 +860,9 @@ export function PublicEvent(props: { code: string; session: Session | undefined 
     }
   );
   const current = () => latestValue(view);
+  const now = createNow();
+  // Every clock on the page stops where it was once the page stops hearing from the event.
+  const stale = () => staleSince(freshness(), now());
   // A past format's sprites come with its archetype list, loaded only when there are decks to draw.
   const pastFormat = createMemo(() => {
     const shown = current();
@@ -867,7 +883,8 @@ export function PublicEvent(props: { code: string; session: Session | undefined 
     <Show
       when={current()}
       fallback={
-        <Show when={view.error} fallback={<Skeleton width='280px' height='28px' />}>
+        // A stream overlay stays clear over the game while it loads, or retries a load that failed.
+        <Show when={!stream && view.error} fallback={stream ? null : <Skeleton width='280px' height='28px' />}>
           <Show
             when={!missing(view.error)}
             fallback={
@@ -905,20 +922,22 @@ export function PublicEvent(props: { code: string; session: Session | undefined 
       }
     >
       {v => (
-        <Show
-          when={!screen}
-          fallback={
-            <Show when={stream} fallback={<BigScreen view={v()} liveData={freshness()} onRetry={retry} />}>
-              {s => <StreamOverlay view={v()} table={s().table} pod={s().pod} liveData={freshness()} onRetry={retry} />}
-            </Show>
-          }
-        >
-          <div class='tm-page tm-public'>
-            <Hero view={v()} />
-            <LiveDataStatus data={freshness()} onRetry={retry} />
-            <EventBody view={v()} session={props.session} onView={take} onWhoAmI={whoAmI} onUnlinked={unlinked} />
-          </div>
-        </Show>
+        <StaleSince.Provider value={stale}>
+          <Show
+            when={!screen}
+            fallback={
+              <Show when={stream} fallback={<BigScreen view={v()} liveData={freshness()} onRetry={retry} />}>
+                {s => <StreamOverlay view={v()} table={s().table} pod={s().pod} />}
+              </Show>
+            }
+          >
+            <div class='tm-page tm-public'>
+              <Hero view={v()} />
+              <LiveDataStatus data={freshness()} onRetry={retry} />
+              <EventBody view={v()} session={props.session} onView={take} onWhoAmI={whoAmI} onUnlinked={unlinked} />
+            </div>
+          </Show>
+        </StaleSince.Provider>
       )}
     </Show>
   );

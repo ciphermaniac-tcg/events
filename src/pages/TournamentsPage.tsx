@@ -95,8 +95,18 @@ export function TournamentsPage() {
   // BigScreen marks itself too, for a URL this misses.
   const bigScreen = () =>
     location.pathname.startsWith('/t/') && location.query.screen === '1' && location.query.stream === undefined;
-  createRenderEffect(() => document.body.classList.toggle('tm-screen-mode', bigScreen()));
-  onCleanup(() => document.body.classList.remove('tm-screen-mode'));
+  // A stream overlay's page is transparent from the first paint too: OBS reloads it over the live game.
+  const stream = () => {
+    const table = Number(location.query.table);
+    return (
+      location.pathname.startsWith('/t/') && location.query.stream === 'table' && Number.isInteger(table) && table > 0
+    );
+  };
+  createRenderEffect(() => {
+    document.body.classList.toggle('tm-screen-mode', bigScreen());
+    document.body.classList.toggle('tm-stream-mode', stream());
+  });
+  onCleanup(() => document.body.classList.remove('tm-screen-mode', 'tm-stream-mode'));
   const organizer = () =>
     dashboard() ||
     settings() ||

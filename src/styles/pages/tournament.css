@@ -7,15 +7,20 @@
 .tm-narrow {
   max-width: 640px;
 }
-/* The big screen (TournamentsPage marks it) fills the screen from the first
-   paint, so the site's head and footer never show only to vanish. */
-body.tm-screen-mode .site-head,
-body.tm-screen-mode .site-footer {
+/* The big screen and a stream overlay (TournamentsPage marks them) fill the
+   screen from the first paint, so the site's head and footer never show only
+   to vanish. A stream's page is transparent: a browser source lays it over video. */
+body:is(.tm-screen-mode, .tm-stream-mode) :is(.site-head, .site-footer) {
   display: none;
 }
-body.tm-screen-mode main.page {
+body:is(.tm-screen-mode, .tm-stream-mode) main.page {
   max-width: none;
   padding: 0;
+}
+html:has(body.tm-stream-mode),
+body.tm-stream-mode {
+  background: transparent;
+  transition: none;
 }
 /* Center the legal pages' reading column, including their title and trail. */
 .tm-legal-page {
@@ -1859,6 +1864,15 @@ tr.is-in .tm-place {
 .tm-clock.is-over {
   color: var(--negative);
 }
+/* Stopped where it was last known to be: the page has not heard from the event for a while. */
+.tm-clock.is-stale {
+  color: var(--muted);
+}
+/* A table's extra time reads at its line's size. */
+.tm-extension .tm-clock {
+  font-size: inherit;
+  font-weight: inherit;
+}
 /* The clock is one control, drawn as one: the time, then its three actions,
    in the round stepper's bordered strip (live.css .round-step). */
 .tm-clock-group {
@@ -2265,15 +2279,4 @@ tr.is-in .tm-place {
 .tm-screen .tm-live-data {
   font-size: calc(var(--text-lg) * var(--tm-display-scale, 1));
 }
-.tm-stream .tm-live-data {
-  width: fit-content;
-  padding: var(--space-2) var(--space-3);
-  background: var(--surface);
-}
 
-.tm-stream:has(.tm-live-data) {
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-end;
-  gap: var(--space-2);
-}

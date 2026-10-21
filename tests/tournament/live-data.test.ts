@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { liveDataStale, liveFailure, STALE_AFTER_MS } from '../../src/lib/tournament/liveData.ts';
+import { liveDataStale, liveFailure, STALE_AFTER_MS, staleSince } from '../../src/lib/tournament/liveData.ts';
 
 test('unchanged successful checks stay fresh and a single missed check stays quiet independently of the event mutation time', () => {
   const checkedAt = 1_000_000;
@@ -19,4 +19,12 @@ test('authorization, network and server errors have distinct context', () => {
   assert.equal(liveFailure({ status: 503 }), 'unavailable');
   assert.equal(liveFailure(new TypeError('Failed to fetch')), 'network');
   assert.equal(liveFailure(null), 'network');
+});
+
+test('clocks stop at the last good check once the data is stale, and run again once it is fresh', () => {
+  const checkedAt = 1_000_000;
+  assert.equal(staleSince({ checkedAt, failure: null }, checkedAt + 1), null);
+  assert.equal(staleSince({ checkedAt, failure: 'network' }, checkedAt + STALE_AFTER_MS), checkedAt);
+  assert.equal(staleSince({ checkedAt, failure: 'authorization' }, checkedAt + 1), checkedAt);
+  assert.equal(staleSince({ checkedAt: null, failure: 'network' }, checkedAt), checkedAt, 'never heard from');
 });

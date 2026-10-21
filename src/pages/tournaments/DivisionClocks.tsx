@@ -1,9 +1,11 @@
-import { createMemo, For, Show } from 'solid-js';
+import { createMemo, For, Show, useContext } from 'solid-js';
 import type { Pod } from '../../../shared/tournament/types';
 import type { PendingResult } from '../../../shared/tournament/view';
-import { msg, t } from '../../lib/i18n';
-import { Clock } from './Clock';
-import { type DivisionClock, divisionClocks } from './clockOrder';
+import { msg, t, tn } from '../../lib/i18n';
+import { clockState } from '../../lib/tournament/clockState';
+import { Clock, StaleSince } from './Clock';
+import { type DivisionClock, divisionClocks, onExtraTime } from './clockOrder';
+import { checkedTime } from './LiveDataStatus';
 import { createNow } from './now';
 
 const WORDS: Partial<Record<DivisionClock['state'], string>> = {
@@ -13,14 +15,50 @@ const WORDS: Partial<Record<DivisionClock['state'], string>> = {
 
 function Time(props: { clock: DivisionClock; class: string }) {
   return (
-    <Show when={WORDS[props.clock.state]} fallback={<Clock round={props.clock.round} class={props.class} />}>
+    <Show when={WORDS[props.clock.state]} fallback={<Clock round={props.clock.round} class={props.class} face />}>
       {words => <span class={`${props.class} is-words`}>{t(words())}</span>}
     </Show>
   );
 }
 
-const named = (clock: DivisionClock, label = clock.label) =>
-  clock.state === 'paused' ? t('{label} · Paused', { label }) : label;
+/** What a caption says after the clock's name: paused, or how long since time was called and who plays on. */
+function notes(clock: DivisionClock, pending: readonly PendingResult[], now: number): string[] {
+  const state = clock.state === 'done' ? null : clockState({ round: clock.round, now });
+  if (!state) {
+    return [];
+  }
+  if (state.left > 0) {
+    return state.phase === 'paused' ? [t('Paused')] : [];
+  }
+  const extra = onExtraTime(clock, pending, now);
+  return [
+    t('Called {time} ago', { time: state.time }),
+    ...(extra ? [tn(extra, '{n} table on extra time', '{n} tables on extra time')] : [])
+  ];
+}
+
+/**
+ * The words under a clock: its name and state. Under the leading clock, once
+ * the screen stops hearing from the event, when it last did instead: every
+ * clock has stopped there, and the room should not call time by it.
+ */
+function Caption(props: {
+  clock: DivisionClock;
+  pending: readonly PendingResult[];
+  now: number;
+  label?: string;
+  lead?: boolean;
+}) {
+  const stale = useContext(StaleSince);
+  const text = () => {
+    const since = stale();
+    if (props.lead && since !== null) {
+      return t('Not updated since {time}', { time: checkedTime(since) });
+    }
+    return [props.label ?? props.clock.label, ...notes(props.clock, props.pending, since ?? props.now)].join(' · ');
+  };
+  return <p>{text()}</p>;
+}
 
 /**
  * The clock across the top of the screen. One division keeps the one large
@@ -43,7 +81,7 @@ export function DivisionClocks(props: { pods: Pod[]; pending: readonly PendingRe
             {clock => (
               <>
                 <Time clock={clock()} class='tm-screen-clock' />
-                <p>{named(clock(), props.label)}</p>
+                <Caption clock={clock()} pending={props.pending} now={now()} label={props.label} lead />
               </>
             )}
           </Show>
@@ -53,14 +91,14 @@ export function DivisionClocks(props: { pods: Pod[]; pending: readonly PendingRe
       <div class='tm-screen-big-clock is-divisions'>
         <div>
           <Time clock={clocks()[0] as DivisionClock} class='tm-screen-clock' />
-          <p>{named(clocks()[0] as DivisionClock)}</p>
+          <Caption clock={clocks()[0] as DivisionClock} pending={props.pending} now={now()} lead />
         </div>
         <ul class='tm-screen-side-clocks'>
           <For each={clocks().slice(1)}>
             {clock => (
               <li>
                 <Time clock={clock} class='tm-screen-side-clock' />
-                <p>{named(clock)}</p>
+                <Caption clock={clock} pending={props.pending} now={now()} />
               </li>
             )}
           </For>

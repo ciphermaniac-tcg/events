@@ -25,6 +25,11 @@ export function liveDataStale(data: LiveData, now: number): boolean {
   return waited || data.failure === 'authorization';
 }
 
+/** When the page last heard from the event, while what it has is stale (see liveDataStale); null while fresh. */
+export function staleSince(data: LiveData, now: number): number | null {
+  return liveDataStale(data, now) ? (data.checkedAt ?? now) : null;
+}
+
 export const LIVE_FAILURE_LABELS: Record<LiveFailure, string> = {
   authorization: msg('Access expired'),
   network: msg('Connection unavailable'),

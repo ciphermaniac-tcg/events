@@ -1269,14 +1269,22 @@ test('a TOM console says when TOM, left open, saved over the results written int
   await expect(page.getByRole('button', { name: 'Write 2 results to .tdf' })).toBeVisible();
 });
 
-for (const suffix of ['', '?screen=1', '?stream=table&table=1']) {
+/** VIEW with its latest round's clock running from `at`, ten minutes on it. */
+function runningView(at: number): TournamentView {
+  const pod = VIEW.tournament.pods[0]!;
+  const round = { ...pod.rounds.at(-1)!, startTime: '10/03/2026 15:00:00', clockStartedAt: at, timeLeft: 600 };
+  return {
+    ...VIEW,
+    tournament: { ...VIEW.tournament, pods: [{ ...pod, rounds: [...pod.rounds.slice(0, -1), round] }] }
+  };
+}
+
+for (const suffix of ['', '?screen=1']) {
   test(`live data discloses failed checks and Retry recovers ${suffix || 'public page'}`, async ({ page }) => {
-    await mockApi(page);
+    await mockApi(page, suffix ? runningView(Date.now()) : VIEW);
     await page.clock.install();
     await page.goto(`/t/${CODE}${suffix}`);
-    await expect(
-      page.locator(suffix.includes('stream') ? '.tm-stream' : suffix ? '.tm-screen' : '.tm-public')
-    ).toBeVisible();
+    await expect(page.locator(suffix ? '.tm-screen' : '.tm-public')).toBeVisible();
     await page.route(`**/api/tournaments/${CODE}?since=*`, route => route.abort());
     await page.clock.fastForward(11_000);
     await expect(page.locator('.tm-live-data')).toHaveCount(0);
@@ -1284,10 +1292,43 @@ for (const suffix of ['', '?screen=1', '?stream=table&table=1']) {
     await expect(page.getByText('Connection unavailable', { exact: true })).toBeVisible();
     await expect(page.getByText('Last updated', { exact: false })).toBeVisible();
     await page.route(`**/api/tournaments/${CODE}?since=*`, route => route.fulfill({ status: 204 }));
-    await page.getByRole('button', { name: 'Retry', exact: true }).click();
+    if (suffix) {
+      // The clock stops, and says where the room cannot miss it that it has.
+      await expect(page.locator('.tm-screen-big-clock p')).toContainText('Not updated since');
+      await expect(page.locator('.tm-screen-clock')).toHaveClass(/is-stale/);
+      // The room sees no Retry; whoever is at the laptop finds it with the other controls.
+      await expect(page.locator('.tm-live-data button')).toHaveCount(0);
+      await page.mouse.move(400, 400);
+    }
+    await page.getByRole('button', { name: suffix ? 'Try again' : 'Retry', exact: true }).click();
     await expect(page.locator('.tm-live-data')).toHaveCount(0);
   });
 }
+
+test('a stream overlay never tells the audience its connection dropped: its clock stops and goes quiet', async ({
+  page
+}) => {
+  const now = Date.UTC(2026, 9, 3, 16);
+  await page.clock.install({ time: now });
+  await mockApi(page, runningView(now));
+  const open = VIEW.tournament.pods[0]!.rounds.at(-1)!.matches.find(m => m.p2 && m.outcome === 'pending');
+  await page.goto(`/t/${CODE}?stream=table&table=${open?.table ?? 1}`);
+  const clock = page.locator('.tm-stream-clock');
+  await expect(clock).toHaveText(/^(10:00|9:5\d)$/);
+  await page.route(`**/api/tournaments/${CODE}?since=*`, route => route.abort());
+  await page.clock.fastForward(41_000);
+  await expect(page.locator('.tm-stream-bar')).toHaveClass(/is-stale/);
+  await expect(clock).toHaveClass(/is-stale/);
+  const stopped = await clock.textContent();
+  await page.clock.fastForward(5_000);
+  await expect(clock).toHaveText(stopped ?? '');
+  await expect(page.locator('.tm-live-data')).toHaveCount(0);
+  await expect(page.getByRole('button')).toHaveCount(0);
+  await page.route(`**/api/tournaments/${CODE}?since=*`, route => route.fulfill({ status: 204 }));
+  await page.clock.fastForward(300_000);
+  await expect(page.locator('.tm-stream-bar')).not.toHaveClass(/is-stale/);
+  await expect(clock).not.toHaveText(stopped ?? '');
+});
 
 function largeDisplayView(): TournamentView {
   const players = Array.from({ length: 64 }, (_, i) => ({
@@ -1343,6 +1384,39 @@ test('a large big screen fits dense pages and keeps them stationary under reduce
   const bounds = await page.locator('.tm-screen-pagination').boundingBox();
   expect((bounds?.y ?? 0) + (bounds?.height ?? 0)).toBeLessThanOrEqual(1080);
   await expect(page.getByRole('radio', { name: 'Off', exact: true })).toHaveAttribute('aria-checked', 'true');
+});
+
+test('a stream overlay is clear from its first paint, and stays clear while its event cannot load', async ({
+  page
+}) => {
+  await page.clock.install();
+  let up = false;
+  await page.route('**/api/**', route => {
+    const url = new URL(route.request().url());
+    if (url.pathname === '/api/me') {
+      return route.fulfill({ json: { user: null, providers: [] } });
+    }
+    return up ? route.fulfill({ json: VIEW }) : route.fulfill({ status: 503, json: { error: 'Unavailable' } });
+  });
+  const held = deferred<void>();
+  await page.route(`**/${chunkOf('src/pages/tournaments/PublicEvent.tsx')}`, async route => {
+    await held.promise;
+    await route.continue();
+  });
+  const failed = page.waitForResponse(response => response.url().includes(`/api/tournaments/${CODE}`));
+  await page.goto(`/t/${CODE}?stream=table&table=1`);
+  await expect(page.locator('.site-head')).toBeHidden();
+  expect(await page.evaluate(() => getComputedStyle(document.body).backgroundColor)).toBe('rgba(0, 0, 0, 0)');
+  held.resolve();
+  expect((await failed).status()).toBe(503);
+  await page.clock.fastForward(1_000);
+  await expect(page.getByRole('heading', { name: 'Couldn’t load this event' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Try again' })).toHaveCount(0);
+  await expect(page.locator('.site-head')).toBeHidden();
+  // It keeps trying on its own, and the bar comes in once the event loads.
+  up = true;
+  await page.clock.fastForward(11_000);
+  await expect(page.locator('.tm-stream-bar')).toBeVisible();
 });
 
 test('the big screen hides the site’s head from the first paint, and leaving it brings the head back', async ({

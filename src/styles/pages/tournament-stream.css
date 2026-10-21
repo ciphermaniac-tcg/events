@@ -1,19 +1,7 @@
 /* The stream overlay (/t/:code?stream=table&table=N), loaded with its chunk
    (StreamOverlay). A browser source lays the page over video, so everything
-   around the one bar is transparent, and the bar is sized for a 1080p canvas. */
-html:has(body.tm-stream-mode),
-body.tm-stream-mode {
-  background: transparent;
-  transition: none;
-}
-body.tm-stream-mode .site-head,
-body.tm-stream-mode .site-footer {
-  display: none;
-}
-body.tm-stream-mode main.page {
-  max-width: none;
-  padding: 0;
-}
+   around the one bar is transparent (tournament.css), and the bar is sized
+   for a 1080p canvas. */
 .tm-stream {
   display: flex;
   align-items: flex-end;
@@ -110,4 +98,8 @@ body.tm-stream-mode main.page {
   font-size: var(--text-xl);
   font-weight: 800;
   color: var(--fg);
+}
+.tm-stream-extra {
+  font-weight: 600;
+  color: var(--accent-ink);
 }

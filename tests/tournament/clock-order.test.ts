@@ -5,7 +5,8 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { parseTdf } from '../../shared/tournament/tdf.ts';
 import type { Pod, PodCategory, Round } from '../../shared/tournament/types.ts';
-import { divisionClocks } from '../../src/pages/tournaments/clockOrder.ts';
+import type { PendingResult } from '../../shared/tournament/view.ts';
+import { divisionClocks, onExtraTime } from '../../src/pages/tournaments/clockOrder.ts';
 
 const fixture = parseTdf(readFileSync(new URL('../fixtures/tdf/challenge-midevent.tdf', import.meta.url), 'utf8'));
 const base = fixture.pods[0]!;
@@ -60,4 +61,22 @@ test('a paused clock leads a division done reporting, and each says which it is'
     ['paused', 'done']
   );
   assert.deepEqual(divisionClocks([], [], NOW), []);
+});
+
+test('once the round clock is out, only tables still playing with extra time left count as on extra time', () => {
+  const latest = base.rounds.at(-1)!;
+  const open = latest.matches.filter(m => m.p2 !== null && m.outcome === 'pending');
+  assert.ok(open.length >= 2);
+  const extended = latest.matches.map(m =>
+    m.p2 !== null ? { ...m, timeExtension: { seconds: 300, reason: 'Deck check' } } : m
+  );
+  const [clock] = divisionClocks([pod('masters', { ...running(60), matches: extended })], [], NOW);
+  assert.equal(onExtraTime(clock!, [], NOW), 0, 'the round clock still runs');
+  assert.equal(onExtraTime(clock!, [], NOW + 120_000), open.length, 'a minute over, five minutes on');
+  assert.equal(onExtraTime(clock!, [], NOW + 360_000), 0, 'the extension is spent too');
+  const [first] = open;
+  const reported: PendingResult[] = [
+    { pod: 'masters', round: latest.number, table: first!.table, p1: first!.p1, p2: first!.p2, outcome: 'p1', at: NOW }
+  ];
+  assert.equal(onExtraTime(clock!, reported, NOW + 120_000), open.length - 1, 'a result entered on the site');
 });

@@ -120,7 +120,18 @@ export function PagedDisplay(props: {
               <span class='tm-screen-dense-table'>
                 <strong class='num'>{row.match.table || '—'}</strong>
                 <small>{props.pods.length > 1 ? podLabel(row.pod) : t('Table')}</small>
-                <Show when={result(row)}>{mark => <small aria-label={t('Result')}>{mark()}</small>}</Show>
+                <Show
+                  when={result(row)}
+                  fallback={
+                    <Show when={row.match.timeExtension?.seconds}>
+                      {seconds => (
+                        <small class='tm-screen-extra'>{t('+{minutes} min', { minutes: seconds() / 60 })}</small>
+                      )}
+                    </Show>
+                  }
+                >
+                  {mark => <small aria-label={t('Result')}>{mark()}</small>}
+                </Show>
               </span>
             </li>
           )}

@@ -22,7 +22,7 @@
  * site's chrome is hidden while it is up.
  */
 
-import { createMemo, createSignal, For, Index, type JSX, lazy, onCleanup, onMount, Show } from 'solid-js';
+import { createMemo, createSignal, For, Index, type JSX, lazy, onCleanup, onMount, Show, useContext } from 'solid-js';
 import { percentLabel, recordLabel } from '../../../shared/tournament/standings';
 import type { Match, Pod, Round } from '../../../shared/tournament/types';
 import type { TournamentView } from '../../../shared/tournament/view';
@@ -53,6 +53,7 @@ import { latestRound, livePods, sortMatches, withSwiss } from '../../../shared/t
 import type { LiveData } from '../../lib/tournament/liveData';
 import { LiveDataStatus } from './LiveDataStatus';
 import { DivisionClocks } from './DivisionClocks';
+import { StaleSince } from './Clock';
 import { DeckIcons } from './DeckIcons';
 import { createNow } from './now';
 import { QrCode } from './QrCode';
@@ -170,12 +171,22 @@ function ScreenSeat(props: { name: string; record: string; seed?: number; mark: 
 
 const MARK_WORDS: Record<string, string> = { W: msg('Won'), L: msg('Lost'), T: msg('Tie') };
 
-/** The middle of a table: its number, and once it has a result, each seat's mark facing its player. */
-function TableMiddle(props: { table: number; marks: [string, string] }) {
+/**
+ * The middle of a table: its number, with any extra time it has while it
+ * plays, and once it has a result, each seat's mark facing its player.
+ */
+function TableMiddle(props: { table: number; marks: [string, string]; extra?: number }) {
   return (
     <span class='tm-screen-mid'>
       <span class='tm-screen-table num'>{props.table || '—'}</span>
-      <Show when={props.marks[0]} fallback={<small>{t('Table')}</small>}>
+      <Show
+        when={props.marks[0]}
+        fallback={
+          <small classList={{ 'tm-screen-extra': Boolean(props.extra) }}>
+            {props.extra ? t('+{minutes} min', { minutes: props.extra / 60 }) : t('Table')}
+          </small>
+        }
+      >
         <span class='tm-screen-score'>
           <For each={props.marks}>
             {mark => (
@@ -226,7 +237,7 @@ function TableRows(props: { view: TournamentView; pod: Pod; round: Round; headin
           {match => (
             <li classList={{ 'is-done': marks(match)[0] !== '' }}>
               {seat(match.p1, marks(match)[0], '')}
-              <TableMiddle table={match.table} marks={marks(match)} />
+              <TableMiddle table={match.table} marks={marks(match)} extra={match.timeExtension?.seconds} />
               {seat(match.p2, marks(match)[1], match.outcome === 'bye' ? t('Bye') : t('Missed round'))}
             </li>
           )}
@@ -381,9 +392,23 @@ function Join(props: { url: string; large?: boolean; children?: JSX.Element }) {
   );
 }
 
-function Controls(props: { prefs: Prefs; shown: boolean; bracket: boolean; onFocus: () => void }) {
+function Controls(props: {
+  prefs: Prefs;
+  shown: boolean;
+  bracket: boolean;
+  onFocus: () => void;
+  /** While the screen has stopped hearing from the event: for the laptop, never for the room. */
+  onRetry?: () => void;
+}) {
   return (
     <div class='tm-screen-controls' classList={{ 'is-shown': props.shown }} onFocusIn={() => props.onFocus()}>
+      <Show when={props.onRetry}>
+        {retry => (
+          <button type='button' class='btn btn-secondary' onClick={() => retry()()}>
+            {t('Try again')}
+          </button>
+        )}
+      </Show>
       <Show when={props.bracket}>
         <Segmented
           options={matchViews()}
@@ -473,6 +498,7 @@ export function BigScreen(props: { view: TournamentView; liveData?: LiveData; on
   const display = () => props.view.settings.display?.options ?? DEFAULT_DISPLAY;
   const font = () => displayFont(size(), display().scale);
   const now = createNow();
+  const stale = useContext(StaleSince);
   const [controls, setControls] = createSignal(false);
   const url = () => `${location.origin}/t/${props.view.code}`;
   const pods = () => livePods(props.view.tournament).filter(pod => latestRound(pod));
@@ -487,7 +513,7 @@ export function BigScreen(props: { view: TournamentView; liveData?: LiveData; on
         firstRound: firstRoundTime(props.view.settings.startsAt),
         roundCap: roundCapOf(props.view)
       },
-      now()
+      stale() ?? now()
     );
   // The clock's own words would repeat the clock under the header.
   const statusShown = () => (phase() === 'clock' ? status().slice(0, 2) : status());
@@ -548,7 +574,7 @@ export function BigScreen(props: { view: TournamentView; liveData?: LiveData; on
               <span class='muted'> · {statusShown().slice(1).join(' · ')}</span>
             </Show>
           </p>
-          <LiveDataStatus data={props.liveData} onRetry={props.onRetry} />
+          <LiveDataStatus data={props.liveData} />
         </div>
         <Show when={phase() !== 'roster'}>
           <Join url={url()} />
@@ -570,7 +596,13 @@ export function BigScreen(props: { view: TournamentView; liveData?: LiveData; on
           />
         )}
       </Show>
-      <Controls prefs={prefs} shown={controls()} bracket={anyBracket()} onFocus={reveal} />
+      <Controls
+        prefs={prefs}
+        shown={controls()}
+        bracket={anyBracket()}
+        onFocus={reveal}
+        onRetry={stale() === null ? undefined : props.onRetry}
+      />
     </div>
   );
 }

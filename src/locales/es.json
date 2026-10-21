@@ -142,6 +142,7 @@
   "Breadcrumb": "Ruta de navegación",
   "Busy; try again": "El servidor está ocupado; inténtalo de nuevo",
   "Bye": "Bye",
+  "Called {time} ago": "Se cantó hace {time}",
   "Can’t be changed after the event is created": "No se puede cambiar después de crear el torneo",
   "Cancel": "Cancelar",
   "Cancel request": "Cancelar solicitud",
@@ -658,6 +659,7 @@
   "Not set": "Sin definir",
   "Not signed by Clerk": "No viene firmado por Clerk",
   "Not started": "Sin empezar",
+  "Not updated since {time}": "Sin actualizar desde las {time}",
   "not updating": "no se actualiza",
   "Not valid profile links": "Los enlaces del perfil no son válidos",
   "Not yet confirmed": "Sin confirmar",
@@ -749,6 +751,8 @@
   "Paste your list from TCG Live": "Pega tu lista de TCG Live",
   "Pause": "Pausar",
   "Pause pages": "Pausar páginas",
+  "Paused": "En pausa",
+  "Paused · {time}": "En pausa · {time}",
   "Penalties": "Penalizaciones",
   "Penalty": "Penalización",
   "Penalty notes could not be loaded.": "No se pudieron cargar las notas de penalización.",
@@ -1208,6 +1212,7 @@
   "This Swiss pod is complete": "Este pod suizo ya terminó",
   "Thursdays": "Los jueves",
   "Tie": "Empate",
+  "Time": "Tiempo",
   "Time extension": "Tiempo extra",
   "Time extension, table {table}": "Tiempo extra, mesa {table}",
   "Time extensions are up to 60 minutes": "El tiempo extra puede ser de hasta 60 minutos",
@@ -1359,7 +1364,6 @@
   "{inside} and {outside} split on OOWP: {a} / {b}": "{inside} y {outside} se separan por OOWP: {a} / {b}",
   "{inside} and {outside} split on OWP: {a} / {b}": "{inside} y {outside} se separan por OWP: {a} / {b}",
   "{inside} and {outside} split on points: {a} / {b}": "{inside} y {outside} se separan por puntos: {a} / {b}",
-  "{label} · Paused": "{label} · En pausa",
   "{name} wins": "Gana {name}",
   "{name} won": "Ganó {name}",
   "{name}: {result}": "{name}: {result}",
@@ -1453,6 +1457,10 @@
     "one": "{n} segundo",
     "other": "{n} segundos"
   },
+  "{n} tables on extra time": {
+    "one": "{n} mesa con tiempo extra",
+    "other": "{n} mesas con tiempo extra"
+  },
   "{n} tables open": {
     "one": "{n} mesa pendiente",
     "other": "{n} mesas pendientes"
@@ -1488,6 +1496,7 @@
   "{store} settings": "Configuración de {store}",
   "{store} · League {id}": "{store} · Liga {id}",
   "{time} left": "quedan {time}",
+  "{time} left, paused": "quedan {time}, en pausa",
   "{time} over": "tiempo agotado hace {time}",
   "{who}, {role}": "{who}, {role}",
   "{who}, {role} (no head judge named)": "{who}, {role} (sin juez principal designado)",

@@ -263,6 +263,11 @@
   color: var(--muted);
   font-weight: 500;
 }
+/* A table still playing on extra time says how much, in place of its caption. */
+.tm-screen-mid small.tm-screen-extra,
+.tm-screen-dense-table small.tm-screen-extra {
+  color: var(--accent-ink);
+}
 .tm-screen-tables li.is-done .tm-screen-table {
   color: var(--muted);
 }
@@ -498,11 +503,11 @@
   grid-row: 1;
   grid-column: 1;
 }
-.tm-screen-dense-table small:not([aria-label]) {
+.tm-screen-dense-table small:not([aria-label], .tm-screen-extra) {
   grid-row: 2;
   grid-column: 1 / -1;
 }
-.tm-screen-dense-table small[aria-label] {
+.tm-screen-dense-table small:is([aria-label], .tm-screen-extra) {
   grid-row: 1;
   grid-column: 2;
   align-self: center;

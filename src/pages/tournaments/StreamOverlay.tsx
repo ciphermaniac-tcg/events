@@ -6,7 +6,7 @@
  * the game as it is; it follows the table into each new round on its own.
  */
 
-import { createMemo, onCleanup, onMount, Show } from 'solid-js';
+import { createMemo, Show, useContext } from 'solid-js';
 import type { Match, PodCategory, Round } from '../../../shared/tournament/types';
 import type { TournamentView } from '../../../shared/tournament/view';
 import { cutSeeds } from '../../lib/tournament/bracket';
@@ -14,9 +14,7 @@ import { markText, namesById, recordsSoFar, roundLabel, seatMark, shownOutcome }
 import { msg, t } from '../../lib/i18n';
 import { streamDecks, streamTable } from '../../lib/tournament/spectate';
 import { withSwiss } from '../../../shared/tournament/rounds';
-import type { LiveData } from '../../lib/tournament/liveData';
-import { LiveDataStatus } from './LiveDataStatus';
-import { Clock } from './Clock';
+import { Clock, StaleSince } from './Clock';
 import { DeckIcons } from './DeckIcons';
 import '../../styles/pages/tournament-stream.css';
 
@@ -54,23 +52,18 @@ function StreamSeat(props: {
   );
 }
 
-export function StreamOverlay(props: {
-  view: TournamentView;
-  table: number;
-  pod?: PodCategory;
-  liveData?: LiveData;
-  onRetry?: () => void;
-}) {
-  onMount(() => {
-    document.body.classList.add('tm-stream-mode');
-    onCleanup(() => document.body.classList.remove('tm-stream-mode'));
-  });
+/**
+ * The audience can do nothing about a lost connection, so the overlay never
+ * says so: its clock stops where it was last known to be and goes quiet,
+ * and the poll keeps trying on its own.
+ */
+export function StreamOverlay(props: { view: TournamentView; table: number; pod?: PodCategory }) {
+  const stale = useContext(StaleSince);
   const shown = createMemo(() => streamTable(props.view.tournament, props.table, props.pod));
   const names = createMemo(() => namesById(props.view.tournament));
   const decks = createMemo(() => streamDecks(props.view));
   return (
     <div class='tm-stream'>
-      <LiveDataStatus data={props.liveData} onRetry={props.onRetry} />
       <Show
         when={shown()}
         fallback={
@@ -87,6 +80,7 @@ export function StreamOverlay(props: {
           const seeds = () =>
             table().round.kind === 'elimination' ? cutSeeds(props.view.tournament, table().pod) : new Map();
           const outcome = () => outcomeOf(table().match);
+          const extra = () => table().match.timeExtension?.seconds;
           const mark = (seat: 1 | 2) => (table().match.p2 === null ? '' : seatMark(outcome(), seat));
           const seat = (id: string | null, side: 'left' | 'right') => (
             <StreamSeat
@@ -99,13 +93,19 @@ export function StreamOverlay(props: {
             />
           );
           return (
-            <div class='tm-stream-bar'>
+            <div class='tm-stream-bar' classList={{ 'is-stale': stale() !== null }}>
               {seat(table().match.p1, 'left')}
               <div class='tm-stream-mid'>
                 <span class='tm-stream-round'>{roundLabel(table().round, table().pod)}</span>
                 <span class='tm-stream-table num'>{t('Table {n}', { n: props.table })}</span>
-                <Show when={!props.view.settings.finished}>
-                  <Clock round={table().round as Round} class='tm-stream-clock' />
+                {/* The table's own time, extension and all, until it has a result. */}
+                <Show when={!props.view.settings.finished && outcome() === 'pending'}>
+                  <Clock round={table().round as Round} extraSeconds={extra()} class='tm-stream-clock' />
+                  <Show when={extra()}>
+                    {seconds => (
+                      <span class='tm-stream-extra num'>{t('+{minutes} min', { minutes: seconds() / 60 })}</span>
+                    )}
+                  </Show>
                 </Show>
               </div>
               {seat(table().match.p2, 'right')}

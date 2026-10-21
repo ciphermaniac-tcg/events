@@ -1429,7 +1429,9 @@ test('table extensions use the match menu and support editing and removal @mobil
   await expect
     .poll(() => sent[0])
     .toMatchObject({ type: 'setTimeExtension', table, seconds: 300, reason: 'Judge call' });
-  await expect(page.getByRole('timer', { name: `Time left at table ${table}`, exact: true })).toHaveText(' · 3:00');
+  await expect(page.getByRole('timer', { name: `Time left at table ${table}`, exact: true })).toHaveText(
+    'Paused · 3:00'
+  );
   const row = page
     .locator('.tm-matches tbody tr')
     .filter({ has: page.getByRole('timer', { name: `Time left at table ${table}`, exact: true }) });
@@ -1440,7 +1442,9 @@ test('table extensions use the match menu and support editing and removal @mobil
   await editor.getByLabel('Extra minutes').fill('10');
   await editor.getByRole('button', { name: 'Save extension', exact: true }).click();
   await expect.poll(() => sent[1]).toMatchObject({ type: 'setTimeExtension', seconds: 600 });
-  await expect(page.getByRole('timer', { name: `Time left at table ${table}`, exact: true })).toHaveText(' · 8:00');
+  await expect(page.getByRole('timer', { name: `Time left at table ${table}`, exact: true })).toHaveText(
+    'Paused · 8:00'
+  );
   editor = await openExtension(page, table);
   await editor.getByRole('button', { name: 'Remove extension', exact: true }).click();
   await expect.poll(() => sent[2]).toMatchObject({ type: 'setTimeExtension', seconds: 0, reason: '' });
@@ -1496,7 +1500,7 @@ test('a player’s personal clock includes their table extension @mobile', async
     return url.searchParams.has('since') ? route.fulfill({ status: 204 }) : route.fulfill({ json: view });
   });
   await page.goto(`/t/${CODE}`);
-  await expect(page.getByRole('timer', { name: 'Time left at your table', exact: true })).toHaveText('3:00');
+  await expect(page.getByRole('timer', { name: 'Time left at your table', exact: true })).toHaveText('Paused · 3:00');
   await expect(page.getByText('Staff note', { exact: true })).toHaveCount(0);
 });
 
