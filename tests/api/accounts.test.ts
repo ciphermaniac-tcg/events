@@ -263,7 +263,7 @@ test('one account holds a POP ID: the second to save it is refused, and none of 
   await saveProfile(second, profileOf('7654321', 'Sam'));
   const taken = await saveProfile(second, profileOf('1234567', 'Robin'));
   assert.equal(taken.status, 409);
-  assert.deepEqual([taken.json.error, taken.json.popIdTaken], ['This POP ID is on another account', true]);
+  assert.deepEqual([taken.json.error, taken.json.popIdTaken], ['This Player ID is on another account.', true]);
   const kept = await accountOf(second);
   assert.deepEqual([kept.popId, kept.firstName], ['7654321', 'Sam']);
   assert.deepEqual([(await accountOf(first)).popId, (await accountOf(first)).firstName], ['1234567', 'Patricia']);

@@ -264,12 +264,23 @@ test('a birth year under 13 says to register with staff as it is typed, before a
   expect(calls.some(call => call.method === 'PUT')).toBe(false);
 });
 
-test('a Player ID is numbers only', async ({ page }) => {
+test('the Player ID keeps only its digits, and the birth year is four digits the browser can fill in', async ({
+  page
+}) => {
   await mockEvent(page);
   await page.goto(`/t/${CODE}?tab=decklist`);
-  await page.getByRole('textbox', { name: 'Player ID' }).fill('12a');
-  await expect(page.getByText('Player IDs are numbers only.')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Continue' })).toBeDisabled();
+  const id = page.getByRole('textbox', { name: 'Player ID' });
+  await id.fill('POP-12345');
+  await expect(id).toHaveValue('12345');
+  await id.fill('12a');
+  await expect(id).toHaveValue('12');
+  await expect(id).toHaveAttribute('inputmode', 'numeric');
+  await page.getByRole('button', { name: 'Continue' }).click();
+  const year = page.getByRole('textbox', { name: 'Birth year' });
+  await year.fill('1998-02');
+  await expect(year).toHaveValue('1998');
+  await expect(year).toHaveAttribute('autocomplete', 'bday-year');
+  await expect(year).toHaveAttribute('inputmode', 'numeric');
 });
 
 test('at an unsanctioned event a name a slip away is asked about, never opened, and two named alike are offered', async ({

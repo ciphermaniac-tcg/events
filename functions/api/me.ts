@@ -85,7 +85,7 @@ export async function onRequestPut({ request, env }: Context): Promise<Response>
   const [, saved] = await db.batch(profileWrites(db, user, profile));
   if (rowsChanged(saved) === 0) {
     return jsonResponse(
-      { error: msg('This POP ID is on another account'), popIdTaken: true },
+      { error: msg('This Player ID is on another account.'), popIdTaken: true },
       { ...PRIVATE, status: 409 }
     );
   }

@@ -33,9 +33,10 @@ import {
 import { latestValue } from '../../lib/resource';
 import { msg, t, tn } from '../../lib/i18n';
 import { ConfirmAction } from './ConfirmAction';
+import { ContactLink } from './ContactLink';
 import { ErrorLine, Field } from './Field';
 import { OptionsMenu } from './OptionsMenu';
-import { birthDateFor, birthYearOf, emptyProfile } from './ProfileFields';
+import { birthDateFor, BirthYearInput, birthYearOf, emptyProfile, PlayerIdInput } from './ProfileFields';
 import { session, setSession } from './session';
 import { recall, remember } from './decklistMemory';
 
@@ -78,6 +79,8 @@ function createRegistration(props: RegistrationProps) {
   const [own, setOwn] = createSignal(held !== null);
   const [leaving, setLeaving] = createSignal(false);
   const [refusedFull, setRefusedFull] = createSignal(false);
+  // The account's save was refused because another account holds the Player ID, which only we can settle.
+  const [idTaken, setIdTaken] = createSignal(false);
   const [busy, setBusy] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
   const parsed = () => parseDecklist(deck());
@@ -108,6 +111,7 @@ function createRegistration(props: RegistrationProps) {
       await task();
     } catch (err) {
       setRefusedFull(err instanceof ApiError && err.body?.full === true);
+      setIdTaken(err instanceof ApiError && err.body?.popIdTaken === true);
       setError(errorText(err));
     } finally {
       setBusy(false);
@@ -271,6 +275,7 @@ function createRegistration(props: RegistrationProps) {
     changed,
     busy,
     error,
+    idTaken,
     young,
     full: () => step() === 'new' && (props.full || refusedFull()),
     look,
@@ -296,35 +301,31 @@ function missing(form: Registration, sanctioned: boolean): string | null {
   return form.mode() === 'digital' && !form.deck().trim() ? t('Paste a decklist') : null;
 }
 
+/** Enter in a step's field goes on, as its Continue does. */
+const onEnter = (go: (() => void) | undefined) => (e: KeyboardEvent) => {
+  if (e.key === 'Enter' && go) {
+    e.preventDefault();
+    go();
+  }
+};
+
 function TextField(props: {
   id: string;
   label: string;
   value: string;
-  numeric?: boolean;
-  autocomplete?: string;
-  error?: string | undefined;
+  autocomplete: string;
   onInput: (value: string) => void;
-  onEnter?: () => void;
 }) {
   return (
-    <Field id={props.id} label={props.label} error={props.error}>
+    <Field id={props.id} label={props.label}>
       <input
         id={props.id}
         class='tm-input tm-reg-input'
-        aria-invalid={props.error ? 'true' : undefined}
-        aria-describedby={props.error ? `${props.id}-error` : undefined}
         value={props.value}
-        inputMode={props.numeric ? 'numeric' : undefined}
-        maxLength={props.numeric ? 10 : 40}
-        autocomplete={props.autocomplete ?? 'off'}
-        autocapitalize={props.numeric ? undefined : 'words'}
+        maxLength={40}
+        autocomplete={props.autocomplete}
+        autocapitalize='words'
         onInput={e => props.onInput(e.currentTarget.value)}
-        onKeyDown={e => {
-          if (e.key === 'Enter' && props.onEnter) {
-            e.preventDefault();
-            props.onEnter();
-          }
-        }}
       />
     </Field>
   );
@@ -353,16 +354,19 @@ function NameFields(props: { form: Registration }) {
 }
 
 function YearField(props: { form: Registration; onEnter?: () => void }) {
+  const error = () => (props.form.young() ? t('Players under 13 register with staff at the event.') : undefined);
   return (
-    <TextField
-      id='reg-year'
-      label={t('Birth year')}
-      value={birthYearOf(props.form.profile().birthDate)}
-      numeric
-      error={props.form.young() ? t('Players under 13 register with staff at the event.') : undefined}
-      onInput={value => props.form.setField('birthDate', birthDateFor(value))}
-      onEnter={props.onEnter}
-    />
+    <Field id='reg-year' label={t('Birth year')} error={error()}>
+      <BirthYearInput
+        id='reg-year'
+        class='tm-input tm-reg-input'
+        aria-invalid={error() ? 'true' : undefined}
+        aria-describedby={error() ? 'reg-year-error' : undefined}
+        value={birthYearOf(props.form.profile().birthDate)}
+        onValue={value => props.form.setField('birthDate', birthDateFor(value))}
+        onKeyDown={onEnter(props.onEnter)}
+      />
+    </Field>
   );
 }
 
@@ -382,17 +386,15 @@ function Lookup(props: { form: Registration; sanctioned: boolean }) {
     <section class='tm-box tm-reg'>
       <div class='tm-box-bar tm-reg-stack'>
         <Show when={props.sanctioned} fallback={<NameFields form={f()} />}>
-          <TextField
-            id='reg-pop'
-            label={t('Player ID')}
-            value={f().profile().popId}
-            numeric
-            onInput={value => f().setField('popId', value.trim())}
-            onEnter={go}
-          />
-          <Show when={f().profile().popId.trim() && !isPopId(f().profile().popId.trim())}>
-            <p class='tm-reg-note tm-problem'>{t('Player IDs are numbers only.')}</p>
-          </Show>
+          <Field id='reg-pop' label={t('Player ID')}>
+            <PlayerIdInput
+              id='reg-pop'
+              class='tm-input tm-reg-input'
+              value={f().profile().popId}
+              onValue={value => f().setField('popId', value)}
+              onKeyDown={onEnter(go)}
+            />
+          </Field>
         </Show>
         <button type='button' class='btn btn-primary tm-reg-wide' disabled={!ready() || f().busy()} onClick={go}>
           {t('Continue')}
@@ -616,7 +618,7 @@ function Foot(props: { form: Registration; sanctioned: boolean; label: string; c
       <Show when={needs()}>{text => <span class='muted'>{text()}</span>}</Show>
       {props.children}
       <Show when={!f().full()}>
-        <ErrorLine message={f().error()} />
+        <ErrorLine message={f().error()} action={f().idTaken() ? <ContactLink /> : undefined} />
       </Show>
     </div>
   );
@@ -708,7 +710,7 @@ function EditRegistration(props: { form: Registration; reg: RegistrationProps })
           <span class='tm-grow' />
           <Show when={!f().accountSaved()} fallback={<span class='muted'>{t('Saved')}</span>}>
             <button type='button' class='btn btn-ghost tm-small' onClick={() => void f().saveToAccount()}>
-              {t('Save to my account')}
+              {t('Save ID to my profile')}
             </button>
           </Show>
         </Show>

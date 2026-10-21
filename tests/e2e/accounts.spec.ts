@@ -278,9 +278,9 @@ test('a public profile shows the name and History read-only, and an unknown addr
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Mary Jackson');
   const rows = page.locator('.tm-hist tbody tr.is-link');
   await expect(rows).toHaveCount(2);
-  // The count is the rows shown: an entry whose copy has nobody under its key leaves both.
+  // A player who never organized has no tabs: nothing leads to an empty one.
   await expect(page.locator('.tm-profile-hero .tm-status')).toHaveText('@mary.j');
-  await expect(page.getByRole('tab', { name: 'Playing · 2' })).toBeVisible();
+  await expect(page.getByRole('tab')).toHaveCount(0);
   await expect(rows.first().locator('.tm-hist-place')).toHaveText('1st');
   await expect(page.locator('main').getByRole('button', { name: /Sign in|Save|Remove/ })).toHaveCount(0);
   await page.goto('/u/nobody');
@@ -400,7 +400,7 @@ test('profile tabs show organizer activity and icon-only social links @mobile', 
     )
     .toEqual([true, true, true, true, true]);
   await expect(page.locator('.tm-profile-hero .tm-status')).toHaveText('@mary.j');
-  await page.getByRole('tab', { name: 'Organizing · 1' }).click();
+  await page.getByRole('tab', { name: 'Organizing' }).click();
   await expect(page.getByRole('tabpanel', { name: 'Organizing' })).toContainText('Hosted Cup');
   await expect(page.getByRole('link', { name: 'Hosted Cup' })).toHaveAttribute('href', '/t/HOST01');
   await expect(page.getByRole('link', { name: 'Fixture Games' })).toHaveAttribute('href', '/stores/store-1');
@@ -420,7 +420,7 @@ test('owners see read-only history without pin controls, including responses cac
   );
   await page.goto('/u/mary');
   await expect(page.getByRole('link', { name: 'Edit links' })).toHaveCount(0);
-  await expect(page.getByRole('tab', { name: 'Playing · 2' })).toBeVisible();
+  await expect(page.getByRole('tab')).toHaveCount(0);
   await expect(page.getByRole('region', { name: 'Pinned results' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: /^Pin |^Unpin |^Move / })).toHaveCount(0);
   await expect(page.locator('.tm-hist tbody tr.is-link')).toHaveCount(2);
@@ -472,7 +472,7 @@ async function mockSettings(page: Page, user: typeof ME) {
     if (pathname === '/api/me' && request.method() === 'PUT') {
       return route.fulfill({
         status: 409,
-        json: { error: 'This POP ID is on another account', popIdTaken: true }
+        json: { error: 'This Player ID is on another account.', popIdTaken: true }
       });
     }
     return route.fulfill({ json: { user: current, providers: ['google', 'discord'] } });
@@ -480,7 +480,7 @@ async function mockSettings(page: Page, user: typeof ME) {
   return sent;
 }
 
-test('Settings: the public profile switch shows its link, and a POP ID clash points to feedback @mobile', async ({
+test('Settings: the public profile switch shows its link, and a Player ID clash points to feedback under the field @mobile', async ({
   page
 }) => {
   const sent = await mockSettings(page, ME);
@@ -502,12 +502,16 @@ test('Settings: the public profile switch shows its link, and a POP ID clash poi
   await expect(page.getByRole('button', { name: 'Copy' })).toHaveCount(0);
   await page.getByRole('navigation', { name: 'Settings' }).getByRole('button', { name: 'Player profile' }).click();
   await page.getByRole('button', { name: 'Save profile' }).click();
-  const alert = page.getByRole('alert');
-  await expect(alert).toContainText('This POP ID is on another account');
-  await expect(alert.getByRole('link', { name: 'Feedback' })).toHaveAttribute(
+  // The clash is the Player ID's, so it sits under that field, with the way to have it settled.
+  const id = page.getByRole('textbox', { name: 'Player ID' });
+  await expect(id).toBeFocused();
+  await expect(id).toHaveAttribute('aria-invalid', 'true');
+  await expect(id).toHaveAccessibleDescription(/This Player ID is on another account\./);
+  await expect(page.locator('#settings-pop-error').getByRole('link', { name: 'Contact us' })).toHaveAttribute(
     'href',
     'https://ciphermaniac.com/feedback'
   );
+  await expect(page.getByRole('alert')).toHaveCount(0);
 });
 
 test('Settings opens on the player profile, keeps its section in the address, and its edits across sections @mobile', async ({
@@ -1146,7 +1150,10 @@ test('a signed-in player saves the POP ID their decklist went in under to their 
     const { pathname } = new URL(request.url());
     if (pathname === '/api/me' && request.method() === 'PUT') {
       saved.push(request.postDataJSON());
-      return route.fulfill({ json: { user: { ...ME, ...profile } } });
+      // Saved once; by the second try another account has taken the Player ID.
+      return saved.length > 1
+        ? route.fulfill({ status: 409, json: { error: 'This Player ID is on another account.', popIdTaken: true } })
+        : route.fulfill({ json: { user: { ...ME, ...profile } } });
     }
     if (pathname === '/api/me') {
       return route.fulfill({ json: { user: { ...ME, popId: null }, providers: [] } });
@@ -1162,17 +1169,24 @@ test('a signed-in player saves the POP ID their decklist went in under to their 
     .poll(() => page.evaluate(key => localStorage.getItem(key), `cm-decklist:${code}`))
     .toBe(JSON.stringify({ token: 'kept' }));
   expect(await page.evaluate(key => sessionStorage.getItem(key), `cm-decklist:${code}`)).toBe(JSON.stringify(profile));
-  await page.getByRole('button', { name: 'Save to my account' }).click();
+  await page.getByRole('button', { name: 'Save ID to my profile' }).click();
   await expect(page.locator('.tm-decklist-foot')).toContainText('Saved');
-  await expect(page.getByRole('button', { name: 'Save to my account' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Save ID to my profile' })).toHaveCount(0);
   expect(saved).toEqual([profile]);
   await page.evaluate(() => sessionStorage.clear());
   await page.reload();
-  await expect(page.getByRole('button', { name: 'Save to my account' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Save ID to my profile' })).toBeVisible();
   expect(reads.at(-1)?.get('token')).toBe('kept');
   expect(reads.at(-1)?.get('popId')).toBeFalsy();
   expect(await page.evaluate(key => localStorage.getItem(key), `cm-decklist:${code}`)).toBe(
     JSON.stringify({ token: 'kept' })
+  );
+  await page.getByRole('button', { name: 'Save ID to my profile' }).click();
+  const alert = page.getByRole('alert');
+  await expect(alert).toContainText('This Player ID is on another account.');
+  await expect(alert.getByRole('link', { name: 'Contact us' })).toHaveAttribute(
+    'href',
+    'https://ciphermaniac.com/feedback'
   );
 });
 

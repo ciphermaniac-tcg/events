@@ -1,5 +1,5 @@
 import type { PlayerProfile } from '../../../shared/tournament/profile';
-import { Show } from 'solid-js';
+import { type JSX, Show, splitProps } from 'solid-js';
 import { t } from '../../lib/i18n';
 import { Field } from './Field';
 
@@ -9,6 +9,45 @@ import { Field } from './Field';
  */
 export const birthYearOf = (birthDate: string) => birthDate.slice(-4);
 export const birthDateFor = (year: string) => (/^\d{4}$/.test(year.trim()) ? `02/27/${year.trim()}` : year.trim());
+
+type DigitsProps = Omit<JSX.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onInput'> & {
+  value: string;
+  onValue: (digits: string) => void;
+};
+
+/** An input that keeps the digits typed or pasted, up to `max`, and shows only those. */
+function DigitsInput(props: DigitsProps & { max: number }) {
+  const [own, rest] = splitProps(props, ['value', 'onValue', 'max', 'class']);
+  return (
+    <input
+      {...rest}
+      class={own.class ?? 'tm-input'}
+      inputmode='numeric'
+      value={own.value}
+      onInput={e => {
+        const input = e.currentTarget;
+        const digits = input.value.replace(/\D/g, '').slice(0, own.max);
+        // Set here as well: a stray letter leaves the value unchanged, so nothing else would take it out.
+        input.value = digits;
+        own.onValue(digits);
+      }}
+    />
+  );
+}
+
+/**
+ * A Player ID field's input, the same on every form that asks for one: digits
+ * only, so a pasted "POP-12345" keeps its number, up to the ten an ID has,
+ * with the number pad on phones.
+ */
+export function PlayerIdInput(props: DigitsProps) {
+  return <DigitsInput autocomplete='off' {...props} max={10} />;
+}
+
+/** A birth year field's input, the same on every form that asks for one: four digits, filled in by the browser where it can. */
+export function BirthYearInput(props: DigitsProps) {
+  return <DigitsInput autocomplete='bday-year' {...props} max={4} />;
+}
 
 export function emptyProfile(user?: Partial<Record<keyof PlayerProfile, string | null>> | null): PlayerProfile {
   return {
@@ -40,13 +79,15 @@ export function focusFirstProblem(idPrefix: string, problems: Problems): void {
 /**
  * POP ID, name and birth year: what an organizer's player list knows a player
  * by. An unsanctioned event knows them by name alone. A field with a problem
- * is marked invalid and described by it.
+ * is marked invalid and described by it; `popIdAction` follows a Player ID
+ * problem only the site can settle.
  */
 export function ProfileFields(props: {
   idPrefix: string;
   value: PlayerProfile;
   sanctioned?: boolean;
   errors: Problems;
+  popIdAction?: JSX.Element;
   onChange: (profile: PlayerProfile) => void;
 }) {
   const set = (key: keyof PlayerProfile, value: string) => props.onChange({ ...props.value, [key]: value });
@@ -80,25 +121,20 @@ export function ProfileFields(props: {
         />
       </Field>
       <Show when={props.sanctioned !== false}>
-        <Field id={id('pop')} label={t('Player ID')} error={error('popId')}>
-          <input
+        <Field id={id('pop')} label={t('Player ID')} error={error('popId')} errorAction={props.popIdAction}>
+          <PlayerIdInput
             id={id('pop')}
             {...problem('popId', 'pop')}
-            class='tm-input'
-            inputmode='numeric'
             value={props.value.popId}
-            onInput={e => set('popId', e.currentTarget.value.replace(/\D/g, ''))}
+            onValue={value => set('popId', value)}
           />
         </Field>
         <Field id={id('year')} label={t('Birth year')} error={error('birthDate')}>
-          <input
+          <BirthYearInput
             id={id('year')}
             {...problem('birthDate', 'year')}
-            class='tm-input'
-            inputmode='numeric'
-            maxLength={4}
             value={birthYearOf(props.value.birthDate)}
-            onInput={e => set('birthDate', birthDateFor(e.currentTarget.value))}
+            onValue={value => set('birthDate', birthDateFor(value))}
           />
         </Field>
       </Show>

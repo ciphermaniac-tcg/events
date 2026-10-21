@@ -12,6 +12,7 @@ import { isSanctioned, type PublishedView, type TournamentView } from '../../../
 import { ApiError, errorText, identifyPlayer, type LookupCandidate, lookupPlayer } from '../../lib/tournament/api';
 import { currentMatchOf, divisionHeading } from '../../lib/tournament/present';
 import { ErrorLine, Field } from './Field';
+import { BirthYearInput, PlayerIdInput } from './ProfileFields';
 import { t, tn } from '../../lib/i18n';
 
 export interface Identified {
@@ -55,6 +56,11 @@ function ClaimForm(props: IdentifyProps) {
   const [ambiguous, setAmbiguous] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
   const [busy, setBusy] = createSignal(false);
+  const focusOpening = (el: HTMLInputElement) => {
+    if (props.autofocus) {
+      queueMicrotask(() => el.focus());
+    }
+  };
   const wrong = () =>
     sanctioned() ? t('That Player ID and birth year isn’t this player’s') : t('That last name isn’t this player’s');
 
@@ -95,31 +101,25 @@ function ClaimForm(props: IdentifyProps) {
   return (
     <form class='tm-identify' onSubmit={event => void find(event)}>
       <Field id={`${props.idPrefix}-id`} label={sanctioned() ? t('Player ID') : t('Last name')}>
-        <input
-          id={`${props.idPrefix}-id`}
-          ref={el => {
-            if (props.autofocus) {
-              queueMicrotask(() => el.focus());
-            }
-          }}
-          class='tm-input'
-          inputmode={sanctioned() ? 'numeric' : undefined}
-          autocomplete={sanctioned() ? 'off' : 'family-name'}
-          value={value()}
-          onInput={e => setValue(sanctioned() ? e.currentTarget.value.replace(/\D/g, '') : e.currentTarget.value)}
-        />
+        <Show
+          when={sanctioned()}
+          fallback={
+            <input
+              id={`${props.idPrefix}-id`}
+              ref={el => focusOpening(el)}
+              class='tm-input'
+              autocomplete='family-name'
+              value={value()}
+              onInput={e => setValue(e.currentTarget.value)}
+            />
+          }
+        >
+          <PlayerIdInput id={`${props.idPrefix}-id`} ref={el => focusOpening(el)} value={value()} onValue={setValue} />
+        </Show>
       </Field>
       <Show when={sanctioned()}>
         <Field id={`${props.idPrefix}-year`} label={t('Birth year')}>
-          <input
-            id={`${props.idPrefix}-year`}
-            class='tm-input'
-            inputmode='numeric'
-            autocomplete='bday-year'
-            maxLength={4}
-            value={year()}
-            onInput={e => setYear(e.currentTarget.value.replace(/\D/g, ''))}
-          />
+          <BirthYearInput id={`${props.idPrefix}-year`} value={year()} onValue={setYear} />
         </Field>
       </Show>
       <Show when={ambiguous()}>

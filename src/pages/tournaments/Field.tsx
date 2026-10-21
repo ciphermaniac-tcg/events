@@ -3,8 +3,14 @@ import { t } from '../../lib/i18n';
 import { errorText } from '../../lib/tournament/api';
 import { Skeleton } from '@ciphermaniac/design/components/Skeleton';
 
-/** A labelled form control with an optional error line, the house form row. */
-export function Field(props: { id: string; label: string; error?: string | undefined; children: JSX.Element }) {
+/** A labelled form control with an optional error line, the house form row; `errorAction` follows the error's words. */
+export function Field(props: {
+  id: string;
+  label: string;
+  error?: string | undefined;
+  errorAction?: JSX.Element;
+  children: JSX.Element;
+}) {
   return (
     <div class='tm-field'>
       <label class='tm-label' for={props.id}>
@@ -13,19 +19,19 @@ export function Field(props: { id: string; label: string; error?: string | undef
       {props.children}
       <Show when={props.error}>
         <span class='tm-error' id={`${props.id}-error`}>
-          {props.error}
+          {props.error} {props.errorAction}
         </span>
       </Show>
     </div>
   );
 }
 
-/** The one line a failed request leaves, where the action was. */
-export function ErrorLine(props: { message: string | null | undefined }) {
+/** The one line a failed request leaves, where the action was, with the way on (`action`) when there is one. */
+export function ErrorLine(props: { message: string | null | undefined; action?: JSX.Element }) {
   return (
     <Show when={props.message}>
       <p class='tm-error' role='alert'>
-        {props.message}
+        {props.message} {props.action}
       </p>
     </Show>
   );

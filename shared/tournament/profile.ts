@@ -33,7 +33,7 @@ function field(body: Record<string, unknown>, key: string): string {
 export function profileErrors(profile: PlayerProfile, sanctioned = true): Partial<Record<keyof PlayerProfile, string>> {
   const errors: Partial<Record<keyof PlayerProfile, string>> = {};
   if (sanctioned && !isPopId(profile.popId)) {
-    errors.popId = msg('A POP ID is up to ten digits');
+    errors.popId = msg('A Player ID is up to ten digits');
   }
   if (!profile.firstName || profile.firstName.length > NAME_MAX) {
     errors.firstName = msg('Required');

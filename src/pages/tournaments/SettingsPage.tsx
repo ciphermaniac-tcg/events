@@ -43,7 +43,7 @@ import { SettingRow, Toggle } from './SettingControls';
 import { SettingInfo } from './SettingInfo';
 import { SignIn } from './SignIn';
 import { Trail } from './Trail';
-import { MAIN_SITE } from '../../lib/constants';
+import { ContactLink } from './ContactLink';
 import { pageTitle } from '../../lib/title';
 import { msg, t } from '../../lib/i18n';
 import { ProfileLinksForm } from './ProfileLinksForm';
@@ -261,7 +261,11 @@ function Profile(props: { user: Me }) {
       setProfile(emptyProfile(props.user));
     }
   });
-  const problems = () => (touched() ? profileErrors(profile()) : {});
+  // A POP ID another account holds is told under the field, with the way to have it settled.
+  const problems = () => ({
+    ...(touched() ? profileErrors(profile()) : {}),
+    ...(clash() ? { popId: error() ?? '' } : {})
+  });
 
   async function save(event: Event) {
     event.preventDefault();
@@ -282,6 +286,9 @@ function Profile(props: { user: Me }) {
       setError(errorText(err));
       setClash(err instanceof ApiError && err.body?.popIdTaken === true);
       setStatus('idle');
+      if (clash()) {
+        focusFirstProblem('settings', { popId: 'taken' });
+      }
     }
   }
 
@@ -293,9 +300,11 @@ function Profile(props: { user: Me }) {
             idPrefix='settings'
             value={profile()}
             errors={problems()}
+            popIdAction={clash() ? <ContactLink /> : undefined}
             onChange={value => {
               setTouched(true);
               setStatus('idle');
+              setClash(false);
               setProfile(value);
             }}
           />
@@ -311,17 +320,7 @@ function Profile(props: { user: Me }) {
           </button>
         </div>
       </form>
-      <Show when={clash()} fallback={<ErrorLine message={error()} />}>
-        <p class='tm-error' role='alert'>
-          {error()}
-          <span class='dot' aria-hidden='true'>
-            {' · '}
-          </span>
-          <a class='tm-link-inline' href={`${MAIN_SITE}/feedback`}>
-            {t('Feedback')}
-          </a>
-        </p>
-      </Show>
+      <ErrorLine message={clash() ? null : error()} />
     </section>
   );
 }

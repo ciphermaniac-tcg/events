@@ -8,7 +8,7 @@
  */
 
 import { A } from '@solidjs/router';
-import { createEffect, createResource, createSignal, For, onCleanup, Show, untrack } from 'solid-js';
+import { createResource, createSignal, For, onCleanup, Show } from 'solid-js';
 import { recordLabel } from '../../../shared/tournament/standings';
 import type { HistoryEntry } from '../../lib/tournament/api';
 import { ordinal } from '../../lib/format';
@@ -127,17 +127,12 @@ function Figure(props: { value: string | null | undefined; loading: boolean }) {
   );
 }
 
-function EntryRow(props: { entry: HistoryEntry; watch: Watch; onGone?: (entry: HistoryEntry) => void }) {
+function EntryRow(props: { entry: HistoryEntry; watch: Watch }) {
   const [open, setOpen] = createSignal(false);
   const [seen, setSeen] = createSignal(false);
   const [read] = createResource(() => (seen() ? props.entry : false), loadEntry);
-  // Null is a copy with nobody under the key, whose row does not show, nor counts.
+  // Null is a copy with nobody under the key, whose row does not show.
   const result = () => resolved(read) ?? undefined;
-  createEffect(() => {
-    if (resolved(read) === null) {
-      untrack(() => props.onGone?.(props.entry));
-    }
-  });
   const failed = () => read.state === 'errored';
   const finish = () => result()?.finish;
   /** A figure: undefined until the copy is in, '—' if it never comes. */
@@ -213,24 +208,8 @@ function EntryRow(props: { entry: HistoryEntry; watch: Watch; onGone?: (entry: H
   );
 }
 
-/** The entries a HistoryList left out, so a count beside it says what the list shows. */
-export function createShownCount() {
-  const [gone, setGone] = createSignal<ReadonlySet<HistoryEntry>>(new Set());
-  return {
-    onGone: (entry: HistoryEntry) => setGone(prev => (prev.has(entry) ? prev : new Set([...prev, entry]))),
-    shown: (entries: readonly HistoryEntry[]) => entries.filter(entry => !gone().has(entry)).length
-  };
-}
-
-/**
- * `iconsOnly`: the deck as its sprites alone, its name left to the tooltip and assistive tech.
- * `onGone`: told of each entry whose row turns out to have nothing to show, so a count can leave it out.
- */
-export function HistoryList(props: {
-  entries: readonly HistoryEntry[];
-  iconsOnly?: boolean;
-  onGone?: (entry: HistoryEntry) => void;
-}) {
+/** `iconsOnly`: the deck as its sprites alone, its name left to the tooltip and assistive tech. */
+export function HistoryList(props: { entries: readonly HistoryEntry[]; iconsOnly?: boolean }) {
   const watch = watchRows();
   return (
     <section class='tm-box tm-hist' classList={{ 'tm-hist-icons': props.iconsOnly }}>
@@ -248,7 +227,7 @@ export function HistoryList(props: {
             </tr>
           </thead>
           <tbody>
-            <For each={props.entries}>{entry => <EntryRow entry={entry} watch={watch} onGone={props.onGone} />}</For>
+            <For each={props.entries}>{entry => <EntryRow entry={entry} watch={watch} />}</For>
           </tbody>
         </table>
       </div>

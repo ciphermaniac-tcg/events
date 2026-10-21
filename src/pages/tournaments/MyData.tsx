@@ -39,7 +39,7 @@ import '../../styles/pages/tournament-my-data.css';
 
 /** Each part's name and what it holds. */
 const PARTS: Record<ExportPart, { name: string; what: string }> = {
-  profile: { name: msg('Profile'), what: msg('First and last name, POP ID, birth year') },
+  profile: { name: msg('Profile'), what: msg('First and last name, Player ID, birth year') },
   username: { name: msg('Username'), what: msg('Your username, and any you changed from today') },
   events: { name: msg('Event history'), what: msg('The ended events you played in, and which players you were there') },
   organizer: { name: msg('Organizer history'), what: msg('The events you ran or staffed') },
@@ -50,7 +50,7 @@ const PARTS: Record<ExportPart, { name: string; what: string }> = {
 const AFTER: Record<WipePart, string[]> = {
   profile: [
     msg('Decklists and “find my table” stop filling themselves in'),
-    msg('Sanctioned events leave your history until you add your POP ID again'),
+    msg('Sanctioned events leave your history until you add your Player ID again'),
     msg('You can’t apply to organize until the profile is filled in')
   ],
   username: [
