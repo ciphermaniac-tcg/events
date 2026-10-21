@@ -369,6 +369,16 @@
    on two lines with their records beside their names. Whether a table is
    still playing is for the room, on desktop. The whole row shades for the
    viewer's own table. */
+/* The tables in progress lead under their heading, the finished under theirs. */
+.tm-public-pairings .tm-group-row th {
+  height: 30px;
+  padding: 0 14px;
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  text-align: left;
+}
 /* The pairings' bar: the round picker, then what to show. */
 .tm-spectate {
   display: contents;
@@ -392,7 +402,11 @@
     flex: 1;
     min-width: 0;
   }
-  .tm-spectate > .tm-select,
+  /* The tables in progress lead under their own heading, so the deck filter keeps a row of its own instead. */
+  .tm-spectate > .tm-select {
+    flex: 1 0 100%;
+    order: 2;
+  }
   .tm-spectate .segmented button[data-value='playing'],
   .tm-spectate .segmented:not(:has([data-value='following'])) {
     display: none;
@@ -419,6 +433,10 @@
   }
   .tm-public-pairings .data td.tm-status-col {
     display: none;
+  }
+  .tm-public-pairings .data tr:is(.tm-group-row, .tm-empty-row) {
+    display: block;
+    padding: 0;
   }
   /* Each name keeps its 44px target and nothing more, so a table's two names sit as one pairing. */
   .tm-public-pairings .data tr {

@@ -14,7 +14,13 @@ import type { TournamentView } from '../../../shared/tournament/view';
 import { Segmented } from '@ciphermaniac/design/components/Segmented';
 import { t } from '../../lib/i18n';
 import { filterMatches, hasCut, type MatchView, matchViews } from '../../lib/tournament/present';
-import { NO_FILTER, roundDecks, type SpectateFilter, spectatorMatches } from '../../lib/tournament/spectate';
+import {
+  NO_FILTER,
+  roundDecks,
+  type SpectateFilter,
+  spectatorMatches,
+  stillPlaying
+} from '../../lib/tournament/spectate';
 import { MatchTable } from './MatchTable';
 import { SpectateBar } from './SpectateBar';
 
@@ -62,6 +68,8 @@ export function PublicPairings(props: {
       decks: props.view.decks,
       following: props.following
     });
+  // In progress lists every open table, so with nothing else narrowing it an empty list means none are left.
+  const everyResult = () => applied().showing === 'playing' && !props.query.trim() && applied().deck === null;
   const table = () => (
     <MatchTable
       pod={withSwiss(props.view.tournament, props.pod!)}
@@ -73,6 +81,8 @@ export function PublicPairings(props: {
       me={props.me}
       onPlayer={props.onPlayer}
       status
+      inProgress={match => stillPlaying(match, { pod: props.pod!, round: props.round!, pending: props.view.pending })}
+      empty={everyResult() ? t('Every table has a result.') : t('No tables match.')}
     />
   );
   const choose = (value: MatchView) => setParams({ view: value === 'bracket' ? value : undefined }, { replace: true });

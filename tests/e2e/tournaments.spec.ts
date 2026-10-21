@@ -90,7 +90,7 @@ test('the public page shows the round, finds a player and opens their history @m
   await page.goto(`/t/${CODE}`);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Fixture Challenge & Friends');
   await expect(page.locator('.tm-details')).toHaveText('Doors at 11');
-  const rows = page.locator('.tm-matches tbody tr');
+  const rows = page.locator('.tm-matches tbody tr:not(.tm-group-row)');
   await expect(rows).toHaveCount(4);
   await page.getByRole('searchbox', { name: 'Find a player' }).fill('lamarr');
   await expect(rows).toHaveCount(1);
@@ -353,7 +353,7 @@ test('a player opening the page reads the published file, and asks the functions
   });
   await page.goto(`/t/${CODE}`);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Fixture Challenge & Friends');
-  await expect(page.locator('.tm-matches tbody tr')).toHaveCount(4);
+  await expect(page.locator('.tm-matches tbody tr:not(.tm-group-row)')).toHaveCount(4);
   expect(asked).toEqual([]);
 });
 
@@ -364,7 +364,7 @@ test('a result coming in redraws its own table, and leaves the search and the ot
   await mockApi(page);
   await publish(page, () => view);
   await page.goto(`/t/${CODE}`);
-  const rows = page.locator('.tm-matches tbody tr');
+  const rows = page.locator('.tm-matches tbody tr:not(.tm-group-row)');
   await expect(rows).toHaveCount(4);
   await expect(rows.filter({ hasText: 'In progress' })).toHaveCount(2);
   const search = page.getByRole('searchbox', { name: 'Find a player' });
@@ -378,7 +378,7 @@ test('a result coming in redraws its own table, and leaves the search and the ot
   await expect(rows.filter({ hasText: 'In progress' })).toHaveCount(1);
   await expect(search).toBeFocused();
   await expect(search).toHaveAttribute('data-kept', '');
-  await expect(page.locator('.tm-matches tbody tr[data-kept]')).toHaveCount(3);
+  await expect(page.locator('.tm-matches tbody tr:not(.tm-group-row)[data-kept]')).toHaveCount(3);
 });
 
 test('a result coming in re-ranks the standings in place', async ({ page }) => {
@@ -758,7 +758,7 @@ test('before round 1 the public page lists everyone registered @mobile', async (
 test('the player sheet keeps Tab inside it until it closes', async ({ page }) => {
   await mockApi(page);
   await page.goto(`/t/${CODE}`);
-  await page.locator('.tm-matches tbody tr').first().getByRole('button').first().click();
+  await page.locator('.tm-matches tbody tr:not(.tm-group-row)').first().getByRole('button').first().click();
   const sheet = page.getByRole('dialog');
   await expect(sheet).toBeVisible();
   for (let i = 0; i < 12; i += 1) {
@@ -783,7 +783,7 @@ test('a result coming in leaves a reader scrolled down the page where they were'
   await mockApi(page);
   await publish(page, () => view);
   await page.goto(`/t/${CODE}`);
-  const rows = page.locator('.tm-matches tbody tr');
+  const rows = page.locator('.tm-matches tbody tr:not(.tm-group-row)');
   await expect(rows.filter({ hasText: 'In progress' })).toHaveCount(2);
   // Room to scroll past the tabs, as a field of hundreds gives.
   const at = await page.evaluate(() => {

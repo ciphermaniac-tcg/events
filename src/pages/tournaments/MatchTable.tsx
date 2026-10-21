@@ -2,7 +2,7 @@
  * A round's tables, for players and staff alike. Each row is the table, the
  * two players with the record they brought into the round, and a mark by
  * whoever won. The public page adds whether each table is still playing, on
- * desktop. Staff get the result controls: a player's name is the button that
+ * desktop, and on every screen leads with the tables in progress. Staff get the result controls: a player's name is the button that
  * reports them as the winner, which is one press at the table (and a second
  * to confirm, or a double click on an open table, see RoundPanel).
  *
@@ -46,11 +46,13 @@ export interface MatchTableProps {
   /** Staff only: the result sent for a match and not answered yet, previewed the same way until it is. */
   sent?: (match: Match) => Outcome | undefined;
   /**
-   * Staff only: whether a table is still in progress. Given, the tables in
-   * progress lead under their own heading and the finished follow under theirs,
-   * while the round has some of each.
+   * Whether a table is still in progress. Given, the tables in progress lead
+   * under their own heading and the finished follow under theirs, while the
+   * round has some of each.
    */
   inProgress?: (match: Match) => boolean;
+  /** The one row a filter or search that leaves no tables shows, rather than a bare head. */
+  empty?: string;
   /** Staff only, where rows are too narrow for their controls: the whole row opens the table's result sheet. */
   onRow?: (match: Match) => void;
 }
@@ -227,6 +229,15 @@ export function MatchTable(props: MatchTableProps) {
           </tr>
         </thead>
         <tbody>
+          <Show when={props.matches.length === 0 && props.empty}>
+            {empty => (
+              <tr class='tm-empty-row'>
+                <td class='muted-cell' colSpan={columns()}>
+                  {empty()}
+                </td>
+              </tr>
+            )}
+          </Show>
           <Index each={groups.shown()}>
             {group => (
               <>

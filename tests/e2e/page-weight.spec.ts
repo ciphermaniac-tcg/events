@@ -84,7 +84,7 @@ test('the public page leaves out the format picker’s list of past formats', as
   await mockEvent(page);
   const loaded = scripts(page);
   await page.goto(`/t/${CODE}`);
-  await expect(page.locator('.tm-matches tbody tr')).toHaveCount(4);
+  await expect(page.locator('.tm-matches tbody tr:not(.tm-group-row)')).toHaveCount(4);
   const texts = await loaded();
   expect(texts.length).toBeGreaterThan(0);
   expect(texts.some(text => text.includes(FORMAT_LIST))).toBe(false);
@@ -114,7 +114,7 @@ test('a page that draws no deck never reads the icon map', async ({ page }) => {
   await mockEvent(page);
   const asked = requests(page);
   await page.goto(`/t/${CODE}`);
-  await expect(page.locator('.tm-matches tbody tr')).toHaveCount(4);
+  await expect(page.locator('.tm-matches tbody tr:not(.tm-group-row)')).toHaveCount(4);
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
   expect(asked.filter(url => url.includes('archetype-icons') || url.endsWith('/current.json'))).toEqual([]);
 });
@@ -159,7 +159,7 @@ test('a page draws every weight it sets from the one preloaded font file', async
   await mockEvent(page);
   const asked = requests(page);
   await page.goto(`/t/${CODE}`);
-  await expect(page.locator('.tm-matches tbody tr')).toHaveCount(4);
+  await expect(page.locator('.tm-matches tbody tr:not(.tm-group-row)')).toHaveCount(4);
   await page.evaluate(() => document.fonts.ready);
   const weights = await page.evaluate(() =>
     [400, 500, 600, 700, 800].filter(weight => document.fonts.check(`${weight} 16px Inter`, 'Table'))

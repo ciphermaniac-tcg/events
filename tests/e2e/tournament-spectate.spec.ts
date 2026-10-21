@@ -93,12 +93,17 @@ test('a spectator narrows the pairings to the tables playing, one deck, or the p
 }) => {
   await mockApi(page);
   await page.goto(`/t/${CODE}`);
-  const rows = page.locator('.tm-matches tbody tr');
+  const rows = page.locator('.tm-matches tbody tr:not(.tm-group-row)');
   await expect(rows).toHaveCount(matches.length);
+  // The tables still playing lead under their own heading, on a phone too.
+  const groups = page.locator('.tm-matches .tm-group-row');
+  await expect(groups).toHaveText([`In progress · ${playing.length}`, `Done · ${matches.length - playing.length}`]);
   if (test.info().project.name === 'mobile') {
-    // A phone keeps the round and Following; In progress and the deck filter are desktop's.
+    // A phone has the heading in place of In progress, and the deck filter on a row of its own.
     await expect(page.getByRole('radio', { name: 'In progress' })).toBeHidden();
-    await expect(page.getByRole('combobox', { name: 'Deck' })).toBeHidden();
+    await page.getByRole('combobox', { name: 'Deck' }).selectOption('Gardevoir ex');
+    await expect(rows).toHaveCount(1);
+    await page.getByRole('combobox', { name: 'Deck' }).selectOption('');
   } else {
     await page.getByRole('radio', { name: 'In progress' }).click();
     await expect(rows).toHaveCount(playing.length);
@@ -117,6 +122,10 @@ test('a spectator narrows the pairings to the tables playing, one deck, or the p
   await sheet.getByRole('button', { name: 'Close' }).click();
   await page.getByRole('radio', { name: 'Following 1' }).click();
   await expect(rows).toHaveCount(1);
+  // A search that leaves no tables says so instead of leaving a bare head.
+  await page.getByRole('searchbox', { name: 'Find a player' }).fill('Nobody by this name');
+  await expect(rows).toHaveText(['No tables match.']);
+  await page.getByRole('searchbox', { name: 'Find a player' }).fill('');
   await page.reload();
   await expect(page.getByRole('radio', { name: 'Following 1' })).toBeVisible();
 });
@@ -192,3 +201,27 @@ test('mid-round the hero leaves out when the event last changed, which the clock
   await page.reload();
   await expect(page.getByText(/^Updated /)).toHaveCount(1);
 });
+
+test('In progress, once every table has a result, says so instead of leaving a bare head', async ({ page }) => {
+  const pod = VIEW.tournament.pods[0]!;
+  const latest = pod.rounds.at(-1)!;
+  const decided = { ...latest, matches: latest.matches.map(m => (m.p2 ? { ...m, outcome: 'p1' as const } : m)) };
+  await mockApi(page, {
+    ...VIEW,
+    tournament: { ...VIEW.tournament, pods: [{ ...pod, rounds: [...pod.rounds.slice(0, -1), decided] }] }
+  });
+  await page.goto(`/t/${CODE}`);
+  await page.getByRole('radio', { name: 'In progress' }).click();
+  await expect(page.locator('.tm-matches tbody tr')).toHaveText(['Every table has a result.']);
+});
+
+test('In progress with a search that finds nobody says no tables match, not that every table has a result', async ({
+  page
+}) => {
+  await mockApi(page);
+  await page.goto(`/t/${CODE}`);
+  await page.getByRole('radio', { name: 'In progress' }).click();
+  await page.getByRole('searchbox', { name: 'Find a player' }).fill('Nobody by this name');
+  await expect(page.locator('.tm-matches tbody tr')).toHaveText(['No tables match.']);
+});
+
