@@ -7,7 +7,8 @@
  * and the note it was made with.
  */
 
-import { createResource, createSignal, For, type JSX, lazy, Show, Suspense } from 'solid-js';
+import { createResource, createSignal, For, type JSX, Show, Suspense } from 'solid-js';
+import { lazyPanel } from './lazyPanel';
 import { type CorrectionContext, type CorrectionEntry, roundRefusal } from '../../../shared/tournament/corrections';
 import type { Match, Pod, Round } from '../../../shared/tournament/types';
 import { type CorrectionRecord, fetchCorrections, type Manage } from '../../lib/tournament/api';
@@ -20,7 +21,7 @@ import { OptionsMenu } from './OptionsMenu';
 import { session } from './session';
 
 // Corrections are rare, so the dialog loads when one is first opened.
-const CorrectionDialog = lazy(() => import('./CorrectionDialog').then(m => ({ default: m.CorrectionDialog })));
+const CorrectionDialog = lazyPanel(() => import('./CorrectionDialog').then(m => ({ default: m.CorrectionDialog })));
 
 const ROLE_WORDS = { organizer: msg('organizer'), 'head-judge': msg('head judge') };
 

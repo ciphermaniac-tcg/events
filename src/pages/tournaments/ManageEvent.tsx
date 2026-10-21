@@ -11,7 +11,6 @@ import {
   createSignal,
   For,
   type JSX,
-  lazy,
   Match,
   on,
   onCleanup,
@@ -57,21 +56,29 @@ import { createTomLink, type Lapse, type TomLink, TomStatus } from './TomSyncPan
 import { createDropGate, podDrops } from './dropGate';
 import { Trail } from './Trail';
 import { pageTitle } from '../../lib/title';
+import { warmChunks } from '../../lib/preloadRecovery';
+import { lazyPanel } from './lazyPanel';
 
 // Pairings is the tab a running event lives on, so only it loads with the page;
 // the others load when opened (decklists are read before the event, the
 // players and settings tabs mostly before it too, standings between rounds).
-const DecklistsPanel = lazy(() => import('./DecklistsPanel').then(m => ({ default: m.DecklistsPanel })));
-const PenaltiesPanel = lazy(() => import('./PenaltiesPanel').then(m => ({ default: m.PenaltiesPanel })));
-const PlayersPanel = lazy(() => import('./PlayersPanel').then(m => ({ default: m.PlayersPanel })));
-const StandingsTable = lazy(() => import('./StandingsTable').then(m => ({ default: m.StandingsTable })));
-const EventPanel = lazy(() => import('./EventPanel').then(m => ({ default: m.EventPanel })));
-// Asked for now, beside the event, rather than once the event has arrived; a failure is the tab's to show.
-const roundPanel = import('./RoundPanel');
+const DecklistsPanel = lazyPanel(() => import('./DecklistsPanel').then(m => ({ default: m.DecklistsPanel })));
+const PenaltiesPanel = lazyPanel(() => import('./PenaltiesPanel').then(m => ({ default: m.PenaltiesPanel })));
+const PlayersPanel = lazyPanel(() => import('./PlayersPanel').then(m => ({ default: m.PlayersPanel })));
+const StandingsTable = lazyPanel(() => import('./StandingsTable').then(m => ({ default: m.StandingsTable })));
+const EventPanel = lazyPanel(() => import('./EventPanel').then(m => ({ default: m.EventPanel })));
+// Asked for now, beside the event, rather than once the event has arrived; a failure is the tab's to show,
+// and trying the tab again asks again.
+const loadRoundPanel = () => import('./RoundPanel');
+let roundPanel: ReturnType<typeof loadRoundPanel> | undefined = loadRoundPanel();
 roundPanel.catch(() => undefined);
-const RoundPanel = lazy(() => roundPanel.then(m => ({ default: m.RoundPanel })));
+const RoundPanel = lazyPanel(() => {
+  const loading = roundPanel ?? loadRoundPanel();
+  roundPanel = undefined;
+  return loading.then(m => ({ default: m.RoundPanel }));
+});
 // Only a signed-out visitor sees it, and the console waited on it before it could ask for the event.
-const SignIn = lazy(() => import('./SignIn').then(m => ({ default: m.SignIn })));
+const SignIn = lazyPanel(() => import('./SignIn').then(m => ({ default: m.SignIn })));
 
 type Tab = 'round' | 'players' | 'standings' | 'decklists' | 'penalties' | 'event';
 
@@ -518,6 +525,16 @@ function Console(props: { state: ReturnType<typeof createManage>; manage: Manage
   const names = createMemo(() => namesById(props.manage.tournament));
   const divisionOf = createMemo(() => divisionLookup(props.manage.tournament));
   // A TOM event's file is linked for as long as the console is open, whatever the tab.
+  // The other tabs, fetched while the venue's Wi-Fi holds rather than when one is opened.
+  onMount(() =>
+    warmChunks([
+      PlayersPanel.preload,
+      StandingsTable.preload,
+      DecklistsPanel.preload,
+      PenaltiesPanel.preload,
+      EventPanel.preload
+    ])
+  );
   const tom =
     // eslint-disable-next-line solid/reactivity -- an event's mode never changes, and the link lives as long as the console
     props.manage.mode === 'tom'
@@ -660,7 +677,7 @@ export function ManageEvent(props: { code: string }) {
                     <p class='muted'>
                       {state.loadError()?.status === 0
                         ? t('Connection unavailable. Try again.')
-                        : t(state.loadError()?.message ?? '')}
+                        : errorText(state.loadError())}
                     </p>
                   }
                 >

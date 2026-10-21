@@ -18,12 +18,12 @@ import {
   createSignal,
   For,
   type JSX,
-  lazy,
   onCleanup,
   onMount,
   Show,
   useContext
 } from 'solid-js';
+import { lazyOnAir, lazyPanel } from './lazyPanel';
 import { hasStarted, latestRound, livePods, playerPod, podOf, regularRounds } from '../../../shared/tournament/rounds';
 import { recordLabel, swissStandings } from '../../../shared/tournament/standings';
 import { type Pod, POD_CATEGORIES, type PodCategory, type Round } from '../../../shared/tournament/types';
@@ -96,10 +96,10 @@ import { LiveDataStatus } from './LiveDataStatus';
 import { MAIN_SITE } from '../../lib/constants';
 import { intlLocale, t, tn } from '../../lib/i18n';
 
-const BigScreen = lazy(() => import('./BigScreen').then(m => ({ default: m.BigScreen })));
-const StreamOverlay = lazy(() => import('./StreamOverlay').then(m => ({ default: m.StreamOverlay })));
-const DeckStats = lazy(() => import('./DeckStats').then(m => ({ default: m.DeckStats })));
-const DecklistForm = lazy(() => import('./DecklistForm').then(m => ({ default: m.DecklistForm })));
+const BigScreen = lazyOnAir(() => import('./BigScreen').then(m => ({ default: m.BigScreen })));
+const StreamOverlay = lazyOnAir(() => import('./StreamOverlay').then(m => ({ default: m.StreamOverlay })));
+const DeckStats = lazyPanel(() => import('./DeckStats').then(m => ({ default: m.DeckStats })));
+const DecklistForm = lazyPanel(() => import('./DecklistForm').then(m => ({ default: m.DecklistForm })));
 
 type Tab = 'pairings' | 'standings' | 'decks' | 'decklist';
 

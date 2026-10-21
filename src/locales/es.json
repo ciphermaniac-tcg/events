@@ -1614,6 +1614,10 @@
   "TOM sync for sanctioned events": "Sincronización con TOM para torneos oficiales",
   "Top cut": "Top cut",
   "Top cut brackets": "Cuadros del top cut",
+  "Couldn’t load this section.": "No se pudo cargar esta sección.",
+  "Couldn’t reach the site. Check your connection.": "No se pudo conectar con el sitio. Revisa tu conexión.",
+  "The site hit an error.": "El sitio tuvo un error.",
+  "Couldn’t load this page": "No se pudo cargar esta página",
   "Questions?": "¿Preguntas?",
   "Think this is a mistake?": "¿Crees que es un error?",
   "Sign in to join this store’s staff.": "Inicia sesión para unirte al personal de esta tienda."

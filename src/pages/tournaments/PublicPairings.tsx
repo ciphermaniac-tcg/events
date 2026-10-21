@@ -7,7 +7,8 @@
  */
 
 import { useSearchParams } from '@solidjs/router';
-import { createMemo, createSignal, type JSX, lazy, Show } from 'solid-js';
+import { createMemo, createSignal, type JSX, Show } from 'solid-js';
+import { lazyPanel } from './lazyPanel';
 import { withSwiss } from '../../../shared/tournament/rounds';
 import type { Pod, Round } from '../../../shared/tournament/types';
 import type { TournamentView } from '../../../shared/tournament/view';
@@ -24,7 +25,7 @@ import {
 import { MatchTable } from './MatchTable';
 import { SpectateBar } from './SpectateBar';
 
-const CutBracket = lazy(() => import('./Bracket').then(m => ({ default: m.CutBracket })));
+const CutBracket = lazyPanel(() => import('./Bracket').then(m => ({ default: m.CutBracket })));
 
 export function PublicPairings(props: {
   view: TournamentView;

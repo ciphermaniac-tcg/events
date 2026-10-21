@@ -106,7 +106,11 @@ test('a failed session read is retryable and never pretends the account is signe
   const { session, dashboard, unexpected } = await holdSession(page, null, 503);
   await page.goto('/');
   session.resolve();
-  await expect(page.getByRole('alert')).toHaveText('Session unavailable');
+  const failed = page.getByRole('alert');
+  await expect(failed.getByRole('heading', { name: 'Couldn’t load this page' })).toBeVisible();
+  await expect(failed).toContainText('Session unavailable');
+  // Already home: the only way on is to try again.
+  await expect(failed.getByRole('link', { name: 'Go home' })).toHaveCount(0);
   await expect(page.locator('.tm-home')).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Sign in', exact: true })).toHaveCount(0);
   const retry = deferred<void>();
@@ -114,7 +118,7 @@ test('a failed session read is retryable and never pretends the account is signe
     await retry.promise;
     await route.fulfill({ json: { user: USER, providers: ['google'] } });
   });
-  await page.getByRole('button', { name: 'Retry' }).click();
+  await page.getByRole('button', { name: 'Try again' }).click();
   await expectLoading(page);
   await expect(page.getByRole('alert')).toHaveCount(0);
   retry.resolve();

@@ -7,13 +7,14 @@
  */
 
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import test, { type TestContext } from 'node:test';
 
 import {
   installPreloadRecovery,
   isRecoveringPreload,
   RELOAD_GUARD_MS,
-  shouldReloadAfterPreloadError
+  shouldReloadAfterPreloadError,
+  warmChunks
 } from '../../src/lib/preloadRecovery.ts';
 
 const NOW = 1_800_000_000_000;
@@ -33,12 +34,11 @@ test('a preload failure reloads unless the last reload was within the guard wind
   }
 });
 
-test('only an accepted recovery marks the boundary as loading before reloading', t => {
+/** A browser for the listener: session storage, a counted reload, and a site that answers or doesn't. */
+function fakeBrowser(t: TestContext, remembered: Map<string, string>, answers: () => Promise<Response>) {
   const original = Object.getOwnPropertyDescriptor(globalThis, 'window');
-  const remembered = new Map<string, string>([['cm:preload-reload', String(NOW - 1000)]]);
   const target = new EventTarget();
-  let reloads = 0;
-  let recoveringAtReload = false;
+  const seen = { reloads: 0, recoveringAtReload: false, probes: [] as RequestInit[] };
   const browser = Object.assign(target, {
     sessionStorage: {
       getItem: (key: string) => remembered.get(key) ?? null,
@@ -46,10 +46,11 @@ test('only an accepted recovery marks the boundary as loading before reloading',
     },
     location: {
       reload() {
-        reloads += 1;
-        recoveringAtReload = isRecoveringPreload();
+        seen.reloads += 1;
+        seen.recoveringAtReload = isRecoveringPreload();
       }
-    }
+    },
+    requestIdleCallback: (run: () => void) => run()
   });
   Object.defineProperty(globalThis, 'window', { value: browser, configurable: true });
   t.after(() => {
@@ -60,17 +61,72 @@ test('only an accepted recovery marks the boundary as loading before reloading',
     }
   });
   t.mock.method(Date, 'now', () => NOW);
+  t.mock.method(globalThis, 'fetch', (_url: string, init: RequestInit) => {
+    seen.probes.push(init);
+    return answers();
+  });
   installPreloadRecovery();
-  const blocked = new Event('vite:preloadError', { cancelable: true });
-  target.dispatchEvent(blocked);
+  /** Fires a preload failure and lets the probe settle. */
+  const fail = async () => {
+    const event = new Event('vite:preloadError', { cancelable: true });
+    target.dispatchEvent(event);
+    await new Promise(resolve => {
+      setTimeout(resolve, 0);
+    });
+    return event;
+  };
+  return { seen, fail };
+}
+
+test('only an accepted recovery marks the boundary as loading, and reloads once the site answers', async t => {
+  const remembered = new Map<string, string>([['cm:preload-reload', String(NOW - 1000)]]);
+  const { seen, fail } = fakeBrowser(t, remembered, () => Promise.resolve(new Response('shell')));
+  const blocked = await fail();
   assert.equal(blocked.defaultPrevented, false);
   assert.equal(isRecoveringPreload(), false);
-  assert.equal(reloads, 0);
+  assert.equal(seen.reloads, 0);
+  assert.equal(seen.probes.length, 0);
   remembered.clear();
-  const accepted = new Event('vite:preloadError', { cancelable: true });
-  target.dispatchEvent(accepted);
+  const accepted = await fail();
   assert.equal(accepted.defaultPrevented, true);
-  assert.equal(reloads, 1);
-  assert.equal(recoveringAtReload, true);
+  assert.equal(seen.probes[0]?.cache, 'no-store');
+  assert.equal(seen.reloads, 1);
+  assert.equal(seen.recoveringAtReload, true);
   assert.equal(remembered.get('cm:preload-reload'), String(NOW));
+});
+
+test('a chunk that failed with the site out of reach does not reload into the offline page', async t => {
+  const remembered = new Map<string, string>();
+  for (const answers of [
+    () => Promise.reject(new TypeError('Failed to fetch')),
+    () => Promise.resolve(new Response('', { status: 503 }))
+  ]) {
+    const { seen, fail } = fakeBrowser(t, remembered, answers);
+    const failed = await fail();
+    assert.equal(failed.defaultPrevented, true);
+    assert.equal(seen.reloads, 0);
+    // The boundary shows its error, and the next failure is free to try again.
+    assert.equal(isRecoveringPreload(), false);
+    assert.equal(remembered.size, 0);
+  }
+});
+
+test('a chunk fetched ahead of need fails quietly, without a reload', async t => {
+  const remembered = new Map<string, string>();
+  const { seen, fail } = fakeBrowser(t, remembered, () => Promise.resolve(new Response('shell')));
+  let failed: Event | undefined;
+  warmChunks([
+    async () => {
+      failed = await fail();
+      throw new TypeError('Failed to fetch dynamically imported module');
+    }
+  ]);
+  await new Promise(resolve => {
+    setTimeout(resolve, 10);
+  });
+  assert.equal(failed?.defaultPrevented, false);
+  assert.equal(seen.reloads, 0);
+  // Once the warming is over, a failure the page asked for recovers as before.
+  await fail();
+  assert.equal(seen.reloads, 1);
 });

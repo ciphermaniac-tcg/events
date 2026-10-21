@@ -51,8 +51,29 @@ export class ApiError extends Error {
   }
 }
 
+const UNREACHABLE = msg('Couldn’t reach the site. Check your connection.');
+const TOO_SLOW = msg('The site took too long to answer');
+const SERVER_FAILED = msg('The site hit an error.');
+
+/** What to say instead of the browser's words, for a call that never got an answer or one that failed without a reason. */
+function unexplained(err: Error): string | null {
+  if (err instanceof ApiError) {
+    return err.status >= 500 && typeof err.body?.error !== 'string' ? SERVER_FAILED : null;
+  }
+  return err.name === 'TimeoutError' ? TOO_SLOW : null;
+}
+
+/**
+ * fetch's own rejection when no answer came ("Failed to fetch", "Load failed"
+ * and the like, all TypeErrors), as an ApiError with no status that says so.
+ * Only fetch's: a TypeError from a bug elsewhere keeps its own words. A
+ * timeout or an abort passes as it is.
+ */
+const unanswered = (err: unknown) => (err instanceof TypeError ? new ApiError(UNREACHABLE, 0) : err);
+
 /** What a failed call says, for the pages to show as-is: the server's English in the language shown. */
-export const errorText = (err: unknown): string => (err instanceof Error ? translateMessage(err.message) : String(err));
+export const errorText = (err: unknown): string =>
+  err instanceof Error ? translateMessage(unexplained(err) ?? err.message) : String(err);
 
 export interface Me {
   id: string;
@@ -104,6 +125,8 @@ async function answer(path: string, init: RequestInit): Promise<Response> {
     signal: init.signal ?? AbortSignal.timeout(15_000),
     credentials: 'same-origin',
     headers: typeof init.body === 'string' ? { 'Content-Type': 'application/json' } : undefined
+  }).catch((err: unknown) => {
+    throw unanswered(err);
   });
   if (!response.ok) {
     const body = (await response.json().catch(() => null)) as ({ error?: string } & Record<string, unknown>) | null;

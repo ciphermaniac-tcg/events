@@ -83,6 +83,62 @@ test('a chunk that still fails after recovery shows its real error without a rel
   );
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   await expect(page.getByRole('heading', { name: 'Something went wrong' })).toBeVisible();
+  // Already home: a Go home link would lead back to the same error.
+  await expect(page.getByRole('link', { name: 'Go home' })).toHaveCount(0);
   expect(documents).toBe(2);
   expect(await page.evaluate(() => sessionStorage.getItem('cm:preload-reload'))).not.toBeNull();
+});
+
+test('a page whose code fails with the site out of reach shows its error rather than reloading, and a retry brings it', async ({
+  page
+}) => {
+  await mockHome(page);
+  let offline = false;
+  let documents = 0;
+  page.on('request', request => {
+    if (request.isNavigationRequest()) {
+      documents += 1;
+    }
+  });
+  await page.route(`**/${chunkOf('src/pages/tournaments/HistoryPage.tsx')}`, route =>
+    offline ? route.abort('internetdisconnected') : route.continue()
+  );
+  await page.route(
+    url => url.pathname === '/',
+    route => (offline ? route.abort('internetdisconnected') : route.continue())
+  );
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
+  await expect(page.getByRole('tabpanel', { name: 'Organizing' })).toBeVisible();
+  offline = true;
+  await page.evaluate(() => {
+    history.pushState(null, '', '/history');
+    dispatchEvent(new PopStateEvent('popstate'));
+  });
+  await expect(page.getByRole('heading', { name: 'Something went wrong' })).toBeVisible();
+  expect(documents).toBe(1);
+  offline = false;
+  await page.getByRole('button', { name: 'Try again' }).click();
+  await expect(page.getByRole('heading', { name: 'History', level: 1 })).toBeVisible();
+});
+
+test('the error screen clears when the visitor leaves it, by its link or the head bar', async ({ page }) => {
+  await mockHome(page);
+  await page.route(`**/${chunkOf('src/pages/tournaments/HistoryPage.tsx')}`, route =>
+    route.fulfill({ contentType: 'text/html', body: '<!doctype html><title>Missing asset</title>' })
+  );
+  const error = page.getByRole('heading', { name: 'Something went wrong' });
+  const home = page.getByRole('tabpanel', { name: 'Organizing' });
+  await page.goto('/history', { waitUntil: 'domcontentloaded' });
+  await expect(error).toBeVisible();
+  await expect(page).toHaveTitle(/^Something went wrong/);
+  await page.getByRole('link', { name: 'Go home' }).click();
+  await expect(home).toBeVisible();
+  await expect(error).toBeHidden();
+  await expect(page).not.toHaveTitle(/^Something went wrong/);
+  // Back to the broken page, then out again by the site's name in the head bar.
+  await page.goBack();
+  await expect(error).toBeVisible();
+  await page.locator('.site-head-name').click();
+  await expect(home).toBeVisible();
+  await expect(error).toBeHidden();
 });

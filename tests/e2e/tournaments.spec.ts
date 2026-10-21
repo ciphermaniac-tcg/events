@@ -1423,6 +1423,30 @@ test('a stream overlay is clear from its first paint, and stays clear while its 
   await expect(page.locator('.tm-stream-bar')).toBeVisible();
 });
 
+test('a stream overlay whose code fails draws nothing over the game and comes back on its own once the site answers', async ({
+  page
+}) => {
+  await page.clock.install();
+  await mockApi(page);
+  let offline = true;
+  const chunk = chunkOf('src/pages/tournaments/StreamOverlay.tsx');
+  await page.route(`**/${chunk}`, route => (offline ? route.abort('internetdisconnected') : route.continue()));
+  await page.route(
+    url => url.pathname === '/',
+    route => (offline ? route.abort('internetdisconnected') : route.continue())
+  );
+  const failed = page.waitForEvent('requestfailed', request => request.url().includes(chunk));
+  await page.goto(`/t/${CODE}?stream=table&table=1`);
+  await failed;
+  await page.clock.fastForward(1_000);
+  await expect(page.getByRole('heading', { name: 'Something went wrong' })).toHaveCount(0);
+  await expect(page.getByRole('button')).toHaveCount(0);
+  await expect(page.locator('.tm-stream')).toHaveCount(0);
+  offline = false;
+  await page.clock.fastForward(15_000);
+  await expect(page.locator('.tm-stream-bar')).toBeVisible();
+});
+
 test('the big screen hides the site’s head from the first paint, and leaving it brings the head back', async ({
   page
 }) => {

@@ -8,10 +8,13 @@
 
 import { useLocation, useParams } from '@solidjs/router';
 import { lazy, Match, Switch } from 'solid-js';
+import { retryable } from '../../lib/preloadRecovery';
 
-const StorePage = lazy(() => import('./StorePage').then(m => ({ default: m.StorePage })));
-const StoreSettingsPage = lazy(() => import('./StoreSettingsPage').then(m => ({ default: m.StoreSettingsPage })));
-const StoreJoinPage = lazy(() => import('./StoreJoinPage').then(m => ({ default: m.StoreJoinPage })));
+const StorePage = lazy(retryable(() => import('./StorePage').then(m => ({ default: m.StorePage }))));
+const StoreSettingsPage = lazy(
+  retryable(() => import('./StoreSettingsPage').then(m => ({ default: m.StoreSettingsPage })))
+);
+const StoreJoinPage = lazy(retryable(() => import('./StoreJoinPage').then(m => ({ default: m.StoreJoinPage }))));
 
 export function StoreRoutes() {
   const location = useLocation();

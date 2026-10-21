@@ -1840,6 +1840,35 @@ test('a cold console asks for the event while its own code is on the way, and it
   expect(asked.filter(path => path === read)).toHaveLength(1);
 });
 
+test('a tab whose code fails with the Wi-Fi down costs that tab, not the console, and comes back on a retry', async ({
+  page
+}) => {
+  let offline = true;
+  const documents: string[] = [];
+  page.on('request', request => request.isNavigationRequest() && documents.push(request.url()));
+  await page.route(`**/${chunkOf('src/pages/tournaments/StandingsTable.tsx')}`, route =>
+    offline ? route.abort('internetdisconnected') : route.continue()
+  );
+  // What recovery asks before it reloads: whether the site answers at all.
+  await page.route(
+    url => url.pathname === '/',
+    route =>
+      offline && !route.request().isNavigationRequest() ? route.abort('internetdisconnected') : route.continue()
+  );
+  await mockConsole(page, event(8, 1, true), settingsOf({}));
+  await expect(page.getByRole('button', { name: 'Report Player' }).first()).toBeVisible();
+  await page.getByRole('tab', { name: 'Standings' }).click();
+  const panel = page.getByRole('tabpanel', { name: 'Standings' });
+  await expect(panel.getByRole('alert')).toHaveText('Couldn’t load this section.');
+  await expect(page.locator('.tm-console-hero h1')).toBeVisible();
+  // No reload into the browser's offline page.
+  expect(documents).toHaveLength(1);
+  offline = false;
+  // A browser that keeps the failed import reloads now that the site answers; the tab comes back either way.
+  await panel.getByRole('button', { name: 'Try again' }).click();
+  await expect(page.getByRole('tabpanel', { name: 'Standings' }).locator('table')).toBeVisible();
+});
+
 test('a signed-out visitor to a console is offered sign-in, back to the console', async ({ page }) => {
   await page.route('**/api/**', route => {
     const url = new URL(route.request().url());

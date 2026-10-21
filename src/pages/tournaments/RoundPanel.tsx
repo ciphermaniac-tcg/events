@@ -19,7 +19,9 @@
  */
 
 import { useSearchParams } from '@solidjs/router';
-import { createEffect, createMemo, createSignal, For, type JSX, lazy, on, Show, Suspense } from 'solid-js';
+import { createEffect, createMemo, createSignal, For, type JSX, on, onMount, Show, Suspense } from 'solid-js';
+import { lazyPanel } from './lazyPanel';
+import { warmChunks } from '../../lib/preloadRecovery';
 import { isDisputed, type PlayerReport, reportsFor } from '../../../shared/tournament/reports';
 import { latestRound, withSwiss } from '../../../shared/tournament/rounds';
 import { DIVISION_LABELS, type Match, type Outcome, type Pod, type Round } from '../../../shared/tournament/types';
@@ -58,10 +60,12 @@ import { createResultEntry } from './resultEntry';
 import { type CorrectableCell, CorrectableResult, createRoundCorrections } from './Corrections';
 
 // Decks are named now and then, not every round, so their picker loads when first asked for.
-const CutBracket = lazy(() => import('./Bracket').then(m => ({ default: m.CutBracket })));
+const CutBracket = lazyPanel(() => import('./Bracket').then(m => ({ default: m.CutBracket })));
 // The sheet results take where rows are narrow; a desktop console never opens it.
-const ResultSheet = lazy(() => import('./ResultSheet').then(m => ({ default: m.ResultSheet })));
-const TimeExtensionDialog = lazy(() => import('./TimeExtensionDialog').then(m => ({ default: m.TimeExtensionDialog })));
+const ResultSheet = lazyPanel(() => import('./ResultSheet').then(m => ({ default: m.ResultSheet })));
+const TimeExtensionDialog = lazyPanel(() =>
+  import('./TimeExtensionDialog').then(m => ({ default: m.TimeExtensionDialog }))
+);
 
 interface Asking {
   table: number;
@@ -510,6 +514,12 @@ function createRowSheet(held: () => boolean) {
   const narrow = createMedia('(max-width: 900px)');
   const [open, setOpen] = createSignal<{ table: number; p1: string } | null>(null);
   const opens = () => narrow() && !held();
+  // Here before the Wi-Fi drops: a narrow console enters every result through it.
+  createEffect(() => {
+    if (narrow()) {
+      warmChunks([ResultSheet.preload]);
+    }
+  });
   // A sheet hidden by a wider window or a swap stays closed when they end.
   createEffect(() => {
     if (!opens()) {
@@ -668,6 +678,7 @@ export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod
   );
   const [asking, setAsking] = createSignal<Asking | null>(null);
   const [extension, setExtension] = createSignal<ExtensionSelection | null>(null);
+  onMount(() => warmChunks([TimeExtensionDialog.preload]));
   const entry = createResultEntry(
     () => props.state,
     () => props.pod

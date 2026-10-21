@@ -16,7 +16,8 @@
 
 import { ordinal } from '../../lib/format';
 import { msg, t, tn } from '../../lib/i18n';
-import { createSignal, For, lazy, Match, Show, Suspense, Switch } from 'solid-js';
+import { createSignal, For, Match, Show, Suspense, Switch } from 'solid-js';
+import { lazyPanel } from './lazyPanel';
 import type { PlayerClaim } from '../../../shared/tournament/identify';
 import type { PlayerResult } from '../../../shared/tournament/reports';
 import { recordLabel, sideResult } from '../../../shared/tournament/standings';
@@ -42,7 +43,7 @@ import { PlayerRequests } from './PlayerRequests';
 import { pendingSuggestion, SuggestedPlayer } from './SuggestedPlayer';
 
 // Loaded on asking: most players never sign in from here, and Settings has these already.
-const SignIn = lazy(() => import('./SignIn').then(m => ({ default: m.SignIn })));
+const SignIn = lazyPanel(() => import('./SignIn').then(m => ({ default: m.SignIn })));
 
 const SAID: Record<PlayerResult, string> = { win: msg('You won'), loss: msg('You lost'), tie: msg('You tied') };
 

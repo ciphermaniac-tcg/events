@@ -17,23 +17,26 @@ import { createRenderEffect, lazy, Match, onCleanup, Switch } from 'solid-js';
 import '../styles/pages/tournament.css';
 import '../styles/pages/tournament-organizer.css';
 import { latestValue } from '../lib/resource';
+import { retryable } from '../lib/preloadRecovery';
 import { preloadManage, preloadPublished } from '../lib/tournament/api';
 import { session } from './tournaments/session';
 
-const SettingsPage = lazy(() => import('./tournaments/SettingsPage').then(m => ({ default: m.SettingsPage })));
-const HostIndex = lazy(() => import('./tournaments/HostIndex').then(m => ({ default: m.HostIndex })));
-const ManageEvent = lazy(() => loadManageEvent().then(m => ({ default: m.ManageEvent })));
+const SettingsPage = lazy(
+  retryable(() => import('./tournaments/SettingsPage').then(m => ({ default: m.SettingsPage })))
+);
+const HostIndex = lazy(retryable(() => import('./tournaments/HostIndex').then(m => ({ default: m.HostIndex }))));
+const ManageEvent = lazy(retryable(() => loadManageEvent().then(m => ({ default: m.ManageEvent }))));
 const loadPublicEvent = () => import('./tournaments/PublicEvent');
 const loadManageEvent = () => import('./tournaments/ManageEvent');
-const PublicEvent = lazy(() => loadPublicEvent().then(m => ({ default: m.PublicEvent })));
-const HistoryPage = lazy(() => import('./tournaments/HistoryPage').then(m => ({ default: m.HistoryPage })));
-const ProfilePage = lazy(() => import('./tournaments/ProfilePage').then(m => ({ default: m.ProfilePage })));
-const ApplyPage = lazy(() => import('./tournaments/ApplyPage').then(m => ({ default: m.ApplyPage })));
-const WelcomePage = lazy(() => import('./tournaments/WelcomePage').then(m => ({ default: m.WelcomePage })));
-const PrivacyPage = lazy(() => import('./tournaments/PrivacyPage').then(m => ({ default: m.PrivacyPage })));
-const TermsPage = lazy(() => import('./tournaments/TermsPage').then(m => ({ default: m.TermsPage })));
-const AdminPage = lazy(() => import('./tournaments/AdminPage').then(m => ({ default: m.AdminPage })));
-const StoreRoutes = lazy(() => import('./tournaments/StoreRoutes').then(m => ({ default: m.StoreRoutes })));
+const PublicEvent = lazy(retryable(() => loadPublicEvent().then(m => ({ default: m.PublicEvent }))));
+const HistoryPage = lazy(retryable(() => import('./tournaments/HistoryPage').then(m => ({ default: m.HistoryPage }))));
+const ProfilePage = lazy(retryable(() => import('./tournaments/ProfilePage').then(m => ({ default: m.ProfilePage }))));
+const ApplyPage = lazy(retryable(() => import('./tournaments/ApplyPage').then(m => ({ default: m.ApplyPage }))));
+const WelcomePage = lazy(retryable(() => import('./tournaments/WelcomePage').then(m => ({ default: m.WelcomePage }))));
+const PrivacyPage = lazy(retryable(() => import('./tournaments/PrivacyPage').then(m => ({ default: m.PrivacyPage }))));
+const TermsPage = lazy(retryable(() => import('./tournaments/TermsPage').then(m => ({ default: m.TermsPage }))));
+const AdminPage = lazy(retryable(() => import('./tournaments/AdminPage').then(m => ({ default: m.AdminPage }))));
+const StoreRoutes = lazy(retryable(() => import('./tournaments/StoreRoutes').then(m => ({ default: m.StoreRoutes }))));
 
 /**
  * Asks for an event page's data, and with `code` its code too, so they arrive
