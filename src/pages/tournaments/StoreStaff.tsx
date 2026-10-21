@@ -79,16 +79,48 @@ function InviteRow(props: { invite: StoreInvite; link: string | null; busy: bool
   );
 }
 
-/** The Owner's way to hand the store to this person, asked first. */
+/** The Owner's way to hand the store to this person, asked in a dialog: only the new Owner can hand it back. */
 function HandOver(props: { member: StoreMember; busy: boolean; onHandOver: () => void }) {
   return (
     <ConfirmAction
       class='btn btn-ghost tm-small'
       label={t('Make owner')}
       question={t('Make {name} the owner?', { name: props.member.name })}
+      scope={t('You become a manager, and only {name} can hand the store back.', { name: props.member.name })}
       confirmLabel={t('Make owner')}
       disabled={props.busy}
       onConfirm={() => props.onHandOver()}
+    />
+  );
+}
+
+/**
+ * Making someone a Manager or Staff, asked first. A Manager making themselves
+ * Staff loses the store's settings at once and can't take them back, so that
+ * asks in a dialog, in the negative hue.
+ */
+function RoleChange(props: { member: StoreMember; you: boolean; busy: boolean; onRole: (role: GivenRole) => void }) {
+  const to = (): GivenRole => (props.member.role === 'manager' ? 'staff' : 'manager');
+  const stepping = () => props.you && to() === 'staff';
+  const question = () => {
+    if (stepping()) {
+      return t('Make yourself staff?');
+    }
+    return to() === 'manager'
+      ? t('Make {name} a manager?', { name: props.member.name })
+      : t('Make {name} staff?', { name: props.member.name });
+  };
+  return (
+    <ConfirmAction
+      class='btn btn-ghost tm-small'
+      label={to() === 'manager' ? t('Make manager') : t('Make staff')}
+      question={question()}
+      scope={
+        stepping() ? t('You lose the store’s settings, and only the owner or a manager can give them back.') : undefined
+      }
+      danger={stepping()}
+      disabled={props.busy}
+      onConfirm={() => props.onRole(to())}
     />
   );
 }
@@ -102,7 +134,6 @@ function MemberRow(props: {
   onRole: (role: StoreRole) => void;
   onRemove: () => void;
 }) {
-  const other = (): GivenRole => (props.member.role === 'manager' ? 'staff' : 'manager');
   return (
     <tr>
       <td>
@@ -119,14 +150,7 @@ function MemberRow(props: {
             <Show when={props.owner}>
               <HandOver member={props.member} busy={props.busy} onHandOver={() => props.onRole('owner')} />
             </Show>
-            <button
-              type='button'
-              class='btn btn-ghost tm-small'
-              disabled={props.busy}
-              onClick={() => props.onRole(other())}
-            >
-              {other() === 'manager' ? t('Make manager') : t('Make staff')}
-            </button>
+            <RoleChange member={props.member} you={props.you} busy={props.busy} onRole={props.onRole} />
             <ConfirmAction
               class='btn btn-ghost tm-small'
               label={props.you ? t('Leave') : t('Remove')}

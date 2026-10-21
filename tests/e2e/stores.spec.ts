@@ -492,14 +492,32 @@ test('store settings: removing a night a date named turns the date to every nigh
   expect(sent?.exceptions[0]?.nightId).toBeNull();
 });
 
-test('store settings: a manager who makes themselves staff goes on to the store page', async ({ page }) => {
-  await mock(page, { user: MANAGER });
+test('store settings: a manager who makes themselves staff is asked in a dialog, then goes on to the store page', async ({
+  page
+}) => {
+  const asks = await mock(page, { user: MANAGER });
   await page.goto('/stores/store-1/settings?section=staff');
   const table = page.locator('.tm-store-staff');
+  const sam = table.locator('tr', { hasText: 'Sam Ortiz' });
   await page.getByRole('button', { name: 'More for Sam Ortiz' }).click();
-  await table.locator('tr', { hasText: 'Sam Ortiz' }).getByRole('button', { name: 'Make manager' }).click();
+  await sam.getByRole('button', { name: 'Make manager' }).click();
+  await page
+    .getByRole('group', { name: 'Make Sam Ortiz a manager?' })
+    .getByRole('button', { name: 'Make manager' })
+    .click();
+  await expect(sam.locator('td').nth(1)).toHaveText('Manager');
   await page.getByRole('button', { name: 'More for Mary Jackson' }).click();
-  await table.locator('tr', { hasText: 'Mary Jackson' }).getByRole('button', { name: 'Make staff' }).click();
+  const makeStaff = table.locator('tr', { hasText: 'Mary Jackson' }).getByRole('button', { name: 'Make staff' });
+  await makeStaff.click();
+  const dialog = page.getByRole('dialog', { name: 'Make yourself staff?' });
+  await expect(dialog).toContainText('You lose the store’s settings');
+  await dialog.getByRole('button', { name: 'Keep' }).click();
+  await expect(dialog).toBeHidden();
+  await expect(makeStaff).toBeFocused();
+  expect(sentTo(asks, 'PATCH', '/api/stores/store-1/members')).toHaveLength(1);
+  await makeStaff.click();
+  await expect(dialog.getByRole('button', { name: 'Make staff' })).toHaveClass(/tm-danger/);
+  await dialog.getByRole('button', { name: 'Make staff' }).click();
   await expect(page).toHaveURL(/\/stores\/store-1$/);
 });
 
@@ -512,6 +530,12 @@ test('store settings: staff change role, invite links show once and withdraw', a
   await expect(sam).toContainText('None');
   await sam.getByRole('button', { name: 'More for Sam Ortiz' }).click();
   await sam.getByRole('button', { name: 'Make manager' }).click();
+  expect(sentTo(asks, 'PATCH', '/api/stores/store-1/members')).toEqual([]);
+  await page
+    .getByRole('group', { name: 'Make Sam Ortiz a manager?' })
+    .getByRole('button', { name: 'Make manager' })
+    .click();
+  await expect(sam.locator('td').nth(1)).toHaveText('Manager');
   await sam.getByRole('button', { name: 'More for Sam Ortiz' }).click();
   await expect(sam.getByRole('button', { name: 'Make staff' })).toBeVisible();
   await page.keyboard.press('Escape');
@@ -555,9 +579,10 @@ test('store settings: the Owner hands the store over, asked first, and stays on 
   await expect(mary.getByRole('button', { name: 'Leave' })).toHaveCount(0);
   await sam.getByRole('button', { name: 'More for Sam Ortiz' }).click();
   await sam.getByRole('button', { name: 'Make owner' }).click();
-  await expect(sam).toContainText('Make Sam Ortiz the owner?');
+  const dialog = page.getByRole('dialog', { name: 'Make Sam Ortiz the owner?' });
+  await expect(dialog).toContainText('You become a manager, and only Sam Ortiz can hand the store back.');
   expect(sentTo(asks, 'PATCH', '/api/stores/store-1/members')).toEqual([]);
-  await sam.getByRole('button', { name: 'Make owner' }).click();
+  await dialog.getByRole('button', { name: 'Make owner' }).click();
   await expect(sam.locator('td').nth(1)).toHaveText('Owner');
   await expect(mary.locator('td').nth(1)).toHaveText('Manager');
   await mary.getByRole('button', { name: 'More for Mary Jackson' }).click();

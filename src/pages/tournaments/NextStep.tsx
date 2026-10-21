@@ -3,7 +3,8 @@
  * step the plan suggests (pair the next round, start the top cut, end the
  * event) with a caret beside it that offers the others. Pairing happens at
  * once, since a round nobody has played can still be deleted; the top cut
- * asks its size and third-place match in a dialog, and ending asks first.
+ * asks its size and third-place match in a dialog, and ending, or concluding
+ * a Prerelease pod, asks first.
  */
 
 import { createMemo, createSignal, For, Show } from 'solid-js';
@@ -12,8 +13,9 @@ import { latestRound } from '../../../shared/tournament/rounds';
 import { TOP_CUT_SIZES } from '../../../shared/tournament/structure';
 import { type Division, DIVISION_LABELS, type Pod } from '../../../shared/tournament/types';
 import { type Manage, saveSettings } from '../../lib/tournament/api';
-import { type DivisionCut, endGaps } from '../../lib/tournament/present';
+import { type DivisionCut, endGaps, podLabel } from '../../lib/tournament/present';
 import { Segmented } from '@ciphermaniac/design/components/Segmented';
+import { ConfirmDialog } from './ConfirmAction';
 import type { ManageState } from './manageState';
 import { Modal } from './Modal';
 import { OptionsMenu } from './OptionsMenu';
@@ -210,7 +212,7 @@ export function RoundEndSplit(props: {
   canCut: boolean;
   swissOver: boolean;
 }) {
-  const [dialog, setDialog] = createSignal<'cut' | 'end' | null>(null);
+  const [dialog, setDialog] = createSignal<Exclude<RoundEnd, 'pair'> | null>(null);
   const open = () => props.cuts.filter(c => !c.started);
   const allDone = () =>
     props.manage.tournament.pods.every(pod => {
@@ -233,8 +235,6 @@ export function RoundEndSplit(props: {
   const take = (end: RoundEnd) => {
     if (end === 'pair') {
       void props.state.send({ type: 'pairRound', pod: props.pod.category });
-    } else if (end === 'conclude') {
-      void props.state.send({ type: 'concludePrerelease', pod: props.pod.category });
     } else {
       setDialog(end);
     }
@@ -278,6 +278,21 @@ export function RoundEndSplit(props: {
         />
       </Show>
       <EndDialog state={props.state} manage={props.manage} open={dialog() === 'end'} onClose={() => setDialog(null)} />
+      <ConfirmDialog
+        open={dialog() === 'conclude'}
+        question={
+          props.manage.tournament.pods.length > 1
+            ? t('Conclude the {pod} pod?', { pod: podLabel(props.pod) })
+            : t('Conclude this pod?')
+        }
+        scope={t('It pairs no more rounds. Only ending and reopening the event undoes this.')}
+        confirmLabel={t('Conclude')}
+        keepLabel={t('Keep running')}
+        danger
+        busy={props.state.busy()}
+        onConfirm={() => void props.state.send({ type: 'concludePrerelease', pod: props.pod.category })}
+        onClose={() => setDialog(null)}
+      />
     </span>
   );
 }

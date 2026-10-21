@@ -21,6 +21,7 @@ import {
   call,
   deleteTournament,
   errorText,
+  fetchDecklists,
   fetchHeadJudge,
   fetchStaff,
   json,
@@ -31,10 +32,11 @@ import {
   saveSettings
 } from '../../lib/tournament/api';
 import { currencySymbol } from '../../lib/events/format';
-import { intlLocale, t } from '../../lib/i18n';
+import { intlLocale, t, tn } from '../../lib/i18n';
 import { latestValue } from '../../lib/resource';
 import { downloadBlob } from '../../lib/download';
 import { ConfirmAction } from './ConfirmAction';
+import { registrantsSource, siteRegistrants } from './siteRegistrants';
 import { settingsDraft } from './settingsDrafts';
 import { ErrorLine } from './Field';
 import { FormatSelect } from './FormatSelect';
@@ -577,6 +579,32 @@ function StaffList(props: { manage: Manage; onRemove: () => void }) {
   );
 }
 
+/**
+ * What deleting the event takes with it, once it holds anything: its players
+ * and rounds, by count. `registrants`: those registered on the site that a
+ * TOM event's file does not list yet.
+ */
+function deletedScope(manage: Manage, registrants: number): string | undefined {
+  const players = manage.tournament.players.length + registrants;
+  const rounds = Math.max(0, ...manage.tournament.pods.map(pod => pod.rounds.length));
+  if (players === 0) {
+    return undefined;
+  }
+  const counted = tn(players, '{n} player', '{n} players');
+  return rounds === 0
+    ? t('{players} and any decklists are deleted for good.', { players: counted })
+    : t('{players}, {rounds} of results, and any decklists are deleted for good.', {
+        players: counted,
+        rounds: tn(rounds, '{n} round', '{n} rounds')
+      });
+}
+
+/**
+ * Deleting the event: an empty one asks in place, and one with players or
+ * rounds asks in a dialog that counts them, taking the answer only once the
+ * event's code is typed. A TOM event counts those registered on the site
+ * before its file comes in.
+ */
 function DeleteEvent(props: { manage: Manage }) {
   const navigate = useNavigate();
   const [error, setError] = createSignal<string | null>(null);
@@ -588,6 +616,11 @@ function DeleteEvent(props: { manage: Manage }) {
       setError(errorText(err));
     }
   }
+  const [lists] = createResource(
+    () => registrantsSource(props.manage),
+    code => fetchDecklists(code)
+  );
+  const scope = () => deletedScope(props.manage, siteRegistrants(props.manage, lists.latest?.decklists ?? []).length);
   return (
     <section class='tm-box tm-danger-box'>
       <SettingRow label={t('Delete this event')}>
@@ -595,8 +628,11 @@ function DeleteEvent(props: { manage: Manage }) {
           class='btn btn-secondary tm-danger'
           label={t('Delete event')}
           question={t('Delete {name} for good?', { name: props.manage.tournament.info.name })}
+          scope={scope()}
+          typed={scope() ? props.manage.code : undefined}
           confirmLabel={t('Delete')}
           danger
+          disabled={lists.loading}
           onConfirm={() => void remove()}
         />
       </SettingRow>

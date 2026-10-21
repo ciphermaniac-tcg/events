@@ -167,6 +167,103 @@ test('a double click on a player records their win without asking', async ({ pag
   await expect(page.getByRole('button', { name: 'Record' })).toHaveCount(0);
 });
 
+test('re-pairing to seat a late player asks again, in the negative hue, once it would clear results', async ({
+  page
+}) => {
+  let t = event(8, 0, true);
+  const [first, second] = t.pods[0]?.rounds[0]?.matches ?? [];
+  const won = (m: Match | undefined): Command[] =>
+    m ? [{ type: 'reportResult', pod: 'masters', round: 1, ...m, outcome: 'p1' }] : [];
+  t = runCommands(t, ...won(first), ...won(second), {
+    type: 'addPlayer',
+    player: { firstName: 'Late', lastName: 'Arrival' }
+  });
+  const sent = await mockConsole(page, t, settingsOf({}));
+  await page.getByRole('button', { name: 'Re-pair to seat them' }).click();
+  const keeping = page.getByRole('group', { name: 'Re-pair the open tables to seat Late Arrival?' });
+  await expect(keeping.getByRole('button', { name: 'Re-pair' })).not.toHaveClass(/tm-danger/);
+  await keeping.getByLabel('Keep reported results').uncheck();
+  const clearing = page.getByRole('group', { name: 'Re-pair every table and clear 2 results?' });
+  await expect(clearing.getByRole('button', { name: 'Re-pair' })).toHaveClass(/tm-danger/);
+  await clearing.getByRole('button', { name: 'Re-pair' }).click();
+  await expect.poll(() => sent.at(-1)).toEqual({ type: 'repairRound', pod: 'masters', keepReported: false });
+});
+
+test('a re-pair with nothing reported has no results to keep', async ({ page }) => {
+  const sent = await mockConsole(page, event(8, 0, true), settingsOf({}));
+  await page.getByRole('button', { name: 'Re-pair round' }).click();
+  const asking = page.getByRole('group', { name: 'Re-pair the open tables?' });
+  await expect(asking.getByLabel('Keep reported results')).toHaveCount(0);
+  await asking.getByRole('button', { name: 'Re-pair' }).click();
+  await expect.poll(() => sent.at(-1)).toEqual({ type: 'repairRound', pod: 'masters', keepReported: true });
+});
+
+test('deleting an event with players counts what goes and waits for its code to be typed', async ({ page }) => {
+  await mockConsole(page, event(8, 1, false), settingsOf({}));
+  const deletes: string[] = [];
+  await page.route(`**/api/tournaments/${CODE}`, route => {
+    deletes.push(route.request().method());
+    return route.fulfill({ status: 204 });
+  });
+  await page.getByRole('tab', { name: 'Settings', exact: true }).click();
+  await page.getByRole('button', { name: 'Delete event' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Delete Friday League for good?' });
+  await expect(dialog).toContainText('8 players, 1 round of results, and any decklists are deleted for good.');
+  const remove = dialog.getByRole('button', { name: 'Delete', exact: true });
+  await expect(remove).toBeDisabled();
+  await dialog.getByLabel('Type SWISS2 to confirm').fill('SWISS');
+  await expect(remove).toBeDisabled();
+  await dialog.getByLabel('Type SWISS2 to confirm').fill('swiss2');
+  await remove.click();
+  await expect.poll(() => deletes).toEqual(['DELETE']);
+});
+
+test('deleting a TOM event before its file comes in counts the players registered on the site', async ({ page }) => {
+  await mockConsole(page, emptyTournament({ name: 'Friday League' }), settingsOf({}));
+  const manage = {
+    code: CODE,
+    mode: 'tom',
+    version: 3,
+    updatedAt: 0,
+    tournament: emptyTournament({ name: 'Friday League' }),
+    pending: [],
+    reports: [],
+    requests: [],
+    settings: settingsOf({}),
+    decks: {},
+    checkins: {},
+    role: 'owner',
+    staffToken: 'invite',
+    store: 'store-1'
+  };
+  const decklists = Array.from({ length: 3 }, (_, i) => ({
+    popId: String(1001 + i),
+    firstName: `Player${i + 1}`,
+    lastName: 'Test',
+    birthDate: '01/01/1990'
+  }));
+  await page.route(`**/api/tournaments/${CODE}/manage*`, route =>
+    new URL(route.request().url()).searchParams.has('since')
+      ? route.fulfill({ status: 204 })
+      : route.fulfill({ json: manage })
+  );
+  await page.route(`**/api/tournaments/${CODE}/decklists`, route => route.fulfill({ json: { decklists, mine: null } }));
+  await page.reload();
+  await page.getByRole('tab', { name: 'Settings', exact: true }).click();
+  await page.getByRole('button', { name: 'Delete event' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Delete Friday League for good?' });
+  await expect(dialog).toContainText('3 players and any decklists are deleted for good.');
+  await expect(dialog.getByLabel('Type SWISS2 to confirm')).toBeVisible();
+});
+
+test('an event nobody has joined is deleted with a question asked in place', async ({ page }) => {
+  await mockConsole(page, emptyTournament({ name: 'Friday League' }), settingsOf({}));
+  await page.getByRole('tab', { name: 'Settings', exact: true }).click();
+  await page.getByRole('button', { name: 'Delete event' }).click();
+  await expect(page.getByRole('group', { name: 'Delete Friday League for good?' })).toBeVisible();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+});
+
 test('a result shows in its row while it is on its way, and its answer is not read a second time', async ({ page }) => {
   const t = event(8, 0, true);
   const table = t.pods[0]?.rounds[0]?.matches[0];
@@ -437,13 +534,28 @@ function prerelease(rounds: number): Tournament {
   return t;
 }
 
-test('Prerelease offers per-pod conclusion from round 3 @mobile', async ({ page }) => {
+test('Prerelease offers per-pod conclusion from round 3, asked in a dialog that says it stays @mobile', async ({
+  page
+}) => {
   const t = prerelease(3);
   const sent = await mockConsole(page, t, settingsOf({}), [], true);
   const step = page.locator('.tm-split');
+  const conclude = async () => {
+    await step.getByRole('button', { name: 'Other next steps' }).click();
+    await step.getByRole('button', { name: 'Conclude pod', exact: true }).click();
+    return page.getByRole('dialog', { name: 'Conclude this pod?' });
+  };
   await step.getByRole('button', { name: 'Other next steps' }).click();
   await expect(step.getByRole('button', { name: 'End event', exact: true })).toHaveCount(0);
-  await step.getByRole('button', { name: 'Conclude pod', exact: true }).click();
+  await page.keyboard.press('Escape');
+  let dialog = await conclude();
+  await expect(dialog).toContainText('Only ending and reopening the event undoes this.');
+  await dialog.getByRole('button', { name: 'Keep running' }).click();
+  await expect(dialog).toBeHidden();
+  expect(sent).toHaveLength(0);
+  dialog = await conclude();
+  await expect(dialog.getByRole('button', { name: 'Conclude', exact: true })).toHaveClass(/tm-danger/);
+  await dialog.getByRole('button', { name: 'Conclude', exact: true }).click();
   await expect.poll(() => sent.at(-1)).toEqual({ type: 'concludePrerelease', pod: 'masters' });
   await expect(step.getByRole('button', { name: 'End event', exact: true })).toBeVisible();
 });

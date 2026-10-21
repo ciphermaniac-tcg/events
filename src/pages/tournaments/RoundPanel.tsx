@@ -531,7 +531,7 @@ function NotSeated(props: { state: ManageState; pod: Pod; names: string }) {
           pod={props.pod}
           class='btn btn-secondary tm-small'
           label={t('Re-pair to seat them')}
-          question={t('Re-pair the open tables to seat {names}?', { names: props.names })}
+          names={props.names}
         />
       </div>
     </Show>

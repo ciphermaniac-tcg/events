@@ -16,6 +16,7 @@ import { type Player, playerName } from '../../../shared/tournament/types';
 import { fetchDecklists, type Manage, saveCheckIn } from '../../lib/tournament/api';
 import { msg, t } from '../../lib/i18n';
 import type { ManageState } from './manageState';
+import { registrantsSource, siteRegistrants } from './siteRegistrants';
 
 const MARK_LABELS: Record<CheckMark, string> = {
   paid: msg('Paid'),
@@ -206,21 +207,8 @@ export function CheckInBox(props: { state: ManageState; manage: Manage; extra: r
  */
 export function createSiteRegistrants(manage: () => Manage) {
   const [lists] = createResource(
-    () => (manage().mode === 'tom' && !hasStarted(manage().tournament) ? manage().code : null),
+    () => registrantsSource(manage()),
     code => fetchDecklists(code)
   );
-  return (): Player[] => {
-    const known = new Set(manage().tournament.players.map(player => player.id));
-    return (lists.latest?.decklists ?? [])
-      .filter(list => !known.has(list.popId))
-      .map(list => ({
-        id: list.popId,
-        firstName: list.firstName,
-        lastName: list.lastName,
-        birthDate: list.birthDate,
-        droppedAfter: null,
-        created: '',
-        modified: ''
-      }));
-  };
+  return (): Player[] => siteRegistrants(manage(), lists.latest?.decklists ?? []);
 }
