@@ -57,7 +57,16 @@ async function mockEvent(page: Page, settings: Partial<TournamentSettings> = {})
   const people: Held[] = [
     { popId: '7', firstName: 'Avery', lastName: 'Chen', year: '1998', deck: DECK, mode: 'digital' },
     { popId: '412', firstName: 'Alex', lastName: 'Kim', year: '2004', deck: '', mode: 'paper' },
-    { popId: '413', firstName: 'Alexa', lastName: 'Kim', year: '2001', deck: '', mode: 'paper' }
+    { popId: '413', firstName: 'Alexa', lastName: 'Kim', year: '2001', deck: '', mode: 'paper' },
+    // Registered by staff at the desk, as a player under 13 is.
+    {
+      popId: '88',
+      firstName: 'Sam',
+      lastName: 'Lee',
+      year: String(new Date().getFullYear() - 9),
+      deck: '',
+      mode: 'paper'
+    }
   ];
   const t = run(
     emptyTournament({ name: 'D2G TCG League Cup' }),
@@ -185,6 +194,8 @@ test('a registered Player ID asks its birth year, then opens the registration to
   await id.fill('7');
   await expect(page.getByRole('button', { name: 'Continue' })).toBeEnabled();
   await id.press('Enter');
+  await expect(page.getByText('Confirm your birth year to continue.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Change ID' })).toBeVisible();
   const year = page.getByRole('textbox', { name: 'Birth year' });
   await year.fill('1997');
   await page.getByRole('button', { name: 'Continue' }).click();
@@ -227,6 +238,10 @@ test('a registered Player ID asks its birth year, then opens the registration to
 test('any other Player ID registers, with a pasted list, and is told when check-in is @mobile', async ({ page }) => {
   const { calls } = await mockEvent(page, { checkInAt: '2099-10-24T10:00' });
   await page.goto(`/t/${CODE}?tab=decklist`);
+  await page.getByRole('textbox', { name: 'Player ID' }).fill('1234567');
+  await page.getByRole('button', { name: 'Continue' }).click();
+  // A mistyped ID goes back to be typed again.
+  await page.getByRole('button', { name: 'Change ID' }).click();
   await page.getByRole('textbox', { name: 'Player ID' }).fill('12345678');
   await page.getByRole('button', { name: 'Continue' }).click();
   await expect(page.getByText('New registration')).toBeVisible();
@@ -262,6 +277,17 @@ test('a birth year under 13 says to register with staff as it is typed, before a
   await expect(page.getByText('Players under 13 register with staff at the event.')).toHaveCount(0);
   await expect(page.getByText('In person')).toBeVisible();
   expect(calls.some(call => call.method === 'PUT')).toBe(false);
+});
+
+test('a registration staff made for a player under 13 still opens by its birth year', async ({ page }) => {
+  await mockEvent(page);
+  await page.goto(`/t/${CODE}?tab=decklist`);
+  await page.getByRole('textbox', { name: 'Player ID' }).fill('88');
+  await page.getByRole('button', { name: 'Continue' }).click();
+  await page.getByRole('textbox', { name: 'Birth year' }).fill(String(new Date().getFullYear() - 9));
+  await expect(page.getByText('Players under 13 register with staff at the event.')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Continue' }).click();
+  await expect(page.locator('.tm-reg-who')).toContainText('Sam Lee');
 });
 
 test('the Player ID keeps only its digits, and the birth year is four digits the browser can fill in', async ({

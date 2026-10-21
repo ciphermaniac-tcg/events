@@ -353,8 +353,10 @@ function NameFields(props: { form: Registration }) {
   );
 }
 
-function YearField(props: { form: Registration; onEnter?: () => void }) {
-  const error = () => (props.form.young() ? t('Players under 13 register with staff at the event.') : undefined);
+/** `opens`: for a registration already made, which staff may have made for a player under 13, so age holds nothing back. */
+function YearField(props: { form: Registration; onEnter?: () => void; opens?: boolean }) {
+  const error = () =>
+    !props.opens && props.form.young() ? t('Players under 13 register with staff at the event.') : undefined;
   return (
     <Field id='reg-year' label={t('Birth year')} error={error()}>
       <BirthYearInput
@@ -405,8 +407,12 @@ function Lookup(props: { form: Registration; sanctioned: boolean }) {
   );
 }
 
-/** Who the registration is, with the menu that changes the name, starts again or withdraws. */
-function Head(props: { form: Registration; sanctioned: boolean; title: string; menu: boolean }) {
+/**
+ * Who the registration is, with the menu that changes the name, starts again
+ * or withdraws; before there is one, the way back to the first step, named
+ * for what it changes there (`back`).
+ */
+function Head(props: { form: Registration; sanctioned: boolean; title: string; menu: boolean; back?: string }) {
   const f = () => props.form;
   return (
     <div class='tm-box-bar tm-reg-head'>
@@ -420,7 +426,7 @@ function Head(props: { form: Registration; sanctioned: boolean; title: string; m
         when={props.menu}
         fallback={
           <button type='button' class='btn btn-ghost tm-small' onClick={() => f().notYou()}>
-            {t('Not you?')}
+            {props.back ?? t('Not you?')}
           </button>
         }
       >
@@ -447,10 +453,10 @@ function Head(props: { form: Registration; sanctioned: boolean; title: string; m
   );
 }
 
-/** A registered Player ID: its birth year opens the registration. */
+/** A Player ID the event knows, on its list or with a registration in: its birth year goes on to the registration. */
 function Prove(props: { form: Registration }) {
   const f = () => props.form;
-  const ready = () => /^\d{4}$/.test(birthYearOf(f().profile().birthDate)) && !f().young() && !f().busy();
+  const ready = () => /^\d{4}$/.test(birthYearOf(f().profile().birthDate)) && !f().busy();
   const go = () => {
     if (ready()) {
       void f().prove();
@@ -458,10 +464,10 @@ function Prove(props: { form: Registration }) {
   };
   return (
     <section class='tm-box tm-reg'>
-      <Head form={f()} sanctioned={false} title={f().profile().popId} menu={false} />
+      <Head form={f()} sanctioned={false} title={f().profile().popId} menu={false} back={t('Change ID')} />
       <div class='tm-box-bar tm-reg-stack'>
-        <YearField form={f()} onEnter={go} />
-        <p class='tm-reg-note'>{t('Enter your birth year to make changes.')}</p>
+        <YearField form={f()} onEnter={go} opens />
+        <p class='tm-reg-note'>{t('Confirm your birth year to continue.')}</p>
         <button type='button' class='btn btn-primary tm-reg-wide' disabled={!ready()} onClick={go}>
           {t('Continue')}
         </button>
@@ -628,7 +634,13 @@ function NewRegistration(props: { form: Registration; reg: RegistrationProps }) 
   const f = () => props.form;
   return (
     <section class='tm-box tm-reg'>
-      <Head form={f()} sanctioned={props.reg.sanctioned} title={t('New registration')} menu={false} />
+      <Head
+        form={f()}
+        sanctioned={props.reg.sanctioned}
+        title={t('New registration')}
+        menu={false}
+        back={props.reg.sanctioned ? t('Change ID') : undefined}
+      />
       <Show
         when={!f().full()}
         fallback={
