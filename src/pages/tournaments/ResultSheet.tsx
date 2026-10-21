@@ -1,9 +1,11 @@
 /**
  * Result entry where the room's rows are too narrow for their own controls
  * (900px and under, see RoundPanel): a table is pressed, and this sheet rises
- * with its players and every result it can take as full-size buttons. A
- * press records at once, since opening the sheet was the first step; a lone
- * report is offered as Accept among the actions, as in a wide row. The body
+ * with its players and every result it can take as full-size buttons. At an
+ * open table a press records at once, since opening the sheet was the first
+ * step; a result that stands is changed or cleared only from a second step in
+ * the actions, which names both sides. A lone report is offered as Accept
+ * among the actions, as in a wide row. The body
  * scrolls while the table and actions stay put. Focus starts on the sheet,
  * stays in it, and goes back to what opened it.
  */
@@ -11,7 +13,7 @@
 import { createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import type { Match, Outcome, Round } from '../../../shared/tournament/types';
 import { msg, t } from '../../lib/i18n';
-import { RESULT_WORDS } from '../../lib/tournament/present';
+import { changeQuestion, RESULT_WORDS } from '../../lib/tournament/present';
 import { DeckIcons } from './DeckIcons';
 import { OptionsMenu } from './OptionsMenu';
 import { ExtensionClock } from './ExtensionClock';
@@ -22,6 +24,26 @@ const EVEN: { outcome: Outcome; label: string }[] = [
   { outcome: 'tie', label: msg('Tie') },
   { outcome: 'double-loss', label: msg('Double loss') }
 ];
+
+/** The second step a change to a result that stands takes, in place of the sheet's actions. */
+function ChangeStep(props: { question: string; confirm: string; onConfirm: () => void; onCancel: () => void }) {
+  return (
+    <div class='tm-result-sheet-actions' role='group' aria-label={props.question}>
+      <span class='tm-sheet-ask'>{props.question}</span>
+      <button
+        type='button'
+        class='btn btn-primary'
+        ref={el => queueMicrotask(() => el.focus())}
+        onClick={() => props.onConfirm()}
+      >
+        {props.confirm}
+      </button>
+      <button type='button' class='btn btn-ghost' onClick={() => props.onCancel()}>
+        {t('Cancel')}
+      </button>
+    </div>
+  );
+}
 
 export function ResultSheet(props: {
   match: Match;
@@ -40,6 +62,10 @@ export function ResultSheet(props: {
   onTimeExtension?: () => void;
 }) {
   const [ready, setReady] = createSignal(false);
+  /** A change to a result that stands, waiting on its second press. */
+  const [changing, setChanging] = createSignal<Outcome | null>(null);
+  const pick = (outcome: Outcome) =>
+    props.outcome === 'pending' || outcome === props.outcome ? props.onPick(outcome) : setChanging(outcome);
   let sheet: HTMLDivElement | undefined;
   let scrim: HTMLDivElement | undefined;
   const name = (id: string | null) => (id ? (props.names.get(id) ?? id) : '');
@@ -81,6 +107,26 @@ export function ResultSheet(props: {
     sheet?.focus();
     requestAnimationFrame(() => setReady(true));
   });
+
+  const actions = () => (
+    <div class='tm-result-sheet-actions'>
+      <Show when={props.lone}>
+        {lone => (
+          <button type='button' class='btn btn-primary tm-sheet-accept' onClick={() => props.onPick(lone())}>
+            {t('Accept {result}', { result: t(RESULT_WORDS[lone()] ?? '') })}
+          </button>
+        )}
+      </Show>
+      <Show when={props.outcome !== 'pending'}>
+        <button type='button' class='btn btn-ghost tm-sheet-clear' onClick={() => pick('pending')}>
+          {t('Clear result')}
+        </button>
+      </Show>
+      <button type='button' class='btn btn-ghost tm-sheet-close' onClick={() => props.onClose()}>
+        {t('Cancel')}
+      </button>
+    </div>
+  );
 
   const seat = (id: string | null, seatOutcome: Outcome) => (
     <Show when={id}>
@@ -141,7 +187,7 @@ export function ResultSheet(props: {
                   type='button'
                   class='btn btn-secondary'
                   aria-pressed={props.outcome === choice.outcome}
-                  onClick={() => props.onPick(choice.outcome)}
+                  onClick={() => pick(choice.outcome)}
                 >
                   {choice.label}
                 </button>
@@ -149,23 +195,16 @@ export function ResultSheet(props: {
             </For>
           </div>
         </div>
-        <div class='tm-result-sheet-actions'>
-          <Show when={props.lone}>
-            {lone => (
-              <button type='button' class='btn btn-primary tm-sheet-accept' onClick={() => props.onPick(lone())}>
-                {t('Accept {result}', { result: t(RESULT_WORDS[lone()] ?? '') })}
-              </button>
-            )}
-          </Show>
-          <Show when={props.outcome !== 'pending'}>
-            <button type='button' class='btn btn-ghost tm-sheet-clear' onClick={() => props.onPick('pending')}>
-              {t('Clear result')}
-            </button>
-          </Show>
-          <button type='button' class='btn btn-ghost tm-sheet-close' onClick={() => props.onClose()}>
-            {t('Cancel')}
-          </button>
-        </div>
+        <Show when={changing()} fallback={actions()}>
+          {to => (
+            <ChangeStep
+              question={changeQuestion(props.outcome, to(), props.match, props.names)}
+              confirm={to() === 'pending' ? t('Clear') : t('Change')}
+              onConfirm={() => props.onPick(to())}
+              onCancel={() => setChanging(null)}
+            />
+          )}
+        </Show>
       </div>
     </>
   );

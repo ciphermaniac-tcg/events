@@ -87,7 +87,8 @@ const SHAPES: { [T in Command['type']]: (body: Obj) => boolean } = {
     isInt(body.table) &&
     isStr(body.p1, 20) &&
     (body.p2 === null || isStr(body.p2, 20)) &&
-    OUTCOMES.includes(body.outcome as Outcome),
+    OUTCOMES.includes(body.outcome as Outcome) &&
+    (body.expected === undefined || OUTCOMES.includes(body.expected as Outcome)),
   swapPlayers: body => isPod(body.pod) && isStr(body.a, 20) && isStr(body.b, 20),
   startTopCut: body =>
     isPod(body.pod) &&

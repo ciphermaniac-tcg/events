@@ -252,6 +252,11 @@
   border-color: var(--fg);
   background: var(--surface-2);
 }
+.tm-console .tm-sheet-ask {
+  flex-basis: 100%;
+  font-size: var(--text-base);
+  font-weight: 600;
+}
 .tm-console .tm-sheet-accept {
   margin-bottom: var(--space-2);
 }

@@ -15,6 +15,12 @@
  * lost), and the room may have moved on since, so a retry first reads the
  * event again and sends nothing when the result already stands or the
  * table's pairing has changed (see reconcileResult).
+ *
+ * Each result carries the outcome the console saw standing, and the server
+ * refuses one that another device has changed since, so two judges never
+ * overwrite each other unseen. After a failure the console reads the event
+ * again, and the row names the result now standing (see conflictFor); a
+ * retry then sends against that one, on purpose.
  */
 
 import { createSignal } from 'solid-js';
@@ -33,6 +39,8 @@ export interface EnteredResult {
   p1: string;
   p2: string | null;
   outcome: Outcome;
+  /** What stood when it was entered, as the console saw it (see the reportResult command). */
+  expected?: Outcome;
 }
 
 /**
@@ -42,17 +50,25 @@ export interface EnteredResult {
  */
 export type Reconciled = 'saved' | 'changed' | 'send';
 
-export function reconcileResult(manage: Pick<Manage, 'tournament' | 'pending'>, entered: EnteredResult): Reconciled {
+type Event = Pick<Manage, 'tournament' | 'pending'>;
+
+/** The outcome standing for the match a result was entered for, in the latest round; null once it is paired anew. */
+function standingFor(manage: Event, entered: Omit<EnteredResult, 'outcome'>): Outcome | null {
   const pod = manage.tournament.pods.find(p => p.category === entered.pod);
   const round = latestRound(pod);
   const match =
     round?.number === entered.round
       ? round.matches.find(m => m.table === entered.table && m.p1 === entered.p1 && m.p2 === entered.p2)
       : undefined;
-  if (!pod || !round || !match) {
+  return pod && round && match ? shownOutcome(match, pod, round, manage.pending).outcome : null;
+}
+
+export function reconcileResult(manage: Event, entered: EnteredResult): Reconciled {
+  const standing = standingFor(manage, entered);
+  if (standing === null) {
     return 'changed';
   }
-  return shownOutcome(match, pod, round, manage.pending).outcome === entered.outcome ? 'saved' : 'send';
+  return standing === entered.outcome ? 'saved' : 'send';
 }
 
 export interface ResultEntry {
@@ -60,6 +76,8 @@ export interface ResultEntry {
   sentFor: (round: Round, match: Match) => Outcome | undefined;
   /** The result the server did not take for the match, until it is retried or discarded. */
   failedFor: (round: Round, match: Match) => Outcome | undefined;
+  /** For a result not taken: the result now standing, when another device changed it from the one this one saw. */
+  conflictFor: (round: Round, match: Match) => Outcome | undefined;
   send: (round: Round, match: Match, outcome: Outcome) => void;
   retry: (round: Round, match: Match) => Promise<void>;
   discard: (round: Round, match: Match) => void;
@@ -77,11 +95,20 @@ export function createResultEntry(state: () => ManageState, pod: () => Pod): Res
   const [sent, setSent] = createSignal<Results<Outcome>>(new Map());
   /** Each failed result with the match it was entered for, which a retry sends it for again. */
   const [failed, setFailed] = createSignal<Results<EnteredResult>>(new Map());
-  const entered = (round: Round, match: Match, outcome: Outcome): EnteredResult => {
+  const at = (round: Round, match: Match) => {
     const { table, p1, p2 } = match;
-    return { pod: pod().category, round: round.number, table, p1, p2, outcome };
+    return { pod: pod().category, round: round.number, table, p1, p2 };
   };
-  const matchKey = (round: Round, match: Match) => keyOf(entered(round, match, 'pending'));
+  /** The result with what stands for it in the console's copy now. */
+  const entered = (round: Round, match: Match, outcome: Outcome): EnteredResult => {
+    const key = at(round, match);
+    return { ...key, outcome, expected: standingNow(key) };
+  };
+  const standingNow = (key: Omit<EnteredResult, 'outcome'>) => {
+    const data = state().data();
+    return (data && standingFor(data, key)) ?? undefined;
+  };
+  const matchKey = (round: Round, match: Match) => keyOf(at(round, match));
   const hold = (key: string, outcome: Outcome) => setSent(results => new Map(results).set(key, outcome));
   const fail = (result: EnteredResult) => setFailed(results => new Map(results).set(keyOf(result), result));
   /**
@@ -97,8 +124,14 @@ export function createResultEntry(state: () => ManageState, pod: () => Pod): Res
     return issued;
   };
   const latest = (key: string, mine: number) => tickets.get(key) === mine;
-  /** Each match's sends, one after another: the last one queued, for the next to wait on. */
-  const queues = new Map<string, Promise<unknown>>();
+  /**
+   * Each match's sends, one after another: the last one queued, for the next
+   * to wait on, answering with the result it landed, if it landed one. A
+   * result entered while an earlier one was on its way expects that one.
+   * Once a match's last send is answered it is forgotten, so a later result
+   * expects what the console shows then, never a send it has read past.
+   */
+  const queues = new Map<string, Promise<Outcome | undefined>>();
 
   /** Sends the result once every earlier send for its match has been answered, unless a newer one came first. */
   function sendEntered(result: EnteredResult) {
@@ -107,25 +140,39 @@ export function createResultEntry(state: () => ManageState, pod: () => Pod): Res
     const { pod: category, ...command } = result;
     setFailed(results => without(results, key));
     hold(key, result.outcome);
-    const turn = (queues.get(key) ?? Promise.resolve()).then(async () => {
+    const turn = (queues.get(key) ?? Promise.resolve(undefined)).then(async landed => {
       if (!latest(key, mine)) {
-        return;
+        return landed;
       }
-      const ok = await state().send({ type: 'reportResult', pod: category, ...command });
-      if (!ok && latest(key, mine)) {
-        fail(result);
-      }
+      const expected = landed ?? result.expected;
+      const ok = await state().send({ type: 'reportResult', pod: category, ...command, expected });
       if (latest(key, mine)) {
         setSent(results => without(results, key));
+        afterSend({ ...result, expected }, ok);
       }
+      return ok ? result.outcome : landed;
     });
     queues.set(key, turn);
+    void turn.then(() => {
+      if (queues.get(key) === turn) {
+        queues.delete(key);
+      }
+    });
+  }
+
+  /** A result not taken stays in its row, with what it expected, and the event is read again to show what stands now. */
+  function afterSend(result: EnteredResult, ok: boolean) {
+    if (!ok) {
+      fail(result);
+      void state().load();
+    }
   }
 
   /** What a retry does once it has read the event (see reconcileResult); null when the read failed. */
   function afterRead(result: EnteredResult, found: Reconciled | null) {
     if (found === 'send') {
-      sendEntered(result);
+      // Sent against what stands now: a retry after another device's change is meant to replace it.
+      sendEntered({ ...result, expected: standingNow(result) });
     } else if (found === 'changed') {
       state().fail(t('Table {table} has changed since; enter its result again.', { table: result.table }));
     } else if (found === 'saved') {
@@ -158,6 +205,11 @@ export function createResultEntry(state: () => ManageState, pod: () => Pod): Res
   return {
     sentFor: (round, match) => sent().get(matchKey(round, match)),
     failedFor: (round, match) => failed().get(matchKey(round, match))?.outcome,
+    conflictFor: (round, match) => {
+      const result = failed().get(matchKey(round, match));
+      const standing = result && standingNow(result);
+      return standing && standing !== result.expected && standing !== result.outcome ? standing : undefined;
+    },
     send: (round, match, outcome) => sendEntered(entered(round, match, outcome)),
     retry,
     discard: (round, match) => setFailed(results => without(results, matchKey(round, match)))

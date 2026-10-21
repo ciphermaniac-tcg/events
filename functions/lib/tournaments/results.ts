@@ -11,7 +11,7 @@ import { applyCommand as applySiteClock } from '../../../shared/tournament/legac
 import { applyCommand, type Command } from '../../../shared/tournament/commands.js';
 import { lockedRound } from '../../../shared/tournament/corrections.js';
 import { checkInError } from '../../../shared/tournament/checkins.js';
-import { hasStarted, isOpenMatch } from '../../../shared/tournament/rounds.js';
+import { findMatch, hasStarted, isOpenMatch } from '../../../shared/tournament/rounds.js';
 import { withSiteClocks } from '../../../shared/tournament/tomClock.js';
 import type { Tournament } from '../../../shared/tournament/types.js';
 import { applyPending, isSanctioned, prunePending, withPending } from '../../../shared/tournament/view.js';
@@ -54,11 +54,31 @@ const ENDED_DETAILS: ReadonlySet<string> = new Set(['name', 'roundTime', 'finals
 const takesOnceEnded = (command: Command) =>
   command.type === 'updateInfo' && Object.keys(command.info).every(key => ENDED_DETAILS.has(key));
 
+/** Why a result is refused when another device changed it since the sender looked. */
+const STALE_RESULT = msg('This result was changed on another device. Check it and enter yours again.');
+
+/**
+ * Whether a result expected another outcome than the one standing now,
+ * pending results included. A console that sends no expectation is taken as
+ * before, and a TOM match TOM has decided is refused for that instead (see
+ * pendingChange).
+ */
+function isStale(row: TournamentRow, command: Extract<Command, { type: 'reportResult' }>): boolean {
+  if (command.expected === undefined || (row.mode === 'tom' && !isOpenMatch(row.tournament, command))) {
+    return false;
+  }
+  const standing = findMatch(applyPending(row.tournament, row.pending), command)?.match.outcome;
+  return standing !== undefined && standing !== command.expected;
+}
+
 /** The changes `command` makes, or why it cannot run. */
-/** Why the event does not take the command at all, or null: it has ended, TOM runs it, or the round is locked. */
+/** Why the event does not take the command at all, or null: it has ended, TOM runs it, the round is locked, or a result is stale. */
 function commandRefusal(row: TournamentRow, command: Command): string | null {
   if (row.settings.finished && !takesOnceEnded(command)) {
     return FINISHED_REFUSAL;
+  }
+  if (command.type === 'reportResult' && isStale(row, command)) {
+    return STALE_RESULT;
   }
   if (row.mode === 'tom') {
     return TOM_COMMANDS.has(command.type) ? null : msg('Please make this change in TOM.');

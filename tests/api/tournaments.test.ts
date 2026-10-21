@@ -1403,6 +1403,66 @@ test('an ended event takes no command until it is reopened, and drops its report
   assert.equal(cleared.json.tournament.pods[0].rounds[0].matches[0].outcome, 'pending');
 });
 
+test('a result expecting what no longer stands is refused, and a console that sends no expectation is taken as before', async () => {
+  const owner = await signIn('Organizer', 'organizer');
+  const code = await newSwiss(owner);
+  await addPlayers(code, owner, 4);
+  const paired = await send(code, owner, { type: 'pairRound', pod: 'masters' });
+  const [match] = paired.json.tournament.pods[0].rounds[0].matches as Match[];
+  const result = (outcome: string, expected?: string) => ({
+    type: 'reportResult',
+    pod: 'masters',
+    round: 1,
+    table: match!.table,
+    p1: match!.p1,
+    p2: match!.p2,
+    outcome,
+    ...(expected === undefined ? {} : { expected })
+  });
+  // Judge A enters p1 on an open table; judge B, who still saw it open, enters p2.
+  assert.equal((await send(code, owner, result('p1', 'pending'))).status, 200);
+  const before = await loadTournament(env.TOURNAMENT_DB!, code);
+  const stale = await send(code, owner, result('p2', 'pending'));
+  assert.deepEqual(
+    [stale.status, stale.json.error],
+    [400, 'This result was changed on another device. Check it and enter yours again.']
+  );
+  const after = await loadTournament(env.TOURNAMENT_DB!, code);
+  assert.deepEqual([after?.version, after?.tournament], [before?.version, before?.tournament], 'p1 still stands');
+  const meant = await send(code, owner, result('p2', 'p1'));
+  assert.equal(
+    meant.json.tournament.pods[0].rounds[0].matches[0].outcome,
+    'p2',
+    'a change made against what stands lands'
+  );
+  assert.equal((await send(code, owner, { ...result('tie'), expected: 'nonsense' })).status, 400, 'not an outcome');
+  const older = await send(code, owner, result('tie'));
+  assert.equal(older.json.tournament.pods[0].rounds[0].matches[0].outcome, 'tie', 'an older console sends none');
+});
+
+test('a TOM event refuses a stale result against the pending one, and leaves a decided match to TOM', async () => {
+  const owner = await signIn('Organizer', 'organizer');
+  const tdf = parseTdf(readFileSync(new URL('../fixtures/tdf/challenge-midevent.tdf', import.meta.url), 'utf8'));
+  const created = await hit(
+    tournaments.onRequestPost as Handler,
+    '/api/tournaments',
+    {},
+    { method: 'POST', cookie: owner, body: { mode: 'tom', tournament: tdf, store: await storeOf(owner) } }
+  );
+  const { code } = created.json;
+  const open = { type: 'reportResult', pod: 'mixed', round: 2, table: 1, p1: '7200001', p2: '7200004' };
+  assert.equal((await send(code, owner, { ...open, outcome: 'p1', expected: 'pending' })).json.pending.length, 1);
+  const stale = await send(code, owner, { ...open, outcome: 'p2', expected: 'pending' });
+  assert.match(stale.json.error, /changed on another device/);
+  const meant = await send(code, owner, { ...open, outcome: 'p2', expected: 'p1' });
+  assert.equal(meant.json.pending[0].outcome, 'p2');
+  const decided = { type: 'reportResult', pod: 'mixed', round: 2, table: 2, p1: '7200005', p2: '7200007' };
+  assert.match(
+    (await send(code, owner, { ...decided, outcome: 'p1', expected: 'pending' })).json.error,
+    /TOM already has a result/
+  );
+});
+
 test('a sanctioned event admits a player only with a Player ID and birth year, and a correction keeps their year and division', async () => {
   const owner = await signIn('Organizer', 'organizer');
   const code = await newSwiss(owner);

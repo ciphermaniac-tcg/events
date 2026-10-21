@@ -705,9 +705,53 @@ test('clearing a result confirms as Clear', async ({ page }) => {
   const sent = await mockConsole(page, t, settingsOf({}));
   await page.getByRole('button', { name: 'Clear' }).first().click();
   const asking = page.getByRole('group', { name: 'Confirm result' });
-  await expect(asking.locator('.tm-result-label')).toHaveText('Clear the result?');
+  await expect(asking.locator('.tm-result-label')).toHaveText(/^Clear Player\d Test’s win\?$/);
   await asking.getByRole('button', { name: 'Clear' }).click();
   await expect.poll(() => sent.at(-1)).toMatchObject({ type: 'reportResult', outcome: 'pending' });
+});
+
+test('changing a result that stands names both players, and a double click there only asks', async ({ page }) => {
+  const t = partlyPlayed(8, 0, 1);
+  const match = firstMatch(t);
+  const sent = await mockConsole(page, t, settingsOf({}));
+  // Read once the row is drawn, not while the event is still on its way.
+  await expect(rowOf(page, match).locator('.tm-name')).toHaveCount(2);
+  const names = (await rowOf(page, match).locator('.tm-name').allTextContents()) as [string, string];
+  await rowOf(page, match).locator('.tm-seat-link').nth(1).dblclick();
+  const asking = page.getByRole('group', { name: 'Confirm result' });
+  await expect(asking.locator('.tm-result-label')).toHaveText(`Change ${names[0]}’s win to ${names[1]}’s?`);
+  expect(sent).toHaveLength(0);
+  await asking.getByRole('button', { name: 'Change' }).click();
+  await expect.poll(() => sent.at(-1)).toMatchObject({ type: 'reportResult', outcome: 'p2', expected: 'p1' });
+});
+
+test('a result another device changed first is named in its row, and Use mine replaces it', async ({ page }) => {
+  const t = event(8, 0, true);
+  const match = firstMatch(t);
+  await mockConsole(page, t, settingsOf({}));
+  await expect(rowOf(page, match)).toBeVisible();
+  const theirs = runCommands(t, { type: 'reportResult', pod: 'masters', round: 1, ...match, outcome: 'p2' });
+  const tries: Command[] = [];
+  await page.route(`**/api/tournaments/${CODE}/commands`, route => {
+    const { command } = route.request().postDataJSON() as { command: Command };
+    tries.push(command);
+    return tries.length === 1
+      ? route.fulfill({
+          status: 400,
+          json: { error: 'This result was changed on another device. Check it and enter yours again.' }
+        })
+      : route.fulfill({ json: manageOf(runCommands(theirs, command), 5) });
+  });
+  await page.route(`**/api/tournaments/${CODE}/manage*`, route => route.fulfill({ json: manageOf(theirs, 4) }));
+  await rowOf(page, match).locator('.tm-seat-link').first().dblclick();
+  const unsaved = rowOf(page, match).getByRole('group', { name: 'Result not saved' });
+  const other = await rowOf(page, match).locator('.tm-name').nth(1).textContent();
+  await expect(unsaved.locator('.tm-result-label')).toHaveText(`Not saved: another device entered ${other}’s win`);
+  await unsaved.getByRole('button', { name: 'Use mine' }).click();
+  await expect.poll(() => tries.length).toBe(2);
+  expect(tries[0]).toMatchObject({ outcome: 'p1', expected: 'pending' });
+  expect(tries[1]).toMatchObject({ outcome: 'p1', expected: 'p2' });
+  await expect(unsaved).toHaveCount(0);
 });
 
 test('every Swiss round ends with another round as the step, the top cut and the end behind it', async ({ page }) => {
@@ -1179,6 +1223,27 @@ test('900px and under a table opens a sheet of its results, and a press there re
   await expect(sheet).toHaveCount(0);
   await expect.poll(() => sent.length).toBe(1);
   expect(sent[0]).toMatchObject({ type: 'reportResult', table: table?.table, outcome: 'tie' });
+});
+
+test('900px and under the sheet asks before it changes or clears a result that stands', async ({ page }) => {
+  await page.setViewportSize({ width: 820, height: 1100 });
+  const t = partlyPlayed(8, 0, 1);
+  const match = firstMatch(t);
+  const sent = await mockConsole(page, t, settingsOf({}));
+  await rowOf(page, match).click();
+  const sheet = page.getByRole('dialog', { name: `Result, table ${match.table}` });
+  await sheet.getByRole('button', { name: 'Tie' }).click();
+  const step = sheet.getByRole('group', { name: /^Change .+’s win to a tie\?$/ });
+  await expect(step.getByRole('button', { name: 'Change' })).toBeFocused();
+  expect(sent).toHaveLength(0);
+  await step.getByRole('button', { name: 'Cancel' }).click();
+  await sheet.getByRole('button', { name: 'Clear result' }).click();
+  await sheet
+    .getByRole('group', { name: /^Clear .+’s win\?$/ })
+    .getByRole('button', { name: 'Clear' })
+    .click();
+  await expect(sheet).toHaveCount(0);
+  await expect.poll(() => sent.at(-1)).toMatchObject({ type: 'reportResult', outcome: 'pending', expected: 'p1' });
 });
 
 test('on a phone the tabs sit along the bottom, and the round and its clock stay pinned @mobileOnly', async ({

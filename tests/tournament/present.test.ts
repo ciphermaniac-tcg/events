@@ -22,6 +22,7 @@ import { tdfFilename, tdfText } from '../../src/lib/tournament/exportTdf.ts';
 import { ordinal } from '../../src/lib/format.ts';
 import {
   champion,
+  changeQuestion,
   clockLabel,
   currentMatchOf,
   cutSplit,
@@ -35,6 +36,7 @@ import {
   namesById,
   nextStep,
   outcomeLabel,
+  outcomeNoun,
   plannedRounds,
   podLabel,
   podProgress,
@@ -622,6 +624,15 @@ describe("what staff see of an open match's reports", () => {
     assert.equal(outcomeLabel('p2', match, names), 'Misty Waterflower wins');
     assert.equal(outcomeLabel('tie', match, names), 'Tie');
     assert.equal(outcomeLabel('pending', match, names), 'Clear the result');
+  });
+
+  test('changing a result that stands names both sides, so it never reads as a new entry', () => {
+    assert.equal(outcomeNoun('p1', match, names), 'Ash Ketchum’s win');
+    assert.equal(outcomeNoun('double-loss', match, names), 'a double loss');
+    assert.equal(changeQuestion('p1', 'p2', match, names), 'Change Ash Ketchum’s win to Misty Waterflower’s?');
+    assert.equal(changeQuestion('p1', 'tie', match, names), 'Change Ash Ketchum’s win to a tie?');
+    assert.equal(changeQuestion('tie', 'p2', match, names), 'Change a tie to Misty Waterflower’s win?');
+    assert.equal(changeQuestion('p2', 'pending', match, names), 'Clear Misty Waterflower’s win?');
   });
 
   test('no reports leave the cell at Open', () => {

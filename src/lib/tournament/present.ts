@@ -770,14 +770,43 @@ const OUTCOME_WORDS: Partial<Record<Outcome, string>> = {
   pending: msg('Clear the result')
 };
 
+const winnerOf = (outcome: Outcome, match: Match) => (outcome === 'p1' ? match.p1 : outcome === 'p2' ? match.p2 : null);
+
 /** An outcome in words, as staff confirm it: "Ash Ketchum wins", "Tie", "Clear the result". */
 export function outcomeLabel(outcome: Outcome, match: Match, names: Map<string, string>): string {
-  const winner = outcome === 'p1' ? match.p1 : outcome === 'p2' ? match.p2 : null;
+  const winner = winnerOf(outcome, match);
   if (winner) {
     return t('{name} wins', { name: names.get(winner) ?? winner });
   }
   const words = OUTCOME_WORDS[outcome];
   return words ? t(words) : '';
+}
+
+const OUTCOME_NOUNS: Partial<Record<Outcome, string>> = {
+  tie: msg('a tie'),
+  'double-loss': msg('a double loss')
+};
+
+/** A result that stands, as a noun in a question: "Ash Ketchum’s win", "a tie". */
+export function outcomeNoun(outcome: Outcome, match: Match, names: Map<string, string>): string {
+  const winner = winnerOf(outcome, match);
+  return winner ? t('{name}’s win', { name: names.get(winner) ?? winner }) : t(OUTCOME_NOUNS[outcome] ?? '');
+}
+
+/**
+ * The question before a result that stands is changed, naming both sides so
+ * a stray press on the other player cannot read as a routine entry:
+ * "Change Ash’s win to Misty’s?", "Change Ash’s win to a tie?", "Clear Ash’s win?".
+ */
+export function changeQuestion(from: Outcome, to: Outcome, match: Match, names: Map<string, string>): string {
+  const was = outcomeNoun(from, match, names);
+  if (to === 'pending') {
+    return t('Clear {from}?', { from: was });
+  }
+  const winner = winnerOf(to, match);
+  return winner && winnerOf(from, match)
+    ? t('Change {from} to {name}’s?', { from: was, name: names.get(winner) ?? winner })
+    : t('Change {from} to {to}?', { from: was, to: outcomeNoun(to, match, names) });
 }
 
 /** A short tag after a player's name in a pairings row, as what they reported. */

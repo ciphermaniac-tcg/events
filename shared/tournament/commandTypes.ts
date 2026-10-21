@@ -38,6 +38,11 @@ export type Command =
       p1: string;
       p2: string | null;
       outcome: Outcome;
+      /**
+       * The result the sender saw standing ('pending' while open), so one entered
+       * on another device since is not overwritten unseen. Older consoles send none.
+       */
+      expected?: Outcome;
     }
   | { type: 'swapPlayers'; pod: PodCategory; a: string; b: string }
   | { type: 'startTopCut'; pod: PodCategory; size: number; division?: Division; playoff3rd4th?: boolean }

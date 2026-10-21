@@ -4,7 +4,7 @@
  * whoever won. The public page adds whether each table is still playing, on
  * desktop. Staff get the result controls: a player's name is the button that
  * reports them as the winner, which is one press at the table (and a second
- * to confirm, or a double click, see RoundPanel).
+ * to confirm, or a double click on an open table, see RoundPanel).
  *
  * On a phone a row restacks into two lines under its table number, as the
  * site's live pairings do, so the opponent is never behind a sideways scroll.
@@ -31,7 +31,7 @@ export interface MatchTableProps {
   onPlayer?: (id: string) => void;
   /** Staff only: report `outcome` for the match. */
   onReport?: (match: Match, outcome: Outcome) => void;
-  /** Staff only: record `outcome` at once, from a double click on the winner. */
+  /** Staff only: record `outcome` at once, from a double click on the winner at an open table. */
   onRecord?: (match: Match, outcome: Outcome) => void;
   /** Staff only: the extra cell at the end of each row. */
   extra?: (match: Match) => JSX.Element;
@@ -81,6 +81,10 @@ function SeatCell(props: MatchTableProps & { match: Match; seat: 1 | 2; records:
     </>
   );
   const reportable = () => props.onReport && props.match.p2 !== null;
+  // A double click records only on an open table: changing a result that stands always asks first.
+  const open = () =>
+    (props.sent?.(props.match) ?? shownOutcome(props.match, props.pod, props.round, props.pending).outcome) ===
+    'pending';
   return (
     <td class='tm-seat' classList={{ 'is-selected': props.selected?.has(id() ?? '') }}>
       <Show
@@ -118,7 +122,7 @@ function SeatCell(props: MatchTableProps & { match: Match; seat: 1 | 2; records:
               onClick={() =>
                 reportable() ? props.onReport?.(props.match, winnerOutcome(props.seat)) : props.onPlayer?.(playerId())
               }
-              onDblClick={() => reportable() && props.onRecord?.(props.match, winnerOutcome(props.seat))}
+              onDblClick={() => reportable() && open() && props.onRecord?.(props.match, winnerOutcome(props.seat))}
             >
               {content(playerId())}
             </button>

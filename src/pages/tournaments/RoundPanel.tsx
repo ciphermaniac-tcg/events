@@ -7,8 +7,9 @@
  * re-pairs the round around the results already in.
  *
  * Results are entered by pressing the winner's name, then Record in the row,
- * so a slip of the finger is not a result; a double click on the name records
- * it at once, for a result read off a slip. The filter narrows the room to
+ * so a slip of the finger is not a result; a double click on the name at an
+ * open table records it at once, for a result read off a slip. Changing a
+ * result that stands always asks, naming both sides. The filter narrows the room to
  * one table (type its number) or player, or to the tables still playing, so
  * a result called out across the room is a few keystrokes and two presses,
  * and focus comes back to the filter for the next one. Where players report
@@ -29,12 +30,14 @@ import type { Manage } from '../../lib/tournament/api';
 import {
   type Champion,
   champions,
+  changeQuestion,
   filterMatches,
   hasCut,
   type MatchView,
   matchViews,
   namesById,
   outcomeLabel,
+  outcomeNoun,
   recordsBefore,
   RESULT_WORDS,
   roundLabel,
@@ -79,6 +82,8 @@ interface ResultProps {
   sent: Outcome | undefined;
   /** The result the server did not take, held in the row until it is retried or discarded. */
   failed: Outcome | undefined;
+  /** What another device entered for the match since, which the result not taken would replace. */
+  conflict: Outcome | undefined;
   names: Map<string, string>;
   asking: Asking | null;
   onReport: (outcome: Outcome) => void;
@@ -94,9 +99,29 @@ interface ResultProps {
   past: CorrectableCell | null;
 }
 
-/** The second press a result takes, in its row, so a slip of the finger is not a result. */
+/** What the row shows standing for the match: the result on its way, or the one that stands. */
+const standing = (row: ResultProps): Outcome =>
+  row.sent ?? shownOutcome(row.match, row.pod, row.round, row.manage.pending).outcome;
+
+/** The confirm button's word: Clear, Change for a result that stands, or Record. */
+function confirmWord(from: Outcome, to: Outcome): string {
+  if (to === 'pending') {
+    return t('Clear');
+  }
+  return from === 'pending' ? tc('verb', 'Record') : t('Change');
+}
+
+/**
+ * The second press a result takes, in its row, so a slip of the finger is not
+ * a result. Changing one that stands names both sides.
+ */
 function ConfirmResult(props: ResultProps & { asking: Asking }) {
-  const asked = () => t('{result}?', { result: outcomeLabel(props.asking.outcome, props.match, props.names) });
+  const asked = () => {
+    const from = standing(props);
+    return from === 'pending'
+      ? t('{result}?', { result: outcomeLabel(props.asking.outcome, props.match, props.names) })
+      : changeQuestion(from, props.asking.outcome, props.match, props.names);
+  };
   return (
     <div
       class='tm-result is-asking'
@@ -118,7 +143,7 @@ function ConfirmResult(props: ResultProps & { asking: Asking }) {
           ref={el => queueMicrotask(() => el.focus())}
           onClick={() => props.onRecord()}
         >
-          {props.asking.outcome === 'pending' ? t('Clear') : tc('verb', 'Record')}
+          {confirmWord(standing(props), props.asking.outcome)}
         </button>
         <button type='button' class='btn btn-ghost tm-small' onClick={() => props.onKeep()}>
           {t('Cancel')}
@@ -130,22 +155,30 @@ function ConfirmResult(props: ResultProps & { asking: Asking }) {
 
 /**
  * A result the server did not take, in its row: what was entered, marked as
- * not saved, with a retry and a way to drop it. The row's own press opens
- * its sheet on a narrow screen, so neither button passes its press on.
+ * not saved, with a retry and a way to drop it. When another device changed
+ * the result first, the row names what it entered, and the retry replaces it.
+ * The row's own press opens its sheet on a narrow screen, so neither button
+ * passes its press on.
  */
 function UnsavedResult(props: ResultProps & { failed: Outcome }) {
+  const label = () =>
+    props.conflict
+      ? t('Not saved: another device entered {result}', {
+          result: outcomeNoun(props.conflict, props.match, props.names)
+        })
+      : t('Not saved: {result}', { result: outcomeLabel(props.failed, props.match, props.names) });
   const press = (event: MouseEvent, action: () => void) => {
     event.stopPropagation();
     action();
   };
   return (
     <div class='tm-result is-unsaved' role='group' aria-label={t('Result not saved')}>
-      <span class='tm-result-label is-problem'>
-        {t('Not saved: {result}', { result: outcomeLabel(props.failed, props.match, props.names) })}
+      <span class='tm-result-label is-problem' title={label()}>
+        {label()}
       </span>
       <span class='tm-result-acts'>
         <button type='button' class='btn btn-secondary tm-small' onClick={e => press(e, props.onRetry)}>
-          {t('Retry')}
+          {props.conflict ? t('Use mine') : t('Retry')}
         </button>
         <button type='button' class='btn btn-ghost tm-small' onClick={e => press(e, props.onDiscard)}>
           {t('Discard')}
@@ -781,6 +814,7 @@ export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod
                     reports={openReports(match, r())}
                     sent={entry.sentFor(r(), match)}
                     failed={entry.failedFor(r(), match)}
+                    conflict={entry.conflictFor(r(), match)}
                     onRetry={() => void entry.retry(r(), match)}
                     onDiscard={() => entry.discard(r(), match)}
                     names={names()}
