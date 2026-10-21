@@ -78,6 +78,12 @@ export const requestOf = (requests: readonly PlayerRequest[], player: string, ki
 export const isLive = (request: PlayerRequest | undefined): request is PlayerRequest =>
   request !== undefined && request.status !== 'cancelled';
 
+/** The open drop requests from `players`, oldest first: each waits on staff before the next round pairs them. */
+export const openDrops = (requests: readonly PlayerRequest[], players: readonly string[]): PlayerRequest[] =>
+  requests
+    .filter(request => request.kind === 'drop' && request.status === 'open' && players.includes(request.player))
+    .sort((a, b) => a.at - b.at);
+
 /**
  * The list with the player's new request; null when an open one of the same
  * kind already stands, so nothing changes; why not when they cancelled one

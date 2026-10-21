@@ -311,6 +311,7 @@
   "Drop declined": "Abandono rechazado",
   "drop in TOM": "márcalo como abandono en TOM",
   "Drop requested": "Abandono solicitado",
+  "Drop requests": "Solicitudes de abandono",
   "Drop ‖ request": "Abandono",
   "Dropped": "Abandonó",
   "dropped after round {round}": "abandonó tras la ronda {round}",
@@ -556,6 +557,7 @@
   "No deck checks yet.": "Todavía no hay revisiones de mazo.",
   "No decklists yet.": "Todavía no hay listas.",
   "No decks to show yet.": "Aún no hay mazos para mostrar.",
+  "No drop requests waiting.": "No hay solicitudes de abandono pendientes.",
   "No eligible player remains for a random bye": "No queda ningún jugador que pueda recibir un bye al azar",
   "No eligible qualifiers can form another round": "No hay suficientes clasificados para formar otra ronda",
   "No events yet": "Todavía no hay eventos",
@@ -705,6 +707,7 @@
   "Page not found": "Página no encontrada",
   "Page timing": "Cambio de página",
   "Page {n} of {total}": "Página {n} de {total}",
+  "Pair anyway": "Emparejar igualmente",
   "Pair round {n}": "Emparejar ronda {n}",
   "Pair {stage}": "Emparejar {stage}",
   "Paired": "Emparejada",
@@ -1349,6 +1352,14 @@
   "{n} approved": {
     "one": "{n} aprobada",
     "other": "{n} aprobadas"
+  },
+  "{n} drop requests waiting": {
+    "one": "{n} solicitud de abandono pendiente",
+    "other": "{n} solicitudes de abandono pendientes"
+  },
+  "{n} drops": {
+    "one": "{n} abandono",
+    "other": "{n} abandonos"
   },
   "{n} events": {
     "one": "{n} evento",

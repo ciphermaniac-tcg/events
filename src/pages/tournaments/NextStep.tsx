@@ -2,9 +2,9 @@
  * The console's next step at the end of a Swiss round: one button for the
  * step the plan suggests (pair the next round, start the top cut, end the
  * event) with a caret beside it that offers the others. Pairing happens at
- * once, since a round nobody has played can still be deleted; the top cut
- * asks its size and third-place match in a dialog, and ending, or concluding
- * a Prerelease pod, asks first.
+ * once, since a round nobody has played can still be deleted, unless a drop
+ * request is open (see dropGate); the top cut asks its size and third-place
+ * match in a dialog, and ending, or concluding a Prerelease pod, asks first.
  */
 
 import { createMemo, createSignal, For, Show } from 'solid-js';
@@ -18,6 +18,7 @@ import { Segmented } from '@ciphermaniac/design/components/Segmented';
 import { ConfirmDialog } from './ConfirmAction';
 import type { ManageState } from './manageState';
 import { Modal } from './Modal';
+import { createDropGate } from './dropGate';
 import { OptionsMenu } from './OptionsMenu';
 import { msg, t } from '../../lib/i18n';
 
@@ -213,6 +214,11 @@ export function RoundEndSplit(props: {
   swissOver: boolean;
 }) {
   const [dialog, setDialog] = createSignal<Exclude<RoundEnd, 'pair'> | null>(null);
+  const gate = createDropGate({
+    state: () => props.state,
+    manage: () => props.manage,
+    pod: () => props.pod
+  });
   const open = () => props.cuts.filter(c => !c.started);
   const allDone = () =>
     props.manage.tournament.pods.every(pod => {
@@ -234,7 +240,7 @@ export function RoundEndSplit(props: {
   const others = () => steps().filter(s => s.end !== main().end);
   const take = (end: RoundEnd) => {
     if (end === 'pair') {
-      void props.state.send({ type: 'pairRound', pod: props.pod.category });
+      gate.pair();
     } else {
       setDialog(end);
     }
@@ -293,6 +299,7 @@ export function RoundEndSplit(props: {
         onConfirm={() => void props.state.send({ type: 'concludePrerelease', pod: props.pod.category })}
         onClose={() => setDialog(null)}
       />
+      {gate.dialog(props.label)}
     </span>
   );
 }

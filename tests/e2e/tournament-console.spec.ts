@@ -56,6 +56,15 @@ function firstMatch(t: Tournament): Match {
   return match;
 }
 
+/** The latest-round table `id` sits at. */
+function seatedAt(t: Tournament, id: string): Match {
+  const match = t.pods[0]?.rounds.at(-1)?.matches.find(m => m.p1 === id || m.p2 === id);
+  if (!match) {
+    throw new Error('no seat');
+  }
+  return match;
+}
+
 /** An unsanctioned event of `players`, with `rounds` played and one more paired when `paired`. */
 function event(players: number, rounds: number, paired: boolean): Tournament {
   const adds: Command[] = Array.from({ length: players }, (_, i) => ({
@@ -1492,16 +1501,88 @@ test('staff see a drop request on the Players tab and confirm it by its ID in on
     status: 'open'
   };
   const sent = await mockConsole(page, t, settingsOf({}), [], false, [asked]);
-  const tab = page.getByRole('tab', { name: 'Players · 1' });
+  const tab = page.getByRole('tab', { name: 'Players · 1 drop' });
   await tab.click();
   const requests = page.getByRole('region', { name: 'Player requests' });
-  await expect(requests.getByRole('row', { name: new RegExp(player.lastName) })).toContainText('Drop');
+  const row = requests.getByRole('row', { name: new RegExp(player.lastName) });
+  await expect(row).toContainText('Drop');
+  // The player's table, so whoever answers can walk straight there.
+  const seated = seatedAt(t, player.id);
+  await expect(row.getByRole('cell').nth(1)).toHaveText(String(seated.table));
   await requests.getByRole('button', { name: 'Confirm drop' }).click();
   await expect.poll(() => sent.answers).toEqual([expect.objectContaining({ id: 'request-1', status: 'accepted' })]);
   // The server drops the player with the answer; the console sends no separate drop to fail halfway.
   expect(sent).toHaveLength(0);
   await expect(requests).toContainText('Confirmed · Organizer');
   await expect(page.getByRole('tab', { name: 'Players', exact: true })).toBeVisible();
+});
+
+test('an open drop request holds the next pairing until it is answered, or paired past on purpose', async ({
+  page
+}) => {
+  const t = event(8, 1, false);
+  const player = t.players[0]!;
+  const asked: PlayerRequest = { id: 'drop-1', player: player.id, kind: 'drop', at: 1, status: 'open' };
+  const contact: PlayerRequest = { id: 'staff-1', player: t.players[1]!.id, kind: 'staff', at: 2, status: 'open' };
+  const sent = await mockConsole(page, t, settingsOf({}), [], false, [asked, contact]);
+  await expect(page.getByRole('tab', { name: 'Players · 1 · 1 drop' })).toBeVisible();
+  await expect(page.locator('.tm-next-reason')).toHaveText('1 drop request waiting');
+  await page.getByRole('button', { name: 'Pair round 2' }).click();
+  const check = page.getByRole('dialog', { name: 'Drop requests' });
+  await expect(check.getByRole('listitem')).toHaveText([new RegExp(`${player.firstName} ${player.lastName}`)]);
+  expect(sent).toHaveLength(0);
+  await check.getByRole('button', { name: 'Cancel' }).click();
+  await expect(check).toHaveCount(0);
+  await page.getByRole('button', { name: 'Pair round 2' }).click();
+  await check.getByRole('button', { name: 'Pair anyway' }).click();
+  await expect.poll(() => sent.at(-1)).toMatchObject({ type: 'pairRound' });
+});
+
+const dropAsked = (t: Tournament): PlayerRequest => ({
+  id: 'drop-1',
+  player: t.players[0]!.id,
+  kind: 'drop',
+  at: 1,
+  status: 'open'
+});
+
+test('an open drop request holds round 1 until it is answered', async ({ page }) => {
+  const t = event(8, 0, false);
+  const sent = await mockConsole(page, t, settingsOf({}), [], false, [dropAsked(t)]);
+  await expect(page.locator('.tm-next-reason')).toHaveText('1 drop request waiting');
+  await page.getByRole('button', { name: 'Pair round 1' }).click();
+  const check = page.getByRole('dialog', { name: 'Drop requests' });
+  await expect(check.getByRole('listitem')).toHaveCount(1);
+  await check.getByRole('button', { name: 'Cancel' }).click();
+  expect(sent).toHaveLength(0);
+});
+
+test('a top cut is not held by a drop request, but a round paired from the menu is', async ({ page }) => {
+  const t = event(16, 5, false);
+  const sent = await mockConsole(page, t, settingsOf({}), [], false, [dropAsked(t)]);
+  const step = page.locator('.tm-split');
+  await expect(step.getByRole('button', { name: 'Start top cut' })).toBeVisible();
+  await expect(page.getByText('1 drop request waiting')).toHaveCount(0);
+  await step.getByRole('button', { name: 'Other next steps' }).click();
+  await step.locator('.tm-menu-item', { hasText: 'Pair round 6' }).click();
+  const check = page.getByRole('dialog', { name: 'Drop requests' });
+  await expect(check.getByRole('listitem')).toHaveCount(1);
+  expect(sent).toHaveLength(0);
+  await check.getByRole('button', { name: 'Pair anyway' }).click();
+  await expect.poll(() => sent.at(-1)).toMatchObject({ type: 'pairRound' });
+});
+
+test('a drop confirmed from the pairing check leaves the pairing one press away', async ({ page }) => {
+  const t = event(8, 1, false);
+  const asked: PlayerRequest = { id: 'drop-1', player: t.players[0]!.id, kind: 'drop', at: 1, status: 'open' };
+  const sent = await mockConsole(page, t, settingsOf({}), [], false, [asked]);
+  await page.getByRole('button', { name: 'Pair round 2' }).click();
+  const check = page.getByRole('dialog', { name: 'Drop requests' });
+  await check.getByRole('button', { name: 'Confirm drop' }).click();
+  await expect.poll(() => sent.answers).toEqual([expect.objectContaining({ id: 'drop-1', status: 'accepted' })]);
+  await expect(check).toContainText('No drop requests waiting.');
+  await check.getByRole('button', { name: 'Pair round 2' }).click();
+  await expect.poll(() => sent.at(-1)).toMatchObject({ type: 'pairRound' });
 });
 
 test('a cold console asks for the event while its own code is on the way, and its Pairings code before the event lands', async ({

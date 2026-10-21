@@ -7,11 +7,13 @@
  */
 
 import { For, Show } from 'solid-js';
-import type { PlayerRequest, RequestAnswer } from '../../../shared/tournament/requests';
+import type { PlayerRequest } from '../../../shared/tournament/requests';
 import { playerName } from '../../../shared/tournament/types';
-import { answerRequest, type Manage } from '../../lib/tournament/api';
+import type { Manage } from '../../lib/tournament/api';
+import { seatOf } from '../../lib/tournament/present';
 import { intlLocale, msg, t, tc } from '../../lib/i18n';
 import type { ManageState } from './manageState';
+import { Answers } from './DropCheck';
 
 /** What a request asks, as a noun: the staff table names the request, not the button the player pressed. */
 const kindLabel = (kind: PlayerRequest['kind']) =>
@@ -25,6 +27,12 @@ const STATUS_LABELS: Record<PlayerRequest['status'], string> = {
   cancelled: msg('Cancelled')
 };
 
+/** Where the player sits, so whoever answers can walk straight there. */
+function seatText(manage: Manage, id: string): string {
+  const seat = seatOf(manage.tournament, id);
+  return seat === 'bye' ? t('Bye') : seat === null ? '—' : String(seat);
+}
+
 const timeOf = (at: number) => new Date(at).toLocaleTimeString(intlLocale(), { hour: 'numeric', minute: '2-digit' });
 
 /** Open requests first, oldest first; then answered ones, latest first. Cancelled ones ask nothing. */
@@ -34,34 +42,6 @@ const ordered = (requests: readonly PlayerRequest[]) => [
     .filter(request => request.status !== 'open' && request.status !== 'cancelled')
     .sort((a, b) => (b.answeredAt ?? b.at) - (a.answeredAt ?? a.at))
 ];
-
-/** The answers to one open request, by its ID: the server drops the player with a confirmed drop, in one write. */
-function Answers(props: { state: ManageState; manage: Manage; request: PlayerRequest }) {
-  function answer(status: RequestAnswer) {
-    const { code } = props.manage;
-    const { id } = props.request;
-    void props.state.run(() => answerRequest(code, { id, status }));
-  }
-  return (
-    <span class='tm-row-actions'>
-      <Show
-        when={props.request.kind === 'drop'}
-        fallback={
-          <button type='button' class='btn btn-secondary tm-small' onClick={() => answer('done')}>
-            {t('Mark contacted')}
-          </button>
-        }
-      >
-        <button type='button' class='btn btn-secondary tm-small' onClick={() => answer('accepted')}>
-          {t('Confirm drop')}
-        </button>
-        <button type='button' class='btn btn-ghost tm-small' onClick={() => answer('declined')}>
-          {t('Decline')}
-        </button>
-      </Show>
-    </span>
-  );
-}
 
 function Status(props: { manage: Manage; request: PlayerRequest }) {
   const tomDrop = () =>
@@ -99,6 +79,7 @@ export function StaffRequests(props: { state: ManageState; manage: Manage }) {
             <thead>
               <tr>
                 <th>{t('Player')}</th>
+                <th>{t('Table')}</th>
                 <th>{t('Request')}</th>
                 <th>{t('Asked')}</th>
                 <th>{t('Status')}</th>
@@ -109,6 +90,7 @@ export function StaffRequests(props: { state: ManageState; manage: Manage }) {
                 {request => (
                   <tr>
                     <td>{name(request.player)}</td>
+                    <td class='tm-num'>{seatText(props.manage, request.player)}</td>
                     <td>{kindLabel(request.kind)}</td>
                     <td class='tm-num'>{timeOf(request.at)}</td>
                     <td>

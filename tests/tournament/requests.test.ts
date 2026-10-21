@@ -5,6 +5,7 @@ import {
   cancelRequest,
   fileRequest,
   isAnswerFor,
+  openDrops,
   publicRequests,
   REQUEST_COOLDOWN_MS,
   requestOf,
@@ -112,5 +113,22 @@ test('requests stored without IDs read with one built from what they hold, and I
   assert.equal(withRequestIds([{ ...legacy, id: 'r9' }])[0]?.id, 'r9');
   assert.ok(
     Array.isArray(answerRequest(withRequestIds([legacy]), { id: 'legacy:p1:drop:10', status: 'accepted', ...staff }))
+  );
+});
+
+test('the drops waiting on staff are the open ones from the pod’s players, oldest first', () => {
+  let requests = filed([], { id: 'r1', player: 'p2', kind: 'drop', at: 20 });
+  requests = filed(requests, { id: 'r2', player: 'p1', kind: 'drop', at: 10 });
+  requests = filed(requests, { id: 'r3', player: 'p1', kind: 'staff', at: 5 });
+  requests = filed(requests, { id: 'r4', player: 'p9', kind: 'drop', at: 1 });
+  const answered = answerRequest(requests, { id: 'r1', status: 'declined', ...staff });
+  assert.ok(Array.isArray(answered));
+  assert.deepEqual(
+    openDrops(requests, ['p1', 'p2']).map(request => request.id),
+    ['r2', 'r1']
+  );
+  assert.deepEqual(
+    openDrops(answered, ['p1', 'p2']).map(request => request.id),
+    ['r2']
   );
 });

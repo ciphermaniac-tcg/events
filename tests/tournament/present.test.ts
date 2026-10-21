@@ -47,6 +47,7 @@ import {
   roundLabel,
   roundStatus,
   seatMark,
+  seatOf,
   shownDecks,
   shownOutcome,
   staffReport,
@@ -131,6 +132,20 @@ test('a player’s history, current match and records going in', () => {
   assert.equal(current?.match.table, 1);
   assert.equal(currentMatchOf(CHALLENGE, 'nobody'), null);
   assert.equal(recordsBefore(pod, round2).get('7200001'), '1-0-0');
+});
+
+test('a player’s seat names their table, a bye, or nothing before they have one', () => {
+  assert.equal(seatOf(CHALLENGE, '7200001'), 1);
+  assert.equal(seatOf(CHALLENGE, 'nobody'), null);
+  const open = round2.matches[1];
+  assert.ok(open);
+  const only = (match: Match): Tournament => ({
+    ...CHALLENGE,
+    pods: [{ ...pod, rounds: [{ ...round2, matches: [match] }] }]
+  });
+  assert.equal(seatOf(only({ ...open, p2: null, outcome: 'bye' }), open.p1), 'bye');
+  // A late arrival's missed-round loss is no seat to walk to.
+  assert.equal(seatOf(only({ ...open, p2: null, outcome: 'loss' }), open.p1), null);
 });
 
 test('a table’s records count its result as soon as it shows', () => {

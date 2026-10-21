@@ -53,6 +53,7 @@ import '../../styles/pages/tournament-console.css';
 import { ClockControls } from './RoundControls';
 import { EndEventStep, type RoundEnd, RoundEndSplit } from './NextStep';
 import { createTomLink, type Lapse, type TomLink, TomStatus } from './TomSyncPanel';
+import { createDropGate, podDrops } from './dropGate';
 import { Trail } from './Trail';
 import { pageTitle } from '../../lib/title';
 
@@ -109,24 +110,33 @@ function tomPart(tom: TomLink): string {
   return n ? tn(n, '{n} result to write', '{n} results to write') : t('TOM has every result');
 }
 
-/** Pairing the pod's next round or stage. */
+/** Pairing the pod's next round or stage, asking first about any drop request still open (see dropGate). */
 function PairButton(props: {
   state: ManageState;
+  manage: Manage;
   pod: Pod | undefined;
   label: string;
   ready: boolean;
   primary?: boolean;
 }) {
+  const gate = createDropGate({
+    state: () => props.state,
+    manage: () => props.manage,
+    pod: () => props.pod
+  });
   return (
-    <button
-      type='button'
-      class={props.primary === false ? 'btn btn-secondary' : 'btn btn-primary'}
-      classList={{ 'is-waiting': !props.ready }}
-      disabled={!props.ready || props.state.busy()}
-      onClick={() => props.pod && void props.state.send({ type: 'pairRound', pod: props.pod.category })}
-    >
-      {props.label}
-    </button>
+    <>
+      <button
+        type='button'
+        class={props.primary === false ? 'btn btn-secondary' : 'btn btn-primary'}
+        classList={{ 'is-waiting': !props.ready }}
+        disabled={!props.ready || props.state.busy()}
+        onClick={() => gate.pair()}
+      >
+        {props.label}
+      </button>
+      {gate.dialog(props.label)}
+    </>
   );
 }
 
@@ -246,8 +256,21 @@ function Hero(props: { state: ManageState; manage: Manage; pod: Pod | undefined;
     return s.kind === 'pair' && progress().round?.kind === 'swiss' ? { ...s, end: 'pair' as RoundEnd } : null;
   };
   const firstBlocked = () => pairStep() !== null && !progress().round && active() < 2;
-  const reason = () =>
-    firstBlocked() ? t('Add players to pair') : (pairStep() ?? decideStep() ?? closeStep())?.reason;
+  /** Whether the main step pairs a round now: not a top cut or the end, which no drop request holds back. */
+  const pairsNow = () => {
+    const end = roundEnd();
+    return end ? end.end === 'pair' && end.ready : Boolean(pairStep()?.ready);
+  };
+  // Players who asked to drop are answered before the next round pairs them (see dropGate).
+  const drops = () => (pairsNow() ? podDrops(props.manage, props.pod).length : 0);
+  const reason = () => {
+    if (firstBlocked()) {
+      return t('Add players to pair');
+    }
+    return drops()
+      ? tn(drops(), '{n} drop request waiting', '{n} drop requests waiting')
+      : (pairStep() ?? decideStep() ?? closeStep())?.reason;
+  };
   // The open tables need no saying twice: the lead already counts them.
   const openTablesOnly = () => reason() === tn(progress().open, '{n} table open', '{n} tables open');
   const action = (
@@ -268,7 +291,15 @@ function Hero(props: { state: ManageState; manage: Manage; pod: Pod | undefined;
         )}
       </Match>
       <Match when={pairStep()}>
-        {s => <PairButton state={props.state} pod={props.pod} label={s().label} ready={s().ready && !firstBlocked()} />}
+        {s => (
+          <PairButton
+            state={props.state}
+            manage={props.manage}
+            pod={props.pod}
+            label={s().label}
+            ready={s().ready && !firstBlocked()}
+          />
+        )}
       </Match>
       <Match when={closeStep()}>
         {s => (
@@ -411,10 +442,18 @@ function TabBar(props: { tabs: TabOption[]; selected: Tab; onSelect: (tab: Tab) 
 /** Whether any pod has a round paired: until then the Pairings tab has nothing to show. */
 const hasStarted = (manage: Manage) => manage.tournament.pods.some(p => latestRound(p) !== undefined);
 
-/** The Players tab counts the requests waiting on staff, so one is seen from any tab. */
+/**
+ * The Players tab counts the requests waiting on staff, so one is seen from
+ * any tab: drops apart from the rest, since a drop holds back the next round.
+ */
 function withRequests(option: TabOption, manage: Manage): TabOption {
-  const open = (manage.requests ?? []).filter(request => request.status === 'open').length;
-  return option.value === 'players' && open > 0 ? { ...option, label: `${option.label} · ${open}` } : option;
+  const open = (manage.requests ?? []).filter(request => request.status === 'open');
+  const drops = open.filter(request => request.kind === 'drop').length;
+  const others = open.length - drops;
+  const counts = [others ? String(others) : '', drops ? tn(drops, '{n} drop', '{n} drops') : ''].filter(Boolean);
+  return option.value === 'players' && counts.length
+    ? { ...option, label: [option.label, ...counts].join(' · ') }
+    : option;
 }
 
 /** Until round 1 is paired, Pairings has nothing to show and a penalty has no round to be noted in. */

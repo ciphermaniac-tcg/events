@@ -582,6 +582,18 @@ export function currentMatchOf(
   return null;
 }
 
+/**
+ * Where a player sits this round, for staff walking over: a table number, a
+ * bye, or null before they have a seat (unpaired, or only a missed-round loss).
+ */
+export function seatOf(tournament: Tournament, playerId: string): number | 'bye' | null {
+  const match = currentMatchOf(tournament, playerId)?.match;
+  if (!match || match.outcome === 'loss') {
+    return null;
+  }
+  return match.p2 === null ? 'bye' : match.table;
+}
+
 /** m:ss, with a minus once time is up. */
 export function clockLabel(round: Round, now: number, extraSeconds = 0): string {
   const left = secondsLeft(round, now) + extraSeconds;
