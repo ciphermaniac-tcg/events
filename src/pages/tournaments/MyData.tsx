@@ -4,20 +4,30 @@
  * opens a dialog. Export and wipe both choose from the parts in
  * shared/accounts/myData.ts; a wipe is chosen, then reviewed with what
  * follows from it, before it goes. Deleting asks for the username typed out.
- * A wipe of organizer history or a deletion that must wait says why, with the
- * events still running and the stores still owned.
+ * A wipe of organizer history or a deletion that must wait says why as its
+ * dialog opens, before anything is chosen or typed, with the events still
+ * running and the stores still owned; the server refuses it all the same.
  */
 
 import { A, useNavigate } from '@solidjs/router';
-import { createSignal, For, Show } from 'solid-js';
+import { createResource, createSignal, For, Show } from 'solid-js';
 import {
+  type DataHolds,
   type DataRefusal,
   EXPORT_PARTS,
   type ExportPart,
   WIPE_PARTS,
   type WipePart
 } from '../../../shared/accounts/myData';
-import { ApiError, deleteAccount, errorText, exportData, type Me, wipeData } from '../../lib/tournament/api';
+import {
+  ApiError,
+  deleteAccount,
+  errorText,
+  exportData,
+  fetchDataHolds,
+  type Me,
+  wipeData
+} from '../../lib/tournament/api';
 import { ErrorLine } from './Field';
 import { msg, t, tx } from '../../lib/i18n';
 import { Modal } from './Modal';
@@ -54,40 +64,69 @@ const AFTER: Record<WipePart, string[]> = {
   ],
   organizer: [
     msg('Your name comes off those events; players keep them in their histories'),
-    msg('You can no longer open or edit them'),
-    msg('Waits until every event you run has ended')
+    msg('You can no longer open or edit them')
   ]
 };
 
 /** What deleting costs. */
 const DELETE_AFTER = [
   msg('Everything above is wiped, and your sign-ins and sessions go'),
-  msg('Events you ran stay for their players, without your name'),
-  msg('Waits until your events have ended and any store you own is handed over')
+  msg('Events you ran stay for their players, without your name')
 ];
 
 /** The refusal a 409 carries, or null for any other failure. */
 const refusalOf = (err: unknown): DataRefusal | null =>
   err instanceof ApiError && err.status === 409 ? (err.body as unknown as DataRefusal) : null;
 
+/** The running events, each linked to its page, and the stores owned, that hold up a wipe or deletion. */
+function HoldList(props: { holds: DataHolds }) {
+  return (
+    <Show when={props.holds.running.length + props.holds.ownedStores.length > 0}>
+      <ul class='tm-consequences'>
+        <For each={props.holds.running}>
+          {event => (
+            <li>
+              <A href={`/t/${event.code}`}>{event.name || event.code}</A>
+            </li>
+          )}
+        </For>
+        <For each={props.holds.ownedStores}>{name => <li>{name}</li>}</For>
+      </ul>
+    </Show>
+  );
+}
+
 /** Why a wipe or deletion failed, with what holds it up when it must wait. */
 function Failure(props: { error: unknown }) {
-  const refusal = () => refusalOf(props.error);
-  const holding = () => [
-    ...(refusal()?.running.map(event => event.name || event.code) ?? []),
-    ...(refusal()?.ownedStores ?? [])
-  ];
   return (
     <Show when={props.error}>
       <div class='tm-box-bar tm-modal-body'>
         <ErrorLine message={errorText(props.error)} />
-        <Show when={holding().length > 0}>
-          <ul class='tm-consequences'>
-            <For each={holding()}>{name => <li>{name}</li>}</For>
-          </ul>
-        </Show>
+        <Show when={refusalOf(props.error)}>{refusal => <HoldList holds={refusal()} />}</Show>
       </div>
     </Show>
+  );
+}
+
+/**
+ * What holds up the dialog's change, read each time it opens: undefined
+ * while it is read, null when closed or when the read failed (the server
+ * still refuses what must wait).
+ */
+function createHolds(open: () => boolean) {
+  const [holds] = createResource(open, () => fetchDataHolds().catch(() => null));
+  return () => (holds.loading ? undefined : (holds() ?? null));
+}
+
+/** Why the change must wait, over the list of what holds it up. */
+function Held(props: { holds: DataHolds }) {
+  return (
+    <div class='tm-box-bar tm-modal-body'>
+      <p class='tm-error'>
+        {props.holds.running.length > 0 ? t('End your running events first') : t('Hand over the stores you own first')}
+      </p>
+      <HoldList holds={props.holds} />
+    </div>
   );
 }
 
@@ -95,13 +134,20 @@ function Failure(props: { error: unknown }) {
 function PartChoices<P extends ExportPart>(props: {
   parts: readonly P[];
   chosen: ReadonlySet<P>;
+  /** A part that can't be chosen now. */
+  held?: P | null;
   onToggle: (part: P) => void;
 }) {
   return (
     <For each={props.parts}>
       {part => (
-        <label class='tm-choice' classList={{ 'is-on': props.chosen.has(part) }}>
-          <input type='checkbox' checked={props.chosen.has(part)} onChange={() => props.onToggle(part)} />
+        <label class='tm-choice' classList={{ 'is-on': props.chosen.has(part) && props.held !== part }}>
+          <input
+            type='checkbox'
+            checked={props.chosen.has(part) && props.held !== part}
+            disabled={props.held === part}
+            onChange={() => props.onToggle(part)}
+          />
           <span class='tm-choice-text'>
             <strong>{t(PARTS[part].name)}</strong>
             <span>{t(PARTS[part].what)}</span>
@@ -175,12 +221,18 @@ function ExportDialog(props: { open: boolean; onClose: () => void }) {
   );
 }
 
-function WipeDialog(props: { open: boolean; onClose: () => void; onWiped: (user: Me) => void }) {
+function WipeDialog(props: { open: boolean; onClose: () => void; onWiped: (user: Me, parts: WipePart[]) => void }) {
   const [chosen, setChosen] = createSignal<ReadonlySet<WipePart>>(new Set());
   const [reviewing, setReviewing] = createSignal(false);
   const [busy, setBusy] = createSignal(false);
   const [error, setError] = createSignal<unknown>(null);
-  const parts = () => WIPE_PARTS.filter(part => chosen().has(part));
+  const holds = createHolds(() => props.open);
+  // Organizer history waits on running events alone; a store only holds up deleting.
+  const running = () => {
+    const known = holds();
+    return known && known.running.length > 0 ? { running: known.running, ownedStores: [] } : null;
+  };
+  const parts = () => WIPE_PARTS.filter(part => chosen().has(part) && !(part === 'organizer' && running()));
   function close() {
     setChosen(new Set<WipePart>());
     setReviewing(false);
@@ -191,7 +243,7 @@ function WipeDialog(props: { open: boolean; onClose: () => void; onWiped: (user:
     setBusy(true);
     setError(null);
     try {
-      props.onWiped((await wipeData(parts())).user);
+      props.onWiped((await wipeData(parts())).user, parts());
       forgetAccountMemory();
       close();
     } catch (err) {
@@ -220,7 +272,13 @@ function WipeDialog(props: { open: boolean; onClose: () => void; onWiped: (user:
         when={reviewing()}
         fallback={
           <>
-            <PartChoices parts={WIPE_PARTS} chosen={chosen()} onToggle={part => setChosen(toggled(chosen(), part))} />
+            <PartChoices
+              parts={WIPE_PARTS}
+              chosen={chosen()}
+              held={running() ? 'organizer' : null}
+              onToggle={part => setChosen(toggled(chosen(), part))}
+            />
+            <Show when={running()}>{held => <Held holds={held()} />}</Show>
             <div class='tm-box-bar tm-modal-foot'>
               <button type='button' class='btn btn-ghost' onClick={close}>
                 {t('Cancel')}
@@ -228,7 +286,7 @@ function WipeDialog(props: { open: boolean; onClose: () => void; onWiped: (user:
               <button
                 type='button'
                 class='btn btn-primary'
-                disabled={chosen().size === 0}
+                disabled={parts().length === 0}
                 onClick={() => setReviewing(true)}
               >
                 {t('Review')}
@@ -261,6 +319,12 @@ function DeleteDialog(props: { open: boolean; handle: string; onClose: () => voi
   const [typed, setTyped] = createSignal('');
   const [busy, setBusy] = createSignal(false);
   const [error, setError] = createSignal<unknown>(null);
+  const holds = createHolds(() => props.open);
+  // Nothing to type until what holds the deletion up is known, and cleared.
+  const held = () => {
+    const known = holds();
+    return known === undefined || (known !== null && known.running.length + known.ownedStores.length > 0);
+  };
   function close() {
     setTyped('');
     setError(null);
@@ -280,6 +344,7 @@ function DeleteDialog(props: { open: boolean; handle: string; onClose: () => voi
   }
   return (
     <Modal open={props.open} title={t('Delete your account?')} class='tm-modal-delete' onClose={close}>
+      <Show when={held() && holds()}>{known => <Held holds={known()} />}</Show>
       <div class='tm-box-bar tm-modal-body'>
         <ul class='tm-consequences'>
           <For each={DELETE_AFTER}>{line => <li>{t(line)}</li>}</For>
@@ -291,6 +356,7 @@ function DeleteDialog(props: { open: boolean; handle: string; onClose: () => voi
             autocomplete='off'
             autocapitalize='none'
             spellcheck={false}
+            disabled={held()}
             value={typed()}
             onInput={event => setTyped(event.currentTarget.value)}
           />
@@ -304,7 +370,7 @@ function DeleteDialog(props: { open: boolean; handle: string; onClose: () => voi
         <button
           type='button'
           class='btn btn-secondary tm-danger'
-          disabled={typed() !== props.handle || busy()}
+          disabled={held() || typed() !== props.handle || busy()}
           onClick={() => void remove()}
         >
           {t('Delete account')}
@@ -318,7 +384,17 @@ type Open = 'export' | 'wipe' | 'delete' | null;
 
 export function MyData(props: { user: Me; onWiped: (user: Me) => void }) {
   const [open, setOpen] = createSignal<Open>(null);
+  // What the last wipe took, said beside the button once its dialog closes.
+  const [wiped, setWiped] = createSignal<WipePart[]>([]);
   const close = () => setOpen(null);
+  const wipedNote = () =>
+    wiped().length > 0
+      ? t('Wiped: {parts}', {
+          parts: wiped()
+            .map(part => t(PARTS[part].name))
+            .join(', ')
+        })
+      : undefined;
   return (
     <section>
       <div class='tm-box'>
@@ -337,7 +413,7 @@ export function MyData(props: { user: Me; onWiped: (user: Me) => void }) {
             {t('Export data')}
           </button>
         </SettingRow>
-        <SettingRow label={t('Wipe data')}>
+        <SettingRow label={t('Wipe data')} note={wipedNote()}>
           <button type='button' class='btn btn-secondary' onClick={() => setOpen('wipe')}>
             {t('Wipe data')}
           </button>
@@ -349,7 +425,14 @@ export function MyData(props: { user: Me; onWiped: (user: Me) => void }) {
         </SettingRow>
       </div>
       <ExportDialog open={open() === 'export'} onClose={close} />
-      <WipeDialog open={open() === 'wipe'} onClose={close} onWiped={user => props.onWiped(user)} />
+      <WipeDialog
+        open={open() === 'wipe'}
+        onClose={close}
+        onWiped={(user, parts) => {
+          setWiped(parts);
+          props.onWiped(user);
+        }}
+      />
       <DeleteDialog open={open() === 'delete'} handle={props.user.handle} onClose={close} />
     </section>
   );

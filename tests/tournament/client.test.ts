@@ -16,6 +16,7 @@ import {
   createSwiss,
   deleteTournament,
   exportData,
+  fetchDataHolds,
   fetchDeckChecks,
   fetchDecklists,
   fetchHistory,
@@ -203,6 +204,7 @@ test('every call goes to its endpoint with its body', async () => {
   await saveCheckIn('ABC', { playerId: '1', mark: 'paid', on: true });
   await fetchStaff('ABC');
   await removeStaff('ABC', 'u-1');
+  await fetchDataHolds();
   assert.deepEqual(
     sent.map(s => `${s.method} ${s.url}`),
     [
@@ -227,7 +229,8 @@ test('every call goes to its endpoint with its body', async () => {
       'GET /api/tournaments/ABC/decklists?popId=1&firstName=A&lastName=B&birthYear=1990',
       'PUT /api/tournaments/ABC/checkins',
       'GET /api/tournaments/ABC/staff',
-      'DELETE /api/tournaments/ABC/staff?user=u-1'
+      'DELETE /api/tournaments/ABC/staff?user=u-1',
+      'GET /api/me/data?holds'
     ]
   );
   const decklist = sent[15]?.body as { localTime: string };

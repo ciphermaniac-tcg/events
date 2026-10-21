@@ -76,6 +76,8 @@ const rename = (cookie: string, handle: string) =>
 const wipe = (cookie: string, parts: unknown) =>
   hit(data.onRequestPost as Handler, '/api/me/data', {}, { method: 'POST', cookie, body: { parts } });
 
+const holds = (cookie: string) => hit(data.onRequestGet as Handler, '/api/me/data?holds', {}, { cookie });
+
 const remove = (cookie: string, confirm: unknown) =>
   hit(me.onRequestDelete as Handler, '/api/me', {}, { method: 'DELETE', cookie, body: { confirm } });
 
@@ -298,15 +300,22 @@ test('deleting asks for the username, and waits while the account owns a store o
   assert.equal((await remove(organizer, 'someone-else')).status, 400);
   assert.equal((await remove(organizer, undefined)).status, 400);
   const code = await newSwiss(organizer);
+  // What holds it up reads the same before anything is asked of it.
+  assert.deepEqual((await holds(organizer)).json, {
+    running: [{ code, name: 'Test Cup' }],
+    ownedStores: ['Organizer Games']
+  });
   const refused = await remove(organizer, handle);
   assert.equal(refused.status, 409);
   assert.equal(refused.json.running[0].code, code);
   assert.deepEqual(refused.json.ownedStores, ['Organizer Games']);
   await settle(code, organizer, { finished: true });
+  assert.deepEqual((await holds(organizer)).json, { running: [], ownedStores: ['Organizer Games'] });
   const still = await remove(organizer, handle);
   assert.equal(still.status, 409);
   assert.deepEqual(still.json.running, []);
   assert.ok(account(await idOf(organizer)), 'nothing was deleted');
+  assert.equal((await hit(data.onRequestGet as Handler, '/api/me/data?holds', {}, {})).status, 401);
 });
 
 /** Every row under `id`, by table, leaving out tables with none. */

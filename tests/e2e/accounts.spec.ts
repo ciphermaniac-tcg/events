@@ -590,8 +590,14 @@ test('Settings shows an admin the way to the admin page, and the account button 
 
 // ---------- My data ----------
 
-/** Settings' My data against a mocked account: the wipe answers a new username, and organizer history must wait. */
-async function mockMyData(page: Page) {
+const NO_HOLDS = { running: [], ownedStores: [] };
+
+/**
+ * Settings' My data against a mocked account: the wipe answers a new
+ * username, and organizer history must wait. `holds` is what the dialogs
+ * read as they open; with none, the server still refuses organizer history.
+ */
+async function mockMyData(page: Page, holds: { running: unknown[]; ownedStores: string[] } = NO_HOLDS) {
   const sent: { method: string; url: string; body: unknown }[] = [];
   let user: typeof ME | null = ME;
   await page.route('**/api/**', route => {
@@ -599,6 +605,9 @@ async function mockMyData(page: Page) {
     const url = new URL(request.url());
     const body = request.postDataJSON() as Record<string, unknown> | null;
     sent.push({ method: request.method(), url: url.pathname + url.search, body });
+    if (url.pathname === '/api/me/data' && url.searchParams.has('holds')) {
+      return route.fulfill({ json: holds });
+    }
     if (url.pathname === '/api/me/data' && request.method() === 'GET') {
       return route.fulfill({
         body: '# Your data on Ciphermaniac\n',
@@ -673,7 +682,7 @@ test('Settings: a wipe is chosen, reviewed, then sent, and says what holds it up
   await review.click();
   await dialog.getByRole('button', { name: 'Wipe 1' }).click();
   await expect(dialog.getByRole('alert')).toHaveText('End your running events first');
-  await expect(dialog.getByRole('listitem').filter({ hasText: 'Friday Cup' })).toBeVisible();
+  await expect(dialog.getByRole('link', { name: 'Friday Cup' })).toHaveAttribute('href', '/t/LIVE01');
   await dialog.getByRole('button', { name: 'Back' }).click();
   await dialog.getByRole('checkbox', { name: /^Organizer history/ }).uncheck();
   await dialog.getByRole('checkbox', { name: /^Username/ }).check();
@@ -681,9 +690,39 @@ test('Settings: a wipe is chosen, reviewed, then sent, and says what holds it up
   await review.click();
   await dialog.getByRole('button', { name: 'Wipe 2' }).click();
   await expect(dialog).toBeHidden();
+  await expect(page.getByText('Wiped: Profile, Username')).toBeVisible();
   expect(sent.filter(s => s.method === 'POST').at(-1)?.body).toEqual({ parts: ['profile', 'username'] });
   await page.getByRole('navigation', { name: 'Settings' }).getByRole('button', { name: 'Username' }).click();
   await expect(page.getByRole('textbox', { name: 'Username' })).toHaveValue('quiet-otter-41');
+});
+
+test('Settings: organizer history held up by a running event says so before anything is chosen', async ({ page }) => {
+  const sent = await mockMyData(page, { running: [{ code: 'LIVE01', name: 'Friday Cup' }], ownedStores: [] });
+  await page.goto('/settings?section=data');
+  await page.getByRole('button', { name: 'Wipe data' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Wipe data' });
+  await expect(dialog.getByText('End your running events first')).toBeVisible();
+  await expect(dialog.getByRole('link', { name: 'Friday Cup' })).toHaveAttribute('href', '/t/LIVE01');
+  await expect(dialog.getByRole('checkbox', { name: /^Organizer history/ })).toBeDisabled();
+  await dialog.getByRole('checkbox', { name: /^Profile/ }).check();
+  await dialog.getByRole('button', { name: 'Review' }).click();
+  await dialog.getByRole('button', { name: 'Wipe 1' }).click();
+  await expect(dialog).toBeHidden();
+  expect(sent.filter(s => s.method === 'POST').at(-1)?.body).toEqual({ parts: ['profile'] });
+});
+
+test('Settings: a deletion held up by a store says so, and takes no typing until it is handed over', async ({
+  page
+}) => {
+  const sent = await mockMyData(page, { running: [], ownedStores: ['Combat Power Gaming'] });
+  await page.goto('/settings?section=data');
+  await page.getByRole('button', { name: 'Delete account' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Delete your account?' });
+  await expect(dialog.getByText('Hand over the stores you own first')).toBeVisible();
+  await expect(dialog.getByRole('listitem').filter({ hasText: 'Combat Power Gaming' })).toBeVisible();
+  await expect(dialog.getByRole('textbox')).toBeDisabled();
+  await expect(dialog.getByRole('button', { name: 'Delete account' })).toBeDisabled();
+  expect(sent.some(s => s.method === 'DELETE')).toBe(false);
 });
 
 test('Settings: deleting asks for the username typed out, then signs out @mobile', async ({ page }) => {

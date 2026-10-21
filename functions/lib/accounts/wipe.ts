@@ -24,7 +24,7 @@
  */
 
 import { randomHandle } from '../../../shared/accounts/handle.js';
-import type { DataRefusal, RunningEvent, WipePart } from '../../../shared/accounts/myData.js';
+import type { DataHolds, DataRefusal, RunningEvent, WipePart } from '../../../shared/accounts/myData.js';
 import type { User } from '../auth/session.js';
 import type { D1Like, D1Statement } from '../types.js';
 import { msg } from '../../../shared/i18n.js';
@@ -60,6 +60,11 @@ async function ownedStores(db: D1Like, userId: string): Promise<string[]> {
 
 const RUNNING_ERROR = msg('End your running events first');
 const STORE_ERROR = msg('Hand over the stores you own first');
+
+/** Everything that would hold up a deletion, which an organizer wipe waits on the events of. */
+export async function dataHolds(db: D1Like, user: User): Promise<DataHolds> {
+  return { running: await runningEvents(db, user), ownedStores: await ownedStores(db, user.id) };
+}
 
 /** Why the asked change must wait, or null when it may go ahead. */
 async function refusalOf(db: D1Like, user: User, deleting: boolean): Promise<DataRefusal | null> {

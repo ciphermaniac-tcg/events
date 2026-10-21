@@ -6,7 +6,7 @@
 
 import type { RequestAnswer, RequestKind } from '../../../shared/tournament/requests';
 import { keepBrowserMemory, readBrowserMemory } from './browserMemory';
-import type { ExportPart, WipePart } from '../../../shared/accounts/myData';
+import type { DataHolds, ExportPart, WipePart } from '../../../shared/accounts/myData';
 import type { AccountRole } from '../../../shared/accounts/roles';
 import type { HistoryEntry, MyStore, PublicProfile } from '../../../shared/accounts/types';
 import type { ProfileLinks, ProfilePreferences } from '../../../shared/accounts/profile';
@@ -135,6 +135,9 @@ export async function exportData(parts: readonly ExportPart[]): Promise<{ file: 
   const name = /filename="([^"]+)"/u.exec(response.headers.get('Content-Disposition') ?? '')?.[1];
   return { file: await response.blob(), name: name ?? 'ciphermaniac.md' };
 }
+
+/** What would hold up a wipe of organizer history or a deletion now, read before either is asked for. */
+export const fetchDataHolds = () => call<DataHolds>('/api/me/data?holds');
 
 /** Wipes the parts asked for; a 409 carries a DataRefusal (shared/accounts/myData.ts) in its body. */
 export const wipeData = (parts: readonly WipePart[]) => call<{ user: Me }>('/api/me/data', json('POST', { parts }));

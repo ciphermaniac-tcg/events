@@ -49,12 +49,17 @@ export interface RunningEvent {
 }
 
 /**
- * Why a wipe of organizer history, or a deletion, cannot go ahead yet: an
- * event the account runs, staffs or is named the organizer of has not ended,
- * or (deleting only) the account owns a store, which needs an Owner.
+ * What holds up a wipe of organizer history, or a deletion: the events the
+ * account runs, staffs or is named the organizer of that have not ended, and
+ * (deleting only) the stores it owns, which need an Owner. My data reads them
+ * before anything is typed (GET /api/me/data?holds).
  */
-export interface DataRefusal {
-  error: string;
+export interface DataHolds {
   running: RunningEvent[];
   ownedStores: string[];
+}
+
+/** Why a wipe of organizer history, or a deletion, cannot go ahead yet. */
+export interface DataRefusal extends DataHolds {
+  error: string;
 }
