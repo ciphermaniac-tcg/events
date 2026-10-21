@@ -32,6 +32,8 @@ interface FormProps {
   locked: boolean;
   /** The start as players read it, which is when changes close; null when none is set. */
   closes: string | null;
+  /** Check-in as players read it; null when none is set. */
+  checkIn: string | null;
   /** The event's own list is at its cap. */
   full: boolean;
 }
@@ -141,6 +143,7 @@ export function DecklistForm(props: FormProps) {
               code={props.code}
               sanctioned={props.sanctioned}
               closes={props.closes}
+              checkIn={props.checkIn}
               full={props.full}
               mine={mine}
             />

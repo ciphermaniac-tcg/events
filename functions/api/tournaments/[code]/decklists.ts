@@ -42,7 +42,7 @@
 import { archetypeOfList } from '../../../../shared/tournament/archetypes.js';
 import { MAX_DECKLIST_CHARS, parseDecklist } from '../../../../shared/tournament/decklist.js';
 import { decklistMatcher, fullNameKey, similarlyNamed } from '../../../../shared/tournament/identify.js';
-import { mayBeMinor, mayBeUnder13, UNDER_13 } from '../../../../shared/accounts/age.js';
+import { mayBeMinor, mayBeUnder13 } from '../../../../shared/accounts/age.js';
 import { birthYear, yearOnlyBirthDate } from '../../../../shared/tournament/divisions.js';
 import { isPopId, type PlayerProfile, readProfile } from '../../../../shared/tournament/profile.js';
 import {
@@ -334,6 +334,8 @@ interface Submission {
   localTime: unknown;
 }
 
+/** A player under 13 registers with staff (see shared/accounts/age.ts): paper is no way round it online. */
+const UNDER_13 = msg('Players under 13 register with staff at the event.');
 const LOCKED = msg('This list was sent from another device. Send it from that device, or ask staff to reset it.');
 /** A list from a player who may be under 18, once the event is over: its cards were deleted as it ended (store.ts). */
 const OVER_FOR_MINORS = msg('This event is over.');

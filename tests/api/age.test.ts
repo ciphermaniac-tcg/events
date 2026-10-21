@@ -280,7 +280,7 @@ test('a player under 13 neither says who they are nor sends a list at a sanction
   assert.deepEqual([child.status, child.json.error], [403, UNDER_13]);
   assert.equal((await playerSays(code, { popId: '951', birthYear: String(ADULT) })).status, 200);
   const list = await submit(code, '950', CHILD);
-  assert.deepEqual([list.status, list.json.error], [403, UNDER_13]);
+  assert.deepEqual([list.status, list.json.error], [403, 'Players under 13 register with staff at the event.']);
   assert.equal(count('decklists'), 0);
   assert.equal(
     raw().prepare("SELECT count(*) AS n FROM identify_failures WHERE pop_id = '950'").get()?.n,

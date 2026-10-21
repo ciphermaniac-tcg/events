@@ -697,7 +697,8 @@ function EventBody(props: {
             owner={listOwner()}
             open={decklistsOpen(props.view)}
             locked={decklistsLocked(props.view)}
-            closes={startShown(props.view.settings)}
+            closes={timeShown(props.view.settings.startsAt, props.view.settings.timeZone)}
+            checkIn={timeShown(props.view.settings.checkInAt, props.view.settings.timeZone)}
             full={rosterFull(props.view)}
           />
         </Show>
@@ -722,9 +723,9 @@ function EventBody(props: {
   );
 }
 
-/** The start as players read it, which is when registration changes close; null when none is set. */
-const startShown = (settings: TournamentSettings): string | null =>
-  isWallClock(settings.startsAt) ? eventTimes(settings.startsAt, settings.timeZone).event : null;
+/** A time the organizer set (the start, which is when registration changes close, or check-in) as players read it; null when none is set. */
+const timeShown = (local: string, zone: string): string | null =>
+  isWallClock(local) ? eventTimes(local, zone).event : null;
 
 /** Whether the event's own list is at its cap, so the page says so before anyone types. */
 const rosterFull = (view: TournamentView): boolean =>
