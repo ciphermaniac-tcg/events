@@ -18,3 +18,14 @@ export async function revisionOf(tournament: Tournament): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
   return [...new Uint8Array(digest).slice(0, 12)].map(byte => byte.toString(16).padStart(2, '0')).join('');
 }
+
+/** The event as JSON with its keys in order and its clocks aside: the server stores a file's fields in an order of its own. */
+const canonical = (tournament: Tournament) =>
+  JSON.stringify(withoutClocks(tournament), (_key, value: unknown) =>
+    value && typeof value === 'object' && !Array.isArray(value)
+      ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => (a < b ? -1 : 1)))
+      : value
+  );
+
+/** Whether two copies hold the same event, whatever order their fields were written in. */
+export const sameEvent = (a: Tournament, b: Tournament): boolean => canonical(a) === canonical(b);

@@ -1,13 +1,15 @@
 /**
  * A TOM event's round clocks are the site's: a synced file's timer is set
- * aside, and the revision a sync is checked against does not see clocks.
+ * aside, and neither the revision a sync is checked against nor the
+ * comparison of a file with the site's copy sees clocks.
  */
 
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
-import { revisionOf } from '../../shared/tournament/revision.ts';
+import { revisionOf, sameEvent } from '../../shared/tournament/revision.ts';
+import { readTournament } from '../../shared/tournament/validate.ts';
 import { parseTdf } from '../../shared/tournament/tdf.ts';
 import { withoutClocks, withSiteClocks } from '../../shared/tournament/tomClock.ts';
 import type { Round, Tournament } from '../../shared/tournament/types.ts';
@@ -63,4 +65,23 @@ test('the revision does not change with the clock, but does with anything else',
   const renamed = { ...CHALLENGE, info: { ...CHALLENGE.info, name: 'Another' } };
   assert.notEqual(await revisionOf(renamed), await revisionOf(CHALLENGE));
   assert.equal('timeLeft' in (withoutClocks(CHALLENGE).pods[0]?.rounds[0] ?? {}), false);
+});
+
+test('two copies hold the same event whatever order their fields are in, clocks aside', () => {
+  const stored = readTournament(JSON.parse(JSON.stringify(CHALLENGE)) as unknown);
+  assert.ok(stored);
+  assert.notEqual(
+    JSON.stringify(stored),
+    JSON.stringify(CHALLENGE),
+    'the functions store fields in an order of their own'
+  );
+  assert.ok(sameEvent(CHALLENGE, stored));
+  assert.ok(
+    sameEvent(
+      CHALLENGE,
+      withRounds(stored, round => ({ ...round, timeLeft: 1, clockStartedAt: 5 }))
+    )
+  );
+  const renamed = { ...stored, info: { ...stored.info, name: 'Another' } };
+  assert.ok(!sameEvent(CHALLENGE, renamed));
 });

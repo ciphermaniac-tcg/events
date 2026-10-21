@@ -21,14 +21,16 @@
  * Each sync names the copy of the event it follows on from, so a browser with
  * an older copy of the file cannot overwrite rounds another one synced: the
  * site refuses it, and the link waits to be reconnected, which replaces the
- * site's copy with this file on purpose.
+ * site's copy with this file on purpose, asked first. An upload of a file
+ * saved before the site's copy came in asks the same.
  *
  * The link's state lives in createTomLink, shared by the console's head
  * (TomStatus) and the TOM file row on the Settings tab (TomFileRow).
  */
 
 import { createSignal, onCleanup, onMount, Show, untrack } from 'solid-js';
-import { revisionOf } from '../../../shared/tournament/revision';
+import { revisionOf, sameEvent } from '../../../shared/tournament/revision';
+import type { Tournament } from '../../../shared/tournament/types';
 import type { PendingResult } from '../../../shared/tournament/view';
 import { parseTdf } from './tdfReader';
 import { ApiError, errorText, type Manage, syncTournament } from '../../lib/tournament/api';
@@ -50,10 +52,18 @@ import { fileTicks } from '../../lib/tournament/fileTicks';
 import { autosaveMinutes, minutesSince, savesLate, withSave } from '../../lib/tournament/tomSaves';
 import { downloadBlob } from '../../lib/download';
 import { intlLocale, msg, t, tn } from '../../lib/i18n';
+import { ConfirmAction, ConfirmDialog } from './ConfirmAction';
 import { SettingRow } from './SettingControls';
 
-/** 'none' before a file is linked (or on a browser that cannot hold one), 'reconnect' when permission lapsed. */
+/** 'none' before a file is linked (or on a browser that cannot hold one), 'reconnect' once following stops (see Lapse). */
 export type LinkState = 'none' | 'reconnect' | 'watching';
+
+/**
+ * Why following the file stopped: the browser's permission to read it
+ * lapsed, the file can't be read where it was (moved or deleted), or another
+ * copy of the event was synced since this one.
+ */
+export type Lapse = 'permission' | 'unreadable' | 'conflict';
 
 /**
  * Where results written into the file stand: 'written' until a save of TOM's
@@ -62,9 +72,16 @@ export type LinkState = 'none' | 'reconnect' | 'watching';
  */
 export type WriteState = 'none' | 'written' | 'overwritten';
 
-/** The browser took back permission to read the file, or it was moved or deleted. */
-const lostFile = (err: unknown) =>
-  err instanceof DOMException && (err.name === 'NotAllowedError' || err.name === 'NotFoundError');
+/** Why a read failed for good: the browser took back permission, or the file was moved or deleted. Null for anything else. */
+function lapseOf(err: unknown): Lapse | null {
+  if (!(err instanceof DOMException)) {
+    return null;
+  }
+  if (err.name === 'NotAllowedError') {
+    return 'permission';
+  }
+  return err.name === 'NotFoundError' ? 'unreadable' : null;
+}
 
 const resultKey = (result: Pick<PendingResult, 'pod' | 'round' | 'table'>) =>
   `${result.pod}:${result.round}:${result.table}`;
@@ -95,6 +112,12 @@ async function during<T>(step: keyof typeof STEP_FAILURES, run: () => Promise<T>
 export function createTomLink(props: { manage: () => Manage; onSynced: (answer?: Manage) => Promise<unknown> }) {
   const [handle, setHandle] = createSignal<TdfHandle | null>(null);
   const [state, setState] = createSignal<LinkState>('none');
+  const [lapse, setLapse] = createSignal<Lapse>('permission');
+  /** Stops following the file until it is reconnected, saying why. */
+  const pause = (why: Lapse) => {
+    setLapse(why);
+    setState('reconnect');
+  };
   const [error, setError] = createSignal<string | null>(null);
   /** When TOM saved the file, as its modified times, oldest first. */
   const [saves, setSaves] = createSignal<number[]>([]);
@@ -109,6 +132,8 @@ export function createTomLink(props: { manage: () => Manage; onSynced: (answer?:
   let lastSent = '';
   /** The revision this browser's last sync left; null until it has synced, when the console's copy is the base. */
   let synced: string | null = null;
+  /** Whether the organizer chose to replace the site's copy with the file, however old (see stale). */
+  let replacing = false;
   let reading = false;
   /** A refresh asked for while a read was under way, done once that read ends. */
   let again = false;
@@ -118,23 +143,39 @@ export function createTomLink(props: { manage: () => Manage; onSynced: (answer?:
   /** Starts over from the console's copy: the next read sends the file whatever it holds. */
   function restart() {
     synced = null;
+    replacing = false;
     lastModified = 0;
     lastSent = '';
     setSaves([]);
   }
 
-  /** Sends the parsed file if it differs from what was last sent. */
-  async function push(text: string, force = false) {
+  /**
+   * Whether a file read before this browser has synced is older than the
+   * site's copy and differs from it: another copy, which would replace newer
+   * rounds unseen, as an older upload asks first (see UploadButton).
+   */
+  function stale(parsed: Tournament, modified: number): boolean {
+    const imported = props.manage().lastImportAt ?? 0;
+    return synced === null && !replacing && modified < imported && !sameEvent(parsed, props.manage().tournament);
+  }
+
+  /** Sends the parsed file if it differs from what was last sent; false when it was stale, and following paused. */
+  async function push(text: string, force = false, modified = Infinity): Promise<boolean> {
     const parsed = await during('parse', async () => parseTdf(text));
     const json = JSON.stringify(parsed);
     if (force || json !== lastSent) {
       const base = synced ?? (await revisionOf(props.manage().tournament));
+      if (stale(parsed, modified)) {
+        pause('conflict');
+        return false;
+      }
       const event = code();
       const answer = await during('send', () => syncTournament(event, parsed, base, force).catch(conflicted));
       synced = answer.revision;
       lastSent = json;
       await props.onSynced(answer);
     }
+    return true;
   }
 
   /**
@@ -149,7 +190,7 @@ export function createTomLink(props: { manage: () => Manage; onSynced: (answer?:
       rememberWrite(code(), null);
       setWriteState('none');
       if (handle()) {
-        setState('reconnect');
+        pause('conflict');
       }
       await props.onSynced();
     }
@@ -174,7 +215,10 @@ export function createTomLink(props: { manage: () => Manage; onSynced: (answer?:
       const read = await during('read', () => readIfChanged(current, force ? 0 : lastModified));
       // The file as this page wrote it holds the results still pending here: it goes up with TOM's next save.
       if (read && !ownWrite(read.lastModified)) {
-        await push(read.text);
+        // A stale file is left unread, so reconnecting reads it again and sends it.
+        if (!(await push(read.text, false, read.lastModified))) {
+          return;
+        }
         setSaves(saves => withSave(saves, read.lastModified));
         settleWrite();
       }
@@ -183,8 +227,9 @@ export function createTomLink(props: { manage: () => Manage; onSynced: (answer?:
     } catch (err) {
       // TOM may be halfway through a save, or the site slow to answer; the next look tries again.
       // A file the page may no longer read, or that is gone, will not come back on its own.
-      if (err instanceof Error && lostFile(err.cause)) {
-        setState('reconnect');
+      const lost = err instanceof Error ? lapseOf(err.cause) : null;
+      if (lost) {
+        pause(lost);
       }
       setError(errorText(err));
     }
@@ -217,10 +262,12 @@ export function createTomLink(props: { manage: () => Manage; onSynced: (answer?:
   async function watch(next: TdfHandle, ask: boolean) {
     setHandle(next);
     const granted = await ensurePermission(next, 'read', ask);
-    setState(granted ? 'watching' : 'reconnect');
-    if (granted) {
-      await tick();
+    if (!granted) {
+      pause('permission');
+      return;
     }
+    setState('watching');
+    await tick();
   }
 
   onMount(() => {
@@ -288,8 +335,8 @@ export function createTomLink(props: { manage: () => Manage; onSynced: (answer?:
       const file = await current.getFile();
       const text = await file.text();
       // Writing again before TOM has saved: the file is this browser's last write, which stays off the site.
-      if (!ownWrite(file.lastModified)) {
-        await push(text);
+      if (!ownWrite(file.lastModified) && !(await push(text, false, file.lastModified))) {
+        return;
       }
       const { pending } = props.manage();
       await writeFile(current, tdfText({ tournament: parseTdf(text), pending, finished: false }));
@@ -326,6 +373,7 @@ export function createTomLink(props: { manage: () => Manage; onSynced: (answer?:
     pending: () => props.manage().pending.length,
     /** Results can't be entered while the site can't see the file TOM keeps. */
     locked: () => state() === 'reconnect',
+    lapse,
     /** When TOM last saved the file this page follows, or null before the first read. */
     savedAt: () => saves().at(-1) ?? null,
     /** How often TOM saves, in minutes, once its saves show it. */
@@ -334,8 +382,14 @@ export function createTomLink(props: { manage: () => Manage; onSynced: (answer?:
     finished: () => props.manage().settings.finished,
     writeState,
     refresh: () => tick(true),
+    /** Follows the file again: asks for permission again, or for a file that can't be read, has it picked again. */
     reconnect: () => {
       const current = handle();
+      if (lapse() === 'unreadable') {
+        return link();
+      }
+      // Asked first (see Reconnect): the file goes up as it is.
+      replacing = lapse() === 'conflict';
       return current ? watch(current, true) : Promise.resolve();
     },
     link,
@@ -347,24 +401,60 @@ export function createTomLink(props: { manage: () => Manage; onSynced: (answer?:
 
 export type TomLink = ReturnType<typeof createTomLink>;
 
+/** A time the head names, with its day. */
+const dayAndTime = (at: number) =>
+  new Date(at).toLocaleString(intlLocale(), { dateStyle: 'medium', timeStyle: 'short' });
+
+/**
+ * Uploading a .tdf replaces the site's copy with it, so a file last saved
+ * before the site's copy was synced asks first.
+ */
 function UploadButton(props: { link: TomLink; label: string; class: string }) {
+  const [older, setOlder] = createSignal<File | null>(null);
+  const take = (file: File) => {
+    const synced = props.link.importedAt();
+    if (synced !== null && file.lastModified < synced) {
+      setOlder(file);
+    } else {
+      void props.link.upload(file);
+    }
+  };
   return (
-    <label class={props.class}>
-      {props.label}
-      <input
-        type='file'
-        accept='.tdf'
-        class='sr-only'
-        onChange={e => {
-          const input = e.currentTarget;
-          const file = input.files?.[0];
+    <>
+      <label class={props.class}>
+        {props.label}
+        <input
+          type='file'
+          accept='.tdf'
+          class='sr-only'
+          onChange={e => {
+            const input = e.currentTarget;
+            const file = input.files?.[0];
+            if (file) {
+              take(file);
+            }
+            input.value = '';
+          }}
+        />
+      </label>
+      <ConfirmDialog
+        open={older() !== null}
+        question={t('Replace the site’s copy with {file}?', { file: older()?.name ?? '' })}
+        scope={t('The site’s copy was synced at {time}, after {file} was last saved.', {
+          time: dayAndTime(props.link.importedAt() ?? 0),
+          file: older()?.name ?? ''
+        })}
+        confirmLabel={t('Replace')}
+        danger
+        onConfirm={() => {
+          const file = older();
           if (file) {
             void props.link.upload(file);
           }
-          input.value = '';
         }}
+        onClose={() => setOlder(null)}
       />
-    </label>
+    </>
   );
 }
 
@@ -406,6 +496,13 @@ function SavedNote(props: { link: TomLink; at: number | null; late: boolean }) {
   );
 }
 
+/** What the head says of the file once following it stops, by why. */
+const LAPSE_LINES: Record<Lapse, string> = {
+  permission: msg('{file} needs access again'),
+  unreadable: msg('{file} can’t be read'),
+  conflict: msg('Another device synced this event')
+};
+
 /**
  * When TOM last saved, and how often it does; marigold once TOM has gone two
  * beats without a save. Results written before a reload are waiting on TOM
@@ -425,7 +522,10 @@ function Saved(props: { link: TomLink; lost: boolean }) {
         <Show when={props.link.savedAt()}>
           {at => <span class='tm-saved-ago'>{savedAgo(props.link.now(), at())}</span>}
         </Show>
-        <Show when={!props.lost} fallback={<small>{t('{file} can’t be read', { file: props.link.fileName() })}</small>}>
+        <Show
+          when={!props.lost}
+          fallback={<small>{t(LAPSE_LINES[props.link.lapse()], { file: props.link.fileName() })}</small>}
+        >
           <SavedNote link={props.link} at={props.link.savedAt()} late={late()} />
         </Show>
       </span>
@@ -497,10 +597,50 @@ function WriteResults(props: { link: TomLink }) {
   );
 }
 
+/** What the head's one button does to follow the file again, by why it stopped. */
+const LAPSE_ACTIONS: Record<Lapse, string> = {
+  permission: msg('Allow access to {file}'),
+  unreadable: msg('Pick {file} again'),
+  conflict: msg('Reconnect {file}')
+};
+
+/**
+ * Following the file again. Permission or a file to pick again goes at
+ * once; after a conflict, reconnecting replaces the copy another device
+ * synced, so it asks first, saying when that copy came in.
+ */
+function Reconnect(props: { link: TomLink }) {
+  const file = () => props.link.fileName();
+  const label = () => t(LAPSE_ACTIONS[props.link.lapse()], { file: file() });
+  return (
+    <Show
+      when={props.link.lapse() === 'conflict'}
+      fallback={
+        <button type='button' class='btn btn-primary' onClick={() => void props.link.reconnect()}>
+          {label()}
+        </button>
+      }
+    >
+      <ConfirmAction
+        class='btn btn-primary'
+        label={label()}
+        question={t('Replace the site’s copy with {file}?', { file: file() })}
+        scope={t(
+          'Another device synced this event at {time}. Reconnecting replaces that copy with {file} from this computer.',
+          { time: dayAndTime(props.link.importedAt() ?? 0), file: file() }
+        )}
+        confirmLabel={t('Replace')}
+        danger
+        onConfirm={() => void props.link.reconnect()}
+      />
+    </Show>
+  );
+}
+
 /**
  * The console's head for a TOM event: the results TOM does not have yet,
- * then when TOM last saved. A lost file makes reconnecting the one thing to
- * do; a browser with no file linked offers linking or uploading one.
+ * then when TOM last saved. A lost file makes following it again the one
+ * thing to do; a browser with no file linked offers linking or uploading one.
  */
 export function TomStatus(props: { link: TomLink }) {
   const link = () => props.link;
@@ -511,9 +651,7 @@ export function TomStatus(props: { link: TomLink }) {
       </Show>
       <Saved link={link()} lost={link().state() === 'reconnect'} />
       <Show when={link().state() === 'reconnect'}>
-        <button type='button' class='btn btn-primary' onClick={() => void link().reconnect()}>
-          {t('Reconnect {file}', { file: link().fileName() })}
-        </button>
+        <Reconnect link={link()} />
       </Show>
       <Show when={link().state() === 'none'}>
         <Show when={canLinkFiles()}>

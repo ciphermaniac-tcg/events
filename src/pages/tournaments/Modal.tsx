@@ -24,7 +24,12 @@ export function Modal(props: {
       ref={el => (dialog = el)}
       class={props.class ? `tm-modal ${props.class}` : 'tm-modal'}
       aria-label={props.title}
-      onClose={() => props.onClose()}
+      // The close event lands a task after the dialog closes; one opened again by then stays open.
+      onClose={() => {
+        if (!dialog?.open) {
+          props.onClose();
+        }
+      }}
     >
       <div class='tm-box-bar'>
         <h3>{props.title}</h3>

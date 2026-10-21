@@ -6,7 +6,7 @@
  * run through the same public-view code the function uses.
  */
 
-import { readFileSync } from 'node:fs';
+import { readFileSync, utimesSync, writeFileSync } from 'node:fs';
 import { expect, type Page } from '@playwright/test';
 import { test } from './network-guard';
 import { deferred } from '../__utils__/deferred';
@@ -18,6 +18,7 @@ import { lookupPlayers } from '../../shared/tournament/lookup';
 import { birthYear } from '../../shared/tournament/divisions';
 import { seededRandom } from '../../shared/tournament/random';
 import { parseTdf } from '../../shared/tournament/tdf';
+import { readTournament } from '../../shared/tournament/validate';
 import {
   applyPending,
   assignKeys,
@@ -853,8 +854,8 @@ async function tomConsole(
   await page.addInitScript(source => {
     const kept = sessionStorage.getItem('tdfFile');
     const file = kept
-      ? (JSON.parse(kept) as { modified: number; lost: boolean; text: string; reads: number })
-      : { modified: 1, lost: false, text: source, reads: 0 };
+      ? (JSON.parse(kept) as { modified: number; lost: string | null; text: string; reads: number })
+      : { modified: 1, lost: null as string | null, text: source, reads: 0 };
     addEventListener('pagehide', () => sessionStorage.setItem('tdfFile', JSON.stringify(file)));
     Object.assign(window, {
       tdfFile: file,
@@ -863,8 +864,9 @@ async function tomConsole(
           name: 'event.tdf',
           getFile: async () => {
             file.reads += 1;
+            // `lost` names the error the browser throws: taken back (NotAllowedError) or moved (NotFoundError).
             if (file.lost) {
-              throw new DOMException('The file cannot be read', 'NotAllowedError');
+              throw new DOMException('The file cannot be read', file.lost);
             }
             return new File([file.text], 'event.tdf', { lastModified: file.modified });
           },
@@ -941,10 +943,66 @@ const tomSaves = (page: Page, text?: string) =>
     file.modified = Math.max(file.modified + 1, Date.now());
   }, text);
 
-test('a TOM console stops following its file when another copy was synced over it', async ({ page }) => {
-  await tomConsole(page, () => ({ status: 409, json: { error: 'The site has a different copy of this event.' } }));
+test('a TOM console stops following its file when another copy was synced over it, and asks before replacing it', async ({
+  page
+}) => {
+  let syncs = 0;
+  await tomConsole(page, () => {
+    syncs += 1;
+    return { status: 409, json: { error: 'The site has a different copy of this event.' } };
+  });
   await expect(page.getByText('The site has a different copy of this event.')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Reconnect event.tdf' })).toBeVisible();
+  await expect(page.locator('.hero-meta')).toContainText('reconnect the .tdf to enter results');
+  await page.getByRole('button', { name: 'Reconnect event.tdf' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Replace the site’s copy with event.tdf?' });
+  await expect(dialog).toContainText('Another device synced this event at');
+  await expect(dialog).toContainText('replaces that copy with event.tdf from this computer.');
+  await dialog.getByRole('button', { name: 'Keep' }).click();
+  await expect(dialog).toBeHidden();
+  expect(syncs).toBe(1);
+  await page.getByRole('button', { name: 'Reconnect event.tdf' }).click();
+  await dialog.getByRole('button', { name: 'Replace' }).click();
+  await expect.poll(() => syncs).toBe(2);
+});
+
+test('a linked file older than the site’s copy, and different, waits to be reconnected instead of replacing it', async ({
+  page
+}) => {
+  let syncs = 0;
+  // The site holds a later copy: one more player than the file, synced after the file was last saved.
+  const later = { ...tdf, players: [...tdf.players, { ...tdf.players[0]!, id: '9100000001', lastName: 'Later' }] };
+  await tomConsole(
+    page,
+    () => {
+      syncs += 1;
+      return synced();
+    },
+    { manage: { ...tomManage(), tournament: later } }
+  );
+  await expect(page.locator('.hero-meta')).toContainText('reconnect the .tdf to enter results');
+  expect(syncs).toBe(0);
+  await page.getByRole('button', { name: 'Reconnect event.tdf' }).click();
+  await page
+    .getByRole('dialog', { name: 'Replace the site’s copy with event.tdf?' })
+    .getByRole('button', { name: 'Replace' })
+    .click();
+  await expect.poll(() => syncs).toBe(1);
+});
+
+test('a linked file older than the site’s copy but holding the same event keeps being followed', async ({ page }) => {
+  let syncs = 0;
+  // The site's copy as the functions store it: the same event, its fields in the order readTournament writes them.
+  const stored = readTournament(JSON.parse(JSON.stringify(tdf)) as unknown);
+  await tomConsole(
+    page,
+    () => {
+      syncs += 1;
+      return synced();
+    },
+    { manage: { ...tomManage(), tournament: stored } }
+  );
+  await expect.poll(() => syncs).toBe(1);
+  await expect(page.locator('.hero-meta')).not.toContainText('reconnect the .tdf');
 });
 
 test('a TOM console sends nothing of its file while the event has ended', async ({ page }) => {
@@ -978,10 +1036,57 @@ test('a TOM console holds off results when the browser takes back the file', asy
   await tomConsole(page, () => ({ status: 200, json: { ...tomManage(), version: 5, revision: 'next' } }));
   await expect(saved(page)).toContainText('Saved by TOM');
   await page.evaluate(() => {
-    (window as unknown as { tdfFile: { lost: boolean } }).tdfFile.lost = true;
+    (window as unknown as { tdfFile: { lost: string } }).tdfFile.lost = 'NotAllowedError';
   });
-  await expect(page.getByRole('button', { name: 'Reconnect event.tdf' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Allow access to event.tdf' })).toBeVisible();
+  await expect(saved(page)).toContainText('event.tdf needs access again');
+  await expect(page.locator('.hero-meta')).toContainText('allow access to the .tdf to enter results');
+});
+
+test('a TOM console whose file was moved asks for it to be picked again', async ({ page }) => {
+  let syncs = 0;
+  await tomConsole(page, () => {
+    syncs += 1;
+    return synced();
+  });
+  await expect(saved(page)).toContainText('Saved by TOM');
+  await page.evaluate(() => {
+    (window as unknown as { tdfFile: { lost: string } }).tdfFile.lost = 'NotFoundError';
+  });
   await expect(saved(page)).toContainText('event.tdf can’t be read');
+  await expect(page.locator('.hero-meta')).toContainText('pick the .tdf again to enter results');
+  await page.evaluate(() => {
+    (window as unknown as { tdfFile: { lost: null; modified: number } }).tdfFile.lost = null;
+  });
+  // Picking it again opens the file picker, here the same file found again.
+  await page.getByRole('button', { name: 'Pick event.tdf again' }).click();
+  await expect(page.getByRole('button', { name: 'Pick event.tdf again' })).toHaveCount(0);
+  await expect.poll(() => syncs).toBe(2);
+});
+
+test('a TOM upload saved before the site’s copy asks before replacing it', async ({ page }, testInfo) => {
+  let syncs = 0;
+  await tomConsole(
+    page,
+    () => {
+      syncs += 1;
+      return synced();
+    },
+    { following: false }
+  );
+  const older = testInfo.outputPath('older.tdf');
+  writeFileSync(older, TDF_SOURCE);
+  const before = new Date('2026-10-13T12:00:00Z');
+  utimesSync(older, before, before);
+  const input = page.locator('.tm-tom-status input[type="file"]');
+  await input.setInputFiles(older);
+  const dialog = page.getByRole('dialog', { name: 'Replace the site’s copy with older.tdf?' });
+  await expect(dialog).toContainText('after older.tdf was last saved.');
+  await dialog.getByRole('button', { name: 'Keep' }).click();
+  expect(syncs).toBe(0);
+  await input.setInputFiles(older);
+  await dialog.getByRole('button', { name: 'Replace' }).click();
+  await expect.poll(() => syncs).toBe(1);
 });
 
 test('a TOM console gives up on a sync that hangs and sends the file again', async ({ page }) => {

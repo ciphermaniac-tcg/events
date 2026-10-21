@@ -52,7 +52,7 @@ import { createManage, type ManageState } from './manageState';
 import '../../styles/pages/tournament-console.css';
 import { ClockControls } from './RoundControls';
 import { EndEventStep, type RoundEnd, RoundEndSplit } from './NextStep';
-import { createTomLink, type TomLink, TomStatus } from './TomSyncPanel';
+import { createTomLink, type Lapse, type TomLink, TomStatus } from './TomSyncPanel';
 import { Trail } from './Trail';
 import { pageTitle } from '../../lib/title';
 
@@ -93,10 +93,17 @@ const REFRESH_MS = 15_000;
 /** A division with no pod yet: nothing paired, nothing playing. */
 const NO_PROGRESS: PodProgress = { round: undefined, tables: 0, open: 0, champion: null, label: '', next: '' };
 
+/** What a TOM event's head says to do once following its file stops, by why. */
+const TOM_LAPSES: Record<Lapse, string> = {
+  permission: msg('allow access to the .tdf to enter results'),
+  unreadable: msg('pick the .tdf again to enter results'),
+  conflict: msg('reconnect the .tdf to enter results')
+};
+
 /** What a TOM event's head adds to the round: whether TOM has every result entered here. */
 function tomPart(tom: TomLink): string {
   if (tom.locked()) {
-    return t('reconnect the .tdf to enter results');
+    return t(TOM_LAPSES[tom.lapse()]);
   }
   const n = tom.pending();
   return n ? tn(n, '{n} result to write', '{n} results to write') : t('TOM has every result');
