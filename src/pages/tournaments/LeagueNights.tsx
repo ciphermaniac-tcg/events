@@ -47,6 +47,8 @@ function NightRow(props: {
   n: number;
   symbol: string | null;
   storeName: string;
+  /** The form tried to send, so a night with no start time is marked. */
+  checked?: boolean;
   onChange: (night: LeagueNight) => void;
   onRemove: () => void;
 }) {
@@ -67,6 +69,7 @@ function NightRow(props: {
         type='time'
         required
         aria-label={t('League night {n} start', n())}
+        aria-invalid={props.checked && !props.night.time ? 'true' : undefined}
         value={props.night.time}
         onInput={e => set({ time: e.currentTarget.value })}
       />
@@ -105,6 +108,7 @@ export function WeeklyNights(props: {
   nights: readonly LeagueNight[];
   country: string;
   storeName: string;
+  checked?: boolean;
   onChange: (nights: LeagueNight[]) => void;
 }) {
   const symbol = () => currencySymbol(props.country);
@@ -120,6 +124,7 @@ export function WeeklyNights(props: {
                 n={i + 1}
                 symbol={symbol()}
                 storeName={props.storeName}
+                checked={props.checked}
                 onChange={next => props.onChange(replaceAt(props.nights, i, next))}
                 onRemove={() => props.onChange(removeAt(props.nights, i))}
               />

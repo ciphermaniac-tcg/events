@@ -190,11 +190,16 @@ function Applying(props: { user: Me }) {
                 <Show
                   when={s().eligible.profile}
                   fallback={
-                    <p class='tm-apply-profile'>
-                      <A class='btn btn-primary' href='/settings'>
-                        {t('Complete your profile')}
-                      </A>
-                    </p>
+                    <>
+                      <p class='tm-apply-profile'>
+                        {t('A store application needs your Player ID, name and birth year.')}
+                      </p>
+                      <p class='tm-apply-profile'>
+                        <A class='btn btn-primary' href='/settings'>
+                          {t('Complete your profile')}
+                        </A>
+                      </p>
+                    </>
                   }
                 >
                   <Show

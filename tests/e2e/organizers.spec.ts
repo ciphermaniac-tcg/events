@@ -174,6 +174,7 @@ test('an incomplete profile is sent to Settings, with no form', async ({ page })
   await mockApplicant(page, { ...NONE, eligible: { profile: false, email: true } }, { ...ME, popId: null });
   await page.goto('/apply');
   await page.getByRole('button', { name: 'Apply as store' }).click();
+  await expect(page.getByText('A store application needs your Player ID, name and birth year.')).toBeVisible();
   await expect(page.getByRole('link', { name: 'Complete your profile' })).toHaveAttribute('href', '/settings');
   await expect(page.getByRole('button', { name: 'Send application' })).toHaveCount(0);
 });
@@ -184,6 +185,11 @@ test('a pending Application shows where it stands instead of the form, and withd
   const status = page.locator('.tm-applicant');
   await expect(status).toContainText('Application pending');
   await expect(status).toContainText('Sent');
+  await expect(status).toContainText('Questions?');
+  await expect(status.getByRole('link', { name: 'Contact us' })).toHaveAttribute(
+    'href',
+    'https://ciphermaniac.com/feedback'
+  );
   await expect(page.getByRole('button', { name: 'Send application' })).toHaveCount(0);
   await page.getByRole('button', { name: 'Withdraw' }).click();
   await page
@@ -202,7 +208,9 @@ test('after a rejection, the note shows and Apply again opens the form', async (
   await page.goto('/apply');
   const status = page.locator('.tm-applicant');
   await expect(status).toContainText('Not approved');
+  await expect(status).toContainText(/Decided /);
   await expect(status).toContainText('Send your certificate, please.');
+  await expect(status).toContainText('Think this is a mistake?');
   await expect(page.getByRole('button', { name: 'Send application' })).toHaveCount(0);
   await page.getByRole('button', { name: 'Apply again' }).click();
   await expect(page.getByRole('button', { name: 'Apply again' })).toHaveCount(0);
@@ -219,6 +227,7 @@ test('an organizer whose access was removed sees so, and applies again from ther
   await mockApplicant(page, NONE, { ...ME, role: 'revoked' });
   await page.goto('/apply');
   await expect(page.locator('.tm-applicant')).toContainText('Organizer access removed');
+  await expect(page.locator('.tm-applicant').getByRole('link', { name: 'Contact us' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Apply as store' })).toHaveCount(0);
   await page.getByRole('button', { name: 'Apply again' }).click();
   // Community access was taken away, so only the store is offered.

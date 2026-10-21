@@ -15,6 +15,7 @@ import { msg, t } from '../../lib/i18n';
 import { type ApplicantStage, applicantStage, dayOf, withdrawApplication } from '../../lib/tournament/applications';
 import { latestValue } from '../../lib/resource';
 import { ConfirmAction } from './ConfirmAction';
+import { ContactLink } from './ContactLink';
 import { ErrorLine } from './Field';
 import { refreshSession } from './session';
 import '../../styles/pages/tournament-apply.css';
@@ -34,7 +35,9 @@ function stageDay(stage: ApplicantStage, application: MyApplication | null): str
   if (stage === 'pending' && application) {
     return t('Sent {date}', { date: dayOf(application.createdAt) });
   }
-  return stage === 'rejected' && application?.decidedAt ? dayOf(application.decidedAt) : null;
+  return stage === 'rejected' && application?.decidedAt
+    ? t('Decided {date}', { date: dayOf(application.decidedAt) })
+    : null;
 }
 
 /** Apply again: to the apply page's form, or, on that page, opening it in place. */
@@ -144,6 +147,13 @@ export function ApplicantStatus(props: {
       : props.stage === 'pending'
         ? t('Your application is in. You’ll see the decision here once it’s reviewed.')
         : null;
+  // Who to ask next: a question while it waits, or a decision that looks wrong.
+  const ask = () => {
+    if (props.stage === 'pending') {
+      return t('Questions?');
+    }
+    return props.stage === 'rejected' || props.stage === 'revoked' ? t('Think this is a mistake?') : null;
+  };
   return (
     <div class='tm-box tm-applicant'>
       <div class='tm-box-bar'>
@@ -166,7 +176,13 @@ export function ApplicantStatus(props: {
           />
         </span>
       </div>
-      <Show when={note()}>{text => <p class='tm-box-bar tm-applicant-note'>{text()}</p>}</Show>
+      <Show when={ask()}>
+        {lead => (
+          <p class='tm-box-bar tm-applicant-note'>
+            {note()} {lead()} <ContactLink />
+          </p>
+        )}
+      </Show>
     </div>
   );
 }

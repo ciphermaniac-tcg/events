@@ -197,6 +197,7 @@
   "Community organizer": "Organizador comunitario",
   "Complete": "Terminada",
   "Complete your profile": "Completar perfil",
+  "A store application needs your Player ID, name and birth year.": "Una solicitud de tienda necesita tu ID de jugador, tu nombre y tu año de nacimiento.",
   "Complete your profile first": "Primero completa tu perfil",
   "Conclude": "Cerrar",
   "Conclude pod": "Cerrar pod",
@@ -361,7 +362,6 @@
   "Enter the store’s name": "Escribe el nombre de la tienda",
   "Enter whole minutes from 1 to 180": "Escribe un número entero de minutos, de 1 a 180",
   "Enter your birth date": "Escribe tu fecha de nacimiento",
-  "Enter your League ID here.": "Escribe aquí el ID de tu liga.",
   "Error": "Error",
   "Event": "Evento",
   "Event closed": "Torneo finalizado",
@@ -497,6 +497,7 @@
   "League nights": "Noches de liga",
   "League {id}": "Liga {id}",
   "League {id} · {zone}": "Liga {id} · {zone}",
+  "We couldn’t find league {id}. Enter the store’s details below.": "No encontramos la liga {id}. Escribe los datos de la tienda abajo.",
   "Leave": "Salir",
   "Leave this store?": "¿Salir de esta tienda?",
   "Leave {store}?": "¿Salir de {store}?",
@@ -985,6 +986,7 @@
   "Sent again": "Reenviado",
   "Sent to {to}": "Enviado a {to}",
   "Sent {date}": "Enviada el {date}",
+  "Decided {date}": "Decidido el {date}",
   "Set a status, a manager, an owner or a league": "Indica un estado, un encargado, un dueño o una liga",
   "Set flights before starting": "Define los grupos antes de empezar",
   "Settings": "Configuración",
@@ -1597,5 +1599,7 @@
   "Tardiness": "Tardanza",
   "TOM sync for sanctioned events": "Sincronización con TOM para torneos oficiales",
   "Top cut": "Top cut",
-  "Top cut brackets": "Cuadros del top cut"
+  "Top cut brackets": "Cuadros del top cut",
+  "Questions?": "¿Preguntas?",
+  "Think this is a mistake?": "¿Crees que es un error?"
 }

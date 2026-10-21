@@ -299,8 +299,9 @@ async function lookUp(page: Page) {
     .fill('https://www.pokemon.com/us/play-pokemon/pokemon-events/leagues/6238620/');
   const field = page.getByLabel('League ID or pokemon.com league page');
   await expect(field).toHaveValue('6238620');
-  await expect(field).toHaveAttribute('placeholder', 'Enter your League ID here.');
-  await expect(field).toHaveAttribute('inputmode', 'numeric');
+  // The label invites a pasted pokemon.com page, so the keyboard is not the number pad, and no placeholder repeats it.
+  await expect(field).not.toHaveAttribute('placeholder');
+  await expect(field).not.toHaveAttribute('inputmode');
   expect((await field.boundingBox())?.width).toBeLessThanOrEqual(300);
   // 16px on a phone, where smaller makes iOS zoom the page on focus.
   await expect(field).toHaveCSS('font-size', (page.viewportSize()?.width ?? 1280) <= 640 ? '16px' : '14px');
@@ -340,14 +341,26 @@ test('a store application starts from the league, prefilled, and sends what the 
   await expect(page.getByLabel('City')).toHaveValue('San Antonio');
   await expect(page.getByLabel('Postal code')).toHaveValue('78201');
   await page.getByRole('button', { name: 'Send application' }).click();
-  await expect(page.getByRole('alert')).toHaveText('Say why you are applying for the store');
-  await page.getByLabel('Why are you applying for this store?').selectOption('owner');
-  await page.getByRole('checkbox', { name: /certified Play! Pokémon organizer/ }).check();
+  // Each problem sits under its own field, and focus goes to the first, not to a line under Send.
+  const why = page.getByLabel('Why are you applying for this store?');
+  const certified = page.getByRole('checkbox', { name: /certified Play! Pokémon organizer/ });
+  await expect(why).toBeFocused();
+  await expect(why).toHaveAccessibleDescription('Say why you are applying for the store');
+  await expect(certified).toHaveAttribute('aria-invalid', 'true');
+  await expect(certified).toHaveAccessibleDescription('Confirm you are a certified organizer, or work with one');
+  await expect(page.getByRole('alert')).toHaveCount(0);
+  await why.selectOption('owner');
+  await certified.check();
+  await expect(certified).not.toHaveAttribute('aria-invalid', 'true');
   await page.getByLabel('Website').fill('combatpower.example');
   await page.getByRole('button', { name: 'Send application' }).click();
   await expect(page.getByText('Starts with https://')).toBeVisible();
   await page.getByLabel('Website').fill('https://combatpower.example');
   await page.getByRole('button', { name: 'Add a league night' }).click();
+  await page.getByLabel('League night 1 start').fill('');
+  await page.getByRole('button', { name: 'Send application' }).click();
+  await expect(page.getByLabel('League night 1 start')).toBeFocused();
+  await expect(page.getByText('Give each league night a start time')).toBeVisible();
   await page.getByLabel('League night 1 day').selectOption('Wednesday');
   await page.getByLabel('League night 1 start').fill('19:30');
   await expect(page.getByLabel('League night 1 event name')).toHaveAttribute(
@@ -409,11 +422,14 @@ test('a league that already has a store goes no further, and a bad ID is refused
   await expect(page.getByLabel('Store name')).toHaveCount(0);
 });
 
-test('a league the locator does not know leaves the details to type, with no place', async ({ page }) => {
+test('a league the locator does not know says so and leaves the details to type, with no place', async ({ page }) => {
   const asks = await mock(page, { league: { league: null, taken: false } });
   await page.goto('/apply');
   await lookUp(page);
   await expect(page.locator('.tm-apply-found')).toHaveCount(0);
+  await expect(page.getByRole('status')).toHaveText(
+    'We couldn’t find league 6238620. Enter the store’s details below.'
+  );
   await expect(page.getByLabel('Store name')).toHaveValue('');
   await page.getByLabel('Why are you applying for this store?').selectOption('organizer');
   await page.getByRole('checkbox', { name: /certified/ }).check();

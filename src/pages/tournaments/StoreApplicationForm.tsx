@@ -104,9 +104,7 @@ function LeagueField(props: { lookup: Lookup; onLookup: (lookup: Lookup) => void
       <span class='tm-apply-league'>
         <input
           id='apply-league'
-          placeholder={t('Enter your League ID here.')}
           class='tm-input'
-          inputMode='numeric'
           autocomplete='off'
           value={typed()}
           aria-invalid={refusal() ? 'true' : undefined}
@@ -152,6 +150,11 @@ export function StoreApplicationForm(props: { onSent: (sent: MyApplication) => v
     const current = lookup();
     return current.kind === 'found' ? current.league : null;
   };
+  // The locator knew nothing of the league, or could not be asked: the details are typed instead.
+  const unknown = () => {
+    const current = lookup();
+    return current.kind === 'unknown' ? current.leagueId : null;
+  };
   function looked(next: Lookup) {
     setLookup(next);
     if (next.kind === 'found') {
@@ -159,30 +162,34 @@ export function StoreApplicationForm(props: { onSent: (sent: MyApplication) => v
       setTimeZone(next.league.timeZone);
     }
   }
-  const missing = () => {
-    if (!relationship()) {
-      return t('Say why you are applying for the store');
-    }
-    if (!certified()) {
-      return t('Confirm you are a certified organizer, or work with one');
-    }
-    if (Object.keys(detailsProblems(details())).length > 0) {
-      return t('Check the store’s details');
-    }
-    return nights().some(night => !night.time) ? t('Give each league night a start time') : null;
-  };
+  // Each problem shows under its own field once the form has tried to send; the store's details mark theirs (StoreFields).
+  const relationshipProblem = () =>
+    checked() && !relationship() ? t('Say why you are applying for the store') : undefined;
+  const certifiedProblem = () =>
+    checked() && !certified() ? t('Confirm you are a certified organizer, or work with one') : undefined;
+  const nightsProblem = () =>
+    checked() && nights().some(night => !night.time) ? t('Give each league night a start time') : undefined;
+  const ready = () =>
+    Boolean(relationship()) &&
+    certified() &&
+    Object.keys(detailsProblems(details())).length === 0 &&
+    nights().every(night => night.time);
+  let form: HTMLFormElement | undefined;
 
   async function send(event: Event) {
     event.preventDefault();
     const found = league();
     setChecked(true);
-    const problem = missing();
-    if (!found || problem || sending()) {
-      setError(problem);
+    setError(null);
+    if (!ready()) {
+      // As Settings does: a refused send leaves focus on the first field to fix.
+      form?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus();
+      return;
+    }
+    if (!found || sending()) {
       return;
     }
     setSending(true);
-    setError(null);
     const place =
       found.kind === 'found' ? { lat: found.league.lat, lon: found.league.lon, timeZone: timeZone() } : null;
     try {
@@ -210,16 +217,28 @@ export function StoreApplicationForm(props: { onSent: (sent: MyApplication) => v
   }
 
   return (
-    <form class='tm-apply-store' noValidate onSubmit={event => void send(event)}>
+    <form ref={form} class='tm-apply-store' noValidate onSubmit={event => void send(event)}>
       <LeagueField lookup={lookup()} onLookup={looked} />
       <Show when={league()}>
         <>
           <Show when={known()}>{found => <Found league={found()} />}</Show>
-          <Field id='apply-relationship' label={t('Why are you applying for this store?')}>
+          <Show when={unknown()}>
+            {id => (
+              <p class='muted tm-apply-unknown' role='status'>
+                {t('We couldn’t find league {id}. Enter the store’s details below.', { id: id() })}
+              </p>
+            )}
+          </Show>
+          <Field
+            id='apply-relationship'
+            label={t('Why are you applying for this store?')}
+            error={relationshipProblem()}
+          >
             <select
               id='apply-relationship'
               class='tm-select tm-select-full'
-              aria-invalid={checked() && !relationship() ? 'true' : undefined}
+              aria-invalid={relationshipProblem() ? 'true' : undefined}
+              aria-describedby={relationshipProblem() ? 'apply-relationship-error' : undefined}
               onChange={e => setRelationship(e.currentTarget.value as Relationship | '')}
             >
               <option value='' selected={relationship() === ''}>
@@ -234,10 +253,25 @@ export function StoreApplicationForm(props: { onSent: (sent: MyApplication) => v
               </For>
             </select>
           </Field>
-          <label class='tm-check tm-apply-certified'>
-            <input type='checkbox' checked={certified()} onChange={e => setCertified(e.currentTarget.checked)} />
-            {t('I’m a certified Play! Pokémon organizer, or work with one')}
-          </label>
+          <div class='tm-field'>
+            <label class='tm-check tm-apply-certified'>
+              <input
+                type='checkbox'
+                checked={certified()}
+                aria-invalid={certifiedProblem() ? 'true' : undefined}
+                aria-describedby={certifiedProblem() ? 'apply-certified-error' : undefined}
+                onChange={e => setCertified(e.currentTarget.checked)}
+              />
+              {t('I’m a certified Play! Pokémon organizer, or work with one')}
+            </label>
+            <Show when={certifiedProblem()}>
+              {text => (
+                <span class='tm-error' id='apply-certified-error'>
+                  {text()}
+                </span>
+              )}
+            </Show>
+          </div>
           <h2 class='tm-subhead tm-apply-head'>{t('Store')}</h2>
           <StoreFields
             id='apply-store'
@@ -248,7 +282,14 @@ export function StoreApplicationForm(props: { onSent: (sent: MyApplication) => v
             onTimeZone={setTimeZone}
           />
           <h2 class='tm-subhead tm-apply-head'>{t('League nights')}</h2>
-          <WeeklyNights nights={nights()} country={details().country} storeName={details().name} onChange={setNights} />
+          <WeeklyNights
+            nights={nights()}
+            country={details().country}
+            storeName={details().name}
+            checked={checked()}
+            onChange={setNights}
+          />
+          <Show when={nightsProblem()}>{text => <span class='tm-error'>{text()}</span>}</Show>
           <h2 class='tm-subhead tm-apply-head'>{t('For the admin')}</h2>
           <div class='tm-field'>
             <label class='tm-label' for='apply-explanation'>
