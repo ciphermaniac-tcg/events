@@ -1634,5 +1634,6 @@
   "This lifts their disqualification.": "Cela lève sa disqualification.",
   "Reinstate {name}?": "Réintégrer {name} ?",
   "{file} is older than the site’s copy": "{file} est plus ancien que la copie du site",
-  "{file} is missing rounds or results the site’s copy has. Reconnecting replaces the site’s copy with it.": "Il manque à {file} des rondes ou des résultats que la copie du site contient. Reconnecter remplace la copie du site par ce fichier."
+  "{file} is missing rounds or results the site’s copy has. Reconnecting replaces the site’s copy with it.": "Il manque à {file} des rondes ou des résultats que la copie du site contient. Reconnecter remplace la copie du site par ce fichier.",
+  "This round still has results to enter.": "Cette ronde a encore des résultats à saisir."
 }

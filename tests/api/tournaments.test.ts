@@ -432,6 +432,18 @@ test('Prerelease API continuation writes stage 7 and early conclusion writes sta
   assert.match(writeTdf(row.tournament, { finalized: true }), /<round number="4" type="2" stage="8" >/);
 });
 
+test('a second press of Pair is refused while the round it would follow is still playing', async () => {
+  const owner = await signIn('Organizer', 'organizer');
+  const code = await newEvent(owner);
+  await addPlayers(code, owner, 8);
+  assert.equal((await send(code, owner, { type: 'pairRound', pod: 'masters' })).status, 200);
+  const again = await send(code, owner, { type: 'pairRound', pod: 'masters' });
+  assert.equal(again.status, 400);
+  assert.match(String(again.json.error), /still has results to enter/);
+  const db = env.TOURNAMENT_DB as NonNullable<TournamentEnv['TOURNAMENT_DB']>;
+  assert.equal((await loadTournament(db, code))!.tournament.pods[0]!.rounds.length, 1);
+});
+
 test('who starts an event of their own: a Community organizer or an Admin; a revoked one still runs its own', async () => {
   const create = (cookie: string) =>
     hit(
