@@ -19,13 +19,27 @@ export async function revisionOf(tournament: Tournament): Promise<string> {
   return [...new Uint8Array(digest).slice(0, 12)].map(byte => byte.toString(16).padStart(2, '0')).join('');
 }
 
-/** The event as JSON with its keys in order and its clocks aside: the server stores a file's fields in an order of its own. */
-const canonical = (tournament: Tournament) =>
-  JSON.stringify(withoutClocks(tournament), (_key, value: unknown) =>
-    value && typeof value === 'object' && !Array.isArray(value)
-      ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => (a < b ? -1 : 1)))
-      : value
+/** The number of the last round each pod has paired, by category. */
+const roundsByPod = (t: Tournament) => new Map(t.pods.map(pod => [pod.category, pod.rounds.at(-1)?.number ?? 0]));
+
+/** Every result a round has recorded, keyed by pod, round and table. */
+const results = (t: Tournament) =>
+  t.pods.flatMap(pod =>
+    pod.rounds.flatMap(round =>
+      round.matches.filter(m => m.outcome !== 'pending').map(m => `${pod.category}|${round.number}|${m.table}`)
+    )
   );
 
-/** Whether two copies hold the same event, whatever order their fields were written in. */
-export const sameEvent = (a: Tournament, b: Tournament): boolean => canonical(a) === canonical(b);
+/**
+ * Whether `file` is an older copy than `site`: it lacks a round or a result
+ * the site's copy has. Told by what the copies hold rather than when they
+ * were saved, since the file's time is the clock of the computer it is on.
+ */
+export function olderThan(file: Tournament, site: Tournament): boolean {
+  const recorded = new Set(results(file));
+  const rounds = roundsByPod(file);
+  return (
+    results(site).some(key => !recorded.has(key)) ||
+    [...roundsByPod(site)].some(([category, last]) => (rounds.get(category) ?? 0) < last)
+  );
+}

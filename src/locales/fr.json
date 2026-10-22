@@ -1632,5 +1632,7 @@
   "Once round 1 is paired, an event is sanctioned only when every player has a Player ID and birth year. {name} is missing one.": "Une fois la ronde 1 appariée, un tournoi ne devient homologué que si chaque joueur a un ID joueur et une année de naissance. Il en manque un à {name}.",
   "They get a bye for round {round}.": "Cette personne reçoit un bye pour la ronde {round}.",
   "This lifts their disqualification.": "Cela lève sa disqualification.",
-  "Reinstate {name}?": "Réintégrer {name} ?"
+  "Reinstate {name}?": "Réintégrer {name} ?",
+  "{file} is older than the site’s copy": "{file} est plus ancien que la copie du site",
+  "{file} is missing rounds or results the site’s copy has. Reconnecting replaces the site’s copy with it.": "Il manque à {file} des rondes ou des résultats que la copie du site contient. Reconnecter remplace la copie du site par ce fichier."
 }

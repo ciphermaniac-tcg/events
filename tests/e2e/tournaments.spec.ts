@@ -977,12 +977,18 @@ test('a TOM console stops following its file when another copy was synced over i
   await expect.poll(() => syncs).toBe(2);
 });
 
-test('a linked file older than the site’s copy, and different, waits to be reconnected instead of replacing it', async ({
+test('a linked file missing a round the site’s copy has waits to be reconnected instead of replacing it', async ({
   page
 }) => {
   let syncs = 0;
-  // The site holds a later copy: one more player than the file, synced after the file was last saved.
-  const later = { ...tdf, players: [...tdf.players, { ...tdf.players[0]!, id: '9100000001', lastName: 'Later' }] };
+  // The site holds a later copy: a round the file does not have yet.
+  const later = {
+    ...tdf,
+    pods: tdf.pods.map(pod => {
+      const last = pod.rounds.at(-1)!;
+      return { ...pod, rounds: [...pod.rounds, { ...last, number: last.number + 1 }] };
+    })
+  };
   await tomConsole(
     page,
     () => {
@@ -994,11 +1000,29 @@ test('a linked file older than the site’s copy, and different, waits to be rec
   await expect(page.locator('.hero-meta')).toContainText('reconnect the .tdf to enter results');
   expect(syncs).toBe(0);
   await page.getByRole('button', { name: 'Reconnect event.tdf' }).click();
-  await page
-    .getByRole('dialog', { name: 'Replace the site’s copy with event.tdf?' })
-    .getByRole('button', { name: 'Replace' })
-    .click();
+  const dialog = page.getByRole('dialog', { name: 'Replace the site’s copy with event.tdf?' });
+  await expect(dialog).toContainText('event.tdf is missing rounds or results the site’s copy has.');
+  await expect(dialog).not.toContainText('Another device');
+  await dialog.getByRole('button', { name: 'Replace' }).click();
   await expect.poll(() => syncs).toBe(1);
+});
+
+test('a linked file saved by a clock behind the site’s is followed when it holds more than the site’s copy', async ({
+  page
+}) => {
+  let syncs = 0;
+  // The file's modified time (1) is long before the site's import, but the site's copy lacks the file's last player.
+  const earlier = { ...tdf, players: tdf.players.slice(0, -1) };
+  await tomConsole(
+    page,
+    () => {
+      syncs += 1;
+      return synced();
+    },
+    { manage: { ...tomManage(), tournament: earlier } }
+  );
+  await expect.poll(() => syncs).toBe(1);
+  await expect(page.locator('.hero-meta')).not.toContainText('reconnect the .tdf');
 });
 
 test('a linked file older than the site’s copy but holding the same event keeps being followed', async ({ page }) => {

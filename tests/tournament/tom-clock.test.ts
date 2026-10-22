@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
-import { revisionOf, sameEvent } from '../../shared/tournament/revision.ts';
+import { olderThan, revisionOf } from '../../shared/tournament/revision.ts';
 import { readTournament } from '../../shared/tournament/validate.ts';
 import { parseTdf } from '../../shared/tournament/tdf.ts';
 import { withoutClocks, withSiteClocks } from '../../shared/tournament/tomClock.ts';
@@ -67,21 +67,24 @@ test('the revision does not change with the clock, but does with anything else',
   assert.equal('timeLeft' in (withoutClocks(CHALLENGE).pods[0]?.rounds[0] ?? {}), false);
 });
 
-test('two copies hold the same event whatever order their fields are in, clocks aside', () => {
+test('a file is older than the site’s copy only when it lacks a round or a result the site has', () => {
   const stored = readTournament(JSON.parse(JSON.stringify(CHALLENGE)) as unknown);
   assert.ok(stored);
-  assert.notEqual(
-    JSON.stringify(stored),
-    JSON.stringify(CHALLENGE),
-    'the functions store fields in an order of their own'
-  );
-  assert.ok(sameEvent(CHALLENGE, stored));
-  assert.ok(
-    sameEvent(
-      CHALLENGE,
-      withRounds(stored, round => ({ ...round, timeLeft: 1, clockStartedAt: 5 }))
+  assert.ok(!olderThan(CHALLENGE, stored), 'the same event, its fields in another order');
+  assert.ok(!olderThan(CHALLENGE, { ...stored, info: { ...stored.info, name: 'Another' } }), 'only different');
+  assert.ok(!olderThan(CHALLENGE, { ...stored, players: stored.players.slice(1) }), 'the file has a player more');
+  const unseated = { ...stored.players[0]!, id: '9100000001' };
+  assert.ok(!olderThan(CHALLENGE, { ...stored, players: [...stored.players, unseated] }), 'a player more on the site');
+  const reported = stored.pods[0]!.rounds[0]!.matches.find(m => m.p2 !== null && m.outcome !== 'pending')!;
+  const unreported = withRounds(CHALLENGE, round => ({
+    ...round,
+    matches: round.matches.map(m =>
+      m.table === reported.table && round.number === 1 ? { ...m, outcome: 'pending' as const } : m
     )
-  );
-  const renamed = { ...stored, info: { ...stored.info, name: 'Another' } };
-  assert.ok(!sameEvent(CHALLENGE, renamed));
+  }));
+  assert.ok(olderThan(unreported, stored), 'the file lacks a result');
+  assert.ok(!olderThan(stored, unreported), 'the file has a result more');
+  const fewerRounds = { ...CHALLENGE, pods: CHALLENGE.pods.map(pod => ({ ...pod, rounds: pod.rounds.slice(0, -1) })) };
+  assert.ok(olderThan(fewerRounds, stored), 'the file lacks a round');
+  assert.ok(!olderThan(stored, fewerRounds), 'the file has a round more');
 });

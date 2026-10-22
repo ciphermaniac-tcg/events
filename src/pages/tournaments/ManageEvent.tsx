@@ -108,7 +108,8 @@ const NO_PROGRESS: PodProgress = { round: undefined, tables: 0, open: 0, champio
 const TOM_LAPSES: Record<Lapse, string> = {
   permission: msg('allow access to the .tdf to enter results'),
   unreadable: msg('pick the .tdf again to enter results'),
-  conflict: msg('reconnect the .tdf to enter results')
+  conflict: msg('reconnect the .tdf to enter results'),
+  older: msg('reconnect the .tdf to enter results')
 };
 
 /** What a TOM event's head adds to the round: whether TOM has every result entered here. */
