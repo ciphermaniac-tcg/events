@@ -753,6 +753,8 @@ test('before round 1 the public page lists everyone registered @mobile', async (
   const players = VIEW.tournament.players.filter(p => p.droppedAfter === null);
   await expect(page.locator('.tm-status')).toHaveText(`Registration · ${players.length} players`);
   await expect(page.locator('.tm-registered li')).toHaveCount(players.length);
+  // Counted once: the meta line leaves the count to the status line until round 1.
+  expect(await page.locator('.tm-hero').innerText()).not.toMatch(/players[\s\S]*players/);
 });
 
 test('the player sheet keeps Tab inside it until it closes', async ({ page }) => {

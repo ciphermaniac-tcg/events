@@ -808,13 +808,15 @@ function Hero(props: { view: TournamentView; prefer: (PodCategory | null)[] }) {
     ).join(' · ');
   const place = () => [info().city, info().state].filter(Boolean).join(', ');
   const playing = () => livePods(props.view.tournament).some(pod => podProgress(pod, props.view.pending).open > 0);
+  const started = () => livePods(props.view.tournament).some(pod => pod.rounds.length > 0);
   const parts = () =>
     [
       eventDate(settings(), info().startDate),
       settings().format,
       settings().entryFee > 0 && t('{amount} entry', { amount: formatFee(settings().entryFee, info().country) }),
       place(),
-      tn(props.view.tournament.players.length, '{n} player', '{n} players'),
+      // Before round 1 the status line already counts them.
+      started() && tn(props.view.tournament.players.length, '{n} player', '{n} players'),
       // A finished event's date already says when; an unknown time says nothing; mid-round, the clock says the page is live.
       !settings().finished &&
         props.view.updatedAt > 0 &&
