@@ -8,7 +8,7 @@
  *
  * With nothing stored the site follows the OS, and keeps following it for the
  * session: someone whose machine goes dark at sunset gets a dark site without
- * having asked twice. Picking a mode ends that — an explicit choice outranks
+ * having asked twice. Picking the other mode ends that — an explicit choice outranks
  * the system, which is why the listener re-reads storage rather than trusting a
  * flag captured at startup.
  * @module lib/theme
@@ -61,12 +61,20 @@ export function initTheme(): void {
   });
 }
 
-/** Records a deliberate choice, which the OS no longer overrides. */
+/**
+ * Records a deliberate choice, which the OS no longer overrides. Choosing the
+ * mode the OS already gives forgets the choice instead, so the site follows
+ * the system again: toggling away and back is not a vote against sunset.
+ */
 export function setMode(next: Mode): void {
   setModeSignal(next);
   paint(next);
   try {
-    localStorage.setItem(STORAGE_KEY, next);
+    if (next === systemMode()) {
+      localStorage.removeItem(STORAGE_KEY);
+    } else {
+      localStorage.setItem(STORAGE_KEY, next);
+    }
   } catch {
     /* the choice holds for this page, just not the next one */
   }
