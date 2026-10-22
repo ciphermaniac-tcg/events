@@ -5,7 +5,7 @@
  * is read-only apart from decks.
  *
  * The add form is one row in its own box; the roster is a box with its
- * search in the bar, then a row per player: the name over their Player ID
+ * search and status filter (see rosterFilter) in the bar, then a row per player: the name over their Player ID
  * and division, their rounds as squares, the deck picker, the fixed table
  * and the actions. With archetypes off for the event the deck column stays
  * in place, greyed, with the way to turn it on.
@@ -244,15 +244,6 @@ function PlayerActions(props: { state: ManageState; manage: Manage; player: Play
             {t('Reinstate')}
           </button>
         </Show>
-        {/* Once paired, a player is dropped rather than removed, so their opponents keep the match. */}
-        <Show when={!ended() && !hasPlayed(pod(), props.player.id)}>
-          <ConfirmAction
-            label={t('Remove')}
-            question={t('Remove {name}?', { name: playerName(props.player) })}
-            danger
-            onConfirm={() => send('removePlayer')}
-          />
-        </Show>
         <Show when={!ended() || mayRelease(props.manage, props.player)}>
           <OptionsMenu name={playerName(props.player)}>
             <Show when={!ended()}>
@@ -262,6 +253,16 @@ function PlayerActions(props: { state: ManageState; manage: Manage; player: Play
               <button type='button' class='tm-menu-item' data-closes-menu onClick={() => setEditing(true)}>
                 {t('Edit')}
               </button>
+            </Show>
+            {/* Once paired, a player is dropped rather than removed, so their opponents keep the match. */}
+            <Show when={!ended() && !hasPlayed(pod(), props.player.id)}>
+              <ConfirmAction
+                label={t('Remove')}
+                question={t('Remove {name}?', { name: playerName(props.player) })}
+                class='tm-menu-item'
+                danger
+                onConfirm={() => send('removePlayer')}
+              />
             </Show>
             <Show when={!ended() && dropped() === null}>
               <ConfirmAction
@@ -365,24 +366,46 @@ function PlayerRow(props: RowProps) {
   );
 }
 
-/** The roster's filter, while check-in is open: everyone, or only who is not checked in. */
-function RosterShow(props: { selected: RosterFilter; open: number; onSelect: (value: RosterFilter) => void }) {
+/** A status filter's name, as a group of players. */
+const filterLabel = (filter: RosterFilter): string =>
+  ({
+    all: tc('players', 'All'),
+    active: tc('players', 'Active'),
+    dropped: tc('players', 'Dropped'),
+    late: tc('players', 'Late'),
+    unchecked: t('Not checked in')
+  })[filter];
+
+/** The statuses the roster offers as the event stands: Late once round 1 is paired, Not checked in while check-in is open. */
+const filtersFor = (manage: Manage): RosterFilter[] => [
+  'all',
+  'active',
+  'dropped',
+  ...(hasStarted(manage.tournament) ? (['late'] as const) : []),
+  ...(showsCheckIn(manage) ? (['unchecked'] as const) : [])
+];
+
+/** The roster's status filter, with how many are still to check in while check-in is open. */
+function RosterShow(props: {
+  filters: RosterFilter[];
+  selected: RosterFilter;
+  open: number;
+  onSelect: (value: RosterFilter) => void;
+}) {
   return (
     <Segmented
-      options={[
-        { value: 'all', label: tc('players', 'All') },
-        {
-          value: 'unchecked',
-          label: (
-            <>
-              {t('Not checked in')}
-              <Show when={props.open > 0}>
-                <span class='tm-count'>{props.open}</span>
-              </Show>
-            </>
-          )
-        }
-      ]}
+      class='tm-roster-show'
+      options={props.filters.map(value => ({
+        value,
+        label: (
+          <>
+            {filterLabel(value)}
+            <Show when={value === 'unchecked' && props.open > 0}>
+              <span class='tm-count'>{props.open}</span>
+            </Show>
+          </>
+        )
+      }))}
       selected={props.selected}
       onSelect={value => props.onSelect(value)}
       ariaLabel={t('Show')}
@@ -394,7 +417,9 @@ export function PlayersPanel(props: { state: ManageState; manage: Manage }) {
   // In the URL beside the tab, so a reload keeps the list it showed.
   const [params, setParams] = useSearchParams<{ tab?: string; show?: string }>();
   const [query, setQuery] = createSignal('');
-  const filter = (): RosterFilter => (isRosterFilter(params.show) && showsCheckIn(props.manage) ? params.show : 'all');
+  const filters = () => filtersFor(props.manage);
+  const filter = (): RosterFilter =>
+    isRosterFilter(params.show) && filters().includes(params.show) ? params.show : 'all';
   const season = () => eventSeason(props.manage.tournament);
   const swiss = () => props.manage.mode === 'swiss';
   const sanctioned = () => isSanctioned(props.manage);
@@ -413,15 +438,18 @@ export function PlayersPanel(props: { state: ManageState; manage: Manage }) {
   const unchecked = () =>
     notCheckedIn(props.manage, [...props.manage.tournament.players, ...siteRegistrants()], props.manage.checkins ?? {})
       .length;
+  /** Everyone listed, site registrants included, and how many of them show. */
+  const total = () => props.manage.tournament.players.length + siteRegistrants().length;
+  const shown = () => players().length + registrants().length;
   const count = () => {
-    const all = props.manage.tournament.players.length;
+    const all = total();
     const capped = capCount(props.manage, props.manage.tournament.players.filter(p => p.droppedAfter === null).length);
-    if (players().length === all && capped) {
+    if (shown() === all && capped) {
       return capped;
     }
-    return players().length === all
+    return shown() === all
       ? tn(all, '{n} players', '{n} players')
-      : tn(all, '{shown} of {n} players', '{shown} of {n} players', { shown: players().length });
+      : tn(all, '{shown} of {n} players', '{shown} of {n} players', { shown: shown() });
   };
   return (
     <div class='tm-panel'>
@@ -441,14 +469,13 @@ export function PlayersPanel(props: { state: ManageState; manage: Manage }) {
             onInput={e => setQuery(e.currentTarget.value)}
           />
           <span class='muted tm-num'>{count()}</span>
-          <Show when={showsCheckIn(props.manage)}>
-            <span class='tm-grow' />
-            <RosterShow
-              selected={filter()}
-              open={unchecked()}
-              onSelect={value => setParams({ show: value === 'all' ? undefined : value }, { replace: true })}
-            />
-          </Show>
+          <span class='tm-grow' />
+          <RosterShow
+            filters={filters()}
+            selected={filter()}
+            open={unchecked()}
+            onSelect={value => setParams({ show: value === 'all' ? undefined : value }, { replace: true })}
+          />
         </div>
         <div class='table-wrap'>
           <table class='data tm-roster'>
@@ -519,10 +546,8 @@ export function PlayersPanel(props: { state: ManageState; manage: Manage }) {
             </tbody>
           </table>
         </div>
-        <Show when={players().length === 0}>
-          <p class='muted tm-empty'>
-            {props.manage.tournament.players.length ? t('No players match.') : t('No players yet.')}
-          </p>
+        <Show when={shown() === 0}>
+          <p class='muted tm-empty'>{total() ? t('No players match.') : t('No players yet.')}</p>
         </Show>
       </section>
     </div>

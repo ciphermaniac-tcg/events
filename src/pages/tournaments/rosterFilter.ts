@@ -1,20 +1,26 @@
 /**
- * Which players the console's roster shows: everyone, or before round 1 only
- * those not checked in, narrowed by a search on the name or Player ID.
+ * Which players the console's roster shows: everyone, or those of one status
+ * (still in, dropped, late, or before round 1 not checked in), narrowed by a
+ * search on the name or Player ID. Site registrants a TOM event has not taken
+ * in yet go through the same filter, so a search never leaves them standing.
  */
 
 import { type CheckIns, notCheckedIn } from '../../../shared/tournament/checkins';
-import { type Player, playerName } from '../../../shared/tournament/types';
+import { joinedLate, playerPod } from '../../../shared/tournament/rounds';
+import { type Player, playerName, type Tournament } from '../../../shared/tournament/types';
 
-const ROSTER_FILTERS = ['all', 'unchecked'] as const;
+const ROSTER_FILTERS = ['all', 'active', 'dropped', 'late', 'unchecked'] as const;
 export type RosterFilter = (typeof ROSTER_FILTERS)[number];
 
 export const isRosterFilter = (value: unknown): value is RosterFilter => ROSTER_FILTERS.includes(value as RosterFilter);
 
-type Event = Parameters<typeof notCheckedIn>[0] & { checkins?: CheckIns };
+type Event = Parameters<typeof notCheckedIn>[0] & { tournament: Tournament; checkins?: CheckIns };
 
 const STATUS: Record<RosterFilter, (event: Event, player: Player) => boolean> = {
   all: () => true,
+  active: (_, player) => player.droppedAfter === null,
+  dropped: (_, player) => player.droppedAfter !== null,
+  late: (event, player) => player.late === true || joinedLate(playerPod(event.tournament, player.id), player.id),
   unchecked: (event, player) => notCheckedIn(event, [player], event.checkins ?? {}).length > 0
 };
 

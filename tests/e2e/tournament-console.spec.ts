@@ -1750,6 +1750,44 @@ test('a staff removal that fails says so in the staff list', async ({ page }) =>
   await expect(list.getByRole('alert')).toHaveText('Try again shortly');
 });
 
+test('the roster filters by status, kept in the address, and lists names by last name', async ({ page }) => {
+  const played = event(6, 1, false);
+  const gone = played.players[0]!;
+  await mockConsole(page, runCommands(played, { type: 'dropPlayer', id: gone.id }), settingsOf({}));
+  await page.getByRole('tab', { name: 'Players' }).click();
+  const rows = page.locator('.tm-roster tbody tr');
+  await expect(rows).toHaveCount(6);
+  const show = page.getByRole('radiogroup', { name: 'Show' });
+  await show.getByRole('radio', { name: 'Dropped' }).click();
+  await expect(page).toHaveURL(/show=dropped/);
+  await expect(rows).toHaveCount(1);
+  await expect(rows.locator('.tm-name')).toHaveText(`Test, ${gone.firstName}`);
+  await expect(page.getByText('1 of 6 players')).toBeVisible();
+  await show.getByRole('radio', { name: 'Active' }).click();
+  await expect(rows).toHaveCount(5);
+  await page.reload();
+  await expect(page.getByRole('radiogroup', { name: 'Show' }).getByRole('radio', { name: 'Active' })).toHaveAttribute(
+    'aria-checked',
+    'true'
+  );
+});
+
+test('before round 1 Remove waits in the row menu beside Drop', async ({ page }) => {
+  const sent = await mockConsole(page, event(4, 0, false), settingsOf({}));
+  await expect(page.locator('.tm-roster').getByRole('button', { name: 'Remove' })).toHaveCount(0);
+  await page
+    .getByRole('button', { name: /^More for / })
+    .first()
+    .click();
+  const menu = page.getByRole('group', { name: /^More for / });
+  await menu.getByRole('button', { name: 'Remove' }).click();
+  await menu
+    .getByRole('group', { name: /^Remove .+\?$/ })
+    .getByRole('button', { name: 'Remove' })
+    .click();
+  await expect.poll(() => sent.at(-1)).toMatchObject({ type: 'removePlayer' });
+});
+
 test('a cold console asks for the event while its own code is on the way, and its Pairings code before the event lands', async ({
   page
 }) => {
