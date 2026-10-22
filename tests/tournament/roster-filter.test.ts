@@ -1,6 +1,6 @@
 /**
- * Which players the console's roster shows: a search on the name or Player
- * ID, and before round 1 only those not checked in.
+ * Which players the console's roster shows: the search Penalties uses, on a
+ * name typed either way round, a table or a Player ID, and a status.
  */
 
 import assert from 'node:assert/strict';
@@ -30,28 +30,27 @@ const event = {
   checkins: { '101': { paid: true as const } }
 };
 
-test('the search matches a name or a Player ID', () => {
-  assert.equal(inRoster(event, ada, 'all', 'ada'), true);
-  assert.equal(inRoster(event, ada, 'all', '10'), true);
-  assert.equal(inRoster(event, ada, 'all', 'ben'), false);
-  assert.equal(inRoster(event, ada, 'all', '  '), true);
+const ids = (players: readonly Player[]) => players.map(p => p.id);
+
+test('the search matches a name typed either way round, or a Player ID', () => {
+  assert.deepEqual(ids(inRoster(event, [ada, ben], 'all', 'ada')), ['101']);
+  assert.deepEqual(ids(inRoster(event, [ada, ben], 'all', 'Test, Ada')), ['101'], 'as the roster shows the name');
+  assert.deepEqual(ids(inRoster(event, [ada, ben], 'all', 'ada test')), ['101']);
+  assert.deepEqual(ids(inRoster(event, [ada, ben], 'all', '10')), ['101']);
+  assert.deepEqual(ids(inRoster(event, [ada, ben], 'all', '  ')), ['101', '202']);
 });
 
 test('not checked in leaves out who has paid and who has dropped', () => {
-  assert.deepEqual(
-    [ada, ben, gone].filter(p => inRoster(event, p, 'unchecked', '')).map(p => p.id),
-    ['202']
-  );
-  assert.equal(inRoster(event, ben, 'unchecked', 'ada'), false);
+  assert.deepEqual(ids(inRoster(event, [ada, ben, gone], 'unchecked', '')), ['202']);
+  assert.deepEqual(ids(inRoster(event, [ben], 'unchecked', 'ada')), []);
 });
 
 test('a status keeps only its players: still in, dropped, or late', () => {
-  const ids = (filter: Parameters<typeof inRoster>[2]) =>
-    [ada, gone, late].filter(p => inRoster(event, p, filter, '')).map(p => p.id);
-  assert.deepEqual(ids('active'), ['101', '404']);
-  assert.deepEqual(ids('dropped'), ['303']);
-  assert.deepEqual(ids('late'), ['404']);
-  assert.deepEqual(ids('all'), ['101', '303', '404']);
+  const shown = (filter: Parameters<typeof inRoster>[2]) => ids(inRoster(event, [ada, gone, late], filter, ''));
+  assert.deepEqual(shown('active'), ['101', '404']);
+  assert.deepEqual(shown('dropped'), ['303']);
+  assert.deepEqual(shown('late'), ['404']);
+  assert.deepEqual(shown('all'), ['101', '303', '404']);
 });
 
 test('only a known filter is taken from the address', () => {

@@ -230,14 +230,16 @@ export function capCount(manage: Manage, count: number): string {
     : t('{n} / {cap} players', { n: count, cap });
 }
 
-/** Above the player list: who is still open, or at a TOM event how many, and a warning once TOM paired them anyway. */
-export function CheckInBox(props: { state: ManageState; manage: Manage; extra: readonly Player[] }) {
-  const open = () =>
-    notCheckedIn(props.manage, [...props.manage.tournament.players, ...props.extra], checkins(props.manage));
+/**
+ * Above the player list: who of `players` (everyone listed, site registrants
+ * included) is still open, or at a TOM event how many, and a warning once TOM
+ * paired them anyway.
+ */
+export function CheckInBox(props: { state: ManageState; manage: Manage; players: readonly Player[] }) {
+  const open = () => notCheckedIn(props.manage, props.players, checkins(props.manage));
   const tom = () => props.manage.mode === 'tom';
   const asks = () => checkColumns(props.manage).length > 0;
-  const total = () =>
-    [...props.manage.tournament.players, ...props.extra].filter(player => player.droppedAfter === null).length;
+  const total = () => props.players.filter(player => player.droppedAfter === null).length;
   return (
     <Show when={asks()}>
       <Show

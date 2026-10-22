@@ -1,13 +1,16 @@
 /**
  * Which players the console's roster shows: everyone, or those of one status
- * (still in, dropped, late, or before round 1 not checked in), narrowed by a
- * search on the name or Player ID. Site registrants a TOM event has not taken
- * in yet go through the same filter, so a search never leaves them standing.
+ * (still in, dropped, late, or before round 1 not checked in), narrowed by
+ * the same search Penalties uses (see findPlayers): a name typed either way
+ * round, a table number or a Player ID. Site registrants a TOM event has not
+ * taken in yet go through the same filter, so a search never leaves them
+ * standing.
  */
 
 import { type CheckIns, notCheckedIn } from '../../../shared/tournament/checkins';
 import { joinedLate, playerPod } from '../../../shared/tournament/rounds';
-import { type Player, playerName, type Tournament } from '../../../shared/tournament/types';
+import { type Player, type Tournament } from '../../../shared/tournament/types';
+import { findPlayers } from './playerSearch';
 
 const ROSTER_FILTERS = ['all', 'active', 'dropped', 'late', 'unchecked'] as const;
 export type RosterFilter = (typeof ROSTER_FILTERS)[number];
@@ -24,9 +27,8 @@ const STATUS: Record<RosterFilter, (event: Event, player: Player) => boolean> = 
   unchecked: (event, player) => notCheckedIn(event, [player], event.checkins ?? {}).length > 0
 };
 
-/** Whether the roster shows the player for `filter` and the search `query`. */
-export function inRoster(event: Event, player: Player, filter: RosterFilter, query: string): boolean {
-  const q = query.trim().toLowerCase();
-  const found = !q || playerName(player).toLowerCase().includes(q) || player.id.includes(q);
-  return found && STATUS[filter](event, player);
+/** The players of `players` the roster shows for `filter` and the search `query`. */
+export function inRoster(event: Event, players: readonly Player[], filter: RosterFilter, query: string): Player[] {
+  const found = query.trim() ? findPlayers(event.tournament, players, query) : players;
+  return found.filter(player => STATUS[filter](event, player));
 }

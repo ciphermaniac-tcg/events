@@ -464,16 +464,15 @@ export function PlayersPanel(props: { state: ManageState; manage: Manage }) {
     startDate: () => props.manage.tournament.info.startDate
   });
   const players = createMemo(() =>
-    props.manage.tournament.players.filter(p => inRoster(props.manage, p, filter(), query())).sort(byLastName)
+    inRoster(props.manage, props.manage.tournament.players, filter(), query()).sort(byLastName)
   );
   // At a TOM event before round 1, whoever registered on the site and is not in TOM's file yet.
   const siteRegistrants = createSiteRegistrants(() => props.manage);
-  const registrants = () => siteRegistrants().filter(p => inRoster(props.manage, p, filter(), query()));
-  const unchecked = () =>
-    notCheckedIn(props.manage, [...props.manage.tournament.players, ...siteRegistrants()], props.manage.checkins ?? {})
-      .length;
-  /** Everyone listed, site registrants included, and how many of them show. */
-  const total = () => props.manage.tournament.players.length + siteRegistrants().length;
+  const registrants = () => inRoster(props.manage, siteRegistrants(), filter(), query());
+  /** Everyone listed, site registrants included. */
+  const everyone = createMemo(() => [...props.manage.tournament.players, ...siteRegistrants()]);
+  const unchecked = () => notCheckedIn(props.manage, everyone(), props.manage.checkins ?? {}).length;
+  const total = () => everyone().length;
   const shown = () => players().length + registrants().length;
   const count = () => {
     const all = total();
@@ -491,7 +490,7 @@ export function PlayersPanel(props: { state: ManageState; manage: Manage }) {
         <AddPlayer state={props.state} code={props.manage.code} sanctioned={sanctioned()} late={started()} />
       </Show>
       <StaffRequests state={props.state} manage={props.manage} />
-      <CheckInBox state={props.state} manage={props.manage} extra={siteRegistrants()} />
+      <CheckInBox state={props.state} manage={props.manage} players={everyone()} />
       <section class='tm-box'>
         <div class='tm-box-bar'>
           <input
@@ -532,10 +531,7 @@ export function PlayersPanel(props: { state: ManageState; manage: Manage }) {
                   </Show>
                 </th>
                 <Show when={showsCheckIn(props.manage)}>
-                  <CheckInHeads
-                    manage={props.manage}
-                    players={[...props.manage.tournament.players, ...siteRegistrants()]}
-                  />
+                  <CheckInHeads manage={props.manage} players={everyone()} />
                 </Show>
                 <th>
                   <span class='sr-only'>{t('Actions')}</span>
