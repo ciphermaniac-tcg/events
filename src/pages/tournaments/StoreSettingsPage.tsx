@@ -38,7 +38,8 @@ import { SignIn } from './SignIn';
 import { StoreFields } from './StoreFields';
 import { StoreDisplays } from './StoreDisplays';
 import { ErrorLine } from './Field';
-import { createSave, SaveBar } from './StoreSave';
+import { createAction } from './action';
+import { SaveBar } from './StoreSave';
 import { StoreStaff } from './StoreStaff';
 import '../../styles/pages/tournament-store-settings.css';
 import { pageTitle } from '../../lib/title';
@@ -68,7 +69,7 @@ function NightsSection(props: { store: PublicStore; onSaved: (store: PublicStore
   // Edits of a copy of the nights the page opened with, until they are saved.
   const [nights, setNights] = createSignal<LeagueNight[]>(untrack(() => byWeek(props.store.nights)));
   const [exceptions, setExceptions] = createSignal<NightException[]>(untrack(() => [...props.store.exceptions]));
-  const save = createSave();
+  const save = createAction();
   const dirty = () =>
     JSON.stringify([nights(), exceptions()]) !== JSON.stringify([byWeek(props.store.nights), props.store.exceptions]);
   const today = () => dateIn(props.store.timeZone, Date.now());
@@ -132,7 +133,7 @@ function DetailsSection(props: {
   const [details, setDetails] = createSignal(untrack(opened));
   const [timeZone, setTimeZone] = createSignal(untrack(() => props.store.timeZone));
   const [checked, setChecked] = createSignal(false);
-  const save = createSave();
+  const save = createAction();
   const dirty = () =>
     timeZone() !== props.store.timeZone || JSON.stringify(cleanDetails(details())) !== JSON.stringify(opened());
   function submit(event: Event) {

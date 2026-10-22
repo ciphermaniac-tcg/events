@@ -8,16 +8,17 @@
  */
 
 import { A } from '@solidjs/router';
-import { createSignal, For, Match, Show, Switch } from 'solid-js';
+import { For, Match, Show, Switch } from 'solid-js';
 import { managesStore } from '../../../shared/accounts/stores';
 import type { MyStore } from '../../../shared/accounts/types';
-import { errorText, type Me } from '../../lib/tournament/api';
+import { type Me } from '../../lib/tournament/api';
 import { t } from '../../lib/i18n';
 import { removeMember, resignCommunity, STORE_ROLE_WORDS } from '../../lib/tournament/stores';
 import { ConfirmAction } from './ConfirmAction';
 import { ErrorLine } from './Field';
 import { refreshSession } from './session';
 import { SettingRow } from './SettingControls';
+import { createAction } from './action';
 
 /** What the account is at the store, and whether the store may still run events. */
 const storeNote = (store: MyStore) => {
@@ -95,19 +96,12 @@ function StoreRow(props: { store: MyStore; busy: boolean; onLeave: () => void })
 
 /** `applying`: an Application is pending or was turned down, and the status above offers its own step. */
 export function OrganizerRoles(props: { user: Me; applying: boolean }) {
-  const [busy, setBusy] = createSignal(false);
-  const [error, setError] = createSignal<string | null>(null);
+  const action = createAction();
   async function act(step: () => Promise<unknown>) {
-    setBusy(true);
-    setError(null);
-    try {
+    await action.run(async () => {
       await step();
       await refreshSession();
-    } catch (err) {
-      setError(errorText(err));
-    } finally {
-      setBusy(false);
-    }
+    });
   }
   /** Leaves the store as the account reads when Leave is confirmed. */
   function leave(storeId: string) {
@@ -117,9 +111,9 @@ export function OrganizerRoles(props: { user: Me; applying: boolean }) {
   return (
     <>
       <div class='tm-box'>
-        <CommunityRow user={props.user} busy={busy()} onResign={() => void act(resignCommunity)} />
+        <CommunityRow user={props.user} busy={action.busy()} onResign={() => void act(resignCommunity)} />
         <For each={props.user.stores}>
-          {store => <StoreRow store={store} busy={busy()} onLeave={() => leave(store.id)} />}
+          {store => <StoreRow store={store} busy={action.busy()} onLeave={() => leave(store.id)} />}
         </For>
         <Show when={!props.applying}>
           <SettingRow label={props.user.stores.length > 0 ? t('Another store') : t('Store')}>
@@ -129,7 +123,7 @@ export function OrganizerRoles(props: { user: Me; applying: boolean }) {
           </SettingRow>
         </Show>
       </div>
-      <ErrorLine message={error()} />
+      <ErrorLine message={action.error()} />
     </>
   );
 }

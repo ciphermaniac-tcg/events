@@ -15,7 +15,7 @@ import { A, useNavigate, useSearchParams } from '@solidjs/router';
 import { createResource, createSignal, type JSX, onMount, Show, untrack } from 'solid-js';
 import { canJoinCommunity } from '../../../shared/accounts/roles';
 import type { MyApplication } from '../../../shared/accounts/types';
-import { errorText, type Me, type SignInOffer } from '../../lib/tournament/api';
+import { type Me, type SignInOffer } from '../../lib/tournament/api';
 import { msg, t, tx } from '../../lib/i18n';
 import { applicantStage, fetchApplication } from '../../lib/tournament/applications';
 import { joinCommunity } from '../../lib/tournament/stores';
@@ -28,6 +28,7 @@ import { SignIn } from './SignIn';
 import { StoreApplicationForm } from './StoreApplicationForm';
 import '../../styles/pages/tournament-store-apply.css';
 import { pageTitle } from '../../lib/title';
+import { createAction } from './action';
 
 const TITLE = msg('Run events');
 
@@ -88,26 +89,20 @@ function PathRow(props: { path: Path; joined: boolean; children: JSX.Element }) 
 /** Becoming a Community organizer: one press, then on to the events page. */
 function CommunityStart() {
   const navigate = useNavigate();
-  const [busy, setBusy] = createSignal(false);
-  const [error, setError] = createSignal<string | null>(null);
+  const action = createAction({ staysBusy: true });
   async function start() {
-    setBusy(true);
-    setError(null);
-    try {
+    await action.run(async () => {
       await joinCommunity();
       await refreshSession();
       navigate('/');
-    } catch (err) {
-      setError(errorText(err));
-      setBusy(false);
-    }
+    });
   }
   return (
     <span class='tm-path-step'>
-      <button type='button' class='btn btn-primary' disabled={busy()} onClick={() => void start()}>
+      <button type='button' class='btn btn-primary' disabled={action.busy()} onClick={() => void start()}>
         {t('Community organizer')}
       </button>
-      <ErrorLine message={error()} />
+      <ErrorLine message={action.error()} />
     </span>
   );
 }

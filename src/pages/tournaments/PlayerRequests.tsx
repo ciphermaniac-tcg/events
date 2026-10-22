@@ -5,14 +5,15 @@
  * taken back. Only the device that reports for the player asks.
  */
 
-import { createSignal, For, Show } from 'solid-js';
+import { For, Show } from 'solid-js';
 import type { PlayerClaim } from '../../../shared/tournament/identify';
 import { isLive, type PlayerRequest, type RequestKind, requestOf } from '../../../shared/tournament/requests';
 import type { PublishedView, TournamentView } from '../../../shared/tournament/view';
-import { ApiError, askStaff, errorText } from '../../lib/tournament/api';
+import { ApiError, askStaff } from '../../lib/tournament/api';
 import { intlLocale, msg, t } from '../../lib/i18n';
 import { ConfirmAction } from './ConfirmAction';
 import { ErrorLine } from './Field';
+import { createAction } from './action';
 
 /** What each kind's button says and how its request reads once made. */
 const KINDS: { kind: RequestKind; ask: string; status: (request: PlayerRequest) => string }[] = [
@@ -46,24 +47,24 @@ export function PlayerRequests(props: {
   onView: (view: PublishedView) => void;
   onStale: () => void;
 }) {
-  const [busy, setBusy] = createSignal(false);
-  const [error, setError] = createSignal<string | null>(null);
+  const action = createAction();
   const requests = () => props.view.requests ?? [];
   const dropped = () => props.view.tournament.players.find(player => player.id === props.me)?.droppedAfter !== null;
 
   async function send(request: RequestKind, cancel = false) {
-    setBusy(true);
-    setError(null);
-    try {
-      props.onView((await askStaff(props.view.code, props.claim, { request, cancel }, props.reportToken)).view);
-    } catch (err) {
-      setError(errorText(err));
-      // No longer this device's player to ask for.
-      if (err instanceof ApiError && (err.status === 403 || err.status === 409)) {
-        props.onStale();
+    const { claim, reportToken, onStale } = props;
+    const { code } = props.view;
+    const answer = await action.run(
+      () => askStaff(code, claim, { request, cancel }, reportToken),
+      err => {
+        // No longer this device's player to ask for.
+        if (err instanceof ApiError && (err.status === 403 || err.status === 409)) {
+          onStale();
+        }
       }
-    } finally {
-      setBusy(false);
+    );
+    if (answer) {
+      props.onView(answer.view);
     }
   }
 
@@ -91,7 +92,7 @@ export function PlayerRequests(props: {
                       <button
                         type='button'
                         class='btn btn-ghost tm-small'
-                        disabled={busy()}
+                        disabled={action.busy()}
                         onClick={() => void send(entry.kind, true)}
                       >
                         {t('Cancel request')}
@@ -107,7 +108,7 @@ export function PlayerRequests(props: {
                     <button
                       type='button'
                       class='btn btn-secondary tm-small'
-                      disabled={busy()}
+                      disabled={action.busy()}
                       onClick={() => void send(entry.kind)}
                     >
                       {t(entry.ask)}
@@ -127,7 +128,7 @@ export function PlayerRequests(props: {
           );
         }}
       </For>
-      <ErrorLine message={error()} />
+      <ErrorLine message={action.error()} />
     </div>
   );
 }

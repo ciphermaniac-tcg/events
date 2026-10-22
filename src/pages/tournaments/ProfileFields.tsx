@@ -96,46 +96,42 @@ export function ProfileFields(props: {
     const text = props.errors[key];
     return text ? t(text) : undefined;
   };
-  const problem = (key: keyof PlayerProfile, field: string) =>
-    props.errors[key] ? { 'aria-invalid': true, 'aria-describedby': `${id(field)}-error` } : {};
   return (
     <div class='tm-grid-fields tm-profile-fields'>
       <Field id={id('first')} label={t('First name')} error={error('firstName')}>
-        <input
-          id={id('first')}
-          {...problem('firstName', 'first')}
-          class='tm-input'
-          autocomplete='given-name'
-          value={props.value.firstName}
-          onInput={e => set('firstName', e.currentTarget.value)}
-        />
+        {control => (
+          <input
+            {...control}
+            class='tm-input'
+            autocomplete='given-name'
+            value={props.value.firstName}
+            onInput={e => set('firstName', e.currentTarget.value)}
+          />
+        )}
       </Field>
       <Field id={id('last')} label={t('Last name')} error={error('lastName')}>
-        <input
-          id={id('last')}
-          {...problem('lastName', 'last')}
-          class='tm-input'
-          autocomplete='family-name'
-          value={props.value.lastName}
-          onInput={e => set('lastName', e.currentTarget.value)}
-        />
+        {control => (
+          <input
+            {...control}
+            class='tm-input'
+            autocomplete='family-name'
+            value={props.value.lastName}
+            onInput={e => set('lastName', e.currentTarget.value)}
+          />
+        )}
       </Field>
       <Show when={props.sanctioned !== false}>
         <Field id={id('pop')} label={t('Player ID')} error={error('popId')} errorAction={props.popIdAction}>
-          <PlayerIdInput
-            id={id('pop')}
-            {...problem('popId', 'pop')}
-            value={props.value.popId}
-            onValue={value => set('popId', value)}
-          />
+          {control => <PlayerIdInput {...control} value={props.value.popId} onValue={value => set('popId', value)} />}
         </Field>
         <Field id={id('year')} label={t('Birth year')} error={error('birthDate')}>
-          <BirthYearInput
-            id={id('year')}
-            {...problem('birthDate', 'year')}
-            value={birthYearOf(props.value.birthDate)}
-            onValue={value => set('birthDate', birthDateFor(value))}
-          />
+          {control => (
+            <BirthYearInput
+              {...control}
+              value={birthYearOf(props.value.birthDate)}
+              onValue={value => set('birthDate', birthDateFor(value))}
+            />
+          )}
         </Field>
       </Show>
     </div>

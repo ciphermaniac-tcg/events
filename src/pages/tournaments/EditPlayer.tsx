@@ -66,16 +66,16 @@ export function EditPlayerDialog(props: {
               label={t('Birth year')}
               error={yearMissing() ? t('Enter a four-digit year') : undefined}
             >
-              <input
-                id='edit-year'
-                class='tm-input'
-                inputmode='numeric'
-                maxLength={4}
-                aria-invalid={yearMissing()}
-                aria-describedby={yearMissing() ? 'edit-year-error' : undefined}
-                value={year()}
-                onInput={e => setYear(e.currentTarget.value.replace(/\D/g, ''))}
-              />
+              {control => (
+                <input
+                  {...control}
+                  class='tm-input'
+                  inputmode='numeric'
+                  maxLength={4}
+                  value={year()}
+                  onInput={e => setYear(e.currentTarget.value.replace(/\D/g, ''))}
+                />
+              )}
             </Field>
           </Show>
           <Show when={tried()}>

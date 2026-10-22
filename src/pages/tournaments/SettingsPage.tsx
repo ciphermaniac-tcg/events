@@ -47,6 +47,7 @@ import { ContactLink } from './ContactLink';
 import { pageTitle } from '../../lib/title';
 import { msg, t } from '../../lib/i18n';
 import { ProfileLinksForm } from './ProfileLinksForm';
+import { createAction } from './action';
 
 /**
  * Takes in the fields one save changed, and only those: each answer carries
@@ -335,22 +336,12 @@ const profileUrl = (handle: string) => `${location.origin}/u/${handle}`;
  * profile is turned back on.
  */
 function HistorySection(props: { user: Me }) {
-  const [busy, setBusy] = createSignal(false);
+  const action = createAction();
   const [copied, setCopied] = createSignal(false);
-  const [error, setError] = createSignal<string | null>(null);
   async function change(field: 'publicProfile' | 'profileName', ask: () => Promise<{ user: Me }>) {
-    if (busy()) {
-      return;
-    }
-    setBusy(true);
-    setError(null);
-    try {
-      const { user } = await ask();
-      mergeUser(user, field);
-    } catch (err) {
-      setError(errorText(err));
-    } finally {
-      setBusy(false);
+    const answer = await action.run(ask);
+    if (answer) {
+      mergeUser(answer.user, field);
     }
   }
   async function copy() {
@@ -370,7 +361,7 @@ function HistorySection(props: { user: Me }) {
           label={t('Public profile')}
           info={<SettingInfo text={t('Enables a public profile page to share your performance at events.')} />}
         >
-          <span class='tm-set-inline' aria-busy={busy()}>
+          <span class='tm-set-inline' aria-busy={action.busy()}>
             <Toggle
               label={t('Public profile')}
               value={props.user.publicProfile}
@@ -383,7 +374,7 @@ function HistorySection(props: { user: Me }) {
             label={t('Name shown')}
             info={<SettingInfo text={t('Affects only what is shown on your profile page.')} />}
           >
-            <span class='tm-set-inline' aria-busy={busy()}>
+            <span class='tm-set-inline' aria-busy={action.busy()}>
               <Toggle
                 label={t('Name shown')}
                 value={props.user.profileName === 'real'}
@@ -405,7 +396,7 @@ function HistorySection(props: { user: Me }) {
           </SettingRow>
         </Show>
       </div>
-      <ErrorLine message={error()} />
+      <ErrorLine message={action.error()} />
     </section>
   );
 }

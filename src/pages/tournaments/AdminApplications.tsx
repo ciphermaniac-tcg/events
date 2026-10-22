@@ -15,7 +15,7 @@ import { roleForRelationship } from '../../../shared/accounts/stores';
 import type { AdminApplication, ApplicationStatus } from '../../../shared/accounts/types';
 import { Segmented } from '@ciphermaniac/design/components/Segmented';
 import { Skeleton } from '@ciphermaniac/design/components/Skeleton';
-import { ApiError, errorText } from '../../lib/tournament/api';
+import { ApiError } from '../../lib/tournament/api';
 import { msg, t, tn } from '../../lib/i18n';
 import { decideApplication, fetchApplications } from '../../lib/tournament/admin';
 import { recountApplications } from './pendingApplications';
@@ -25,6 +25,7 @@ import { resolved } from '../../lib/resource';
 import { ConfirmAction } from './ConfirmAction';
 import { ErrorLine, RetryError } from './Field';
 import '../../styles/pages/tournament-admin.css';
+import { createAction } from './action';
 
 const STATUSES: { value: ApplicationStatus; label: string }[] = [
   { value: 'pending', label: msg('Pending') },
@@ -70,22 +71,21 @@ function Decide(props: {
   onStale: () => void;
 }) {
   const [note, setNote] = createSignal('');
-  const [busy, setBusy] = createSignal(false);
-  const [error, setError] = createSignal<string | null>(null);
+  const action = createAction();
   async function decide(decision: 'approve' | 'reject') {
-    setBusy(true);
-    setError(null);
-    try {
-      const { application } = await decideApplication(props.application.id, decision, note());
-      recountApplications();
-      props.onDecided(application);
-    } catch (err) {
-      setError(errorText(err));
-      if (err instanceof ApiError && (err.status === 404 || err.status === 409)) {
-        props.onStale();
+    const { application, onStale } = props;
+    const asked = note();
+    const answer = await action.run(
+      () => decideApplication(application.id, decision, asked),
+      err => {
+        if (err instanceof ApiError && (err.status === 404 || err.status === 409)) {
+          onStale();
+        }
       }
-    } finally {
-      setBusy(false);
+    );
+    if (answer) {
+      recountApplications();
+      props.onDecided(answer.application);
     }
   }
   const id = () => `note-${props.application.id}`;
@@ -109,7 +109,7 @@ function Decide(props: {
           type='button'
           class='btn btn-secondary tm-accept'
           aria-describedby={who()}
-          disabled={busy()}
+          disabled={action.busy()}
           onClick={() => void decide('approve')}
         >
           {t('Approve')}
@@ -121,11 +121,11 @@ function Decide(props: {
             name: `${props.application.applied.firstName} ${props.application.applied.lastName}`
           })}
           danger
-          disabled={busy()}
+          disabled={action.busy()}
           onConfirm={() => void decide('reject')}
         />
       </div>
-      <ErrorLine message={error()} />
+      <ErrorLine message={action.error()} />
     </div>
   );
 }

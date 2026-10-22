@@ -30,6 +30,7 @@ import { OptionsMenu } from './OptionsMenu';
 import { ConfirmAction } from './ConfirmAction';
 import { ErrorLine } from './Field';
 import { refreshSession, session } from './session';
+import { createAction } from './action';
 
 const inviteWord = (role: GivenRole) => (role === 'manager' ? t('Manager invite') : t('Staff invite'));
 const inviteLabel = (role: GivenRole) => (role === 'manager' ? t('Manager invite link') : t('Staff invite link'));
@@ -171,22 +172,13 @@ function MemberRow(props: {
 export function StoreStaff(props: { storeId: string }) {
   const navigate = useNavigate();
   const [people, { mutate, refetch }] = createResource(() => props.storeId, fetchPeople);
-  const [busy, setBusy] = createSignal(false);
-  const [error, setError] = createSignal<string | null>(null);
+  const action = createAction();
   // The link made last on this page, by the name the list gives it: its address is shown nowhere else.
   const [made, setMade] = createSignal<{ id: string; link: string } | null>(null);
   const me = () => latestValue(session)?.user?.id;
 
   async function act(step: () => Promise<void>) {
-    setBusy(true);
-    setError(null);
-    try {
-      await step();
-    } catch (err) {
-      setError(errorText(err));
-    } finally {
-      setBusy(false);
-    }
+    await action.run(step);
   }
   // Each step reads the store and who is signed in as it is pressed, then runs on those.
   function changeRole(member: StoreMember, role: StoreRole) {
@@ -268,7 +260,7 @@ export function StoreStaff(props: { storeId: string }) {
                         member={member}
                         you={member.id === me()}
                         owner={current().members.some(one => one.id === me() && one.role === 'owner')}
-                        busy={busy()}
+                        busy={action.busy()}
                         onRole={role => changeRole(member, role)}
                         onRemove={() => remove(member)}
                       />
@@ -282,16 +274,16 @@ export function StoreStaff(props: { storeId: string }) {
                 <InviteRow
                   invite={open}
                   link={made()?.id === open.id ? (made()?.link ?? null) : null}
-                  busy={busy()}
+                  busy={action.busy()}
                   onWithdraw={() => withdraw(open.id)}
                 />
               )}
             </For>
             <div class='tm-box-bar'>
-              <button type='button' class='btn btn-secondary' disabled={busy()} onClick={() => invite('staff')}>
+              <button type='button' class='btn btn-secondary' disabled={action.busy()} onClick={() => invite('staff')}>
                 {t('Invite staff')}
               </button>
-              <button type='button' class='btn btn-ghost' disabled={busy()} onClick={() => invite('manager')}>
+              <button type='button' class='btn btn-ghost' disabled={action.busy()} onClick={() => invite('manager')}>
                 {t('Invite a manager')}
               </button>
               <span class='muted'>
@@ -301,7 +293,7 @@ export function StoreStaff(props: { storeId: string }) {
           </div>
         )}
       </Show>
-      <ErrorLine message={error()} />
+      <ErrorLine message={action.error()} />
     </section>
   );
 }

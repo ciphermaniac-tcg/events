@@ -56,19 +56,19 @@ export function StoreFields(props: {
         {spec => (
           <div classList={{ 'tm-store-wide': spec.wide === true }}>
             <Field id={fieldId(spec.key)} label={t(spec.label)} error={shown(spec.key)}>
-              <input
-                id={fieldId(spec.key)}
-                class='tm-input'
-                type={spec.type ?? 'text'}
-                maxLength={spec.max}
-                placeholder={spec.placeholder}
-                autocomplete={spec.autocomplete ?? 'off'}
-                value={props.details[spec.key]}
-                aria-invalid={shown(spec.key) ? 'true' : undefined}
-                aria-describedby={shown(spec.key) ? `${fieldId(spec.key)}-error` : undefined}
-                onInput={e => props.onChange({ ...props.details, [spec.key]: e.currentTarget.value })}
-                onBlur={() => setLeft(prev => new Set(prev).add(spec.key))}
-              />
+              {control => (
+                <input
+                  {...control}
+                  class='tm-input'
+                  type={spec.type ?? 'text'}
+                  maxLength={spec.max}
+                  placeholder={spec.placeholder}
+                  autocomplete={spec.autocomplete ?? 'off'}
+                  value={props.details[spec.key]}
+                  onInput={e => props.onChange({ ...props.details, [spec.key]: e.currentTarget.value })}
+                  onBlur={() => setLeft(prev => new Set(prev).add(spec.key))}
+                />
+              )}
             </Field>
           </div>
         )}

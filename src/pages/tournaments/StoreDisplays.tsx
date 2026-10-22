@@ -28,7 +28,8 @@ import { measuresInFeet, msg, t, tn } from '../../lib/i18n';
 import { ConfirmAction } from './ConfirmAction';
 import { roomScale } from './displayLayout';
 import { ErrorLine } from './Field';
-import { createSave, SaveBar } from './StoreSave';
+import { createAction } from './action';
+import { SaveBar } from './StoreSave';
 import { SettingRow } from './SettingControls';
 
 const LAYOUT_WORDS: Record<DisplayLayout, string> = {
@@ -244,7 +245,7 @@ export function StoreDisplays(props: { storeId: string }) {
   const [read, { mutate }] = createResource(() => props.storeId, fetchPresets);
   const presets = () => latestValue(read)?.presets ?? [];
   const [draft, setDraft] = createSignal<Draft>(blank());
-  const save = createSave();
+  const save = createAction();
   // Which opening of the editor the draft belongs to: a new preset has no ID to tell one from the next.
   let opening = 0;
   const pick = (id: string) => {

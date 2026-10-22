@@ -101,31 +101,31 @@ function LeagueField(props: { lookup: Lookup; onLookup: (lookup: Lookup) => void
   };
   return (
     <Field id='apply-league' label={t('League ID or pokemon.com league page')} error={refusal()}>
-      <span class='tm-apply-league'>
-        <input
-          id='apply-league'
-          class='tm-input'
-          autocomplete='off'
-          value={typed()}
-          aria-invalid={refusal() ? 'true' : undefined}
-          aria-describedby={refusal() ? 'apply-league-error' : undefined}
-          onInput={e => typing(e.currentTarget.value)}
-          onKeyDown={e => {
-            if (e.key === 'Enter') {
-              e.preventDefault();
-              void look();
-            }
-          }}
-        />
-        <button
-          type='button'
-          class='btn btn-secondary'
-          disabled={props.lookup.kind === 'looking' || !typed().trim()}
-          onClick={() => void look()}
-        >
-          {props.lookup.kind === 'looking' ? t('Looking up') : t('Look up')}
-        </button>
-      </span>
+      {control => (
+        <span class='tm-apply-league'>
+          <input
+            {...control}
+            class='tm-input'
+            autocomplete='off'
+            value={typed()}
+            onInput={e => typing(e.currentTarget.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                void look();
+              }
+            }}
+          />
+          <button
+            type='button'
+            class='btn btn-secondary'
+            disabled={props.lookup.kind === 'looking' || !typed().trim()}
+            onClick={() => void look()}
+          >
+            {props.lookup.kind === 'looking' ? t('Looking up') : t('Look up')}
+          </button>
+        </span>
+      )}
     </Field>
   );
 }
@@ -234,24 +234,24 @@ export function StoreApplicationForm(props: { onSent: (sent: MyApplication) => v
             label={t('Why are you applying for this store?')}
             error={relationshipProblem()}
           >
-            <select
-              id='apply-relationship'
-              class='tm-select tm-select-full'
-              aria-invalid={relationshipProblem() ? 'true' : undefined}
-              aria-describedby={relationshipProblem() ? 'apply-relationship-error' : undefined}
-              onChange={e => setRelationship(e.currentTarget.value as Relationship | '')}
-            >
-              <option value='' selected={relationship() === ''}>
-                {t('Choose')}
-              </option>
-              <For each={RELATIONSHIPS}>
-                {value => (
-                  <option value={value} selected={relationship() === value}>
-                    {t(RELATIONSHIP_LABELS[value])}
-                  </option>
-                )}
-              </For>
-            </select>
+            {control => (
+              <select
+                {...control}
+                class='tm-select tm-select-full'
+                onChange={e => setRelationship(e.currentTarget.value as Relationship | '')}
+              >
+                <option value='' selected={relationship() === ''}>
+                  {t('Choose')}
+                </option>
+                <For each={RELATIONSHIPS}>
+                  {value => (
+                    <option value={value} selected={relationship() === value}>
+                      {t(RELATIONSHIP_LABELS[value])}
+                    </option>
+                  )}
+                </For>
+              </select>
+            )}
           </Field>
           <div class='tm-field'>
             <label class='tm-check tm-apply-certified'>

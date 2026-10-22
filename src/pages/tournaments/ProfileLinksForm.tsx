@@ -11,31 +11,24 @@ import { t } from '../../lib/i18n';
 import { ErrorLine, Field } from './Field';
 import { Skeleton } from '@ciphermaniac/design/components/Skeleton';
 import '../../styles/pages/tournament-profile.css';
+import { createAction } from './action';
 
 function LinksForm(props: { links: ProfileLinks }) {
   const [links, setLinks] = createSignal<ProfileLinks>(untrack(() => ({ ...props.links })));
-  const [busy, setBusy] = createSignal(false);
-  const [saved, setSaved] = createSignal(false);
-  const [error, setError] = createSignal<string | null>(null);
+  const action = createAction();
   const [touched, setTouched] = createSignal(false);
   const problem = (key: (typeof PROFILE_LINKS)[number]) =>
     touched() && !validProfileLink(key, (links()[key] ?? '').trim()) ? t('Enter a valid HTTPS profile URL') : undefined;
   async function save(event: SubmitEvent) {
     event.preventDefault();
     setTouched(true);
-    if (busy() || PROFILE_LINKS.some(key => problem(key))) {
+    if (PROFILE_LINKS.some(key => problem(key))) {
       return;
     }
-    setBusy(true);
-    setError(null);
-    try {
-      const answer = await saveProfileLinks(links());
+    const asked = links();
+    const answer = await action.run(() => saveProfileLinks(asked));
+    if (answer) {
       setLinks(answer.links);
-      setSaved(true);
-    } catch (err) {
-      setError(errorText(err));
-    } finally {
-      setBusy(false);
     }
   }
   return (
@@ -43,33 +36,33 @@ function LinksForm(props: { links: ProfileLinks }) {
       <For each={PROFILE_LINKS}>
         {key => (
           <Field id={`profile-link-${key}`} label={t(PROFILE_LINK_LABELS[key])} error={problem(key)}>
-            <input
-              id={`profile-link-${key}`}
-              class='tm-input'
-              type='url'
-              maxLength={512}
-              value={links()[key] ?? ''}
-              aria-invalid={Boolean(problem(key))}
-              aria-describedby={problem(key) ? `profile-link-${key}-error` : undefined}
-              onInput={event => {
-                setLinks(prev => ({ ...prev, [key]: event.currentTarget.value }));
-                setSaved(false);
-              }}
-            />
+            {control => (
+              <input
+                {...control}
+                class='tm-input'
+                type='url'
+                maxLength={512}
+                value={links()[key] ?? ''}
+                onInput={event => {
+                  setLinks(prev => ({ ...prev, [key]: event.currentTarget.value }));
+                  action.clear();
+                }}
+              />
+            )}
           </Field>
         )}
       </For>
       <div class='tm-profile-form-actions'>
-        <button type='submit' class='btn btn-primary' disabled={busy()}>
-          {busy() ? t('Saving…') : t('Save links')}
+        <button type='submit' class='btn btn-primary' disabled={action.busy()}>
+          {action.busy() ? t('Saving…') : t('Save links')}
         </button>
-        <Show when={saved()}>
+        <Show when={action.saved()}>
           <span role='status' class='muted'>
             {t('Saved')}
           </span>
         </Show>
       </div>
-      <ErrorLine message={error()} />
+      <ErrorLine message={action.error()} />
     </form>
   );
 }

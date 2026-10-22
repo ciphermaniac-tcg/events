@@ -363,15 +363,15 @@ function YearField(props: { form: Registration; onEnter?: () => void; opens?: bo
     !props.opens && props.form.young() ? t('Players under 13 register with staff at the event.') : undefined;
   return (
     <Field id='reg-year' label={t('Birth year')} error={error()}>
-      <BirthYearInput
-        id='reg-year'
-        class='tm-input tm-reg-input'
-        aria-invalid={error() ? 'true' : undefined}
-        aria-describedby={error() ? 'reg-year-error' : undefined}
-        value={birthYearOf(props.form.profile().birthDate)}
-        onValue={value => props.form.setField('birthDate', birthDateFor(value))}
-        onKeyDown={onEnter(props.onEnter)}
-      />
+      {control => (
+        <BirthYearInput
+          {...control}
+          class='tm-input tm-reg-input'
+          value={birthYearOf(props.form.profile().birthDate)}
+          onValue={value => props.form.setField('birthDate', birthDateFor(value))}
+          onKeyDown={onEnter(props.onEnter)}
+        />
+      )}
     </Field>
   );
 }

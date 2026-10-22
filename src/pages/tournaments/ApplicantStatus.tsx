@@ -7,10 +7,9 @@
  */
 
 import { A } from '@solidjs/router';
-import { createEffect, createSignal, Match, type Resource, Show, Switch } from 'solid-js';
+import { createEffect, Match, type Resource, Show, Switch } from 'solid-js';
 import type { AccountRole } from '../../../shared/accounts/roles';
 import type { MyApplication } from '../../../shared/accounts/types';
-import { errorText } from '../../lib/tournament/api';
 import { msg, t } from '../../lib/i18n';
 import { type ApplicantStage, applicantStage, dayOf, withdrawApplication } from '../../lib/tournament/applications';
 import { latestValue } from '../../lib/resource';
@@ -19,6 +18,7 @@ import { ContactLink } from './ContactLink';
 import { ErrorLine } from './Field';
 import { refreshSession } from './session';
 import '../../styles/pages/tournament-apply.css';
+import { createAction } from './action';
 
 const STAGE_WORDS: Record<ApplicantStage, string> = {
   none: '',
@@ -62,19 +62,13 @@ function ApplyAgain(props: { onApply: (() => void) | undefined }) {
 
 /** Withdrawing a pending Application, asked first. */
 function Withdraw(props: { onWithdrawn: () => void }) {
-  const [busy, setBusy] = createSignal(false);
-  const [error, setError] = createSignal<string | null>(null);
+  const action = createAction();
   async function withdraw() {
-    setBusy(true);
-    setError(null);
-    try {
+    const { onWithdrawn } = props;
+    await action.run(async () => {
       await withdrawApplication();
-      props.onWithdrawn();
-    } catch (err) {
-      setError(errorText(err));
-    } finally {
-      setBusy(false);
-    }
+      onWithdrawn();
+    });
   }
   return (
     <>
@@ -83,10 +77,10 @@ function Withdraw(props: { onWithdrawn: () => void }) {
         label={t('Withdraw')}
         question={t('Withdraw your application?')}
         danger
-        disabled={busy()}
+        disabled={action.busy()}
         onConfirm={() => void withdraw()}
       />
-      <ErrorLine message={error()} />
+      <ErrorLine message={action.error()} />
     </>
   );
 }

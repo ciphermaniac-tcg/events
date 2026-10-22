@@ -36,6 +36,7 @@ import { forgetAccountMemory } from '../../lib/tournament/accountMemory';
 import { SettingRow } from './SettingControls';
 import '../../styles/pages/tournament-store-apply.css';
 import '../../styles/pages/tournament-my-data.css';
+import { createAction } from './action';
 
 /** Each part's name and what it holds. */
 const PARTS: Record<ExportPart, { name: string; what: string }> = {
@@ -177,31 +178,25 @@ function save(file: Blob, name: string) {
 
 function ExportDialog(props: { open: boolean; onClose: () => void }) {
   const [chosen, setChosen] = createSignal<ReadonlySet<ExportPart>>(new Set(EXPORT_PARTS));
-  const [busy, setBusy] = createSignal(false);
-  const [error, setError] = createSignal<string | null>(null);
+  const action = createAction();
   function close() {
-    setError(null);
+    action.clear();
     props.onClose();
   }
   async function download() {
-    setBusy(true);
-    setError(null);
-    try {
-      const { file, name } = await exportData(EXPORT_PARTS.filter(part => chosen().has(part)));
-      save(file, name);
+    const parts = EXPORT_PARTS.filter(part => chosen().has(part));
+    const answer = await action.run(() => exportData(parts));
+    if (answer) {
+      save(answer.file, answer.name);
       close();
-    } catch (err) {
-      setError(errorText(err));
-    } finally {
-      setBusy(false);
     }
   }
   return (
     <Modal open={props.open} title={t('Export data')} onClose={close}>
       <PartChoices parts={EXPORT_PARTS} chosen={chosen()} onToggle={part => setChosen(toggled(chosen(), part))} />
-      <Show when={error()}>
+      <Show when={action.error()}>
         <div class='tm-box-bar'>
-          <ErrorLine message={error()} />
+          <ErrorLine message={action.error()} />
         </div>
       </Show>
       <div class='tm-box-bar tm-modal-foot'>
@@ -211,7 +206,7 @@ function ExportDialog(props: { open: boolean; onClose: () => void }) {
         <button
           type='button'
           class='btn btn-primary'
-          disabled={chosen().size === 0 || busy()}
+          disabled={chosen().size === 0 || action.busy()}
           onClick={() => void download()}
         >
           {chosen().size === EXPORT_PARTS.length ? t('Download all') : t('Download')}
