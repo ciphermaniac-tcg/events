@@ -22,7 +22,8 @@
  * site's chrome is hidden while it is up.
  */
 
-import { createMemo, createSignal, For, Index, type JSX, lazy, onCleanup, onMount, Show, useContext } from 'solid-js';
+import { createMemo, createSignal, For, Index, type JSX, onCleanup, onMount, Show, useContext } from 'solid-js';
+import { lazyChunk } from '../../lib/preloadRecovery';
 import { percentLabel, recordLabel } from '../../../shared/tournament/standings';
 import type { Match, Pod, Round } from '../../../shared/tournament/types';
 import type { TournamentView } from '../../../shared/tournament/view';
@@ -266,7 +267,7 @@ function Registered(props: { view: TournamentView }) {
   );
 }
 
-const CutBracket = lazy(() => import('./Bracket').then(m => ({ default: m.CutBracket })));
+const CutBracket = lazyChunk(() => import('./Bracket').then(m => ({ default: m.CutBracket })));
 
 /**
  * A pod's top cut as a bracket, under the pod's name when the screen shows

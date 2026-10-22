@@ -5,14 +5,15 @@
  * requests are answered, or past them on purpose.
  */
 
-import { createSignal, type JSX, lazy, Show, Suspense } from 'solid-js';
+import { createSignal, type JSX, Show, Suspense } from 'solid-js';
+import { lazyChunk } from '../../lib/preloadRecovery';
 import { openDrops, type PlayerRequest } from '../../../shared/tournament/requests';
 import type { Pod } from '../../../shared/tournament/types';
 import type { Manage } from '../../lib/tournament/api';
 import type { ManageState } from './manageState';
 
 // Opened only with a drop request waiting, so it loads when first asked for.
-const DropCheck = lazy(() => import('./DropCheck').then(m => ({ default: m.DropCheck })));
+const DropCheck = lazyChunk(() => import('./DropCheck').then(m => ({ default: m.DropCheck })));
 
 /** The open drop requests from the pod's players, oldest first. */
 export const podDrops = (manage: Manage, pod: Pod | undefined): PlayerRequest[] =>

@@ -17,18 +17,7 @@
  */
 
 import { A, useNavigate, useSearchParams } from '@solidjs/router';
-import {
-  createResource,
-  createSignal,
-  For,
-  lazy,
-  Match,
-  onMount,
-  type Resource,
-  Show,
-  Switch,
-  untrack
-} from 'solid-js';
+import { createResource, createSignal, For, Match, onMount, type Resource, Show, Switch, untrack } from 'solid-js';
 import { canRunCommunityEvents } from '../../../shared/accounts/roles';
 import { canCreateEvents, managesStore } from '../../../shared/accounts/stores';
 import { parseTomDate } from '../../../shared/tournament/divisions';
@@ -53,14 +42,14 @@ import { ErrorLine } from './Field';
 import { TournamentHero } from './Hero';
 import { refreshSession, session } from './session';
 import { pageTitle } from '../../lib/title';
-import { retryable } from '../../lib/preloadRecovery';
+import { lazyChunk } from '../../lib/preloadRecovery';
 import { intlLocale, msg, t, tn } from '../../lib/i18n';
 import { SessionGate } from './SessionGate';
 
 const loadDashboard = () => import('./Dashboard');
 const loadHostHome = () => import('./HostHome');
-const Dashboard = lazy(retryable(() => loadDashboard().then(m => ({ default: m.Dashboard }))));
-const HostHome = lazy(retryable(() => loadHostHome().then(m => ({ default: m.HostHome }))));
+const Dashboard = lazyChunk(() => loadDashboard().then(m => ({ default: m.Dashboard })));
+const HostHome = lazyChunk(() => loadHostHome().then(m => ({ default: m.HostHome })));
 
 // Which of the two the root shows waits on who is signed in. Ask for both while
 // that answer is on its way, rather than one after it.

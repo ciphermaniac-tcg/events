@@ -17,7 +17,7 @@
  * @module src/lib/preloadRecovery
  */
 
-import { createSignal } from 'solid-js';
+import { type Component, createSignal, lazy } from 'solid-js';
 
 /** How long a reload suppresses the next one. */
 export const RELOAD_GUARD_MS = 30_000;
@@ -114,9 +114,18 @@ export function installPreloadRecovery(): void {
  * never sees the nothing: the build wraps the whole loader, that included,
  * in the helper.
  */
-export function retryable<T>(load: () => Promise<T>): () => Promise<T> {
+function retryable<T>(load: () => Promise<T>): () => Promise<T> {
   return () =>
     load().then(module => (module as T | undefined) ?? Promise.reject(new TypeError('A chunk did not load')));
+}
+
+/**
+ * A code-split component whose chunk is asked for again after a failure (see
+ * retryable): the only way the site makes one, since a plain `lazy()` keeps a
+ * failed chunk's nothing for good.
+ */
+export function lazyChunk<T extends Component<any>>(load: () => Promise<{ default: T }>) {
+  return lazy(retryable(load));
 }
 
 /**

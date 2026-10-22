@@ -459,6 +459,24 @@ export default [
     }
   },
   {
+    files: ['src/**/*.ts', 'src/**/*.tsx'],
+    ignores: ['src/lib/preloadRecovery.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: 'solid-js',
+              importNames: ['lazy'],
+              message: 'Take lazyChunk from lib/preloadRecovery: a plain lazy() keeps a failed chunk for good.'
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
     files: ['tests/e2e/**/*.spec.ts'],
     rules: {
       'no-restricted-imports': [

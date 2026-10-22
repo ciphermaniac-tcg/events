@@ -1,7 +1,7 @@
-import { type Component, type ComponentProps, ErrorBoundary, lazy, onCleanup, Show } from 'solid-js';
+import { type Component, type ComponentProps, ErrorBoundary, onCleanup, Show } from 'solid-js';
 import { Skeleton } from '@ciphermaniac/design/components/Skeleton';
 import { t } from '../../lib/i18n';
-import { isRecoveringPreload, retryable, siteAnswers } from '../../lib/preloadRecovery';
+import { isRecoveringPreload, lazyChunk, siteAnswers } from '../../lib/preloadRecovery';
 import { ErrorLine } from './Field';
 
 /**
@@ -11,7 +11,7 @@ import { ErrorLine } from './Field';
  * `preload` fetches the chunk ahead of need (see warmChunks).
  */
 export function lazyPanel<T extends Component<any>>(load: () => Promise<{ default: T }>) {
-  const Panel = lazy(retryable(load));
+  const Panel = lazyChunk(load);
   const Guarded = (props: ComponentProps<T>) => (
     <ErrorBoundary
       fallback={(err, reset) => {
@@ -59,7 +59,7 @@ function retryOnceAnswering(retry: () => void): void {
  * tries again on its own once the site answers.
  */
 export function lazyOnAir<T extends Component<any>>(load: () => Promise<{ default: T }>) {
-  const Screen = lazy(retryable(load));
+  const Screen = lazyChunk(load);
   return (props: ComponentProps<T>) => (
     <ErrorBoundary
       fallback={(err, reset) => {

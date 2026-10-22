@@ -12,6 +12,7 @@ import test, { type TestContext } from 'node:test';
 import {
   installPreloadRecovery,
   isRecoveringPreload,
+  lazyChunk,
   RELOAD_GUARD_MS,
   shouldReloadAfterPreloadError,
   warmChunks
@@ -129,4 +130,15 @@ test('a chunk fetched ahead of need fails quietly, without a reload', async t =>
   // Once the warming is over, a failure the page asked for recovers as before.
   await fail();
   assert.equal(seen.reloads, 1);
+});
+
+test('a chunk that answered with nothing fails, and is asked for again next time', async () => {
+  let calls = 0;
+  const Chunk = lazyChunk(() => {
+    calls += 1;
+    return Promise.resolve(undefined as never);
+  });
+  await assert.rejects(Chunk.preload(), /A chunk did not load/);
+  await assert.rejects(Chunk.preload());
+  assert.equal(calls, 2);
 });
