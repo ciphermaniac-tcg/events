@@ -716,15 +716,21 @@ test('an invite link joins the store and goes on to its page; a used one says so
   await page.goto('/stores/join?invite=old');
   await expect(page.getByRole('heading', { level: 1, name: 'This invite didn’t work' })).toBeVisible();
   await expect(page.locator('.error-state-line')).toHaveText('This invite link was used or has run out');
+  await page.goto('/stores/join');
+  await expect(page.locator('.error-state-line')).toHaveText('This invite link is incomplete.');
+  expect(sentTo(asks, 'POST', '/api/stores/join')).toHaveLength(2);
 });
 
-test('signed out, an invite link offers sign-in that comes back to it', async ({ page }) => {
+test('signed out, an invite link says what signing in is for, and sign-in comes back to it', async ({ page }) => {
   await mock(page, { user: null });
   await page.goto('/stores/join?invite=good');
+  await expect(page.getByText('Sign in to join this store’s staff.')).toBeVisible();
   await expect(page.getByRole('link', { name: 'Sign in with Google' })).toHaveAttribute(
     'href',
     /next=%2Fstores%2Fjoin%3Finvite%3Dgood/
   );
+  await page.goto('/stores/join');
+  await expect(page.locator('.error-state-line')).toHaveText('This invite link is incomplete.');
 });
 
 // ---------- Starting a store's event ----------

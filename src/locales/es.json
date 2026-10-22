@@ -1192,6 +1192,7 @@
   "This event runs in TOM. Correct the result in TOM, then sync.": "Este torneo se gestiona en TOM. Corrige el resultado en TOM y luego sincroniza.",
   "This invite didn’t work": "Esta invitación no funcionó",
   "This invite link was used or has run out": "Este enlace de invitación ya se usó o caducó",
+  "This invite link is incomplete.": "Este enlace de invitación está incompleto.",
   "This is me": "Soy yo",
   "This isn’t me": "No soy yo",
   "This list was sent from another device. Send it from that device, or ask staff to reset it.": "Esta lista se envió desde otro dispositivo. Envíala desde ese dispositivo o pide al personal que la restablezca.",
@@ -1600,5 +1601,6 @@
   "Top cut": "Top cut",
   "Top cut brackets": "Cuadros del top cut",
   "Questions?": "¿Preguntas?",
-  "Think this is a mistake?": "¿Crees que es un error?"
+  "Think this is a mistake?": "¿Crees que es un error?",
+  "Sign in to join this store’s staff.": "Inicia sesión para unirte al personal de esta tienda."
 }

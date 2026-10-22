@@ -1,7 +1,8 @@
 /**
  * /stores/join?invite=: a store's invite link. Signed in, it joins the store
  * at once and goes on to the store's page; a link used, withdrawn or run out
- * says so. Signed out, sign-in comes back here.
+ * says so. Signed out, it says what signing in is for, and sign-in comes back
+ * here. A link with no invite in it says so either way.
  */
 
 import { SessionGate } from './SessionGate';
@@ -19,19 +20,17 @@ import { ErrorState } from '@ciphermaniac/design/components/ErrorState';
 export function StoreJoinPage() {
   const navigate = useNavigate();
   const [params] = useSearchParams<{ invite?: string }>();
-  const [error, setError] = createSignal<string | null>(null);
+  const [failed, setFailed] = createSignal<string | null>(null);
+  // A link cut short has nothing to join with, signed in or not.
+  const error = () => (params.invite ? failed() : t('This invite link is incomplete.'));
   const user = () => latestValue(session)?.user;
   let tried = false;
   createEffect(() => {
     const token = params.invite;
-    if (!user() || tried) {
+    if (!user() || !token || tried) {
       return;
     }
     tried = true;
-    if (!token) {
-      setError(t('This invite link was used or has run out'));
-      return;
-    }
     untrack(() => void join(token));
   });
   async function join(token: string) {
@@ -40,7 +39,7 @@ export function StoreJoinPage() {
       await refreshSession();
       navigate(`/stores/${storeId}`, { replace: true });
     } catch (err) {
-      setError(errorText(err));
+      setFailed(errorText(err));
     }
   }
   return (
@@ -48,40 +47,41 @@ export function StoreJoinPage() {
       <Show when={!error()}>
         <TournamentHero title={t('Join a store')} />
       </Show>
-      <SessionGate>
-        {s => (
-          <Show
-            when={s().user}
-            fallback={
-              <section class='tm-box'>
-                <div class='tm-box-bar'>
-                  <SignIn
-                    offer={s()}
-                    next={`/stores/join?${new URLSearchParams({ invite: params.invite ?? '' }).toString()}`}
-                  />
-                </div>
-              </section>
-            }
-          >
-            <Show
-              when={error()}
-              fallback={
+      <Show
+        when={error()}
+        fallback={
+          <SessionGate>
+            {s => (
+              <Show
+                when={s().user}
+                fallback={
+                  <section class='tm-box'>
+                    <p class='tm-box-bar'>{t('Sign in to join this store’s staff.')}</p>
+                    <div class='tm-box-bar'>
+                      <SignIn
+                        offer={s()}
+                        next={`/stores/join?${new URLSearchParams({ invite: params.invite ?? '' }).toString()}`}
+                      />
+                    </div>
+                  </section>
+                }
+              >
                 <p class='muted' role='status'>
                   {t('Joining')}
                 </p>
-              }
-            >
-              {message => (
-                <ErrorState code={t('Invite')} title={t('This invite didn’t work')} line={message()}>
-                  <A href='/' class='btn btn-primary'>
-                    {t('Go to your events')}
-                  </A>
-                </ErrorState>
-              )}
-            </Show>
-          </Show>
+              </Show>
+            )}
+          </SessionGate>
+        }
+      >
+        {message => (
+          <ErrorState code={t('Invite')} title={t('This invite didn’t work')} line={message()}>
+            <A href='/' class='btn btn-primary'>
+              {t('Go to your events')}
+            </A>
+          </ErrorState>
         )}
-      </SessionGate>
+      </Show>
     </div>
   );
 }
