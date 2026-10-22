@@ -357,7 +357,7 @@ export function applyCommand(t: Tournament, command: Command, ctx: CommandContex
     if (!operation) {
       return legacyChange(document, command, ctx);
     }
-    const result = applyLifecycleOperation(prepared, operation, ctx);
+    const result = applyLifecycleOperation(prepared, operation, { ...ctx, siteTables: true });
     return commandResult(automaticPrereleaseConclusion(result, prepared, command, ctx), prepared);
   } catch (error) {
     return refused(error);

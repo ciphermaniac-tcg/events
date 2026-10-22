@@ -160,7 +160,22 @@ export function podded(tournament: Tournament, season: number): Tournament {
     ...(findPod(tournament, category) ?? newPod(category)),
     playerIds: tournament.players.filter(player => categoryOf(player) === category).map(player => player.id)
   }));
-  return { ...tournament, pods };
+  return { ...tournament, pods: endToEnd(pods, tournament.players) };
+}
+
+/**
+ * Each pod's first table just past the one before's, as TOM's configure lays
+ * them, counting only players still in: with automatic numbering off (a fixed table turns it off), pods pair
+ * from these, and two starting at 1 would share tables.
+ */
+function endToEnd(pods: Pod[], players: Player[]): Pod[] {
+  const active = new Set(players.filter(player => player.droppedAfter === null).map(player => player.id));
+  let table = 1;
+  return pods.map(pod => {
+    const startingTable = table;
+    table += Math.max(1, Math.floor(pod.playerIds.filter(id => active.has(id)).length / 2));
+    return { ...pod, startingTable };
+  });
 }
 
 /**

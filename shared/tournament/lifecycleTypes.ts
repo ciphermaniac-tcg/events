@@ -82,6 +82,8 @@ export interface RecordedChoices {
 export interface LifecycleContext extends CommandContext {
   /** A direct bounded pairing attempt omits ordinary renumbering and pairing marks. */
   terminalPairing?: boolean;
+  /** Site commands reserve neighboring tables and fixed seats across divisions. */
+  siteTables?: boolean;
   recorded?: RecordedChoices;
 }
 export interface LifecycleResult {

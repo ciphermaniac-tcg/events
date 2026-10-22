@@ -45,10 +45,12 @@ function tableStamp(
   return {
     firstTable: pod.rounds.length ? pairingTableStart(t, pod) : pod.startingTable,
     timestamp: ctx.localTime,
-    fixed: new Map([...fixedTables(t)].filter(([id]) => pod.playerIds.includes(id))),
+    fixed: new Map([...fixedTables(t)].filter(([id]) => ctx.siteTables || pod.playerIds.includes(id))),
     taken: new Set([
       ...taken,
-      ...(pod.playerIds.some(id => fixedTables(t).has(id)) ? [] : overflowTables(t, pod, ctx, repairing)),
+      ...(!ctx.siteTables && pod.playerIds.some(id => fixedTables(t).has(id))
+        ? []
+        : overflowTables(t, pod, ctx, repairing)),
       ...(ctx.recorded?.heldRepairTables ?? [])
     ]),
     blocked: pod.blockedRanges,

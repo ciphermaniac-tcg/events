@@ -514,6 +514,86 @@ test('static seating keeps a player at their table every round, re-pairs include
   assert.equal(at('105'), 3);
 });
 
+test('a fixed table in one division leaves the divisions on tables of their own', () => {
+  const kid = (i: number): Command => ({
+    type: 'addPlayer',
+    player: { firstName: 'Kid', lastName: `${i}`, id: String(300 + i), birthDate: '01/01/2016' }
+  });
+  const adult = (i: number): Command => ({
+    type: 'addPlayer',
+    player: { firstName: 'Adult', lastName: `${i}`, id: String(400 + i), birthDate: '01/01/1990' }
+  });
+  let t = run(
+    emptyTournament({ name: 'Split' }),
+    ...Array.from({ length: 10 }, (_, i) => kid(i)),
+    ...Array.from({ length: 12 }, (_, i) => adult(i))
+  );
+  // Automatic numbering goes off with the fixed table, so each pod pairs from its own starting table.
+  t = run(t, { type: 'setFixedTable', id: '405', table: 8 });
+  for (const category of t.pods.map(p => p.category)) {
+    t = run(t, { type: 'pairRound', pod: category });
+  }
+  const tables = t.pods.map(p => (p.rounds.at(-1)?.matches ?? []).map(m => m.table).sort((a, b) => a - b));
+  assert.deepEqual(tables, [
+    [1, 2, 3, 4, 5],
+    [6, 7, 8, 9, 10, 11]
+  ]);
+});
+
+/** 10 juniors (ids 300-309) and 12 masters (ids 310-321), in two pods. */
+function twoDivisions(...commands: Command[]): Tournament {
+  const players: Command[] = Array.from({ length: 22 }, (_, i) => ({
+    type: 'addPlayer',
+    player: {
+      firstName: 'Player',
+      lastName: String(i),
+      id: String(300 + i),
+      birthDate: i < 10 ? '01/01/2016' : '01/01/1990'
+    }
+  }));
+  return run(emptyTournament({ name: 'Split' }), ...players, ...commands);
+}
+
+const tableOf = (t: Tournament, id: string) =>
+  t.pods.flatMap(p => p.rounds.at(-1)?.matches ?? []).find(m => m.p1 === id || m.p2 === id)?.table;
+
+for (const order of ['youngest first', 'oldest first'] as const) {
+  test(`fixed seats inside the other division's range stay reserved, pairing ${order}`, () => {
+    // Juniors take tables 1-5 and masters 6-11; each fixed seat sits in the other division's range.
+    let t = twoDivisions(
+      { type: 'setFixedTable', id: '300', table: 8 },
+      { type: 'setFixedTable', id: '310', table: 3 }
+    );
+    const categories = t.pods.map(p => p.category);
+    assert.equal(categories.length, 2);
+    for (const category of order === 'youngest first' ? categories : [...categories].reverse()) {
+      t = run(t, { type: 'pairRound', pod: category });
+    }
+    const tables = t.pods.flatMap(p => (p.rounds.at(-1)?.matches ?? []).filter(m => m.p2 !== null).map(m => m.table));
+    assert.equal(tables.length, 11, 'every pod is paired');
+    assert.equal(new Set(tables).size, tables.length, 'no two matches share a table');
+    assert.equal(tableOf(t, '300'), 8);
+    assert.equal(tableOf(t, '310'), 3);
+  });
+}
+
+test("players who dropped before round 1 leave no gap between the divisions' tables", () => {
+  let t = twoDivisions(
+    { type: 'dropPlayer', id: '300' },
+    { type: 'dropPlayer', id: '301' },
+    { type: 'dropPlayer', id: '302' },
+    { type: 'setFixedTable', id: '315', table: 8 }
+  );
+  assert.deepEqual(
+    t.pods.map(p => p.startingTable),
+    [1, 4]
+  );
+  for (const category of t.pods.map(p => p.category)) {
+    t = run(t, { type: 'pairRound', pod: category });
+  }
+  assert.ok(Math.max(...(t.pods[0]!.rounds[0]?.matches.map(m => m.table) ?? [])) <= 4);
+});
+
 test('two players cannot share a fixed table, and one can be cleared', () => {
   const t = run(withPlayers(2), { type: 'setFixedTable', id: '100', table: 5 });
   assert.match(attempt(t, { type: 'setFixedTable', id: '101', table: 5 }), /already fixed for Player 1/);
