@@ -19,6 +19,7 @@ import type { CorrectionSelection } from './CorrectionDialog';
 import { ExtensionClock } from './ExtensionClock';
 import { OptionsMenu } from './OptionsMenu';
 import { session } from './session';
+import type { ManageState } from './manageState';
 
 // Corrections are rare, so the dialog loads when one is first opened.
 const CorrectionDialog = lazyPanel(() => import('./CorrectionDialog').then(m => ({ default: m.CorrectionDialog })));
@@ -180,19 +181,21 @@ export function createRoundCorrections(props: PanelProps, past: () => string | n
         <CorrectionLog entries={entries(round)} names={names} />
       </Show>
     ),
-    dialog: (names: Map<string, string>, onDone: (next: Manage) => void): JSX.Element => (
+    // `names` as an accessor: read in here, a new event's names don't build a new dialog, losing what was typed.
+    dialog: (names: () => Map<string, string>, state: Pick<ManageState, 'take' | 'load'>): JSX.Element => (
       <Show when={correcting()} keyed>
         {selection => (
           <Suspense>
             <CorrectionDialog
               manage={props.manage}
               selection={selection}
-              names={names}
+              names={names()}
               approving={approving()}
               onClose={() => setCorrecting(null)}
+              onStale={() => void state.load()}
               onDone={next => {
                 setCorrecting(null);
-                onDone(next);
+                state.take(next);
               }}
             />
           </Suspense>

@@ -53,10 +53,15 @@ function meRoute(route: Route) {
   return route.fulfill({ json: organizerMe() });
 }
 
-/** The console's API, correcting the event as the functions do; every correction sent is recorded. */
-async function mockConsole(page: Page, start: Tournament, approver: 'organizer' | null) {
+/**
+ * The console's API, correcting the event as the functions do; every
+ * correction sent is recorded. `writesFirst`: how many corrections find the
+ * event changed by another write since their preview, as the functions refuse them.
+ */
+async function mockConsole(page: Page, start: Tournament, approver: 'organizer' | null, writesFirst = 0) {
   let tournament = start;
   let version = 3;
+  let writes = writesFirst;
   const sent: Body[] = [];
   const entries: CorrectionEntry[] = [];
   const view = () => ({
@@ -79,6 +84,14 @@ async function mockConsole(page: Page, start: Tournament, approver: 'organizer' 
     }
     const body = route.request().postDataJSON() as Body;
     sent.push(body);
+    if (writes > 0) {
+      writes -= 1;
+      version += 1;
+      return route.fulfill({
+        status: 409,
+        json: { error: 'The event changed since you looked; check the preview again' }
+      });
+    }
     const request = body as unknown as Parameters<typeof correctedTournament>[1];
     const from = tournament.pods[0]!.rounds[0]!.matches.find(m => m.table === request.table)!.outcome;
     tournament = correctedTournament(tournament, request, body.localTime as string);
@@ -102,7 +115,9 @@ async function mockConsole(page: Page, start: Tournament, approver: 'organizer' 
     const routes: Record<string, () => Promise<void>> = {
       '/api/me': () => meRoute(route),
       [`/api/tournaments/${CODE}/manage`]: () =>
-        url.searchParams.has('since') ? route.fulfill({ status: 204 }) : route.fulfill({ json: view() }),
+        url.searchParams.get('since') === String(version)
+          ? route.fulfill({ status: 204 })
+          : route.fulfill({ json: view() }),
       [`/api/tournaments/${CODE}/corrections`]: () => correctionsRoute(route)
     };
     return (routes[url.pathname] ?? (() => route.fulfill({ status: 404, json: { error: 'Not found' } })))();
@@ -163,6 +178,28 @@ test('the organizer corrects a round 1 result during round 2, after seeing what 
   await expect(log).toContainText('Table 1');
   await expect(log).toContainText('1–0 to 0–1');
   await expect(log).toContainText('Approved by Organizer, organizer (no head judge named)');
+});
+
+test('a correction refused because the event changed reads it again, and the next try goes on the fresh copy', async ({
+  page
+}) => {
+  const t = inRound2();
+  const table1 = t.pods[0]!.rounds[0]!.matches.find(m => m.table === 1)!;
+  const loser = t.players.find(p => p.id === table1.p2)!.firstName;
+  const sent = await mockConsole(page, t, 'organizer', 1);
+  await page.getByRole('button', { name: 'More for table 1' }).click();
+  await page.getByRole('button', { name: 'Correct result' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Correct round 1, table 1' });
+  await dialog.getByRole('radio', { name: `${loser} Test won` }).click();
+  await dialog.getByLabel('Note').fill('Slip for table 1 has the wrong winner circled.');
+  await dialog.getByRole('button', { name: 'Apply correction' }).click();
+  await expect(dialog).toContainText('The event changed since you looked');
+  // The fresh copy doesn't build a new dialog: what was chosen and typed stays.
+  await expect(dialog.getByLabel('Note')).toHaveValue('Slip for table 1 has the wrong winner circled.');
+  await expect(dialog.getByRole('radio', { name: `${loser} Test won` })).toBeChecked();
+  await dialog.getByRole('button', { name: 'Apply correction' }).click();
+  await expect(dialog).toBeHidden();
+  expect(sent.map(body => body.version)).toEqual([3, 4]);
 });
 
 test('staff who cannot approve are told who can, and get no correction to make', async ({ page }) => {

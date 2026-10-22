@@ -12,7 +12,7 @@ import { CORRECTION_LIMITS } from '../../../shared/tournament/corrections';
 import { percentLabel, recordLabel, type Standing } from '../../../shared/tournament/standings';
 import { DIVISION_LABELS, type Match, type Outcome, type Pod } from '../../../shared/tournament/types';
 import { Segmented } from '@ciphermaniac/design/components/Segmented';
-import { correctResult, errorText, type Manage } from '../../lib/tournament/api';
+import { ApiError, correctResult, errorText, type Manage } from '../../lib/tournament/api';
 import { type CorrectionPreview, correctionPreview } from '../../lib/tournament/corrections';
 import { RESULT_WORDS } from '../../lib/tournament/present';
 import { t, tx } from '../../lib/i18n';
@@ -109,6 +109,8 @@ export function CorrectionDialog(props: {
   approving: string;
   onClose: () => void;
   onDone: (next: Manage) => void;
+  /** The event changed since the preview: read it again, so the preview and the next try are of it as it stands. */
+  onStale: () => void;
 }) {
   // The dialog keeps the match it opened on, even if a poll replaces the event.
   const { pod: opened, round, match } = untrack(() => props.selection);
@@ -155,6 +157,9 @@ export function CorrectionDialog(props: {
       props.onDone(await correctResult(props.manage.code, request));
     } catch (err) {
       setError(errorText(err));
+      if (err instanceof ApiError && err.status === 409) {
+        props.onStale();
+      }
     } finally {
       setSaving(false);
     }

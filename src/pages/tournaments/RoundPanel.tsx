@@ -925,7 +925,7 @@ export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod
           );
         }}
       </Show>
-      {fixes.dialog(names(), next => props.state.take(next))}
+      {fixes.dialog(names, props.state)}
       <Show when={extension()} keyed>
         {selection => (
           <Suspense>
