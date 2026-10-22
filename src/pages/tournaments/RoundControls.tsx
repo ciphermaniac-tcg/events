@@ -5,10 +5,8 @@
  * cannot be taken back asks first, in place.
  */
 
-import { Show } from 'solid-js';
 import type { Pod, Round } from '../../../shared/tournament/types';
 import { t } from '../../lib/i18n';
-import { clockTime } from '../../lib/tournament/clockState';
 import { Clock } from './Clock';
 import { ConfirmAction } from './ConfirmAction';
 import type { ManageState } from './manageState';
@@ -21,10 +19,7 @@ export function ClockControls(props: { state: ManageState; pod: Pod; round: Roun
   return (
     <span class={`tm-clock-group ${props.class ?? ''}`} role='group' aria-label={t('Round clock')}>
       <span class='tm-clock-face'>
-        <Clock round={props.round} />
-        <Show when={!running() && !props.round.startTime}>
-          <span class='tm-clock num is-paused'>{clockTime(props.round.timeLeft)}</span>
-        </Show>
+        <Clock round={props.round} set />
       </span>
       <button type='button' onClick={() => send(running() ? 'stopClock' : 'startClock')}>
         {running() ? t('Pause') : props.round.startTime ? t('Resume') : t('Start clock')}

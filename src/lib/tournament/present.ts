@@ -349,6 +349,9 @@ export function endGaps(event: EndingEvent): EndGap[] {
  */
 export function clockWords(clock: ClockState, left = false): string {
   const time = { time: clock.time };
+  if (clock.phase === 'set') {
+    return clock.time;
+  }
   if (clock.left <= 0) {
     return t('{time} over', time);
   }

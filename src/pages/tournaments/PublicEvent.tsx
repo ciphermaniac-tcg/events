@@ -20,8 +20,7 @@ import {
   type JSX,
   onCleanup,
   onMount,
-  Show,
-  useContext
+  Show
 } from 'solid-js';
 import { lazyOnAir, lazyPanel } from './lazyPanel';
 import { hasStarted, latestRound, livePods, playerPod, podOf, regularRounds } from '../../../shared/tournament/rounds';
@@ -78,8 +77,8 @@ import {
 import type { Tab as DashboardTab } from './Dashboard';
 import { TournamentHero } from './Hero';
 import { createNow } from './now';
-import { StaleSince } from './Clock';
-import { divisionClocks } from './clockOrder';
+import { createClockNow, StaleSince } from './Clock';
+import { leadDivision } from './clockOrder';
 import { formatFee } from '../../lib/events/format';
 import { EventLogistics } from './EventLogistics';
 import { PlayerSheet } from './PlayerSheet';
@@ -794,9 +793,8 @@ function dashboardTab(viewer: TournamentView['viewer']): DashboardTab | undefine
 
 /** `prefer`: the divisions the status should describe, in order (see eventStatus); the leading clock's follows. */
 function Hero(props: { view: TournamentView; prefer: (PodCategory | null)[] }) {
-  const now = createNow();
-  const stale = useContext(StaleSince);
-  const lead = () => divisionClocks(livePods(props.view.tournament), props.view.pending, now())[0]?.pod.category;
+  const now = createClockNow();
+  const lead = () => leadDivision(livePods(props.view.tournament), props.view.pending, now());
   const info = () => props.view.tournament.info;
   const settings = () => props.view.settings;
   const status = () =>
@@ -809,7 +807,7 @@ function Hero(props: { view: TournamentView; prefer: (PodCategory | null)[] }) {
         roundCap: roundCapOf(props.view),
         prefer: [...props.prefer, lead()]
       },
-      stale()?.since ?? now()
+      now()
     ).join(' · ');
   const place = () => [info().city, info().state].filter(Boolean).join(', ');
   const playing = () => livePods(props.view.tournament).some(pod => podProgress(pod, props.view.pending).open > 0);

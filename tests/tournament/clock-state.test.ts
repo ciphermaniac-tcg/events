@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { Round } from '../../shared/tournament/types.ts';
 import { clockState, clockTime } from '../../src/lib/tournament/clockState.ts';
+import { clockWords } from '../../src/lib/tournament/present.ts';
 
 const START = 1_000_000;
 const round = (changes: Partial<Round> = {}): Round => ({
@@ -31,6 +32,15 @@ test('a round whose clock never started has no clock, unless it is done', () => 
   const waiting = round({ startTime: '', clockStartedAt: null, status: 'paired' });
   assert.equal(clockState({ round: waiting, now: at(0) }), null);
   assert.equal(phase({ round: waiting, now: at(0), done: true }), 'done');
+});
+
+test('where staff start it, a round whose clock never started shows the time it is set for', () => {
+  const waiting = round({ startTime: '', clockStartedAt: null, status: 'paired' });
+  const set = clockState({ round: waiting, now: at(90), set: true });
+  assert.deepEqual(set, { phase: 'set', left: 600, time: '10:00' });
+  assert.equal(clockWords(set!), '10:00', 'with no word, since nothing has paused it');
+  assert.equal(phase({ round: waiting, now: at(0), set: true, done: true }), 'done');
+  assert.equal(phase({ round: round(), now: at(0), set: true }), 'running', 'and reads as any clock once started');
 });
 
 test('a running clock counts down, and is over from zero', () => {

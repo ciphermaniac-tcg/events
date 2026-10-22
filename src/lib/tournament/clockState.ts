@@ -14,8 +14,10 @@ import type { Round } from '../../../shared/tournament/types';
  * time left, extra time included. stale: the page has not heard from the
  * event for a while, so the clock stops where it was when the page fell behind.
  * done: the table or round has its result, and the clock has nothing to count.
+ * set: the round's clock has never started, read only where staff start it
+ * (see ClockInput.set), so it shows the time the round is set for.
  */
-export type ClockPhase = 'running' | 'extended' | 'paused' | 'over' | 'stale' | 'done';
+export type ClockPhase = 'running' | 'extended' | 'paused' | 'over' | 'stale' | 'done' | 'set';
 
 export interface ClockState {
   phase: ClockPhase;
@@ -34,6 +36,8 @@ export interface ClockInput {
   done?: boolean;
   /** When the page fell behind the event, while what it has is stale; null or absent while fresh. */
   staleSince?: number | null;
+  /** Read a round whose clock has never started as `set`, where staff start it, rather than as no clock. */
+  set?: boolean;
 }
 
 /** m:ss for a number of seconds, without a sign. */
@@ -42,9 +46,14 @@ export function clockTime(seconds: number): string {
   return `${Math.floor(abs / 60)}:${String(abs % 60).padStart(2, '0')}`;
 }
 
+const neverStarted = (round: Round) => round.clockStartedAt == null && !round.startTime;
+
 function phaseOf(input: ClockInput, roundLeft: number, left: number): ClockPhase {
   if (input.done) {
     return 'done';
+  }
+  if (neverStarted(input.round)) {
+    return 'set';
   }
   if (input.staleSince != null) {
     return 'stale';
@@ -58,10 +67,10 @@ function phaseOf(input: ClockInput, roundLeft: number, left: number): ClockPhase
   return roundLeft <= 0 ? 'extended' : 'running';
 }
 
-/** The clock's state, or null for a round whose clock has never started. */
+/** The clock's state, or null for a round whose clock has never started, unless it is done or read as `set`. */
 export function clockState(input: ClockInput): ClockState | null {
   const { round } = input;
-  if (round.clockStartedAt == null && !round.startTime && !input.done) {
+  if (neverStarted(round) && !input.done && !input.set) {
     return null;
   }
   const at = input.staleSince != null ? Math.min(input.now, input.staleSince) : input.now;

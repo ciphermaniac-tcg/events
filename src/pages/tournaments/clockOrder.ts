@@ -63,6 +63,10 @@ export function divisionClocks(pods: readonly Pod[], pending: readonly PendingRe
   return lead ? [lead, ...clocks.filter(clock => clock !== lead)] : [];
 }
 
+/** The division whose clock leads (see divisionClocks), the one a status line should describe; undefined with none. */
+export const leadDivision = (pods: readonly Pod[], pending: readonly PendingResult[], now: number) =>
+  divisionClocks(pods, pending, now)[0]?.pod.category;
+
 /** How many of a division's tables still play on extra time once its round clock is out. */
 export function onExtraTime(clock: DivisionClock, pending: readonly PendingResult[], now: number): number {
   const left = secondsLeft(clock.round, now);

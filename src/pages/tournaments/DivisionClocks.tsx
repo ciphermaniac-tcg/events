@@ -3,10 +3,9 @@ import type { Pod } from '../../../shared/tournament/types';
 import type { PendingResult } from '../../../shared/tournament/view';
 import { msg, t, tn } from '../../lib/i18n';
 import { clockState } from '../../lib/tournament/clockState';
-import { Clock, StaleSince } from './Clock';
+import { Clock, createClockNow, StaleSince } from './Clock';
 import { type DivisionClock, divisionClocks, onExtraTime } from './clockOrder';
 import { checkedTime } from './LiveDataStatus';
-import { createNow } from './now';
 
 const WORDS: Partial<Record<DivisionClock['state'], string>> = {
   waiting: msg('Not started'),
@@ -55,9 +54,7 @@ function Caption(props: {
     if (props.lead && behind !== null) {
       return t('Not updated since {time}', { time: checkedTime(behind.checkedAt) });
     }
-    return [props.label ?? props.clock.label, ...notes(props.clock, props.pending, behind?.since ?? props.now)].join(
-      ' · '
-    );
+    return [props.label ?? props.clock.label, ...notes(props.clock, props.pending, props.now)].join(' · ');
   };
   return <p>{text()}</p>;
 }
@@ -68,7 +65,7 @@ function Caption(props: {
  * each of the others smaller beside it, every one named for its division.
  */
 export function DivisionClocks(props: { pods: Pod[]; pending: readonly PendingResult[]; label: string }) {
-  const now = createNow();
+  const now = createClockNow();
   const clocks = createMemo(() => divisionClocks(props.pods, props.pending, now()), undefined, {
     // Ticking does not reorder the clocks unless the lead changes; the Clock itself ticks.
     equals: (a, b) =>

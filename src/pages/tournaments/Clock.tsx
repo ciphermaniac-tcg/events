@@ -13,12 +13,24 @@ import { createNow } from './now';
  */
 export const StaleSince = createContext<Accessor<Stale | null>>(() => null);
 
+/**
+ * The time a page's clocks and status lines read: now, ticking, or once the
+ * page has fallen behind the event, the moment it did, so nothing beside a
+ * stopped clock keeps counting.
+ */
+export function createClockNow(): Accessor<number> {
+  const now = createNow();
+  const stale = useContext(StaleSince);
+  return () => stale()?.since ?? now();
+}
+
 /** The face across a room: the time, or once there is none left, the word. Its caption says the rest. */
 const clockFace = (state: ClockState) => (state.left <= 0 ? t('Time') : state.time);
 
 /**
  * A round's time left, or with `extraSeconds` a table's, ticking while the
- * clock runs; nothing once `done`. `face` draws it for the big screen, whose
+ * clock runs; nothing once `done`, or before the clock first starts unless
+ * `set`, where staff start it. `face` draws it for the big screen, whose
  * caption carries the words.
  */
 export function Clock(props: {
@@ -26,6 +38,7 @@ export function Clock(props: {
   class?: string;
   extraSeconds?: number;
   done?: boolean;
+  set?: boolean;
   label?: string;
   face?: boolean;
 }) {
@@ -37,7 +50,8 @@ export function Clock(props: {
       now: now(),
       extraSeconds: props.extraSeconds,
       done: props.done,
-      staleSince: staleSince()?.since
+      staleSince: staleSince()?.since,
+      set: props.set
     });
   const shown = () => {
     const current = state();
@@ -49,7 +63,7 @@ export function Clock(props: {
         <span
           class={`tm-clock num ${props.class ?? ''}`}
           classList={{
-            'is-paused': current().phase === 'paused',
+            'is-paused': current().phase === 'paused' || current().phase === 'set',
             'is-over': current().left <= 0,
             'is-stale': current().phase === 'stale'
           }}

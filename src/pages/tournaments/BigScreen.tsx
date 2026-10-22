@@ -53,10 +53,9 @@ import { latestRound, livePods, sortMatches, withSwiss } from '../../../shared/t
 import type { LiveData } from '../../lib/tournament/liveData';
 import { LiveDataStatus } from './LiveDataStatus';
 import { DivisionClocks } from './DivisionClocks';
-import { divisionClocks } from './clockOrder';
-import { StaleSince } from './Clock';
+import { leadDivision } from './clockOrder';
+import { createClockNow, StaleSince } from './Clock';
 import { DeckIcons } from './DeckIcons';
-import { createNow } from './now';
 import { QrCode } from './QrCode';
 import { msg, t } from '../../lib/i18n';
 import '../../styles/pages/tournament-screen.css';
@@ -498,7 +497,7 @@ export function BigScreen(props: { view: TournamentView; liveData?: LiveData; on
   const [size, setSize] = createSignal({ width: window.innerWidth, height: window.innerHeight });
   const display = () => props.view.settings.display?.options ?? DEFAULT_DISPLAY;
   const font = () => displayFont(size(), display().scale);
-  const now = createNow();
+  const now = createClockNow();
   const stale = useContext(StaleSince);
   const [controls, setControls] = createSignal(false);
   const url = () => `${location.origin}/t/${props.view.code}`;
@@ -514,9 +513,9 @@ export function BigScreen(props: { view: TournamentView; liveData?: LiveData; on
         firstRound: firstRoundTime(props.view.settings.startsAt),
         roundCap: roundCapOf(props.view),
         // The division the room most likely asks about: the clock nearest its end (see clockOrder).
-        prefer: [divisionClocks(pods(), props.view.pending, now())[0]?.pod.category]
+        prefer: [leadDivision(pods(), props.view.pending, now())]
       },
-      stale()?.since ?? now()
+      now()
     );
   // The clock's own words would repeat the clock under the header, and divisions on clocks of their own name themselves.
   const statusShown = () => {

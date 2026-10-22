@@ -6,7 +6,7 @@ import test from 'node:test';
 import { parseTdf } from '../../shared/tournament/tdf.ts';
 import type { Pod, PodCategory, Round } from '../../shared/tournament/types.ts';
 import type { PendingResult } from '../../shared/tournament/view.ts';
-import { divisionClocks, onExtraTime } from '../../src/pages/tournaments/clockOrder.ts';
+import { divisionClocks, leadDivision, onExtraTime } from '../../src/pages/tournaments/clockOrder.ts';
 
 const fixture = parseTdf(readFileSync(new URL('../fixtures/tdf/challenge-midevent.tdf', import.meta.url), 'utf8'));
 const base = fixture.pods[0]!;
@@ -79,4 +79,9 @@ test('once the round clock is out, only tables still playing with extra time lef
     { pod: 'masters', round: latest.number, table: first!.table, p1: first!.p1, p2: first!.p2, outcome: 'p1', at: NOW }
   ];
   assert.equal(onExtraTime(clock!, reported, NOW + 120_000), open.length - 1, 'a result entered on the site');
+});
+
+test('the lead division is the leading clock’s, and none without a round', () => {
+  assert.equal(leadDivision([pod('masters', waiting), pod('senior', running(2322))], [], NOW), 'senior');
+  assert.equal(leadDivision([{ ...base, rounds: [] }], [], NOW), undefined);
 });
