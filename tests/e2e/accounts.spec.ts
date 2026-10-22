@@ -1489,7 +1489,7 @@ test('the dashboard’s account menu holds the account’s pages, and the way to
   for (const [name, href] of [
     ['History', '/history'],
     ['Settings', '/settings'],
-    ['Apply to organize', '/apply']
+    ['Apply to run events', '/apply']
   ]) {
     await expect(page.locator('.tm-acct-menu').getByRole('link', { name })).toHaveAttribute('href', href);
   }
@@ -1499,7 +1499,7 @@ test('the dashboard’s account menu holds the account’s pages, and the way to
   await mockDashboard(page, { ...ME, role: 'community' });
   await page.goto('/');
   await page.getByRole('button', { name: 'Account' }).click();
-  await expect(page.locator('.tm-acct-menu').getByRole('link', { name: 'Apply to organize' })).toHaveCount(0);
+  await expect(page.locator('.tm-acct-menu').getByRole('link', { name: 'Apply to run events' })).toHaveCount(0);
 });
 
 test('account selections close the menu and its last action signs out @mobile', async ({ page }) => {

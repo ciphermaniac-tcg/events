@@ -82,7 +82,7 @@ export function AccountMenu(props: { user: Me; pending: number }) {
           </Show>
           <Show when={apply()}>
             <A onClick={close} class='tm-acct-quiet' href='/apply'>
-              {t('Apply to organize')}
+              {t('Apply to run events')}
             </A>
           </Show>
           {logout}
