@@ -18,7 +18,7 @@ export default defineConfig({
     emptyOutDir: true,
     target: 'es2022',
     minify: 'terser',
-    terserOptions: { compress: { passes: 2 } },
+    terserOptions: { compress: { passes: 3 } },
     sourcemap: false,
     rollupOptions: {
       output: {
