@@ -81,6 +81,7 @@ function StoreRow(props: { store: MyStore; busy: boolean; onLeave: () => void })
             class='btn btn-ghost'
             label={t('Leave')}
             question={t('Leave {store}?', { store: props.store.name })}
+            scope={t('Only a new invite from a manager lets you back in.')}
             confirmLabel={t('Leave')}
             danger
             disabled={props.busy}

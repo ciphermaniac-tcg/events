@@ -512,6 +512,7 @@ function StaffInvite(props: { state: ManageState; manage: Manage }) {
               class='btn btn-ghost'
               label={t('New link')}
               question={t('Make a new link and remove current staff?')}
+              scope={t('Everyone on staff loses access to this event, and the current link stops working.')}
               confirmLabel={t('Remove staff')}
               danger
               onConfirm={rotate}

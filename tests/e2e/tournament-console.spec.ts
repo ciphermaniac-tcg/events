@@ -206,6 +206,11 @@ test('the organizer is told what staff can do, and staff that their settings rea
   // A store's event: its owner and managers all organize it.
   await expect(page.getByText('Only the store’s owner and managers can invite or remove staff')).toBeVisible();
   await expect(page.getByText('Settings saved here change the event for everyone.')).toHaveCount(0);
+  await page.getByRole('button', { name: 'New link' }).click();
+  const rotate = page.getByRole('dialog', { name: 'Make a new link and remove current staff?' });
+  await expect(rotate).toContainText('Everyone on staff loses access to this event');
+  await rotate.getByRole('button', { name: 'Keep' }).click();
+  await expect(rotate).toBeHidden();
   await page.unrouteAll();
   await mockConsole(page, event(8, 1, false), settingsOf({}), [], false, [], 'staff');
   await page.getByRole('tab', { name: 'Settings', exact: true }).click();

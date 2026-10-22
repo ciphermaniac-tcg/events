@@ -344,7 +344,9 @@ test('Settings: resigning as a community organizer and leaving a store are asked
     .click();
   await expect(organizer.getByRole('link', { name: 'Join' })).toHaveAttribute('href', '/apply');
   await organizer.getByRole('button', { name: 'Leave' }).click();
-  await organizer.getByRole('group', { name: 'Leave Tower Games?' }).getByRole('button', { name: 'Leave' }).click();
+  const leave = page.getByRole('dialog', { name: 'Leave Tower Games?' });
+  await expect(leave).toContainText('Only a new invite from a manager lets you back in.');
+  await leave.getByRole('button', { name: 'Leave' }).click();
   await expect(organizer).not.toContainText('Tower Games');
   expect(asks.filter(a => a.method === 'DELETE').map(a => a.path)).toEqual([
     '/api/community',

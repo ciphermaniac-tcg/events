@@ -155,6 +155,7 @@ function MemberRow(props: {
               class='btn btn-ghost tm-small'
               label={props.you ? t('Leave') : t('Remove')}
               question={props.you ? t('Leave this store?') : t('Remove {name}?', { name: props.member.name })}
+              scope={props.you ? t('Only a new invite from a manager lets you back in.') : undefined}
               confirmLabel={props.you ? t('Leave') : t('Remove')}
               danger
               disabled={props.busy}
