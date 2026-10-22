@@ -1405,8 +1405,9 @@ tr.is-in .tm-place {
 .tm-reg {
   max-width: 560px;
 }
-/* Focus moves here as each step replaces the last; its own controls still take a ring. */
-.tm-reg-steps[tabindex='-1']:focus {
+/* Focus moved here as a step, or the age check's answer, replaces what was pressed; controls still take a ring. */
+.tm-reg-steps[tabindex='-1']:focus,
+.tm-welcome-answer[tabindex='-1']:focus {
   outline: none;
 }
 .tm-reg-stack {

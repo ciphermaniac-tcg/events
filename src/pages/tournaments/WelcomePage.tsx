@@ -46,7 +46,10 @@ export function WelcomePage() {
         <Switch>
           <Match when={stage() === 'refused' || stage() === 'expired'}>
             <div class='tm-box-bar'>
-              <p>{error()}</p>
+              {/* The form, and the button focus was on, are gone: the answer takes focus and is read out. */}
+              <p ref={el => queueMicrotask(() => el.focus())} class='tm-welcome-answer' role='alert' tabIndex={-1}>
+                {error()}
+              </p>
             </div>
             <Switch>
               <Match when={stage() === 'expired'}>
