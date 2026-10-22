@@ -89,7 +89,7 @@ function ListStatus(props: { list: MyList }) {
         </strong>
         <Show when={failed()}>
           <button type='button' class='btn btn-secondary tm-small' onClick={() => props.list.retry()}>
-            {t('Retry')}
+            {t('Try again')}
           </button>
         </Show>
       </div>

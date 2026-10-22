@@ -346,7 +346,7 @@ export function DeckCheckSide(props: SideProps) {
           <p class='muted'>
             {t('Deck checks could not be loaded.')}{' '}
             <button type='button' class='btn btn-secondary tm-small' onClick={() => props.checks.retry()}>
-              {t('Retry')}
+              {t('Try again')}
             </button>
           </p>
         }

@@ -367,7 +367,7 @@ test('deck checks that could not be read say so beside the notes, with a retry',
   await page.getByRole('radio', { name: 'With deck checks' }).click();
   await expect(page.getByText('Deck checks could not be loaded.')).toBeVisible();
   await expect(log.locator('tbody tr')).toHaveCount(1);
-  await page.getByRole('button', { name: 'Retry' }).click();
+  await page.getByRole('button', { name: 'Try again' }).click();
   await expect(log.locator('tbody tr')).toHaveCount(2);
   await expect(page.getByText('Deck checks could not be loaded.')).toHaveCount(0);
 });

@@ -133,6 +133,13 @@ test('an unknown address still shows its actual 404 while the session is pending
   await holdSession(page, USER);
   await page.goto('/no-such-page');
   await expect(page.getByRole('heading', { name: 'Page not found' })).toBeVisible();
+  // Most who land here followed a mistyped event link, and have no events of their own.
+  await expect(page.getByRole('link', { name: 'Find an event' })).toHaveAttribute(
+    'href',
+    'https://ciphermaniac.com/tools/event-locator'
+  );
+  await expect(page.getByRole('link', { name: 'Find an event' })).toHaveClass(/btn-primary/);
+  await expect(page.getByRole('link', { name: 'Go home' })).toHaveAttribute('href', '/');
   await expect(page.locator('main .skeleton')).toHaveCount(0);
 });
 
@@ -239,7 +246,7 @@ test('a failed event list is retryable and never renders an invented empty list'
     await retry.promise;
     await route.fulfill({ json: { tournaments: [] } });
   });
-  await page.getByRole('button', { name: 'Retry' }).click();
+  await page.getByRole('button', { name: 'Try again' }).click();
   await expect(page.locator('main .skeleton')).toBeVisible();
   await expect(page.getByRole('alert')).toHaveCount(0);
   retry.resolve();

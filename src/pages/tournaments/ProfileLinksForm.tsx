@@ -83,7 +83,7 @@ export function ProfileLinksForm() {
         <Show when={preferences.error} fallback={<Skeleton height='240px' />}>
           <ErrorLine message={errorText(preferences.error)} />
           <button type='button' class='btn btn-secondary' onClick={() => void refetch()}>
-            {t('Retry')}
+            {t('Try again')}
           </button>
         </Show>
       }

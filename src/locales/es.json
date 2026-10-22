@@ -431,7 +431,6 @@
   "Give whole inches and feet": "Usa números enteros de pies y pulgadas",
   "Give whole inches, and metres to a tenth": "Usa pulgadas enteras y metros con un decimal como máximo",
   "Go home": "Ir al inicio",
-  "Go to your events": "Ir a tus eventos",
   "Hand over the stores you own first": "Primero traspasa las tiendas que te pertenecen",
   "Head judge": "Juez principal",
   "head judge": "juez principal",
@@ -1203,7 +1202,6 @@
   "This list was sent from another device. Send it from that device, or ask staff to reset it.": "Esta lista se envió desde otro dispositivo. Envíala desde ese dispositivo o pide al personal que la restablezca.",
   "This match already has a result": "Este encuentro ya tiene un resultado",
   "This match has changed; reload the round": "Este encuentro cambió; recarga la ronda",
-  "This page hit a problem it couldn’t recover from. Trying again usually works.": "Esta página tuvo un problema del que no pudo recuperarse. Volver a intentarlo suele funcionar.",
   "This page is available in English only.": "Esta página solo está disponible en inglés.",
   "This player has been paired; drop them instead": "Este jugador ya está emparejado; registra su abandono",
   "This pod cannot be concluded early": "Este pod no se puede cerrar antes de tiempo",
@@ -1618,6 +1616,7 @@
   "Couldn’t reach the site. Check your connection.": "No se pudo conectar con el sitio. Revisa tu conexión.",
   "The site hit an error.": "El sitio tuvo un error.",
   "Couldn’t load this page": "No se pudo cargar esta página",
+  "This page hit an error. Trying again usually fixes it.": "Esta página tuvo un error. Volver a intentarlo suele resolverlo.",
   "Questions?": "¿Preguntas?",
   "Think this is a mistake?": "¿Crees que es un error?",
   "Sign in to join this store’s staff.": "Inicia sesión para unirte al personal de esta tienda."

@@ -225,7 +225,7 @@ test('deck checks on their way read as loading, and ones that could not be read 
   answer.resolve();
   await expect(side).toContainText('Deck checks could not be loaded.');
   await expect(row).not.toContainText('Not checked');
-  await side.getByRole('button', { name: 'Retry' }).click();
+  await side.getByRole('button', { name: 'Try again' }).click();
   await expect(side).toContainText('No deck checks yet.');
   await expect(row).toContainText('Not checked');
 });

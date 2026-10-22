@@ -46,7 +46,7 @@ export function RetryError(props: { error: unknown; onRetry: () => void; small?:
         class={props.small ? 'btn btn-secondary tm-small' : 'btn btn-secondary'}
         onClick={() => props.onRetry()}
       >
-        {t('Retry')}
+        {t('Try again')}
       </button>
     </>
   );

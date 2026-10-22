@@ -1403,7 +1403,7 @@ test('a list that cannot be read says so, and opens nothing over it until a retr
   await expect(status).toContainText('Your decklist could not be loaded');
   await expect(page.getByRole('textbox', { name: 'Player ID' })).toHaveCount(0);
   await expect(page.getByRole('textbox', { name: 'Decklist' })).toHaveCount(0);
-  await status.getByRole('button', { name: 'Retry' }).click();
+  await status.getByRole('button', { name: 'Try again' }).click();
   await expect(page.getByRole('textbox', { name: 'Decklist' })).toHaveValue(
     '4 Iono PAL 185\n56 Basic {G} Energy SVE 1'
   );

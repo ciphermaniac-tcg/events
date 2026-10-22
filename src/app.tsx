@@ -39,7 +39,7 @@ function PageError(props: { error: unknown; onRetry: () => void }) {
       <ErrorState
         code={t('Error')}
         title={t('Something went wrong')}
-        line={t('This page hit a problem it couldn’t recover from. Trying again usually works.')}
+        line={t('This page hit an error. Trying again usually fixes it.')}
       >
         <button type='button' class='btn btn-primary' onClick={() => props.onRetry()}>
           {t('Try again')}

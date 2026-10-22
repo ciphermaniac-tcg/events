@@ -465,7 +465,7 @@ function LogState(props: {
         <p class='muted tm-empty'>
           {t('Penalty notes could not be loaded.')}{' '}
           <button type='button' class='btn btn-secondary tm-small' onClick={() => props.onRetry()}>
-            {t('Retry')}
+            {t('Try again')}
           </button>
         </p>
       }
@@ -626,7 +626,7 @@ export function PenaltiesPanel(props: { state: ManageState; manage: Manage }) {
           <p class='muted tm-empty'>
             {t('Deck checks could not be loaded.')}{' '}
             <button type='button' class='btn btn-secondary tm-small' onClick={() => void retryChecks()}>
-              {t('Retry')}
+              {t('Try again')}
             </button>
           </p>
         </Show>

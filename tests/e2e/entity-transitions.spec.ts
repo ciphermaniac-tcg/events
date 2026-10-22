@@ -186,7 +186,7 @@ test('a console refusal appears only after the request fails and clears while re
     await retry.promise;
     await route.fulfill({ json: manage('FIRST') });
   });
-  await page.getByRole('button', { name: 'Retry' }).click();
+  await page.getByRole('button', { name: 'Try again' }).click();
   await expect(page.locator('main .skeleton')).toBeVisible();
   await expect(page.getByRole('alert')).toHaveCount(0);
   retry.resolve();
@@ -300,7 +300,7 @@ for (const { path, endpoint, answer } of RETRY_PAGES) {
       await retry.promise;
       await route.fulfill({ json: answer });
     });
-    await page.getByRole('button', { name: 'Retry' }).click();
+    await page.getByRole('button', { name: 'Try again' }).click();
     await expect(page.locator('main .skeleton')).toBeVisible();
     await expect(page.getByRole('alert')).toHaveCount(0);
     retry.resolve();
@@ -397,6 +397,6 @@ test('an initial console network failure offers retry without suggesting a diffe
   await page.route('**/api/tournaments/FIRST/manage*', route => route.abort());
   await page.goto('/host/FIRST');
   await expect(page.getByText('Connection unavailable. Try again.', { exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Retry', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Try again', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Switch account' })).toHaveCount(0);
 });

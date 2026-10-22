@@ -684,7 +684,7 @@ export function ManageEvent(props: { code: string }) {
                   <Refused message={t(state.loadError()?.message ?? '')} name={user()?.name} />
                 </Show>
                 <button type='button' class='btn btn-secondary' onClick={() => void state.load()}>
-                  {t('Retry')}
+                  {t('Try again')}
                 </button>
               </Show>
             }

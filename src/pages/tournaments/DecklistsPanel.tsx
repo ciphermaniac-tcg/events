@@ -254,7 +254,7 @@ function NoLists(props: { loading: boolean; failed: boolean; onRetry: () => void
         <p class='muted tm-empty'>
           {t('The decklists could not be loaded.')}{' '}
           <button type='button' class='btn btn-secondary tm-small' onClick={() => props.onRetry()}>
-            {t('Retry')}
+            {t('Try again')}
           </button>
         </p>
       </Match>
