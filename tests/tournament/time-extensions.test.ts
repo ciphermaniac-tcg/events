@@ -4,11 +4,11 @@ import { applyCommand } from '../../shared/tournament/commands.ts';
 import { emptyTournament } from '../../shared/tournament/create.ts';
 import { seededRandom } from '../../shared/tournament/random.ts';
 import { readCommand } from '../../shared/tournament/readCommand.ts';
-import { canUndrop } from '../../shared/tournament/rounds.ts';
+import { returnEffects } from '../../shared/tournament/returns.ts';
 import { revisionOf } from '../../shared/tournament/revision.ts';
 import { type ExtensionCommand, keepTimeExtensions, setTimeExtension } from '../../shared/tournament/timeExtensions.ts';
 import { withSiteClocks } from '../../shared/tournament/tomClock.ts';
-import type { Match, Tournament } from '../../shared/tournament/types.ts';
+import type { Match, Round, Tournament } from '../../shared/tournament/types.ts';
 import { readTournament } from '../../shared/tournament/validate.ts';
 import { assignKeys, publicTournament } from '../../shared/tournament/view.ts';
 import { commandRunner } from '../__utils__/commands.ts';
@@ -154,16 +154,21 @@ test('table time follows the round clock through pause and resume', () => {
 
 test('read-only reinstatement eligibility preserves legacy and staged-round behavior', () => {
   const t = event();
-  const player = { ...t.players[0]!, droppedAfter: 1 };
+  const { id } = t.players[0]!;
+  const dropping = (tournament: Tournament, droppedAfter: number | null): Tournament => ({
+    ...tournament,
+    players: tournament.players.map(p => (p.id === id ? { ...p, droppedAfter } : p))
+  });
+  const offered = (tournament: Tournament) => returnEffects(tournament, id).offered;
   const { settings: _settings, ...legacy } = t;
-  assert.equal(canUndrop(legacy, player), true);
-  assert.equal(canUndrop(legacy, { ...player, droppedAfter: 0 }), false);
-  assert.equal(canUndrop(t, { ...player, droppedAfter: null }), false);
-  const next = structuredClone(t);
-  const round = next.pods[0]!.rounds[0]!;
-  round.number = 3;
-  round.stage = 3;
-  assert.equal(canUndrop(next, player), true);
+  assert.equal(offered(dropping(legacy, 1)), true);
+  assert.equal(offered(dropping(legacy, 0)), false);
+  assert.equal(offered(dropping(t, null)), false);
+  const next = structuredClone(dropping(t, 1));
+  const first = next.pods[0]!.rounds[0]!;
+  const round: Round = { ...first, number: 3, stage: 3, matches: [] };
+  next.pods[0]!.rounds.push({ ...first, number: 2, matches: [] }, round);
+  assert.equal(offered(next), true);
   round.stage = 4;
-  assert.equal(canUndrop(next, player), false);
+  assert.equal(offered(next), false);
 });

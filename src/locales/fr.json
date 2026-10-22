@@ -1629,5 +1629,8 @@
   "A Player ID is up to ten digits": "Un ID joueur compte dix chiffres au maximum",
   "This Player ID is on another account.": "Cet ID joueur est déjà associé à un autre compte.",
   "This result was changed on another device. Check it and enter yours again.": "Ce résultat a été modifié sur un autre appareil. Vérifie-le, puis saisis à nouveau le tien.",
-  "Once round 1 is paired, an event is sanctioned only when every player has a Player ID and birth year. {name} is missing one.": "Une fois la ronde 1 appariée, un tournoi ne devient homologué que si chaque joueur a un ID joueur et une année de naissance. Il en manque un à {name}."
+  "Once round 1 is paired, an event is sanctioned only when every player has a Player ID and birth year. {name} is missing one.": "Une fois la ronde 1 appariée, un tournoi ne devient homologué que si chaque joueur a un ID joueur et une année de naissance. Il en manque un à {name}.",
+  "They get a bye for round {round}.": "Cette personne reçoit un bye pour la ronde {round}.",
+  "This lifts their disqualification.": "Cela lève sa disqualification.",
+  "Reinstate {name}?": "Réintégrer {name} ?"
 }

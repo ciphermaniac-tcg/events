@@ -1629,5 +1629,8 @@
   "Writing replaces the .tdf. Close the event in TOM first, then reopen the .tdf in TOM once it’s written. If TOM is still open, its next save overwrites these results.": "Escribir reemplaza el .tdf. Primero cierra el torneo en TOM y, cuando el .tdf esté escrito, vuelve a abrirlo en TOM. Si TOM sigue abierto, su próximo guardado sobrescribe estos resultados.",
   "TOM is closed, write": "TOM está cerrado, escribir",
   "Not linked": "Sin vincular",
-  "Once round 1 is paired, an event is sanctioned only when every player has a Player ID and birth year. {name} is missing one.": "Una vez emparejada la ronda 1, un torneo solo puede ser oficial si todos los jugadores tienen ID de jugador y año de nacimiento. A {name} le falta uno de los dos."
+  "Once round 1 is paired, an event is sanctioned only when every player has a Player ID and birth year. {name} is missing one.": "Una vez emparejada la ronda 1, un torneo solo puede ser oficial si todos los jugadores tienen ID de jugador y año de nacimiento. A {name} le falta uno de los dos.",
+  "They get a bye for round {round}.": "Recibe un bye en la ronda {round}.",
+  "This lifts their disqualification.": "Esto anula su descalificación.",
+  "Reinstate {name}?": "¿Reincorporar a {name}?"
 }

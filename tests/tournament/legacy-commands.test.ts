@@ -10,7 +10,8 @@ import test from 'node:test';
 
 import { applyCommand as applyLifecycle } from '../../shared/tournament/commands.ts';
 import type { Command, CommandContext } from '../../shared/tournament/commandTypes.ts';
-import { applyCommand, canUndrop, generatedId } from '../../shared/tournament/legacyCommands.ts';
+import { applyCommand, generatedId } from '../../shared/tournament/legacyCommands.ts';
+import { returnEffects } from '../../shared/tournament/returns.ts';
 import { emptyTournament } from '../../shared/tournament/create.ts';
 import { seededRandom } from '../../shared/tournament/random.ts';
 import { isGeneratedId, type Pod, type Round, type Tournament } from '../../shared/tournament/types.ts';
@@ -157,12 +158,7 @@ test('a drop forfeits the open match, and taking it back reopens it', () => {
   const forfeited = latest(dropped).matches.find(m => m.table === match.table)!;
   assert.equal(forfeited.outcome, 'p2');
   assert.equal(dropped.players.find(p => p.id === match.p1)!.droppedAfter, 1);
-  assert.ok(
-    canUndrop(
-      dropped,
-      dropped.players.find(p => p.id === match.p1)!
-    )
-  );
+  assert.ok(returnEffects(dropped, match.p1).offered);
 
   const back = run(dropped, { type: 'undropPlayer', id: match.p1 });
   assert.equal(latest(back).matches.find(m => m.table === match.table)!.outcome, 'pending');

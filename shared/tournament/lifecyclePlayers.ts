@@ -5,6 +5,7 @@ import { awardedDeparture, departed as hasDeparted, rejoined } from './lifecycle
 import { replacePods } from './lifecycleWorkflow.js';
 import { divisionsOf } from './podding.js';
 import { checkedStage, latestRound, regularRounds } from './rounds.js';
+import { returnEffects } from './returns.js';
 import type { Match, Player, Pod, Round, Tournament } from './types.js';
 import { msg } from '../i18n.js';
 
@@ -182,53 +183,24 @@ function appendedBye(round: Round, id: string, timestamp: string): Round {
   return checkedStage({ ...round, matches: [...round.matches, match] });
 }
 
-function lastPlayedRound(pod: Pod, id: string): number {
-  return Math.max(0, ...pod.rounds.filter(r => r.matches.some(m => m.p1 === id || m.p2 === id)).map(r => r.number));
-}
-
-function pairedAdjustment(round: Round | undefined): number {
-  return (round?.stage ?? 4) < 4 ? 1 : 0;
-}
-
-function checkReturnHistory(last: Round | undefined, hasHistory: boolean): void {
-  if (!hasHistory && (last?.number ?? 0) >= 3) {
-    throw new Error(msg('A player without match history cannot return after round two'));
-  }
-}
-
 export function reenterEntrant(
   t: Tournament,
   op: Extract<LifecycleOperation, { type: 'reenter' }>,
   ctx: LifecycleContext
 ): Tournament {
-  const player = t.players.find(p => p.id === op.id);
-  if (!player || player.droppedAfter === null) {
-    throw new Error(msg('The player is not dropped'));
+  const { refusal, byeRound } = returnEffects(t, op.id);
+  if (refusal) {
+    throw new Error(refusal);
   }
   const pod = playerPod(t, op.id);
+  const player = t.players.find(p => p.id === op.id)!;
   const last = latestRound(pod);
   const hasHistory = pod.rounds.some(r => r.matches.some(m => m.p1 === op.id || m.p2 === op.id));
-  // V18-2: matches of a failed pairing attempt are history although unsaved, so V14b's return is refused.
-  if (!hasHistory && pod.unsavedPlayers?.includes(op.id)) {
-    throw new Error(msg('A player whose only matches were not saved cannot return'));
-  }
-  checkReturnHistory(last, hasHistory);
-  // Absence counts the rounds since the player last played, whichever round the departure saved.
-  const played = hasHistory ? lastPlayedRound(pod, op.id) : player.droppedAfter;
-  const absent = (last?.number ?? 0) - played - pairedAdjustment(last);
-  if (absent > 1) {
-    throw new Error(msg('A player cannot return after missing more than one round'));
-  }
   const rounds = pod.rounds.map(round => {
     if (!hasHistory || round.matches.some(m => m.p1 === op.id || m.p2 === op.id)) {
       return round === last ? restoredReturnMatch(round, op.id, ctx.localTime) : round;
     }
-    if (round === last && (round.stage ?? 0) >= 4) {
-      return appendedBye(round, op.id, ctx.localTime);
-    }
-    return absent >= 1 && round.number === played + 1 && round !== last
-      ? appendedBye(round, op.id, ctx.localTime)
-      : round;
+    return round.number === byeRound ? appendedBye(round, op.id, ctx.localTime) : round;
   });
   const players = t.players.map(p => {
     if (p !== player) {

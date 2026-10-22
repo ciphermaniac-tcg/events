@@ -41,6 +41,7 @@ import {
   secondsLeft,
   toMatches
 } from './rounds.js';
+import { returnEffects } from './returns.js';
 import { swissStandings } from './standings.js';
 import { eventTypeOf, SANCTIONED, sanctionedMinutesError, TOP_CUT_SIZES } from './structure.js';
 import {
@@ -304,15 +305,6 @@ function dropPlayer(tournament: Tournament, id: string, ctx: CommandContext, dis
 }
 
 /**
- * A drop can be taken back until the next round is paired. After that the
- * player has missed a pairing, and letting them back in would hand them a
- * loss they never played or a round they were never in.
- */
-export function canUndrop(tournament: Tournament, player: Pick<Player, 'id' | 'droppedAfter'>): boolean {
-  return player.droppedAfter === (latestRound(podOf(tournament, player.id))?.number ?? 0);
-}
-
-/**
  * The match a drop forfeited, opened again: still the latest round's, decided
  * against the player at the moment they dropped (its result stamped with the
  * drop's own time), so a result entered since stands.
@@ -334,12 +326,9 @@ function reopenForfeit(tournament: Tournament, player: Player): Tournament {
 
 function undropPlayer(tournament: Tournament, id: string, ctx: CommandContext): CommandResult {
   const player = tournament.players.find(p => p.id === id);
-  if (player?.droppedAfter != null && !canUndrop(tournament, player)) {
-    return fail(
-      msgf('They dropped before round {round} was paired, so they can’t come back now', {
-        round: player.droppedAfter + 1
-      })
-    );
+  const refusal = player?.droppedAfter != null ? returnEffects(tournament, id).refusal : undefined;
+  if (refusal) {
+    return fail(refusal);
   }
   const reopened = player?.droppedAfter != null ? reopenForfeit(tournament, player) : tournament;
   return updatePlayer(reopened, id, ({ disqualified: _dq, ...p }) => ({

@@ -10,6 +10,7 @@ const typedIs = (typed: string, word: string) => typed.trim().toLowerCase() === 
  * costs (`scope`, with its counts), then Keep or the answer. `typed` holds
  * the answer back until that word is typed, for what costs the most.
  * Keep comes first, so it is what an Enter pressed too soon presses.
+ * When the answer would be `refused`, the scope says why and only Close is offered.
  */
 export function ConfirmDialog(props: {
   open: boolean;
@@ -20,6 +21,7 @@ export function ConfirmDialog(props: {
   danger?: boolean;
   typed?: string;
   busy?: boolean;
+  refused?: boolean;
   onConfirm: () => void;
   onClose: () => void;
 }) {
@@ -51,19 +53,21 @@ export function ConfirmDialog(props: {
       </div>
       <div class='tm-box-bar tm-modal-foot'>
         <button type='button' class='btn btn-ghost' onClick={close}>
-          {props.keepLabel ?? t('Keep')}
+          {props.keepLabel ?? (props.refused ? t('Close') : t('Keep'))}
         </button>
-        <button
-          type='button'
-          class={props.danger ? 'btn btn-secondary tm-danger' : 'btn btn-primary'}
-          disabled={!ready()}
-          onClick={() => {
-            props.onConfirm();
-            close();
-          }}
-        >
-          {props.confirmLabel}
-        </button>
+        <Show when={!props.refused}>
+          <button
+            type='button'
+            class={props.danger ? 'btn btn-secondary tm-danger' : 'btn btn-primary'}
+            disabled={!ready()}
+            onClick={() => {
+              props.onConfirm();
+              close();
+            }}
+          >
+            {props.confirmLabel}
+          </button>
+        </Show>
       </div>
     </Modal>
   );
@@ -94,6 +98,8 @@ export function ConfirmAction(props: {
   scope?: JSX.Element;
   /** A word to type before the dialog takes the answer. */
   typed?: string;
+  /** Whether the answer would be refused: the dialog gives `scope` as why, with no answer to press. */
+  refused?: boolean;
   onConfirm: () => void;
 }) {
   const [asking, setAsking] = createSignal(false);
@@ -130,6 +136,7 @@ export function ConfirmAction(props: {
             danger={props.danger}
             typed={props.typed}
             busy={props.disabled}
+            refused={props.refused}
             onConfirm={() => props.onConfirm()}
             onClose={back}
           />

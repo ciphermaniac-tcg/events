@@ -12,7 +12,6 @@ import {
   DIVISIONS,
   isDivision,
   type Match,
-  type Player,
   type Pod,
   type PodCategory,
   type Round,
@@ -36,16 +35,6 @@ export function secondsLeft(round: Round, now: number): number {
  * checkedSwissRepair in lifecyclePairing.ts).
  */
 export const repairable = (round: Round | undefined): boolean => round?.kind === 'swiss' && (round.stage ?? 4) < 4;
-
-/** Whether a dropped player can return before the next pairing has settled. */
-export function canUndrop(t: Tournament, player: Pick<Player, 'id' | 'droppedAfter'>): boolean {
-  if (!t.settings || player.droppedAfter === null) {
-    return player.droppedAfter === (latestRound(podOf(t, player.id))?.number ?? 0);
-  }
-  const round = latestRound(t.pods.find(p => p.playerIds.includes(player.id)));
-  const missed = (round?.number ?? 0) - player.droppedAfter;
-  return missed - ((round?.stage ?? 4) < 4 ? 1 : 0) <= 1;
-}
 
 /**
  * The pod a player plays in now: their division's top cut once they are in

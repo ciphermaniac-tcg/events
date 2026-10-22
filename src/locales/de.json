@@ -1629,5 +1629,8 @@
   "A Player ID is up to ten digits": "Eine Spieler-ID hat höchstens zehn Ziffern",
   "This Player ID is on another account.": "Diese Spieler-ID gehört zu einem anderen Konto.",
   "This result was changed on another device. Check it and enter yours again.": "Dieses Ergebnis wurde auf einem anderen Gerät geändert. Prüf es und trag deins erneut ein.",
-  "Once round 1 is paired, an event is sanctioned only when every player has a Player ID and birth year. {name} is missing one.": "Sobald Runde 1 ausgelost ist, wird ein Turnier nur offiziell, wenn alle Spieler eine Spieler-ID und ein Geburtsjahr haben. Bei {name} fehlt eins davon."
+  "Once round 1 is paired, an event is sanctioned only when every player has a Player ID and birth year. {name} is missing one.": "Sobald Runde 1 ausgelost ist, wird ein Turnier nur offiziell, wenn alle Spieler eine Spieler-ID und ein Geburtsjahr haben. Bei {name} fehlt eins davon.",
+  "They get a bye for round {round}.": "Für Runde {round} bekommt die Person ein Freilos.",
+  "This lifts their disqualification.": "Damit wird die Disqualifikation aufgehoben.",
+  "Reinstate {name}?": "{name} wieder aufnehmen?"
 }

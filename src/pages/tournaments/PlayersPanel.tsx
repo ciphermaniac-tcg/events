@@ -14,15 +14,15 @@
 import { useSearchParams } from '@solidjs/router';
 import { createMemo, createSignal, For, Show } from 'solid-js';
 import { divisionFor, eventSeason } from '../../../shared/tournament/divisions';
-import { canUndrop, hasPlayed, hasStarted, joinedLate, playerPod, podOf } from '../../../shared/tournament/rounds';
+import { hasPlayed, hasStarted, joinedLate, playerPod, podOf } from '../../../shared/tournament/rounds';
 import {
   DIVISION_LABELS,
   isGeneratedId,
   type Player,
   playerName,
-  type Pod,
   type Tournament
 } from '../../../shared/tournament/types';
+import { type ReturnEffects, returnEffects } from '../../../shared/tournament/returns';
 import { decksEnabled, isSanctioned } from '../../../shared/tournament/view';
 import { type Manage, releaseReporter } from '../../lib/tournament/api';
 import { matchHistory } from '../../lib/tournament/present';
@@ -224,32 +224,15 @@ function ReleaseAction(props: { state: ManageState; manage: Manage; player: Play
   );
 }
 
-/**
- * The round a returning player who has played is given a bye for: one already
- * under way that they have no seat in, or one they missed before the latest
- * (see reenterEntrant in shared/tournament/lifecyclePlayers.ts). One who never
- * played returns to the next pairing, with no bye.
- */
-function returnBye(pod: Pod | undefined, player: Player): number | undefined {
-  const rounds = pod?.rounds.filter(round => round.kind === 'swiss') ?? [];
-  let played = false;
-  for (const round of rounds) {
-    if (round.matches.some(m => m.p1 === player.id || m.p2 === player.id)) {
-      played = true;
-    } else if (played && (round !== rounds.at(-1) || (round.stage ?? 4) >= 4)) {
-      return round.number;
-    }
+/** What reinstating a player does besides (see returnEffects), or why it can't be done. */
+function returnScope(effects: ReturnEffects): string | undefined {
+  if (effects.refusal) {
+    return t(effects.refusal);
   }
-  return undefined;
-}
-
-/** What reinstating a player does besides: a bye they didn't play for, a disqualification lifted. */
-function returnScope(pod: Pod | undefined, player: Player): string | undefined {
-  const bye = returnBye(pod, player);
   return (
     [
-      bye ? t('They get a bye for round {round}.', { round: bye }) : '',
-      player.disqualified ? t('This lifts their disqualification.') : ''
+      effects.byeRound ? t('They get a bye for round {round}.', { round: effects.byeRound }) : '',
+      effects.liftsDisqualification ? t('This lifts their disqualification.') : ''
     ]
       .filter(Boolean)
       .join(' ') || undefined
@@ -259,8 +242,8 @@ function returnScope(pod: Pod | undefined, player: Player): string | undefined {
 /**
  * Drop, disqualify, reinstate, remove (only before the player's first match:
  * after it they are dropped). A drop or disqualification can be taken back
- * while the player has missed no more than a round (see canUndrop), asked
- * first, since a return can bring a bye (see returnBye). Staff can also free the player for another
+ * while returnEffects offers it, asked first, since a return can bring a bye
+ * or be refused. Staff can also free the player for another
  * device or account (see ReleaseAction), which alone stays once the event has
  * ended: the roster stands with its results until the event is reopened.
  */
@@ -270,6 +253,7 @@ function PlayerActions(props: { state: ManageState; manage: Manage; player: Play
   const pod = () => podOf(props.manage.tournament, props.player.id);
   const dropped = () => props.player.droppedAfter;
   const ended = () => props.manage.settings.finished;
+  const returned = createMemo(() => returnEffects(props.manage.tournament, props.player.id));
   const [editing, setEditing] = createSignal(false);
   return (
     <td class='tm-extra-col'>
@@ -283,12 +267,13 @@ function PlayerActions(props: { state: ManageState; manage: Manage; player: Play
         />
       </Show>
       <span class='tm-row-actions'>
-        <Show when={!ended() && dropped() !== null && canUndrop(props.manage.tournament, props.player)}>
+        <Show when={!ended() && returned().offered}>
           <ConfirmAction
             label={t('Reinstate')}
             class='btn btn-ghost tm-small'
             question={t('Reinstate {name}?', { name: playerName(props.player) })}
-            scope={returnScope(pod(), props.player)}
+            scope={returnScope(returned())}
+            refused={returned().refusal !== undefined}
             confirmLabel={t('Reinstate')}
             onConfirm={() => send('undropPlayer')}
           />
