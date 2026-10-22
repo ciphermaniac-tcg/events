@@ -1964,6 +1964,12 @@ test('before round 1 staff tick who paid, and the console names who is still ope
   // Before round 1 the console opens on its players.
   await expect(page.getByRole('tabpanel', { name: 'Players' })).toBeVisible();
   await expect(page.getByText('3 / 2 players · 1 over the cap')).toBeVisible();
+  // On a phone a row's menu sits on its name's line rather than one of its own.
+  const row = page.locator('.tm-roster tbody tr').first();
+  const [who, menu] = await Promise.all(
+    ['.tm-who', '.tm-row-actions'].map(sel => row.locator(sel).evaluate(el => el.getBoundingClientRect().top))
+  );
+  expect(Math.abs((who ?? 0) - (menu ?? 0))).toBeLessThan(24);
   const open = page.locator('.tm-check-gate');
   await expect(open).toContainText('3 players aren’t checked in.');
   await page.getByRole('checkbox', { name: 'Paid: Player1 Test' }).check();
