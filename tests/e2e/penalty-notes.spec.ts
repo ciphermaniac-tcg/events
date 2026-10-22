@@ -73,16 +73,23 @@ function noteFrom(body: Body, playerName: string): Omit<PenaltyNoteEntry, 'id' |
   };
 }
 
-function manageRoute(route: Route, tournament: Tournament, decklists: 'off' | 'closed', mode = 'swiss') {
+/** The console's copy of `tournament`; `changed` answers a look since the first copy with it, as version 4. */
+function manageRoute(
+  route: Route,
+  tournament: Tournament,
+  decklists: 'off' | 'closed',
+  mode = 'swiss',
+  changed = false
+) {
   const url = new URL(route.request().url());
-  if (url.searchParams.has('since')) {
+  if (url.searchParams.has('since') && !changed) {
     return route.fulfill({ status: 204 });
   }
   return route.fulfill({
     json: {
       code: CODE,
       mode,
-      version: 3,
+      version: changed ? 4 : 3,
       updatedAt: 0,
       tournament,
       pending: [],
@@ -244,6 +251,22 @@ test('a penalty note is recorded, edited and removed, and changes nothing else',
   await expect(page.getByText('No penalty notes yet.')).toBeVisible();
   expect(writes[2]).toMatchObject({ method: 'DELETE', id: 'n2' });
   expect(writes.every(write => write.method !== 'PUT')).toBe(true);
+});
+
+test('a new note left on the latest round follows it as the next is paired', async ({ page }) => {
+  const one = runCommands(emptyTournament({ name: 'Friday League' }), ...adds, { type: 'pairRound', pod: 'masters' });
+  const results: Command[] = (one.pods[0]?.rounds[0]?.matches ?? [])
+    .filter(m => m.p2 !== null)
+    .map(m => ({ type: 'reportResult', pod: 'masters', round: 1, ...m, outcome: 'p1' }));
+  const two = runCommands(one, ...results, { type: 'pairRound', pod: 'masters' });
+  await page.clock.install();
+  await mockConsole(page, one);
+  const form = page.locator('.tm-penalty-form');
+  await expect(form.getByLabel('Round')).toHaveValue('1');
+  await pickPlayer(form, 'Ada');
+  await page.route(`**/api/tournaments/${CODE}/manage*`, route => manageRoute(route, two, 'off', 'swiss', true));
+  await page.clock.fastForward(16_000);
+  await expect(form.getByLabel('Round')).toHaveValue('2');
 });
 
 test('a note saved while the next is typed keeps the next, as does removing a note it does not edit', async ({

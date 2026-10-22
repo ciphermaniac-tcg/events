@@ -8,7 +8,7 @@
  * removal, so each says who wrote it down and when.
  */
 
-import { createMemo, createResource, createSignal, For, type JSX, Show } from 'solid-js';
+import { createEffect, createMemo, createResource, createSignal, For, type JSX, on, Show } from 'solid-js';
 import { Skeleton } from '@ciphermaniac/design/components/Skeleton';
 import { RetryError } from './Field';
 import { type DeckCheckEntry, standingChecks } from '../../../shared/tournament/deckChecks';
@@ -521,6 +521,14 @@ export function PenaltiesPanel(props: { state: ManageState; manage: Manage }) {
   );
 
   const [draft, setDraft] = createSignal(fresh(latest(), me()));
+  // A new note left on its player's latest round stays on it as the next is paired, so it isn't filed under the last.
+  // A memo, so the draft's own edits don't run it again: only a new round does.
+  const draftLatest = createMemo(() => (draft().playerId ? latestOf(draft().playerId) : latest()));
+  createEffect(
+    on(draftLatest, (now, before) =>
+      setDraft(d => (d.replaces === null && d.round === before ? { ...d, round: now } : d))
+    )
+  );
   const [saving, setSaving] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
   /** The player a Disqualification note was just saved for, offered the disqualification itself. */
