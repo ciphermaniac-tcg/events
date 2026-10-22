@@ -64,7 +64,13 @@ function Seat(props: BracketProps & { seat: BracketSeat }) {
       </Show>
       <span class='tm-mark' classList={{ 'is-win': props.seat.mark === 'W' }}>
         <Show when={props.seat.mark}>
-          {mark => <span aria-label={t(MARK_WORDS[mark()] ?? mark())}>{markText(mark())}</span>}
+          {/* A plain span cannot carry a name: the word is read, the letter is seen. */}
+          {mark => (
+            <>
+              <span aria-hidden='true'>{markText(mark())}</span>
+              <span class='sr-only'>{t(MARK_WORDS[mark()] ?? mark())}</span>
+            </>
+          )}
         </Show>
       </span>
     </div>

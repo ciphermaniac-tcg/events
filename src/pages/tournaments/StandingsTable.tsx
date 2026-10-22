@@ -47,6 +47,8 @@ export function StandingsTable(props: TableProps) {
   const matches = (id: string) =>
     !props.query?.trim() || (props.names.get(id) ?? '').toLowerCase().includes(props.query.trim().toLowerCase());
   const several = () => groups().length > 1;
+  // Said once, in the first box, when the search finds nobody in any division.
+  const nobody = () => !groups().some(group => group.rows.some(row => matches(row.playerId)));
   return (
     <>
       <Show when={several() && props.bar}>
@@ -90,6 +92,16 @@ export function StandingsTable(props: TableProps) {
                       </tr>
                     </thead>
                     <tbody>
+                      <Show when={index === 0 && nobody()}>
+                        <tr class='tm-empty-row'>
+                          <td class='muted-cell' colSpan={4}>
+                            {t('No players match.')}
+                          </td>
+                          <Show when={props.tiebreakers}>
+                            <td class='tm-wide-col' colSpan={2} />
+                          </Show>
+                        </tr>
+                      </Show>
                       <Index each={group().rows.filter(row => matches(row.playerId))}>
                         {row => (
                           <>
@@ -105,6 +117,9 @@ export function StandingsTable(props: TableProps) {
                                   <span class='tm-who'>
                                     <span class='tm-who-name'>
                                       <span class='tm-name'>{props.names.get(row().playerId) ?? row().playerId}</span>
+                                      <Show when={row().playerId === props.me}>
+                                        <span class='tm-flag is-you'>{t('You')}</span>
+                                      </Show>
                                     </span>
                                     {/* On the second line, so a dropped player's name keeps its room. */}
                                     <Show when={(hasDecks() && !hidden(row())) || row().dropped}>

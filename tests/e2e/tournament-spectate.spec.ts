@@ -332,3 +332,12 @@ test('a player picking the latest round again follows the next one when it posts
   await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
   await expect(picker).toHaveValue(String(next.number));
 });
+
+test('the standings mark the viewer’s own row, and say so when a search finds nobody', async ({ page }) => {
+  const me = matches[0]!.p1;
+  await mockApi(page, { ...VIEW, viewer: { role: null, me, via: 'claim', signedIn: true } });
+  await page.goto(`/t/${CODE}?tab=standings`);
+  await expect(page.locator('.tm-standings tr.is-me .tm-flag.is-you')).toHaveText('You');
+  await page.getByRole('searchbox', { name: 'Find a player' }).fill('nobody by this name');
+  await expect(page.locator('.tm-standings .tm-empty-row')).toHaveText('No players match.');
+});
