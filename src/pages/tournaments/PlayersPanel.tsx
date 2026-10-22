@@ -156,26 +156,37 @@ function DeckOffCell() {
 /**
  * Static seating: a player who cannot move between tables keeps one. Saved
  * when the field loses focus or Enter is pressed; emptied, it frees the table.
+ * A table refused (another player's, or 0) goes back to the one saved.
  */
 function FixedTableField(props: { state: ManageState; player: Player }) {
-  function save(value: string) {
-    const table = value.trim() ? Number(value) : null;
+  // Only this field's own save holds it: another request from the console would blur it mid-typing.
+  const [saving, setSaving] = createSignal(false);
+  async function save(event: Event & { currentTarget: HTMLInputElement }): Promise<void> {
+    const input = event.currentTarget;
+    const value = input.value.replace(/\D/g, '');
+    const table = value ? Number(value) : null;
     if (table === (props.player.fixedTable ?? null)) {
       return;
     }
-    const { id } = props.player;
-    void props.state.send({ type: 'setFixedTable', id, table });
+    setSaving(true);
+    try {
+      await props.state.send({ type: 'setFixedTable', id: props.player.id, table });
+    } finally {
+      setSaving(false);
+    }
+    input.value = String(props.player.fixedTable ?? '');
   }
   return (
     <label class='tm-menu-field' title={t('Static seating: this player sits at the same table every round')}>
       {t('Fixed table')}
       <input
         class='tm-input tm-table-input'
+        disabled={saving()}
         inputmode='numeric'
         aria-label={t('Fixed table for {name}', { name: playerName(props.player) })}
         placeholder='—'
         value={props.player.fixedTable ?? ''}
-        onChange={e => save(e.currentTarget.value.replace(/\D/g, ''))}
+        onChange={e => void save(e)}
       />
     </label>
   );

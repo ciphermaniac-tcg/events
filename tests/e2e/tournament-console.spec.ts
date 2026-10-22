@@ -878,6 +878,61 @@ test('a player row keeps its rarer actions and fixed table under its menu', asyn
   await expect(menu).toHaveCount(0);
 });
 
+test('a fixed table the server refuses goes back to the one saved', async ({ page }) => {
+  await mockConsole(page, event(4, 0, false), settingsOf({}));
+  await page.route(`**/api/tournaments/${CODE}/commands`, route =>
+    route.fulfill({ status: 400, json: { error: 'Table 7 is already fixed for Player2 Test' } })
+  );
+  await page
+    .getByRole('button', { name: /^More for / })
+    .first()
+    .click();
+  const field = page.getByRole('group', { name: /^More for / }).getByRole('textbox', { name: /^Fixed table for / });
+  await field.fill('7');
+  await field.press('Enter');
+  await expect(page.getByText('Table 7 is already fixed for Player2 Test')).toBeVisible();
+  await expect(field).toHaveValue('');
+});
+
+for (const accepted of [false, true]) {
+  test(`a ${accepted ? 'successful' : 'refused'} fixed table save holds the field until it answers`, async ({
+    page
+  }) => {
+    await mockConsole(page, event(4, 0, false), settingsOf({}), [], true);
+    let release = () => {};
+    const waiting = new Promise<void>(resolve => {
+      release = resolve;
+    });
+    await page.route(`**/api/tournaments/${CODE}/commands`, async route => {
+      await waiting;
+      if (accepted) {
+        await route.fallback();
+        return;
+      }
+      await route.fulfill({ status: 400, json: { error: 'Table 7 is already fixed for Player2 Test' } });
+    });
+    const more = page.getByRole('button', { name: /^More for / }).first();
+    await more.click();
+    const field = page.getByRole('group', { name: /^More for / }).getByRole('textbox', { name: /^Fixed table for / });
+    await field.fill('7');
+    const sent = page.waitForRequest(`**/api/tournaments/${CODE}/commands`);
+    await field.press('Enter');
+    await sent;
+    await expect(field).toBeDisabled();
+    release();
+    if (accepted) {
+      await expect(field).toHaveCount(0);
+      await more.click();
+    } else {
+      await expect(page.getByText('Table 7 is already fixed for Player2 Test')).toBeVisible();
+    }
+    await expect(field).toBeEnabled();
+    await expect(field).toHaveValue(accepted ? '7' : '');
+    await field.fill('8');
+    await expect(field).toHaveValue('8');
+  });
+}
+
 test('reinstating a player asks first, and says when it gives a bye or lifts a disqualification', async ({ page }) => {
   let t = event(8, 1, false);
   const id = t.players.find(p => p.firstName === 'Player1')?.id ?? '';
