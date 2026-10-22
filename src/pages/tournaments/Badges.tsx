@@ -11,6 +11,7 @@ import { InfoTip } from '@ciphermaniac/design/components/InfoTip';
 import { t, tn } from '../../lib/i18n';
 import { visibleBadgeCount } from '../../lib/tournament/badgeOverflow';
 import { BadgeArt } from './badgeArt';
+import { createPopover } from './popover';
 import '../../styles/pages/tournament-badges.css';
 
 const LABELS: Record<Badge['key'], (n: number) => string> = {
@@ -47,28 +48,19 @@ function BadgeIcon(props: { badge: Badge }) {
 function More(props: { badges: Badge[] }) {
   const [open, setOpen] = createSignal(false);
   let root: HTMLSpanElement | undefined;
-  onMount(() => {
-    const away = (event: Event) => {
-      if (root && !root.contains(event.target as Node)) {
-        setOpen(false);
-      }
-    };
-    const key = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && open()) {
-        setOpen(false);
-        root?.querySelector('button')?.focus();
-      }
-    };
-    document.addEventListener('pointerdown', away);
-    document.addEventListener('keydown', key);
-    onCleanup(() => {
-      document.removeEventListener('pointerdown', away);
-      document.removeEventListener('keydown', key);
-    });
+  let button: HTMLButtonElement | undefined;
+  let list: HTMLUListElement | undefined;
+  createPopover({
+    open,
+    close: () => setOpen(false),
+    root: () => root,
+    trigger: () => button,
+    panel: () => list
   });
   return (
     <span class='tm-badge-more' ref={root}>
       <button
+        ref={button}
         type='button'
         aria-expanded={open()}
         aria-label={tn(props.badges.length, '{n} more badges', '{n} more badges')}
@@ -77,7 +69,7 @@ function More(props: { badges: Badge[] }) {
         +{props.badges.length}
       </button>
       <Show when={open()}>
-        <ul class='tm-badge-list'>
+        <ul ref={list} class='tm-badge-list' tabIndex={-1}>
           <For each={props.badges}>
             {badge => (
               <li class={`tm-badge-${tierOf(badge)}`}>

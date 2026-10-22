@@ -6,11 +6,13 @@
  */
 
 import { A } from '@solidjs/router';
-import { createSignal, onCleanup, onMount, Show } from 'solid-js';
+import { createSignal, Show } from 'solid-js';
 import { isAdmin } from '../../../shared/accounts/roles';
 import { canCreateEvents } from '../../../shared/accounts/stores';
 import type { Me } from '../../lib/tournament/api';
 import { t } from '../../lib/i18n';
+import { Avatar } from './Avatar';
+import { createPopover } from './popover';
 import { SignOutButton } from './SignOutButton';
 import '../../styles/pages/tournament-account-menu.css';
 
@@ -19,44 +21,27 @@ export function AccountMenu(props: { user: Me; pending: number }) {
   const close = () => setOpen(false);
   const logout = <SignOutButton onError={() => setOpen(true)} />;
   let root: HTMLDivElement | undefined;
+  let button: HTMLButtonElement | undefined;
+  let menu: HTMLDivElement | undefined;
   const admin = () => isAdmin(props.user.role);
   const apply = () => !canCreateEvents(props.user.role, props.user.stores);
 
-  onMount(() => {
-    const away = (event: Event) => {
-      if (root && !root.contains(event.target as Node)) {
-        setOpen(false);
-      }
-    };
-    const key = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && open()) {
-        setOpen(false);
-        root?.querySelector('button')?.focus();
-      }
-    };
-    document.addEventListener('pointerdown', away);
-    document.addEventListener('keydown', key);
-    onCleanup(() => {
-      document.removeEventListener('pointerdown', away);
-      document.removeEventListener('keydown', key);
-    });
-  });
+  createPopover({ open, close, root: () => root, trigger: () => button, panel: () => menu });
 
   return (
     <div class='tm-acct' ref={root}>
       <button
+        ref={button}
         type='button'
         class='tm-acct-button'
         aria-label={t('Account')}
         aria-expanded={open()}
         onClick={() => setOpen(!open())}
       >
-        <Show when={props.user.avatar} fallback={<span aria-hidden='true'>{props.user.name.slice(0, 1)}</span>}>
-          {src => <img src={src()} alt='' width='34' height='34' />}
-        </Show>
+        <Avatar name={props.user.name} src={props.user.avatar} />
       </button>
       <Show when={open()}>
-        <div class='tm-acct-menu'>
+        <div ref={menu} class='tm-acct-menu'>
           <p class='tm-acct-id'>
             <strong>{props.user.name}</strong>
             <span class='muted'>@{props.user.handle}</span>

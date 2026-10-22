@@ -4,6 +4,7 @@
  */
 
 import { For } from 'solid-js';
+import { Icon } from '@ciphermaniac/design/components/Icon';
 import type { Pod } from '../../../shared/tournament/types';
 import { t } from '../../lib/i18n';
 import { roundLabel } from '../../lib/tournament/present';
@@ -40,7 +41,7 @@ export function RoundStepper(props: { pod: Pod; selected: number; onSelect: (n: 
         disabled={index() <= 0}
         onClick={() => step(-1)}
       >
-        ‹
+        <Icon name='chevron-left' />
       </button>
       <RoundPicker pod={props.pod} selected={props.selected} onSelect={props.onSelect} />
       <button
@@ -50,7 +51,7 @@ export function RoundStepper(props: { pod: Pod; selected: number; onSelect: (n: 
         disabled={index() >= props.pod.rounds.length - 1}
         onClick={() => step(1)}
       >
-        ›
+        <Icon name='chevron-right' />
       </button>
     </span>
   );

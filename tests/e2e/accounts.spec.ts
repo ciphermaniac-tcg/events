@@ -331,6 +331,14 @@ test('a profile’s badges fit one line and move into overflow before wrapping @
   await page.keyboard.press('Escape');
   await expect(row.locator('.tm-badge-list')).toHaveCount(0);
   await expect(more).toBeFocused();
+  // From the keyboard the list takes focus, so it is read out, and closes once focus moves on past the button.
+  await page.keyboard.press('Enter');
+  await expect(row.getByRole('list')).toBeFocused();
+  await page.keyboard.press('Shift+Tab');
+  await expect(more).toBeFocused();
+  await expect(row.locator('.tm-badge-list')).toBeVisible();
+  await page.keyboard.press('Shift+Tab');
+  await expect(row.locator('.tm-badge-list')).toHaveCount(0);
   await row.evaluate(element => {
     element.style.width = '300px';
   });
@@ -1506,6 +1514,32 @@ test('the dashboard’s account menu holds the account’s pages, and the way to
   await expect(page.locator('.tm-acct-menu').getByRole('link', { name: 'Apply to run events' })).toHaveCount(0);
 });
 
+test('the account menu takes focus as it opens, closes once focus leaves it, and Escape hands focus back', async ({
+  page
+}) => {
+  await mockDashboard(page, ME);
+  await page.goto('/');
+  const button = page.getByRole('button', { name: 'Account' });
+  // The picture's stand-in is the name's initial, as on every other avatar.
+  await expect(button).toHaveText('M');
+  const menu = page.locator('.tm-acct-menu');
+  await button.focus();
+  await page.keyboard.press('Enter');
+  await expect(menu.getByRole('link', { name: 'History' })).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(menu).toHaveCount(0);
+  await expect(button).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(menu.getByRole('link', { name: 'History' })).toBeFocused();
+  // Back to the button keeps it open; past it, the menu closes rather than linger behind the focus.
+  await page.keyboard.press('Shift+Tab');
+  await expect(button).toBeFocused();
+  await expect(menu).toBeVisible();
+  await page.keyboard.press('Shift+Tab');
+  await expect(menu).toHaveCount(0);
+  await expect(button).toHaveAttribute('aria-expanded', 'false');
+});
+
 test('account selections close the menu and its last action signs out @mobile', async ({ page }) => {
   await mockDashboard(page, ME);
   let signedOut = false;
@@ -1562,7 +1596,7 @@ test('on a phone the dashboard’s tabs move to a bar along the bottom, and the 
   await page.goto('/?tab=organizing');
   await expect(page.locator('.tm-dash-tabs')).toBeHidden();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Organizing');
-  const bar = page.locator('.tm-dash-bar');
+  const bar = page.locator('.tm-tabbar');
   await expect(bar).toBeVisible();
   const box = await bar.boundingBox();
   const viewport = page.viewportSize();
@@ -1574,6 +1608,14 @@ test('on a phone the dashboard’s tabs move to a bar along the bottom, and the 
   await bar.getByRole('tab', { name: /Playing/ }).click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Playing');
   expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
+  // The same tab list as the console's bar, the arrow keys and all.
+  const list = page.getByRole('tablist', { name: 'Dashboard' });
+  await expect(list.getByRole('tab', { name: /Playing/ })).toHaveAttribute('aria-controls', 'tm-dash-panel');
+  await list.getByRole('tab', { selected: true }).focus();
+  await page.keyboard.press('End');
+  await expect(list.getByRole('tab', { name: 'Organizing' })).toBeFocused();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Organizing');
+  await expect(page.getByRole('tabpanel', { name: 'Organizing' })).toBeVisible();
 });
 
 test('a player whose Application is pending has the Organizing tab, which a reload keeps, with where it stands', async ({

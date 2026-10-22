@@ -9,7 +9,6 @@ import {
   createEffect,
   createMemo,
   createSignal,
-  For,
   type JSX,
   Match,
   on,
@@ -24,7 +23,8 @@ import { activeIds, cutPodsOf, latestRound, livePods, roundComplete } from '../.
 import { eventTypeOf } from '../../../shared/tournament/structure';
 import type { Pod, PodCategory } from '../../../shared/tournament/types';
 import { Segmented } from '@ciphermaniac/design/components/Segmented';
-import { LockedTab, TabPanel, Tabs } from '@ciphermaniac/design/components/Tabs';
+import { TabPanel, Tabs } from '@ciphermaniac/design/components/Tabs';
+import { Icon } from '@ciphermaniac/design/components/Icon';
 import { msg, t, tn, tx } from '../../lib/i18n';
 import { errorText, joinStaff, type Manage } from '../../lib/tournament/api';
 import {
@@ -58,6 +58,8 @@ import { Trail } from './Trail';
 import { pageTitle } from '../../lib/title';
 import { warmChunks } from '../../lib/preloadRecovery';
 import { lazyPanel } from './lazyPanel';
+import { BarIcon } from './BarIcon';
+import { TabBar } from './TabBar';
 
 // Pairings is the tab a running event lives on, so only it loads with the page;
 // the others load when opened (decklists are read before the event, the
@@ -378,74 +380,14 @@ function Hero(props: { state: ManageState; manage: Manage; pod: Pod | undefined;
   );
 }
 
-const TAB_ICONS: Record<Tab, JSX.Element> = {
-  round: (
-    <svg viewBox='0 0 24 24' aria-hidden='true'>
-      <rect x='3' y='4' width='18' height='16' rx='2' />
-      <path d='M3 10h18M12 10v10' />
-    </svg>
-  ),
-  players: (
-    <svg viewBox='0 0 24 24' aria-hidden='true'>
-      <circle cx='9' cy='8' r='3.5' />
-      <path d='M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5M16 4.5a3.5 3.5 0 0 1 0 7M18 14.8c1.9.7 3 2.4 3.5 5.2' />
-    </svg>
-  ),
-  standings: (
-    <svg viewBox='0 0 24 24' aria-hidden='true'>
-      <path d='M4 20V11h5v9M9 20V5h6v15M15 20v-6h5v6' />
-    </svg>
-  ),
-  decklists: (
-    <svg viewBox='0 0 24 24' aria-hidden='true'>
-      <rect x='5' y='3' width='14' height='18' rx='2' />
-      <path d='M9 8h6M9 12h6M9 16h4' />
-    </svg>
-  ),
-  penalties: (
-    <svg viewBox='0 0 24 24' aria-hidden='true'>
-      <path d='M5 21V4M5 4h12l-2.5 4.5L17 13H5' />
-    </svg>
-  ),
-  event: (
-    <svg viewBox='0 0 24 24' aria-hidden='true'>
-      <circle cx='12' cy='12' r='3' />
-      <path d='M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9 7 7M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1' />
-    </svg>
-  )
+const TAB_ICONS: Record<Tab, () => JSX.Element> = {
+  round: () => <BarIcon name='pairings' />,
+  players: () => <Icon name='users' size={20} />,
+  standings: () => <BarIcon name='podium' />,
+  decklists: () => <Icon name='list' size={20} />,
+  penalties: () => <BarIcon name='flag' />,
+  event: () => <BarIcon name='settings' />
 };
-
-/** A phone's tabs, in a bar along the bottom of the screen as the dashboard's are; the strip above serves wider screens. */
-function TabBar(props: { tabs: TabOption[]; selected: Tab; onSelect: (tab: Tab) => void }) {
-  return (
-    <nav class='tm-console-bar' aria-label={t('Event sections')}>
-      <For each={props.tabs}>
-        {option => (
-          <Show
-            when={option.locked}
-            fallback={
-              <button
-                type='button'
-                aria-current={option.value === props.selected ? 'page' : undefined}
-                onClick={() => props.onSelect(option.value)}
-              >
-                {TAB_ICONS[option.value]}
-                <span>{option.label}</span>
-              </button>
-            }
-          >
-            {hint => (
-              <LockedTab hint={hint()}>
-                {TAB_ICONS[option.value]}
-                <span>{option.label}</span>
-              </LockedTab>
-            )}
-          </Show>
-        )}
-      </For>
-    </nav>
-  );
-}
 
 /**
  * Why something the console tried did not happen, above the tabs, and
@@ -547,7 +489,17 @@ function Console(props: { state: ReturnType<typeof createManage>; manage: Manage
     <div class='tm-page tm-console' classList={{ 'is-pairings': tab() === 'round' }}>
       <Hero state={props.state} manage={props.manage} pod={pod()} tom={tom} />
       <Tabs id='console' options={tabs()} selected={tab()} onSelect={setTab} ariaLabel={t('Event sections')} />
-      <TabBar tabs={tabs()} selected={tab()} onSelect={setTab} />
+      {/* A phone's tabs, in a bar along the bottom of the screen as the dashboard's are. */}
+      <TabBar
+        id='console-bar'
+        panel='console-panel'
+        label={t('Event sections')}
+        class='tm-tabbar'
+        tabs={tabs()}
+        selected={tab()}
+        onSelect={setTab}
+        icon={value => TAB_ICONS[value]()}
+      />
       <Show when={tom}>{link => <ErrorLine message={link().error()} />}</Show>
       <Show when={pods().length > 1 && (tab() === 'round' || tab() === 'standings')}>
         <Segmented

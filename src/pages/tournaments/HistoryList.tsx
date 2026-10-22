@@ -18,6 +18,7 @@ import { loadEntry } from '../../lib/tournament/historyCopies';
 import { divisionHeading } from '../../lib/tournament/present';
 import { resolved } from '../../lib/resource';
 import { Skeleton } from '@ciphermaniac/design/components/Skeleton';
+import { Icon } from '@ciphermaniac/design/components/Icon';
 import { DeckIcons } from './DeckIcons';
 import { Squares } from './Squares';
 import '../../styles/pages/tournament-history.css';
@@ -161,7 +162,7 @@ function EntryRow(props: { entry: HistoryEntry; watch: Watch }) {
             aria-expanded={open()}
             aria-label={open() ? t('Hide rounds') : t('Show rounds')}
           >
-            ▸
+            <Icon name='chevron-right' />
           </button>
         </td>
         <td class='tm-hist-event'>

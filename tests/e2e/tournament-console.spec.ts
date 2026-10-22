@@ -1124,7 +1124,7 @@ test('on a phone a roster question asked from the row menu stays on screen', asy
   await page.setViewportSize({ width: 360, height: 740 });
   await mockConsole(page, event(4, 0, false), settingsOf({ playerReporting: true }));
   // A phone's tabs sit in the bar along the bottom.
-  await page.getByRole('navigation', { name: 'Event sections' }).getByRole('button', { name: 'Players' }).click();
+  await page.getByRole('tablist', { name: 'Event sections' }).getByRole('tab', { name: 'Players' }).click();
   await page
     .getByRole('button', { name: /^More for / })
     .first()
@@ -1247,7 +1247,7 @@ test('900px and under a table opens a sheet of its results, and a press there re
   await rows.first().click();
   const sheet = page.getByRole('dialog', { name: `Result, table ${table?.table}` });
   await expect(sheet).toBeVisible();
-  await expect(sheet.getByRole('button')).toHaveText(['...', / wins$/, / wins$/, 'Tie', 'Double loss', 'Cancel']);
+  await expect(sheet.getByRole('button')).toHaveText(['', / wins$/, / wins$/, 'Tie', 'Double loss', 'Cancel']);
   await page.keyboard.press('Escape');
   await expect(sheet).toHaveCount(0);
   const chevron = rows.first().getByRole('button', { name: `Enter the result of table ${table?.table}` });
@@ -1295,16 +1295,47 @@ test('on a phone the tabs sit along the bottom, and the round and its clock stay
 }) => {
   await mockConsole(page, partlyPlayed(8, 0, 2), settingsOf({}));
   await expect(page.locator('.tm-console > .tabs')).toBeHidden();
-  const bar = page.getByRole('navigation', { name: 'Event sections' });
-  await expect(bar.getByRole('button', { name: 'Pairings' })).toHaveAttribute('aria-current', 'page');
+  // Drawn as the rest of the system is, whatever the bar's own styles say.
+  await expect(page.locator('.tm-tabbar svg').first()).toHaveCSS('stroke-width', '1.5px');
+  const bar = page.getByRole('tablist', { name: 'Event sections' });
+  await expect(bar.getByRole('tab', { name: 'Pairings' })).toHaveAttribute('aria-selected', 'true');
   const pin = page.locator('.tm-round-pin');
   await expect(pin.getByRole('combobox', { name: 'Round' })).toBeVisible();
   await expect(pin.getByRole('group', { name: 'Round clock' })).toBeVisible();
   await expect(page.locator('.tm-console-hero').getByRole('group', { name: 'Round clock' })).toBeHidden();
   await expect(page.locator('.tm-matches td.tm-table-col').first()).toHaveText(/\d/);
-  await bar.getByRole('button', { name: 'Standings' }).click();
+  await bar.getByRole('tab', { name: 'Standings' }).click();
   await expect(page).toHaveURL(/tab=standings/);
   expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
+});
+
+test('a phone’s tab bar is one tab list: the arrows move and open, and a locked tab says why @mobileOnly', async ({
+  page
+}) => {
+  await mockConsole(page, event(4, 0, false), settingsOf({}));
+  const bar = page.getByRole('tablist', { name: 'Event sections' });
+  await expect(bar.getByRole('tab')).toHaveText(['Pairings', 'Players', 'Standings', 'Penalties', 'Settings']);
+  const players = bar.getByRole('tab', { name: 'Players' });
+  await expect(players).toHaveAttribute('aria-selected', 'true');
+  await expect(players).toHaveAttribute('aria-controls', 'console-panel');
+  await expect(players).toHaveAttribute('tabindex', '0');
+  await expect(bar.getByRole('tab', { name: 'Standings' })).toHaveAttribute('tabindex', '-1');
+  await players.focus();
+  await page.keyboard.press('ArrowRight');
+  const standings = bar.getByRole('tab', { name: 'Standings' });
+  await expect(standings).toBeFocused();
+  await expect(standings).toHaveAttribute('aria-selected', 'true');
+  await expect(page).toHaveURL(/tab=standings/);
+  // Locked until round 1: reached, described, never opened.
+  await page.keyboard.press('Home');
+  const pairings = bar.getByRole('tab', { name: 'Pairings' });
+  await expect(pairings).toBeFocused();
+  await expect(pairings).toHaveAttribute('aria-disabled', 'true');
+  await expect(pairings).toHaveAccessibleDescription('Pairings open once round 1 starts.');
+  await expect(standings).toHaveAttribute('aria-selected', 'true');
+  await page.keyboard.press('End');
+  await expect(bar.getByRole('tab', { name: 'Settings' })).toBeFocused();
+  await expect(page.getByRole('tabpanel', { name: 'Settings' })).toBeVisible();
 });
 
 test('the console leads back to the dashboard’s Organizing tab, above the event’s name @mobile', async ({ page }) => {
@@ -1326,6 +1357,15 @@ test('result options stay behind the menu and preserve manual confirmation', asy
   await page.keyboard.press('Escape');
   await expect(menu).toHaveCount(0);
   await expect(more).toBeFocused();
+  // Focus moving out past the button closes it, as the account menu and the badge list do.
+  await page.keyboard.press('Enter');
+  await expect(menu.getByRole('button', { name: 'Tie', exact: true })).toBeFocused();
+  await page.keyboard.press('Shift+Tab');
+  await expect(more).toBeFocused();
+  await expect(menu).toBeVisible();
+  await page.keyboard.press('Shift+Tab');
+  await expect(menu).toHaveCount(0);
+  await expect(more).toHaveAttribute('aria-expanded', 'false');
   for (const [label, outcome] of [
     ['Tie', 'tie'],
     ['Double loss', 'double-loss']

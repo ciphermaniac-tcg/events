@@ -1,17 +1,13 @@
 import { createEffect, createMemo, createSignal, createUniqueId, type JSX, onCleanup, Show } from 'solid-js';
+import { Icon } from '@ciphermaniac/design/components/Icon';
 import { t } from '../../lib/i18n';
+import { createPopover } from './popover';
 
-function menuEvents(root: () => HTMLElement | undefined, close: () => void, place: () => void) {
-  const outside = (event: PointerEvent) => {
-    if (event.target instanceof Node && !root()?.contains(event.target)) {
-      close();
-    }
-  };
-  document.addEventListener('pointerdown', outside);
+/** A fixed menu follows its button as the page scrolls; a resize closes it rather than guess. */
+function followButton(place: () => void, close: () => void) {
   window.addEventListener('scroll', place, { capture: true, passive: true });
   window.addEventListener('resize', close);
   onCleanup(() => {
-    document.removeEventListener('pointerdown', outside);
     window.removeEventListener('scroll', place, { capture: true });
     window.removeEventListener('resize', close);
   });
@@ -23,7 +19,7 @@ export function OptionsMenu(props: {
   /** Any item closes the menu; without it, only one marked data-closes-menu does. */
   closeOnSelect?: boolean;
   busy?: boolean;
-  /** The trigger's look, name and face, when it is not the row's "..." (a split button's caret). */
+  /** The trigger's look, name and face, when it is not the row's "more" dots (a split button's caret). */
   buttonClass?: string;
   buttonLabel?: string;
   buttonContent?: JSX.Element;
@@ -56,7 +52,7 @@ export function OptionsMenu(props: {
     if (!open()) {
       return;
     }
-    menuEvents(() => root, close, place);
+    followButton(place, close);
     const observer = new ResizeObserver(place);
     if (menu) {
       observer.observe(menu);
@@ -65,12 +61,10 @@ export function OptionsMenu(props: {
       observer.disconnect();
     });
   });
+  createPopover({ open, close, root: () => root, trigger: () => button, panel: () => menu });
   const mountMenu = (element: HTMLSpanElement) => {
     menu = element;
-    queueMicrotask(() => {
-      place();
-      element.querySelector<HTMLButtonElement>('button')?.focus();
-    });
+    queueMicrotask(place);
   };
   return (
     <span
@@ -83,13 +77,6 @@ export function OptionsMenu(props: {
         if (item && (props.closeOnSelect || item.hasAttribute('data-closes-menu'))) {
           close();
         }
-      }}
-      onKeyDown={event => {
-        if (event.key !== 'Escape') {
-          return;
-        }
-        close();
-        button?.focus();
       }}
     >
       <button
@@ -108,7 +95,7 @@ export function OptionsMenu(props: {
           }
         }}
       >
-        {props.buttonContent ?? '...'}
+        {props.buttonContent ?? <Icon name='more' />}
       </button>
       <Show when={at()}>
         {position => (

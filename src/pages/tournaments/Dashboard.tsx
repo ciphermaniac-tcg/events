@@ -18,7 +18,6 @@ import {
   createEffect,
   createResource,
   createSignal,
-  For,
   type JSX,
   Match,
   type Resource,
@@ -29,7 +28,7 @@ import {
 import type { MyApplication } from '../../../shared/accounts/types';
 import { isAdmin } from '../../../shared/accounts/roles';
 import { canCreateEvents } from '../../../shared/accounts/stores';
-import { rovingIndex } from '@ciphermaniac/design/lib/roving';
+import { Icon } from '@ciphermaniac/design/components/Icon';
 import { Skeleton } from '@ciphermaniac/design/components/Skeleton';
 import { fetchHistory, listTournaments, type Me, type TournamentSummary } from '../../lib/tournament/api';
 import { accountList } from '../../lib/tournament/accountMemory';
@@ -38,6 +37,8 @@ import { latestValue } from '../../lib/resource';
 import { pendingApplications } from './pendingApplications';
 import { createSessionCatchUp } from './ApplicantStatus';
 import { PlayingTab } from './PlayingTab';
+import { BarIcon } from './BarIcon';
+import { TabBar } from './TabBar';
 import '../../styles/pages/tournament-dashboard.css';
 import { pageTitle } from '../../lib/title';
 import { msg, t } from '../../lib/i18n';
@@ -47,24 +48,9 @@ export type Tab = 'playing' | 'organizing';
 
 const LABELS: Record<Tab, string> = { playing: msg('Playing'), organizing: msg('Organizing') };
 
-const ICONS: Record<Tab | 'admin', JSX.Element> = {
-  playing: (
-    <svg viewBox='0 0 24 24' aria-hidden='true'>
-      <rect x='5' y='3' width='14' height='18' rx='2' />
-      <path d='M9 8h6M9 12h6' />
-    </svg>
-  ),
-  organizing: (
-    <svg viewBox='0 0 24 24' aria-hidden='true'>
-      <rect x='3' y='5' width='18' height='16' rx='2' />
-      <path d='M3 10h18M8 3v4M16 3v4' />
-    </svg>
-  ),
-  admin: (
-    <svg viewBox='0 0 24 24' aria-hidden='true'>
-      <path d='M12 3l8 4v5c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V7z' />
-    </svg>
-  )
+const ICONS: Record<Tab, () => JSX.Element> = {
+  playing: () => <BarIcon name='cards' />,
+  organizing: () => <Icon name='calendar' size={20} />
 };
 
 interface Shown {
@@ -77,9 +63,8 @@ const settled = (resource: Resource<unknown>) => resource.state !== 'unresolved'
 
 /**
  * The tabs, as a strip under the heading (`wide`) or the phone's bottom bar;
- * only one shows at a time. The arrow keys, Home and End move between them.
- * An Admin's way to /admin follows them as a link, with the Applications
- * waiting (`admin`, null for anyone else).
+ * only one shows at a time. An Admin's way to /admin follows them as a link,
+ * with the Applications waiting (`admin`, null for anyone else).
  */
 function TabList(props: {
   shown: Shown[];
@@ -88,46 +73,22 @@ function TabList(props: {
   wide: boolean;
   admin: number | null;
 }) {
-  let list: HTMLDivElement | undefined;
-  const id = (tab: Tab) => `tm-dash-${props.wide ? 'tab' : 'bar'}-${tab}`;
-  function key(event: KeyboardEvent) {
-    const from = props.shown.findIndex(s => s.tab === props.tab);
-    const to = rovingIndex(event.key, from, props.shown.length);
-    const next = to === null ? undefined : props.shown[to];
-    if (next) {
-      event.preventDefault();
-      props.onSelect(next.tab);
-      list?.querySelector<HTMLElement>(`#${id(next.tab)}`)?.focus();
-    }
-  }
   return (
-    <div class={props.wide ? 'tm-dash-tabs tm-dash-wide' : 'tm-dash-bar tm-dash-phone'}>
-      <div ref={list} class='tm-dash-tablist' role='tablist' aria-label={t('Dashboard')} onKeyDown={key}>
-        <For each={props.shown}>
-          {s => (
-            <button
-              type='button'
-              role='tab'
-              id={id(s.tab)}
-              aria-selected={s.tab === props.tab}
-              aria-controls='tm-dash-panel'
-              tabIndex={s.tab === props.tab ? 0 : -1}
-              onClick={() => props.onSelect(s.tab)}
-            >
-              <Show when={!props.wide}>{ICONS[s.tab]}</Show>
-              <span>
-                {t(LABELS[s.tab])}
-                <Show when={s.count > 0}>
-                  <span class='tm-dash-count'>{s.count}</span>
-                </Show>
-              </span>
-            </button>
-          )}
-        </For>
-      </div>
+    <TabBar
+      id={props.wide ? 'tm-dash-tab' : 'tm-dash-bar'}
+      panel='tm-dash-panel'
+      label={t('Dashboard')}
+      class={props.wide ? 'tm-dash-tabs tm-dash-wide' : 'tm-tabbar'}
+      tabs={props.shown.map(s => ({ value: s.tab, label: t(LABELS[s.tab]), count: s.count }))}
+      selected={props.tab}
+      onSelect={props.onSelect}
+      icon={props.wide ? undefined : tab => ICONS[tab]()}
+    >
       <Show when={props.admin !== null}>
         <A class='tm-dash-link' href='/admin'>
-          <Show when={!props.wide}>{ICONS.admin}</Show>
+          <Show when={!props.wide}>
+            <BarIcon name='shield' />
+          </Show>
           <span>
             {t('Admin')}
             <Show when={(props.admin ?? 0) > 0}>
@@ -136,7 +97,7 @@ function TabList(props: {
           </span>
         </A>
       </Show>
-    </div>
+    </TabBar>
   );
 }
 

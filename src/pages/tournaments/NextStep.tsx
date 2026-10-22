@@ -15,6 +15,7 @@ import { type Division, DIVISION_LABELS, type Pod } from '../../../shared/tourna
 import { type Manage, saveSettings } from '../../lib/tournament/api';
 import { type DivisionCut, endGaps, podLabel } from '../../lib/tournament/present';
 import { Segmented } from '@ciphermaniac/design/components/Segmented';
+import { Icon } from '@ciphermaniac/design/components/Icon';
 import { ConfirmDialog } from './ConfirmAction';
 import type { ManageState } from './manageState';
 import { Modal } from './Modal';
@@ -190,12 +191,6 @@ export function EndEventStep(props: { state: ManageState; manage: Manage; primar
   );
 }
 
-const CARET = (
-  <svg viewBox='0 0 12 12' width='12' height='12' aria-hidden='true'>
-    <path d='M2.5 4.5 6 8l3.5-3.5' fill='none' stroke='currentColor' stroke-width='1.6' />
-  </svg>
-);
-
 /**
  * The suggested step as a button, and a caret offering the other steps the
  * event can take: the next Swiss round (until the cut has begun), the top cut
@@ -260,7 +255,7 @@ export function RoundEndSplit(props: {
           name={t('the next step')}
           buttonClass='btn btn-primary tm-split-caret'
           buttonLabel={t('Other next steps')}
-          buttonContent={CARET}
+          buttonContent={<Icon name='chevron-down' />}
           closeOnSelect
           busy={props.state.busy()}
         >

@@ -26,6 +26,7 @@ import { isDisputed, type PlayerReport, reportsFor } from '../../../shared/tourn
 import { latestRound, withSwiss } from '../../../shared/tournament/rounds';
 import { DIVISION_LABELS, type Match, type Outcome, type Pod, type Round } from '../../../shared/tournament/types';
 import { Segmented } from '@ciphermaniac/design/components/Segmented';
+import { Icon } from '@ciphermaniac/design/components/Icon';
 import { t, tc, tx } from '../../lib/i18n';
 import { createMedia } from '../../lib/media';
 import type { Manage } from '../../lib/tournament/api';
@@ -255,7 +256,7 @@ function StandingResult(props: ResultProps) {
             props.onOpen?.();
           }}
         >
-          ›
+          <Icon name='chevron-right' />
         </button>
       </Show>
       <span class='tm-result-acts' classList={{ 'is-locked': props.locked || Boolean(props.onOpen) }}>

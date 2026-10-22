@@ -2003,7 +2003,7 @@ tr.is-in .tm-place {
   background: none;
   color: var(--fg);
   font: inherit;
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
   text-align: left;
   cursor: pointer;
 }
@@ -2018,7 +2018,7 @@ tr.is-in .tm-place {
   justify-content: space-between;
   gap: var(--space-2);
   padding: var(--space-1) 10px;
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
 }
 /* A confirm asked from the menu wraps inside it rather than widening the row. */
 .tm-menu .tm-confirm {
