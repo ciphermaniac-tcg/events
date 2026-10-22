@@ -220,10 +220,11 @@ test('deck checks on their way read as loading, and ones that could not be read 
   const row = page.locator('.tm-lists tbody tr').first();
   await row.getByRole('button', { name: 'View' }).click();
   const side = page.locator('.tm-check-side');
-  await expect(side).toContainText('Loading deck checks…');
+  await expect(side.locator('.skeleton')).toBeVisible();
   await expect(row).not.toContainText('Not checked');
   answer.resolve();
-  await expect(side).toContainText('Deck checks could not be loaded.');
+  // The red line a failed read leaves everywhere, not a grey note that reads like an empty list.
+  await expect(side.getByRole('alert')).toHaveText('Deck checks could not be loaded.');
   await expect(row).not.toContainText('Not checked');
   await side.getByRole('button', { name: 'Try again' }).click();
   await expect(side).toContainText('No deck checks yet.');

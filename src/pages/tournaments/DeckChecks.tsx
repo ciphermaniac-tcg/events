@@ -8,6 +8,8 @@
  */
 
 import { createMemo, createResource, createSignal, For, Show } from 'solid-js';
+import { Skeleton } from '@ciphermaniac/design/components/Skeleton';
+import { RetryError } from './Field';
 import {
   DECK_CHECK_LIMITS,
   type DeckCheck,
@@ -343,18 +345,15 @@ export function DeckCheckSide(props: SideProps) {
       <Show
         when={!props.checks.failed()}
         fallback={
-          <p class='muted'>
-            {t('Deck checks could not be loaded.')}{' '}
-            <button type='button' class='btn btn-secondary tm-small' onClick={() => props.checks.retry()}>
-              {t('Try again')}
-            </button>
-          </p>
+          <RetryError error={t('Deck checks could not be loaded.')} onRetry={() => props.checks.retry()} small />
         }
       >
         <Show
           when={props.checks.of(props.playerId).length}
           fallback={
-            <p class='muted'>{props.checks.loading() ? t('Loading deck checks…') : t('No deck checks yet.')}</p>
+            <Show when={!props.checks.loading()} fallback={<Skeleton height='48px' />}>
+              <p class='muted'>{t('No deck checks yet.')}</p>
+            </Show>
           }
         >
           <ul class='tm-check-list'>

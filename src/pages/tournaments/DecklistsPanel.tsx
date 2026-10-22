@@ -25,6 +25,8 @@ import {
   Show,
   Switch
 } from 'solid-js';
+import { Skeleton } from '@ciphermaniac/design/components/Skeleton';
+import { RetryError } from './Field';
 import { birthYear } from '../../../shared/tournament/divisions';
 import { latestRoundOf } from '../../../shared/tournament/staffRecords';
 import { decklistMatcher } from '../../../shared/tournament/identify';
@@ -251,15 +253,10 @@ function NoLists(props: { loading: boolean; failed: boolean; onRetry: () => void
   return (
     <Switch fallback={<p class='muted tm-empty'>{t('No decklists yet.')}</p>}>
       <Match when={props.failed}>
-        <p class='muted tm-empty'>
-          {t('The decklists could not be loaded.')}{' '}
-          <button type='button' class='btn btn-secondary tm-small' onClick={() => props.onRetry()}>
-            {t('Try again')}
-          </button>
-        </p>
+        <RetryError error={t('The decklists could not be loaded.')} onRetry={() => props.onRetry()} small />
       </Match>
       <Match when={props.loading}>
-        <p class='muted tm-empty'>{t('Loading decklists…')}</p>
+        <Skeleton height='160px' />
       </Match>
     </Switch>
   );
