@@ -13,12 +13,12 @@ import test, { describe } from 'node:test';
 
 import type { Command } from '../../shared/tournament/commands.ts';
 import { emptyTournament } from '../../shared/tournament/create.ts';
-import { cutPodOf } from '../../shared/tournament/rounds.ts';
+import { cutPodOf, findMatch } from '../../shared/tournament/rounds.ts';
 import { recommendedStructure } from '../../shared/tournament/structure.ts';
 import { parseTdf } from '../../shared/tournament/tdf.ts';
 import type { PlayerReport } from '../../shared/tournament/reports.ts';
 import type { EventType, Match, Pod, Round, Tournament } from '../../shared/tournament/types.ts';
-import { assignKeys, DEFAULT_SETTINGS, publicTournament } from '../../shared/tournament/view.ts';
+import { applyPending, assignKeys, DEFAULT_SETTINGS, publicTournament } from '../../shared/tournament/view.ts';
 import { tdfFilename, tdfText } from '../../src/lib/tournament/exportTdf.ts';
 import { ordinal } from '../../src/lib/format.ts';
 import {
@@ -99,6 +99,34 @@ test('a pending result shows until TOM has its own', () => {
   const decided = round2.matches[2];
   assert.ok(decided);
   assert.deepEqual(shownOutcome(decided, pod, round2, pending), { outcome: 'p2', unconfirmed: false });
+});
+
+test('the console shows the pending result the site checks a stale result against', () => {
+  const open = round2.matches[1];
+  assert.ok(open);
+  const key = { round: 2, table: open.table, p1: open.p1, p2: open.p2 };
+  const site = (pending: { pod: 'mixed'; p2: string | null }[]) =>
+    findMatch(
+      applyPending(
+        CHALLENGE,
+        pending.map(p => ({ ...key, ...p, outcome: 'p2' as const, at: 0 }))
+      ),
+      { ...key, pod: 'mixed' }
+    )?.match.outcome;
+  const shown = (pending: { pod: 'mixed'; p2: string | null }[], at: Pod = pod) =>
+    shownOutcome(
+      open,
+      at,
+      round2,
+      pending.map(p => ({ ...key, ...p, outcome: 'p2' as const, at: 0 }))
+    ).outcome;
+  const same = [{ pod: 'mixed' as const, p2: open.p2 }];
+  assert.equal(shown(same), site(same));
+  const otherOpponent = [{ pod: 'mixed' as const, p2: 'someone else' }];
+  assert.equal(shown(otherOpponent), 'pending', 'a result for another pairing at the table does not stand here');
+  assert.equal(shown(otherOpponent), site(otherOpponent));
+  const cut: Pod = { ...pod, category: 'masters', cutOf: 'mixed' };
+  assert.equal(shown(same, cut), 'p2', 'a cut pod reads the results held under its parent');
 });
 
 test('a combined pod is ranked per division', () => {

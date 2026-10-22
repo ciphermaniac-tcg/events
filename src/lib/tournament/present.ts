@@ -57,6 +57,7 @@ import {
 } from '../../../shared/tournament/types';
 import {
   decksEnabled,
+  pendingFor,
   type PendingResult,
   type TournamentMode,
   type TournamentSettings
@@ -480,13 +481,7 @@ export function shownOutcome(
   if (match.outcome !== 'pending') {
     return { outcome: match.outcome, unconfirmed: false };
   }
-  const entered = pending.find(
-    p =>
-      (p.pod === pod.category || p.pod === pod.cutOf) &&
-      p.round === round.number &&
-      p.table === match.table &&
-      p.p1 === match.p1
-  );
+  const entered = pendingFor(pod, round, match, pending);
   return entered ? { outcome: entered.outcome, unconfirmed: true } : { outcome: 'pending', unconfirmed: false };
 }
 

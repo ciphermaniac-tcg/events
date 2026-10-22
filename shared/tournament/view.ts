@@ -19,7 +19,7 @@ import type { PairedThrough } from './corrections.js';
 import type { PlayerReport } from './reports.js';
 import type { PlayerRequest } from './requests.js';
 import { hasStarted, isOpenMatch, type MatchKey, sameMatch } from './rounds.js';
-import type { Division, Outcome, Pod, Tournament, TournamentInfo } from './types.js';
+import type { Division, Match, Outcome, Pod, Round, Tournament, TournamentInfo } from './types.js';
 import { msgf } from '../i18n.js';
 
 export type TournamentMode = 'swiss' | 'tom';
@@ -446,6 +446,26 @@ export function withPending(pending: readonly PendingResult[], result: PendingRe
   return result.outcome === 'pending' ? rest : [...rest, result];
 }
 
+/**
+ * The pending result entered for one match, if any. A division's cut pod
+ * (see Pod.cutOf) shares its parent's rounds, so its results are held under
+ * the parent. The site and the console both read pending results through
+ * this, so a result the console expects is the one the site checks.
+ */
+export function pendingFor(
+  pod: Pick<Pod, 'category' | 'cutOf'>,
+  round: Pick<Round, 'number'>,
+  match: Pick<Match, 'table' | 'p1' | 'p2'>,
+  pending: readonly PendingResult[]
+): PendingResult | undefined {
+  const key = { round: round.number, table: match.table, p1: match.p1, p2: match.p2 };
+  return pending.find(
+    p =>
+      sameMatch(p, { ...key, pod: pod.category }) ||
+      (pod.cutOf !== undefined && sameMatch(p, { ...key, pod: pod.cutOf }))
+  );
+}
+
 /** The tournament with pending results laid over its open matches, for display and for writing the .tdf. */
 export function applyPending(tournament: Tournament, pending: readonly PendingResult[]): Tournament {
   if (pending.length === 0) {
@@ -458,9 +478,7 @@ export function applyPending(tournament: Tournament, pending: readonly PendingRe
       rounds: pod.rounds.map(round => ({
         ...round,
         matches: round.matches.map(match => {
-          const result = pending.find(p =>
-            sameMatch(p, { pod: pod.category, round: round.number, table: match.table, p1: match.p1, p2: match.p2 })
-          );
+          const result = pendingFor(pod, round, match, pending);
           return result && match.outcome === 'pending' ? { ...match, outcome: result.outcome } : match;
         })
       }))
