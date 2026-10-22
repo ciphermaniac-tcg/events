@@ -451,7 +451,6 @@
   "Juniors": "Junioren",
   "Juniors and Seniors": "Junioren und Senioren",
   "Keep": "Behalten",
-  "Keep reported results": "Gemeldete Ergebnisse behalten",
   "Keep running": "Weiterlaufen lassen",
   "Keep the note under {limit} characters": "Die Notiz darf höchstens {limit} Zeichen lang sein",
   "Keep the notes under {limit} characters": "Die Notizen dürfen höchstens {limit} Zeichen lang sein",
@@ -791,10 +790,6 @@
   "Quarterfinals": "Viertelfinale",
   "Rd": "Runde",
   "Re-pair": "Neu auslosen",
-  "Re-pair every table and clear {n} results?": {
-    "one": "Alle Tische neu auslosen und {n} Ergebnis löschen?",
-    "other": "Alle Tische neu auslosen und {n} Ergebnisse löschen?"
-  },
   "Re-pair round": "Runde neu auslosen",
   "Re-pair the open tables to seat {names}?": "Offene Tische neu auslosen und {names} einen Tisch geben?",
   "Re-pair the open tables?": "Offene Tische neu auslosen?",
@@ -1633,5 +1628,6 @@
   "Couldn’t load this section.": "Dieser Bereich konnte nicht geladen werden.",
   "A Player ID is up to ten digits": "Eine Spieler-ID hat höchstens zehn Ziffern",
   "This Player ID is on another account.": "Diese Spieler-ID gehört zu einem anderen Konto.",
-  "This result was changed on another device. Check it and enter yours again.": "Dieses Ergebnis wurde auf einem anderen Gerät geändert. Prüf es und trag deins erneut ein."
+  "This result was changed on another device. Check it and enter yours again.": "Dieses Ergebnis wurde auf einem anderen Gerät geändert. Prüf es und trag deins erneut ein.",
+  "Once round 1 is paired, an event is sanctioned only when every player has a Player ID and birth year. {name} is missing one.": "Sobald Runde 1 ausgelost ist, wird ein Turnier nur offiziell, wenn alle Spieler eine Spieler-ID und ein Geburtsjahr haben. Bei {name} fehlt eins davon."
 }

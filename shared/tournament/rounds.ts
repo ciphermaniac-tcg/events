@@ -30,6 +30,13 @@ export function secondsLeft(round: Round, now: number): number {
   return round.timeLeft - running;
 }
 
+/**
+ * Whether a re-pair can still change the round: a Swiss round paired but not
+ * started. Its clock starting or any result coming in starts it (see
+ * checkedSwissRepair in lifecyclePairing.ts).
+ */
+export const repairable = (round: Round | undefined): boolean => round?.kind === 'swiss' && (round.stage ?? 4) < 4;
+
 /** Whether a dropped player can return before the next pairing has settled. */
 export function canUndrop(t: Tournament, player: Pick<Player, 'id' | 'droppedAfter'>): boolean {
   if (!t.settings || player.droppedAfter === null) {

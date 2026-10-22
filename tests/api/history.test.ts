@@ -127,6 +127,35 @@ test('turning sanctioned off takes an event’s players out of the index, and on
   await inStep(code);
 });
 
+test('once round 1 is paired, an event becomes sanctioned only with every Player ID and birth year', async () => {
+  const owner = await signIn('Organizer', 'organizer');
+  const code = await newSwiss(owner);
+  await addPlayers(code, owner, 4);
+  await settle(code, owner, { sanctioned: false });
+  await send(code, owner, { type: 'addPlayer', player: { firstName: 'Casual', lastName: 'Player' } });
+  await send(code, owner, { type: 'pairRound', pod: 'masters' });
+  const refused = await settle(code, owner, { sanctioned: true });
+  assert.equal(refused.status, 400);
+  assert.match(
+    String(refused.json.error),
+    /every player has a Player ID and birth year\. Casual Player is missing one/
+  );
+  assert.deepEqual(indexed(code), []);
+  assert.equal((await settle(code, owner, { format: 'Expanded' })).status, 200, 'other settings still save');
+});
+
+test('a player who has dropped does not keep an event from becoming sanctioned', async () => {
+  const owner = await signIn('Organizer', 'organizer');
+  const code = await newSwiss(owner);
+  await addPlayers(code, owner, 4);
+  await settle(code, owner, { sanctioned: false });
+  const added = await send(code, owner, { type: 'addPlayer', player: { firstName: 'Casual', lastName: 'Player' } });
+  const casual = (added.json.tournament as Tournament).players.find(p => p.lastName === 'Player');
+  await send(code, owner, { type: 'pairRound', pod: 'masters' });
+  await send(code, owner, { type: 'dropPlayer', id: String(casual?.id) });
+  assert.equal((await settle(code, owner, { sanctioned: true })).status, 200);
+});
+
 /** A TOM file holding players under `ids`, before its first round. */
 function tomFile(ids: string[]): Tournament {
   const players = ids.map((id): Player => ({

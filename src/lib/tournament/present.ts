@@ -32,6 +32,7 @@ import {
   latestRound,
   livePods,
   regularRounds,
+  repairable,
   swissAttendance
 } from '../../../shared/tournament/rounds';
 import { type ClockState, clockState } from './clockState';
@@ -721,11 +722,12 @@ export function recordsSoFar(pod: Pod, round: Round, outcomeOf: (match: Match) =
 /**
  * Active players in the pod with no real seat in its current Swiss round: a
  * late arrival whose only entry is the missed-round loss, or someone added
- * after pairing. Re-pairing the round seats them.
+ * after pairing. Re-pairing the round seats them, so once the round has
+ * started, when it can't be re-paired, they wait for the next one.
  */
 export function unseated(tournament: Tournament, pod: Pod): string[] {
   const round = latestRound(pod);
-  if (!round || round.kind !== 'swiss') {
+  if (!round || !repairable(round)) {
     return [];
   }
   const seated = new Set(

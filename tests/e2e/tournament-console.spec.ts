@@ -182,26 +182,32 @@ test('a double click on a player records their win without asking', async ({ pag
   await expect(page.getByRole('button', { name: 'Record' })).toHaveCount(0);
 });
 
-test('re-pairing to seat a late player asks again, in the negative hue, once it would clear results', async ({
+test('a late player added before the round starts is seated by a re-pair, and after it is not offered one', async ({
   page
 }) => {
-  let t = event(8, 0, true);
-  const [first, second] = t.pods[0]?.rounds[0]?.matches ?? [];
-  const won = (m: Match | undefined): Command[] =>
-    m ? [{ type: 'reportResult', pod: 'masters', round: 1, ...m, outcome: 'p1' }] : [];
-  t = runCommands(t, ...won(first), ...won(second), {
+  const paired = runCommands(event(8, 0, true), {
     type: 'addPlayer',
     player: { firstName: 'Late', lastName: 'Arrival' }
   });
-  const sent = await mockConsole(page, t, settingsOf({}));
+  const sent = await mockConsole(page, paired, settingsOf({}));
   await page.getByRole('button', { name: 'Re-pair to seat them' }).click();
-  const keeping = page.getByRole('group', { name: 'Re-pair the open tables to seat Late Arrival?' });
-  await expect(keeping.getByRole('button', { name: 'Re-pair' })).not.toHaveClass(/tm-danger/);
-  await keeping.getByLabel('Keep reported results').uncheck();
-  const clearing = page.getByRole('group', { name: 'Re-pair every table and clear 2 results?' });
-  await expect(clearing.getByRole('button', { name: 'Re-pair' })).toHaveClass(/tm-danger/);
-  await clearing.getByRole('button', { name: 'Re-pair' }).click();
-  await expect.poll(() => sent.at(-1)).toEqual({ type: 'repairRound', pod: 'masters', keepReported: false });
+  const asking = page.getByRole('group', { name: 'Re-pair the open tables to seat Late Arrival?' });
+  await asking.getByRole('button', { name: 'Re-pair' }).click();
+  await expect.poll(() => sent.at(-1)).toEqual({ type: 'repairRound', pod: 'masters', keepReported: true });
+});
+
+test('once a result is in, the round is not offered a re-pair the server would refuse', async ({ page }) => {
+  let t = event(8, 0, true);
+  const first = t.pods[0]?.rounds[0]?.matches[0];
+  t = runCommands(
+    t,
+    ...(first ? [{ type: 'reportResult', pod: 'masters', round: 1, ...first, outcome: 'p1' } as Command] : []),
+    { type: 'addPlayer', player: { firstName: 'Late', lastName: 'Arrival' } }
+  );
+  await mockConsole(page, t, settingsOf({}));
+  await expect(page.locator('.tm-matches')).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Re-pair/ })).toHaveCount(0);
+  await expect(page.getByText('Not seated this round')).toHaveCount(0);
 });
 
 test('a re-pair with nothing reported has no results to keep', async ({ page }) => {

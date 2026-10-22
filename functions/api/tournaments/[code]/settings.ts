@@ -14,6 +14,9 @@ import {
   showsDecksSooner,
   type TournamentSettings
 } from '../../../../shared/tournament/view.js';
+import { hasStarted } from '../../../../shared/tournament/rounds.js';
+import { birthYear } from '../../../../shared/tournament/divisions.js';
+import { isGeneratedId, type Player, playerName, type Tournament } from '../../../../shared/tournament/types.js';
 import { applyLifecycleOperation } from '../../../../shared/tournament/lifecycle.js';
 import { lifecycleDocument } from '../../../../shared/tournament/lifecycleImport.js';
 import { commandContext } from '../../../lib/tournaments/commandContext.js';
@@ -24,7 +27,7 @@ import type { Context } from '../../../lib/auth/env.js';
 import { changeEvent, openForStaff } from '../../../lib/tournaments/access.js';
 import { answerStaff } from '../../../lib/tournaments/answers.js';
 import { type Change, changesNothing, dayChange, type TournamentRow } from '../../../lib/tournaments/store.js';
-import { msg } from '../../../../shared/i18n.js';
+import { msg, msgf } from '../../../../shared/i18n.js';
 
 const SOONER = msg('Only the organizer can show decks sooner');
 
@@ -47,11 +50,29 @@ async function maySanction(db: D1Like, row: TournamentRow, change: unknown): Pro
   return Boolean(store?.league_id);
 }
 
+/**
+ * Once play has started, the first player still in whom a sanctioned event
+ * wouldn't have seated: one with no Player ID of their own or no birth year,
+ * who would play on as Masters under a provisional ID.
+ */
+const unsanctionedPlayer = (t: Tournament): Player | undefined =>
+  hasStarted(t)
+    ? t.players.find(p => p.droppedAfter === null && (isGeneratedId(p.id) || birthYear(p.birthDate) === null))
+    : undefined;
+
 /** The settings `change` makes of the row's, or why it cannot make them. */
 function changedSettings(change: unknown, row: TournamentRow, sanctionable: boolean): TournamentSettings | string {
   const next = readSettings(change, row.settings);
   if (!next) {
     return msg('Not a settings change');
+  }
+  // Once play starts, players can't be asked for what a sanctioned event seats them by.
+  const unseated = next.sanctioned && !row.settings.sanctioned ? unsanctionedPlayer(row.tournament) : undefined;
+  if (unseated) {
+    return msgf(
+      'Once round 1 is paired, an event is sanctioned only when every player has a Player ID and birth year. {name} is missing one.',
+      { name: playerName(unseated) }
+    );
   }
   if (next.sanctioned && !row.settings.sanctioned && !sanctionable) {
     return row.storeId === null

@@ -451,7 +451,6 @@
   "Juniors": "Junior",
   "Juniors and Seniors": "Junior et Senior",
   "Keep": "Annuler",
-  "Keep reported results": "Conserver les résultats déjà saisis",
   "Keep running": "Continuer le tournoi",
   "Keep the note under {limit} characters": "La note doit faire moins de {limit} caractères",
   "Keep the notes under {limit} characters": "Les notes doivent faire moins de {limit} caractères",
@@ -791,10 +790,6 @@
   "Quarterfinals": "Quarts de finale",
   "Rd": "Ronde",
   "Re-pair": "Réapparier",
-  "Re-pair every table and clear {n} results?": {
-    "one": "Réapparier toutes les tables et effacer {n} résultat ?",
-    "other": "Réapparier toutes les tables et effacer {n} résultats ?"
-  },
   "Re-pair round": "Réapparier la ronde",
   "Re-pair the open tables to seat {names}?": "Réapparier les tables sans résultat pour placer {names} ?",
   "Re-pair the open tables?": "Réapparier les tables sans résultat ?",
@@ -1633,5 +1628,6 @@
   "Couldn’t load this section.": "Impossible de charger cette section.",
   "A Player ID is up to ten digits": "Un ID joueur compte dix chiffres au maximum",
   "This Player ID is on another account.": "Cet ID joueur est déjà associé à un autre compte.",
-  "This result was changed on another device. Check it and enter yours again.": "Ce résultat a été modifié sur un autre appareil. Vérifie-le, puis saisis à nouveau le tien."
+  "This result was changed on another device. Check it and enter yours again.": "Ce résultat a été modifié sur un autre appareil. Vérifie-le, puis saisis à nouveau le tien.",
+  "Once round 1 is paired, an event is sanctioned only when every player has a Player ID and birth year. {name} is missing one.": "Une fois la ronde 1 appariée, un tournoi ne devient homologué que si chaque joueur a un ID joueur et une année de naissance. Il en manque un à {name}."
 }

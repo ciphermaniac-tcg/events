@@ -5,9 +5,9 @@
  * cannot be taken back asks first, in place.
  */
 
-import { createSignal, Show } from 'solid-js';
+import { Show } from 'solid-js';
 import type { Pod, Round } from '../../../shared/tournament/types';
-import { t, tn } from '../../lib/i18n';
+import { t } from '../../lib/i18n';
 import { clockTime } from '../../lib/tournament/clockState';
 import { Clock } from './Clock';
 import { ConfirmAction } from './ConfirmAction';
@@ -39,45 +39,24 @@ export function ClockControls(props: { state: ManageState; pod: Pod; round: Roun
   );
 }
 
-/** The reported results in a pod's latest round, which a re-pair that keeps none of them clears. */
-const reportedResults = (pod: Pod) =>
-  pod.rounds.at(-1)?.matches.filter(match => match.p2 !== null && match.outcome !== 'pending').length ?? 0;
-
 /**
- * Re-pairing, asked in place with whether to keep the results already
- * reported: the open tables only, or every table. The question follows that
- * box, and one that clears results counts them and answers in the negative
- * hue. `names`: who the re-pair would seat, named while results are kept.
+ * Re-pairing the open tables, asked in place. Only a round not yet started
+ * can be re-paired (see repairable), so it has no results to keep or clear.
+ * `names`: who the re-pair would seat.
  */
 export function RepairControl(props: { state: ManageState; pod: Pod; label: string; names?: string; class?: string }) {
-  const [keep, setKeep] = createSignal(true);
-  const reported = () => reportedResults(props.pod);
-  const clears = () => !keep() && reported() > 0;
-  const question = () => {
-    if (clears()) {
-      return tn(reported(), 'Re-pair every table and clear {n} result?', 'Re-pair every table and clear {n} results?');
-    }
-    return props.names
-      ? t('Re-pair the open tables to seat {names}?', { names: props.names })
-      : t('Re-pair the open tables?');
-  };
   return (
     <ConfirmAction
       class={props.class ?? 'btn btn-ghost tm-small'}
       label={props.label}
-      question={question()}
-      confirmLabel={t('Re-pair')}
-      danger={clears()}
-      disabled={props.state.busy()}
-      extra={
-        <Show when={reported() > 0}>
-          <label class='tm-check'>
-            <input type='checkbox' checked={keep()} onChange={e => setKeep(e.currentTarget.checked)} />
-            <span>{t('Keep reported results')}</span>
-          </label>
-        </Show>
+      question={
+        props.names
+          ? t('Re-pair the open tables to seat {names}?', { names: props.names })
+          : t('Re-pair the open tables?')
       }
-      onConfirm={() => void props.state.send({ type: 'repairRound', pod: props.pod.category, keepReported: !clears() })}
+      confirmLabel={t('Re-pair')}
+      disabled={props.state.busy()}
+      onConfirm={() => void props.state.send({ type: 'repairRound', pod: props.pod.category, keepReported: true })}
     />
   );
 }

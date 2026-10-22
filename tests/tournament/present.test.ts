@@ -208,6 +208,9 @@ test('lists who a re-pair would seat', () => {
   t = run(t, { type: 'addPlayer', player: { firstName: 'Late', lastName: 'One', id: '99' } });
   assert.deepEqual(unseated(t, t.pods[0] as Pod), ['99']);
   assert.deepEqual(unseated(t, { ...(t.pods[0] as Pod), rounds: [] }), []);
+  // Once the round starts it can't be re-paired: the late player waits for the next round.
+  t = run(t, { type: 'startClock', pod: 'masters' });
+  assert.deepEqual(unseated(t, t.pods[0] as Pod), []);
 });
 
 test('exports pending results into the .tdf, finalized once the event closes with every result in', () => {

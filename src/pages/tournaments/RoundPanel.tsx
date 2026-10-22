@@ -23,7 +23,7 @@ import { createEffect, createMemo, createSignal, For, type JSX, on, onMount, Sho
 import { lazyPanel } from './lazyPanel';
 import { warmChunks } from '../../lib/preloadRecovery';
 import { isDisputed, type PlayerReport, reportsFor } from '../../../shared/tournament/reports';
-import { latestRound, withSwiss } from '../../../shared/tournament/rounds';
+import { latestRound, repairable, withSwiss } from '../../../shared/tournament/rounds';
 import { DIVISION_LABELS, type Match, type Outcome, type Pod, type Round } from '../../../shared/tournament/types';
 import { Segmented } from '@ciphermaniac/design/components/Segmented';
 import { Icon } from '@ciphermaniac/design/components/Icon';
@@ -438,7 +438,7 @@ function RoundBar(props: RoundBarProps) {
             {props.swapMode ? t('Cancel swap') : t('Swap players')}
           </button>
         </Show>
-        <Show when={props.live && swiss() && props.open > 0 && !props.waiting}>
+        <Show when={props.live && repairable(props.round) && props.open > 0 && !props.waiting}>
           <RepairControl state={props.state} pod={props.pod} label={t('Re-pair round')} />
         </Show>
         <Show when={props.live && props.nothingReported}>
