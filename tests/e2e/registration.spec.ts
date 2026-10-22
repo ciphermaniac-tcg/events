@@ -217,7 +217,7 @@ test('a registered Player ID asks its birth year, then opens the registration to
   await page.getByRole('textbox', { name: 'First name' }).fill('Avery J.');
   await page.getByText('In person').click();
   await page.getByRole('button', { name: 'Save changes' }).click();
-  await expect(page.getByText('Changes saved.')).toBeVisible();
+  await expect(page.getByRole('status')).toHaveText('Changes saved.');
   const put = calls.find(call => call.method === 'PUT');
   expect(put?.body).toMatchObject({
     mode: 'paper',
@@ -231,7 +231,7 @@ test('a registered Player ID asks its birth year, then opens the registration to
   await page.getByRole('button', { name: 'More' }).click();
   await page.getByRole('button', { name: 'Withdraw' }).click();
   await page.getByRole('group', { name: 'Withdraw' }).getByRole('button', { name: 'Withdraw' }).click();
-  await expect(page.getByText('You’ve withdrawn.')).toBeVisible();
+  await expect(page.getByRole('status')).toHaveText('You’ve withdrawn.');
   expect(calls.at(-1)).toMatchObject({ method: 'DELETE', query: { popId: '7', birthYear: '1998' } });
 });
 
@@ -254,10 +254,17 @@ test('any other Player ID registers, with a pasted list, and is told when check-
   await expect(page.getByText('Paste a decklist')).toBeVisible();
   await page.getByRole('textbox', { name: 'Decklist' }).fill('60 Basic {G} Energy SVE 1');
   await register.click();
-  await expect(page.getByRole('status')).toContainText('You’re registered.');
-  await expect(page.getByRole('status')).toContainText(/Check-in is at .*10:00/);
+  await expect(page.getByRole('status')).toHaveText('You’re registered.');
+  await expect(page.getByText(/Check-in is at .*10:00/)).toBeVisible();
   await expect(page.locator('.tm-reg-who')).toContainText('Nia Okafor');
   expect(calls.at(-1)?.body).toMatchObject({ mode: 'digital', deck: '60 Basic {G} Energy SVE 1' });
+  // Focus follows the step that replaced the button pressed, rather than falling to the page.
+  await expect(page.locator('.tm-reg-steps')).toBeFocused();
+  // The check-in time stays once the registration is changed, not only the moment it is made.
+  await page.getByText('In person').click();
+  await page.getByRole('button', { name: 'Save changes' }).click();
+  await expect(page.getByRole('status')).toHaveText('Changes saved.');
+  await expect(page.getByText(/Check-in is at .*10:00/)).toBeVisible();
 });
 
 test('a birth year under 13 says to register with staff as it is typed, before anything is filled in @mobile', async ({
@@ -288,6 +295,28 @@ test('a registration staff made for a player under 13 still opens by its birth y
   await expect(page.getByText('Players under 13 register with staff at the event.')).toHaveCount(0);
   await page.getByRole('button', { name: 'Continue' }).click();
   await expect(page.locator('.tm-reg-who')).toContainText('Sam Lee');
+  // Opened, but never offered a list the server refuses for a player under 13; withdrawing stays.
+  await expect(page.getByText('Players under 13 register with staff at the event.')).toBeVisible();
+  await expect(page.getByText('In person')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Save changes' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'More' })).toBeVisible();
+});
+
+test('a refused withdrawal for a player under 13 is announced', async ({ page }) => {
+  await mockEvent(page);
+  await page.goto(`/t/${CODE}?tab=decklist`);
+  await page.getByRole('textbox', { name: 'Player ID' }).fill('88');
+  await page.getByRole('button', { name: 'Continue' }).click();
+  await page.getByRole('textbox', { name: 'Birth year' }).fill(String(new Date().getFullYear() - 9));
+  await page.getByRole('button', { name: 'Continue' }).click();
+  await expect(page.locator('.tm-reg-who')).toContainText('Sam Lee');
+  await page.route(`**/api/tournaments/${CODE}/decklist**`, route =>
+    route.fulfill({ status: 403, json: { error: 'Registration is closed.' } })
+  );
+  await page.getByRole('button', { name: 'More' }).click();
+  await page.getByRole('button', { name: 'Withdraw', exact: true }).click();
+  await page.getByRole('group', { name: 'Withdraw' }).getByRole('button', { name: 'Withdraw' }).click();
+  await expect(page.getByRole('alert')).toHaveText('Registration is closed.');
 });
 
 test('the Player ID keeps only its digits, and the birth year is four digits the browser can fill in', async ({
@@ -334,8 +363,10 @@ test('at an unsanctioned event a name a slip away is asked about, never opened, 
 
   await page.getByRole('button', { name: 'More' }).click();
   await page.getByRole('button', { name: 'Register someone else' }).click();
-  // The name exactly as typed opens straight away.
-  await lookUp('Avery', 'Chen');
+  // The name exactly as typed opens straight away, from Enter in the last field as from Continue.
+  await page.getByRole('textbox', { name: 'First name' }).fill('Avery');
+  await page.getByRole('textbox', { name: 'Last name' }).fill('Chen');
+  await page.getByRole('textbox', { name: 'Last name' }).press('Enter');
   await expect(page.locator('.tm-reg-who')).toContainText('Avery Chen');
 
   await page.getByRole('button', { name: 'More' }).click();

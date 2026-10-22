@@ -16,7 +16,7 @@
  * (see decklistMemory.ts), so coming back opens it.
  */
 
-import { createSignal, For, type JSX, Match, Show, Switch } from 'solid-js';
+import { createEffect, createSignal, For, type JSX, Match, on, Show, Switch } from 'solid-js';
 import { mayBeUnder13 } from '../../../shared/accounts/age';
 import { type DeckSection, parseDecklist } from '../../../shared/tournament/decklist';
 import { fullNameKey } from '../../../shared/tournament/identify';
@@ -315,6 +315,7 @@ function TextField(props: {
   value: string;
   autocomplete: string;
   onInput: (value: string) => void;
+  onEnter?: (() => void) | undefined;
 }) {
   return (
     <Field id={props.id} label={props.label}>
@@ -326,12 +327,13 @@ function TextField(props: {
         autocomplete={props.autocomplete}
         autocapitalize='words'
         onInput={e => props.onInput(e.currentTarget.value)}
+        onKeyDown={e => onEnter(props.onEnter)(e)}
       />
     </Field>
   );
 }
 
-function NameFields(props: { form: Registration }) {
+function NameFields(props: { form: Registration; onEnter?: () => void }) {
   const f = () => props.form;
   return (
     <div class='tm-reg-two'>
@@ -341,6 +343,7 @@ function NameFields(props: { form: Registration }) {
         value={f().profile().firstName}
         autocomplete='given-name'
         onInput={value => f().setField('firstName', value)}
+        onEnter={props.onEnter}
       />
       <TextField
         id='reg-last'
@@ -348,6 +351,7 @@ function NameFields(props: { form: Registration }) {
         value={f().profile().lastName}
         autocomplete='family-name'
         onInput={value => f().setField('lastName', value)}
+        onEnter={props.onEnter}
       />
     </div>
   );
@@ -387,7 +391,7 @@ function Lookup(props: { form: Registration; sanctioned: boolean }) {
   return (
     <section class='tm-box tm-reg'>
       <div class='tm-box-bar tm-reg-stack'>
-        <Show when={props.sanctioned} fallback={<NameFields form={f()} />}>
+        <Show when={props.sanctioned} fallback={<NameFields form={f()} onEnter={go} />}>
           <Field id='reg-pop' label={t('Player ID')}>
             <PlayerIdInput
               id='reg-pop'
@@ -526,30 +530,39 @@ function Paste(props: { form: Registration }) {
       <textarea
         class='tm-input tm-textarea tm-decklist-input'
         aria-label={t('Decklist')}
+        aria-describedby={props.form.deck().trim() ? 'reg-deck-check' : undefined}
+        aria-invalid={parsed().problems.length > 0 ? 'true' : undefined}
+        spellcheck={false}
+        autocapitalize='off'
+        autocorrect='off'
         placeholder={t('Paste your list from TCG Live')}
         value={props.form.deck()}
         onInput={e => props.form.setDeck(e.currentTarget.value)}
       />
       <Show when={props.form.deck().trim()}>
-        <p class='tm-deck-counts tm-num'>
-          <For each={sections()}>
-            {s => (
-              <span>
-                {t(SECTION_LABELS[s.section])} <strong>{s.count}</strong>
-              </span>
-            )}
-          </For>
-          <span class='tm-grow' />
-          <span classList={{ 'tm-problem': parsed().total !== 60 }}>{t('{n} / 60 cards', { n: parsed().total })}</span>
-        </p>
-        <Show
-          when={parsed().problems.length > 0}
-          fallback={<p class='muted tm-deck-ok'>{t('Card count and copy limits check out')}</p>}
-        >
-          <ul class='tm-problems'>
-            <For each={parsed().problems}>{problem => <li>{problem}</li>}</For>
-          </ul>
-        </Show>
+        <div id='reg-deck-check'>
+          <p class='tm-deck-counts tm-num'>
+            <For each={sections()}>
+              {s => (
+                <span>
+                  {t(SECTION_LABELS[s.section])} <strong>{s.count}</strong>
+                </span>
+              )}
+            </For>
+            <span class='tm-grow' />
+            <span classList={{ 'tm-problem': parsed().total !== 60 }}>
+              {t('{n} / 60 cards', { n: parsed().total })}
+            </span>
+          </p>
+          <Show
+            when={parsed().problems.length > 0}
+            fallback={<p class='muted tm-deck-ok'>{t('Card count and copy limits check out')}</p>}
+          >
+            <ul class='tm-problems'>
+              <For each={parsed().problems}>{problem => <li>{problem}</li>}</For>
+            </ul>
+          </Show>
+        </div>
       </Show>
     </div>
   );
@@ -703,30 +716,54 @@ function EditRegistration(props: { form: Registration; reg: RegistrationProps })
           <NameFields form={f()} />
         </div>
       </Show>
-      <DeckChoice form={f()} closes={props.reg.closes} />
-      <Show when={f().saved() === 'new'}>
-        <div class='tm-box-bar tm-reg-stack' role='status'>
-          <strong class='tm-reg-done'>{t('You’re registered.')}</strong>
+      {/* Staff may have registered a player under 13, whose list the server refuses (see shared/accounts/age.ts). */}
+      <Show
+        when={!f().young()}
+        fallback={
+          <div class='tm-box-bar tm-reg-stack'>
+            <p class='tm-reg-note'>{t('Players under 13 register with staff at the event.')}</p>
+            <ErrorLine message={f().error()} />
+          </div>
+        }
+      >
+        <DeckChoice form={f()} closes={props.reg.closes} />
+      </Show>
+      {/* The check-in time stays for a player who comes back to it, not only the moment they register. */}
+      <Show when={f().saved() === 'new' || props.reg.checkIn}>
+        <div class='tm-box-bar tm-reg-stack'>
+          <Show when={f().saved() === 'new'}>
+            {/* Heard from the form's one status line (see announcement), so not read twice. */}
+            <strong class='tm-reg-done' aria-hidden='true'>
+              {t('You’re registered.')}
+            </strong>
+          </Show>
           <Show when={props.reg.checkIn}>
             {at => <p class='tm-reg-note'>{t('Check-in is at {time}.', { time: at() })}</p>}
           </Show>
         </div>
       </Show>
-      <Foot form={f()} sanctioned={props.reg.sanctioned} label={t('Save changes')}>
-        <Show when={f().saved() === 'edit'}>
-          <span class='tm-reg-done' role='status'>
-            {t('Changes saved.')}
-          </span>
-        </Show>
-        <Show when={f().offerSave() || f().accountSaved()}>
-          <span class='tm-grow' />
-          <Show when={!f().accountSaved()} fallback={<span class='muted'>{t('Saved')}</span>}>
-            <button type='button' class='btn btn-ghost tm-small' onClick={() => void f().saveToAccount()}>
-              {t('Save ID to my profile')}
-            </button>
+      <Show when={!f().young()}>
+        <Foot form={f()} sanctioned={props.reg.sanctioned} label={t('Save changes')}>
+          <Show when={f().saved() === 'edit'}>
+            <span class='tm-reg-done' aria-hidden='true'>
+              {t('Changes saved.')}
+            </span>
           </Show>
-        </Show>
-      </Foot>
+          <Show when={f().offerSave() || f().accountSaved()}>
+            <span class='tm-grow' />
+            <Show when={!f().accountSaved()} fallback={<span class='muted'>{t('Saved')}</span>}>
+              <button
+                type='button'
+                class='btn btn-ghost tm-small'
+                disabled={f().busy()}
+                onClick={() => void f().saveToAccount()}
+              >
+                {t('Save ID to my profile')}
+              </button>
+            </Show>
+          </Show>
+        </Foot>
+      </Show>
     </section>
   );
 }
@@ -735,7 +772,7 @@ function Withdrawn(props: { form: Registration; closes: string | null }) {
   return (
     <section class='tm-box tm-reg'>
       <div class='tm-box-bar tm-reg-stack'>
-        <strong>{t('You’ve withdrawn.')}</strong>
+        <strong aria-hidden='true'>{t('You’ve withdrawn.')}</strong>
         <Show when={props.closes}>
           {closes => <p class='tm-reg-note'>{t('You can register again until {start}.', { start: closes() })}</p>}
         </Show>
@@ -747,28 +784,45 @@ function Withdrawn(props: { form: Registration; closes: string | null }) {
   );
 }
 
+/** What a screen reader hears once a step lands: one region, there from the start, so it is heard every time. */
+function announcement(form: Registration): string {
+  if (form.step() === 'withdrawn') {
+    return t('You’ve withdrawn.');
+  }
+  const saved = form.saved();
+  return saved === 'new' ? t('You’re registered.') : saved === 'edit' ? t('Changes saved.') : '';
+}
+
 export function RegistrationForm(props: RegistrationProps) {
   const form = createRegistration(props);
+  let root: HTMLDivElement | undefined;
+  // Each step replaces the one whose button was pressed: focus goes to the new step, not to the page.
+  createEffect(on(form.step, () => root?.focus({ preventScroll: true }), { defer: true }));
   return (
-    <Switch>
-      <Match when={form.step() === 'lookup'}>
-        <Lookup form={form} sanctioned={props.sanctioned} />
-      </Match>
-      <Match when={form.step() === 'prove'}>
-        <Prove form={form} />
-      </Match>
-      <Match when={form.step() === 'pick'}>
-        <Pick form={form} />
-      </Match>
-      <Match when={form.step() === 'new'}>
-        <NewRegistration form={form} reg={props} />
-      </Match>
-      <Match when={form.step() === 'edit'}>
-        <EditRegistration form={form} reg={props} />
-      </Match>
-      <Match when={form.step() === 'withdrawn'}>
-        <Withdrawn form={form} closes={props.closes} />
-      </Match>
-    </Switch>
+    <div ref={root} class='tm-reg-steps' tabIndex={-1}>
+      <p class='sr-only' role='status'>
+        {announcement(form)}
+      </p>
+      <Switch>
+        <Match when={form.step() === 'lookup'}>
+          <Lookup form={form} sanctioned={props.sanctioned} />
+        </Match>
+        <Match when={form.step() === 'prove'}>
+          <Prove form={form} />
+        </Match>
+        <Match when={form.step() === 'pick'}>
+          <Pick form={form} />
+        </Match>
+        <Match when={form.step() === 'new'}>
+          <NewRegistration form={form} reg={props} />
+        </Match>
+        <Match when={form.step() === 'edit'}>
+          <EditRegistration form={form} reg={props} />
+        </Match>
+        <Match when={form.step() === 'withdrawn'}>
+          <Withdrawn form={form} closes={props.closes} />
+        </Match>
+      </Switch>
+    </div>
   );
 }

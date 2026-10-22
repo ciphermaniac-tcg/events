@@ -1292,7 +1292,7 @@ async function withdrawFromMenu(page: Page) {
   await page.getByRole('button', { name: 'More' }).click();
   await page.getByRole('button', { name: 'Withdraw' }).click();
   await page.getByRole('group', { name: 'Withdraw' }).getByRole('button', { name: 'Withdraw' }).click();
-  await expect(page.getByText('You’ve withdrawn.')).toBeVisible();
+  await expect(page.getByRole('status')).toHaveText('You’ve withdrawn.');
 }
 
 for (const sanctioned of [true, false]) {

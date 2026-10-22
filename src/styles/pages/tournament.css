@@ -1405,6 +1405,10 @@ tr.is-in .tm-place {
 .tm-reg {
   max-width: 560px;
 }
+/* Focus moves here as each step replaces the last; its own controls still take a ring. */
+.tm-reg-steps[tabindex='-1']:focus {
+  outline: none;
+}
 .tm-reg-stack {
   display: grid;
   gap: var(--space-3);
