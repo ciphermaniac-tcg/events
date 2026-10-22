@@ -878,6 +878,61 @@ test('a player row keeps its rarer actions and fixed table under its menu', asyn
   await expect(menu).toHaveCount(0);
 });
 
+test('reinstating a player asks first, and says when it gives a bye or lifts a disqualification', async ({ page }) => {
+  let t = event(8, 1, false);
+  const id = t.players.find(p => p.firstName === 'Player1')?.id ?? '';
+  t = runCommands(
+    t,
+    { type: 'disqualifyPlayer', id },
+    { type: 'pairRound', pod: 'masters' },
+    { type: 'startClock', pod: 'masters' }
+  );
+  const sent = await mockConsole(page, t, settingsOf({}));
+  await page.getByRole('tab', { name: 'Players', exact: true }).click();
+  await page.getByRole('button', { name: 'Reinstate', exact: true }).click();
+  const asking = page.getByRole('dialog', { name: 'Reinstate Player1 Test?' });
+  await expect(asking).toContainText('They get a bye for round 2. This lifts their disqualification.');
+  await asking.getByRole('button', { name: 'Keep' }).click();
+  expect(sent.filter(command => command.type === 'undropPlayer')).toHaveLength(0);
+  await page.getByRole('button', { name: 'Reinstate', exact: true }).click();
+  await asking.getByRole('button', { name: 'Reinstate' }).click();
+  await expect.poll(() => sent.at(-1)).toEqual({ type: 'undropPlayer', id });
+});
+
+test('reinstating someone who dropped after pairing warns about the bye', async ({ page }) => {
+  let t = event(8, 1, false);
+  const id = t.players.find(p => p.firstName === 'Player1')?.id ?? '';
+  t = runCommands(
+    t,
+    { type: 'pairRound', pod: 'masters' },
+    { type: 'dropPlayer', id },
+    { type: 'startClock', pod: 'masters' }
+  );
+  await mockConsole(page, t, settingsOf({}));
+  await page.getByRole('tab', { name: 'Players', exact: true }).click();
+  await page.getByRole('button', { name: 'Reinstate', exact: true }).click();
+  await expect(page.getByRole('dialog', { name: 'Reinstate Player1 Test?' })).toContainText(
+    'They get a bye for round 2.'
+  );
+});
+
+test('a player who never played is reinstated with a question in place, and no bye', async ({ page }) => {
+  let t = event(8, 0, false);
+  const id = t.players.find(p => p.firstName === 'Player1')?.id ?? '';
+  t = runCommands(
+    t,
+    { type: 'dropPlayer', id },
+    { type: 'pairRound', pod: 'masters' },
+    { type: 'startClock', pod: 'masters' }
+  );
+  const sent = await mockConsole(page, t, settingsOf({}));
+  await page.getByRole('tab', { name: 'Players', exact: true }).click();
+  await page.getByRole('button', { name: 'Reinstate', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await page.getByRole('group', { name: 'Reinstate Player1 Test?' }).getByRole('button', { name: 'Reinstate' }).click();
+  await expect.poll(() => sent.at(-1)).toEqual({ type: 'undropPlayer', id });
+});
+
 test('drop and disqualify each say what follows them', async ({ page }) => {
   const sent = await mockConsole(page, event(4, 1, false), settingsOf({}));
   await page.getByRole('tab', { name: 'Players', exact: true }).click();
