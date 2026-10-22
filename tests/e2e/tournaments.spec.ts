@@ -570,6 +570,12 @@ for (const [eventType, label] of [
     await expect(kinds.getByRole('radio', { name: label, exact: true })).toHaveAttribute('aria-checked', 'true');
     await page.getByRole('button', { name: 'Create event' }).click();
     await expect(page.locator('.tm-error')).toHaveText('Fixture submission');
+    // Brought into view, a field lands clear of the sticky head bar.
+    const top = await kinds.evaluate(el => {
+      el.scrollIntoView();
+      return el.getBoundingClientRect().top - document.querySelector('.site-head')!.getBoundingClientRect().bottom;
+    });
+    expect(top).toBeGreaterThanOrEqual(0);
     expect(submissions).toEqual([expect.objectContaining({ eventType, name: 'Synthetic' })]);
   });
 }

@@ -10,6 +10,15 @@ body[data-mode] {
 }
 /* What a modal layer dims the page with, in either mode. A dialog's backdrop
    doesn't inherit from the page in every browser, so it is named too. */
+/* A jump or a focus lands clear of the sticky head, and of a phone's tab bar. */
+html {
+  scroll-padding-top: calc(var(--topnav-h) + var(--space-3));
+}
+@media (max-width: 640px) {
+  html:has(.tm-tabbar) {
+    scroll-padding-bottom: calc(57px + env(safe-area-inset-bottom));
+  }
+}
 :root,
 ::backdrop {
   --scrim: color-mix(in srgb, #000 45%, transparent);
