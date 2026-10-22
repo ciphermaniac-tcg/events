@@ -16,7 +16,7 @@
 
 import { ordinal } from '../../lib/format';
 import { msg, t, tn } from '../../lib/i18n';
-import { createSignal, For, Match, Show, Suspense, Switch } from 'solid-js';
+import { createEffect, createSignal, For, Match, on, Show, Suspense, Switch } from 'solid-js';
 import { lazyPanel } from './lazyPanel';
 import type { PlayerClaim } from '../../../shared/tournament/identify';
 import type { PlayerResult } from '../../../shared/tournament/reports';
@@ -245,7 +245,8 @@ function ReportPanel(props: { report: Report; found: Found }) {
                   disabled={props.report.busy() || (fixed() && !on())}
                   aria-disabled={fixed() ? 'true' : undefined}
                   onClick={() => {
-                    if (!fixed()) {
+                    // The answer already filed: sending it again would only restart its window to change.
+                    if (!fixed() && !on()) {
                       void props.report.send(choice.result);
                     }
                   }}
@@ -358,6 +359,17 @@ function placeOf(view: TournamentView, me: string) {
 function MatchBox(props: Props & { me: string; askAs: PlayerClaim | null }) {
   const [open, setOpen] = createSignal(false);
   const found = () => (props.view.settings.finished ? null : currentMatchOf(props.view.tournament, props.me));
+  // A new round starts on Report result again, not on the last round's open answers.
+  createEffect(
+    on(
+      () => {
+        const f = found();
+        return f ? `${f.pod.category}:${f.round.number}` : null;
+      },
+      () => setOpen(false),
+      { defer: true }
+    )
+  );
   // Props go through whole: spreading them into an object would read them once and lose later updates.
   const report = createReport(props, found);
   const placed = () => (props.view.settings.finished ? placeOf(props.view, props.me) : null);

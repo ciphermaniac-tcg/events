@@ -300,3 +300,35 @@ test.describe('on a phone held sideways', () => {
     expect(new Set(sizes)).toEqual(new Set(['16px']));
   });
 });
+
+test('a player picking the latest round again follows the next one when it posts', async ({ page }) => {
+  const pod = VIEW.tournament.pods[0]!;
+  const latest = pod.rounds.at(-1)!;
+  const next = {
+    ...latest,
+    number: latest.number + 1,
+    matches: latest.matches.map(m => ({ ...m, outcome: 'pending' as const }))
+  };
+  let view = VIEW;
+  await page.route('**/api/**', route => {
+    const url = new URL(route.request().url());
+    if (url.pathname === '/api/me') {
+      return route.fulfill({ json: { user: null, providers: [] } });
+    }
+    return route.fulfill({ json: view });
+  });
+  await page.goto(`/t/${CODE}`);
+  const picker = page.getByRole('combobox', { name: 'Round', exact: true });
+  await expect(picker).toHaveValue(String(latest.number));
+  await page.getByRole('button', { name: 'Previous round' }).click();
+  await expect(picker).toHaveValue(String(latest.number - 1));
+  await page.getByRole('button', { name: 'Next round' }).click();
+  await expect(picker).toHaveValue(String(latest.number));
+  view = {
+    ...VIEW,
+    version: VIEW.version + 1,
+    tournament: { ...VIEW.tournament, pods: [{ ...pod, rounds: [...pod.rounds, next] }] }
+  };
+  await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+  await expect(picker).toHaveValue(String(next.number));
+});

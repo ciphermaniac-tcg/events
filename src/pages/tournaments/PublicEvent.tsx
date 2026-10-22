@@ -634,7 +634,12 @@ function EventBody(props: {
         />
       </Show>
       <Show when={withRounds}>
-        <RoundSelect pod={pod()} round={round()} onSelect={setRoundChoice} />
+        <RoundSelect
+          pod={pod()}
+          round={round()}
+          // The latest round picked is no round held: the next one to post shows in its place.
+          onSelect={n => setRoundChoice(n === latestRound(pod())?.number ? null : n)}
+        />
       </Show>
     </>
   );
