@@ -329,6 +329,8 @@ function Organizer(props: {
     all().length === 0
       ? t('No events yet')
       : (['live', 'upcoming', 'finished'] as Phase[])
+          // Only the phases holding an event: "1 finished", not "0 live · 0 upcoming · 1 finished".
+          .filter(phase => byPhase(phase).length > 0)
           .map(phase => PHASE_COUNTS[phase](byPhase(phase).length))
           .join(' · ');
 

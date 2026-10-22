@@ -475,6 +475,8 @@ test('/host: an account that is not an Organizer starts no event, applies instea
   await expect(page.getByRole('button', { name: 'Start an event' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Link .tdf file' })).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Thursday Locals' })).toHaveAttribute('href', '/host/OWNED1');
+  // Counted by the phases that hold an event, with no zeros.
+  await expect(page.getByText('1 finished', { exact: true })).toBeVisible();
 });
 
 test('/host: on a phone, an event row keeps its links on screen without scrolling sideways @mobile', async ({
