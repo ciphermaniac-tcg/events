@@ -108,7 +108,7 @@ async function mockConsole(
     reports,
     requests,
     settings,
-    decks: {},
+    decks: {} as Record<string, string>,
     checkins: {} as CheckIns,
     role,
     staffToken: 'invite',
@@ -141,7 +141,12 @@ async function mockConsole(
       return route.fulfill({ json: { corrections: [], headJudge: null, approver: 'organizer' } });
     }
     if (url.pathname === `/api/tournaments/${CODE}/decks`) {
-      decks.push(route.request().postDataJSON());
+      const deck = route.request().postDataJSON() as { playerId: string; archetype: string | null };
+      decks.push(deck);
+      if (apply && deck.archetype) {
+        manage.decks = { ...manage.decks, [deck.playerId]: deck.archetype };
+        manage.version += 1;
+      }
       return route.fulfill({ json: manage });
     }
     if (url.pathname === `/api/tournaments/${CODE}/requests`) {
@@ -1018,6 +1023,26 @@ test('a deck list opened in the last row is drawn whole, not cut off at the tabl
     };
   });
   expect(drawn).toEqual({ tall: true, onScreen: true, uncovered: true });
+});
+
+test('Gym Leader Challenge decks show their type icons, still once a name is typed in beside them', async ({
+  page
+}) => {
+  const t = event(8, 0, true);
+  await mockConsole(page, t, settingsOf({ deckVisibility: 'always', format: 'Gym Leader Challenge' }), [], true);
+  await page.getByRole('tab', { name: 'Players' }).click();
+  const first = page.getByRole('combobox', { name: 'Deck' }).first();
+  await first.fill('Mono Mew');
+  await first.press('Enter');
+  // Twelve decks now, the typed one among them: the types keep their icons, the typed one does not take one.
+  const picker = page.getByRole('combobox', { name: 'Deck' }).last();
+  await picker.focus();
+  const fire = page.getByRole('option', { name: /^Fire/ });
+  await expect(fire.locator('img[src$="/type-icons/fire.svg"]')).toHaveCount(1);
+  await picker.fill('Mono');
+  const typed = page.getByRole('option', { name: /Mono Mew/ });
+  await expect(typed).toBeVisible();
+  await expect(typed.locator('img[src*="/type-icons/"]')).toHaveCount(0);
 });
 
 test('a Pokémon no archetype list names is offered with its sprite', async ({ page }) => {

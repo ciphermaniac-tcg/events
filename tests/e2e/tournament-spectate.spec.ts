@@ -40,7 +40,7 @@ const round = VIEW.tournament.pods[0]?.rounds.at(-1);
 const matches = round?.matches ?? [];
 const playing = matches.filter(m => m.p2 !== null && m.outcome === 'pending');
 
-async function mockApi(page: Page, view = VIEW) {
+async function mockApi(page: Page, view: TournamentView = VIEW) {
   await page.route('**/api/**', route => {
     const url = new URL(route.request().url());
     if (url.pathname === '/api/me') {
@@ -86,6 +86,22 @@ test('a cold event load resolves named archetype icons without opening a deck pi
   await expect(deck.locator('img')).toHaveCount(2);
   await expect(deck.locator('img').first()).toHaveAttribute('src', /\/gardevoir\.png$/);
   await expect(deck.locator('img').last()).toHaveAttribute('src', /\/kirlia\.png$/);
+});
+
+test('a deck the icon map doesn’t know stands as the Substitute doll, not as no deck', async ({ page }) => {
+  const decks = publicDecks(
+    { '7200001': 'Gardevoir ex', [tdf.players.find(player => player.id !== '7200001')?.id ?? '']: 'Rogue Brew' },
+    keys
+  );
+  await mockApi(page, { ...VIEW, decks });
+  await page.route('**/archetype-icons.json', route =>
+    route.fulfill({ json: { 'Gardevoir ex': ['gardevoir', 'kirlia'] } })
+  );
+  await page.goto(`/t/${CODE}`);
+  const rogue = page.locator('.tm-deck[title="Rogue Brew"]').first();
+  await expect(rogue.locator('img')).toHaveAttribute('src', '/img/substitute.png');
+  // A player who reported nothing still shows no icon.
+  await expect(page.locator('.tm-matches .tm-deck')).toHaveCount(2);
 });
 
 test('a spectator narrows the pairings to the tables playing, one deck, or the players they follow @mobile', async ({

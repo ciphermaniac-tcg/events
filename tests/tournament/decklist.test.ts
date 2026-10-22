@@ -70,3 +70,30 @@ test('basic energy is exempt from the copy limit', () => {
   const deck = parseDecklist('10 Basic {P} Energy SVE 5');
   assert.ok(!deck.problems.some(problem => problem.includes('copies')));
 });
+
+test('reads an older export that gives basic energy the set code Energy', () => {
+  const deck = parseDecklist('Energy: 10\n10 Basic {L} Energy Energy 4');
+  assert.deepEqual(deck.cards[0], {
+    count: 10,
+    name: 'Basic {L} Energy',
+    set: 'Energy',
+    number: '4',
+    section: 'energy'
+  });
+  assert.equal(
+    deck.problems.some(problem => problem.includes('copies')),
+    false
+  );
+});
+
+test('reads a list with lone CR line endings', () => {
+  const deck = parseDecklist(PTCGL.replace(/\n/g, '\r'));
+  assert.equal(deck.total, 60);
+  assert.deepEqual(deck.problems, []);
+});
+
+test('reads a Pokémon header written with a combining accent', () => {
+  const deck = parseDecklist(PTCGL.replace('Pokémon: 12', 'Pokémon: 12'));
+  assert.deepEqual(deck.unread, []);
+  assert.deepEqual(deck.problems, []);
+});

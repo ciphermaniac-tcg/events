@@ -45,26 +45,39 @@ export function DeckCombo(props: {
       tier={tier}
       search={search}
       selected={props.selected}
-      adorn={deck => <ArchetypeIcons slugs={deckIcons(deck)} size={20} />}
+      adorn={deck => <DeckSprite deck={deck} size={20} />}
       onPick={deck => props.onPick(deck.pair ? { label: deck.pair } : deck)}
       create={create()}
       emptyLabel={t('Nothing matches.')}
       width={props.width}
     >
-      {(deck, query) => <DeckOption deck={deck} query={query} typeFormat={props.decks.length === 11} />}
+      {(deck, query) => <DeckOption deck={deck} query={query} />}
     </Combo>
   );
 }
 
-function DeckOption(props: { deck: ReportedDeck; query: string; typeFormat: boolean }) {
+/** A type's icon for a deck named by its type (see ReportedDeck), the archetype's sprites for any other. */
+function DeckSprite(props: { deck: ReportedDeck; size: number; reserveSlot?: boolean }) {
+  return (
+    <Show
+      when={props.deck.type}
+      fallback={<ArchetypeIcons slugs={deckIcons(props.deck)} size={props.size} reserveSlot={props.reserveSlot} />}
+    >
+      <img
+        class='type-archetype-icon'
+        src={`/img/type-icons/${props.deck.label.toLowerCase()}.svg`}
+        alt=''
+        style={{ width: `${props.size}px`, height: `${props.size}px` }}
+      />
+    </Show>
+  );
+}
+
+function DeckOption(props: { deck: ReportedDeck; query: string }) {
   const parts = () => splitMatch(props.deck.label, props.query);
   return (
     <>
-      {props.typeFormat ? (
-        <img class='type-archetype-icon' src={`/img/type-icons/${props.deck.label.toLowerCase()}.svg`} alt='' />
-      ) : (
-        <ArchetypeIcons slugs={deckIcons(props.deck)} size={26} reserveSlot />
-      )}
+      <DeckSprite deck={props.deck} size={26} reserveSlot />
       <b>
         {parts()[0]}
         <mark>{parts()[1]}</mark>

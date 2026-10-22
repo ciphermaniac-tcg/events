@@ -1448,6 +1448,10 @@ test('the dashboard of a player who runs nothing is its Playing tab alone, the l
   await expect(live).toContainText('Fixture Challenge & Friends · Round 2');
   await expect(live).toContainText('vs ');
   await expect(live.getByRole('link', { name: 'Your match' })).toHaveAttribute('href', '/t/LIVE01');
+  // The live card has room for the deck's name beside its sprites, so a deck with none still reads; read aloud once.
+  const deck = live.locator('.tm-dash-live-deck');
+  await expect(deck.locator('> [aria-hidden="true"]')).toHaveText('Gardevoir ex');
+  await expect(deck).toMatchAriaSnapshot('- paragraph: Gardevoir ex');
   const cup = page.locator('.tm-hist tbody tr.is-link', { hasText: 'Fixture Cup' });
   await expect(cup.locator('.tm-hist-place')).toHaveText('1st');
   // Decks are sprites alone here; their names stay in the tooltip and for assistive tech.

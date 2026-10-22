@@ -130,6 +130,11 @@ test('an opened list records, edits and removes its player’s deck checks once 
   await expect(row).toContainText('Not checked');
 
   await row.getByRole('button', { name: 'View' }).click();
+  // The list reads against the cards on the table: counts in a column, sections with cards, and the total.
+  await expect(page.locator('.tm-list-head')).toHaveText(['Pokémon: 4', 'Energy: 56']);
+  await expect(page.locator('.tm-list-card').first().locator('.num')).toHaveText('4');
+  await expect(page.locator('.tm-list-total')).toHaveText('60 cards');
+  await expect(page.locator('.tm-list-total')).not.toHaveClass(/is-off/);
   const side = page.locator('.tm-check-side');
   await expect(side).toContainText('No deck checks yet.');
   await expect(side.getByLabel('Round')).toHaveValue('1');

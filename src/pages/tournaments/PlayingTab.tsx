@@ -50,6 +50,8 @@ function LiveEntry(props: { entry: HistoryEntry }) {
         {deck => (
           <p class='tm-dash-live-deck'>
             <DeckIcons label={deck()} size={28} />
+            {/* Assistive tech already reads the name with the icons. */}
+            <span aria-hidden='true'>{deck()}</span>
           </p>
         )}
       </Show>

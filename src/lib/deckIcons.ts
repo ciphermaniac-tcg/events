@@ -45,3 +45,11 @@ export function deckIcons(deck: { label: string; icons?: string[] }): string[] {
   // A chunk that fails to load leaves the deck without a sprite, as before there were any.
   return loadedSpecies()?.speciesIcons(deck.label) ?? [];
 }
+
+/**
+ * Whether the sources deckIcons reads have all answered, so that a deck still
+ * without sprites has none to find, rather than none yet.
+ */
+export function deckIconsSettled(): boolean {
+  return archetypeIconMapSettled() && species() !== undefined;
+}

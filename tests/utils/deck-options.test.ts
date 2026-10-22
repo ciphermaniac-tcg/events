@@ -32,6 +32,10 @@ test('Gym Leader Challenge offers each type as a played deck', () => {
       ]
     );
     assert.ok(decks.every(deck => deck.played));
+    assert.ok(
+      decks.every(deck => deck.type),
+      'each draws its type icon, however many decks the event adds'
+    );
     dispose();
   });
 });
@@ -65,12 +69,14 @@ test('event decks are merged into the preset list', () => {
     })();
     assert.deepEqual(
       decks.find(deck => deck.label === 'Grass'),
-      { label: 'Grass', played: true }
+      { label: 'Grass', played: true, type: true }
     );
+    // A name typed in is not a type, so it keeps the archetype sprites.
     assert.deepEqual(
       decks.find(deck => deck.label === 'Custom deck'),
       { label: 'Custom deck', played: true }
     );
+    assert.equal(decks.length, 12);
     dispose();
   });
 });

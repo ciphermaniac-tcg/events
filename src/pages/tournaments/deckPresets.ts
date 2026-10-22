@@ -34,7 +34,7 @@ const GLC_TYPES = [
   'Colorless',
   'Fairy'
 ];
-const GLC_DECKS: ReportedDeck[] = GLC_TYPES.map(label => ({ label, played: true }));
+const GLC_DECKS: ReportedDeck[] = GLC_TYPES.map(label => ({ label, played: true, type: true }));
 
 export function nicheDecks(format: string, startDate: string): ReportedDeck[] | null {
   if (format === 'Gym Leader Challenge') {

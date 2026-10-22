@@ -1385,6 +1385,10 @@
     "one": "{n} aprobada",
     "other": "{n} aprobadas"
   },
+  "{n} cards": {
+    "one": "{n} carta",
+    "other": "{n} cartas"
+  },
   "{n} drop requests waiting": {
     "one": "{n} solicitud de abandono pendiente",
     "other": "{n} solicitudes de abandono pendientes"

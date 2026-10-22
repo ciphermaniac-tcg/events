@@ -1210,3 +1210,43 @@
     display: inline;
   }
 }
+
+/* A decklist laid out by section, in the console's Decklists tab. */
+.tm-list-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-3) var(--space-5);
+}
+.tm-list-head {
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-base);
+  font-weight: 600;
+}
+.tm-list-cards {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: var(--text-base);
+  line-height: 1.6;
+}
+/* The count in a column of its own, then the name, then the printing. */
+.tm-list-card {
+  display: grid;
+  grid-template-columns: 2ch minmax(0, 1fr);
+  column-gap: var(--space-2);
+}
+.tm-list-card > .num {
+  font-weight: 600;
+  text-align: right;
+}
+.tm-list-print {
+  color: var(--muted);
+}
+.tm-list-total {
+  margin: var(--space-3) 0 0;
+  font-size: var(--text-base);
+  font-weight: 600;
+}
+.tm-list-total.is-off {
+  color: var(--negative);
+}

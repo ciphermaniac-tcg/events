@@ -36,7 +36,8 @@ export const MAX_DECKLIST_CHARS = 6000;
 
 const HEADER_RE = /^(pok[eé]mon|trainers?|energy)\s*(?:[:-]\s*\d*)?$/i;
 const FOOTER_RE = /^total\s+cards\s*:?\s*\d*$/i;
-const LINE_RE = /^(?:\*\s*)?(\d{1,2})x?\s+(.+?)(?:\s+([A-Z][A-Z0-9-]{1,5})\s+([A-Z]{0,4}\d{1,4}[a-z]?))?$/;
+// Older PTCGL exports give basic energy the set code "Energy": "10 Basic {L} Energy Energy 4".
+const LINE_RE = /^(?:\*\s*)?(\d{1,2})x?\s+(.+?)(?:\s+([A-Z][A-Z0-9-]{1,5}|Energy)\s+([A-Z]{0,4}\d{1,4}[a-z]?))?$/;
 
 const BASIC_ENERGY_NAMES = new Set(
   ['grass', 'fire', 'water', 'lightning', 'psychic', 'fighting', 'darkness', 'metal', 'fairy'].flatMap(type => [
@@ -91,7 +92,8 @@ export function parseDecklist(text: string): ParsedDeck {
   const cards: DeckCard[] = [];
   const unread: string[] = [];
   let section: DeckSection = 'pokemon';
-  for (const raw of text.split(/\r?\n/)) {
+  // Composed, so a header pasted as e plus a combining accent is still "Pokémon"; any line ending, old Mac's lone CR too.
+  for (const raw of text.normalize('NFC').split(/\r\n?|\n/)) {
     const line = raw.trim();
     if (!line || FOOTER_RE.test(line)) {
       continue;

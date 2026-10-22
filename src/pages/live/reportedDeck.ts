@@ -13,6 +13,8 @@ export interface ReportedDeck {
   played?: boolean;
   /** Typed in by hand: a name the list did not have. */
   custom?: boolean;
+  /** A Pokémon type rather than an archetype, as Gym Leader Challenge decks are named: drawn with the type's icon. */
+  type?: boolean;
   /** Two Pokémon put together in the box: the label the pair is saved under, which may run in the other order. */
   pair?: string;
 }
