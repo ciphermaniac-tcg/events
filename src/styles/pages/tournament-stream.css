@@ -1,13 +1,14 @@
 /* The stream overlay (/t/:code?stream=table&table=N), loaded with its chunk
    (StreamOverlay). A browser source lays the page over video, so everything
    around the one bar is transparent (tournament.css), and the bar is sized
-   for a 1080p canvas. */
+   for a 1080p canvas read at 720p or on a phone, inside the title-safe 5% of
+   each edge; --tm-stream-scale (`&scale=`) sizes it for a producer's layout. */
 .tm-stream {
   display: flex;
   align-items: flex-end;
   justify-content: center;
   min-height: 100dvh;
-  padding: var(--space-5);
+  padding: var(--space-5) 5vw 5vh;
 }
 .tm-stream-bar {
   display: grid;
@@ -17,7 +18,7 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--surface);
-  font-size: var(--text-xl);
+  font-size: calc(40px * var(--tm-stream-scale, 1));
 }
 .tm-stream-bar.is-empty {
   display: block;
@@ -54,7 +55,7 @@
 }
 .tm-stream-detail {
   overflow: hidden;
-  font-size: var(--text-base);
+  font-size: 0.6em;
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--muted);
@@ -68,7 +69,7 @@
   padding: 0.1em 0.4em;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  font-size: var(--text-base);
+  font-size: 0.6em;
   font-weight: 800;
 }
 .tm-stream-seat.is-right .tm-stream-mark {
@@ -87,7 +88,7 @@
   align-content: center;
   padding: var(--space-2) var(--space-4);
   border-inline: 1px solid var(--rule);
-  font-size: var(--text-base);
+  font-size: 0.6em;
   color: var(--muted);
 }
 .tm-stream-round {
@@ -95,7 +96,7 @@
   color: var(--fg);
 }
 .tm-stream-clock {
-  font-size: var(--text-xl);
+  font-size: calc(1em / 0.6);
   font-weight: 800;
   color: var(--fg);
 }

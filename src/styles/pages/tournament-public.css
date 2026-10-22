@@ -438,6 +438,10 @@
     display: block;
     padding: 0;
   }
+  .tm-public-pairings .data tr:is(.tm-group-row, .tm-empty-row) > * {
+    display: flex;
+    align-items: center;
+  }
   /* Each name keeps its 44px target and nothing more, so a table's two names sit as one pairing. */
   .tm-public-pairings .data tr {
     row-gap: 0;

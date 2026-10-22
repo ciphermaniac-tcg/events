@@ -120,6 +120,12 @@ test('the big screen switches to the bracket with B, and remembers it', async ({
   const bracket = page.locator('.tm-bracket.is-screen');
   await expect(bracket.locator('.tm-bracket-col')).toHaveCount(3);
   await expect(page.locator('.tm-screen-tables')).toHaveCount(0);
+  // Sized for the room like the tables, by the screen's display font.
+  const font = await page
+    .locator('.tm-screen')
+    .evaluate(el => parseFloat(getComputedStyle(el).getPropertyValue('--tm-display-font')));
+  const size = await bracket.evaluate(el => parseFloat(getComputedStyle(el).fontSize));
+  expect(size).toBeCloseTo(font * 1.1, 1);
   await page.reload();
   await expect(bracket).toBeVisible();
   await expect(page.getByRole('radio', { name: 'Bracket' })).toHaveAttribute('aria-checked', 'true');

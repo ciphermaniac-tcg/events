@@ -4,6 +4,7 @@
  * records, the round and its clock, and once the table is done, who won. Its
  * page is transparent around one bar, so a browser source in OBS lays it over
  * the game as it is; it follows the table into each new round on its own.
+ * `&scale=` sizes the bar for a producer's own layout.
  */
 
 import { createMemo, Show, useContext } from 'solid-js';
@@ -57,13 +58,13 @@ function StreamSeat(props: {
  * says so: its clock stops where it was last known to be and goes quiet,
  * and the poll keeps trying on its own.
  */
-export function StreamOverlay(props: { view: TournamentView; table: number; pod?: PodCategory }) {
+export function StreamOverlay(props: { view: TournamentView; table: number; pod?: PodCategory; scale?: number }) {
   const stale = useContext(StaleSince);
   const shown = createMemo(() => streamTable(props.view.tournament, props.table, props.pod));
   const names = createMemo(() => namesById(props.view.tournament));
   const decks = createMemo(() => streamDecks(props.view));
   return (
-    <div class='tm-stream'>
+    <div class='tm-stream' style={{ '--tm-stream-scale': props.scale ?? 1 }}>
       <Show
         when={shown()}
         fallback={

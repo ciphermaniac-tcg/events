@@ -851,14 +851,19 @@ function Hero(props: { view: TournamentView; prefer: (PodCategory | null)[] }) {
   );
 }
 
-/** The table a stream overlay shows (`stream=table&table=N`, `pod` to pick a division), or null for none. */
-function streamOf(params: { stream?: string; table?: string; pod?: string }) {
+/**
+ * The table a stream overlay shows (`stream=table&table=N`, `pod` to pick a
+ * division), or null for none; `scale` sizes the bar for a producer's own
+ * layout, from half to twice its size on a 1080p canvas.
+ */
+function streamOf(params: { stream?: string; table?: string; pod?: string; scale?: string }) {
   const table = Number(params.table);
   if (params.stream !== 'table' || !Number.isInteger(table) || table < 1) {
     return null;
   }
   const pod = POD_CATEGORIES.find(category => category === params.pod);
-  return { table, pod };
+  const scale = Math.min(2, Math.max(0.5, Number(params.scale) || 1));
+  return { table, pod, scale };
 }
 
 /**
@@ -866,7 +871,13 @@ function streamOf(params: { stream?: string; table?: string; pod?: string }) {
  * say (see createView), and the sign-ins the server offers.
  */
 export function PublicEvent(props: { code: string; session: Session | undefined }) {
-  const [params] = useSearchParams<{ screen?: string; stream?: string; table?: string; pod?: string }>();
+  const [params] = useSearchParams<{
+    screen?: string;
+    stream?: string;
+    table?: string;
+    pod?: string;
+    scale?: string;
+  }>();
   // The page is the big screen, a stream overlay, or neither, for as long as it is open.
   const stream = streamOf(params);
   const screen = params.screen === '1' || stream !== null;
@@ -947,7 +958,7 @@ export function PublicEvent(props: { code: string; session: Session | undefined 
             when={!screen}
             fallback={
               <Show when={stream} fallback={<BigScreen view={v()} liveData={freshness()} onRetry={retry} />}>
-                {s => <StreamOverlay view={v()} table={s().table} pod={s().pod} />}
+                {s => <StreamOverlay view={v()} table={s().table} pod={s().pod} scale={s().scale} />}
               </Show>
             }
           >

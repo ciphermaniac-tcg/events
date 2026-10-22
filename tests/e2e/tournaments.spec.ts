@@ -1377,7 +1377,11 @@ test('a large big screen fits dense pages and keeps them stationary under reduce
   const first = (await rows.first().textContent()) ?? '';
   await page.clock.fastForward(35_000);
   await expect(rows.first()).toHaveText(first);
-  await page.getByRole('button', { name: 'Next page' }).click();
+  // The page buttons are the laptop's: hidden from the room until the pointer moves.
+  const next = page.getByRole('button', { name: 'Next page' });
+  expect(await next.evaluate(el => getComputedStyle(el).opacity)).toBe('0');
+  await page.mouse.move(400, 400);
+  await next.click();
   await expect(rows.first()).not.toHaveText(first);
   await page.keyboard.press('ArrowLeft');
   await expect(rows.first()).toHaveText(first);
@@ -1482,9 +1486,11 @@ test('a timed preset under reduced motion stands still until resumed, and pauses
   expect(await page.locator('.tm-screen-dense').evaluate(el => getComputedStyle(el).fontSize)).toBe('48px');
   await page.clock.fastForward(16_000);
   await expect(pager).toContainText('Page 1 of');
+  await page.mouse.move(400, 400);
   await page.getByRole('button', { name: 'Resume pages' }).click();
   await page.clock.fastForward(16_000);
   await expect(pager).toContainText('Page 2 of');
+  await page.mouse.move(420, 420);
   await page.getByRole('button', { name: 'Pause pages' }).click();
   await page.clock.fastForward(32_000);
   await expect(pager).toContainText('Page 2 of');
@@ -1503,6 +1509,8 @@ test('timed pages turn on their own, and Auto scroll Off stops them where they a
   await page.goto(`/t/${CODE}?screen=1`);
   const pager = page.locator('.tm-screen-pagination');
   await expect(pager).toContainText('Page 1 of');
+  // The room sees how long the page has left, filling over its time.
+  await expect(pager.locator('.tm-screen-page-time')).toHaveAttribute('style', /animation-duration: 15s/);
   await page.clock.fastForward(16_000);
   await expect(pager).toContainText('Page 2 of');
   await page.mouse.move(400, 400);

@@ -6,7 +6,11 @@ import { displayCapacity, type DisplayRow, displayRows, type DisplaySize } from 
 import { markText, namesById, podLabel, seatMark, shownOutcome } from '../../lib/tournament/present';
 import { t } from '../../lib/i18n';
 
-/** Whole pages replace a crawl at large events. Each seat is listed separately in alphabetical mode. */
+/**
+ * Whole pages replace a crawl at large events. Each seat is listed separately
+ * in alphabetical mode. The room reads which page is up and how long it has;
+ * the buttons that turn pages are for the laptop, shown with its other controls.
+ */
 export function PagedDisplay(props: {
   view: TournamentView;
   pods: Pod[];
@@ -141,7 +145,13 @@ export function PagedDisplay(props: {
         <button type='button' class='btn btn-secondary' onClick={() => move(-1)} disabled={pages() === 1}>
           {t('Previous page')}
         </button>
-        <span>{t('Page {n} of {total}', { n: current() + 1, total: pages() })}</span>
+        <span class='tm-screen-page'>
+          {t('Page {n} of {total}', { n: current() + 1, total: pages() })}
+          {/* Fills over the page's time, drawn again for each page so it starts empty. */}
+          <Show when={timed() && turning() && pages() > 1 && current() + 1} keyed>
+            <span class='tm-screen-page-time' style={{ 'animation-duration': `${props.options.pageSeconds}s` }} />
+          </Show>
+        </span>
         <button type='button' class='btn btn-secondary' onClick={() => move(1)} disabled={pages() === 1}>
           {t('Next page')}
         </button>

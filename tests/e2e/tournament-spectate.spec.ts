@@ -114,6 +114,13 @@ test('a spectator narrows the pairings to the tables playing, one deck, or the p
   // The tables still playing lead under their own heading, on a phone too.
   const groups = page.locator('.tm-matches .tm-group-row');
   await expect(groups).toHaveText([`In progress · ${playing.length}`, `Done · ${matches.length - playing.length}`]);
+  // Each heading spans its table, on a phone as on a desktop.
+  const width = (selector: string) =>
+    page
+      .locator(selector)
+      .first()
+      .evaluate(el => el.getBoundingClientRect().width);
+  expect(await width('.tm-matches .tm-group-row th')).toBe(await width('.tm-matches tbody'));
   if (test.info().project.name === 'mobile') {
     // A phone has the heading in place of In progress, and the deck filter on a row of its own.
     await expect(page.getByRole('radio', { name: 'In progress' })).toBeHidden();
@@ -241,3 +248,23 @@ test('In progress with a search that finds nobody says no tables match, not that
   await expect(page.locator('.tm-matches tbody tr')).toHaveText(['No tables match.']);
 });
 
+test('a stream bar is sized for a broadcast inside title-safe, and a producer can scale it', async ({ page }) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await mockApi(page);
+  const table = playing[0]?.table ?? 1;
+  await page.goto(`/t/${CODE}?stream=table&table=${table}`);
+  const size = (selector: string) =>
+    page
+      .locator(selector)
+      .first()
+      .evaluate(el => parseFloat(getComputedStyle(el).fontSize));
+  await expect(page.locator('.tm-stream-bar')).toBeVisible();
+  expect(await size('.tm-stream-name')).toBe(40);
+  expect(await size('.tm-stream-detail')).toBe(24);
+  expect(await size('.tm-stream-round')).toBe(24);
+  const bottom = await page.locator('.tm-stream').evaluate(el => parseFloat(getComputedStyle(el).paddingBottom));
+  expect(bottom).toBeGreaterThanOrEqual(54);
+  await page.goto(`/t/${CODE}?stream=table&table=${table}&scale=1.5`);
+  await expect(page.locator('.tm-stream-bar')).toBeVisible();
+  expect(await size('.tm-stream-name')).toBe(60);
+});

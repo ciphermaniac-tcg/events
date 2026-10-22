@@ -481,7 +481,40 @@
   align-items: center;
   justify-content: center;
   gap: var(--space-4);
+  font-size: calc(var(--tm-display-font, 32px) * 0.84);
+}
+/* The page buttons show with the laptop's controls, never to the room. */
+.tm-screen-pagination .btn {
   font-size: calc(var(--text-base) * var(--tm-display-scale, 1));
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--ms-base) var(--ease-base);
+}
+.tm-screen:has(.tm-screen-controls.is-shown) .tm-screen-pagination .btn,
+.tm-screen-pagination:focus-within .btn {
+  opacity: 1;
+  pointer-events: auto;
+}
+.tm-screen-page {
+  display: grid;
+  gap: 0.2em;
+  font-weight: 600;
+}
+.tm-screen-page-time {
+  height: 3px;
+  background: var(--fg);
+  transform-origin: left;
+  animation: tm-screen-page-time linear both;
+}
+@keyframes tm-screen-page-time {
+  from {
+    transform: scaleX(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tm-screen-page-time {
+    display: none;
+  }
 }
 
 .tm-screen-dense:not(.is-alphabetical) .tm-screen-dense-names {

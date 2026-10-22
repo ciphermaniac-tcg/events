@@ -138,12 +138,13 @@
 }
 
 /* The top cut as a bracket, read across the room: the page's bracket at the
-   screen's sizes, the winner marked in the accent as the tables mark it. */
+   screen's room-distance text size (see displayFont), the winner marked in
+   the accent as the tables mark it. A cut too wide scrolls with the screen. */
 .tm-bracket.is-screen {
   --bracket-gap: var(--space-6);
   padding: 0;
   overflow: visible;
-  font-size: clamp(var(--text-lg), 1.6vw, var(--text-2xl));
+  font-size: calc(var(--tm-display-font, 32px) * 1.1);
 }
 .tm-bracket.is-screen .tm-bracket-cols {
   grid-auto-columns: minmax(0, 1fr);
@@ -152,7 +153,7 @@
   font-size: 0.7em;
 }
 .tm-bracket.is-screen .tm-bracket-meta {
-  font-size: 0.65em;
+  font-size: 0.8em;
 }
 .tm-bracket.is-screen .tm-bracket-seat {
   min-height: 2.2em;
