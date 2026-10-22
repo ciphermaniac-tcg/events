@@ -12,11 +12,10 @@ import {
   type Role,
   sanctionedSettingsError,
   showsDecksSooner,
-  type TournamentSettings
+  type TournamentSettings,
+  unsanctionedPlayer
 } from '../../../../shared/tournament/view.js';
-import { hasStarted } from '../../../../shared/tournament/rounds.js';
-import { birthYear } from '../../../../shared/tournament/divisions.js';
-import { isGeneratedId, type Player, playerName, type Tournament } from '../../../../shared/tournament/types.js';
+import { playerName } from '../../../../shared/tournament/types.js';
 import { applyLifecycleOperation } from '../../../../shared/tournament/lifecycle.js';
 import { lifecycleDocument } from '../../../../shared/tournament/lifecycleImport.js';
 import { commandContext } from '../../../lib/tournaments/commandContext.js';
@@ -49,16 +48,6 @@ async function maySanction(db: D1Like, row: TournamentRow, change: unknown): Pro
   }>();
   return Boolean(store?.league_id);
 }
-
-/**
- * Once play has started, the first player still in whom a sanctioned event
- * wouldn't have seated: one with no Player ID of their own or no birth year,
- * who would play on as Masters under a provisional ID.
- */
-const unsanctionedPlayer = (t: Tournament): Player | undefined =>
-  hasStarted(t)
-    ? t.players.find(p => p.droppedAfter === null && (isGeneratedId(p.id) || birthYear(p.birthDate) === null))
-    : undefined;
 
 /** The settings `change` makes of the row's, or why it cannot make them. */
 function changedSettings(change: unknown, row: TournamentRow, sanctionable: boolean): TournamentSettings | string {

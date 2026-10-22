@@ -14,6 +14,7 @@ import {
   pairingHistory,
   pointsBefore,
   regularRounds,
+  repairable,
   seatPairings
 } from './rounds.js';
 import {
@@ -194,7 +195,7 @@ function checkedSwissRepair(last: ReturnType<typeof latestRound>, terminal: bool
   if (!last || last.kind !== 'swiss') {
     throw new PairingError(msg('Only a Swiss round can be repaired'));
   }
-  const refused = terminal ? [4, 5].includes(last.stage ?? 4) : (last.stage ?? 4) >= 4;
+  const refused = terminal ? [4, 5].includes(last.stage ?? 4) : !repairable(last);
   if (refused) {
     throw new PairingError(msg('Only a paired, not-started Swiss round can be repaired'));
   }

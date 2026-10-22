@@ -9,7 +9,7 @@
  */
 
 import type { DisplaySelection } from './display.js';
-import { divisionFor, eventSeason } from './divisions.js';
+import { birthYear, divisionFor, eventSeason } from './divisions.js';
 import { isTimeZone, isWallClock } from './timeZone.js';
 import { SANCTIONED, sanctionedMinutesError } from './structure.js';
 import { type PlayerClaim, shortLastNames } from './identify.js';
@@ -19,7 +19,17 @@ import type { PairedThrough } from './corrections.js';
 import type { PlayerReport } from './reports.js';
 import type { PlayerRequest } from './requests.js';
 import { hasStarted, isOpenMatch, type MatchKey, sameMatch } from './rounds.js';
-import type { Division, Match, Outcome, Pod, Round, Tournament, TournamentInfo } from './types.js';
+import {
+  type Division,
+  isGeneratedId,
+  type Match,
+  type Outcome,
+  type Player,
+  type Pod,
+  type Round,
+  type Tournament,
+  type TournamentInfo
+} from './types.js';
 import { msgf } from '../i18n.js';
 
 export type TournamentMode = 'swiss' | 'tom';
@@ -187,6 +197,17 @@ export function readSettings(body: unknown, current: TournamentSettings): Tourna
   }
   return next as unknown as TournamentSettings;
 }
+
+/**
+ * Once play has started, the first player still in whom a sanctioned event
+ * wouldn't have seated: one with no Player ID of their own or no birth year,
+ * who would play on as Masters under a provisional ID. Beside
+ * sanctionedSettingsError, the other check on turning sanctioning on.
+ */
+export const unsanctionedPlayer = (t: Tournament): Player | undefined =>
+  hasStarted(t)
+    ? t.players.find(p => p.droppedAfter === null && (isGeneratedId(p.id) || birthYear(p.birthDate) === null))
+    : undefined;
 
 /**
  * Why a settings change would leave a sanctioned event invalid (see

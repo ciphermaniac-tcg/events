@@ -20,7 +20,8 @@ import {
   readSettings,
   sanctionedSettingsError,
   showsDecksSooner,
-  storedSettings
+  storedSettings,
+  unsanctionedPlayer
 } from '../../shared/tournament/view.ts';
 import { decodeEntities, encodeEntities } from '../../shared/tournament/xml.ts';
 
@@ -247,4 +248,20 @@ test('showing decks sooner means off to after to always, the one rule the consol
   assert.equal(showsDecksSooner('always', 'after'), true);
   assert.equal(showsDecksSooner('off', 'always'), false);
   assert.equal(showsDecksSooner('after', 'after'), false);
+});
+
+test('once play starts, a sanctioned event names the first player still in it could not seat', () => {
+  const started = parseTdf(readFileSync(new URL('../fixtures/tdf/challenge-midevent.tdf', import.meta.url), 'utf8'));
+  assert.equal(unsanctionedPlayer(started), undefined);
+  const [first, second, ...rest] = started.players;
+  const noYear = { ...second!, birthDate: '' };
+  const provisional = { ...first!, id: '9000000001' };
+  assert.equal(unsanctionedPlayer({ ...started, players: [first!, noYear, ...rest] }), noYear);
+  assert.equal(unsanctionedPlayer({ ...started, players: [provisional, second!, ...rest] }), provisional);
+  assert.equal(
+    unsanctionedPlayer({ ...started, players: [{ ...provisional, droppedAfter: 1 }, second!, ...rest] }),
+    undefined,
+    'a dropped player does not hold it up'
+  );
+  assert.equal(unsanctionedPlayer({ ...emptyTournament({ name: 'Before' }), players: [provisional] }), undefined);
 });
