@@ -1883,7 +1883,7 @@ test('a long check-in line is counted, filtered on the roster, and dropped all a
   const asking = gate.getByRole('group', { name: 'Drop 11 players who aren’t checked in?' });
   await asking.getByRole('button', { name: 'Drop 11' }).click();
   await expect(gate.getByRole('button', { name: /^Drop all/ })).toBeDisabled();
-  await page.getByRole('checkbox', { name: 'Paid: Player12 Test' }).check();
+  await page.getByRole('checkbox', { name: 'Paid: Player12 Test' }).click();
   await expect(page.getByRole('checkbox', { name: 'Paid: Player12 Test' })).toHaveCount(0);
   answer();
   const dropped = () => sent.flatMap(command => (command.type === 'dropPlayer' ? [command.id] : []));
