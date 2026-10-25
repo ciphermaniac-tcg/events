@@ -1647,6 +1647,19 @@ test('setup recovers after cancel and reload and refuses invalid minutes @mobile
   await expect(minutes).toHaveValue('35');
 });
 
+test('setup offers each set’s Prerelease as a format', async ({ page }) => {
+  const submissions = await mockOrganizer(page);
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Start an event' }).click();
+  await page.getByRole('textbox', { name: 'Event name' }).fill('Delta Reign Prerelease');
+  const format = page.locator('#setup-format');
+  await expect(format.locator('optgroup[label="Prerelease"] option').first()).toHaveText('Delta Reign Prerelease');
+  await format.selectOption('Delta Reign Prerelease');
+  await page.getByRole('button', { name: 'Create event' }).click();
+  await expect(page.locator('.tm-error')).toHaveText('Fixture submission');
+  expect(submissions).toMatchObject([{ settings: { format: 'Delta Reign Prerelease' } }]);
+});
+
 test('community setup shows an occupied date before creation @mobile', async ({ page }) => {
   await mockOrganizer(page);
   await page.route('**/api/me', route =>

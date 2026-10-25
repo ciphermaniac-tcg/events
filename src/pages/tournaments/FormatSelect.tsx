@@ -1,7 +1,7 @@
 /**
  * The event's format: the Tier List Maker's formats (current, then past, from
- * the same live list so the two never drift), then the formats the site has no
- * data for. Stored as the label, which is what the event page shows.
+ * the same live list so the two never drift), then each set's Prerelease, then
+ * the formats the site has no data for. Stored as the label, which is what the event page shows.
  */
 
 import { For, onMount, Show } from 'solid-js';
@@ -10,6 +10,16 @@ import { msg, t } from '../../lib/i18n';
 
 /** Kept as the label in English; only `Other` reads differently in another language. */
 const OTHER_FORMATS = ['Gym Leader Challenge', 'Eternal', msg('Other')];
+
+/** Sets with a Prerelease, newest first. Add each new set at the top. */
+const PRERELEASE_SETS = [
+  'Delta Reign',
+  'Pitch Black',
+  'Chaos Rising',
+  'Perfect Order',
+  'Phantasmal Flames',
+  'Mega Evolution'
+];
 
 const GROUPS = [
   {
@@ -26,6 +36,7 @@ const GROUPS = [
         .filter(f => f.group === 'past')
         .map(f => f.label)
   },
+  { label: msg('Prerelease'), options: () => PRERELEASE_SETS.map(set => `${set} Prerelease`) },
   { label: msg('Other formats'), options: () => OTHER_FORMATS }
 ];
 
