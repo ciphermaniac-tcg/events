@@ -1,5 +1,6 @@
 /**
- * Store-owned display presets and the immutable copy an event chooses.
+ * Store-owned display presets and the copy an event chooses, which follows
+ * the store's edits while the event runs (functions/lib/tournaments/displays.ts).
  * 'auto' is no longer offered; presets saved with it scroll, like 'faceoff'.
  */
 export type DisplayLayout = 'auto' | 'faceoff' | 'tables' | 'alphabetical';

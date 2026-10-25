@@ -702,8 +702,9 @@ const displayPath = (code: string) => `/api/tournaments/${encodeURIComponent(cod
 
 /**
  * Which of the store's display presets the big screen uses. The event keeps
- * a copy of the one it picked, so a preset edited or deleted since still
- * shows here by its name until another is picked.
+ * a copy of the one it picked, which follows the store's edits until the
+ * event ends (see followPreset), so a preset deleted since still shows here
+ * by its name until another is picked.
  */
 function BigScreenPreset(props: { state: ManageState; manage: Manage }) {
   const [read] = createResource(

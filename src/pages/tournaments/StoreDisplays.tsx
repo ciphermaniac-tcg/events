@@ -3,7 +3,8 @@
  * the room it is for. A Manager gives the screen's size and how far back the
  * farthest player stands; the text size follows (roomScale) and can be
  * nudged from there. The preview draws the screen at that size. An event in
- * the store picks a preset from its Event tab and keeps its own copy.
+ * the store picks a preset from its Event tab and keeps its own copy, which
+ * an edit here reaches until the event ends.
  */
 
 import { createResource, createSignal, For, Show } from 'solid-js';

@@ -55,7 +55,17 @@ test('only store managers edit presets; staff can list them, and outsiders canno
   assert.deepEqual((await list(staff)).json.presets, []);
 });
 
-test('events select only their own store presets and retain snapshots after edits/deletion', async () => {
+const settingsOf = (code: string) =>
+  JSON.parse(
+    (raw().prepare('SELECT settings FROM tournaments WHERE code = ?').get(code) as { settings: string }).settings
+  );
+const headOf = (code: string) =>
+  raw().prepare('SELECT version, updated_at FROM tournaments WHERE code = ?').get(code) as {
+    version: number;
+    updated_at: number;
+  };
+
+test('events select only their own store presets, follow its edits while running, and keep a copy once deleted', async () => {
   const { manager, store, staff } = await storeSetup();
   const made = await put(store, manager, { name: 'Wall TV', options: OPTIONS });
   const { preset } = made.json;
@@ -73,8 +83,22 @@ test('events select only their own store presets and retain snapshots after edit
   const other = await signIn('Other', 'organizer');
   const otherEvent = await newEvent(other, { store: (await storeOf(other))! });
   assert.equal((await select(otherEvent, preset.id, other)).status, 400);
-  const selected = { ...preset, storeId: store };
-  await put(store, manager, { id: preset.id, name: 'Changed', options: { ...OPTIONS, scale: 2 } });
+  // An ended event keeps the screen it ended with.
+  raw()
+    .prepare("UPDATE tournaments SET settings = json_set(settings, '$.finished', json('true')) WHERE code = ?")
+    .run(second);
+  const before = headOf(code);
+  const edited = { id: preset.id, name: 'Changed', options: { ...OPTIONS, layout: 'faceoff', scale: 2 } };
+  assert.equal((await put(store, manager, edited)).status, 200);
+  const selected = { ...edited, storeId: store };
+  assert.deepEqual(settingsOf(code).display, selected);
+  assert.deepEqual(settingsOf(second).display, { ...preset, storeId: store });
+  // A new version for the screen's poll to find, but no activity of the event's own: its idle clock runs on.
+  assert.equal(headOf(code).version, before.version + 1);
+  assert.equal(headOf(code).updated_at, before.updated_at);
+  // Saving it unchanged writes nothing to the event.
+  await put(store, manager, edited);
+  assert.equal(headOf(code).version, before.version + 1);
   await hit(
     displays.onRequestDelete as Handler,
     `/displays?preset=${preset.id}`,
@@ -85,10 +109,7 @@ test('events select only their own store presets and retain snapshots after edit
   assert.deepEqual(shown.json.selected, selected);
   assert.deepEqual(shown.json.presets, []);
   assert.equal((await select(code, null)).status, 200);
-  const cleared = JSON.parse(
-    (raw().prepare('SELECT settings FROM tournaments WHERE code = ?').get(code) as { settings: string }).settings
-  );
-  assert.equal(cleared.display, null);
+  assert.equal(settingsOf(code).display, null);
   assert.equal((await select(code, preset.id, await signIn('Visitor'))).status, 403);
 });
 
@@ -142,8 +163,5 @@ test("settings changes and new events cannot carry a display copy; only a preset
     }
   );
   assert.equal(created.status, 400);
-  const stored = JSON.parse(
-    (raw().prepare('SELECT settings FROM tournaments WHERE code = ?').get(code) as { settings: string }).settings
-  );
-  assert.equal(stored.display ?? null, null);
+  assert.equal(settingsOf(code).display ?? null, null);
 });

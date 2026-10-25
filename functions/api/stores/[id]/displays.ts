@@ -1,10 +1,11 @@
-import { readDisplayPreset } from '../../../../shared/tournament/display.js';
+import { type DisplayPreset, readDisplayPreset } from '../../../../shared/tournament/display.js';
 import { readJsonObject } from '../../../lib/api/body.js';
 import { jsonError } from '../../../lib/api/responses.js';
 import type { Context } from '../../../lib/auth/env.js';
-import { openStore } from '../../../lib/stores/access.js';
+import { openStore, type StoreAccess } from '../../../lib/stores/access.js';
 import { deleteDisplayPreset, displayPresets, saveDisplayPreset } from '../../../lib/stores/displayPresets.js';
 import { privateJson } from '../../../lib/tournaments/access.js';
+import { followPreset } from '../../../lib/tournaments/displays.js';
 
 export async function onRequestGet(context: Context<'id'>): Promise<Response> {
   const access = await openStore(context, 'member');
@@ -25,12 +26,25 @@ export async function onRequestPut(context: Context<'id'>): Promise<Response> {
     return jsonError('Check the display preset', 400);
   }
   const preset = { ...read, id: typeof id === 'string' ? id : crypto.randomUUID() };
+  const refused = await save(access, preset, id === undefined);
+  if (refused) {
+    return refused;
+  }
+  // An edit reaches the screens of the store's events still running it; a new preset is on none yet.
+  if (id !== undefined) {
+    await followPreset(context, access.db, access.store.id, preset);
+  }
+  return privateJson({ preset });
+}
+
+/** Saves the preset; the answer when it was refused, else null. */
+async function save(access: StoreAccess, preset: DisplayPreset, creating: boolean): Promise<Response | null> {
   try {
     const saved = await saveDisplayPreset(access.db, access.store.id, preset, {
       guard: access.guard('manager'),
-      creating: id === undefined
+      creating
     });
-    return saved ? privateJson({ preset }) : jsonError('Preset unavailable or store preset limit reached', 409);
+    return saved ? null : jsonError('Preset unavailable or store preset limit reached', 409);
   } catch (error) {
     if (error instanceof Error && error.message.includes('UNIQUE constraint failed')) {
       return jsonError('Another preset has that name. Please pick another.', 409);
