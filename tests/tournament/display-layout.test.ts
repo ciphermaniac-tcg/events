@@ -24,10 +24,11 @@ test('viewport size and manual scale determine legible text without applying phy
   assert.ok(normal.total > large.total);
   assert.ok(displayCapacity(size, 48, true).columns > large.columns);
   assert.deepEqual(displayCapacity({ width: 0, height: 0 }, 32), { rows: 1, columns: 1, total: 1 });
-  assert.equal(pagedDisplay(DEFAULT_DISPLAY, 32, size, 32), true);
-  assert.equal(pagedDisplay(DEFAULT_DISPLAY, 4, size, 32), false);
-  assert.equal(pagedDisplay({ ...DEFAULT_DISPLAY, layout: 'faceoff' }, 32, size, 32), false);
-  assert.equal(pagedDisplay({ ...DEFAULT_DISPLAY, layout: 'alphabetical' }, 4, size, 32), true);
+  // Scrolling is the default at any size; only a preset asking for pages pages.
+  assert.equal(pagedDisplay(DEFAULT_DISPLAY), false);
+  assert.equal(pagedDisplay({ ...DEFAULT_DISPLAY, layout: 'auto' }), false);
+  assert.equal(pagedDisplay({ ...DEFAULT_DISPLAY, layout: 'tables' }), true);
+  assert.equal(pagedDisplay({ ...DEFAULT_DISPLAY, layout: 'alphabetical' }), true);
 });
 
 test('dense alphabetical rows include each seat and bye once, use each pod latest round, and sort by first name as shown', () => {

@@ -32,8 +32,7 @@ import { createAction } from './action';
 import { SaveBar } from './StoreSave';
 import { SettingRow } from './SettingControls';
 
-const LAYOUT_WORDS: Record<DisplayLayout, string> = {
-  auto: msg('Automatic'),
+const LAYOUT_WORDS: Record<Exclude<DisplayLayout, 'auto'>, string> = {
   faceoff: msg('Face-off scroll'),
   tables: msg('Table pages'),
   alphabetical: msg('Alphabetical pages')
@@ -60,7 +59,12 @@ const blank = (): Draft => ({
 const draftOf = (preset: DisplayPreset): Draft => ({
   id: preset.id,
   name: preset.name,
-  options: { ...preset.options, room: preset.options.room ?? defaultRoom() }
+  options: {
+    ...preset.options,
+    // A preset saved as 'auto' already scrolls; the picker names that Face-off scroll.
+    layout: preset.options.layout === 'auto' ? 'faceoff' : preset.options.layout,
+    room: preset.options.room ?? defaultRoom()
+  }
 });
 const percent = (scale: number) => `${Math.round(scale * 100)}%`;
 const nudged = (scale: number, by: number) =>

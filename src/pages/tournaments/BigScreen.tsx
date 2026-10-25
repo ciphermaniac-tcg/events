@@ -441,13 +441,11 @@ function PhaseBody(props: {
   label: string;
   display: DisplayOptions;
   font: number;
-  size: { width: number; height: number };
 }) {
   const firstRound = () => firstRoundTime(props.view.settings.startsAt);
-  const tables = () => props.pods.reduce((count, pod) => count + (latestRound(pod)?.matches.length ?? 0), 0);
   const matches = () => (
     <Show
-      when={pagedDisplay(props.display, tables(), props.size, props.font)}
+      when={pagedDisplay(props.display)}
       fallback={
         <Scroller prefs={props.prefs} label={t('Pairings')}>
           <Matches view={props.view} pods={props.pods} prefs={props.prefs} />
@@ -602,7 +600,6 @@ export function BigScreen(props: { view: TournamentView; liveData?: LiveData; on
             label={status()[0] ?? ''}
             display={display()}
             font={font()}
-            size={size()}
           />
         )}
       </Show>

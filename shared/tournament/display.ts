@@ -1,4 +1,7 @@
-/** Store-owned display presets and the immutable copy an event chooses. */
+/**
+ * Store-owned display presets and the immutable copy an event chooses.
+ * 'auto' is no longer offered; presets saved with it scroll, like 'faceoff'.
+ */
 export type DisplayLayout = 'auto' | 'faceoff' | 'tables' | 'alphabetical';
 
 /**
@@ -29,7 +32,7 @@ export interface DisplaySelection extends DisplayPreset {
   storeId: string;
 }
 
-export const DEFAULT_DISPLAY: DisplayOptions = { scale: 1, layout: 'auto', pageSeconds: 15 };
+export const DEFAULT_DISPLAY: DisplayOptions = { scale: 1, layout: 'faceoff', pageSeconds: 15 };
 export const MAX_DISPLAY_PRESETS = 20;
 export const SCALE_LIMITS = { min: 0.75, max: 2 } as const;
 export const ROOM_LIMITS = {

@@ -40,12 +40,9 @@ export function displayCapacity(
   return { rows, columns, total: rows * columns };
 }
 
-export function pagedDisplay(options: DisplayOptions, tables: number, size: DisplaySize, font: number): boolean {
-  if (options.layout !== 'auto') {
-    return options.layout !== 'faceoff';
-  }
-  return tables > Math.max(4, Math.floor(size.height / (font * 3)));
-}
+/** Pages only when a preset asks for them; otherwise the face-off list scrolls, however many tables there are. */
+export const pagedDisplay = (options: DisplayOptions): boolean =>
+  options.layout === 'tables' || options.layout === 'alphabetical';
 
 export interface DisplayRow {
   pod: Pod;

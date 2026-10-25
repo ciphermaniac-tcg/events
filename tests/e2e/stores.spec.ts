@@ -969,7 +969,7 @@ test('store settings: a manager reading German measures the room in metres', asy
   await expect.poll(() => puts.length).toBe(1);
   expect(puts[0]).toEqual({
     name: 'Kampfkraft',
-    options: { scale: 1.65, layout: 'auto', pageSeconds: 15, room: { inches: 43, metres: 5.5 } }
+    options: { scale: 1.65, layout: 'faceoff', pageSeconds: 15, room: { inches: 43, metres: 5.5 } }
   });
 });
 

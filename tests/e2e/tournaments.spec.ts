@@ -1382,6 +1382,15 @@ function largeDisplayView(): TournamentView {
   return {
     ...VIEW,
     decks: {},
+    settings: {
+      ...VIEW.settings,
+      display: {
+        id: 'pages',
+        name: 'Pages',
+        storeId: 'store',
+        options: { scale: 1, layout: 'tables', pageSeconds: 15 }
+      }
+    },
     tournament: {
       ...VIEW.tournament,
       players,
@@ -1395,6 +1404,14 @@ function largeDisplayView(): TournamentView {
     }
   };
 }
+
+test('a large big screen with no preset scrolls its tables rather than paging them', async ({ page }) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await mockApi(page, { ...largeDisplayView(), settings: { ...VIEW.settings, display: null } });
+  await page.goto(`/t/${CODE}?screen=1`);
+  await expect(page.getByRole('region', { name: 'Pairings' })).toBeVisible();
+  await expect(page.locator('.tm-screen-pagination')).toHaveCount(0);
+});
 
 test('a large big screen fits dense pages and keeps them stationary under reduced motion', async ({ page }) => {
   await page.setViewportSize({ width: 1920, height: 1080 });
