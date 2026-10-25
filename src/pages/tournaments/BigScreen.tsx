@@ -597,7 +597,8 @@ export function BigScreen(props: { view: TournamentView; liveData?: LiveData; on
             pods={pods()}
             prefs={prefs}
             url={url()}
-            label={status()[0] ?? ''}
+            // A sole division's round is in the header already; several have no header line to name them.
+            label={pods().length > 1 ? (status()[0] ?? '') : ''}
             display={display()}
             font={font()}
           />

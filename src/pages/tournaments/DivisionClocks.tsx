@@ -37,7 +37,7 @@ function notes(clock: DivisionClock, pending: readonly PendingResult[], now: num
 }
 
 /**
- * The words under a clock: its name and state. Under the leading clock, once
+ * The words under a clock: its name, unless the header gives it, and state. Under the leading clock, once
  * the screen stops hearing from the event, when it last did instead: every
  * clock has stopped there, and the room should not call time by it.
  */
@@ -54,9 +54,15 @@ function Caption(props: {
     if (props.lead && behind !== null) {
       return t('Not updated since {time}', { time: checkedTime(behind.checkedAt) });
     }
-    return [props.label ?? props.clock.label, ...notes(props.clock, props.pending, props.now)].join(' · ');
+    return [props.label ?? props.clock.label, ...notes(props.clock, props.pending, props.now)]
+      .filter(Boolean)
+      .join(' · ');
   };
-  return <p>{text()}</p>;
+  return (
+    <Show when={text()}>
+      <p>{text()}</p>
+    </Show>
+  );
 }
 
 /**
@@ -76,7 +82,14 @@ export function DivisionClocks(props: { pods: Pod[]; pending: readonly PendingRe
       when={clocks().length > 1}
       fallback={
         <div class='tm-screen-big-clock'>
-          <Show when={clocks()[0]} fallback={<p>{props.label}</p>}>
+          <Show
+            when={clocks()[0]}
+            fallback={
+              <Show when={props.label}>
+                <p>{props.label}</p>
+              </Show>
+            }
+          >
             {clock => (
               <>
                 <Time clock={clock()} class='tm-screen-clock' />

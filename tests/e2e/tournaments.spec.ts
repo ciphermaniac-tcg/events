@@ -2269,5 +2269,5 @@ test('a sole division whose clock is paused says so under the clock', async ({ p
   await mockApi(page, view);
   await page.goto(`/t/${CODE}?screen=1`);
   await expect(page.locator('.tm-screen-big-clock').getByRole('timer')).toHaveText('22:05');
-  await expect(page.locator('.tm-screen-big-clock p')).toHaveText(/ · Paused$/);
+  await expect(page.locator('.tm-screen-big-clock p')).toHaveText('Paused');
 });

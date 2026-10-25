@@ -206,7 +206,7 @@ test('the big screen marks the tables on extra time once the round’s time is o
   // Time is called in words, not by a minus sign: the face says so, the caption says when.
   await expect(page.locator('.tm-screen-big-clock').getByRole('timer')).toHaveText('Time');
   await expect(page.locator('.tm-screen-big-clock p')).toHaveText(
-    new RegExp(`· Called 1:\\d\\d ago · ${playing.length} tables on extra time$`)
+    new RegExp(`^Called 1:\\d\\d ago · ${playing.length} tables on extra time$`)
   );
 });
 
