@@ -14,27 +14,17 @@
 import { HOSTS_ONLY, mayBeMinor } from '../../shared/accounts/age.js';
 import { type AccountRole, canJoinCommunity, readAccountRole } from '../../shared/accounts/roles.js';
 import { jsonError, jsonResponse } from '../lib/api/responses.js';
-import { type Context, sameOrigin } from '../lib/auth/env.js';
-import { currentAccount, type User } from '../lib/auth/session.js';
+import type { Context } from '../lib/auth/env.js';
+import { currentAccount, signedIn, type User } from '../lib/auth/session.js';
 import { rowsChanged } from '../lib/d1.js';
 import { birthYear } from '../../shared/tournament/divisions.js';
 import { msg } from '../../shared/i18n.js';
-
-/** The signed-in account, or the answer that turns the request away. */
-async function asker({ request, env }: Context) {
-  const db = env.TOURNAMENT_DB;
-  if (!db || !sameOrigin(request)) {
-    return jsonError('Forbidden', 403);
-  }
-  const user = await currentAccount(db, request);
-  return user ? { db, user } : jsonError('Sign in first', 401);
-}
 
 const answer = (user: User, role: AccountRole | null) =>
   jsonResponse({ user: { ...user, role } }, { cacheControl: 'no-store', cors: false });
 
 export async function onRequestPost(context: Context): Promise<Response> {
-  const found = await asker(context);
+  const found = await signedIn(context, currentAccount);
   if (found instanceof Response) {
     return found;
   }
@@ -58,7 +48,7 @@ export async function onRequestPost(context: Context): Promise<Response> {
 }
 
 export async function onRequestDelete(context: Context): Promise<Response> {
-  const found = await asker(context);
+  const found = await signedIn(context, currentAccount);
   if (found instanceof Response) {
     return found;
   }

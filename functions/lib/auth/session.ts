@@ -12,7 +12,9 @@ import { displayName, isHandle, randomHandle } from '../../../shared/accounts/ha
 import { type AccountRole, readAccountRole } from '../../../shared/accounts/roles.js';
 import { storeRoleOf } from '../../../shared/accounts/stores.js';
 import type { MyStore } from '../../../shared/accounts/types.js';
+import { jsonError } from '../api/responses.js';
 import type { D1Like, D1Statement } from '../types.js';
+import { type Context, sameOrigin } from './env.js';
 import { readCookie, SESSION_COOKIE } from './cookies.js';
 import type { Profile } from './oauth.js';
 
@@ -116,6 +118,22 @@ export async function currentUser(db: D1Like, request: Request): Promise<User | 
   const hash = await sessionHash(request);
   const row = hash ? await sessionUserQuery(db, hash, Date.now()).first<UserRow>() : null;
   return row ? userFromRow(row) : null;
+}
+
+/**
+ * The database and the signed-in account, as `read` finds it, for a request
+ * from this site; else the answer that turns the request away.
+ */
+export async function signedIn(
+  { request, env }: Pick<Context, 'request' | 'env'>,
+  read: (db: D1Like, request: Request) => Promise<User | null> = currentUser
+): Promise<{ db: D1Like; user: User } | Response> {
+  const db = env.TOURNAMENT_DB;
+  if (!db || !sameOrigin(request)) {
+    return jsonError('Forbidden', 403);
+  }
+  const user = await read(db, request);
+  return user ? { db, user } : jsonError('Sign in first', 401);
 }
 
 interface MyStoreRow {

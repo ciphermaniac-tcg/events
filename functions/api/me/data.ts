@@ -15,7 +15,7 @@ import { dataHolds, wipeParts } from '../../lib/accounts/wipe.js';
 import { readJsonObject } from '../../lib/api/body.js';
 import { jsonError, jsonResponse, PRIVATE } from '../../lib/api/responses.js';
 import { type Context, sameOrigin } from '../../lib/auth/env.js';
-import { currentAccount } from '../../lib/auth/session.js';
+import { currentAccount, signedIn } from '../../lib/auth/session.js';
 
 export async function onRequestGet({ request, env }: Context): Promise<Response> {
   const db = env.TOURNAMENT_DB;
@@ -46,14 +46,11 @@ export async function onRequestGet({ request, env }: Context): Promise<Response>
 }
 
 export async function onRequestPost({ request, env }: Context): Promise<Response> {
-  const db = env.TOURNAMENT_DB;
-  if (!db || !sameOrigin(request)) {
-    return jsonError('Forbidden', 403);
+  const opened = await signedIn({ request, env }, currentAccount);
+  if (opened instanceof Response) {
+    return opened;
   }
-  const user = await currentAccount(db, request);
-  if (!user) {
-    return jsonError('Sign in first', 401);
-  }
+  const { db, user } = opened;
   const parts = readWipeParts((await readJsonObject(request, 256))?.parts);
   if (!parts) {
     return jsonError('Choose what to wipe', 400);

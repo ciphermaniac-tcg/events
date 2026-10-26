@@ -23,12 +23,12 @@ import { renameAccount } from '../lib/accounts/handles.js';
 import { deleteAccount } from '../lib/accounts/wipe.js';
 import { readJsonBody, readJsonObject } from '../lib/api/body.js';
 import { jsonError, jsonResponse, PRIVATE } from '../lib/api/responses.js';
-import { type Context, sameOrigin } from '../lib/auth/env.js';
+import type { Context } from '../lib/auth/env.js';
 import { clerkKeys, purgeClerkDeletions } from '../lib/auth/clerk.js';
 import { clearCookie, SESSION_COOKIE } from '../lib/auth/cookies.js';
 import { purgeProofs } from '../lib/auth/rejection.js';
 import { availableProviders } from '../lib/auth/providers.js';
-import { currentAccount, type ProfileName, type User } from '../lib/auth/session.js';
+import { currentAccount, type ProfileName, signedIn, type User } from '../lib/auth/session.js';
 import { rowsChanged } from '../lib/d1.js';
 import type { D1Like } from '../lib/types.js';
 import { msg } from '../../shared/i18n.js';
@@ -62,14 +62,11 @@ function profileWrites(db: D1Like, user: User, profile: PlayerProfile) {
 }
 
 export async function onRequestPut({ request, env }: Context): Promise<Response> {
-  const db = env.TOURNAMENT_DB;
-  if (!db || !sameOrigin(request)) {
-    return jsonError('Forbidden', 403);
+  const opened = await signedIn({ request, env }, currentAccount);
+  if (opened instanceof Response) {
+    return opened;
   }
-  const user = await currentAccount(db, request);
-  if (!user) {
-    return jsonError('Sign in first', 401);
-  }
+  const { db, user } = opened;
   const body = await readJsonBody(request, 2048);
   const read = body.ok ? readProfile(body.value) : null;
   if (!read) {
@@ -138,14 +135,11 @@ async function applyChange(db: D1Like, user: User, change: AccountChange): Promi
 }
 
 export async function onRequestPatch({ request, env }: Context): Promise<Response> {
-  const db = env.TOURNAMENT_DB;
-  if (!db || !sameOrigin(request)) {
-    return jsonError('Forbidden', 403);
+  const opened = await signedIn({ request, env }, currentAccount);
+  if (opened instanceof Response) {
+    return opened;
   }
-  const user = await currentAccount(db, request);
-  if (!user) {
-    return jsonError('Sign in first', 401);
-  }
+  const { db, user } = opened;
   const change = readChange((await readJsonObject(request, 256)) ?? {});
   if (typeof change === 'string') {
     return jsonError(change, 400);
@@ -155,14 +149,11 @@ export async function onRequestPatch({ request, env }: Context): Promise<Respons
 }
 
 export async function onRequestDelete({ request, env }: Context): Promise<Response> {
-  const db = env.TOURNAMENT_DB;
-  if (!db || !sameOrigin(request)) {
-    return jsonError('Forbidden', 403);
+  const opened = await signedIn({ request, env }, currentAccount);
+  if (opened instanceof Response) {
+    return opened;
   }
-  const user = await currentAccount(db, request);
-  if (!user) {
-    return jsonError('Sign in first', 401);
-  }
+  const { db, user } = opened;
   if ((await readJsonObject(request, 256))?.confirm !== user.handle) {
     return jsonError('Type your username to confirm', 400);
   }

@@ -34,8 +34,8 @@ import {
 } from '../../../shared/tournament/view.js';
 import { readJsonObject } from '../../lib/api/body.js';
 import { jsonError } from '../../lib/api/responses.js';
-import { type Context, sameOrigin } from '../../lib/auth/env.js';
-import { currentUser, sessionHash, type User } from '../../lib/auth/session.js';
+import type { Context } from '../../lib/auth/env.js';
+import { currentUser, sessionHash, signedIn, type User } from '../../lib/auth/session.js';
 import { MAX_TOURNAMENT_BYTES, privateJson } from '../../lib/tournaments/access.js';
 import { publishAfter } from '../../lib/tournaments/publish.js';
 import {
@@ -348,14 +348,11 @@ async function creationGuard(request: Request, userId: string, storeId: string |
 
 export async function onRequestPost(context: Context): Promise<Response> {
   const { request, env } = context;
-  const db = env.TOURNAMENT_DB;
-  if (!db || !sameOrigin(request)) {
-    return jsonError('Forbidden', 403);
+  const opened = await signedIn({ request, env });
+  if (opened instanceof Response) {
+    return opened;
   }
-  const user = await currentUser(db, request);
-  if (!user) {
-    return jsonError('Sign in first', 401);
-  }
+  const { db, user } = opened;
   const read = await readNew(request);
   if (typeof read === 'string') {
     return jsonError(read, 400);

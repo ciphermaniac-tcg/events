@@ -3,8 +3,8 @@ import { profilePreferences, saveProfileLinks } from '../../lib/accounts/profile
 import { readJsonObject } from '../../lib/api/body.js';
 import { jsonError } from '../../lib/api/responses.js';
 import { privateJson } from '../../lib/tournaments/access.js';
-import { type Context, sameOrigin } from '../../lib/auth/env.js';
-import { currentUser } from '../../lib/auth/session.js';
+import type { Context } from '../../lib/auth/env.js';
+import { currentUser, signedIn } from '../../lib/auth/session.js';
 import type { D1Like } from '../../lib/types.js';
 
 export async function onRequestGet({ request, env }: Context): Promise<Response> {
@@ -26,14 +26,11 @@ async function save(db: D1Like, userId: string, body: Record<string, unknown>): 
 }
 
 export async function onRequestPut({ request, env }: Context): Promise<Response> {
-  const db = env.TOURNAMENT_DB;
-  if (!db || !sameOrigin(request)) {
-    return jsonError('Forbidden', 403);
+  const opened = await signedIn({ request, env });
+  if (opened instanceof Response) {
+    return opened;
   }
-  const user = await currentUser(db, request);
-  if (!user) {
-    return jsonError('Sign in first', 401);
-  }
+  const { db, user } = opened;
   const body = await readJsonObject(request, 4096);
   return body ? save(db, user.id, body) : jsonError('Not a valid change', 400);
 }
