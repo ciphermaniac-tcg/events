@@ -13,7 +13,7 @@ import { type Context, param, sameOrigin } from '../auth/env.js';
 import { sessionHash, sessionUserQuery, type User, userFromRow, type UserRow } from '../auth/session.js';
 import { firstRow, type Guard } from '../d1.js';
 import type { D1Like } from '../types.js';
-import { loadStore } from './db.js';
+import { storeOf, storeQuery, type StoreRow } from './db.js';
 import { msg } from '../../../shared/i18n.js';
 
 export interface StoreAccess {
@@ -47,14 +47,16 @@ const ROW_NEEDS: Record<Exclude<Need, 'anyone'>, string> = {
   owner: " AND m.role = 'owner'"
 };
 
-/** The asker and their role in the store, read in one round trip with the session. */
+/** The store, the asker and their role in it, read in one round trip with the session. */
 async function asker(db: D1Like, request: Request, storeId: string) {
   const hash = await sessionHash(request);
+  const store = storeQuery(db, storeId);
   if (!hash) {
-    return { user: null, role: null, hash: '' };
+    return { store: storeOf(await store.first<StoreRow>()), user: null, role: null, hash: '' };
   }
   const now = Date.now();
-  const [account, member] = await db.batch([
+  const [found, account, member] = await db.batch([
+    store,
     sessionUserQuery(db, hash, now),
     db
       .prepare(
@@ -66,7 +68,12 @@ async function asker(db: D1Like, request: Request, storeId: string) {
   const row = firstRow<UserRow>(account);
   const user = row && userFromRow(row);
   const stored = firstRow<{ role: string }>(member)?.role;
-  return { user, role: user ? roleOf(stored, isAdmin(user.role)) : null, hash };
+  return {
+    store: storeOf(firstRow<StoreRow>(found)),
+    user,
+    role: user ? roleOf(stored, isAdmin(user.role)) : null,
+    hash
+  };
 }
 
 const REFUSALS: Record<Exclude<Need, 'anyone'>, string> = {
@@ -85,7 +92,8 @@ export async function openStore(context: Context<'id'>, need: Need): Promise<Sto
     return jsonError('Forbidden', 403);
   }
   const id = param(context.params.id);
-  const [store, who] = await Promise.all([loadStore(db, id), asker(db, context.request, id)]);
+  const who = await asker(db, context.request, id);
+  const { store } = who;
   if (!store) {
     return jsonError('No such store', 404);
   }

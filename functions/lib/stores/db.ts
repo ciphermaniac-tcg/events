@@ -35,7 +35,7 @@ import type { D1Like, D1Statement } from '../types.js';
 export const INVITE_DAYS = 7;
 const INVITE_MS = INVITE_DAYS * 24 * 60 * 60 * 1000;
 
-interface StoreRow {
+export interface StoreRow {
   id: string;
   league_id: string | null;
   status: string;
@@ -81,9 +81,13 @@ function storeFromRow(row: StoreRow): Store {
   };
 }
 
+/** One store's row, to read alone or in a batch; storeOf reads what it found. */
+export const storeQuery = (db: D1Like, id: string) => db.prepare('SELECT * FROM stores WHERE id = ?').bind(id);
+
+export const storeOf = (row: StoreRow | null): Store | null => row && storeFromRow(row);
+
 export async function loadStore(db: D1Like, id: string): Promise<Store | null> {
-  const row = await db.prepare('SELECT * FROM stores WHERE id = ?').bind(id).first<StoreRow>();
-  return row && storeFromRow(row);
+  return storeOf(await storeQuery(db, id).first<StoreRow>());
 }
 
 export async function storeOfLeague(db: D1Like, leagueId: string): Promise<Store | null> {
