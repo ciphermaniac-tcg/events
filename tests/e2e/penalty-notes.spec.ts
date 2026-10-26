@@ -16,7 +16,7 @@ import type { DeckCheckEntry } from '../../shared/tournament/deckChecks';
 import type { PenaltyNoteEntry } from '../../shared/tournament/penaltyNotes';
 import type { Tournament } from '../../shared/tournament/types';
 import { DEFAULT_SETTINGS } from '../../shared/tournament/view';
-import { organizerMe, runCommands } from './console-fixture';
+import { manageOf, organizerMe, runCommands } from './console-fixture';
 
 const CODE = 'PEN001';
 
@@ -87,18 +87,11 @@ function manageRoute(
   }
   return route.fulfill({
     json: {
-      code: CODE,
-      mode,
-      version: changed ? 4 : 3,
-      updatedAt: 0,
-      tournament,
-      pending: [],
-      reports: [],
-      settings: { ...DEFAULT_SETTINGS, sanctioned: false, decklists },
-      decks: {},
-      role: 'owner',
-      staffToken: 'invite',
-      store: 'store-1'
+      ...manageOf(CODE, tournament, {
+        version: changed ? 4 : 3,
+        settings: { ...DEFAULT_SETTINGS, sanctioned: false, decklists }
+      }),
+      mode
     }
   });
 }

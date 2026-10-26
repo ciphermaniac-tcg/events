@@ -20,7 +20,7 @@ import {
   publicTournament,
   type TournamentView
 } from '../../shared/tournament/view';
-import { organizerMe, runCommands } from './console-fixture';
+import { manageOf, organizerMe, runCommands } from './console-fixture';
 
 const CODE = 'BRACKT';
 
@@ -133,20 +133,7 @@ test('the big screen switches to the bracket with B, and remembers it', async ({
 
 test('the console looks at the top cut as a bracket, and enters results in the table', async ({ page }) => {
   const t = quarterfinalsPlayed();
-  const manage = {
-    code: CODE,
-    mode: 'swiss',
-    version: 3,
-    updatedAt: 0,
-    tournament: t,
-    pending: [],
-    reports: [],
-    settings: SETTINGS,
-    decks: {},
-    role: 'owner',
-    staffToken: 'invite',
-    store: 'store-1'
-  };
+  const manage = manageOf(CODE, t, { settings: SETTINGS });
   await page.route('**/api/**', route => {
     const url = new URL(route.request().url());
     if (url.pathname === '/api/me') {

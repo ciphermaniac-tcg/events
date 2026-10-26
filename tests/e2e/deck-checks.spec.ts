@@ -14,7 +14,7 @@ import { emptyTournament } from '../../shared/tournament/create';
 import type { DeckCheckEntry } from '../../shared/tournament/deckChecks';
 import type { Tournament } from '../../shared/tournament/types';
 import { DEFAULT_SETTINGS } from '../../shared/tournament/view';
-import { organizerMe, runCommands } from './console-fixture';
+import { manageOf, organizerMe, runCommands } from './console-fixture';
 
 const CODE = 'CHECK1';
 
@@ -55,20 +55,9 @@ type Body = Record<string, unknown>;
 async function mockConsole(page: Page, tournament: Tournament, held: Promise<void> = Promise.resolve()) {
   const entries: DeckCheckEntry[] = [];
   const writes: { method: string; body: Body | null; id: string | null }[] = [];
-  const manage = {
-    code: CODE,
-    mode: 'swiss',
-    version: 3,
-    updatedAt: 0,
-    tournament,
-    pending: [],
-    reports: [],
-    settings: { ...DEFAULT_SETTINGS, sanctioned: false, decklists: 'open' },
-    decks: {},
-    role: 'owner',
-    staffToken: 'invite',
-    store: 'store-1'
-  };
+  const manage = manageOf(CODE, tournament, {
+    settings: { ...DEFAULT_SETTINGS, sanctioned: false, decklists: 'open' }
+  });
   const append = (entry: Omit<DeckCheckEntry, 'id' | 'recordedBy' | 'recordedAt'>) =>
     entries.push({ ...entry, id: `e${entries.length + 1}`, recordedBy: 'Organizer', recordedAt: Date.now() });
   const record = () => ({ json: { entries, checkers: CHECKERS } });

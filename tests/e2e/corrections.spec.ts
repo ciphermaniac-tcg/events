@@ -15,7 +15,7 @@ import { correctedTournament, type CorrectionEntry } from '../../shared/tourname
 import { emptyTournament } from '../../shared/tournament/create';
 import type { Tournament } from '../../shared/tournament/types';
 import { DEFAULT_SETTINGS } from '../../shared/tournament/view';
-import { organizerMe, runCommands } from './console-fixture';
+import { manageOf, organizerMe, runCommands } from './console-fixture';
 
 const CODE = 'FIX001';
 
@@ -64,20 +64,7 @@ async function mockConsole(page: Page, start: Tournament, approver: 'organizer' 
   let writes = writesFirst;
   const sent: Body[] = [];
   const entries: CorrectionEntry[] = [];
-  const view = () => ({
-    code: CODE,
-    mode: 'swiss',
-    version,
-    updatedAt: 0,
-    tournament,
-    pending: [],
-    reports: [],
-    settings: { ...DEFAULT_SETTINGS, sanctioned: false },
-    decks: {},
-    role: approver ? 'owner' : 'staff',
-    staffToken: 'invite',
-    store: 'store-1'
-  });
+  const view = () => manageOf(CODE, tournament, { version, role: approver ? 'owner' : 'staff' });
   function correctionsRoute(route: Route) {
     if (route.request().method() !== 'POST') {
       return route.fulfill({ json: { corrections: entries, headJudge: null, approver } });

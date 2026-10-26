@@ -7,6 +7,7 @@
 import { applyCommand, type Command } from '../../shared/tournament/commands';
 import { seededRandom } from '../../shared/tournament/random';
 import type { Tournament } from '../../shared/tournament/types';
+import { DEFAULT_SETTINGS, type Manage } from '../../shared/tournament/view';
 
 /** Apply each command in turn, each on the same clock and season and a freshly seeded random stream. */
 export function runCommands(tournament: Tournament, ...commands: Command[]): Tournament {
@@ -28,3 +29,20 @@ export function organizerMe(extra: Record<string, unknown> = {}) {
   const account = { ...user, birthDate: null, role: 'community', stores: [], handle: 'organizer', ...extra };
   return { user: { ...account, providers: ['dev'] }, providers: ['dev'] };
 }
+
+/** The organizer's console copy of event `code` holding `tournament`, as a read or a command answers it; `extra` sets the rest. */
+export const manageOf = (code: string, tournament: Tournament, extra: Partial<Manage> = {}): Manage => ({
+  code,
+  mode: 'swiss',
+  version: 3,
+  updatedAt: 0,
+  tournament,
+  pending: [],
+  reports: [],
+  settings: { ...DEFAULT_SETTINGS, sanctioned: false },
+  decks: {},
+  role: 'owner',
+  staffToken: 'invite',
+  store: 'store-1',
+  ...extra
+});

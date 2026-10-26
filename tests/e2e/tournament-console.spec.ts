@@ -27,7 +27,7 @@ import {
   type TournamentSettings,
   type TournamentView
 } from '../../shared/tournament/view';
-import { organizerMe, runCommands } from './console-fixture';
+import { manageOf, organizerMe, runCommands } from './console-fixture';
 
 const CODE = 'SWISS2';
 
@@ -99,20 +99,11 @@ async function mockConsole(
   const decks: unknown[] = [];
   const saved: Partial<TournamentSettings>[] = [];
   const manage = {
-    code: CODE,
-    mode: 'swiss',
-    version: 3,
-    updatedAt: 0,
-    tournament,
-    pending: [],
+    ...manageOf(CODE, tournament, { settings, role }),
     reports,
     requests,
-    settings,
     decks: {} as Record<string, string>,
-    checkins: {} as CheckIns,
-    role,
-    staffToken: 'invite',
-    store: 'store-1'
+    checkins: {} as CheckIns
   };
   await page.route('**/api/**', route => {
     const url = new URL(route.request().url());
@@ -287,22 +278,12 @@ test('deleting an event with players counts what goes and waits for its code to 
 
 test('deleting a TOM event before its file comes in counts the players registered on the site', async ({ page }) => {
   await mockConsole(page, emptyTournament({ name: 'Friday League' }), settingsOf({}));
-  const manage = {
-    code: CODE,
+  const manage = manageOf(CODE, emptyTournament({ name: 'Friday League' }), {
     mode: 'tom',
-    version: 3,
-    updatedAt: 0,
-    tournament: emptyTournament({ name: 'Friday League' }),
-    pending: [],
-    reports: [],
     requests: [],
     settings: settingsOf({}),
-    decks: {},
-    checkins: {},
-    role: 'owner',
-    staffToken: 'invite',
-    store: 'store-1'
-  };
+    checkins: {}
+  });
   const decklists = Array.from({ length: 3 }, (_, i) => ({
     popId: String(1001 + i),
     firstName: `Player${i + 1}`,
@@ -371,20 +352,7 @@ test('a result shows in its row while it is on its way, and its answer is not re
 });
 
 /** The console's copy of `t`, as a command or a read answers with it. */
-const manageOf = (t: Tournament, version: number) => ({
-  code: CODE,
-  mode: 'swiss',
-  version,
-  updatedAt: 0,
-  tournament: t,
-  pending: [],
-  reports: [],
-  settings: settingsOf({}),
-  decks: {},
-  role: 'owner',
-  staffToken: 'invite',
-  store: 'store-1'
-});
+const consoleOf = (t: Tournament, version: number) => manageOf(CODE, t, { version, settings: settingsOf({}) });
 
 /** The row of `match`, found by its table number. */
 const rowOf = (page: Page, match: Match) =>
@@ -402,7 +370,7 @@ test('a result the server does not take stays in its row as not saved, and Retry
     tries.push(command);
     return tries.length === 1
       ? route.fulfill({ status: 503, json: { error: 'Busy; try again' } })
-      : route.fulfill({ json: manageOf(runCommands(t, command), 4) });
+      : route.fulfill({ json: consoleOf(runCommands(t, command), 4) });
   });
   await rowOf(page, match).locator('.tm-seat-link').first().dblclick();
   const unsaved = rowOf(page, match).getByRole('group', { name: 'Result not saved' });
@@ -431,7 +399,7 @@ test('a retry reads the event first and sends nothing when the result had landed
     return route.abort('connectionreset');
   });
   await page.route(`**/api/tournaments/${CODE}/manage*`, route =>
-    saved ? route.fulfill({ json: manageOf(landed, 4) }) : route.fulfill({ status: 204 })
+    saved ? route.fulfill({ json: consoleOf(landed, 4) }) : route.fulfill({ status: 204 })
   );
   await rowOf(page, match).locator('.tm-seat-link').first().dblclick();
   const unsaved = rowOf(page, match).getByRole('group', { name: 'Result not saved' });
@@ -751,9 +719,9 @@ test('a result another device changed first is named in its row, and Use mine re
           status: 400,
           json: { error: 'This result was changed on another device. Check it and enter yours again.' }
         })
-      : route.fulfill({ json: manageOf(runCommands(theirs, command), 5) });
+      : route.fulfill({ json: consoleOf(runCommands(theirs, command), 5) });
   });
-  await page.route(`**/api/tournaments/${CODE}/manage*`, route => route.fulfill({ json: manageOf(theirs, 4) }));
+  await page.route(`**/api/tournaments/${CODE}/manage*`, route => route.fulfill({ json: consoleOf(theirs, 4) }));
   await rowOf(page, match).locator('.tm-seat-link').first().dblclick();
   const unsaved = rowOf(page, match).getByRole('group', { name: 'Result not saved' });
   const other = await rowOf(page, match).locator('.tm-name').nth(1).textContent();
@@ -1100,7 +1068,7 @@ test('a colleague’s change shows in an untouched setting, and saving sends onl
   await expect(reporting.getByRole('radio', { name: 'Disabled' })).toHaveAttribute('aria-checked', 'true');
   await page.getByLabel('Event description').fill('Doors at nine');
   // A colleague turns reporting on; the console's next look brings it in.
-  const changed = { ...manageOf(event(4, 0, true), 9), settings: { ...settings, playerReporting: true } };
+  const changed = { ...consoleOf(event(4, 0, true), 9), settings: { ...settings, playerReporting: true } };
   await page.route(`**/api/tournaments/${CODE}/manage*`, route => route.fulfill({ json: changed }));
   await page.evaluate(() => window.dispatchEvent(new Event('online')));
   await expect(reporting.getByRole('radio', { name: 'Enabled' })).toHaveAttribute('aria-checked', 'true');

@@ -4,6 +4,7 @@ import type { PublicProfile, PublicStore } from '../../shared/accounts/types';
 import { emptyTournament } from '../../shared/tournament/create';
 import { DEFAULT_SETTINGS, type Manage, type TournamentView } from '../../shared/tournament/view';
 import { deferred } from '../__utils__/deferred';
+import { manageOf } from './console-fixture';
 
 const USER = {
   id: 'transition-user',
@@ -31,20 +32,7 @@ async function navigate(page: Page, path: string) {
 }
 
 function manage(code: string): Manage {
-  return {
-    code,
-    mode: 'swiss',
-    version: 1,
-    updatedAt: 0,
-    tournament: emptyTournament({ name: `Event ${code}` }),
-    pending: [],
-    reports: [],
-    decks: {},
-    settings: { ...DEFAULT_SETTINGS, sanctioned: false },
-    role: 'owner',
-    staffToken: null,
-    store: null
-  };
+  return manageOf(code, emptyTournament({ name: `Event ${code}` }), { version: 1, staffToken: null, store: null });
 }
 
 function publicView(code: string): TournamentView {
