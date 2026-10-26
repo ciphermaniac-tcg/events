@@ -444,19 +444,26 @@ function eliminationTallies(pod: Pod): Map<string, Tally> {
     round.matches.forEach(match => registerEliminationMatch(tallies, match));
     countRound(tallies, round);
   }
+  const lastSwiss = lastSwissOpponents(pod);
   for (const [id, tally] of tallies) {
-    if (!tally.opponents.length) {
-      const last = pod.rounds
-        .filter(r => r.kind === 'swiss')
-        .flatMap(r => r.matches)
-        .filter(m => m.p2 !== null && (m.p1 === id || m.p2 === id))
-        .at(-1);
-      if (last) {
-        tally.opponents.push(last.p1 === id ? last.p2! : last.p1);
-      }
+    const last = lastSwiss.get(id);
+    if (!tally.opponents.length && last !== undefined) {
+      tally.opponents.push(last);
     }
   }
   return tallies;
+}
+
+/** Each player's opponent in the last Swiss match they had one, read in one pass over the Swiss rounds. */
+function lastSwissOpponents(pod: Pod): Map<string, string> {
+  const last = new Map<string, string>();
+  for (const match of pod.rounds.filter(r => r.kind === 'swiss').flatMap(r => r.matches)) {
+    if (match.p2 !== null) {
+      last.set(match.p1, match.p2);
+      last.set(match.p2, match.p1);
+    }
+  }
+  return last;
 }
 
 function thirdPlaceComparison(tallies: ReadonlyMap<string, Tally>, a: Tally, b: Tally, rounds: number): number {
