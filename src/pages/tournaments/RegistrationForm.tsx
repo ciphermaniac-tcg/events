@@ -16,7 +16,7 @@
  * (see decklistMemory.ts), so coming back opens it.
  */
 
-import { createEffect, createSignal, For, type JSX, Match, on, Show, Switch } from 'solid-js';
+import { createEffect, createMemo, createSignal, For, type JSX, Match, on, Show, Switch } from 'solid-js';
 import { mayBeUnder13 } from '../../../shared/accounts/age';
 import { type DeckSection, parseDecklist } from '../../../shared/tournament/decklist';
 import { fullNameKey } from '../../../shared/tournament/identify';
@@ -83,7 +83,7 @@ function createRegistration(props: RegistrationProps) {
   const [idTaken, setIdTaken] = createSignal(false);
   const [busy, setBusy] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
-  const parsed = () => parseDecklist(deck());
+  const parsed = createMemo(() => parseDecklist(deck()));
   const token = () => recall(props.code)?.token ?? '';
   // A player under 13 registers with staff (see shared/accounts/age.ts), so the year typed says so at once.
   const young = () => {

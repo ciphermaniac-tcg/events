@@ -812,7 +812,7 @@ function Hero(props: { view: TournamentView; prefer: (PodCategory | null)[] }) {
   const place = () => [info().city, info().state].filter(Boolean).join(', ');
   const playing = () => livePods(props.view.tournament).some(pod => podProgress(pod, props.view.pending).open > 0);
   const started = () => livePods(props.view.tournament).some(pod => pod.rounds.length > 0);
-  const parts = () =>
+  const parts = createMemo(() =>
     [
       eventDate(settings(), info().startDate),
       settings().format,
@@ -825,7 +825,8 @@ function Hero(props: { view: TournamentView; prefer: (PodCategory | null)[] }) {
         props.view.updatedAt > 0 &&
         !playing() &&
         t('Updated {time}', { time: updatedLabel(props.view.updatedAt) })
-    ].filter(Boolean);
+    ].filter(Boolean)
+  );
   return (
     <>
       <TournamentHero

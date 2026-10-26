@@ -208,7 +208,7 @@ function RoundEndStep(props: {
  */
 function Hero(props: { state: ManageState; manage: Manage; pod: Pod | undefined; tom: TomLink | null }) {
   const finished = () => props.manage.settings.finished;
-  const progress = () => (props.pod ? podProgress(props.pod, props.manage.pending) : NO_PROGRESS);
+  const progress = createMemo(() => (props.pod ? podProgress(props.pod, props.manage.pending) : NO_PROGRESS));
   const waiting = () =>
     props.manage.mode === 'swiss' && props.pod ? unseated(props.manage.tournament, props.pod).length : 0;
   const active = () => (props.pod ? activeIds(props.manage.tournament, props.pod).length : 0);
@@ -222,8 +222,9 @@ function Hero(props: { state: ManageState; manage: Manage; pod: Pod | undefined;
       const round = latestRound(p);
       return p.category !== props.pod?.category && round !== undefined && !roundComplete(round);
     });
-  const plan = () =>
-    props.pod ? swissPlanOf(props.manage.tournament, props.pod, props.manage.settings.roundCap) : null;
+  const plan = createMemo(() =>
+    props.pod ? swissPlanOf(props.manage.tournament, props.pod, props.manage.settings.roundCap) : null
+  );
   /** The lead of the meta line: where the round stands, then what else needs saying about it. */
   const lead = () => {
     const { tom } = props;
@@ -243,7 +244,9 @@ function Hero(props: { state: ManageState; manage: Manage; pod: Pod | undefined;
     const { round } = progress();
     return round && round.status !== 'finished' && !progress().champion && !finished() ? round : null;
   };
-  const step = () => (props.tom ? ({ kind: 'none' } as NextStep) : nextStep(progress(), finished(), plan()));
+  const step = createMemo(() =>
+    props.tom ? ({ kind: 'none' } as NextStep) : nextStep(progress(), finished(), plan())
+  );
   const pairStep = () => {
     const s = step();
     return s.kind === 'pair' ? s : null;

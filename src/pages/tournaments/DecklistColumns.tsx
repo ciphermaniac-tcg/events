@@ -4,7 +4,7 @@
  * in a column of its own, for a judge reading it against the cards on a table.
  */
 
-import { For, Show } from 'solid-js';
+import { createMemo, For, Show } from 'solid-js';
 import { msg, t, tn } from '../../lib/i18n';
 import { DECK_SIZE, type DeckSection, parseDecklist } from '../../../shared/tournament/decklist';
 
@@ -15,7 +15,7 @@ const SECTIONS: { section: DeckSection; label: string }[] = [
 ];
 
 export function DecklistColumns(props: { deck: string }) {
-  const parsed = () => parseDecklist(props.deck);
+  const parsed = createMemo(() => parseDecklist(props.deck));
   // A section the list has no cards in is left out rather than counted as none.
   const sections = () =>
     SECTIONS.map(s => ({ ...s, cards: parsed().cards.filter(card => card.section === s.section) })).filter(

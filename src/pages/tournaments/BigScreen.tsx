@@ -235,13 +235,16 @@ function TableRows(props: { view: TournamentView; pod: Pod; round: Round; headin
       </Show>
       <ol class='tm-screen-tables'>
         <For each={sortMatches(props.round.matches)}>
-          {match => (
-            <li classList={{ 'is-done': marks(match)[0] !== '' }}>
-              {seat(match.p1, marks(match)[0], '')}
-              <TableMiddle table={match.table} marks={marks(match)} extra={match.timeExtension?.seconds} />
-              {seat(match.p2, marks(match)[1], match.outcome === 'bye' ? t('Bye') : t('Missed round'))}
-            </li>
-          )}
+          {match => {
+            const shown = createMemo(() => marks(match));
+            return (
+              <li classList={{ 'is-done': shown()[0] !== '' }}>
+                {seat(match.p1, shown()[0], '')}
+                <TableMiddle table={match.table} marks={shown()} extra={match.timeExtension?.seconds} />
+                {seat(match.p2, shown()[1], match.outcome === 'bye' ? t('Bye') : t('Missed round'))}
+              </li>
+            );
+          }}
         </For>
       </ol>
     </section>
@@ -500,10 +503,10 @@ export function BigScreen(props: { view: TournamentView; liveData?: LiveData; on
   const stale = useContext(StaleSince);
   const [controls, setControls] = createSignal(false);
   const url = () => `${location.origin}/t/${props.view.code}`;
-  const pods = () => livePods(props.view.tournament).filter(pod => latestRound(pod));
+  const pods = createMemo(() => livePods(props.view.tournament).filter(pod => latestRound(pod)));
   const anyBracket = createMemo(() => pods().some(hasCut));
   const phase = createMemo(() => screenPhase(pods(), props.view.pending, props.view.settings.finished));
-  const status = () =>
+  const status = createMemo(() =>
     eventStatus(
       props.view.tournament,
       {
@@ -515,14 +518,15 @@ export function BigScreen(props: { view: TournamentView; liveData?: LiveData; on
         prefer: [leadDivision(pods(), props.view.pending, now())]
       },
       now()
-    );
+    )
+  );
   // The clock's own words would repeat the clock under the header, and divisions on clocks of their own name themselves.
-  const statusShown = () => {
+  const statusShown = createMemo(() => {
     if (phase() !== 'clock') {
       return status();
     }
     return pods().length > 1 ? [] : status().slice(0, 2);
-  };
+  });
   let hide: ReturnType<typeof setTimeout> | undefined;
   const reveal = () => {
     setControls(true);
