@@ -56,7 +56,7 @@ import {
   statusParts,
   unseated
 } from '../../src/lib/tournament/present.ts';
-import { commandRunner, freshContext } from '../__utils__/commands.ts';
+import { commandRunner, freshContext, pendingResults } from '../__utils__/commands.ts';
 
 const CHALLENGE = parseTdf(readFileSync(new URL('../fixtures/tdf/challenge-midevent.tdf', import.meta.url), 'utf8'));
 const pod = CHALLENGE.pods[0] as Pod;
@@ -756,15 +756,7 @@ describe('endGaps', () => {
     type: 'updateInfo',
     info: { eventType: 'challenge' }
   });
-  const reportAll = (t: Tournament): Tournament => {
-    const round = t.pods[0]?.rounds.at(-1);
-    return run(
-      t,
-      ...(round?.matches ?? [])
-        .filter(m => m.p2 !== null && m.outcome === 'pending')
-        .map((m): Command => ({ type: 'reportResult', pod: 'masters', round: round!.number, ...m, outcome: 'p1' }))
-    );
-  };
+  const reportAll = (t: Tournament): Tournament => run(t, ...pendingResults(t.pods[0]!));
   const ending = (tournament: Tournament, roundCap = 0, mode: 'swiss' | 'tom' = 'swiss', pending = []) => ({
     tournament,
     pending,

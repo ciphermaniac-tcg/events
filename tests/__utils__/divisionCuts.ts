@@ -8,17 +8,14 @@ import type { Command } from '../../shared/tournament/commands.ts';
 import { emptyTournament } from '../../shared/tournament/create.ts';
 import { latestRound } from '../../shared/tournament/rounds.ts';
 import type { PodCategory, Tournament } from '../../shared/tournament/types.ts';
-import { commandRunner, freshContext } from './commands.ts';
+import { commandRunner, freshContext, pendingResults } from './commands.ts';
 
 const run = commandRunner(freshContext(5, '10/10/2026 10:00:00'));
 
 /** Every open match in the pod's current round, won by the first seat. */
 function reportAll(t: Tournament, category: PodCategory): Tournament {
-  const round = latestRound(t.pods.find(pod => pod.category === category));
-  const reports = (round?.matches ?? [])
-    .filter(m => m.p2 !== null && m.outcome === 'pending')
-    .map(m => ({ type: 'reportResult', pod: category, round: round?.number ?? 0, ...m, outcome: 'p1' }) as Command);
-  return run(t, ...reports);
+  const pod = t.pods.find(candidate => candidate.category === category);
+  return pod ? run(t, ...pendingResults(pod)) : t;
 }
 
 export function juniorsCutApart(): Tournament {

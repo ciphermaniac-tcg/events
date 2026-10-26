@@ -14,27 +14,13 @@ import type { Command } from '../../shared/tournament/commands';
 import { correctedTournament, type CorrectionEntry } from '../../shared/tournament/corrections';
 import { emptyTournament } from '../../shared/tournament/create';
 import type { Tournament } from '../../shared/tournament/types';
-import { DEFAULT_SETTINGS } from '../../shared/tournament/view';
 import { manageOf, organizerMe, runCommands } from './console-fixture';
+import { pendingResults } from '../__utils__/commands';
 
 const CODE = 'FIX001';
 
 /** Every two-player match of the latest round won by its first seat. */
-function reportAll(t: Tournament): Tournament {
-  const round = t.pods[0]!.rounds.at(-1)!;
-  const reports = round.matches
-    .filter(m => m.p2 !== null)
-    .map((m): Command => ({
-      type: 'reportResult',
-      pod: 'masters',
-      round: round.number,
-      table: m.table,
-      p1: m.p1,
-      p2: m.p2,
-      outcome: 'p1'
-    }));
-  return runCommands(t, ...reports);
-}
+const reportAll = (t: Tournament): Tournament => runCommands(t, ...pendingResults(t.pods[0]!));
 
 const NAMES = ['Ada', 'Ben', 'Cy', 'Di', 'Eve', 'Flo', 'Gus', 'Hal'];
 

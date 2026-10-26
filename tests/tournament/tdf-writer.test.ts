@@ -10,16 +10,13 @@ import { defaultRootAttrs, parseTdf, writeTdf } from '../../shared/tournament/td
 import type { Tournament } from '../../shared/tournament/types.ts';
 import { readTournament } from '../../shared/tournament/validate.ts';
 import { attr, child, children, childText, parseXml } from '../../shared/tournament/xml.ts';
+import { commandRunner } from '../__utils__/commands.ts';
 
 const fixtures = new URL('../fixtures/tdf/harness/', import.meta.url);
 const now = Date.UTC(2026, 9, 4, 17);
 const ctx = { now, localTime: '10/04/2026 12:00:00', season: 2027, random: seededRandom(73) };
 
-function run(t: Tournament, command: Command): Tournament {
-  const result = applyCommand(t, command, ctx);
-  assert.ok(result.ok, result.ok ? '' : result.error);
-  return result.tournament;
-}
+const run = commandRunner(ctx);
 
 function field(count = 9): Tournament {
   let t = emptyTournament({ name: "Finch & Co's Cup", startDate: '10/04/2026' });

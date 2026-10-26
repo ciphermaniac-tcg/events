@@ -15,30 +15,14 @@ import {
 import { emptyTournament } from '../../shared/tournament/create.ts';
 import { swissStandings } from '../../shared/tournament/standings.ts';
 import type { Pod, Tournament } from '../../shared/tournament/types.ts';
-import { commandRunner, freshContext } from '../__utils__/commands.ts';
+import { commandRunner, freshContext, pendingResults } from '../__utils__/commands.ts';
 
 const run = commandRunner(freshContext(5, '10/14/2026 18:00:00'));
 
 const masters = (t: Tournament) => t.pods.find(pod => pod.category === 'masters') as Pod;
 
 /** Every two-player match of the latest round won by its first seat. */
-function reportAll(t: Tournament): Tournament {
-  const round = masters(t).rounds.at(-1)!;
-  return run(
-    t,
-    ...round.matches
-      .filter(m => m.p2 !== null)
-      .map((m): Command => ({
-        type: 'reportResult',
-        pod: 'masters',
-        round: round.number,
-        table: m.table,
-        p1: m.p1,
-        p2: m.p2,
-        outcome: 'p1'
-      }))
-  );
-}
+const reportAll = (t: Tournament): Tournament => run(t, ...pendingResults(masters(t)));
 
 const ADDS: Command[] = Array.from({ length: 8 }, (_, i) => ({
   type: 'addPlayer',

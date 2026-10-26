@@ -24,7 +24,7 @@ import {
 import { eventDay, playerResult, readEntry } from '../../src/lib/tournament/history.ts';
 import { firstRoundTime, namesById, podStandings } from '../../src/lib/tournament/present.ts';
 import { juniorsCutApart } from '../__utils__/divisionCuts.ts';
-import { commandRunner, freshContext } from '../__utils__/commands.ts';
+import { commandRunner, freshContext, pendingResults } from '../__utils__/commands.ts';
 
 const CHALLENGE = parseTdf(readFileSync(new URL('../fixtures/tdf/challenge-midevent.tdf', import.meta.url), 'utf8'));
 
@@ -72,22 +72,7 @@ describe('one player’s event, read from the public copy as History reads it', 
 
   test('the match for third is named for itself, not for the final it shares a round with', () => {
     const latest = (t: Tournament) => t.pods[0]?.rounds.at(-1);
-    const reportAll = (t: Tournament): Tournament => {
-      const round = latest(t);
-      const open = round?.matches.filter(m => m.outcome === 'pending') ?? [];
-      return run(
-        t,
-        ...open.map(m => ({
-          type: 'reportResult' as const,
-          pod: 'masters' as const,
-          round: round?.number ?? 0,
-          table: m.table,
-          p1: m.p1,
-          p2: m.p2,
-          outcome: 'p1' as const
-        }))
-      );
-    };
+    const reportAll = (t: Tournament): Tournament => run(t, ...pendingResults(t.pods[0]!));
     const adds: Command[] = Array.from({ length: 8 }, (_, i) => ({
       type: 'addPlayer',
       player: { firstName: 'Player', lastName: String(i), id: String(300 + i), birthDate: '01/01/1990' }

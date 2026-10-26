@@ -12,13 +12,10 @@ import type { Pod, Tournament } from '../../shared/tournament/types.ts';
 import { assignKeys, publicTournament } from '../../shared/tournament/view.ts';
 import { readTournament } from '../../shared/tournament/validate.ts';
 import { champion, champions } from '../../src/lib/tournament/present.ts';
+import { commandRunner } from '../__utils__/commands.ts';
 
 const ctx = { now: Date.UTC(2026, 9, 4), localTime: '10/04/2026 10:00:00', season: 2027, random: seededRandom(42) };
-function run(t: Tournament, c: Command): Tournament {
-  const result = applyCommand(t, c, ctx);
-  assert.ok(result.ok, result.ok ? '' : result.error);
-  return result.tournament;
-}
+const run = commandRunner(ctx);
 function field(years: string[]): Tournament {
   return years.reduce(
     (t, year, i) =>

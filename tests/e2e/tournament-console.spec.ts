@@ -28,24 +28,12 @@ import {
   type TournamentView
 } from '../../shared/tournament/view';
 import { manageOf, organizerMe, runCommands } from './console-fixture';
+import { pendingResults } from '../__utils__/commands';
 
 const CODE = 'SWISS2';
 
 /** Every open table of the latest round won by the player at seat one. */
-function reportAll(t: Tournament): Tournament {
-  const pod = t.pods[0];
-  const round = pod?.rounds.at(-1);
-  const reports: Command[] = (round?.matches ?? [])
-    .filter(m => m.p2 !== null && m.outcome === 'pending')
-    .map(m => ({
-      type: 'reportResult',
-      pod: pod?.category ?? 'masters',
-      round: round?.number ?? 0,
-      ...m,
-      outcome: 'p1'
-    }));
-  return runCommands(t, ...reports);
-}
+const reportAll = (t: Tournament): Tournament => runCommands(t, ...pendingResults(t.pods[0]!));
 
 /** The first table of the latest round. */
 function firstMatch(t: Tournament): Match {

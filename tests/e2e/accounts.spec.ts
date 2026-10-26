@@ -15,9 +15,8 @@ import { test } from './network-guard';
 
 import type { AccountRole } from '../../shared/accounts/roles';
 import type { HistoryEntry } from '../../shared/accounts/types';
-import { applyCommand, type Command } from '../../shared/tournament/commands';
+import { type Command } from '../../shared/tournament/commands';
 import { emptyTournament } from '../../shared/tournament/create';
-import { seededRandom } from '../../shared/tournament/random';
 import { parseTdf } from '../../shared/tournament/tdf';
 import type { Tournament } from '../../shared/tournament/types';
 import {
@@ -30,6 +29,7 @@ import {
   type TournamentSettings
 } from '../../shared/tournament/view';
 import { juniorsCutApart } from '../__utils__/divisionCuts';
+import { commandRunner, freshContext } from '../__utils__/commands';
 
 const CHALLENGE = parseTdf(readFileSync(new URL('../fixtures/tdf/challenge-midevent.tdf', import.meta.url), 'utf8'));
 const CUP = juniorsCutApart();
@@ -758,20 +758,7 @@ test('Settings: deleting asks for the username typed out, then signs out @mobile
 
 // ---------- The event page: a signed-in player ----------
 
-function run(tournament: Tournament, ...commands: Command[]): Tournament {
-  return commands.reduce((current, command) => {
-    const result = applyCommand(current, command, {
-      now: 0,
-      localTime: '10/10/2026 10:00:00',
-      season: 2027,
-      random: seededRandom(3)
-    });
-    if (!result.ok) {
-      throw new Error(`${command.type}: ${result.error}`);
-    }
-    return result.tournament;
-  }, tournament);
-}
+const run = commandRunner(freshContext(3, '10/10/2026 10:00:00'));
 
 /** A Swiss event of four with round 1 paired, its players known by Player ID at a sanctioned one. */
 function roundOne(sanctioned: boolean): Tournament {

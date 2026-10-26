@@ -12,10 +12,8 @@
 import { expect, type Page } from '@playwright/test';
 import { test } from './network-guard';
 
-import { applyCommand, type Command } from '../../shared/tournament/commands';
+import { type Command } from '../../shared/tournament/commands';
 import { emptyTournament } from '../../shared/tournament/create';
-import { seededRandom } from '../../shared/tournament/random';
-import type { Tournament } from '../../shared/tournament/types';
 import {
   assignKeys,
   DEFAULT_SETTINGS,
@@ -23,24 +21,12 @@ import {
   type PublishedView,
   type TournamentSettings
 } from '../../shared/tournament/view';
+import { commandRunner, freshContext } from '../__utils__/commands';
 
 const CODE = 'REGIST';
 const DECK = '4 Iono PAL 185\n56 Basic {G} Energy SVE 1';
 
-function run(tournament: Tournament, ...commands: Command[]): Tournament {
-  return commands.reduce((current, command) => {
-    const result = applyCommand(current, command, {
-      now: 0,
-      localTime: '10/10/2026 10:00:00',
-      season: 2027,
-      random: seededRandom(3)
-    });
-    if (!result.ok) {
-      throw new Error(result.error);
-    }
-    return result.tournament;
-  }, tournament);
-}
+const run = commandRunner(freshContext(3, '10/10/2026 10:00:00'));
 
 interface Held {
   popId: string;
