@@ -77,7 +77,13 @@ import {
   withdrawnChanges
 } from '../../../lib/tournaments/registrations.js';
 import { commandChanges } from '../../../lib/tournaments/results.js';
-import { loadTournament, mutate, pairedRounds, type TournamentRow } from '../../../lib/tournaments/store.js';
+import {
+  type Changes,
+  loadTournament,
+  mutate,
+  pairedRounds,
+  type TournamentRow
+} from '../../../lib/tournaments/store.js';
 import { msg } from '../../../../shared/i18n.js';
 
 interface DecklistRow {
@@ -563,71 +569,73 @@ async function rename(access: Access, was: Details, profile: PlayerProfile, held
   return rowsChanged(moved) === 1;
 }
 
-const ALREADY_IN = msg('Already on the player list');
-
 /**
- * Puts a submitter who is not on the player list onto it: a Swiss event the
- * organizer has not closed takes them as staff would add them, marked as
- * added from their list, while it has room under its cap. A TOM event's
- * roster is TOM's, and a closed event takes nobody new.
+ * What registering a submitter does to the event as it stands: a Swiss event
+ * the organizer has not closed adds one not on its list, as staff would add
+ * them, marked as added from their list, while it has room under its cap. A
+ * TOM event's roster is TOM's, and a closed event takes nobody new. A rename
+ * finds them under the names they had: the list's rename to the new ones is
+ * the keeping's (see keptChanges).
  */
-async function register(
-  context: Context<'code'>,
-  access: Access,
+function addition(
+  row: TournamentRow,
   submission: Submission
-): Promise<{ registration: Registration | 'full'; row: TournamentRow }> {
-  const { row } = access;
-  // A rename finds them under the names they had: the list's rename to the new ones is the keeping's (see keep).
-  if (rosterPlayer(row, submission.was ?? submission.profile) !== undefined) {
-    return { registration: 'matched', row };
+): { registration: 'full' } | { registration: Registration; added?: Changes } {
+  const { profile, was } = submission;
+  if (rosterPlayer(row, was ?? profile) !== undefined || rosterPlayer(row, profile) !== undefined) {
+    return { registration: 'matched' };
   }
   if (row.mode !== 'swiss' || row.settings.finished) {
-    return { registration: 'not-added', row };
+    return { registration: 'not-added' };
   }
-  const { profile } = submission;
+  if (rosterFull(row)) {
+    return { registration: 'full' };
+  }
   const player = {
     firstName: profile.firstName,
     lastName: profile.lastName,
     ...(isSanctioned(row) ? { id: profile.popId, birthDate: profile.birthDate } : {}),
     fromList: true
   };
-  // Checked again against the event as it is when written: a second submission
-  // may have added them meanwhile, filled the last place, or the organizer closed the event.
-  const outcome = await mutate(access.db, row, current => {
-    if (rosterPlayer(current, profile) !== undefined) {
-      return ALREADY_IN;
-    }
-    if (rosterFull(current)) {
-      return FULL;
-    }
-    return current.settings.finished
-      ? msg('The event is closed')
-      : commandChanges(current, { type: 'addPlayer', player }, submission.localTime);
-  });
-  if ('error' in outcome) {
-    const registration = outcome.error === ALREADY_IN ? 'matched' : outcome.error === FULL ? 'full' : 'not-added';
-    return { registration, row };
-  }
-  await publishAfter(context, outcome.row);
-  return { registration: 'added', row: outcome.row };
+  const added = commandChanges(row, { type: 'addPlayer', player }, submission.localTime);
+  return typeof added === 'string' ? { registration: 'not-added' } : { registration: 'added', added };
 }
 
 /**
- * Keeps the event in step with a saved registration (see keptChanges): a
- * rename, a paper list for check-in, the list's archetype. The event, or why
- * the event's list would not take the change (a rename to a name staff gave
- * someone else, say), which the player is told: their list is saved, but
- * the event still shows them as it did.
+ * Registers the submitter (see addition) and keeps the event in step with
+ * their saved list (see keptChanges: a rename, a paper list for check-in, the
+ * list's archetype), in one write judged against the event as it stands when
+ * written: a second submission may have added them meanwhile, or filled the
+ * last place. When the keeping is refused (a rename to a name staff gave
+ * someone else, say), a player added stays added, and the refusal is what
+ * the player is told: their list is saved, but the event still shows them as
+ * it did.
  */
-async function keep(context: Context<'code'>, access: Access, row: TournamentRow, kept: Kept) {
-  const outcome = await mutate(access.db, row, current => keptChanges(current, kept, kept.localTime));
+async function enter(context: Context<'code'>, access: Access, submission: Submission, kept: Kept) {
+  let registration: Registration = 'not-added';
+  let refusal: string | null = null;
+  const outcome = await mutate(access.db, access.row, current => {
+    const entered = addition(current, submission);
+    if (entered.registration === 'full') {
+      return FULL;
+    }
+    const { added } = entered;
+    ({ registration } = entered);
+    const keeping = keptChanges(
+      added?.tournament ? { ...current, tournament: added.tournament } : current,
+      kept,
+      kept.localTime
+    );
+    refusal = typeof keeping === 'string' ? keeping : null;
+    return typeof keeping === 'string' ? (added ?? keeping) : { ...added, ...keeping };
+  });
   if ('error' in outcome) {
-    return outcome.error;
+    return outcome.error === FULL ? 'full' : outcome.error;
   }
-  if (outcome.row.version !== row.version) {
+  if (outcome.row.version !== access.row.version) {
     await publishAfter(context, outcome.row);
   }
-  return outcome.row;
+  return refusal ?? { registration, row: outcome.row };
 }
 
 /**
@@ -717,19 +725,24 @@ async function submit(context: Context<'code'>, access: Access, submission: Subm
   if (!(await store(access, submission, await sha256(token), now))) {
     return refusedWrite(access);
   }
-  const { registration, row } = await register(context, access, submission);
-  if (registration === 'full') {
-    await unstore(access, submission.profile);
+  const { profile, deck, mode, archetype, was, localTime } = submission;
+  const kept = await enter(context, access, submission, {
+    ...(was ? { was } : {}),
+    now: profile,
+    mode,
+    archetype,
+    localTime
+  });
+  if (kept === 'full') {
+    await unstore(access, profile);
     return fullRefusal();
   }
-  const { profile, deck, mode, archetype, was, localTime } = submission;
-  const kept = await keep(context, access, row, { ...(was ? { was } : {}), now: profile, mode, archetype, localTime });
   if (typeof kept === 'string') {
     return jsonError(kept, 409);
   }
   return privateJson({
-    decklist: presenter(kept)({ ...profile, deck, mode, archetype, submittedAt: now, locked: true }),
-    registration,
+    decklist: presenter(kept.row)({ ...profile, deck, mode, archetype, submittedAt: now, locked: true }),
+    registration: kept.registration,
     token
   });
 }

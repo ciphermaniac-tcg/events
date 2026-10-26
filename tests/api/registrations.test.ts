@@ -19,11 +19,11 @@ import { emptyTournament } from '../../shared/tournament/create.ts';
 import type { Player, Tournament } from '../../shared/tournament/types.ts';
 import { apiCalls, type Handler } from '../__utils__/apiCalls.ts';
 import { at, eventCalls } from '../__utils__/eventCalls.ts';
-import { sqliteD1 } from '../__utils__/sqliteD1.ts';
+import { racing, sqliteD1 } from '../__utils__/sqliteD1.ts';
 
 let env: TournamentEnv;
 const { hit, signIn } = apiCalls(() => env);
-const { newEvent, newSwiss, settle } = eventCalls(hit);
+const { newEvent, newSwiss, send, settle } = eventCalls(hit);
 
 beforeEach(() => {
   env = { TOURNAMENT_DB: sqliteD1('tournaments.sql'), DEV_LOGIN: 'true' };
@@ -97,6 +97,48 @@ test('only the device that owns an unsanctioned registration renames or withdraw
   });
   assert.equal(gone.status, 204);
   assert.deepEqual(await rosterOf(code, owner), []);
+});
+
+test('a registration other writes keep beating is refused, its list saved for a retry', async () => {
+  const { owner, code } = await casualEvent();
+  const inner = env.TOURNAMENT_DB as ReturnType<typeof sqliteD1>;
+  const bump = () => inner.raw.prepare('UPDATE tournaments SET version = version + 1 WHERE code = ?').run(code);
+  env.TOURNAMENT_DB = racing(inner, 'UPDATE tournaments SET', bump, 5);
+  const token = 'this-device-token-1';
+  const busy = await register(code, { firstName: 'Grace', lastName: 'Hopper' }, { token });
+  env.TOURNAMENT_DB = inner;
+  assert.deepEqual([busy.status, busy.json.error], [409, 'Busy; try again']);
+  assert.deepEqual(await rosterOf(code, owner), []);
+  const versionOf = async () =>
+    (await hit(manage.onRequestGet as Handler, '/manage', at(code), { cookie: owner })).json.version;
+  const before = await versionOf();
+  const again = await register(code, { firstName: 'Grace', lastName: 'Hopper' }, { token, mode: 'paper', deck: '' });
+  assert.deepEqual([again.status, again.json.registration], [200, 'added']);
+  assert.equal(await versionOf(), before + 1, 'adding the player and asking for the paper list is one write');
+});
+
+test('a newcomer whose event fills while their list is sent is refused, and their list is not kept', async () => {
+  const owner = await signIn('Organizer', 'organizer');
+  const code = await newSwiss(owner);
+  await settle(code, owner, { decklists: 'open', playerCap: 1 });
+  const inner = env.TOURNAMENT_DB as ReturnType<typeof sqliteD1>;
+  env.TOURNAMENT_DB = racing(inner, 'UPDATE tournaments SET', () => {
+    const player = { id: '6161', firstName: 'Walk', lastName: 'In', birthDate: '02/27/1990', droppedAfter: null };
+    inner.raw
+      .prepare(
+        "UPDATE tournaments SET state = json_insert(state, '$.players[#]', json(?)), version = version + 1 WHERE code = ?"
+      )
+      .run(JSON.stringify(player), code);
+  });
+  const late = await register(code, { popId: '5151', firstName: 'Ada', lastName: 'Byron', birthDate: '02/27/1990' });
+  env.TOURNAMENT_DB = inner;
+  assert.deepEqual([late.status, late.json.error], [403, 'This event is full.']);
+  const staffLists = await hit(decklists.onRequestGet as Handler, '/decklists', at(code), { cookie: owner });
+  assert.deepEqual(staffLists.json.decklists, []);
+  assert.deepEqual(
+    (await rosterOf(code, owner)).map(player => player.id),
+    ['6161']
+  );
 });
 
 function tomFile(ids: string[]): Tournament {
