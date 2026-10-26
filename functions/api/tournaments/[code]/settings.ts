@@ -22,8 +22,7 @@ import { commandContext } from '../../../lib/tournaments/commandContext.js';
 import type { D1Like } from '../../../lib/types.js';
 import { readJsonBody } from '../../../lib/api/body.js';
 import type { Context } from '../../../lib/auth/env.js';
-import { changeEvent, openForStaff } from '../../../lib/tournaments/access.js';
-import { answerStaff } from '../../../lib/tournaments/answers.js';
+import { staffChange } from '../../../lib/tournaments/answers.js';
 import { type Change, changesNothing, dayChange, type TournamentRow } from '../../../lib/tournaments/store.js';
 import { msg, msgf } from '../../../../shared/i18n.js';
 
@@ -114,15 +113,12 @@ function settingsChange(change: unknown, sanctionable: boolean): Change {
   };
 }
 
-export async function onRequestPut(context: Context<'code'>): Promise<Response> {
-  const access = await openForStaff(context);
-  if (access instanceof Response) {
-    return access;
-  }
-  const body = await readJsonBody(context.request, 4096);
-  const change = body.ok ? body.value : null;
-  const sanctionable = await maySanction(access.db, access.row, change);
-  // Judged against the event as each try finds it: decks the organizer hid meanwhile are not staff's to show again.
-  const outcome = await changeEvent(access, settingsChange(change, sanctionable));
-  return answerStaff(context, access, outcome);
+export function onRequestPut(context: Context<'code'>): Promise<Response> {
+  return staffChange(context, async access => {
+    const body = await readJsonBody(context.request, 4096);
+    const change = body.ok ? body.value : null;
+    const sanctionable = await maySanction(access.db, access.row, change);
+    // Judged against the event as each try finds it: decks the organizer hid meanwhile are not staff's to show again.
+    return settingsChange(change, sanctionable);
+  });
 }

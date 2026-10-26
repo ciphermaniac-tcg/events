@@ -12,8 +12,7 @@ import { readCommand } from '../../../../shared/tournament/readCommand.js';
 import { readJsonObject } from '../../../lib/api/body.js';
 import { jsonError } from '../../../lib/api/responses.js';
 import type { Context } from '../../../lib/auth/env.js';
-import { changeEvent, openForStaff } from '../../../lib/tournaments/access.js';
-import { answerStaff } from '../../../lib/tournaments/answers.js';
+import { staffChange } from '../../../lib/tournaments/answers.js';
 import { commandChanges } from '../../../lib/tournaments/results.js';
 import type { TournamentRow } from '../../../lib/tournaments/store.js';
 
@@ -31,17 +30,14 @@ function forEvent(command: Command, row: TournamentRow): Command {
   return { ...command, info };
 }
 
-export async function onRequestPost(context: Context<'code'>): Promise<Response> {
-  const access = await openForStaff(context);
-  if (access instanceof Response) {
-    return access;
-  }
-  const value = await readJsonObject(context.request, 4096);
-  const read = value ? readCommand(value.command) : null;
-  if (!read) {
-    return jsonError('Not a command', 400);
-  }
-  const command = forEvent(read, access.row);
-  const outcome = await changeEvent(access, row => commandChanges(row, command, value?.localTime));
-  return answerStaff(context, access, outcome);
+export function onRequestPost(context: Context<'code'>): Promise<Response> {
+  return staffChange(context, async access => {
+    const value = await readJsonObject(context.request, 4096);
+    const read = value ? readCommand(value.command) : null;
+    if (!read) {
+      return jsonError('Not a command', 400);
+    }
+    const command = forEvent(read, access.row);
+    return row => commandChanges(row, command, value?.localTime);
+  });
 }

@@ -667,6 +667,35 @@ test('a TOM event holds site results as pending until the synced file settles th
   assert.deepEqual(synced.json.pending, []);
 });
 
+test('a TOM file another sync changed while it was sent is refused as a conflict', async () => {
+  const owner = await signIn('Organizer', 'organizer');
+  const tdf = parseTdf(readFileSync(new URL('../fixtures/tdf/challenge-midevent.tdf', import.meta.url), 'utf8'));
+  const created = await hit(
+    tournaments.onRequestPost as Handler,
+    '/api/tournaments',
+    {},
+    { method: 'POST', cookie: owner, body: { mode: 'tom', tournament: tdf, store: await storeOf(owner) } }
+  );
+  const { code } = created.json;
+  const base = await revisionNow(code, owner);
+  const inner = env.TOURNAMENT_DB as ReturnType<typeof sqliteD1>;
+  env.TOURNAMENT_DB = racing(inner, 'UPDATE tournaments SET', () => {
+    inner.raw
+      .prepare(
+        "UPDATE tournaments SET state = json_set(state, '$.players[0].firstName', 'Other'), version = version + 1 WHERE code = ?"
+      )
+      .run(code);
+  });
+  const renamed = { ...tdf, players: tdf.players.map((p, i) => (i === 0 ? { ...p, firstName: 'Mine' } : p)) };
+  const synced = await hit(sync.onRequestPut as Handler, '/sync', at(code), {
+    method: 'PUT',
+    cookie: owner,
+    body: { tournament: renamed, base }
+  });
+  env.TOURNAMENT_DB = inner;
+  assert.equal(synced.status, 409);
+});
+
 test('a TOM event runs the site’s clock, which a synced file’s timer does not touch', async () => {
   const owner = await signIn('Organizer', 'organizer');
   const tdf = parseTdf(readFileSync(new URL('../fixtures/tdf/challenge-midevent.tdf', import.meta.url), 'utf8'));

@@ -3,9 +3,9 @@ import { readJsonObject } from '../../../lib/api/body.js';
 import { jsonError } from '../../../lib/api/responses.js';
 import type { Context } from '../../../lib/auth/env.js';
 import { displayPresets } from '../../../lib/stores/displayPresets.js';
-import { changeEvent, openForStaff, privateJson } from '../../../lib/tournaments/access.js';
+import { openForStaff, privateJson } from '../../../lib/tournaments/access.js';
 import { changesNothing } from '../../../lib/tournaments/store.js';
-import { answerStaff } from '../../../lib/tournaments/answers.js';
+import { staffChange } from '../../../lib/tournaments/answers.js';
 
 export async function onRequestGet(context: Context<'code'>): Promise<Response> {
   const access = await openForStaff(context);
@@ -16,21 +16,17 @@ export async function onRequestGet(context: Context<'code'>): Promise<Response> 
   return privateJson({ presets, selected: access.row.settings.display });
 }
 
-export async function onRequestPut(context: Context<'code'>): Promise<Response> {
-  const access = await openForStaff(context);
-  if (access instanceof Response) {
-    return access;
-  }
-  const body = await readJsonObject(context.request, 256);
-  const { storeId } = access.row;
-  const presets = storeId ? await displayPresets(access.db, storeId) : [];
-  const preset = presets.find(item => item.id === body?.preset);
-  if (body?.preset !== null && !preset) {
-    return jsonError('No such store display preset', 400);
-  }
-  const display: DisplaySelection | null = preset && storeId ? { ...preset, storeId } : null;
-  const outcome = await changeEvent(access, row =>
-    changesNothing(row, row.settings.display, display) ? {} : { settings: { ...row.settings, display } }
-  );
-  return answerStaff(context, access, outcome);
+export function onRequestPut(context: Context<'code'>): Promise<Response> {
+  return staffChange(context, async access => {
+    const body = await readJsonObject(context.request, 256);
+    const { storeId } = access.row;
+    const presets = storeId ? await displayPresets(access.db, storeId) : [];
+    const preset = presets.find(item => item.id === body?.preset);
+    if (body?.preset !== null && !preset) {
+      return jsonError('No such store display preset', 400);
+    }
+    const display: DisplaySelection | null = preset && storeId ? { ...preset, storeId } : null;
+    return row =>
+      changesNothing(row, row.settings.display, display) ? {} : { settings: { ...row.settings, display } };
+  });
 }

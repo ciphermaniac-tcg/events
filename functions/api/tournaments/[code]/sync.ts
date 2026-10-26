@@ -38,7 +38,7 @@ import {
   privateJson,
   type StaffAccess
 } from '../../../lib/tournaments/access.js';
-import { publishAfter } from '../../../lib/tournaments/publish.js';
+import { answerStaff } from '../../../lib/tournaments/answers.js';
 import { FINISHED_REFUSAL } from '../../../lib/tournaments/results.js';
 import { msg } from '../../../../shared/i18n.js';
 
@@ -70,11 +70,7 @@ async function readUpload(request: Request): Promise<Upload | Response> {
 /** An explicit upload of the copy the site already holds: only the import time changes. */
 async function importedAgain(context: Context<'code'>, access: StaffAccess, revision: string): Promise<Response> {
   const outcome = await changeEvent(access, () => ({ lastImportAt: Date.now() }));
-  if ('error' in outcome) {
-    return jsonError(outcome.error, outcome.status);
-  }
-  await publishAfter(context, outcome.row);
-  return privateJson({ ...manageView({ row: outcome.row, role: outcome.role ?? access.role }), revision });
+  return answerStaff(context, access, outcome, { revision });
 }
 
 export async function onRequestPut(context: Context<'code'>): Promise<Response> {
@@ -119,11 +115,7 @@ export async function onRequestPut(context: Context<'code'>): Promise<Response> 
           pending: prunePending(tournament, row.pending),
           lastImportAt: Date.now()
         }
-      : CONFLICT;
+      : { error: CONFLICT, status: 409 };
   });
-  if ('error' in outcome) {
-    return jsonError(outcome.error, outcome.error === CONFLICT ? 409 : outcome.status);
-  }
-  await publishAfter(context, outcome.row);
-  return privateJson({ ...manageView({ row: outcome.row, role: outcome.role ?? access.role }), revision: sent });
+  return answerStaff(context, access, outcome, { revision: sent });
 }

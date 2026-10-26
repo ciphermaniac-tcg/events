@@ -10,8 +10,8 @@ import { CHECK_MARKS, type CheckMark, withMark } from '../../../../shared/tourna
 import { readJsonObject } from '../../../lib/api/body.js';
 import { jsonError } from '../../../lib/api/responses.js';
 import type { Context } from '../../../lib/auth/env.js';
-import { changeEvent, openForStaff, type StaffAccess } from '../../../lib/tournaments/access.js';
-import { answerStaff } from '../../../lib/tournaments/answers.js';
+import type { StaffAccess } from '../../../lib/tournaments/access.js';
+import { staffChange } from '../../../lib/tournaments/answers.js';
 import { changesNothing } from '../../../lib/tournaments/store.js';
 
 interface Check {
@@ -40,18 +40,15 @@ async function knows(access: StaffAccess, playerId: string): Promise<boolean> {
   return listed !== null;
 }
 
-export async function onRequestPut(context: Context<'code'>): Promise<Response> {
-  const access = await openForStaff(context);
-  if (access instanceof Response) {
-    return access;
-  }
-  const check = readCheck((await readJsonObject(context.request, 1024)) ?? {});
-  if (!check || !(await knows(access, check.playerId))) {
-    return jsonError('Not a check-in', 400);
-  }
-  const outcome = await changeEvent(access, row => {
-    const next = withMark(row.checkins, check.playerId, check.mark, check.on);
-    return changesNothing(row, row.checkins, next) ? {} : { checkins: next };
+export function onRequestPut(context: Context<'code'>): Promise<Response> {
+  return staffChange(context, async access => {
+    const check = readCheck((await readJsonObject(context.request, 1024)) ?? {});
+    if (!check || !(await knows(access, check.playerId))) {
+      return jsonError('Not a check-in', 400);
+    }
+    return row => {
+      const next = withMark(row.checkins, check.playerId, check.mark, check.on);
+      return changesNothing(row, row.checkins, next) ? {} : { checkins: next };
+    };
   });
-  return answerStaff(context, access, outcome);
 }
