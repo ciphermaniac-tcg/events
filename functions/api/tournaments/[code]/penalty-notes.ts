@@ -9,7 +9,7 @@
  * DELETE ?id=<entry> — removes a note.
  */
 
-import { personOfRow, recordRoutes } from '../../../lib/tournaments/staffRecords.js';
+import { personOfRow, recordOfRow, recordRoutes } from '../../../lib/tournaments/staffRecords.js';
 import { type PenaltyNoteEntry, readPenaltyNote } from '../../../../shared/tournament/penaltyNotes.js';
 import { msg } from '../../../../shared/i18n.js';
 
@@ -22,17 +22,9 @@ export const { onRequestGet, onRequestPost, onRequestDelete } = recordRoutes({
   personOf: input => input.judge,
   verdictOf: input => input.penalty,
   entry: (row): PenaltyNoteEntry => ({
-    id: row.id,
-    playerId: row.player_id,
-    playerName: row.player_name,
-    round: row.round,
+    ...recordOfRow(row),
     judge: personOfRow(row),
-    penalty: row.verdict as PenaltyNoteEntry['penalty'],
-    notes: row.notes,
-    recordedBy: row.recorder,
-    recordedAt: row.recorded_at,
-    replaces: row.replaces,
-    removed: row.removed === 1
+    penalty: row.verdict as PenaltyNoteEntry['penalty']
   }),
   words: {
     changed: msg('Someone changed this penalty note meanwhile. Look again and try once more.'),

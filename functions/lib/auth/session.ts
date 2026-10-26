@@ -183,7 +183,7 @@ async function identityOwner(db: D1Like, profile: Profile): Promise<string | nul
   return identity?.user_id ?? null;
 }
 
-function verifiedEmail(profile: Profile): string | null {
+export function verifiedEmail(profile: Profile): string | null {
   return profile.emailVerified ? profile.email?.trim().toLowerCase() || null : null;
 }
 

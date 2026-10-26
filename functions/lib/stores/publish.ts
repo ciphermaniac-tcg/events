@@ -9,7 +9,7 @@
 
 import { STORES_INDEX_KEY, type StoresIndex } from '../../../shared/events/stores.js';
 import type { LeagueNight, NightException } from '../../../shared/accounts/stores.js';
-import type { Context } from '../auth/env.js';
+import { afterAnswer, type Context } from '../auth/env.js';
 import type { D1Like, PublishBucket } from '../types.js';
 
 /** Five minutes at the edge, as the locator's own files. */
@@ -85,9 +85,5 @@ export async function publishStores(context: Pick<Context, 'env' | 'waitUntil'>)
     () => undefined,
     (error: unknown) => console.error('Stores index publish failed', error)
   );
-  if (context.waitUntil) {
-    context.waitUntil(done);
-    return;
-  }
-  await done;
+  await afterAnswer(context, done);
 }

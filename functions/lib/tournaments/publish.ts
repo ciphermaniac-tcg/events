@@ -19,7 +19,7 @@
  */
 
 import { type PublishedView, publishedViewKey } from '../../../shared/tournament/view.js';
-import type { Context } from '../auth/env.js';
+import { afterAnswer, type Context } from '../auth/env.js';
 import { loadVersion, type TournamentRow } from './store.js';
 import type { D1Like, PublishBucket, PublishedObject } from '../types.js';
 import { publicViewOf } from './access.js';
@@ -167,12 +167,7 @@ async function takeDownIfGone(env: PublishEnv, code: string): Promise<void> {
  * read the copy poll it seconds apart.
  */
 export function publishAfter(context: Pick<Context, 'env' | 'waitUntil'>, row: TournamentRow): Promise<void> {
-  const published = publishView(context.env, row);
-  if (!context.waitUntil) {
-    return published;
-  }
-  context.waitUntil(published);
-  return Promise.resolve();
+  return afterAnswer(context, publishView(context.env, row));
 }
 
 export async function unpublishView(bucket: PublishBucket | undefined, code: string): Promise<void> {

@@ -1,9 +1,7 @@
 import { randomHandle } from '../../../shared/accounts/handle.js';
 import type { D1Like, ProofBucket } from '../types.js';
 import type { Profile } from './oauth.js';
-
-const verifiedEmail = (profile: Profile) =>
-  profile.emailVerified ? profile.email?.trim().toLowerCase() || null : null;
+import { verifiedEmail } from './session.js';
 
 /** Remove provider responses still waiting for the same rejected identity. */
 function pendingRemoval(db: D1Like, profile: Profile) {

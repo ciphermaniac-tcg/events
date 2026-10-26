@@ -23,7 +23,7 @@ import { lookupPlayers } from '../../../shared/tournament/lookup.js';
 import type { Player } from '../../../shared/tournament/types.js';
 import { publicReports } from '../../../shared/tournament/reports.js';
 import { publicRequests } from '../../../shared/tournament/requests.js';
-import { jsonError, jsonResponse, noContent } from '../api/responses.js';
+import { jsonError, jsonResponse, noContent, PRIVATE } from '../api/responses.js';
 import { type Context, param, sameOrigin } from '../auth/env.js';
 import type { User } from '../auth/session.js';
 import { type Guard, rowsChanged } from '../d1.js';
@@ -44,8 +44,6 @@ import {
   type TournamentRow
 } from './store.js';
 import { msg } from '../../../shared/i18n.js';
-
-export const PRIVATE = { cacheControl: 'no-store', cors: false } as const;
 
 /** A .tdf's worth of JSON with room to spare; a regional is well under a megabyte. */
 export const MAX_TOURNAMENT_BYTES = 3 * 1024 * 1024;

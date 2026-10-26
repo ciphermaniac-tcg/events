@@ -1,3 +1,6 @@
+/** An answer for the asker alone: never cached, nor read across origins. */
+export const PRIVATE = { cacheControl: 'no-store', cors: false } as const;
+
 export function jsonError(message: string, status: number, headers?: Record<string, string>): Response {
   return jsonResponse({ error: message, status }, { status, cacheControl: 'no-store', cors: false, headers });
 }

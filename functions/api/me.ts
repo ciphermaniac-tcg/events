@@ -22,7 +22,7 @@ import { type PlayerProfile, readProfile } from '../../shared/tournament/profile
 import { renameAccount } from '../lib/accounts/handles.js';
 import { deleteAccount } from '../lib/accounts/wipe.js';
 import { readJsonBody, readJsonObject } from '../lib/api/body.js';
-import { jsonError, jsonResponse } from '../lib/api/responses.js';
+import { jsonError, jsonResponse, PRIVATE } from '../lib/api/responses.js';
 import { type Context, sameOrigin } from '../lib/auth/env.js';
 import { clerkKeys, purgeClerkDeletions } from '../lib/auth/clerk.js';
 import { clearCookie, SESSION_COOKIE } from '../lib/auth/cookies.js';
@@ -32,8 +32,6 @@ import { currentAccount, type ProfileName, type User } from '../lib/auth/session
 import { rowsChanged } from '../lib/d1.js';
 import type { D1Like } from '../lib/types.js';
 import { msg } from '../../shared/i18n.js';
-
-const PRIVATE = { cacheControl: 'no-store', cors: false } as const;
 
 export async function onRequestGet({ request, env }: Context): Promise<Response> {
   const user = env.TOURNAMENT_DB ? await currentAccount(env.TOURNAMENT_DB, request) : null;

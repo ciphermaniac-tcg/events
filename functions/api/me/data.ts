@@ -13,11 +13,9 @@ import { readExportParts, readWipeParts } from '../../../shared/accounts/myData.
 import { exportMarkdown } from '../../lib/accounts/dataExport.js';
 import { dataHolds, wipeParts } from '../../lib/accounts/wipe.js';
 import { readJsonObject } from '../../lib/api/body.js';
-import { jsonError, jsonResponse } from '../../lib/api/responses.js';
+import { jsonError, jsonResponse, PRIVATE } from '../../lib/api/responses.js';
 import { type Context, sameOrigin } from '../../lib/auth/env.js';
 import { currentAccount } from '../../lib/auth/session.js';
-
-const PRIVATE = { cacheControl: 'no-store', cors: false } as const;
 
 export async function onRequestGet({ request, env }: Context): Promise<Response> {
   const db = env.TOURNAMENT_DB;

@@ -11,7 +11,7 @@
 
 import type { D1Like } from '../types.js';
 import type { Profile } from './oauth.js';
-import { randomToken, sha256 } from './session.js';
+import { randomToken, sha256, verifiedEmail } from './session.js';
 
 export const SIGNUP_SECONDS = 15 * 60;
 
@@ -27,7 +27,7 @@ export interface HeldSignup {
  * before the check existed). One read: the identity's owner, else the email's.
  */
 export async function needsAgeCheck(db: D1Like, profile: Profile): Promise<boolean> {
-  const email = profile.emailVerified ? profile.email?.trim().toLowerCase() || null : null;
+  const email = verifiedEmail(profile);
   const row = await db
     .prepare(
       'SELECT age_checked_at FROM users WHERE id = COALESCE(' +

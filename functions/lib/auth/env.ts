@@ -21,6 +21,15 @@ export interface Context<Params extends string = never> {
   waitUntil?: (promise: Promise<unknown>) => void;
 }
 
+/** Leaves `work` running past the answer where the runtime keeps the function alive for it; else waits on it. */
+export async function afterAnswer(context: Pick<Context, 'waitUntil'>, work: Promise<unknown>): Promise<void> {
+  if (context.waitUntil) {
+    context.waitUntil(work);
+    return;
+  }
+  await work;
+}
+
 /** A route parameter as one string; Pages hands catch-alls over as arrays. */
 export function param(value: string | string[] | undefined): string {
   return Array.isArray(value) ? value.join('/') : (value ?? '');

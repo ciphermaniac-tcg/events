@@ -10,7 +10,7 @@ import { jsonResponse } from '../../../lib/api/responses.js';
 import { readJsonObject } from '../../../lib/api/body.js';
 import { rateLimitAddress } from '../../../lib/api/rateLimiter.js';
 import { cookie } from '../../../lib/auth/cookies.js';
-import { type Context, sameOrigin } from '../../../lib/auth/env.js';
+import { afterAnswer, type Context, sameOrigin } from '../../../lib/auth/env.js';
 import { reserve, RESET_COOKIE, RESET_SECONDS, resetSetup, startReset } from '../../../lib/auth/passwordReset.js';
 import { sha256 } from '../../../lib/auth/session.js';
 import { msg } from '../../../../shared/i18n.js';
@@ -42,11 +42,7 @@ export async function onRequestPost({ request, env, waitUntil }: Context): Promi
     return problem(400, 'form_param_missing', msg('Enter a username or email'));
   }
   const { token, work } = await startReset(db, setup, identifier);
-  if (waitUntil) {
-    waitUntil(work);
-  } else {
-    await work;
-  }
+  await afterAnswer({ waitUntil }, work);
   return jsonResponse(
     { sent: true },
     {

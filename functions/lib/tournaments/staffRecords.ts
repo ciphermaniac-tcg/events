@@ -34,7 +34,7 @@ import {
 } from './access.js';
 import { askerValues, asksStill, onStaff } from './roles.js';
 import { latestRoundOf, type StaffAccount, type StaffMember } from '../../../shared/tournament/staffRecords.js';
-import type { Tournament } from '../../../shared/tournament/types.js';
+import { playerName, type Tournament } from '../../../shared/tournament/types.js';
 import { msg, msgf } from '../../../shared/i18n.js';
 
 /** An entry's row, with its columns named alike whatever its kind. */
@@ -93,11 +93,6 @@ export const staffAccountsQuery = (db: D1Like, code: string) => db.prepare(STAFF
 export async function staffAccounts(access: Access): Promise<StaffAccount[]> {
   const { results } = await staffAccountsQuery(access.db, access.row.code).all<StaffAccount>();
   return results;
-}
-
-function playerName(tournament: Tournament, playerId: string): string {
-  const player = tournament.players.find(candidate => candidate.id === playerId);
-  return player ? `${player.firstName} ${player.lastName}` : '';
 }
 
 /**
@@ -191,7 +186,7 @@ function append<Input extends RecordInput>(
       input.replaces,
       crypto.randomUUID(),
       input.playerId,
-      playerName(access.row.tournament, input.playerId),
+      playerName(access.row.tournament.players.find(player => player.id === input.playerId) ?? NO_NAME),
       input.round,
       'id' in named ? named.id : null,
       'name' in named ? named.name : '',
@@ -282,6 +277,21 @@ export function recordRoutes<Input extends RecordInput, Entry>(kind: RecordKind<
     }
   };
 }
+
+const NO_NAME = { firstName: '', lastName: '' };
+
+/** What every kind of entry is read back as, beside its staff member and verdict under the kind's own names. */
+export const recordOfRow = (row: RecordRow) => ({
+  id: row.id,
+  playerId: row.player_id,
+  playerName: row.player_name,
+  round: row.round,
+  notes: row.notes,
+  recordedBy: row.recorder,
+  recordedAt: row.recorded_at,
+  replaces: row.replaces,
+  removed: row.removed === 1
+});
 
 /** An entry's staff member as staff read it: the account's name now, else the name typed in; null once deleted. */
 export const personOfRow = (row: RecordRow) => ({
