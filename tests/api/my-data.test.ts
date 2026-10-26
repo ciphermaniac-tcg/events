@@ -456,6 +456,64 @@ test('an account is deleted even when Clerk cannot be reached', async () => {
   assert.deepEqual(clerkQueue(), []);
 });
 
+test('an account is deleted and signed out even when clearing the retry queues fails', async () => {
+  Object.assign(env, {
+    CLERK_PUBLISHABLE_KEY: `pk_test_${btoa('clerk.example.test$')}`,
+    CLERK_JWT_KEY: 'pem',
+    CLERK_SECRET_KEY: 'sk_test',
+    PROOFS: { delete: async () => undefined }
+  });
+  const player = await signIn('Player');
+  const id = await idOf(player);
+  raw().prepare("INSERT INTO identities (provider, subject, user_id) VALUES ('clerk', 'user_abc', ?)").run(id);
+  raw().exec("INSERT INTO proof_deletions (key) VALUES ('proofs/old')");
+  const inner = env.TOURNAMENT_DB as ReturnType<typeof sqliteD1>;
+  env.TOURNAMENT_DB = {
+    ...inner,
+    prepare: sql => {
+      const statement = inner.prepare(sql);
+      return sql.includes('IN (SELECT value FROM json_each(?) AS ids)')
+        ? { ...statement, bind: () => ({ run: () => Promise.reject(new Error('D1 unavailable')) }) }
+        : statement;
+    }
+  } as typeof inner;
+  mock.method(globalThis, 'fetch', async () => new Response(null, { status: 200 }));
+  const log = mock.method(console, 'error', () => undefined);
+  const removed = await remove(player, account(id).handle);
+  env.TOURNAMENT_DB = inner;
+  assert.equal(removed.status, 204);
+  assert.match(removed.headers.get('set-cookie') ?? '', /Max-Age=0/);
+  assert.deepEqual(clerkQueue(), ['user_abc'], 'the Clerk user waits for a retry');
+  assert.equal(raw().prepare('SELECT count(*) AS n FROM proof_deletions').get()?.n, 1);
+  assert.equal(log.mock.callCount(), 2);
+});
+
+test('a sweep deletes the Clerk users it can reach and keeps the rest queued', async () => {
+  env = {
+    ...env,
+    CLERK_PUBLISHABLE_KEY: `pk_test_${btoa('clerk.example.test$')}`,
+    CLERK_JWT_KEY: 'pem',
+    CLERK_SECRET_KEY: 'sk_test',
+    IDLE_SWEEP_TOKEN: 'sweep-token'
+  };
+  raw().exec("INSERT INTO clerk_deletions (subject) VALUES ('user_down'), ('user_gone'), ('user_up')");
+  mock.method(globalThis, 'fetch', async (url: string) =>
+    url.endsWith('user_down') ? new Response(null, { status: 503 }) : new Response(null, { status: 200 })
+  );
+  const log = mock.method(console, 'error', () => undefined);
+  const swept = await idle.onRequestPost({
+    request: new Request('https://cm.test/api/tournaments/idle', {
+      method: 'POST',
+      headers: { authorization: 'Bearer sweep-token' }
+    }),
+    env,
+    params: {}
+  } as never);
+  assert.equal(swept.status, 200);
+  assert.deepEqual(clerkQueue(), ['user_down']);
+  assert.equal(log.mock.callCount(), 1);
+});
+
 test('a queued Clerk user signed in with again before the retry is left to its new account', async () => {
   env = {
     ...env,

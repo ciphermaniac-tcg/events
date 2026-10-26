@@ -172,8 +172,7 @@ export async function onRequestDelete({ request, env }: Context): Promise<Respon
   if (refusal) {
     return jsonResponse(refusal, { ...PRIVATE, status: 409 });
   }
-  await purgeClerkDeletions(db, env);
-  await purgeProofs(db, env.PROOFS);
+  await Promise.all([purgeClerkDeletions(db, env), purgeProofs(db, env.PROOFS)]);
   return new Response(null, {
     status: 204,
     headers: { 'Set-Cookie': clearCookie(request, SESSION_COOKIE), 'Cache-Control': 'no-store' }

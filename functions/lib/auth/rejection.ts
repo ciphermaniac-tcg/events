@@ -16,19 +16,24 @@ function pendingRemoval(db: D1Like, profile: Profile) {
     .bind(profile.provider, profile.subject, verifiedEmail(profile));
 }
 
-/** Delete the proof files left from when Applications carried them, keeping each key until R2 confirms. */
+/** Delete the proof files left from when Applications carried them, keeping the keys until R2 confirms. */
 export async function purgeProofs(db: D1Like, bucket: ProofBucket | undefined): Promise<void> {
   if (!bucket) {
     return;
   }
   const { results } = await db.prepare('SELECT key FROM proof_deletions LIMIT 100').all<{ key: string }>();
-  for (const { key } of results) {
-    try {
-      await bucket.delete(key);
-      await db.prepare('DELETE FROM proof_deletions WHERE key = ?').bind(key).run();
-    } catch {
-      console.error('Proof file deletion will be retried');
-    }
+  const keys = results.map(row => row.key);
+  if (keys.length === 0) {
+    return;
+  }
+  try {
+    await bucket.delete(keys);
+    await db
+      .prepare('DELETE FROM proof_deletions WHERE key IN (SELECT value FROM json_each(?) AS ids)')
+      .bind(JSON.stringify(keys))
+      .run();
+  } catch {
+    console.error('Proof file deletion will be retried');
   }
 }
 

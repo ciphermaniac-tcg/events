@@ -31,7 +31,7 @@ const sql = (name: string) => readFileSync(new URL(`../../config/d1/${name}`, im
 
 beforeEach(() => {
   const objects = new Set<string>();
-  proofs = { objects, delete: async key => objects.delete(key) };
+  proofs = { objects, delete: async keys => keys.forEach(key => objects.delete(key)) };
   env = { TOURNAMENT_DB: sqliteD1('tournaments.sql'), PROOFS: proofs, IDLE_SWEEP_TOKEN: 'sweep' };
 });
 

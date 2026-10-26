@@ -54,5 +54,5 @@ export interface ReadBucket {
  * carried one. Nothing reads it; the files left in it are being deleted.
  */
 export interface ProofBucket {
-  delete: (key: string) => Promise<unknown>;
+  delete: (keys: string[]) => Promise<unknown>;
 }

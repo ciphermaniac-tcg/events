@@ -326,14 +326,18 @@ export async function purgeClerkDeletions(db: D1Like, env: AuthEnv): Promise<voi
     ),
     db.prepare('SELECT subject FROM clerk_deletions ORDER BY subject LIMIT 20')
   ]);
-  const results = (queued?.results ?? []) as { subject: string }[];
-  for (const { subject } of results) {
-    try {
-      await deleteClerkUser(env, subject);
-      await db.prepare('DELETE FROM clerk_deletions WHERE subject = ?').bind(subject).run();
-    } catch (err) {
-      console.error('Clerk user of a deleted account will be retried', err);
-    }
+  const subjects = ((queued?.results ?? []) as { subject: string }[]).map(row => row.subject);
+  const settled = await Promise.allSettled(subjects.map(subject => deleteClerkUser(env, subject)));
+  const deleted = subjects.filter((_, i) => settled[i]?.status === 'fulfilled');
+  for (const failed of settled.filter(result => result.status === 'rejected')) {
+    console.error('Clerk user of a deleted account will be retried', failed.reason);
+  }
+  if (deleted.length > 0) {
+    await db
+      .prepare('DELETE FROM clerk_deletions WHERE subject IN (SELECT value FROM json_each(?) AS ids)')
+      .bind(JSON.stringify(deleted))
+      .run()
+      .catch((err: unknown) => console.error('Clerk user of a deleted account will be retried', err));
   }
 }
 
