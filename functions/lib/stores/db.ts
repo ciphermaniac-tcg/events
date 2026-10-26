@@ -457,7 +457,7 @@ interface PastEventRow {
   created_at: number;
   sanctioned: number | null;
   mode: string;
-  /** JSON: its players, in the event's order. */
+  /** JSON: its players' IDs and names, in the event's order. */
   field: string;
   /** JSON: the IDs of who placed first. */
   winners: string;
@@ -471,7 +471,9 @@ const PAST_LIMIT = 100;
 const PAST_SQL =
   "SELECT t.code, t.mode, t.created_at, json_extract(t.state, '$.info.name') AS name, " +
   "json_extract(t.state, '$.info.startDate') AS start_date, json_extract(t.settings, '$.sanctioned') AS sanctioned, " +
-  "coalesce(json_extract(t.state, '$.players'), '[]') AS field, " +
+  "(SELECT json_group_array(json_object('id', json_extract(players.value, '$.id'), " +
+  "'firstName', json_extract(players.value, '$.firstName'), 'lastName', json_extract(players.value, '$.lastName'))) " +
+  "FROM json_each(t.state, '$.players') players) AS field, " +
   '(SELECT json_group_array(w.player_id) FROM event_wins w WHERE w.code = t.code) AS winners ' +
   'FROM tournaments t INDEXED BY tournaments_of_store ' +
   "WHERE t.store_id = ? AND coalesce(json_extract(t.settings, '$.finished'), 0) = 1 " +
