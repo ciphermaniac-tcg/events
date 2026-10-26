@@ -10,7 +10,7 @@ import type { DisplayPreset, DisplaySelection } from '../../../shared/tournament
 import type { Context } from '../auth/env.js';
 import type { D1Like } from '../types.js';
 import { publishAfter } from './publish.js';
-import { type Change, changesNothing, loadTournament, mutate } from './store.js';
+import { type Change, changesNothing, fromRaw, mutate, type RawRow } from './store.js';
 
 const holding = (storeId: string, preset: DisplayPreset): Change => {
   const display: DisplaySelection = { ...preset, storeId };
@@ -33,17 +33,18 @@ export async function followPreset(
 ): Promise<void> {
   const { results } = await db
     .prepare(
-      "SELECT code FROM tournaments WHERE store_id = ?1 AND coalesce(json_extract(settings, '$.finished'), 0) = 0 " +
+      "SELECT * FROM tournaments WHERE store_id = ?1 AND coalesce(json_extract(settings, '$.finished'), 0) = 0 " +
         "AND json_extract(settings, '$.display.id') = ?2 AND json_extract(settings, '$.display.storeId') = ?1"
     )
     .bind(storeId, preset.id)
-    .all<{ code: string }>();
+    .all<RawRow>();
   const change = holding(storeId, preset);
-  for (const { code } of results) {
-    const row = await loadTournament(db, code);
-    const outcome = row && (await mutate(db, row, change));
-    if (outcome && 'row' in outcome && outcome.row.version !== row.version) {
-      await publishAfter(context, outcome.row);
-    }
-  }
+  await Promise.all(
+    results.map(fromRaw).map(async row => {
+      const outcome = await mutate(db, row, change);
+      if ('row' in outcome && outcome.row.version !== row.version) {
+        await publishAfter(context, outcome.row);
+      }
+    })
+  );
 }

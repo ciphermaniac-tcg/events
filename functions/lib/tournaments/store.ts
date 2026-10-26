@@ -72,7 +72,7 @@ export interface TournamentRow {
   headJudge?: string | null;
 }
 
-interface RawRow {
+export interface RawRow {
   last_import_at: number | null;
   code: string;
   owner_id: string;
@@ -100,7 +100,7 @@ function legacyMatchKeys<T extends MatchKey>(tournament: Tournament, keys: T[]):
   return keys.map(key => ({ ...key, pod: parents.get(key.pod) ?? key.pod }));
 }
 
-function fromRaw(raw: RawRow): TournamentRow {
+export function fromRaw(raw: RawRow): TournamentRow {
   const tournament = JSON.parse(raw.state) as Tournament;
   // Rows imported before the writer matched TOM byte for byte carry the file's bytes; the next write drops them.
   delete (tournament.passthrough as { original?: unknown } | undefined)?.original;
