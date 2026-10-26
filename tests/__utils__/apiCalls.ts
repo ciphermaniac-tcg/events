@@ -11,6 +11,7 @@ import assert from 'node:assert/strict';
 import { beforeEach } from 'node:test';
 
 import * as login from '../../functions/api/auth/login/[provider].ts';
+import * as me from '../../functions/api/me.ts';
 import type { TournamentEnv } from '../../functions/lib/auth/env.ts';
 import { sha256 } from '../../functions/lib/auth/session.ts';
 import type { AccountRole } from '../../shared/accounts/roles.ts';
@@ -95,7 +96,19 @@ export function apiCalls(envOf: () => TournamentEnv) {
     return cookie;
   }
 
-  return { hit, signIn };
+  /** The account signed in under `cookie`, as its own page reads it; null when none is. */
+  const userOf = async (cookie: string) => (await hit(me.onRequestGet as Handler, '/api/me', {}, { cookie })).json.user;
+
+  /** Saves the player profile of the account signed in under `cookie`, under `popId`. */
+  const saveProfile = (cookie: string, popId: string) =>
+    hit(
+      me.onRequestPut as Handler,
+      '/api/me',
+      {},
+      { method: 'PUT', cookie, body: { popId, firstName: 'Pat', lastName: 'Player', birthDate: '02/27/2001' } }
+    );
+
+  return { hit, signIn, userOf, saveProfile };
 }
 
 /**

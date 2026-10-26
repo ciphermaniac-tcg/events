@@ -24,7 +24,7 @@ import { apiSuite, type Handler, ORIGIN, request } from '../__utils__/apiCalls.t
 import { eventCalls } from '../__utils__/eventCalls.ts';
 import { racing, sqliteD1 } from '../__utils__/sqliteD1.ts';
 
-const { env, hit, signIn } = apiSuite(report, event);
+const { env, hit, saveProfile, signIn } = apiSuite(report, event);
 const { newEvent, newSwiss, addPlayers, settle, playerSays, send } = eventCalls(hit);
 
 /** Ash and Gary at an unsanctioned event, as staff add them by name. */
@@ -53,14 +53,6 @@ const idOf = async (cookie: string) => {
 };
 
 const account = (id: string) => raw().prepare('SELECT * FROM users WHERE id = ?').get(id) as Record<string, unknown>;
-
-const saveProfile = (cookie: string, popId: string) =>
-  hit(
-    me.onRequestPut as Handler,
-    '/api/me',
-    {},
-    { method: 'PUT', cookie, body: { popId, firstName: 'Pat', lastName: 'Player', birthDate: '02/27/2001' } }
-  );
 
 const rename = (cookie: string, handle: string) =>
   hit(me.onRequestPatch as Handler, '/api/me', {}, { method: 'PATCH', cookie, body: { handle } });

@@ -21,7 +21,7 @@ import { racing, sqliteD1 } from '../__utils__/sqliteD1.ts';
 
 let env: TournamentEnv;
 let db: ReturnType<typeof sqliteD1>;
-const { hit, signIn } = apiCalls(() => env);
+const { hit, signIn, userOf } = apiCalls(() => env);
 const calls = eventCalls(hit, signIn);
 const { newSwiss, send, addPlayers, settle } = calls;
 
@@ -40,8 +40,6 @@ const remove = (code: string, cookie: string, id: string) =>
   hit(penaltyNotes.onRequestDelete as Handler, `/penalty-notes?id=${id}`, at(code), { method: 'DELETE', cookie });
 
 const entriesOf = (response: { json: { entries: PenaltyNoteEntry[] } }) => response.json.entries;
-
-const userOf = async (cookie: string) => (await hit(me.onRequestGet as Handler, '/api/me', {}, { cookie })).json.user;
 
 /** A running event (see eventCalls), with its organizer's account ID and its staff member's account. */
 async function runningEvent() {

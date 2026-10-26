@@ -30,7 +30,7 @@ import { apiSuite, type Handler } from '../__utils__/apiCalls.ts';
 import { at, eventCalls } from '../__utils__/eventCalls.ts';
 import { countingTrips, racing, sqliteD1 } from '../__utils__/sqliteD1.ts';
 
-const { env, hit, signIn } = apiSuite(decklists, report, event, profiles);
+const { env, hit, saveProfile, signIn } = apiSuite(decklists, report, event, profiles);
 const { newEvent, newSwiss, send, addPlayers, settle, playerSays } = eventCalls(hit);
 
 const db = () => env.TOURNAMENT_DB as ReturnType<typeof sqliteD1>;
@@ -359,18 +359,6 @@ test('a player taken off the list is no one there any more, at either kind of ev
     roster.players.filter((p: Player) => p.id !== ashId).map((p: Player) => p.id)
   );
 });
-
-const saveProfile = (cookie: string, popId: string) =>
-  hit(
-    me.onRequestPut as Handler,
-    '/api/me',
-    {},
-    {
-      method: 'PUT',
-      cookie,
-      body: { popId, firstName: 'Pat', lastName: 'Player', birthDate: '02/27/2001' }
-    }
-  );
 
 const historyOf = async (cookie?: string) => hit(history.onRequestGet as Handler, '/api/history', {}, { cookie });
 

@@ -20,21 +20,13 @@ import { apiSuite, type Handler } from '../__utils__/apiCalls.ts';
 import { at, eventCalls } from '../__utils__/eventCalls.ts';
 import { sqliteD1 } from '../__utils__/sqliteD1.ts';
 
-const { env, hit, signIn } = apiSuite(event, report, profiles);
+const { env, hit, saveProfile, signIn } = apiSuite(event, report, profiles);
 const { newSwiss, send, addPlayers, settle } = eventCalls(hit);
 
 const db = () => env.TOURNAMENT_DB as ReturnType<typeof sqliteD1>;
 
 const patchMe = (cookie: string, body: Record<string, unknown>) =>
   hit(me.onRequestPatch as Handler, '/api/me', {}, { method: 'PATCH', cookie, body });
-
-const saveProfile = (cookie: string, popId: string) =>
-  hit(
-    me.onRequestPut as Handler,
-    '/api/me',
-    {},
-    { method: 'PUT', cookie, body: { popId, firstName: 'Pat', lastName: 'Player', birthDate: '02/27/2001' } }
-  );
 
 /** The badges on the public profile at `handle`, all of them or only the counted ones. */
 async function badgesAt(handle: string, all = false): Promise<Badge[]> {

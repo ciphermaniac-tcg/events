@@ -25,7 +25,7 @@ import { racing, sqliteD1 } from '../__utils__/sqliteD1.ts';
 
 let env: TournamentEnv;
 let db: ReturnType<typeof sqliteD1>;
-const { hit, signIn } = apiCalls(() => env);
+const { hit, signIn, userOf } = apiCalls(() => env);
 const { newSwiss, send, addPlayers, settle, joinStaff } = eventCalls(hit);
 
 beforeEach(() => {
@@ -52,8 +52,6 @@ async function reportAll(code: string, owner: string) {
 }
 
 const pick = (m: Match) => ({ table: m.table, p1: m.p1, p2: m.p2 });
-
-const userOf = async (cookie: string) => (await hit(me.onRequestGet as Handler, '/api/me', {}, { cookie })).json.user;
 
 /** Eight players, round 1 played and round 2 paired, with the organizer and a staff member who joined by link. */
 async function inRound2() {
