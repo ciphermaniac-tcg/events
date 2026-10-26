@@ -22,6 +22,7 @@ import { createSession, currentUser, linkIdentity, upsertUser } from '../../func
 import type { D1Like } from '../../functions/lib/types.ts';
 import { apiSuite, type Handler, request } from '../__utils__/apiCalls.ts';
 import { racing, sqliteD1 } from '../__utils__/sqliteD1.ts';
+import { migrate } from '../__utils__/migrations.ts';
 
 const { env, hit, signIn } = apiSuite();
 
@@ -88,25 +89,13 @@ test('migrations 0006 to 0038 bring a database made before accounts in line with
   const db = new DatabaseSync(':memory:');
   db.exec(sql('../fixtures/d1/tournaments-before-0006.sql'));
   seedBefore0006(db);
-  db.exec(sql('../../config/d1/migrations/tournaments/0006-player-accounts.sql'));
-  const backfill = sql('../../config/d1/migrations/tournaments/0007-pop-history-backfill.sql');
-  db.exec(backfill);
-  db.exec(backfill);
-
-  db.exec(sql('../../config/d1/migrations/tournaments/0008-verified-email-uniqueness.sql'));
-  db.exec(sql('../../config/d1/migrations/tournaments/0009-identify-failures.sql'));
+  // 0007 twice: the backfill holds when run again.
+  migrate(db, 6, 7);
+  migrate(db, 7, 9);
   db.exec("UPDATE users SET public_slug = 'K7PQ2MXA' WHERE id = 'owner'");
-  db.exec(sql('../../config/d1/migrations/tournaments/0010-usernames.sql'));
-  db.exec(sql('../../config/d1/migrations/tournaments/0011-age-gate.sql'));
-  db.exec(sql('../../config/d1/migrations/tournaments/0012-stores.sql'));
-  db.exec(sql('../../config/d1/migrations/tournaments/0013-proof-deletions.sql'));
+  migrate(db, 10, 13);
   seedStoresBefore0014(db);
-  db.exec(sql('../../config/d1/migrations/tournaments/0014-store-owners.sql'));
-  db.exec(sql('../../config/d1/migrations/tournaments/0015-history-hidden.sql'));
-  db.exec(sql('../../config/d1/migrations/tournaments/0016-achievements.sql'));
-  db.exec(sql('../../config/d1/migrations/tournaments/0017-launch-badges.sql'));
-  db.exec(sql('../../config/d1/migrations/tournaments/0018-unsanctioned-stores.sql'));
-  db.exec(sql('../../config/d1/migrations/tournaments/0019-clerk-deletions.sql'));
+  migrate(db, 14, 19);
   // Proof files from when Applications carried them: each is queued for deletion.
   db.exec(
     'INSERT INTO applications (id, user_id, status, pop_id, first_name, last_name, proof_key, created_at) ' +
@@ -114,25 +103,7 @@ test('migrations 0006 to 0038 bring a database made before accounts in line with
       "('plain', 'owner', 'rejected', '1', 'A', 'B', NULL, 1);" +
       "INSERT INTO proof_uploads VALUES ('owner', 'proofs/owner/held', 'image/png', 1);"
   );
-  db.exec(sql('../../config/d1/migrations/tournaments/0020-queue-proofs.sql'));
-  db.exec(sql('../../config/d1/migrations/tournaments/0021-profile-preferences.sql'));
-  db.exec(sql('../../config/d1/migrations/tournaments/0022-display-presets.sql'));
-  db.exec(sql('../../config/d1/migrations/tournaments/0023-tom-import-time.sql'));
-  db.exec(sql('../../config/d1/migrations/tournaments/0024-report-history.sql'));
-  db.exec(sql('../../config/d1/migrations/tournaments/0025-player-requests.sql'));
-  db.exec(sql('../../config/d1/migrations/tournaments/0026-deck-checks.sql'));
-  db.exec(sql('../../config/d1/migrations/tournaments/0027-penalty-notes.sql'));
-  db.exec(sql('../../config/d1/migrations/tournaments/0028-result-corrections.sql'));
-  db.exec(sql('../../config/d1/migrations/tournaments/0029-clerk-sessions-used.sql'));
-  db.exec(sql('../../config/d1/migrations/tournaments/0030-password-cutoffs.sql'));
-  db.exec(sql('../../config/d1/migrations/tournaments/0031-password-resets.sql'));
-  db.exec(sql('../../config/d1/migrations/tournaments/0032-reset-claims.sql'));
-  db.exec(sql('../../config/d1/migrations/tournaments/0033-reset-reservations.sql'));
-  db.exec(sql('../../config/d1/migrations/tournaments/0034-paired-through.sql'));
-  db.exec(sql('../../config/d1/migrations/tournaments/0035-expiry-indexes.sql'));
-  db.exec(sql('../../config/d1/migrations/tournaments/0036-checkins.sql'));
-  db.exec(sql('../../config/d1/migrations/tournaments/0037-paper-lists.sql'));
-  db.exec(sql('../../config/d1/migrations/tournaments/0038-inferred-decks.sql'));
+  migrate(db, 20, 38);
   assert.deepEqual(
     db
       .prepare('SELECT key FROM proof_deletions ORDER BY key')

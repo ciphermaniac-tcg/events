@@ -27,6 +27,7 @@ import { apiCalls, type Handler, request } from '../__utils__/apiCalls.ts';
 import { at, eventCalls } from '../__utils__/eventCalls.ts';
 import { racing, sqliteD1 } from '../__utils__/sqliteD1.ts';
 import { storeApplication } from '../__utils__/storeApplication.ts';
+import { migrate } from '../__utils__/migrations.ts';
 
 let env: TournamentEnv;
 const { hit, signIn } = apiCalls(() => env);
@@ -374,11 +375,7 @@ const sql = (path: string) => readFileSync(new URL(path, import.meta.url), 'utf8
 test('migration 0011 signs everyone out, cuts kept birth dates to years, inside events too, and deletes minors’ cards at ended events', () => {
   const db = new DatabaseSync(':memory:');
   db.exec(sql('../fixtures/d1/tournaments-before-0006.sql'));
-  for (const name of ['0006-player-accounts', '0007-pop-history-backfill', '0008-verified-email-uniqueness']) {
-    db.exec(sql(`../../config/d1/migrations/tournaments/${name}.sql`));
-  }
-  db.exec(sql('../../config/d1/migrations/tournaments/0009-identify-failures.sql'));
-  db.exec(sql('../../config/d1/migrations/tournaments/0010-usernames.sql'));
+  migrate(db, 6, 10);
   const players = JSON.stringify({
     players: [
       { id: '1', birthDate: '06/15/2014' },
