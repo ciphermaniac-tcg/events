@@ -23,7 +23,6 @@ import {
   type PenaltyNoteEntry,
   standingNotes
 } from '../../../shared/tournament/penaltyNotes';
-import { latestRoundOf } from '../../../shared/tournament/staffRecords';
 import { type Player, playerName } from '../../../shared/tournament/types';
 import {
   errorText,
@@ -513,7 +512,18 @@ function DisqualifyOffer(props: { state: ManageState; manage: Manage; id: string
 export function PenaltiesPanel(props: { state: ManageState; manage: Manage }) {
   const notes = createPenaltyNotes(() => props.manage.code);
   const me = () => latestValue(session)?.user?.id ?? null;
-  const latestOf = (playerId: string) => latestRoundOf(props.manage.tournament, playerId);
+  // Each player's latest round (see latestRoundOf), worked out once rather than for every player read.
+  const latestRounds = createMemo(() => {
+    const rounds = new Map<string, number>();
+    for (const pod of props.manage.tournament.pods) {
+      const last = Math.max(0, ...pod.rounds.map(round => round.number));
+      for (const id of pod.playerIds) {
+        rounds.set(id, Math.max(rounds.get(id) ?? 0, last));
+      }
+    }
+    return rounds;
+  });
+  const latestOf = (playerId: string) => latestRounds().get(playerId) ?? 0;
   const latest = createMemo(() => Math.max(0, ...props.manage.tournament.players.map(player => latestOf(player.id))));
   // A player is only written up for a round they were paired in; a late entry waits for their first.
   const players = createMemo(() =>

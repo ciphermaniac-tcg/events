@@ -32,14 +32,21 @@ import { ConfirmAction } from './ConfirmAction';
 /** The event's deck check record, read once for the tab and replaced by each write's answer. */
 export function createDeckChecks(code: () => string) {
   const [record, { refetch, mutate }] = createResource(code, fetchDeckChecks);
-  const standing = createMemo(() => standingChecks(latestValue(record)?.entries ?? []));
+  // Each player's checks as they stand, the latest round first, sorted once for every row that reads them.
+  const byPlayer = createMemo(() => {
+    const checks = new Map<string, DeckCheck[]>();
+    const sorted = standingChecks(latestValue(record)?.entries ?? []).sort(
+      (a, b) => b.round - a.round || b.recordedAt - a.recordedAt
+    );
+    for (const check of sorted) {
+      checks.set(check.playerId, [...(checks.get(check.playerId) ?? []), check]);
+    }
+    return checks;
+  });
   return {
     code,
     /** A player's checks as they stand, the latest round first. */
-    of: (playerId: string) =>
-      standing()
-        .filter(check => check.playerId === playerId)
-        .sort((a, b) => b.round - a.round || b.recordedAt - a.recordedAt),
+    of: (playerId: string): DeckCheck[] => byPlayer().get(playerId) ?? [],
     checkers: () => latestValue(record)?.checkers ?? [],
     loading: () => record.loading && !latestValue(record),
     failed: () => Boolean(record.error),

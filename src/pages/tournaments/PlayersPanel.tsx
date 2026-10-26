@@ -15,13 +15,7 @@ import { useSearchParams } from '@solidjs/router';
 import { createMemo, createSignal, For, Show } from 'solid-js';
 import { divisionFor, eventSeason } from '../../../shared/tournament/divisions';
 import { hasPlayed, hasStarted, joinedLate, playerPod, podOf } from '../../../shared/tournament/rounds';
-import {
-  DIVISION_LABELS,
-  isGeneratedId,
-  type Player,
-  playerName,
-  type Tournament
-} from '../../../shared/tournament/types';
+import { DIVISION_LABELS, isGeneratedId, type Player, playerName, type Pod } from '../../../shared/tournament/types';
 import { type ReturnEffects, returnEffects } from '../../../shared/tournament/returns';
 import { decksEnabled, isSanctioned } from '../../../shared/tournament/view';
 import { type Manage, releaseReporter } from '../../lib/tournament/api';
@@ -327,8 +321,7 @@ function PlayerActions(props: { state: ManageState; manage: Manage; player: Play
 }
 
 /** A player's results so far, one mark per round they could play: their pod's, and their division's top cut's. */
-function marksOf(tournament: Tournament, player: Player): { marks: string[]; rounds: number } {
-  const pod = playerPod(tournament, player.id);
+function marksOf(pod: Pod | undefined, player: Player): { marks: string[]; rounds: number } {
   if (!pod) {
     return { marks: [], rounds: 0 };
   }
@@ -360,15 +353,14 @@ function PlayerRow(props: RowProps) {
     ]
       .filter(Boolean)
       .join(' · ');
-  const history = () => marksOf(props.manage.tournament, props.player);
+  const pod = createMemo(() => playerPod(props.manage.tournament, props.player.id));
+  const history = createMemo(() => marksOf(pod(), props.player));
   return (
     <tr classList={{ 'is-dropped': props.player.droppedAfter !== null }}>
       <td class='tm-who'>
         <span class='tm-who-name'>
           <span class='tm-name'>{sortName(props.player)}</span>
-          <Show
-            when={props.player.late || joinedLate(playerPod(props.manage.tournament, props.player.id), props.player.id)}
-          >
+          <Show when={props.player.late || joinedLate(pod(), props.player.id)}>
             <span class='tm-flag'>{t('Late')}</span>
           </Show>
           <Show when={props.player.fixedTable}>
