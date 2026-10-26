@@ -41,26 +41,37 @@ function statement(db: DatabaseSync, sql: string, args: unknown[] = []): D1State
 export function sqliteD1(schema: string): D1Like & { raw: DatabaseSync } {
   const db = new DatabaseSync(':memory:');
   db.exec(readFileSync(new URL(`../../config/d1/${schema}`, import.meta.url), 'utf8'));
+  // A batch is one transaction, as D1's is: one sent while another runs waits its turn rather than interleave.
+  let running: Promise<unknown> | null = null;
+  const batch: D1Like['batch'] = async statements => {
+    db.exec('BEGIN');
+    // How many rows the statements so far changed, to tell each one's share as D1's `meta.changes` does.
+    const changed = () => (db.prepare('SELECT total_changes() AS n').get() as { n: number }).n;
+    try {
+      const results: { results?: unknown[]; meta: { changes: number } }[] = [];
+      for (const item of statements) {
+        const before = changed();
+        const { results: rows } = await item.all();
+        results.push({ results: rows, meta: { changes: changed() - before } });
+      }
+      db.exec('COMMIT');
+      return results;
+    } catch (error) {
+      db.exec('ROLLBACK');
+      throw error;
+    }
+  };
   return {
     raw: db,
     prepare: sql => statement(db, sql),
-    batch: async statements => {
-      db.exec('BEGIN');
-      // How many rows the statements so far changed, to tell each one's share as D1's `meta.changes` does.
-      const changed = () => (db.prepare('SELECT total_changes() AS n').get() as { n: number }).n;
-      try {
-        const results: { results?: unknown[]; meta: { changes: number } }[] = [];
-        for (const item of statements) {
-          const before = changed();
-          const { results: rows } = await item.all();
-          results.push({ results: rows, meta: { changes: changed() - before } });
-        }
-        db.exec('COMMIT');
-        return results;
-      } catch (error) {
-        db.exec('ROLLBACK');
-        throw error;
-      }
+    batch: statements => {
+      const run = running ? running.then(() => batch(statements)) : batch(statements);
+      const done = run.catch(() => undefined);
+      running = done;
+      void done.then(() => {
+        running = running === done ? null : running;
+      });
+      return run;
     }
   };
 }

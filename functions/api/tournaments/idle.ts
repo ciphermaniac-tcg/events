@@ -20,6 +20,7 @@ import { sweepSignups } from '../../lib/auth/signup.js';
 import { privateJson } from '../../lib/tournaments/access.js';
 import { publishAfter } from '../../lib/tournaments/publish.js';
 import { loadIdle, mutate, type TournamentRow } from '../../lib/tournaments/store.js';
+import type { D1Like } from '../../lib/types.js';
 
 const IDLE_END_MS = 2 * 60 * 60 * 1000;
 const MAX_IDLE_MS = 7 * 24 * 60 * 60 * 1000;
@@ -98,6 +99,30 @@ function podComplete(row: TournamentRow, pod: Pod): boolean {
 const completed = (row: TournamentRow): boolean =>
   row.pending.length === 0 && row.reports.length === 0 && row.tournament.pods.every(pod => podComplete(row, pod));
 
+/** Untouched since `before`: idle; since `expiredBefore`: ended. */
+interface Cutoff {
+  before: number;
+  expiredBefore: number;
+}
+
+/** Marks an event idle, and ended once it has sat long enough or has nothing left to play; null if it moved meanwhile. */
+async function settleIdle(context: Context, db: D1Like, read: TournamentRow, cutoff: Cutoff) {
+  const { before, expiredBefore } = cutoff;
+  const outcome = await mutate(db, read, row =>
+    stillIdle(row, before, expiredBefore)
+      ? {
+          settings: { ...row.settings, idle: true, finished: row.updatedAt <= expiredBefore || completed(row) },
+          updatedAt: row.updatedAt
+        }
+      : 'No longer idle'
+  );
+  if (!('row' in outcome)) {
+    return null;
+  }
+  await publishAfter(context, outcome.row);
+  return outcome.row;
+}
+
 export async function onRequestPost(context: Context): Promise<Response> {
   const db = context.env.TOURNAMENT_DB;
   if (!db) {
@@ -108,26 +133,20 @@ export async function onRequestPost(context: Context): Promise<Response> {
   }
   const now = Date.now();
   // Sign-ups that ran out waiting for their age check go here too, so none outlives its fifteen minutes by much.
-  await sweepSignups(db, now).run();
-  await purgeProofs(db, context.env.PROOFS);
-  await purgeClerkDeletions(db, context.env);
+  await Promise.all([
+    sweepSignups(db, now).run(),
+    purgeProofs(db, context.env.PROOFS),
+    purgeClerkDeletions(db, context.env)
+  ]);
   const before = now - IDLE_END_MS;
   const expiredBefore = now - MAX_IDLE_MS;
-  const ended: string[] = [];
-  const idle: string[] = [];
-  for (const read of await loadIdle(db, before, MAX_PER_SWEEP, expiredBefore)) {
-    const outcome = await mutate(db, read, row =>
-      stillIdle(row, before, expiredBefore)
-        ? {
-            settings: { ...row.settings, idle: true, finished: row.updatedAt <= expiredBefore || completed(row) },
-            updatedAt: row.updatedAt
-          }
-        : 'No longer idle'
-    );
-    if ('row' in outcome) {
-      (outcome.row.settings.finished ? ended : idle).push(outcome.row.code);
-      await publishAfter(context, outcome.row);
-    }
-  }
+  const settled = await Promise.all(
+    (await loadIdle(db, before, MAX_PER_SWEEP, expiredBefore)).map(read =>
+      settleIdle(context, db, read, { before, expiredBefore })
+    )
+  );
+  const swept = settled.filter(row => row !== null);
+  const ended = swept.filter(row => row.settings.finished).map(row => row.code);
+  const idle = swept.filter(row => !row.settings.finished).map(row => row.code);
   return privateJson({ ended, idle });
 }
