@@ -62,13 +62,16 @@ const winnerOutcome = (seat: 1 | 2): Outcome => (seat === 1 ? 'p1' : 'p2');
 const isConfirming = (props: MatchTableProps, match: Match) =>
   props.confirming?.table === match.table && props.confirming.p1 === match.p1;
 
-function SeatCell(props: MatchTableProps & { match: Match; seat: 1 | 2; records: Map<string, string> }) {
+type Shown = ReturnType<typeof shownOutcome>;
+
+/** The props a row's cells take: the table's, its match, and what stands for the match (see MatchTable). */
+type CellProps = MatchTableProps & { match: Match; shownOf: (match: Match) => Shown };
+
+function SeatCell(props: CellProps & { seat: 1 | 2; records: Map<string, string> }) {
   const id = () => (props.seat === 1 ? props.match.p1 : props.match.p2);
   const shown = () => {
     const preview = isConfirming(props, props.match) ? props.confirming?.outcome : props.sent?.(props.match);
-    return preview
-      ? { outcome: preview, unconfirmed: true }
-      : shownOutcome(props.match, props.pod, props.round, props.pending);
+    return preview ? { outcome: preview, unconfirmed: true } : props.shownOf(props.match);
   };
   const mark = () => seatMark(shown().outcome, props.seat);
   const name = (playerId: string) => props.names.get(playerId) ?? playerId;
@@ -84,9 +87,7 @@ function SeatCell(props: MatchTableProps & { match: Match; seat: 1 | 2; records:
   );
   const reportable = () => props.onReport && props.match.p2 !== null;
   // A double click records only on an open table: changing a result that stands always asks first.
-  const open = () =>
-    (props.sent?.(props.match) ?? shownOutcome(props.match, props.pod, props.round, props.pending).outcome) ===
-    'pending';
+  const open = () => (props.sent?.(props.match) ?? props.shownOf(props.match).outcome) === 'pending';
   return (
     <td class='tm-seat' classList={{ 'is-selected': props.selected?.has(id() ?? '') }}>
       <Show
@@ -140,8 +141,8 @@ function SeatCell(props: MatchTableProps & { match: Match; seat: 1 | 2; records:
  * marks beside the names already say who won. A bye or a missed round has
  * nothing to play.
  */
-function StatusCell(props: MatchTableProps & { match: Match }) {
-  const outcome = () => shownOutcome(props.match, props.pod, props.round, props.pending).outcome;
+function StatusCell(props: CellProps) {
+  const outcome = () => props.shownOf(props.match).outcome;
   return (
     <td class='tm-status-col'>
       <Show when={props.match.p2 !== null}>
@@ -201,9 +202,12 @@ function createHeldGroups(props: MatchTableProps) {
 
 export function MatchTable(props: MatchTableProps) {
   const groups = createHeldGroups(props);
-  const records = createMemo(() =>
-    recordsSoFar(props.pod, props.round, match => shownOutcome(match, props.pod, props.round, props.pending).outcome)
+  // What stands for each of the round's tables, worked out once a change rather than in every cell.
+  const shown = createMemo(
+    () => new Map(props.round.matches.map(match => [match, shownOutcome(match, props.pod, props.round, props.pending)]))
   );
+  const shownOf = (match: Match) => shown().get(match) ?? shownOutcome(match, props.pod, props.round, props.pending);
+  const records = createMemo(() => recordsSoFar(props.pod, props.round, match => shownOf(match).outcome));
   const hasDecks = () => Object.keys(props.decks).length > 0;
   const columns = () => 3 + (props.extra || props.status ? 1 : 0);
   const mine = (match: Match) => props.me != null && (match.p1 === props.me || match.p2 === props.me);
@@ -265,11 +269,11 @@ export function MatchTable(props: MatchTableProps) {
                       <td class='num muted-cell tm-table-col' classList={{ 'is-bye': !match.table }}>
                         <span class='tm-table-num'>{match.table || '—'}</span>
                       </td>
-                      <SeatCell {...props} match={match} seat={1} records={records()} />
-                      <SeatCell {...props} match={match} seat={2} records={records()} />
+                      <SeatCell {...props} match={match} shownOf={shownOf} seat={1} records={records()} />
+                      <SeatCell {...props} match={match} shownOf={shownOf} seat={2} records={records()} />
                       <Show when={props.extra}>{extra => <td class='tm-extra-col'>{extra()(match)}</td>}</Show>
                       <Show when={props.status && !props.extra}>
-                        <StatusCell {...props} match={match} />
+                        <StatusCell {...props} match={match} shownOf={shownOf} />
                       </Show>
                     </tr>
                   )}

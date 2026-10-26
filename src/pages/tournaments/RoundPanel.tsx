@@ -80,8 +80,9 @@ interface ResultProps {
   locked: boolean;
   pod: Pod;
   round: Round;
-  manage: Manage;
-  /** What the players reported for the match while it is open (see openReports). */
+  /** The result that stands for the match, TOM's or one entered on the site (see shownOutcome). */
+  shown: Shown;
+  /** What the players reported for the match while it is open (see tableState). */
   reports: readonly PlayerReport[];
   /** The result sent for the match and not answered yet. */
   sent: Outcome | undefined;
@@ -105,8 +106,7 @@ interface ResultProps {
 }
 
 /** What the row shows standing for the match: the result on its way, or the one that stands. */
-const standing = (row: ResultProps): Outcome =>
-  row.sent ?? shownOutcome(row.match, row.pod, row.round, row.manage.pending).outcome;
+const standing = (row: ResultProps): Outcome => row.sent ?? row.shown.outcome;
 
 /** The confirm button's word: Clear, Change for a result that stands, or Record. */
 function confirmWord(from: Outcome, to: Outcome): string {
@@ -199,6 +199,14 @@ const NO_REPORTS: readonly PlayerReport[] = [];
 const loneReport = (reports: readonly PlayerReport[]): Outcome | null =>
   reports.length > 0 && !isDisputed(reports) ? (reports[0]?.outcome ?? null) : null;
 
+type Shown = ReturnType<typeof shownOutcome>;
+
+interface TableState {
+  shown: Shown;
+  reports: readonly PlayerReport[];
+  staff: ReturnType<typeof staffReport>;
+}
+
 /** A round's reports by table, so each row reads its own table's and not the whole room's. */
 function reportsByTable(reports: readonly PlayerReport[], pod: Pod, round: Round): Map<number, PlayerReport[]> {
   const byTable = new Map<number, PlayerReport[]>();
@@ -218,10 +226,7 @@ function reportsByTable(reports: readonly PlayerReport[], pod: Pod, round: Round
  */
 function StandingResult(props: ResultProps) {
   // A result on its way shows as sent, so the row does not read Open for as long as the answer takes.
-  const shown = () =>
-    props.sent
-      ? { outcome: props.sent, unconfirmed: false }
-      : shownOutcome(props.match, props.pod, props.round, props.manage.pending);
+  const shown = () => (props.sent ? { outcome: props.sent, unconfirmed: false } : props.shown);
   const open = () => shown().outcome === 'pending';
   const elimination = () => props.round.kind === 'elimination';
   const report = createMemo(() => staffReport(props.reports, props.match, props.names));
@@ -480,13 +485,13 @@ function TableSheet(props: {
   round: Round;
   match: Match;
   names: Map<string, string>;
-  sent: Outcome | undefined;
+  /** What stands for the match: the result on its way, or the one shown. */
+  outcome: Outcome;
   reports: readonly PlayerReport[];
   onPick: (outcome: Outcome) => void;
   onClose: () => void;
   onTimeExtension?: () => void;
 }) {
-  const outcome = () => props.sent ?? shownOutcome(props.match, props.pod, props.round, props.manage.pending).outcome;
   return (
     <Suspense>
       <ResultSheet
@@ -495,7 +500,7 @@ function TableSheet(props: {
         names={props.names}
         decks={shownDecks(props.manage)}
         records={recordsBefore(withSwiss(props.manage.tournament, props.pod), props.round)}
-        outcome={outcome()}
+        outcome={props.outcome}
         report={staffReport(props.reports, props.match, props.names) ?? null}
         lone={loneReport(props.reports)}
         onPick={outcome => props.onPick(outcome)}
@@ -597,9 +602,9 @@ function EndedNote() {
 }
 
 /** A round's tables with two players, how many of those are open, and whether any result is in. */
-function roundCounts(round: Round | undefined, pod: Pod, pending: Manage['pending']) {
+function roundCounts(round: Round | undefined, isOpen: (match: Match) => boolean) {
   const played = round?.matches.filter(m => m.p2 !== null) ?? [];
-  const open = round ? played.filter(m => shownOutcome(m, pod, round, pending).outcome === 'pending') : [];
+  const open = played.filter(isOpen);
   return { played: played.length, open: open.length, nothingReported: played.every(m => m.outcome === 'pending') };
 }
 
@@ -666,6 +671,35 @@ function RoundNotes(props: {
   );
 }
 
+/**
+ * Each table of the round shown with what stands for it, its reports while it
+ * is open, and those reports as staff read them: worked out once a change, not
+ * again in every cell that reads them.
+ */
+function createTables(
+  props: { manage: Manage; pod: Pod },
+  round: () => Round | undefined,
+  names: () => Map<string, string>
+) {
+  const roundReports = createMemo(() => {
+    const r = round();
+    return r ? reportsByTable(props.manage.reports, props.pod, r) : new Map<number, PlayerReport[]>();
+  });
+  function tableState(match: Match, r: Round): TableState {
+    const shown = shownOutcome(match, props.pod, r, props.manage.pending);
+    const reports =
+      shown.outcome === 'pending'
+        ? reportsFor(roundReports().get(match.table) ?? NO_REPORTS, props.pod.category, r.number, match)
+        : NO_REPORTS;
+    return { shown, reports, staff: staffReport(reports, match, names()) };
+  }
+  const tables = createMemo(() => {
+    const r = round();
+    return new Map((r?.matches ?? []).map(match => [match, tableState(match, r as Round)]));
+  });
+  return (match: Match) => tables().get(match) ?? tableState(match, round() as Round);
+}
+
 export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod; locked?: boolean }) {
   const tom = () => props.manage.mode === 'tom';
   const ended = () => props.manage.settings.finished;
@@ -693,8 +727,9 @@ export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod
   // Results are entered in the table, so the bracket is only ever a look at the cut.
   const [matchView, setMatchView] = createSignal<MatchView>('table');
   const asBracket = () => cut() && matchView() === 'bracket';
-  const waiting = () =>
-    tom() || ended() || latest()?.kind !== 'swiss' ? [] : unseated(props.manage.tournament, props.pod);
+  const waiting = createMemo(() =>
+    tom() || ended() || latest()?.kind !== 'swiss' ? [] : unseated(props.manage.tournament, props.pod)
+  );
   const isLatest = () => round()?.number === latest()?.number;
   const pastLabel = () => {
     const r = round();
@@ -704,24 +739,16 @@ export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod
   // Each division's champion, Masters first, once every final in the pod is decided.
   const winners = createMemo(() => champions(latest(), props.pod));
   const winner = () => winners()[0]?.id ?? null;
-  const counts = () => roundCounts(round(), props.pod, props.manage.pending);
   /** The round's clock, run from its latest round until there is a champion, TOM's or not. */
   const timed = () => isLatest() && winner() === null;
   /** The staff controls that act on the round, offered only where its clock is, never for TOM, and not once it ends. */
   const live = () => !tom() && timed() && !ended();
   const { opens, inRow, openSheet, sheetMatch, closeSheet } = createRowSheet(() => swapMode() || locked());
   const isAsking = (match: Match) => asking()?.table === match.table && asking()?.p1 === match.p1;
-  const roundReports = createMemo(() => {
-    const r = round();
-    return r ? reportsByTable(props.manage.reports, props.pod, r) : new Map<number, PlayerReport[]>();
-  });
-  /** An open match's reports, or none once a result stands. */
-  const openReports = (match: Match, r: Round): readonly PlayerReport[] =>
-    shownOutcome(match, props.pod, r, props.manage.pending).outcome === 'pending'
-      ? reportsFor(roundReports().get(match.table) ?? NO_REPORTS, props.pod.category, r.number, match)
-      : NO_REPORTS;
-  const canExtend = (match: Match, r: Round) =>
-    !locked() && match.p2 !== null && shownOutcome(match, props.pod, r, props.manage.pending).outcome === 'pending';
+  const tableOf = createTables(props, round, names);
+  const isOpen = (match: Match) => tableOf(match).shown.outcome === 'pending';
+  const counts = createMemo(() => roundCounts(round(), isOpen));
+  const canExtend = (match: Match) => !locked() && match.p2 !== null && isOpen(match);
   function editExtension(match: Match, r: Round) {
     closeSheet();
     props.state.clearError();
@@ -736,11 +763,7 @@ export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod
     if (!r) {
       return [];
     }
-    return r.matches.filter(
-      m =>
-        (!query().trim() || matchesQuery(m, query(), names())) &&
-        (!openOnly() || shownOutcome(m, props.pod, r, props.manage.pending).outcome === 'pending')
-    );
+    return r.matches.filter(m => (!query().trim() || matchesQuery(m, query(), names())) && (!openOnly() || isOpen(m)));
   });
 
   function report(match: Match, outcome: Outcome) {
@@ -808,22 +831,18 @@ export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod
                 onRecord={inRow() ? send : undefined}
                 onRow={opens() ? openSheet : undefined}
                 onPlayer={swapMode() ? pickForSwap : undefined}
-                inProgress={
-                  openOnly()
-                    ? undefined
-                    : match => shownOutcome(match, props.pod, r(), props.manage.pending).outcome === 'pending'
-                }
+                inProgress={openOnly() ? undefined : isOpen}
                 confirming={asking()}
                 sent={match => entry.sentFor(r(), match) ?? entry.failedFor(r(), match)}
-                tag={(match, id) => staffReport(openReports(match, r()), match, names())?.tags.get(id) ?? null}
+                tag={(match, id) => tableOf(match).staff?.tags.get(id) ?? null}
                 extra={match => (
                   <Result
                     locked={locked()}
                     match={match}
                     pod={props.pod}
                     round={r()}
-                    manage={props.manage}
-                    reports={openReports(match, r())}
+                    shown={tableOf(match).shown}
+                    reports={tableOf(match).reports}
                     sent={entry.sentFor(r(), match)}
                     failed={entry.failedFor(r(), match)}
                     conflict={entry.conflictFor(r(), match)}
@@ -835,7 +854,7 @@ export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod
                     onRecord={() => record(match)}
                     onAccept={outcome => send(match, outcome)}
                     onOpen={opens() ? () => openSheet(match) : undefined}
-                    onTimeExtension={canExtend(match, r()) ? () => editExtension(match, r()) : undefined}
+                    onTimeExtension={canExtend(match) ? () => editExtension(match, r()) : undefined}
                     past={fixes.cell(match, r())}
                     onKeep={() => {
                       setAsking(null);
@@ -908,8 +927,8 @@ export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod
                     round={r()}
                     match={match()}
                     names={names()}
-                    sent={entry.sentFor(r(), match())}
-                    reports={openReports(match(), r())}
+                    outcome={entry.sentFor(r(), match()) ?? tableOf(match()).shown.outcome}
+                    reports={tableOf(match()).reports}
                     onPick={outcome => {
                       // Read before closing: the sheet's match is gone once it closes.
                       const picked = match();
@@ -917,7 +936,7 @@ export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod
                       send(picked, outcome, false);
                     }}
                     onClose={closeSheet}
-                    onTimeExtension={canExtend(match(), r()) ? () => editExtension(match(), r()) : undefined}
+                    onTimeExtension={canExtend(match()) ? () => editExtension(match(), r()) : undefined}
                   />
                 )}
               </Show>
