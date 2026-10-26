@@ -398,10 +398,6 @@ body[data-mode='dark'] .tm-sso-google:hover {
   width: 20px;
   height: 20px;
 }
-.tm-sso:focus-visible {
-  outline: var(--focus-width) solid var(--focus-color);
-  outline-offset: var(--focus-offset);
-}
 @media (max-width: 640px) {
   .tm-signin {
     display: grid;
@@ -444,10 +440,6 @@ body[data-mode='dark'] .tm-sso-google:hover {
 }
 .tm-signin-other:hover {
   background: color-mix(in srgb, var(--fg) 6%, transparent);
-}
-.tm-signin-other:focus-visible {
-  outline: var(--focus-width) solid var(--focus-color);
-  outline-offset: var(--focus-offset);
 }
 .tm-signin-reveal {
   display: grid;
@@ -506,10 +498,6 @@ body[data-mode='dark'] .tm-sso-google:hover {
 .tm-signin-swap:disabled {
   color: var(--muted);
   cursor: default;
-}
-.tm-signin-swap:focus-visible {
-  outline: var(--focus-width) solid var(--focus-color);
-  outline-offset: var(--focus-offset);
 }
 .tm-signin-dev {
   margin-top: var(--space-3);
@@ -1708,7 +1696,8 @@ tr.is-in .tm-place {
 }
 
 /* ---------- Your events ---------- */
-.tm-hero-acts {
+.tm-hero-acts,
+.tm-live-event-acts {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
@@ -1729,11 +1718,6 @@ tr.is-in .tm-place {
 }
 .tm-live-event .tm-status {
   margin: 2px 0 0;
-}
-.tm-live-event-acts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
 }
 .tm-host-section + .tm-host-section {
   margin-top: var(--space-5);
