@@ -8,27 +8,20 @@
  */
 
 import assert from 'node:assert/strict';
-import { afterEach, beforeEach, mock, test } from 'node:test';
+import { afterEach, mock, test } from 'node:test';
 
 import * as event from '../../functions/api/tournaments/[code]/index.ts';
 import * as manage from '../../functions/api/tournaments/[code]/manage.ts';
 import * as report from '../../functions/api/tournaments/[code]/report.ts';
 import * as requests from '../../functions/api/tournaments/[code]/requests.ts';
-import type { TournamentEnv } from '../../functions/lib/auth/env.ts';
-import { apiCalls, type Handler } from '../__utils__/apiCalls.ts';
+import { apiSuite, type Handler } from '../__utils__/apiCalls.ts';
 import { at, eventCalls } from '../__utils__/eventCalls.ts';
 import { sqliteD1 } from '../__utils__/sqliteD1.ts';
 import { REQUEST_COOLDOWN_MS, TOO_SOON } from '../../shared/tournament/requests.ts';
 
-let env: TournamentEnv;
-const { hit, signIn } = apiCalls(() => env);
+const { env, hit, signIn } = apiSuite(report, event);
 const { newSwiss, send, addPlayers, settle, playerSays, view } = eventCalls(hit);
 
-beforeEach(() => {
-  env = { TOURNAMENT_DB: sqliteD1('tournaments.sql'), DEV_LOGIN: 'true' };
-  report._resetRateLimitStore();
-  event._resetRateLimitStore();
-});
 afterEach(() => mock.timers.reset());
 
 /** The event's stored version: what a write bumps and a publish follows. */

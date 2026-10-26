@@ -5,32 +5,23 @@
  */
 
 import assert from 'node:assert/strict';
-import { beforeEach, test } from 'node:test';
+import { test } from 'node:test';
 
 import * as me from '../../functions/api/me.ts';
 import * as profiles from '../../functions/api/profiles/[handle].ts';
 import * as event from '../../functions/api/tournaments/[code]/index.ts';
 import * as report from '../../functions/api/tournaments/[code]/report.ts';
-import type { TournamentEnv } from '../../functions/lib/auth/env.ts';
 import { launchGrant } from '../../functions/lib/auth/session.ts';
 import { loadTournament } from '../../functions/lib/tournaments/store.ts';
 import type { Badge } from '../../shared/accounts/achievements.ts';
 import { latestRound } from '../../shared/tournament/rounds.ts';
 import { firstPlaces } from '../../shared/tournament/tdf.ts';
-import { apiCalls, type Handler } from '../__utils__/apiCalls.ts';
+import { apiSuite, type Handler } from '../__utils__/apiCalls.ts';
 import { at, eventCalls } from '../__utils__/eventCalls.ts';
 import { sqliteD1 } from '../__utils__/sqliteD1.ts';
 
-let env: TournamentEnv;
-const { hit, signIn } = apiCalls(() => env);
+const { env, hit, signIn } = apiSuite(event, report, profiles);
 const { newSwiss, send, addPlayers, settle } = eventCalls(hit);
-
-beforeEach(() => {
-  env = { TOURNAMENT_DB: sqliteD1('tournaments.sql'), DEV_LOGIN: 'true' };
-  event._resetRateLimitStore();
-  report._resetRateLimitStore();
-  profiles._resetRateLimitStore();
-});
 
 const db = () => env.TOURNAMENT_DB as ReturnType<typeof sqliteD1>;
 

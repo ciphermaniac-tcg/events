@@ -9,7 +9,7 @@
  */
 
 import assert from 'node:assert/strict';
-import { beforeEach, mock, test } from 'node:test';
+import { mock, test } from 'node:test';
 
 import * as history from '../../functions/api/history.ts';
 import * as me from '../../functions/api/me.ts';
@@ -20,28 +20,18 @@ import * as event from '../../functions/api/tournaments/[code]/index.ts';
 import * as manage from '../../functions/api/tournaments/[code]/manage.ts';
 import * as report from '../../functions/api/tournaments/[code]/report.ts';
 import * as sync from '../../functions/api/tournaments/[code]/sync.ts';
-import type { TournamentEnv } from '../../functions/lib/auth/env.ts';
 import { loadTournament } from '../../functions/lib/tournaments/store.ts';
 import type { HistoryEntry } from '../../shared/accounts/types.ts';
 import { emptyTournament } from '../../shared/tournament/create.ts';
 import { indexedIds } from '../../shared/tournament/history.ts';
 import { revisionOf } from '../../shared/tournament/revision.ts';
 import type { Player, Tournament } from '../../shared/tournament/types.ts';
-import { apiCalls, type Handler } from '../__utils__/apiCalls.ts';
+import { apiSuite, type Handler } from '../__utils__/apiCalls.ts';
 import { at, eventCalls } from '../__utils__/eventCalls.ts';
 import { countingTrips, racing, sqliteD1 } from '../__utils__/sqliteD1.ts';
 
-let env: TournamentEnv;
-const { hit, signIn } = apiCalls(() => env);
+const { env, hit, signIn } = apiSuite(decklists, report, event, profiles);
 const { newEvent, newSwiss, send, addPlayers, settle, playerSays } = eventCalls(hit);
-
-beforeEach(() => {
-  env = { TOURNAMENT_DB: sqliteD1('tournaments.sql'), DEV_LOGIN: 'true' };
-  decklists._resetRateLimitStore();
-  report._resetRateLimitStore();
-  event._resetRateLimitStore();
-  profiles._resetRateLimitStore();
-});
 
 const db = () => env.TOURNAMENT_DB as ReturnType<typeof sqliteD1>;
 

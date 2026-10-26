@@ -1,15 +1,13 @@
 import assert from 'node:assert/strict';
-import { beforeEach, test } from 'node:test';
+import { test } from 'node:test';
 
 import * as tournaments from '../../functions/api/tournaments/index.ts';
-import type { TournamentEnv } from '../../functions/lib/auth/env.ts';
 import { admitTry, FREE_TRIES } from '../../functions/lib/tournaments/attempts.ts';
-import { apiCalls, type Handler } from '../__utils__/apiCalls.ts';
+import { apiSuite, type Handler } from '../__utils__/apiCalls.ts';
 import { eventCalls } from '../__utils__/eventCalls.ts';
 import { racing, sqliteD1 } from '../__utils__/sqliteD1.ts';
 
-let env: TournamentEnv;
-const { hit, signIn } = apiCalls(() => env);
+const { env, hit, signIn } = apiSuite();
 const { storeOf } = eventCalls(hit);
 const db = () => env.TOURNAMENT_DB as ReturnType<typeof sqliteD1>;
 const create = (cookie: string, store?: string) =>
@@ -23,10 +21,6 @@ const create = (cookie: string, store?: string) =>
       body: { name: 'Friday', mode: 'swiss', roundTime: 30, store }
     }
   );
-
-beforeEach(() => {
-  env = { TOURNAMENT_DB: sqliteD1('tournaments.sql'), DEV_LOGIN: 'true' };
-});
 
 test('a correct year cannot outrun a lockout landing before admission', async () => {
   const inner = db();

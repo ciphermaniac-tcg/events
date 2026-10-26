@@ -7,28 +7,21 @@
  */
 
 import assert from 'node:assert/strict';
-import { afterEach, beforeEach, mock, test } from 'node:test';
+import { afterEach, mock, test } from 'node:test';
 
 import * as checkins from '../../functions/api/tournaments/[code]/checkins.ts';
 import * as decklists from '../../functions/api/tournaments/[code]/decklists.ts';
 import * as decks from '../../functions/api/tournaments/[code]/decks.ts';
 import { _forgetRules } from '../../functions/lib/tournaments/archetypeRules.ts';
 import * as manage from '../../functions/api/tournaments/[code]/manage.ts';
-import type { TournamentEnv } from '../../functions/lib/auth/env.ts';
 import { emptyTournament } from '../../shared/tournament/create.ts';
 import type { Player, Tournament } from '../../shared/tournament/types.ts';
-import { apiCalls, type Handler } from '../__utils__/apiCalls.ts';
+import { apiSuite, type Handler } from '../__utils__/apiCalls.ts';
 import { at, eventCalls } from '../__utils__/eventCalls.ts';
 import { racing, sqliteD1 } from '../__utils__/sqliteD1.ts';
 
-let env: TournamentEnv;
-const { hit, signIn } = apiCalls(() => env);
+const { env, hit, signIn } = apiSuite(decklists);
 const { newEvent, newSwiss, send, settle } = eventCalls(hit);
-
-beforeEach(() => {
-  env = { TOURNAMENT_DB: sqliteD1('tournaments.sql'), DEV_LOGIN: 'true' };
-  decklists._resetRateLimitStore();
-});
 
 afterEach(() => {
   mock.restoreAll();

@@ -9,7 +9,7 @@
  */
 
 import assert from 'node:assert/strict';
-import { beforeEach, test } from 'node:test';
+import { test } from 'node:test';
 
 import * as me from '../../functions/api/me.ts';
 import * as claim from '../../functions/api/tournaments/[code]/claim.ts';
@@ -19,20 +19,12 @@ import * as manage from '../../functions/api/tournaments/[code]/manage.ts';
 import * as report from '../../functions/api/tournaments/[code]/report.ts';
 import type { TournamentEnv } from '../../functions/lib/auth/env.ts';
 import type { Viewer } from '../../shared/tournament/view.ts';
-import { apiCalls, type Handler } from '../__utils__/apiCalls.ts';
+import { apiSuite, type Handler } from '../__utils__/apiCalls.ts';
 import { at, eventCalls } from '../__utils__/eventCalls.ts';
 import { countingTrips, racing, sqliteD1 } from '../__utils__/sqliteD1.ts';
 
-let env: TournamentEnv;
-const { hit, signIn } = apiCalls(() => env);
+const { env, hit, signIn } = apiSuite(decklists, report, event);
 const { newSwiss, send, addPlayers, settle, playerSays, view } = eventCalls(hit);
-
-beforeEach(() => {
-  env = { TOURNAMENT_DB: sqliteD1('tournaments.sql'), DEV_LOGIN: 'true' };
-  decklists._resetRateLimitStore();
-  report._resetRateLimitStore();
-  event._resetRateLimitStore();
-});
 
 const raw = () => (env.TOURNAMENT_DB as ReturnType<typeof sqliteD1>).raw;
 

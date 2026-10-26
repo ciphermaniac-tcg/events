@@ -1,24 +1,18 @@
 import assert from 'node:assert/strict';
-import { beforeEach, test } from 'node:test';
+import { test } from 'node:test';
 import * as displays from '../../functions/api/stores/[id]/displays.ts';
 import * as eventDisplay from '../../functions/api/tournaments/[code]/display.ts';
 import * as eventSettings from '../../functions/api/tournaments/[code]/settings.ts';
 import * as tournaments from '../../functions/api/tournaments/index.ts';
-import type { TournamentEnv } from '../../functions/lib/auth/env.ts';
 import { MAX_DISPLAY_PRESETS } from '../../shared/tournament/display.ts';
-import { apiCalls, type Handler } from '../__utils__/apiCalls.ts';
+import { apiSuite, type Handler } from '../__utils__/apiCalls.ts';
 import { at, eventCalls } from '../__utils__/eventCalls.ts';
 import { racing, sqliteD1 } from '../__utils__/sqliteD1.ts';
 
-let env: TournamentEnv;
-const { hit, signIn } = apiCalls(() => env);
+const { env, hit, signIn } = apiSuite();
 const { newEvent, storeOf } = eventCalls(hit);
 const OPTIONS = { scale: 1.25, layout: 'alphabetical', pageSeconds: 15 };
 const raw = () => (env.TOURNAMENT_DB as ReturnType<typeof sqliteD1>).raw;
-beforeEach(() => {
-  env = { TOURNAMENT_DB: sqliteD1('tournaments.sql'), DEV_LOGIN: 'true' };
-});
-
 const put = (store: string, cookie: string, body: unknown) =>
   hit(displays.onRequestPut as Handler, '/displays', { id: store }, { method: 'PUT', cookie, body });
 

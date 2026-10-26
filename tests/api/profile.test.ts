@@ -1,18 +1,16 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { beforeEach, test } from 'node:test';
+import { test } from 'node:test';
 import * as preferences from '../../functions/api/me/profile.ts';
 import * as me from '../../functions/api/me.ts';
 import * as profiles from '../../functions/api/profiles/[handle].ts';
 import * as history from '../../functions/api/history.ts';
 import * as data from '../../functions/api/me/data.ts';
-import type { TournamentEnv } from '../../functions/lib/auth/env.ts';
-import { apiCalls, type Handler, request } from '../__utils__/apiCalls.ts';
+import { apiSuite, type Handler, request } from '../__utils__/apiCalls.ts';
 import { eventCalls } from '../__utils__/eventCalls.ts';
 import { sqliteD1 } from '../__utils__/sqliteD1.ts';
 
-let env: TournamentEnv;
-const { hit, signIn } = apiCalls(() => env);
+const { env, hit, signIn } = apiSuite(profiles);
 const { newSwiss, addPlayers, settle } = eventCalls(hit);
 const db = () => env.TOURNAMENT_DB as ReturnType<typeof sqliteD1>;
 const read = (cookie?: string) => hit(preferences.onRequestGet as Handler, '/api/me/profile', {}, { cookie });
@@ -20,11 +18,6 @@ const save = (cookie: string, body: unknown, origin?: string) =>
   hit(preferences.onRequestPut as Handler, '/api/me/profile', {}, { cookie, method: 'PUT', body, origin });
 const publicProfile = (handle: string) => hit(profiles.onRequestGet as Handler, `/api/profiles/${handle}`, { handle });
 const ownHistory = (cookie: string) => hit(history.onRequestGet as Handler, '/api/history', {}, { cookie });
-
-beforeEach(() => {
-  env = { TOURNAMENT_DB: sqliteD1('tournaments.sql'), DEV_LOGIN: 'true' };
-  profiles._resetRateLimitStore();
-});
 
 async function player() {
   const cookie = await signIn('Player');

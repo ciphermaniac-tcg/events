@@ -8,23 +8,17 @@
  */
 
 import assert from 'node:assert/strict';
-import { beforeEach, test } from 'node:test';
+import { test } from 'node:test';
 
 import * as applications from '../../functions/api/applications/index.ts';
 import * as mine from '../../functions/api/applications/mine.ts';
 import * as me from '../../functions/api/me.ts';
 import type { TournamentEnv } from '../../functions/lib/auth/env.ts';
-import { apiCalls, type Handler, ORIGIN } from '../__utils__/apiCalls.ts';
+import { apiSuite, type Handler, ORIGIN } from '../__utils__/apiCalls.ts';
 import { storeApplication } from '../__utils__/storeApplication.ts';
 import { racing, sqliteD1 } from '../__utils__/sqliteD1.ts';
 
-let env: TournamentEnv;
-const { hit, signIn } = apiCalls(() => env);
-
-beforeEach(() => {
-  env = { TOURNAMENT_DB: sqliteD1('tournaments.sql'), DEV_LOGIN: 'true' };
-  applications._resetRateLimitStore();
-});
+const { env, hit, signIn } = apiSuite(applications);
 
 /** The test database itself, for what no applicant's request sets. */
 const raw = () => (env.TOURNAMENT_DB as ReturnType<typeof sqliteD1>).raw;

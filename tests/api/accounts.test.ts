@@ -12,7 +12,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
-import { beforeEach, mock, test } from 'node:test';
+import { mock, test } from 'node:test';
 
 import * as age from '../../functions/api/auth/age.ts';
 import * as callback from '../../functions/api/auth/callback/[provider].ts';
@@ -20,16 +20,10 @@ import * as me from '../../functions/api/me.ts';
 import type { Profile } from '../../functions/lib/auth/oauth.ts';
 import { createSession, currentUser, linkIdentity, upsertUser } from '../../functions/lib/auth/session.ts';
 import type { D1Like } from '../../functions/lib/types.ts';
-import type { TournamentEnv } from '../../functions/lib/auth/env.ts';
-import { apiCalls, type Handler, request } from '../__utils__/apiCalls.ts';
+import { apiSuite, type Handler, request } from '../__utils__/apiCalls.ts';
 import { racing, sqliteD1 } from '../__utils__/sqliteD1.ts';
 
-let env: TournamentEnv;
-const { hit, signIn } = apiCalls(() => env);
-
-beforeEach(() => {
-  env = { TOURNAMENT_DB: sqliteD1('tournaments.sql'), DEV_LOGIN: 'true' };
-});
+const { env, hit, signIn } = apiSuite();
 
 /** The test database itself, for what no request sets yet. */
 const raw = () => (env.TOURNAMENT_DB as ReturnType<typeof sqliteD1>).raw;
