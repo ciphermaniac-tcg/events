@@ -34,7 +34,6 @@ import type { Tournament } from '../../../shared/tournament/types';
 import type { PendingResult } from '../../../shared/tournament/view';
 import { parseTdf } from './tdfReader';
 import { ApiError, errorText, type Manage, syncTournament } from '../../lib/tournament/api';
-import { tdfFilename, tdfText } from '../../lib/tournament/exportTdf';
 import {
   canLinkFiles,
   ensurePermission,
@@ -329,6 +328,7 @@ export function createTomLink(props: { manage: () => Manage; onSynced: (answer?:
    * site last saw it: TOM may have saved since, and that save goes up first.
    */
   async function writeInto(current: TdfHandle) {
+    const { tdfText } = await import('../../lib/tournament/exportTdf');
     await readDone();
     reading = true;
     try {
@@ -356,6 +356,7 @@ export function createTomLink(props: { manage: () => Manage; onSynced: (answer?:
         return;
       }
       const { tournament, pending } = props.manage();
+      const { tdfFilename, tdfText } = await import('../../lib/tournament/exportTdf');
       downloadBlob(
         new Blob([tdfText({ tournament, pending, finished: false })], { type: 'application/xml' }),
         tdfFilename(tournament)
