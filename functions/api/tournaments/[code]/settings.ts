@@ -21,7 +21,6 @@ import { lifecycleDocument } from '../../../../shared/tournament/lifecycleImport
 import { commandContext } from '../../../lib/tournaments/commandContext.js';
 import type { D1Like } from '../../../lib/types.js';
 import { readJsonBody } from '../../../lib/api/body.js';
-import { jsonError } from '../../../lib/api/responses.js';
 import type { Context } from '../../../lib/auth/env.js';
 import { changeEvent, openForStaff } from '../../../lib/tournaments/access.js';
 import { answerStaff } from '../../../lib/tournaments/answers.js';
@@ -123,10 +122,6 @@ export async function onRequestPut(context: Context<'code'>): Promise<Response> 
   const body = await readJsonBody(context.request, 4096);
   const change = body.ok ? body.value : null;
   const sanctionable = await maySanction(access.db, access.row, change);
-  const next = changedSettings(change, access.row, sanctionable);
-  if (typeof next === 'string') {
-    return jsonError(next, 400);
-  }
   // Judged against the event as each try finds it: decks the organizer hid meanwhile are not staff's to show again.
   const outcome = await changeEvent(access, settingsChange(change, sanctionable));
   return answerStaff(context, access, outcome);

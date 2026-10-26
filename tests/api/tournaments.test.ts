@@ -59,7 +59,13 @@ import { parseTdf, writeTdf } from '../../shared/tournament/tdf.ts';
 import { DIVISIONS, type Match, type Round, type Tournament } from '../../shared/tournament/types.ts';
 import type { TournamentView } from '../../shared/tournament/view.ts';
 import { publishView } from '../../functions/lib/tournaments/publish.ts';
-import { loadIdle, loadTournament, rotateStaff } from '../../functions/lib/tournaments/store.ts';
+import {
+  loadIdle,
+  loadTournament,
+  MAX_STATE_BYTES,
+  mutate,
+  rotateStaff
+} from '../../functions/lib/tournaments/store.ts';
 import { juniorsCutApart } from '../__utils__/divisionCuts.ts';
 import { apiCalls, type Handler, ORIGIN, request } from '../__utils__/apiCalls.ts';
 import { at, eventCalls } from '../__utils__/eventCalls.ts';
@@ -984,6 +990,16 @@ test('an event too large for one D1 row is refused with a message', async () => 
     }
   );
   assert.deepEqual([refused.status, refused.json.error], [413, 'This event is too large to store']);
+});
+
+test('a change that would make an event too large for its row is refused with the same message', async () => {
+  const owner = await signIn('Organizer', 'organizer');
+  const db = env.TOURNAMENT_DB as NonNullable<TournamentEnv['TOURNAMENT_DB']>;
+  const row = await loadTournament(db, await newSwiss(owner));
+  assert.ok(row);
+  const info = { ...row.tournament.info, name: 'x'.repeat(MAX_STATE_BYTES) };
+  const refused = await mutate(db, row, () => ({ tournament: { ...row.tournament, info } }));
+  assert.deepEqual(refused, { error: 'This event is too large to store', status: 413 });
 });
 
 test('every change publishes the public view to R2, and deleting the event removes it', async () => {

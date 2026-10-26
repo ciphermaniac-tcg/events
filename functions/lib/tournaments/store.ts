@@ -766,18 +766,15 @@ async function attempt(db: D1Like, writer: Writer, change: Change): Promise<Muta
   }
   const saved = await saveTournament(db, row, changes, standing).catch((error: unknown) => {
     if (error instanceof TooLarge) {
-      return error;
+      return { error: error.message, status: 413 };
     }
     if (breaksDay(error)) {
-      return new DayTaken(msg('You already have an event that day'));
+      return { error: msg('You already have an event that day'), status: 409 };
     }
     throw error;
   });
-  if (saved instanceof TooLarge) {
-    return { error: saved.message, status: 413 };
-  }
-  if (saved instanceof DayTaken) {
-    return { error: saved.message, status: 409 };
+  if (saved && 'error' in saved) {
+    return saved;
   }
   return saved && { row: saved, ...role, ...(changes.refusal ? { refusal: changes.refusal } : {}) };
 }
