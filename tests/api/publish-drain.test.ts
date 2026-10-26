@@ -8,6 +8,7 @@ import assert from 'node:assert/strict';
 import { beforeEach, mock, test } from 'node:test';
 
 import type { TournamentEnv } from '../../functions/lib/auth/env.ts';
+import { publicViewOf } from '../../functions/lib/tournaments/access.ts';
 import { publishView } from '../../functions/lib/tournaments/publish.ts';
 import { loadTournament, type TournamentRow } from '../../functions/lib/tournaments/store.ts';
 import type { PublishBucket } from '../../functions/lib/types.ts';
@@ -125,4 +126,12 @@ test('a publish that fails takes its copy down and still lets the newest waiting
   }
   assert.deepEqual(calls, ['head', 'put failed', 'delete', 'head', 'put 3']);
   assert.equal(version(), '3');
+});
+
+test('a row builds its public view once, for the copy it publishes and the answer that carries it', async () => {
+  const row = await eventRow();
+  const view = publicViewOf(row);
+  assert.equal(publicViewOf(row), view);
+  assert.notEqual(publicViewOf({ ...row }), view, 'another row builds its own');
+  assert.deepEqual(publicViewOf({ ...row }), view);
 });

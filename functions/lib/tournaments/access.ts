@@ -154,8 +154,17 @@ export async function staffWrites(access: StaffAccess, writes: (guard: Guard) =>
 export const changeEvent = (access: StaffAccess, change: Change): Promise<Mutation> =>
   mutate(access.db, access.row, change, askerOf(access));
 
+// Each row's view, built once: a change both publishes it and answers with it.
+const views = new WeakMap<TournamentRow, PublishedView>();
+
 /** What anyone may read about the event: what is published to R2, and the base of every API view. */
 export function publicViewOf(row: TournamentRow): PublishedView {
+  const built = views.get(row) ?? buildView(row);
+  views.set(row, built);
+  return built;
+}
+
+function buildView(row: TournamentRow): PublishedView {
   return {
     code: row.code,
     mode: row.mode,
