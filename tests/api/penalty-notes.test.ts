@@ -13,7 +13,6 @@ import * as me from '../../functions/api/me.ts';
 import * as event from '../../functions/api/tournaments/[code]/index.ts';
 import * as manage from '../../functions/api/tournaments/[code]/manage.ts';
 import * as penaltyNotes from '../../functions/api/tournaments/[code]/penalty-notes.ts';
-import * as staff from '../../functions/api/tournaments/[code]/staff.ts';
 import type { TournamentEnv } from '../../functions/lib/auth/env.ts';
 import { type PenaltyNoteEntry, standingNotes } from '../../shared/tournament/penaltyNotes.ts';
 import { apiCalls, type Handler } from '../__utils__/apiCalls.ts';
@@ -23,7 +22,8 @@ import { racing, sqliteD1 } from '../__utils__/sqliteD1.ts';
 let env: TournamentEnv;
 let db: ReturnType<typeof sqliteD1>;
 const { hit, signIn } = apiCalls(() => env);
-const { newSwiss, send, addPlayers, settle } = eventCalls(hit);
+const calls = eventCalls(hit, signIn);
+const { newSwiss, send, addPlayers, settle } = calls;
 
 beforeEach(() => {
   db = sqliteD1('tournaments.sql');
@@ -43,20 +43,10 @@ const entriesOf = (response: { json: { entries: PenaltyNoteEntry[] } }) => respo
 
 const userOf = async (cookie: string) => (await hit(me.onRequestGet as Handler, '/api/me', {}, { cookie })).json.user;
 
-/** A Swiss event in round 1 with four players, its organizer, and a staff member who joined by the invite link. */
+/** A running event (see eventCalls), with its organizer's account ID and its staff member's account. */
 async function runningEvent() {
-  const owner = await signIn('Organizer', 'organizer');
-  const code = await newSwiss(owner);
-  await addPlayers(code, owner, 4);
-  const { staffToken } = (await hit(manage.onRequestGet as Handler, '/manage', at(code), { cookie: owner })).json;
-  const helper = await signIn('Helper');
-  await hit(staff.onRequestPost as Handler, '/staff', at(code), {
-    method: 'POST',
-    cookie: helper,
-    body: { token: staffToken }
-  });
-  assert.equal((await send(code, owner, { type: 'pairRound', pod: 'masters' })).status, 200);
-  return { owner, helper, code, ownerId: (await userOf(owner)).id as string, helperUser: await userOf(helper) };
+  const running = await calls.runningEvent();
+  return { ...running, ownerId: (await userOf(running.owner)).id as string, helperUser: await userOf(running.helper) };
 }
 
 test('only staff read and record penalty notes', async () => {

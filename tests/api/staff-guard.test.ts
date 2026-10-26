@@ -12,7 +12,6 @@ import { beforeEach, test } from 'node:test';
 import * as decklists from '../../functions/api/tournaments/[code]/decklists.ts';
 import * as event from '../../functions/api/tournaments/[code]/index.ts';
 import * as headJudge from '../../functions/api/tournaments/[code]/head-judge.ts';
-import * as manage from '../../functions/api/tournaments/[code]/manage.ts';
 import * as penaltyNotes from '../../functions/api/tournaments/[code]/penalty-notes.ts';
 import * as report from '../../functions/api/tournaments/[code]/report.ts';
 import * as staff from '../../functions/api/tournaments/[code]/staff.ts';
@@ -25,7 +24,7 @@ import { racing, sqliteD1 } from '../__utils__/sqliteD1.ts';
 let env: TournamentEnv;
 let db: ReturnType<typeof sqliteD1>;
 const { hit, signIn } = apiCalls(() => env);
-const { newSwiss, send, addPlayers, settle, playerSays } = eventCalls(hit);
+const { newSwiss, send, addPlayers, settle, playerSays, joinStaff } = eventCalls(hit);
 
 beforeEach(() => {
   db = sqliteD1('tournaments.sql');
@@ -50,13 +49,8 @@ async function withHelper() {
   const owner = await signIn('Organizer', 'organizer');
   const code = await newSwiss(owner);
   await addPlayers(code, owner, 4);
-  const { staffToken } = (await hit(manage.onRequestGet as Handler, '/manage', at(code), { cookie: owner })).json;
   const helper = await signIn('Helper');
-  const joined = await hit(staff.onRequestPost as Handler, '/staff', at(code), {
-    method: 'POST',
-    cookie: helper,
-    body: { token: staffToken }
-  });
+  const joined = await joinStaff(code, owner, helper);
   assert.equal(joined.status, 200);
   return { owner, code, helper };
 }

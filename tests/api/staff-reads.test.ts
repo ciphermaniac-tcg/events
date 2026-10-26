@@ -11,7 +11,6 @@ import { beforeEach, test } from 'node:test';
 
 import * as corrections from '../../functions/api/tournaments/[code]/corrections.ts';
 import * as headJudge from '../../functions/api/tournaments/[code]/head-judge.ts';
-import * as manage from '../../functions/api/tournaments/[code]/manage.ts';
 import * as penaltyNotes from '../../functions/api/tournaments/[code]/penalty-notes.ts';
 import * as staff from '../../functions/api/tournaments/[code]/staff.ts';
 import type { TournamentEnv } from '../../functions/lib/auth/env.ts';
@@ -22,7 +21,7 @@ import { countingTrips, racing, sqliteD1 } from '../__utils__/sqliteD1.ts';
 let env: TournamentEnv;
 let db: ReturnType<typeof sqliteD1>;
 const { hit, signIn } = apiCalls(() => env);
-const { newSwiss, send, addPlayers } = eventCalls(hit);
+const { newSwiss, send, addPlayers, runningEvent } = eventCalls(hit, signIn);
 
 beforeEach(() => {
   db = sqliteD1('tournaments.sql');
@@ -31,22 +30,6 @@ beforeEach(() => {
 
 const userId = (name: string) =>
   (db.raw.prepare('SELECT id FROM users WHERE handle = ?').get(name) as { id: string }).id;
-
-/** A Swiss event in round 1 with four players, its organizer, and a staff member who joined by the invite link. */
-async function runningEvent() {
-  const owner = await signIn('Organizer', 'organizer');
-  const code = await newSwiss(owner);
-  await addPlayers(code, owner, 4);
-  const { staffToken } = (await hit(manage.onRequestGet as Handler, '/manage', at(code), { cookie: owner })).json;
-  const helper = await signIn('Helper');
-  await hit(staff.onRequestPost as Handler, '/staff', at(code), {
-    method: 'POST',
-    cookie: helper,
-    body: { token: staffToken }
-  });
-  assert.equal((await send(code, owner, { type: 'pairRound', pod: 'masters' })).status, 200);
-  return { owner, helper, code };
-}
 
 /** Runs `call` counting its round trips to the database, and hands back its answer with them. */
 async function counted<T>(call: () => Promise<T>): Promise<[T, number]> {

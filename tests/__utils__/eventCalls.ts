@@ -9,8 +9,10 @@ import assert from 'node:assert/strict';
 import * as me from '../../functions/api/me.ts';
 import * as commands from '../../functions/api/tournaments/[code]/commands.ts';
 import * as event from '../../functions/api/tournaments/[code]/index.ts';
+import * as manage from '../../functions/api/tournaments/[code]/manage.ts';
 import * as report from '../../functions/api/tournaments/[code]/report.ts';
 import * as settings from '../../functions/api/tournaments/[code]/settings.ts';
+import * as staff from '../../functions/api/tournaments/[code]/staff.ts';
 import * as tournaments from '../../functions/api/tournaments/index.ts';
 import type { TournamentView } from '../../shared/tournament/view.ts';
 import type { apiCalls, Call, Handler } from './apiCalls.ts';
@@ -21,8 +23,8 @@ export const PLAYER_BIRTH_YEAR = '1990';
 /** The route parameters of an event's routes. */
 export const at = (code: string) => ({ code });
 
-/** The event helpers, calling through `hit` (see apiCalls). */
-export function eventCalls(hit: ReturnType<typeof apiCalls>['hit']) {
+/** The event helpers, calling through `hit` and, for runningEvent, `signIn` (see apiCalls). */
+export function eventCalls(hit: ReturnType<typeof apiCalls>['hit'], signIn?: ReturnType<typeof apiCalls>['signIn']) {
   /** The first store the account signed in under `cookie` belongs to; null for none. */
   async function storeOf(cookie: string): Promise<string | null> {
     const stores = (await hit(me.onRequestGet as Handler, '/api/me', {}, { cookie })).json.user?.stores as
@@ -85,8 +87,30 @@ export function eventCalls(hit: ReturnType<typeof apiCalls>['hit']) {
     });
   }
 
+  /** The account signed in under `cookie` joins the event's staff by the invite link its organizer holds. */
+  async function joinStaff(code: string, owner: string, cookie: string) {
+    const { staffToken } = (await hit(manage.onRequestGet as Handler, '/manage', at(code), { cookie: owner })).json;
+    return hit(staff.onRequestPost as Handler, '/staff', at(code), {
+      method: 'POST',
+      cookie,
+      body: { token: staffToken }
+    });
+  }
+
+  /** A Swiss event in round 1 with four players, its organizer, and a staff member who joined by the invite link. */
+  async function runningEvent() {
+    assert.ok(signIn, 'runningEvent signs in through the signIn eventCalls was given');
+    const owner = await signIn('Organizer', 'organizer');
+    const code = await newSwiss(owner);
+    await addPlayers(code, owner, 4);
+    const helper = await signIn('Helper');
+    await joinStaff(code, owner, helper);
+    assert.equal((await send(code, owner, { type: 'pairRound', pod: 'masters' })).status, 200);
+    return { owner, helper, code };
+  }
+
   const view = async (code: string, cookie?: string) =>
     (await hit(event.onRequestGet as Handler, `/api/tournaments/${code}`, at(code), { cookie })).json as TournamentView;
 
-  return { newEvent, newSwiss, send, addPlayers, settle, playerSays, view, storeOf };
+  return { newEvent, newSwiss, send, addPlayers, settle, playerSays, view, storeOf, joinStaff, runningEvent };
 }

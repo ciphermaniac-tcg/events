@@ -26,7 +26,7 @@ import { racing, sqliteD1 } from '../__utils__/sqliteD1.ts';
 let env: TournamentEnv;
 let db: ReturnType<typeof sqliteD1>;
 const { hit, signIn } = apiCalls(() => env);
-const { newSwiss, send, addPlayers, settle } = eventCalls(hit);
+const { newSwiss, send, addPlayers, settle, joinStaff } = eventCalls(hit);
 
 beforeEach(() => {
   db = sqliteD1('tournaments.sql');
@@ -61,12 +61,7 @@ async function inRound2() {
   const code = await newSwiss(owner);
   await addPlayers(code, owner, 8);
   const helper = await signIn('Helper');
-  const { staffToken } = await managed(code, owner);
-  await hit(staff.onRequestPost as Handler, '/staff', at(code), {
-    method: 'POST',
-    cookie: helper,
-    body: { token: staffToken }
-  });
+  await joinStaff(code, owner, helper);
   await send(code, owner, { type: 'pairRound', pod: 'masters' });
   await reportAll(code, owner);
   await send(code, owner, { type: 'pairRound', pod: 'masters' });

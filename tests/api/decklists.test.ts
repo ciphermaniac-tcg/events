@@ -14,8 +14,6 @@ import * as me from '../../functions/api/me.ts';
 import * as deckChecks from '../../functions/api/tournaments/[code]/deck-checks.ts';
 import * as decklists from '../../functions/api/tournaments/[code]/decklists.ts';
 import * as event from '../../functions/api/tournaments/[code]/index.ts';
-import * as manage from '../../functions/api/tournaments/[code]/manage.ts';
-import * as staff from '../../functions/api/tournaments/[code]/staff.ts';
 import type { TournamentEnv } from '../../functions/lib/auth/env.ts';
 import { type DeckCheckEntry, standingChecks } from '../../shared/tournament/deckChecks.ts';
 import { apiCalls, type Handler } from '../__utils__/apiCalls.ts';
@@ -25,7 +23,7 @@ import { racing, sqliteD1 } from '../__utils__/sqliteD1.ts';
 let env: TournamentEnv;
 let db: ReturnType<typeof sqliteD1>;
 const { hit, signIn } = apiCalls(() => env);
-const { newSwiss, send, addPlayers, settle } = eventCalls(hit);
+const { newSwiss, send, addPlayers, settle, joinStaff } = eventCalls(hit);
 
 beforeEach(() => {
   db = sqliteD1('tournaments.sql');
@@ -148,13 +146,8 @@ const entriesOf = (response: { json: { entries: DeckCheckEntry[] } }) => respons
 /** An event in round 1, with its organizer and a staff member who joined by the invite link. */
 async function runningEvent() {
   const { owner, code } = await eventWithList();
-  const { staffToken } = (await hit(manage.onRequestGet as Handler, '/manage', at(code), { cookie: owner })).json;
   const helper = await signIn('Helper');
-  await hit(staff.onRequestPost as Handler, '/staff', at(code), {
-    method: 'POST',
-    cookie: helper,
-    body: { token: staffToken }
-  });
+  await joinStaff(code, owner, helper);
   await pair(code, owner);
   const ids = async (cookie: string) => (await hit(me.onRequestGet as Handler, '/api/me', {}, { cookie })).json.user;
   return { owner, helper, code, ownerId: (await ids(owner)).id as string, helperUser: await ids(helper) };
