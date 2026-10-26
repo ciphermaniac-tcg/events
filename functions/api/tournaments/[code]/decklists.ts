@@ -218,29 +218,33 @@ const listUnder = (access: Access, key: string) =>
     .bind(access.row.code, key)
     .first<DecklistRow>();
 
+const tokenOf = (request: Request) => new URL(request.url).searchParams.get('token') ?? '';
+
+/** The asker's own list without details: the latest sent with the device token they hold. */
+async function tokenList(access: Access, request: Request): Promise<DecklistRow | null> {
+  const token = tokenOf(request);
+  return token
+    ? access.db
+        .prepare('SELECT * FROM decklists WHERE code = ? AND owner_token = ? ORDER BY submitted_at DESC LIMIT 1')
+        .bind(access.row.code, await sha256(token))
+        .first<DecklistRow>()
+    : null;
+}
+
 /**
- * The asker's own list, by the details and the device token they hold, or
- * the account that is its player. Nothing else reads a list back without the
- * birth year: a profile anyone can edit to someone else's details must not
- * show that person's list.
+ * The list under the asker's details when it is their own, by the device
+ * token they hold or the account that is its player. Nothing else reads a
+ * list back without the birth year: a profile anyone can edit to someone
+ * else's details must not show that person's list.
  */
-async function ownList(access: Access, request: Request): Promise<DecklistRow | null> {
-  const details = detailsFrom(request, isSanctioned(access.row));
-  const token = new URL(request.url).searchParams.get('token') ?? '';
-  const account = details && matchingAccount(access, details)?.id;
-  if (!details) {
-    return token
-      ? access.db
-          .prepare('SELECT * FROM decklists WHERE code = ? AND owner_token = ? ORDER BY submitted_at DESC LIMIT 1')
-          .bind(access.row.code, await sha256(token))
-          .first<DecklistRow>()
-      : null;
-  }
-  if (!(token || account)) {
-    return null;
-  }
-  const row = await listUnder(access, identityKey(details, isSanctioned(access.row)));
-  return row && (await owns(row, token, account ?? null)) ? row : null;
+async function ownList(
+  access: Access,
+  request: Request,
+  details: Details,
+  listed: DecklistRow | null
+): Promise<DecklistRow | null> {
+  const account = matchingAccount(access, details)?.id ?? null;
+  return listed && (await owns(listed, tokenOf(request), account)) ? listed : null;
 }
 
 const WRONG_YEAR = msg('That birth year doesn’t match this Player ID.');
@@ -265,7 +269,7 @@ async function byPlayerId(access: Access, request: Request, details: Details): P
   const player = rosterPlayer(access.row, details);
   const known = player !== undefined || listed !== null;
   if (!known || !year) {
-    const mine = await ownList(access, request);
+    const mine = await ownList(access, request, details, listed);
     return { known, mine: mine && presenter(access.row)(fromRow(mine)) };
   }
   const proved = await proveYear(access, details.popId, year, listed);
@@ -287,7 +291,7 @@ async function byName(access: Access, request: Request, details: Details): Promi
     lastName
   }));
   const listed = await listUnder(access, identityKey(details, false));
-  const mine = await ownList(access, request);
+  const mine = await ownList(access, request, details, listed);
   return {
     known: listed !== null || rosterPlayer(access.row, details) !== undefined,
     matches,
@@ -298,7 +302,7 @@ async function byName(access: Access, request: Request, details: Details): Promi
 async function playerAnswer(access: Access, request: Request): Promise<MyRegistration | Response> {
   const details = detailsFrom(request, isSanctioned(access.row));
   if (!details) {
-    const mine = await ownList(access, request);
+    const mine = await tokenList(access, request);
     return { known: mine !== null, mine: mine && presenter(access.row)(fromRow(mine)) };
   }
   return isSanctioned(access.row) ? byPlayerId(access, request, details) : byName(access, request, details);
