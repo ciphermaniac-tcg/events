@@ -93,7 +93,7 @@ import { ErrorState } from '@ciphermaniac/design/components/ErrorState';
 import { EMPTY_LIVE_DATA, type LiveData, liveFailure, staleSince } from '../../lib/tournament/liveData';
 import { LiveDataStatus } from './LiveDataStatus';
 import { MAIN_SITE } from '../../lib/constants';
-import { intlLocale, t, tn } from '../../lib/i18n';
+import { t, timeOfDay, tn } from '../../lib/i18n';
 
 const BigScreen = lazyOnAir(() => import('./BigScreen').then(m => ({ default: m.BigScreen })));
 const StreamOverlay = lazyOnAir(() => import('./StreamOverlay').then(m => ({ default: m.StreamOverlay })));
@@ -780,7 +780,7 @@ function eventDate({ startsAt, timeZone }: TournamentSettings, startDate: string
 function updatedLabel(at: number): string {
   const date = new Date(at);
   const today = new Date().toDateString() === date.toDateString();
-  return today ? date.toLocaleTimeString(intlLocale(), { hour: 'numeric', minute: '2-digit' }) : dayLabel(date);
+  return today ? timeOfDay(date) : dayLabel(date);
 }
 
 /** The dashboard tab an event's page goes back to: Organizing for its staff, Playing for its players. */

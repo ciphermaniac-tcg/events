@@ -37,7 +37,7 @@ import {
 } from '../../../shared/tournament/rounds';
 import { type ClockState, clockState } from './clockState';
 import { ordinal } from '../format';
-import { intlLocale, msg, t, tc, tn } from '../i18n';
+import { msg, t, tc, timeOfDay, tn } from '../i18n';
 import { divisionLookup } from '../../../shared/tournament/divisions';
 import { eventTypeOf, recommendedStructure } from '../../../shared/tournament/structure';
 import {
@@ -925,10 +925,7 @@ export function staffReport(
 }
 
 /** The start of round 1 as a time, when the organizer set one. */
-export const firstRoundTime = (startsAt: string): string | null =>
-  isWallClock(startsAt)
-    ? new Date(startsAt).toLocaleTimeString(intlLocale(), { hour: 'numeric', minute: '2-digit' })
-    : null;
+export const firstRoundTime = (startsAt: string): string | null => (isWallClock(startsAt) ? timeOfDay(startsAt) : null);
 
 /** What put the last player in above the first one out: points, then OWP, then OOWP. */
 export function cutSplit(rows: readonly Standing[], cut: number): string | null {

@@ -14,7 +14,7 @@ import type { Match, Pod, Round } from '../../../shared/tournament/types';
 import { type CorrectionRecord, fetchCorrections, type Manage } from '../../lib/tournament/api';
 import { RESULT_WORDS } from '../../lib/tournament/present';
 import { latestValue } from '../../lib/resource';
-import { intlLocale, msg, t } from '../../lib/i18n';
+import { msg, t, timeOfDay } from '../../lib/i18n';
 import type { CorrectionSelection } from './CorrectionDialog';
 import { ExtensionClock } from './ExtensionClock';
 import { OptionsMenu } from './OptionsMenu';
@@ -25,8 +25,6 @@ import type { ManageState } from './manageState';
 const CorrectionDialog = lazyPanel(() => import('./CorrectionDialog').then(m => ({ default: m.CorrectionDialog })));
 
 const ROLE_WORDS = { organizer: msg('organizer'), 'head-judge': msg('head judge') };
-
-const timeOf = (at: number) => new Date(at).toLocaleTimeString(intlLocale(), { hour: 'numeric', minute: '2-digit' });
 
 /** Who approved a correction, as what, and whether alone. */
 export function approvalLine(entry: Pick<CorrectionEntry, 'approvedBy' | 'role' | 'alone'>): string {
@@ -106,7 +104,7 @@ function CorrectionLog(props: { entries: CorrectionEntry[]; names: Map<string, s
               <span class='muted'>
                 {t('Approved by {who} at {time}, during round {round}', {
                   who: approvalLine(entry),
-                  time: timeOf(entry.recordedAt),
+                  time: timeOfDay(entry.recordedAt),
                   round: entry.during
                 })}
               </span>

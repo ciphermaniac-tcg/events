@@ -11,7 +11,7 @@ import type { PlayerRequest } from '../../../shared/tournament/requests';
 import { playerName } from '../../../shared/tournament/types';
 import type { Manage } from '../../lib/tournament/api';
 import { seatOf } from '../../lib/tournament/present';
-import { intlLocale, msg, t, tc } from '../../lib/i18n';
+import { msg, t, tc, timeOfDay } from '../../lib/i18n';
 import type { ManageState } from './manageState';
 import { Answers } from './DropCheck';
 
@@ -33,8 +33,6 @@ function seatText(manage: Manage, id: string): string {
   return seat === 'bye' ? t('Bye') : seat === null ? '—' : String(seat);
 }
 
-const timeOf = (at: number) => new Date(at).toLocaleTimeString(intlLocale(), { hour: 'numeric', minute: '2-digit' });
-
 /** Open requests first, oldest first; then answered ones, latest first. Cancelled ones ask nothing. */
 const ordered = (requests: readonly PlayerRequest[]) => [
   ...requests.filter(request => request.status === 'open').sort((a, b) => a.at - b.at),
@@ -54,7 +52,7 @@ function Status(props: { manage: Manage; request: PlayerRequest }) {
           <span class='muted'>
             {' '}
             · {props.request.by ? `${props.request.by} · ` : ''}
-            {timeOf(at())}
+            {timeOfDay(at())}
           </span>
         )}
       </Show>
@@ -92,7 +90,7 @@ export function StaffRequests(props: { state: ManageState; manage: Manage }) {
                     <td>{name(request.player)}</td>
                     <td class='tm-num'>{seatText(props.manage, request.player)}</td>
                     <td>{kindLabel(request.kind)}</td>
-                    <td class='tm-num'>{timeOf(request.at)}</td>
+                    <td class='tm-num'>{timeOfDay(request.at)}</td>
                     <td>
                       <Show
                         when={request.status === 'open' && !props.manage.settings.finished}

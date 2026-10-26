@@ -10,7 +10,7 @@ import type { PlayerClaim } from '../../../shared/tournament/identify';
 import { isLive, type PlayerRequest, type RequestKind, requestOf } from '../../../shared/tournament/requests';
 import type { PublishedView, TournamentView } from '../../../shared/tournament/view';
 import { ApiError, askStaff } from '../../lib/tournament/api';
-import { intlLocale, msg, t } from '../../lib/i18n';
+import { msg, t, timeOfDay } from '../../lib/i18n';
 import { ConfirmAction } from './ConfirmAction';
 import { ErrorLine } from './Field';
 import { createAction } from './action';
@@ -36,8 +36,7 @@ const KINDS: { kind: RequestKind; ask: string; status: (request: PlayerRequest) 
   }
 ];
 
-const timeOf = (at: number | undefined) =>
-  at === undefined ? '' : ` · ${new Date(at).toLocaleTimeString(intlLocale(), { hour: 'numeric', minute: '2-digit' })}`;
+const timeOf = (at: number | undefined) => (at === undefined ? '' : ` · ${timeOfDay(at)}`);
 
 export function PlayerRequests(props: {
   view: TournamentView;

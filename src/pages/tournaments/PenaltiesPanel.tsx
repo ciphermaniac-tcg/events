@@ -34,7 +34,7 @@ import {
   removePenaltyNote
 } from '../../lib/tournament/api';
 import { latestValue } from '../../lib/resource';
-import { intlLocale, t, tn, tx } from '../../lib/i18n';
+import { t, timeOfDay, tn, tx } from '../../lib/i18n';
 import { Segmented } from '@ciphermaniac/design/components/Segmented';
 import { Combo, splitMatch } from '@ciphermaniac/design/components/Combo';
 import { seatOf } from '../../lib/tournament/present';
@@ -42,8 +42,6 @@ import { byLastName, findPlayers, sortName } from './playerSearch';
 import { ConfirmAction } from './ConfirmAction';
 import type { ManageState } from './manageState';
 import { session } from './session';
-
-const timeOf = (at: number) => new Date(at).toLocaleTimeString(intlLocale(), { hour: 'numeric', minute: '2-digit' });
 
 const nameOr = (name: string | null) => name ?? t('Deleted account');
 
@@ -278,7 +276,7 @@ function Earlier(props: { note: PenaltyNote }) {
             {(entry: PenaltyNoteEntry) => (
               <li>
                 R{entry.round} · {t(PENALTY_LABELS[entry.penalty])} · {nameOr(entry.judge.name)}
-                {entry.notes ? ` · ${entry.notes}` : ''} · {nameOr(entry.recordedBy)}, {timeOf(entry.recordedAt)}
+                {entry.notes ? ` · ${entry.notes}` : ''} · {nameOr(entry.recordedBy)}, {timeOfDay(entry.recordedAt)}
               </li>
             )}
           </For>
@@ -310,7 +308,7 @@ function NoteRow(props: { note: PenaltyNote; onEdit: () => void; onRemove: () =>
         <Earlier note={props.note} />
       </td>
       <td class='muted-cell tm-penalty-when'>
-        {nameOr(props.note.recordedBy)}, {timeOf(props.note.recordedAt)}
+        {nameOr(props.note.recordedBy)}, {timeOfDay(props.note.recordedAt)}
       </td>
       <td class='tm-extra-col'>
         <span class='tm-row-actions'>
@@ -347,7 +345,7 @@ function CheckRow(props: { check: DeckCheckEntry }) {
       <td class='tm-penalty-judge'>{nameOr(props.check.checker.name)}</td>
       <td class='tm-penalty-text'>{props.check.notes}</td>
       <td class='muted-cell tm-penalty-when'>
-        {nameOr(props.check.recordedBy)}, {timeOf(props.check.recordedAt)}
+        {nameOr(props.check.recordedBy)}, {timeOfDay(props.check.recordedAt)}
       </td>
       <td class='tm-extra-col' />
     </tr>

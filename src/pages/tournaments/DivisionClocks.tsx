@@ -1,11 +1,10 @@
 import { createMemo, For, Show, useContext } from 'solid-js';
 import type { Pod } from '../../../shared/tournament/types';
 import type { PendingResult } from '../../../shared/tournament/view';
-import { msg, t, tn } from '../../lib/i18n';
+import { msg, t, timeOfDay, tn } from '../../lib/i18n';
 import { clockState } from '../../lib/tournament/clockState';
 import { Clock, createClockNow, StaleSince } from './Clock';
 import { type DivisionClock, divisionClocks, onExtraTime } from './clockOrder';
-import { checkedTime } from './LiveDataStatus';
 
 const WORDS: Partial<Record<DivisionClock['state'], string>> = {
   waiting: msg('Not started'),
@@ -52,7 +51,7 @@ function Caption(props: {
   const text = () => {
     const behind = stale();
     if (props.lead && behind !== null) {
-      return t('Not updated since {time}', { time: checkedTime(behind.checkedAt) });
+      return t('Not updated since {time}', { time: timeOfDay(behind.checkedAt) });
     }
     return [props.label ?? props.clock.label, ...notes(props.clock, props.pending, props.now)]
       .filter(Boolean)

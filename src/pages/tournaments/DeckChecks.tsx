@@ -25,7 +25,7 @@ import {
   removeDeckCheck
 } from '../../lib/tournament/api';
 import { latestValue } from '../../lib/resource';
-import { intlLocale, msg, t, tn } from '../../lib/i18n';
+import { msg, t, timeOfDay, tn } from '../../lib/i18n';
 import { Segmented } from '@ciphermaniac/design/components/Segmented';
 import { ConfirmAction } from './ConfirmAction';
 
@@ -59,8 +59,6 @@ export type DeckChecks = ReturnType<typeof createDeckChecks>;
 
 const RESULT_WORDS: Record<DeckCheckResult, string> = { pass: msg('Pass'), fail: msg('Fail') };
 
-const timeOf = (at: number) => new Date(at).toLocaleTimeString(intlLocale(), { hour: 'numeric', minute: '2-digit' });
-
 const nameOr = (name: string | null) => name ?? t('Deleted account');
 
 function Result(props: { result: DeckCheckResult }) {
@@ -92,7 +90,7 @@ function Earlier(props: { entry: DeckCheckEntry }) {
     <li>
       R{props.entry.round} · {t(RESULT_WORDS[props.entry.result])} · {nameOr(props.entry.checker.name)}
       {props.entry.notes ? ` · ${props.entry.notes}` : ''} · {nameOr(props.entry.recordedBy)},{' '}
-      {timeOf(props.entry.recordedAt)}
+      {timeOfDay(props.entry.recordedAt)}
     </li>
   );
 }
@@ -101,7 +99,7 @@ function Earlier(props: { entry: DeckCheckEntry }) {
 function CheckLine(props: { check: DeckCheck; onEdit: () => void; onRemove: () => void }) {
   const [older, setOlder] = createSignal(false);
   const earlier = () => props.check.earlier.length;
-  const recorded = () => ({ name: nameOr(props.check.recordedBy), time: timeOf(props.check.recordedAt) });
+  const recorded = () => ({ name: nameOr(props.check.recordedBy), time: timeOfDay(props.check.recordedAt) });
   return (
     <li>
       <div class='tm-check-head'>

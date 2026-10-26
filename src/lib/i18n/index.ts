@@ -105,6 +105,10 @@ export function intlLocale(): string {
   return formatTag(locale(), browserLanguages());
 }
 
+/** A time of day as the language shown writes it: "3:14 PM". */
+export const timeOfDay = (at: number | string | Date): string =>
+  new Date(at).toLocaleTimeString(intlLocale(), { hour: 'numeric', minute: '2-digit' });
+
 /** Whether the reader measures a room in feet rather than metres. */
 export function measuresInFeet(): boolean {
   return countsFeet(intlLocale());
