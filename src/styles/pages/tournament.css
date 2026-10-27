@@ -45,9 +45,6 @@ body.tm-stream-mode {
 }
 
 /* ---------- Page rhythm ---------- */
-.tm-page .hero {
-  margin-bottom: var(--space-4);
-}
 /* A link in the meta line is set apart by more than its colour (WCAG 1.4.1),
    and never breaks across two lines. */
 .tm-page .hero-meta a {

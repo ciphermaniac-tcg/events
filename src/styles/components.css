@@ -266,9 +266,6 @@
 }
 
 /* ---------- Hero ---------- */
-.hero h1 {
-  margin: 0 0 6px 0;
-}
 .hero-meta {
   font-size: 13px;
   color: var(--muted);
@@ -279,11 +276,6 @@
 .hero-meta .dot {
   margin: 0 8px;
   opacity: 0.4;
-}
-
-/* ---------- Hero meta line ---------- */
-.hero h1 + .hero-meta {
-  margin-top: 6px;
 }
 
 /* ---------- Archetype Pokémon icons ----------
