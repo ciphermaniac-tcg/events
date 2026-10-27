@@ -1129,7 +1129,10 @@ test('Gym Leader Challenge decks show their type icons, still once a name is typ
   const picker = page.getByRole('combobox', { name: 'Deck' }).last();
   await picker.focus();
   const fire = page.getByRole('option', { name: /^Fire/ });
-  await expect(fire.locator('img[src$="/type-icons/fire.svg"]')).toHaveCount(1);
+  const icon = fire.locator('img[src$="/type-icons/fire.svg"]');
+  await expect(icon).toHaveCount(1);
+  // The icon has to decode, not just be named: a missing file comes back as the SPA's HTML.
+  await expect.poll(() => icon.evaluate(img => (img as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
   await picker.fill('Mono');
   const typed = page.getByRole('option', { name: /Mono Mew/ });
   await expect(typed).toBeVisible();
