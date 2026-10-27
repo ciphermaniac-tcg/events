@@ -390,6 +390,30 @@ test('at an unsanctioned event, registering someone else asks first when the dev
   await expect(page.getByRole('textbox', { name: 'First name' })).toHaveValue('');
 });
 
+test('with storage full, a registration still goes in, and stays this page’s to change', async ({ page }) => {
+  await page.addInitScript(() => {
+    Storage.prototype.setItem = () => {
+      throw new DOMException('Full', 'QuotaExceededError');
+    };
+  });
+  const { calls } = await mockEvent(page, { sanctioned: false });
+  await page.goto(`/t/${CODE}?tab=decklist`);
+  await page.getByRole('textbox', { name: 'First name' }).fill('Nia');
+  await page.getByRole('textbox', { name: 'Last name' }).fill('Okafor');
+  await page.getByRole('button', { name: 'Continue' }).click();
+  await page.getByText('In person').click();
+  await page.getByRole('button', { name: 'Register' }).click();
+  await expect(page.getByRole('status')).toHaveText('You’re registered.');
+  await page.getByText('Digital').click();
+  await page.getByRole('textbox', { name: 'Decklist' }).fill(DECK);
+  await page.getByRole('button', { name: 'Save changes' }).click();
+  await expect(page.getByRole('status')).toHaveText('Changes saved.');
+  const puts = calls.filter(call => call.method === 'PUT');
+  expect(puts).toHaveLength(2);
+  // The change carries the token the server gave, so the server knows it for this device's.
+  expect(puts[1]?.body?.token).toBe('device-token-0000001');
+});
+
 test('a full event says so to a newcomer', async ({ page }) => {
   await mockEvent(page, { playerCap: 3 });
   await page.goto(`/t/${CODE}?tab=decklist`);

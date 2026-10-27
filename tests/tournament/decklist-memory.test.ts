@@ -56,3 +56,22 @@ test('forgetting drops both, and unreadable memory reads as nothing', () => {
   Reflect.deleteProperty(globalThis, 'localStorage');
   assert.equal(recall('EVENT1'), null, 'no storage at all is no memory');
 });
+
+/** Storage that reads but refuses every write, as a full or blocked one does. */
+function refusing(): Storage {
+  return Object.assign(storage(), {
+    setItem: () => {
+      throw new DOMException('Quota exceeded', 'QuotaExceededError');
+    }
+  });
+}
+
+for (const blocked of ['localStorage', 'sessionStorage'] as const) {
+  test(`with ${blocked} refusing writes, the page keeps the list until it is withdrawn`, () => {
+    Object.assign(globalThis, { [blocked]: refusing() });
+    remember('EVENT1', { profile, token: 'abc' });
+    assert.deepEqual(recall('EVENT1'), { profile, token: 'abc' });
+    remember('EVENT1', null);
+    assert.equal(recall('EVENT1'), null);
+  });
+}

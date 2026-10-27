@@ -15,22 +15,36 @@ export interface Remembered {
 
 const memoryKey = (code: string) => DECKLIST_KEY + code;
 
+/** What this page holds where storage refused it (blocked or full), so the list stays this device's to change. */
+const page = new Map<string, Remembered>();
+
 export function recall(code: string): Remembered | null {
+  const held = page.get(code);
+  if (held) {
+    return held;
+  }
   try {
-    const held = JSON.parse(localStorage.getItem(memoryKey(code)) ?? 'null') as { token: string } | null;
+    const stored = JSON.parse(localStorage.getItem(memoryKey(code)) ?? 'null') as { token: string } | null;
     const profile = JSON.parse(sessionStorage.getItem(memoryKey(code)) ?? 'null') as PlayerProfile | null;
-    return held?.token ? { profile, token: held.token } : null;
+    return stored?.token ? { profile, token: stored.token } : null;
   } catch {
     return null;
   }
 }
 
 export function remember(code: string, value: Remembered | null) {
-  if (value) {
-    localStorage.setItem(memoryKey(code), JSON.stringify({ token: value.token }));
-    sessionStorage.setItem(memoryKey(code), JSON.stringify(value.profile));
-  } else {
-    sessionStorage.removeItem(memoryKey(code));
-    localStorage.removeItem(memoryKey(code));
+  page.delete(code);
+  try {
+    if (value) {
+      localStorage.setItem(memoryKey(code), JSON.stringify({ token: value.token }));
+      sessionStorage.setItem(memoryKey(code), JSON.stringify(value.profile));
+    } else {
+      sessionStorage.removeItem(memoryKey(code));
+      localStorage.removeItem(memoryKey(code));
+    }
+  } catch {
+    if (value) {
+      page.set(code, value);
+    }
   }
 }
