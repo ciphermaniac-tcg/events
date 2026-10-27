@@ -118,9 +118,6 @@ function RoomInput(props: {
   );
 }
 
-/** Whether the room's numbers are in reach, so the size can be worked out from them. */
-const roomOk = (room: DisplayRoom) => roomInReach(room);
-
 /**
  * How far back the farthest player sits, in the unit the reader counts in: as
  * measured when the units agree, else converted, to whole feet or a tenth of
@@ -136,7 +133,8 @@ function distanceIn(room: DisplayRoom, feet: boolean): number {
 function PresetFields(props: { draft: Draft; onChange: (draft: Draft) => void }) {
   const set = (options: Partial<Draft['options']>) =>
     props.onChange({ ...props.draft, options: { ...props.draft.options, ...options } });
-  const setRoom = (next: DisplayRoom) => set(roomOk(next) ? { room: next, scale: roomScale(next) } : { room: next });
+  const setRoom = (next: DisplayRoom) =>
+    set(roomInReach(next) ? { room: next, scale: roomScale(next) } : { room: next });
   const options = () => props.draft.options;
   const feet = measuresInFeet();
   const setDistance = (distance: number) =>
@@ -198,7 +196,7 @@ function PresetFields(props: { draft: Draft; onChange: (draft: Draft) => void })
           >
             +
           </button>
-          <Show when={roomOk(options().room) && options().scale !== roomScale(options().room)}>
+          <Show when={roomInReach(options().room) && options().scale !== roomScale(options().room)}>
             <span class='muted'>
               {t('from {percent} for this room', { percent: percent(roomScale(options().room)) })}
             </span>
@@ -238,7 +236,7 @@ const problem = (draft: Draft) => {
   if (!draft.name.trim()) {
     return t('Name the preset');
   }
-  if (roomOk(draft.options.room)) {
+  if (roomInReach(draft.options.room)) {
     return null;
   }
   return measuresInFeet() ? t('Give whole inches and feet') : t('Give whole inches, and metres to a tenth');
