@@ -9,7 +9,7 @@
  */
 
 import { createEffect, createSignal, For, on, onCleanup, onMount, Show } from 'solid-js';
-import { percentLabel, recordLabel, type Standing } from '../../../shared/tournament/standings';
+import { isBye, percentLabel, recordLabel, type Standing } from '../../../shared/tournament/standings';
 import type { Pod } from '../../../shared/tournament/types';
 import type { TournamentView } from '../../../shared/tournament/view';
 import { inertOutside, keepTabIn } from '../../lib/focusTrap';
@@ -142,7 +142,7 @@ export function PlayerSheet(props: {
                       <td>
                         <Show
                           when={row.opponent}
-                          fallback={<span class='muted'>{row.outcome === 'bye' ? t('Bye') : t('Missed round')}</span>}
+                          fallback={<span class='muted'>{isBye(row.outcome) ? t('Bye') : t('Missed round')}</span>}
                         >
                           {opponent => (
                             <button type='button' class='tm-seat-link' onClick={() => props.onPlayer(opponent())}>

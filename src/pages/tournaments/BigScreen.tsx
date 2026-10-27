@@ -24,7 +24,7 @@
 
 import { createMemo, createSignal, For, Index, type JSX, onCleanup, onMount, Show, useContext } from 'solid-js';
 import { lazyChunk } from '../../lib/preloadRecovery';
-import { percentLabel, recordLabel } from '../../../shared/tournament/standings';
+import { isBye, percentLabel, recordLabel } from '../../../shared/tournament/standings';
 import type { Match, Pod, Round } from '../../../shared/tournament/types';
 import type { TournamentView } from '../../../shared/tournament/view';
 import { DEFAULT_DISPLAY, type DisplayOptions } from '../../../shared/tournament/display';
@@ -241,7 +241,7 @@ function TableRows(props: { view: TournamentView; pod: Pod; round: Round; headin
               <li classList={{ 'is-done': shown()[0] !== '' }}>
                 {seat(match.p1, shown()[0], '')}
                 <TableMiddle table={match.table} marks={shown()} extra={match.timeExtension?.seconds} />
-                {seat(match.p2, shown()[1], match.outcome === 'bye' ? t('Bye') : t('Missed round'))}
+                {seat(match.p2, shown()[1], isBye(match.outcome) ? t('Bye') : t('Missed round'))}
               </li>
             );
           }}

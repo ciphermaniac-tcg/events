@@ -53,6 +53,9 @@ export interface Standing {
 
 type Side = 'win' | 'loss' | 'tie' | null;
 
+/** A bye the pairing gave or staff assigned: both count as a win. */
+export const isBye = (outcome: Outcome) => outcome === 'bye' || outcome === 'assigned-bye';
+
 /** What a finished match meant for the player in seat one or two; null while unreported. */
 export function sideResult(outcome: Outcome, seat: 1 | 2): Side {
   switch (outcome) {

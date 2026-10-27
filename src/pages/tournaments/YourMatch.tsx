@@ -20,7 +20,7 @@ import { createEffect, createSignal, For, Match, on, Show, Suspense, Switch } fr
 import { lazyPanel } from './lazyPanel';
 import type { PlayerClaim } from '../../../shared/tournament/identify';
 import type { PlayerResult } from '../../../shared/tournament/reports';
-import { recordLabel, sideResult } from '../../../shared/tournament/standings';
+import { isBye, recordLabel, sideResult } from '../../../shared/tournament/standings';
 import { hasStarted, podOf, withSwiss } from '../../../shared/tournament/rounds';
 import type { Pod, Round, Match as TableMatch } from '../../../shared/tournament/types';
 import { type PublishedView, type TournamentView } from '../../../shared/tournament/view';
@@ -290,8 +290,8 @@ function MatchLine(props: Props & { me: string; found: Found; report: Report; op
       when={opponent()}
       fallback={
         <>
-          <span class='tm-you-big'>{props.found.match.outcome === 'bye' ? t('Bye') : t('Missed round')}</span>
-          <span class='tm-you-mid muted'>{props.found.match.outcome === 'bye' ? t('Counts as a win') : ''}</span>
+          <span class='tm-you-big'>{isBye(props.found.match.outcome) ? t('Bye') : t('Missed round')}</span>
+          <span class='tm-you-mid muted'>{isBye(props.found.match.outcome) ? t('Counts as a win') : ''}</span>
           <span class='tm-you-end'>
             <Clock round={props.found.round} />
           </span>

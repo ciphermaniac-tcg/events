@@ -341,3 +341,26 @@ test('the standings mark the viewer’s own row, and say so when a search finds 
   await page.getByRole('searchbox', { name: 'Find a player' }).fill('nobody by this name');
   await expect(page.locator('.tm-standings .tm-empty-row')).toHaveText('No players match.');
 });
+
+test('a bye staff assigned reads as a bye in the pairings and on the player’s sheet, not as a missed round', async ({
+  page
+}) => {
+  // P0 Master starts round 1 on an assigned bye (outcome 4).
+  const earned = parseTdf(
+    readFileSync(new URL('../fixtures/tdf/harness/earned-challenge/03-r1-paired.tdf', import.meta.url), 'utf8')
+  );
+  const earnedKeys = assignKeys(earned, {});
+  await mockApi(page, {
+    ...VIEW,
+    tournament: publicTournament(earned, earnedKeys),
+    divisions: publicDivisions(earned, earnedKeys, Date.UTC(2026, 9, 4)),
+    decks: {}
+  });
+  await page.goto(`/t/${CODE}`);
+  const row = page.locator('.tm-matches tbody tr', { hasText: 'P0 Master' });
+  await expect(row).toContainText('Bye');
+  await expect(row).not.toContainText('Missed round');
+  await row.locator('.tm-seat-link', { hasText: 'P0 Master' }).click();
+  await expect(page.getByRole('dialog')).toContainText('Bye');
+  await expect(page.getByRole('dialog')).not.toContainText('Missed round');
+});

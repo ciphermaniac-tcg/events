@@ -1,5 +1,6 @@
 import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show } from 'solid-js';
 import type { DisplayOptions } from '../../../shared/tournament/display';
+import { isBye } from '../../../shared/tournament/standings';
 import type { Pod } from '../../../shared/tournament/types';
 import type { TournamentView } from '../../../shared/tournament/view';
 import { displayCapacity, type DisplayRow, displayRows, type DisplaySize } from './displayLayout';
@@ -114,11 +115,7 @@ export function PagedDisplay(props: {
               <span class='tm-screen-dense-names'>
                 <strong>{names().get(row.player) ?? row.player}</strong>
                 <span>
-                  {row.opponent
-                    ? names().get(row.opponent)
-                    : ['bye', 'assigned-bye'].includes(row.match.outcome)
-                      ? t('Bye')
-                      : t('Missed round')}
+                  {row.opponent ? names().get(row.opponent) : isBye(row.match.outcome) ? t('Bye') : t('Missed round')}
                 </span>
               </span>
               <span class='tm-screen-dense-table'>

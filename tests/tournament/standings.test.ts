@@ -6,7 +6,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { placeFinals, swissStandings, tallySwiss, winRate } from '../../shared/tournament/standings.ts';
+import { isBye, placeFinals, swissStandings, tallySwiss, winRate } from '../../shared/tournament/standings.ts';
 import type { Match, Player, Pod, Round } from '../../shared/tournament/types.ts';
 
 const player = (id: string, droppedAfter: number | null = null): Player => ({
@@ -441,4 +441,8 @@ test('the third-place setting promotes the champion’s latest opponents across 
     ['H', 'F', 'E', 'C', 'G', 'A', 'D', 'B'],
     'a cut after Swiss retains the setting threshold and orders the tied opening losers by their opponents'
   );
+});
+
+test('a bye the pairing gave and one staff assigned are both byes; a missed round is not', () => {
+  assert.deepEqual((['bye', 'assigned-bye', 'loss', 'pending'] as const).map(isBye), [true, true, false, false]);
 });

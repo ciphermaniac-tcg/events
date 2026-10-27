@@ -9,7 +9,7 @@
 
 import { A } from '@solidjs/router';
 import { createResource, createSignal, For, onCleanup, Show } from 'solid-js';
-import { recordLabel } from '../../../shared/tournament/standings';
+import { isBye, recordLabel } from '../../../shared/tournament/standings';
 import type { HistoryEntry } from '../../lib/tournament/api';
 import { ordinal } from '../../lib/format';
 import { msg, t } from '../../lib/i18n';
@@ -67,7 +67,7 @@ function RoundLine(props: { row: EntryResult['finish']['rounds'][number]; result
       </span>
       <Show
         when={props.row.opponent}
-        fallback={<span class='tm-hist-opp muted'>{props.row.outcome === 'bye' ? t('Bye') : t('Missed round')}</span>}
+        fallback={<span class='tm-hist-opp muted'>{isBye(props.row.outcome) ? t('Bye') : t('Missed round')}</span>}
       >
         {opponent => (
           <span class='tm-hist-opp'>
