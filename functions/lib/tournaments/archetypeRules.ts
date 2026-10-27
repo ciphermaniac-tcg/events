@@ -16,6 +16,8 @@ const RETRY_MS = 5 * 60 * 1000;
 const WAIT_MS = 3000;
 
 let held: { rules: ArchetypeRule[]; at: number } | null = null;
+/** The read in flight, which requests that arrive during it share. */
+let pending: Promise<ArchetypeRule[]> | null = null;
 
 /** @internal exposed for tests */
 export function _forgetRules(): void {
@@ -26,6 +28,13 @@ export async function archetypeRules(now = Date.now()): Promise<ArchetypeRule[]>
   if (held && now - held.at < KEEP_MS) {
     return held.rules;
   }
+  pending ??= read(now).finally(() => {
+    pending = null;
+  });
+  return pending;
+}
+
+async function read(now: number): Promise<ArchetypeRule[]> {
   try {
     const response = await fetch(INDEX_URL, { signal: AbortSignal.timeout(WAIT_MS) });
     if (response.ok) {

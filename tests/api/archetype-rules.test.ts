@@ -32,3 +32,10 @@ test('an index that cannot be read keeps the last copy, and is not asked again f
   _forgetRules();
   assert.deepEqual(await archetypeRules(0), [], 'with no copy, none');
 });
+
+test('requests that arrive while the index is read share the one read', async () => {
+  const fetch = mock.method(globalThis, 'fetch', async () => Response.json(INDEX));
+  const rules = await Promise.all(Array.from({ length: 5 }, () => archetypeRules(0)));
+  assert.ok(rules.every(each => each.length === 1));
+  assert.equal(fetch.mock.callCount(), 1);
+});
