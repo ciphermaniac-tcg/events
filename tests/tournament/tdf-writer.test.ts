@@ -6,7 +6,8 @@ import { applyCommand, type Command } from '../../shared/tournament/commands.ts'
 import { emptyTournament } from '../../shared/tournament/create.ts';
 import { seededRandom } from '../../shared/tournament/random.ts';
 import { withSiteClocks } from '../../shared/tournament/tomClock.ts';
-import { defaultRootAttrs, parseTdf, writeTdf } from '../../shared/tournament/tdf.ts';
+import { parseTdf, writeTdf } from '../../shared/tournament/tdf.ts';
+import { defaultRootAttrs } from '../../shared/tournament/structure.ts';
 import type { Tournament } from '../../shared/tournament/types.ts';
 import { readTournament } from '../../shared/tournament/validate.ts';
 import { attr, child, children, childText, parseXml } from '../../shared/tournament/xml.ts';

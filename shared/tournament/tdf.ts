@@ -97,8 +97,6 @@ const STAGE_FINAL = '8';
 const FINALIZED = '5';
 const FINISHED_STAGES = new Set(['5', STAGE_FINISHED, STAGE_FINAL]);
 
-export { defaultRootAttrs } from './structure.js';
-
 // ---------- reading ----------
 
 /**
