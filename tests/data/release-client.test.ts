@@ -95,65 +95,22 @@ test('with a release, scope paths resolve to immutable release roots', async () 
     events: { '2026-01-16, Regional X': '/releases/v1/events/2026-01-16, Regional X/999' },
     dependencies: {}
   });
-  assert.strictEqual(resolvePathWith(resolver, '/upcoming.json'), '/upcoming.json');
-  // Served keys rewrite to their immutable roots.
+  // The two scopes the site reads rewrite to their immutable roots.
   assert.strictEqual(
-    resolvePathWith(resolver, '/reports/Online - Last 14 Days/master.json'),
-    '/releases/v1/online/aaa/master.json'
+    resolvePathWith(resolver, '/reports/Online - Last 14 Days/archetypes/index.json'),
+    '/releases/v1/online/aaa/archetypes/index.json'
   );
   assert.strictEqual(
-    resolvePathWith(resolver, '/reports/Trends - Last 30 Days/trends.json'),
-    '/releases/v1/trends/bbb/trends.json'
+    resolvePathWith(resolver, '/assets/archetype-icons.json'),
+    '/releases/v1/assets/ggg/archetype-icons.json'
   );
-  assert.strictEqual(resolvePathWith(resolver, '/players/index-slim.json'), '/releases/v1/players/ccc/index-slim.json');
-  assert.strictEqual(
-    resolvePathWith(resolver, '/reports/tournaments.json'),
-    '/releases/v1/catalogs/eee/tournaments.json'
+  // Anything else is not in the release.
+  assert.throws(
+    () => resolvePathWith(resolver, '/reports/Trends - Last 30 Days/trends.json'),
+    /not present in release/
   );
-  assert.strictEqual(resolvePathWith(resolver, '/reports/prices.json'), '/releases/v1/prices/ddd/prices.json');
-  assert.strictEqual(
-    resolvePathWith(resolver, '/assets/card-synonyms.json'),
-    '/releases/v1/assets/ggg/card-synonyms.json'
-  );
-  assert.strictEqual(
-    resolvePathWith(resolver, '/reports/price-movers.json'),
-    '/releases/v1/prices/ddd/price-movers.json'
-  );
-  assert.strictEqual(
-    resolvePathWith(resolver, '/reports/price-history/SCR.json'),
-    '/releases/v1/prices/ddd/price-history/SCR.json'
-  );
-  assert.strictEqual(
-    resolvePathWith(resolver, '/reports/majors-trends.json'),
-    '/releases/v1/trends/bbb/majors-trends.json'
-  );
-  assert.strictEqual(
-    resolvePathWith(resolver, '/players/1272/profile.json'),
-    '/releases/v1/players/ccc/1272/profile.json'
-  );
-  assert.strictEqual(resolvePathWith(resolver, '/players/1272/decks.json'), '/releases/v1/players/ccc/1272/decks.json');
-  assert.strictEqual(
-    resolvePathWith(resolver, '/reports/Online - Last 14 Days/conversion.json'),
-    '/releases/v1/online/aaa/conversion.json'
-  );
-  assert.strictEqual(
-    resolvePathWith(resolver, '/reports/Snapshots/2025-05-01/master.json'),
-    '/releases/v1/snapshots/fff/2025-05-01/master.json'
-  );
-  // Event-folder paths resolve when the event is in the release's map.
-  assert.strictEqual(
-    resolvePathWith(resolver, '/reports/2026-01-16, Regional X/master.json'),
-    '/releases/v1/events/2026-01-16, Regional X/999/master.json'
-  );
-  assert.throws(() => resolvePathWith(resolver, '/reports/2026-02-01, Other/master.json'), /not present in release/);
   // The real data layer encodes folder names before passing them to the resolver.
   const { tournamentPath } = await import('../../src/lib/data/paths.ts');
-  for (const folder of ['Online - Last 14 Days', 'Trends - Last 30 Days', '2026-01-16, Regional X']) {
-    assert.strictEqual(
-      resolvePathWith(resolver, `${tournamentPath(folder)}/master.json`),
-      resolvePathWith(resolver, `/reports/${folder}/master.json`)
-    );
-  }
   assert.strictEqual(
     resolvePathWith(resolver, `${tournamentPath('Online - Last 14 Days')}/archetypes/Mega%20Gardevoir.json`),
     '/releases/v1/online/aaa/archetypes/Mega%20Gardevoir.json'

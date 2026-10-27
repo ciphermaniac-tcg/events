@@ -14,7 +14,6 @@
 import {
   type ReleaseManifest,
   type ReleaseScope,
-  resolveEventPath,
   resolveScopePath,
   validateReleaseManifest
 } from './data/build/release';
@@ -37,8 +36,6 @@ export interface ReleaseResolver {
   readonly releaseId: string | null;
   /** Resolve a scope artifact to a full path (release-immutable or legacy). */
   scopePath(scope: ReleaseScope, relativePath: string): string;
-  /** Resolve an event artifact, or null when the event is not directly linked. */
-  eventPath(eventId: string, relativePath: string): string | null;
 }
 
 function joinLegacy(root: string, relativePath: string): string {
@@ -56,8 +53,7 @@ export function createReleaseResolver(embedded: unknown): ReleaseResolver {
     return Object.freeze({
       isReleaseAware: false,
       releaseId: null,
-      scopePath: (scope: ReleaseScope, relativePath: string) => joinLegacy(LEGACY_SCOPE_ROOTS[scope], relativePath),
-      eventPath: (_eventId: string, _relativePath: string) => null
+      scopePath: (scope: ReleaseScope, relativePath: string) => joinLegacy(LEGACY_SCOPE_ROOTS[scope], relativePath)
     });
   }
   const manifest = coerceManifest(embedded);
@@ -73,8 +69,7 @@ export function createReleaseResolver(embedded: unknown): ReleaseResolver {
   return Object.freeze({
     isReleaseAware: true,
     releaseId: frozen.releaseId,
-    scopePath: (scope: ReleaseScope, relativePath: string) => resolveScopePath(frozen, scope, relativePath),
-    eventPath: (eventId: string, relativePath: string) => resolveEventPath(frozen, eventId, relativePath)
+    scopePath: (scope: ReleaseScope, relativePath: string) => resolveScopePath(frozen, scope, relativePath)
   });
 }
 

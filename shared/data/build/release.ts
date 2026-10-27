@@ -84,19 +84,6 @@ export function resolveScopePath(manifest: ReleaseManifest, scope: ReleaseScope,
   return joinPath(root, relativePath);
 }
 
-/**
- * Resolve an event artifact path. Falls back to null when the event is not in
- * the embedded map (the caller then uses the tournament catalog).
- * @param manifest - The release manifest
- * @param eventId - The event id
- * @param relativePath - Path relative to the event root
- * @returns The full path, or null when the event is not directly linked
- */
-export function resolveEventPath(manifest: ReleaseManifest, eventId: string, relativePath: string): string | null {
-  const root = manifest.events[eventId];
-  return root ? joinPath(root, relativePath) : null;
-}
-
 function joinPath(root: string, relativePath: string): string {
   const trimmed = relativePath.replace(/^\/+/, '');
   return `${root}/${trimmed}`;

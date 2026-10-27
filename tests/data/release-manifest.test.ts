@@ -9,7 +9,6 @@ import assert from 'node:assert/strict';
 import {
   composeRelease,
   type ReleaseComposition,
-  resolveEventPath,
   resolveScopePath,
   validateReleaseManifest
 } from '../../shared/data/build/release.ts';
@@ -39,15 +38,6 @@ test('resolveScopePath joins the scope root and strips leading slashes', () => {
     resolveScopePath(manifest, 'online', '/archetypes/index.json'),
     '/releases/v1/online/aaa111/archetypes/index.json'
   );
-});
-
-test('resolveEventPath joins a linked event root and returns null for an unlinked event', () => {
-  const manifest = composeRelease(composition());
-  assert.strictEqual(
-    resolveEventPath(manifest, 'labs:0042', 'cardUsage.json'),
-    '/releases/v1/events/labs:0042/999zzz/cardUsage.json'
-  );
-  assert.strictEqual(resolveEventPath(manifest, 'labs:9999', 'cardUsage.json'), null);
 });
 
 test('composeRelease rejects a mutable (non-immutable) root', () => {

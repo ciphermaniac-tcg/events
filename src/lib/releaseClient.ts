@@ -65,11 +65,8 @@ function resolver(): Promise<ReleaseResolver> {
 }
 
 const ONLINE_PREFIX = 'reports/Online - Last 14 Days/';
-const TRENDS_PREFIX = 'reports/Trends - Last 30 Days/';
-const SNAPSHOTS_PREFIX = 'reports/Snapshots/';
-const PLAYERS_PREFIX = 'players/';
 
-/** Classify a legacy report path to a scope + scope-relative path, or null. */
+/** Classify a legacy report path to a scope + scope-relative path, or null: the site reads the online index and assets. */
 function classify(path: string): { scope: ReleaseScope; rel: string } | null {
   const p = path.replace(/^\/+/, '');
   if (p.startsWith('assets/')) {
@@ -77,27 +74,6 @@ function classify(path: string): { scope: ReleaseScope; rel: string } | null {
   }
   if (p.startsWith(ONLINE_PREFIX)) {
     return { scope: 'online', rel: p.slice(ONLINE_PREFIX.length) };
-  }
-  if (p.startsWith(TRENDS_PREFIX)) {
-    return { scope: 'trends', rel: p.slice(TRENDS_PREFIX.length) };
-  }
-  if (p.startsWith(SNAPSHOTS_PREFIX)) {
-    return { scope: 'snapshots', rel: p.slice(SNAPSHOTS_PREFIX.length) };
-  }
-  if (p.startsWith(PLAYERS_PREFIX)) {
-    return { scope: 'players', rel: p.slice(PLAYERS_PREFIX.length) };
-  }
-  if (p === 'reports/tournaments.json') {
-    return { scope: 'catalogs', rel: 'tournaments.json' };
-  }
-  if (p.startsWith('reports/price-history/')) {
-    return { scope: 'prices', rel: p.slice('reports/'.length) };
-  }
-  if (p === 'reports/prices.json' || p === 'reports/prices-history.json' || p === 'reports/price-movers.json') {
-    return { scope: 'prices', rel: p.slice('reports/'.length) };
-  }
-  if (p === 'reports/majors-trends.json') {
-    return { scope: 'trends', rel: 'majors-trends.json' };
   }
   return null;
 }
@@ -121,7 +97,7 @@ export async function resolveDataPath(path: string): Promise<string> {
  * @returns The resolved path (unchanged in legacy mode)
  */
 export function resolvePathWith(withResolver: ReleaseResolver, path: string): string {
-  if (path === '/upcoming.json' || !withResolver.isReleaseAware) {
+  if (!withResolver.isReleaseAware) {
     return path;
   }
   const normalized = path.replace(
@@ -132,15 +108,6 @@ export function resolvePathWith(withResolver: ReleaseResolver, path: string): st
   if (classified) {
     const resolved = withResolver.scopePath(classified.scope, classified.rel);
     return resolved.startsWith('/') ? resolved : `/${resolved}`;
-  }
-  // Event-folder path: /reports/{YYYY-MM-DD, Name}/{rel}. Resolve via the
-  // release's event map, keyed by the folder name the UI already uses.
-  const event = classifyEvent(normalized);
-  if (event) {
-    const resolved = withResolver.eventPath(event.folder, event.rel);
-    if (resolved) {
-      return resolved.startsWith('/') ? resolved : `/${resolved}`;
-    }
   }
   throw new Error(`Data path is not present in release ${withResolver.releaseId}: ${path}`);
 }
@@ -190,23 +157,4 @@ export function recoverFromMissingReleaseBody(resolvedPath: string): boolean {
   sessionStorage.setItem(RELOAD_FLAG, '1');
   window.location.reload();
   return true;
-}
-
-/** Classify a dated event-folder report path to (folder, folder-relative path). */
-function classifyEvent(path: string): { folder: string; rel: string } | null {
-  const p = path.replace(/^\/+/, '');
-  if (!p.startsWith('reports/')) {
-    return null;
-  }
-  const rest = p.slice('reports/'.length);
-  const slash = rest.indexOf('/');
-  if (slash < 0) {
-    return null;
-  }
-  const folder = rest.slice(0, slash);
-  // Only dated event folders (exclude Online/Trends/Snapshots, handled above).
-  if (!/^\d{4}-\d{2}-\d{2},/.test(folder)) {
-    return null;
-  }
-  return { folder, rel: rest.slice(slash + 1) };
 }
