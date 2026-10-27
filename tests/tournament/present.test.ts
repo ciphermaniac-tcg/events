@@ -600,6 +600,11 @@ test('the public status names registration, the round in play, or how the event 
     'Registration',
     `${players} players`
   ]);
+  // Ended before round 1: finished, with no first round left to promise.
+  assert.deepEqual(eventStatus(registering, { pending: [], finished: true, firstRound: '11:00 AM', roundCap: 0 }, 0), [
+    'Finished',
+    `${players} players`
+  ]);
   // TOM decides a TOM event's rounds, so its round is named alone.
   const live = eventStatus(CHALLENGE, { pending: [], finished: false, firstRound: null, roundCap: null }, 0);
   assert.equal(live[0], roundLabel(pod.rounds.at(-1) as Round, pod));

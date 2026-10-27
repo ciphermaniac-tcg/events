@@ -435,11 +435,9 @@ export function eventStatus(
   const pod = statusPod(playing, event.prefer ?? []);
   if (!pod) {
     const players = tournament.players.filter(player => player.droppedAfter === null).length;
-    return [
-      t('Registration'),
-      tn(players, '{n} player', '{n} players'),
-      ...(event.firstRound ? [t('Round 1 at {time}', { time: event.firstRound })] : [])
-    ];
+    // Staff can end an event before round 1; it then has no start to promise.
+    const start = event.firstRound && !event.finished ? [t('Round 1 at {time}', { time: event.firstRound })] : [];
+    return [event.finished ? t('Finished') : t('Registration'), tn(players, '{n} player', '{n} players'), ...start];
   }
   if (event.finished) {
     const swiss = pod.rounds.filter(round => round.kind === 'swiss').length;
