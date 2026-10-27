@@ -1633,5 +1633,8 @@
   "Reinstate {name}?": "¿Reincorporar a {name}?",
   "{file} is older than the site’s copy": "{file} es más antiguo que la copia del sitio",
   "{file} is missing rounds or results the site’s copy has. Reconnecting replaces the site’s copy with it.": "A {file} le faltan rondas o resultados que tiene la copia del sitio. Al reconectar, la copia del sitio se reemplaza por este archivo.",
-  "This round still has results to enter.": "Esta ronda aún tiene resultados por registrar."
+  "This round still has results to enter.": "Esta ronda aún tiene resultados por registrar.",
+  "You’ve started as many events as you can today; try again tomorrow": "Ya creaste el máximo de eventos por hoy; inténtalo de nuevo mañana",
+  "You’re linked to another player here": "Tu cuenta ya está vinculada a otro jugador en este torneo",
+  "TOM already has a result for this match; change it in TOM": "TOM ya tiene un resultado para este encuentro; cámbialo en TOM"
 }

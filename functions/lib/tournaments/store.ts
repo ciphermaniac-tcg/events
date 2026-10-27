@@ -388,7 +388,7 @@ function checkCreationAdmission(
   }
   // A retry can reuse its admission; the first try must have recorded one.
   if (attempt === 0 && input.admission && rowsChanged(results[2]) === 0) {
-    throw new LimitReached('You’ve started as many events as you can today; try again tomorrow');
+    throw new LimitReached(msg('You’ve started as many events as you can today; try again tomorrow'));
   }
 }
 

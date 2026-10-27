@@ -166,7 +166,10 @@ async function standingIn(access: Access, body: Body, id: string): Promise<Claim
 
 /** The refusal for an account that is already another player here, naming that player by their public key. */
 const linkedElsewhere = (row: TournamentRow, standing: Elsewhere) =>
-  privateJson({ error: 'You’re linked to another player here', linkedKey: row.keys[standing.elsewhere] ?? null }, 409);
+  privateJson(
+    { error: msg('You’re linked to another player here'), linkedKey: row.keys[standing.elsewhere] ?? null },
+    409
+  );
 
 /**
  * What the asker's change holds to as it lands: the seat they reported from

@@ -1633,5 +1633,8 @@
   "Reinstate {name}?": "{name} wieder aufnehmen?",
   "{file} is older than the site’s copy": "{file} ist älter als die Kopie der Website",
   "{file} is missing rounds or results the site’s copy has. Reconnecting replaces the site’s copy with it.": "In {file} fehlen Runden oder Ergebnisse, die die Kopie der Website hat. Beim neuen Verknüpfen wird die Kopie der Website durch diese Datei ersetzt.",
-  "This round still has results to enter.": "In dieser Runde fehlen noch Ergebnisse."
+  "This round still has results to enter.": "In dieser Runde fehlen noch Ergebnisse.",
+  "You’ve started as many events as you can today; try again tomorrow": "Du kannst heute keine weiteren Turniere anlegen. Versuch es morgen noch mal.",
+  "You’re linked to another player here": "Dein Konto ist bei diesem Turnier schon mit einem anderen Spieler verknüpft.",
+  "TOM already has a result for this match; change it in TOM": "Für dieses Match gibt es in TOM schon ein Ergebnis. Ändere es in TOM."
 }

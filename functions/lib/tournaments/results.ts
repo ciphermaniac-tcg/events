@@ -25,7 +25,7 @@ import { msg } from '../../../shared/i18n.js';
  */
 function pendingChange(row: TournamentRow, command: Extract<Command, { type: 'reportResult' }>): Changes | string {
   if (!isOpenMatch(row.tournament, command)) {
-    return 'TOM already has a result for this match; change it in TOM';
+    return msg('TOM already has a result for this match; change it in TOM');
   }
   const { pod: category, round, table, p1, p2, outcome } = command;
   const next = { pod: category, round, table, p1, p2, outcome, at: Date.now() };
