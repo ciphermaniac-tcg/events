@@ -43,7 +43,7 @@ interface TableProps {
 
 export function StandingsTable(props: TableProps) {
   const groups = createMemo(() => podStandings(props.tournament, props.pod, props.divisionOf));
-  const hasDecks = () => Object.keys(props.decks).length > 0;
+  const hasDecks = createMemo(() => Object.keys(props.decks).length > 0);
   const matches = (id: string) =>
     !props.query?.trim() || (props.names.get(id) ?? '').toLowerCase().includes(props.query.trim().toLowerCase());
   const several = () => groups().length > 1;
