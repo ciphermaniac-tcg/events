@@ -188,6 +188,21 @@ test('bursts share reads and serialization, but receive independently consumable
   }
 });
 
+test('a venue’s unchanged polls leave its rate limit for the reads that change something', async () => {
+  const owner = await signIn('Organizer', 'organizer');
+  const code = await newSwiss(owner);
+  const version = (await (await get(code)).json()).version as number;
+  // More than the 1,200 a window allows, all from the one address a room of players shares.
+  for (let poll = 0; poll < 1300; poll += 1) {
+    assert.equal((await get(code, undefined, undefined, `?since=${version}`)).status, 204);
+  }
+  // Reads that send the view still count, the first one above among them, and walking codes is still slowed.
+  for (let read = 1; read < 1200; read += 1) {
+    assert.equal((await get(code)).status, 200);
+  }
+  assert.equal((await get('ZZZZZZ')).status, 429);
+});
+
 test('legacy polls coalesce their version reads, and missing resources remain uncacheable', async () => {
   const owner = await signIn('Organizer', 'organizer');
   const code = await newSwiss(owner);

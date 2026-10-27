@@ -52,11 +52,12 @@ export function _resetRateLimitStore(): void {
 }
 
 export async function onRequestGet(context: Context<'code'>): Promise<Response> {
-  if (!rateLimiter.check(rateLimitAddress(context.request)).allowed) {
-    return jsonError('Too many requests from here. Try again shortly.', 429);
-  }
+  // An unchanged answer needs a real code and its current version, so it walks nothing: a venue's polls go free.
   if (await unchanged(context)) {
     return noContent();
+  }
+  if (!rateLimiter.check(rateLimitAddress(context.request)).allowed) {
+    return jsonError('Too many requests from here. Try again shortly.', 429);
   }
   const db = context.env.TOURNAMENT_DB;
   if (!db) {
