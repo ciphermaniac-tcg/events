@@ -511,6 +511,34 @@ test('History is newest first: by start time, then date, then last change', asyn
   assert.deepEqual(await codesOf(player), [later, winter, autumn, sameDay, spring]);
 });
 
+test('past 500 events, History keeps the newest by last change, by POP ID and by Claim alike', async () => {
+  const player = await signIn('Player');
+  await saveProfile(player, '900');
+  const { raw } = db();
+  const { id } = raw.prepare("SELECT id FROM users WHERE pop_id = '900'").get() as { id: string };
+  const insert = raw.prepare(
+    'INSERT INTO tournaments (code, owner_id, staff_token, mode, state, settings, player_keys, created_at, updated_at) ' +
+      "VALUES (?, 'organizer', 'token', 'swiss', ?, ?, '{\"900\":\"key\"}', ?, ?)"
+  );
+  const listed = {
+    P: raw.prepare("INSERT INTO pop_history (pop_id, code) VALUES ('900', ?)"),
+    C: raw.prepare(`INSERT INTO report_devices VALUES (?, '900', 'hash', 'device', 0, '${id}')`)
+  };
+  const state = JSON.stringify(emptyTournament({ name: 'Weekly' }));
+  // Inserted oldest last, so a limit that kept rows in table order would keep the oldest.
+  for (let i = 500; i >= 0; i -= 1) {
+    for (const via of ['P', 'C'] as const) {
+      const code = `${via}${String(i).padStart(5, '0')}`;
+      insert.run(code, state, JSON.stringify({ sanctioned: via === 'P' }), i, i);
+      listed[via].run(code);
+    }
+  }
+  const codes = await codesOf(player);
+  assert.equal(codes.length, 1000);
+  assert.deepEqual(codes.slice(0, 2), ['P00500', 'C00500']);
+  assert.ok(!codes.includes('P00000') && !codes.includes('C00000'));
+});
+
 test('History needs a signed-in account, and is one wait on the database', async () => {
   assert.equal((await historyOf()).status, 401);
   assert.equal((await historyOf('cm_session=forged')).status, 401);

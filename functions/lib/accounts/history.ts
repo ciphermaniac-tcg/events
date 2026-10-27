@@ -50,6 +50,8 @@ const NOT_HIDDEN = 'NOT EXISTS (SELECT 1 FROM history_hidden x WHERE x.user_id =
 
 /** An account appears in a few hundred events at most; this bounds a read that goes wrong. */
 const MAX_ENTRIES = 500;
+/** The newest-changed events first, so the bound drops the oldest. */
+const NEWEST = `ORDER BY t.updated_at DESC LIMIT ${MAX_ENTRIES}`;
 
 /** The event's columns an entry needs, `player` being the player's ID there. */
 const entryColumns = (player: string) =>
@@ -92,7 +94,7 @@ function statements(db: D1Like, whose: Whose): D1Statement[] {
     db
       .prepare(
         `SELECT ${entryColumns('h.pop_id')} FROM ${from} JOIN pop_history h ON h.pop_id = u.pop_id ` +
-          `JOIN tournaments t ON t.code = h.code WHERE ${where} AND ${NOT_HIDDEN} LIMIT ${MAX_ENTRIES}`
+          `JOIN tournaments t ON t.code = h.code WHERE ${where} AND ${NOT_HIDDEN} ${NEWEST}`
       )
       .bind(...values),
     // By Claim: at a sanctioned event the account's row is its POP ID's, already listed above.
@@ -100,7 +102,7 @@ function statements(db: D1Like, whose: Whose): D1Statement[] {
       .prepare(
         `SELECT ${entryColumns('d.player_id')} FROM ${from} JOIN report_devices d ON d.user_id = u.id ` +
           `JOIN tournaments t ON t.code = d.code WHERE ${where} AND ${NOT_HIDDEN} ` +
-          `AND t.mode = 'swiss' AND json_extract(t.settings, '$.sanctioned') IS 0 LIMIT ${MAX_ENTRIES}`
+          `AND t.mode = 'swiss' AND json_extract(t.settings, '$.sanctioned') IS 0 ${NEWEST}`
       )
       .bind(...values),
     // The events it ran or staffed to the end; staffing an event of its own is running it.
@@ -124,7 +126,7 @@ function organizerStatement(db: D1Like, from: string, where: string, values: unk
       `SELECT ${entryColumns('NULL')}, CASE WHEN t.owner_id = u.id THEN 'organized' ELSE 'staffed' END AS role, ` +
         `s.id AS store_id, s.name AS store_name FROM ${from} JOIN tournaments t ON t.code IN ` +
         '(SELECT code FROM tournaments WHERE owner_id = u.id UNION SELECT code FROM staff WHERE user_id = u.id) ' +
-        `LEFT JOIN stores s ON s.id = t.store_id WHERE ${where} ORDER BY t.updated_at DESC LIMIT ${MAX_ENTRIES}`
+        `LEFT JOIN stores s ON s.id = t.store_id WHERE ${where} ${NEWEST}`
     )
     .bind(...values);
 }
