@@ -14,7 +14,7 @@
 import { SessionGate } from './SessionGate';
 import { SignOutButton } from './SignOutButton';
 import { A, useSearchParams } from '@solidjs/router';
-import { createEffect, createMemo, createResource, createSignal, For, type JSX, on, Show, untrack } from 'solid-js';
+import { createEffect, createMemo, createResource, createSignal, For, type JSX, on, Show } from 'solid-js';
 import { displayName, HANDLE_MAX, handleProblem, normalizeHandle } from '../../../shared/accounts/handle';
 import { type PlayerProfile, profileErrors } from '../../../shared/tournament/profile';
 import {
@@ -126,11 +126,10 @@ function Pane(props: { of: Section; current: Section; opened: ReadonlySet<Sectio
 function SignedIn(props: { user: Me; providers: readonly Provider[] }) {
   const [params, setParams] = useSearchParams<{ section?: string }>();
   const section = () => readSection(params.section);
-  const [opened, setOpened] = createSignal<ReadonlySet<Section>>(new Set([untrack(section)]));
-  createEffect(() => {
-    const now = section();
-    setOpened(prev => (prev.has(now) ? prev : new Set([...prev, now])));
-  });
+  const opened = createMemo<ReadonlySet<Section>>(
+    prev => (prev.has(section()) ? prev : new Set([...prev, section()])),
+    new Set()
+  );
   const label = () => t(SECTIONS.find(s => s.id === section())?.label ?? '');
   return (
     <>

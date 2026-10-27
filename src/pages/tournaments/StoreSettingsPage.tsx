@@ -10,7 +10,7 @@
 
 import { SessionGate } from './SessionGate';
 import { A, useSearchParams } from '@solidjs/router';
-import { createEffect, createResource, createSignal, For, type JSX, Show, untrack } from 'solid-js';
+import { createEffect, createMemo, createResource, createSignal, For, type JSX, Show, untrack } from 'solid-js';
 import {
   dateIn,
   type LeagueNight,
@@ -213,11 +213,10 @@ function Settings(props: { id: string }) {
   const current = () => latestValue(read);
   const section = () => readSection(params.section);
   // A section stays mounted once opened, hidden while another shows, so its unsaved edits survive the switch.
-  const [opened, setOpened] = createSignal<ReadonlySet<Section>>(new Set([untrack(section)]));
-  createEffect(() => {
-    const now = section();
-    setOpened(prev => (prev.has(now) ? prev : new Set([...prev, now])));
-  });
+  const opened = createMemo<ReadonlySet<Section>>(
+    prev => (prev.has(section()) ? prev : new Set([...prev, section()])),
+    new Set()
+  );
   createEffect(() => {
     const name = current()?.store.name;
     document.title = pageTitle(name ? t('{store} settings', { store: name }) : t('Store settings'));
