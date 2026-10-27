@@ -25,8 +25,3 @@ export const EVENTS_DATA_ORIGIN: string =
 
 /** The main site, which the nav and footer link back out to. */
 export const MAIN_SITE = 'https://ciphermaniac.com';
-
-// The online-meta key and label live in shared/data/tournamentKeys, alongside
-// the functions that parse the tournament-key format — the daily pipeline needs
-// them too, and it must not reach up into the frontend for them.
-export { ONLINE_META_NAME } from '../../shared/data/tournamentKeys';
