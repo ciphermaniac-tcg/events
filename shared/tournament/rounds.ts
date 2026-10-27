@@ -485,11 +485,6 @@ export function seatPairings(pairings: readonly Pairing[], stamp: MatchStamp): M
   );
 }
 
-/** Swiss pairings as table-numbered matches (see seatPairings), best at the lowest table. */
-export function toMatches(pairings: readonly Pairing[], stamp: MatchStamp): Match[] {
-  return seatPairings(pairings, stamp);
-}
-
 /** Tables first, the bye and missed-round entries last. */
 export function sortMatches(matches: readonly Match[]): Match[] {
   return [...matches].sort((a, b) => (a.table || Infinity) - (b.table || Infinity));

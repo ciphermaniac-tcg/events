@@ -38,8 +38,7 @@ import {
   regularRounds,
   roundComplete,
   seatPairings,
-  secondsLeft,
-  toMatches
+  secondsLeft
 } from './rounds.js';
 import { returnEffects } from './returns.js';
 import { swissStandings } from './standings.js';
@@ -388,7 +387,6 @@ function pairedRound(
   ctx: CommandContext,
   round: { number: number; kind: Round['kind']; pairings: readonly Pairing[] }
 ): Round {
-  const swiss = round.kind === 'swiss';
   return {
     number: round.number,
     kind: round.kind,
@@ -397,7 +395,7 @@ function pairedRound(
     pairTime: ctx.localTime,
     startTime: '',
     clockStartedAt: null,
-    matches: (swiss ? toMatches : seatPairings)(round.pairings, stampFor(tournament, pod, ctx))
+    matches: seatPairings(round.pairings, stampFor(tournament, pod, ctx))
   };
 }
 
@@ -436,7 +434,7 @@ function repairRound(tournament: Tournament, category: PodCategory, keepReported
   );
 
   const pairings = sortSwissPairings(pairSwiss(entrants, pairingHistory(pod, round.number), ctx.random), entrants);
-  const fresh = toMatches(pairings, {
+  const fresh = seatPairings(pairings, {
     ...stampFor(tournament, pod, ctx),
     taken: new Set(kept.map(match => match.table))
   });
