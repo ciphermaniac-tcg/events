@@ -48,17 +48,6 @@ export function rankForPairing(entrants: readonly Entrant[], random: Random): st
     );
 }
 
-/** The lowest-ranked player without a previous random bye; exhausted eligibility has no fallback. */
-export function pickBye(ranked: readonly string[], byes: ReadonlySet<string>): string | undefined {
-  for (let i = ranked.length - 1; i >= 0; i -= 1) {
-    const id = ranked[i];
-    if (id !== undefined && !byes.has(id)) {
-      return id;
-    }
-  }
-  return undefined;
-}
-
 /** A round's field as every walk reads it: who sits where, and whom each has met. */
 interface Field {
   ranked: readonly string[];

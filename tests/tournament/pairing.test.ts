@@ -15,7 +15,6 @@ import {
   pairSwiss,
   pairSwissCounted,
   pairTopCut,
-  pickBye,
   rankForPairing,
   STEP_BUDGET
 } from '../../shared/tournament/pairing.ts';
@@ -59,10 +58,6 @@ test('gives the bye to the lowest player who has not had one', () => {
   // Both 0-point players have had a bye, so it moves up to a 3-point player.
   assert.ok(['p1', 'p2'].includes(bye.p1));
   assert.equal(pairings.at(-1), bye);
-});
-
-test('pickBye has no recipient when everyone has had one', () => {
-  assert.equal(pickBye(['a', 'b'], new Set(['a', 'b'])), undefined);
 });
 
 test('pairs within the point group before pairing down', () => {
