@@ -82,7 +82,6 @@
   "Allow access to {file}": "Zugriff auf {file} erlauben",
   "allow access to the .tdf to enter results": "zum Eintragen Zugriff auf die .tdf erlauben",
   "Allows organizer entry of player deck archetypes. “Shown once the event ends” shows archetypes at the time of final standings and “Shown during the event” shows archetypes at the time of entry during your event.": "Damit kannst du als Veranstalter die Deck-Archetypen der Spieler eintragen. Bei „Nach dem Turnier sichtbar“ erscheinen die Archetypen mit der Abschlusstabelle, bei „Während des Turniers sichtbar“ schon während des Turniers, sobald sie eingetragen sind.",
-  "Allows users to submit their decklists in TCGL format. “Open” makes decklists available during the event, and “Closed” disables decklist sharing.": "Spieler können ihre Decklisten im TCGL-Format einreichen. Bei „Offen“ sind die Decklisten während des Turniers einsehbar, bei „Geschlossen“ werden sie nicht geteilt.",
   "Alphabetical pages": "Seiten nach Alphabet",
   "Already decided": "Darüber wurde schon entschieden",
   "An account already exists with that email.": "Mit dieser E-Mail-Adresse gibt es schon ein Konto.",

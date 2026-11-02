@@ -227,12 +227,13 @@ type PlayerSettings = Logistics &
     | 'sanctioned'
     | 'playerReporting'
     | 'decklists'
+    | 'openLists'
     | 'entryFee'
     | 'playerCap'
   >;
 
 const pickPlayerSettings = (settings: TournamentSettings): PlayerSettings => {
-  const { details, format, startsAt, deckVisibility, sanctioned, playerReporting, decklists } = settings;
+  const { details, format, startsAt, deckVisibility, sanctioned, playerReporting, decklists, openLists } = settings;
   const { timeZone, checkInAt, venue, address, entryFee, playerCap } = settings;
   return {
     details,
@@ -246,6 +247,7 @@ const pickPlayerSettings = (settings: TournamentSettings): PlayerSettings => {
     sanctioned,
     playerReporting,
     decklists,
+    openLists,
     entryFee,
     playerCap
   };
@@ -383,6 +385,12 @@ function ForPlayers(props: { state: ManageState; manage: Manage }) {
       >
         <DecklistsSwitch value={draft().decklists} onChange={v => set('decklists', v)} />
       </SettingRow>
+      {/* Opening the lists is the organizer's call alone (see settings.ts); staff can still close them. */}
+      <Show when={draft().decklists !== 'off' && (props.manage.role === 'owner' || saved().openLists)}>
+        <SettingRow label={t('Open decklists')} info={<SettingInfo text={SETTING_INFO.openLists} />}>
+          <Toggle label={t('Open decklists')} value={draft().openLists} onChange={v => set('openLists', v)} />
+        </SettingRow>
+      </Show>
       <SettingRow label={t('Event description')} for='set-details'>
         <textarea
           id='set-details'

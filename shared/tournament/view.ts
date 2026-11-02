@@ -56,6 +56,8 @@ export type DecklistMode = 'off' | 'open' | 'closed';
 export interface TournamentSettings {
   display: DisplaySelection | null;
   decklists: DecklistMode;
+  /** Whether anyone on the event's page may read each player's list once round 1 is paired (see listsPublic). */
+  openLists: boolean;
   deckVisibility: DeckVisibility;
   /** The organizer's own notes for players: prizes, schedule, what to bring. */
   details: string;
@@ -102,6 +104,7 @@ export interface TournamentSettings {
 export const DEFAULT_SETTINGS: TournamentSettings = {
   display: null,
   decklists: 'off',
+  openLists: false,
   deckVisibility: 'off',
   details: '',
   format: 'Standard',
@@ -145,6 +148,7 @@ const SETTING_CHECKS: { [K in keyof TournamentSettings]: SettingCheck } = {
   // Never the client's to write: /display copies the picked preset from the event's own store.
   display: () => false,
   decklists: value => DECKLIST_MODES.includes(value as DecklistMode),
+  openLists: value => typeof value === 'boolean',
   roundCap: value =>
     typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= SETTINGS_LIMITS.roundCap,
   entryFee: value =>
@@ -255,6 +259,18 @@ export function decklistsOpen(event: {
   tournament: Tournament;
 }): boolean {
   return event.settings.decklists === 'open' && !decklistsLocked(event);
+}
+
+/**
+ * Whether anyone may read the event's lists now: the organizer opened them,
+ * and round 1 is paired, so the lists are locked and nobody builds against
+ * one they saw.
+ */
+export function listsPublic(event: {
+  settings: Pick<TournamentSettings, 'decklists' | 'openLists'>;
+  tournament: Tournament;
+}): boolean {
+  return event.settings.openLists && event.settings.decklists !== 'off' && decklistsLocked(event);
 }
 
 /** Whether players are known by Player ID and birth year: a TOM event always is. */

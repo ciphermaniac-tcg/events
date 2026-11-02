@@ -17,6 +17,7 @@ import {
   decklistsOpen,
   decksVisible,
   DEFAULT_SETTINGS,
+  listsPublic,
   readSettings,
   sanctionedSettingsError,
   showsDecksSooner,
@@ -199,6 +200,19 @@ test('decklists are off, open or closed, and rounds are capped at up to fifteen'
     false,
     'locked once round 1 is paired'
   );
+});
+
+test('open lists are read by anyone only once round 1 is paired, at an event that takes lists', () => {
+  assert.equal(readSettings({ openLists: true }, DEFAULT_SETTINGS)?.openLists, true);
+  assert.equal(readSettings({ openLists: 'yes' }, DEFAULT_SETTINGS), null);
+  assert.equal(storedSettings({}).openLists, false);
+  const tournament = emptyTournament({ name: 'x' });
+  const started = { ...tournament, startedAt: 1 };
+  const open = { decklists: 'closed', openLists: true } as const;
+  assert.equal(listsPublic({ settings: open, tournament }), false, 'not before round 1');
+  assert.equal(listsPublic({ settings: open, tournament: started }), true);
+  assert.equal(listsPublic({ settings: { ...open, openLists: false }, tournament: started }), false);
+  assert.equal(listsPublic({ settings: { ...open, decklists: 'off' }, tournament: started }), false);
 });
 
 test('settings stored before decklists could be turned off keep their switch', () => {

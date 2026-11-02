@@ -1,10 +1,11 @@
 /**
  * PUT /api/tournaments/:code/settings — staff change the event's settings
- * (see TournamentSettings). Showing decks sooner than the event does now is
- * the organizer's call alone: a staff member could otherwise reveal every
- * player's deck mid-event and hide them again. Only the event of a store with
- * a league becomes sanctioned, and a Community organizer's event moved to another date takes
- * that date only while they hold no other event on it.
+ * (see TournamentSettings). Showing decks sooner than the event does now, or
+ * opening its lists to everyone, is the organizer's call alone: a staff
+ * member could otherwise reveal every player's deck mid-event and hide them
+ * again. Only the event of a store with a league becomes sanctioned, and a
+ * Community organizer's event moved to another date takes that date only
+ * while they hold no other event on it.
  */
 
 import {
@@ -27,10 +28,22 @@ import { type Change, changesNothing, dayChange, type TournamentRow } from '../.
 import { msg, msgf } from '../../../../shared/i18n.js';
 
 const SOONER = msg('Only the organizer can show decks sooner');
+const OPENS = msg('Only the organizer can open the lists');
 
-/** Whether the settings show decks sooner than the row does, which only the organizer may. */
-const showsSooner = (role: Role | null, row: TournamentRow, next: TournamentSettings) =>
-  role !== 'owner' && showsDecksSooner(next.deckVisibility, row.settings.deckVisibility);
+/** Whether lists the settings take are open to everyone. Taking no lists closes them, whatever the switch says. */
+const listsOpen = (settings: TournamentSettings) => settings.openLists && settings.decklists !== 'off';
+
+/** Why the settings reveal more than the row does, which only the organizer may; null when they don't, or the asker is the organizer. */
+function revealRefusal(role: Role | null, row: TournamentRow, next: TournamentSettings): string | null {
+  if (role === 'owner') {
+    return null;
+  }
+  if (showsDecksSooner(next.deckVisibility, row.settings.deckVisibility)) {
+    return SOONER;
+  }
+  // Turning decklists back on reopens lists the switch left open, so that counts as opening them too.
+  return listsOpen(next) && !listsOpen(row.settings) ? OPENS : null;
+}
 
 /**
  * Whether the row's event may become sanctioned: it is a store's, and the
@@ -102,8 +115,9 @@ function settingsChange(change: unknown, sanctionable: boolean): Change {
     if (typeof settings === 'string') {
       return settings;
     }
-    if (showsSooner(role, row, settings)) {
-      return { error: SOONER, status: 403 };
+    const refusal = revealRefusal(role, row, settings);
+    if (refusal) {
+      return { error: refusal, status: 403 };
     }
     if (changesNothing(row, row.settings, settings)) {
       return {};
