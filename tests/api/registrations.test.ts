@@ -169,7 +169,9 @@ test('at a TOM event a registration TOM has not taken in counts toward the cap, 
 
 test('a pasted list is named by its cards, a paper one is not, and the name staff give wins', async () => {
   mock.method(globalThis, 'fetch', async () =>
-    Response.json([{ label: 'Dragapult', deckCount: 9, signatureCards: [{ name: 'Dragapult ex', pct: 100 }] }])
+    Response.json({
+      rules: [{ identifier: 'dragapult-ex', name: 'Dragapult', cards: [{ name: 'Dragapult ex', count: 1 }] }]
+    })
   );
   const owner = await signIn('Organizer', 'organizer');
   const code = await newSwiss(owner);

@@ -1,0 +1,593 @@
+{
+  "rules": [
+    {
+      "identifier": "aegislash-par",
+      "name": "Aegislash",
+      "icons": [
+        "aegislash"
+      ],
+      "cards": [
+        {
+          "name": "Aegislash",
+          "count": 3,
+          "set": "PAR"
+        }
+      ],
+      "priority": 10,
+      "generation": 9,
+      "variants": []
+    },
+    {
+      "identifier": "gholdengo-ex",
+      "name": "Gholdengo",
+      "icons": [
+        "gholdengo"
+      ],
+      "cards": [
+        {
+          "name": "Gholdengo ex",
+          "count": 3
+        }
+      ],
+      "priority": 10,
+      "generation": 9,
+      "variants": [
+        {
+          "identifier": "gholdengo-dragapult",
+          "name": "Gholdengo Dragapult",
+          "icons": [
+            "dragapult"
+          ],
+          "cards": [
+            {
+              "name": "Dragapult ex",
+              "count": 1
+            }
+          ]
+        },
+        {
+          "identifier": "gholdengo-dudunsparce",
+          "name": "Gholdengo Dudunsparce",
+          "icons": [
+            "dudunsparce"
+          ],
+          "cards": [
+            {
+              "name": "Dudunsparce",
+              "count": 2
+            }
+          ]
+        },
+        {
+          "identifier": "gholdengo-joltik-box",
+          "name": "Gholdengo Joltik Box",
+          "icons": [
+            "joltik"
+          ],
+          "cards": [
+            {
+              "name": "Joltik",
+              "count": 1
+            },
+            {
+              "name": "Iron Hands ex",
+              "count": 1
+            }
+          ]
+        },
+        {
+          "identifier": "gholdengo-lunatone",
+          "name": "Gholdengo Lunatone",
+          "icons": [
+            "lunatone"
+          ],
+          "cards": [
+            {
+              "name": "Lunatone",
+              "count": 2,
+              "set": "MEG"
+            }
+          ]
+        },
+        {
+          "identifier": "gholdengo-typhlosion",
+          "name": "Gholdengo Typhlosion",
+          "icons": [
+            "typhlosion"
+          ],
+          "cards": [
+            {
+              "name": "Ethan's Typhlosion",
+              "count": 2
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "identifier": "dragapult-ex",
+      "name": "Dragapult",
+      "icons": [
+        "dragapult"
+      ],
+      "cards": [
+        {
+          "name": "Dragapult ex",
+          "count": 2
+        }
+      ],
+      "priority": 11,
+      "generation": 9,
+      "variants": [
+        {
+          "identifier": "dragapult-lz-box",
+          "name": "Dragapult LZ Box",
+          "icons": [
+            "comfey"
+          ],
+          "cards": [
+            {
+              "name": "Comfey",
+              "count": 4,
+              "set": "LOR"
+            }
+          ]
+        },
+        {
+          "identifier": "dragapult-charizard",
+          "name": "Dragapult Charizard",
+          "icons": [
+            "charizard"
+          ],
+          "cards": [
+            {
+              "name": "Charizard ex",
+              "count": 2
+            }
+          ]
+        },
+        {
+          "identifier": "dragapult-pidgeot",
+          "name": "Dragapult Pidgeot",
+          "icons": [
+            "pidgeot"
+          ],
+          "cards": [
+            {
+              "name": "Pidgeot ex",
+              "count": 2
+            }
+          ]
+        },
+        {
+          "identifier": "dragapult-dusknoir",
+          "name": "Dragapult Dusknoir",
+          "icons": [
+            "dusknoir"
+          ],
+          "cards": [
+            {
+              "name": "Dusknoir",
+              "count": 1
+            }
+          ]
+        },
+        {
+          "identifier": "dragapult-iron-thorns",
+          "name": "Dragapult Iron Thorns",
+          "icons": [
+            "iron-thorns"
+          ],
+          "cards": [
+            {
+              "name": "Iron Thorns ex",
+              "count": 3
+            }
+          ]
+        },
+        {
+          "identifier": "dragapult-froslass",
+          "name": "Dragapult Froslass",
+          "icons": [
+            "froslass"
+          ],
+          "cards": [
+            {
+              "name": "Froslass",
+              "count": 2
+            }
+          ]
+        },
+        {
+          "identifier": "dragapult-zoroark",
+          "name": "Dragapult Zoroark",
+          "icons": [
+            "zoroark"
+          ],
+          "cards": [
+            {
+              "name": "N's Zoroark ex",
+              "count": 2
+            }
+          ]
+        },
+        {
+          "identifier": "dragapult-blaziken",
+          "name": "Dragapult Blaziken",
+          "icons": [
+            "blaziken"
+          ],
+          "cards": [
+            {
+              "name": "Blaziken ex",
+              "count": 2
+            }
+          ]
+        },
+        {
+          "identifier": "dragapult-dudunsparce",
+          "name": "Dragapult Dudunsparce",
+          "icons": [
+            "dudunsparce"
+          ],
+          "cards": [
+            {
+              "name": "Dudunsparce ex",
+              "count": 1
+            },
+            {
+              "name": "Dudunsparce",
+              "count": 1
+            },
+            {
+              "name": "Dunsparce",
+              "count": 2
+            }
+          ]
+        },
+        {
+          "identifier": "dragapult-alakazam",
+          "name": "Dragapult Alakazam",
+          "icons": [
+            "alakazam"
+          ],
+          "cards": [
+            {
+              "name": "Abra",
+              "count": 2
+            },
+            {
+              "name": "Alakazam",
+              "count": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "identifier": "gardevoir-ex-sv",
+      "name": "Gardevoir",
+      "icons": [
+        "gardevoir"
+      ],
+      "cards": [
+        {
+          "name": "Gardevoir ex",
+          "count": 2
+        }
+      ],
+      "priority": 12,
+      "generation": 9,
+      "variants": [
+        {
+          "identifier": "gardevoir-mewtwo",
+          "name": "Gardevoir Mewtwo",
+          "icons": [
+            "mewtwo"
+          ],
+          "cards": [
+            {
+              "name": "Mewtwo V-UNION",
+              "count": 1
+            }
+          ]
+        },
+        {
+          "identifier": "gardevoir-jellicent",
+          "name": "Gardevoir Jellicent",
+          "icons": [
+            "jellicent"
+          ],
+          "cards": [
+            {
+              "name": "Jellicent ex",
+              "count": 1
+            },
+            {
+              "name": "Frillish",
+              "count": 2
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "identifier": "raging-bolt-ex",
+      "name": "Raging Bolt",
+      "icons": [
+        "raging-bolt"
+      ],
+      "cards": [
+        {
+          "name": "Raging Bolt ex",
+          "count": 2
+        }
+      ],
+      "priority": 14,
+      "generation": 9,
+      "variants": [
+        {
+          "identifier": "raging-bolt-lz-box",
+          "name": "Raging Bolt LZ Box",
+          "icons": [
+            "comfey"
+          ],
+          "cards": [
+            {
+              "name": "Comfey",
+              "count": 4,
+              "set": "LOR"
+            }
+          ]
+        },
+        {
+          "identifier": "raging-bolt-palkia",
+          "name": "Raging Bolt Palkia",
+          "icons": [
+            "palkia-origin"
+          ],
+          "cards": [
+            {
+              "name": "Origin Forme Palkia VSTAR",
+              "count": 2
+            }
+          ]
+        },
+        {
+          "identifier": "raging-bolt-ogerpon",
+          "name": "Raging Bolt Ogerpon",
+          "icons": [
+            "ogerpon"
+          ],
+          "cards": [
+            {
+              "name": "Teal Mask Ogerpon ex",
+              "count": 2
+            }
+          ]
+        },
+        {
+          "identifier": "ranging-bolt-sandy-shocks",
+          "name": "Raging Bolt Sandy Shocks",
+          "icons": [
+            "sandy-shocks"
+          ],
+          "cards": [
+            {
+              "name": "Sandy Shocks ex",
+              "count": 2
+            }
+          ]
+        },
+        {
+          "identifier": "raging-bolt-entei",
+          "name": "Raging Bolt Entei",
+          "icons": [
+            "entei"
+          ],
+          "cards": [
+            {
+              "name": "Entei V",
+              "count": 2
+            }
+          ]
+        },
+        {
+          "identifier": "reging-bolt-bellibolt",
+          "name": "Raging Bolt Bellibolt",
+          "icons": [
+            "bellibolt"
+          ],
+          "cards": [
+            {
+              "name": "Iono's Bellibolt ex",
+              "count": 2
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "identifier": "charizard-ex",
+      "name": "Charizard",
+      "icons": [
+        "charizard"
+      ],
+      "cards": [
+        {
+          "name": "Charizard ex",
+          "count": 2
+        }
+      ],
+      "priority": 15,
+      "generation": 9,
+      "variants": [
+        {
+          "identifier": "charizard-arceus",
+          "name": "Charizard Arceus",
+          "icons": [
+            "arceus"
+          ],
+          "cards": [
+            {
+              "name": "Arceus VSTAR",
+              "count": 2
+            }
+          ]
+        },
+        {
+          "identifier": "charizard-lz-box",
+          "name": "Charizard LZ Box",
+          "icons": [
+            "comfey"
+          ],
+          "cards": [
+            {
+              "name": "Comfey",
+              "count": 4,
+              "set": "LOR"
+            }
+          ]
+        },
+        {
+          "identifier": "charizard-gallade",
+          "name": "Charizard Gallade",
+          "icons": [
+            "gallade"
+          ],
+          "cards": [
+            {
+              "name": "Gallade",
+              "count": 2
+            }
+          ]
+        },
+        {
+          "identifier": "charizard-noctowl",
+          "name": "Charizard Noctowl",
+          "icons": [
+            "noctowl"
+          ],
+          "cards": [
+            {
+              "name": "Noctowl",
+              "count": 3
+            }
+          ]
+        },
+        {
+          "identifier": "charizard-greninja",
+          "name": "Charizard Greninja",
+          "icons": [
+            "greninja"
+          ],
+          "cards": [
+            {
+              "name": "Greninja ex",
+              "count": 2
+            }
+          ]
+        },
+        {
+          "identifier": "charizard-pidgeot",
+          "name": "Charizard Pidgeot",
+          "icons": [
+            "pidgeot"
+          ],
+          "cards": [
+            {
+              "name": "Pidgeot ex",
+              "count": 2
+            }
+          ]
+        },
+        {
+          "identifier": "charizard-dusknoir",
+          "name": "Charizard Dusknoir",
+          "icons": [
+            "dusknoir"
+          ],
+          "cards": [
+            {
+              "name": "Dusknoir",
+              "count": 2
+            }
+          ]
+        },
+        {
+          "identifier": "charizard-dragapult",
+          "name": "Charizard Dragapult",
+          "icons": [
+            "dragapult"
+          ],
+          "cards": [
+            {
+              "name": "Drakloak",
+              "count": 3
+            },
+            {
+              "name": "Dragapult ex",
+              "count": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "identifier": "cinccino-control",
+      "name": "Cinccino Control",
+      "icons": [
+        "cinccino",
+        "bunnelby"
+      ],
+      "cards": [
+        {
+          "name": "Cinccino",
+          "count": 3,
+          "set": "SSH"
+        },
+        {
+          "name": "Bunnelby",
+          "count": 2,
+          "set": "PRC",
+          "number": "121"
+        }
+      ],
+      "priority": 10,
+      "generation": 8,
+      "variants": []
+    },
+    {
+      "identifier": "lost-zone-box",
+      "name": "Lost Zone Box",
+      "icons": [
+        "comfey",
+        "cramorant"
+      ],
+      "cards": [
+        {
+          "name": "Comfey",
+          "count": 4,
+          "set": "LOR"
+        }
+      ],
+      "priority": 25,
+      "generation": 8,
+      "variants": [
+        {
+          "identifier": "lzb-charizard",
+          "name": "Lost Box Charizard",
+          "icons": [
+            "charizard"
+          ],
+          "cards": [
+            {
+              "name": "Radiant Charizard",
+              "count": 1
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -875,7 +875,9 @@ test('a Swiss event cannot be synced from a file', async () => {
 
 test('decklists come in only while open, and decks show as the visibility setting allows', async () => {
   mock.method(globalThis, 'fetch', async () =>
-    Response.json([{ label: 'Gardevoir ex', deckCount: 1, signatureCards: [{ name: 'Gardevoir ex', pct: 100 }] }])
+    Response.json({
+      rules: [{ identifier: 'gardevoir-ex', name: 'Gardevoir ex', cards: [{ name: 'Gardevoir ex', count: 1 }] }]
+    })
   );
   const owner = await signIn('Organizer', 'organizer');
   const code = await newSwiss(owner);

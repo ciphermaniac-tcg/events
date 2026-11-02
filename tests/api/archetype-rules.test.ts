@@ -2,7 +2,9 @@ import assert from 'node:assert/strict';
 import { afterEach, mock, test } from 'node:test';
 import { _forgetRules, archetypeRules } from '../../functions/lib/tournaments/archetypeRules.ts';
 
-const INDEX = [{ label: 'Dragapult', deckCount: 1, signatureCards: [{ name: 'Dragapult ex', pct: 100 }] }];
+const INDEX = {
+  rules: [{ identifier: 'dragapult-ex', name: 'Dragapult', priority: 11, cards: [{ name: 'Dragapult ex', count: 2 }] }]
+};
 
 afterEach(() => {
   mock.restoreAll();
@@ -14,11 +16,12 @@ test('the rules are read once for six hours', async () => {
   assert.equal((await archetypeRules(0)).length, 1);
   assert.equal((await archetypeRules(1000)).length, 1);
   assert.equal(fetch.mock.callCount(), 1);
+  assert.equal(String(fetch.mock.calls[0]?.arguments[0]), 'https://r2.ciphermaniac.com/limitless/deck-rules.json');
   await archetypeRules(6 * 60 * 60 * 1000);
   assert.equal(fetch.mock.callCount(), 2);
 });
 
-test('an index that cannot be read keeps the last copy, and is not asked again for a while', async () => {
+test('rules that cannot be read keep the last copy, and is not asked again for a while', async () => {
   const fetch = mock.method(globalThis, 'fetch', async () => Response.json(INDEX));
   await archetypeRules(0);
   fetch.mock.mockImplementation(async () => new Response('down', { status: 503 }));
@@ -33,7 +36,7 @@ test('an index that cannot be read keeps the last copy, and is not asked again f
   assert.deepEqual(await archetypeRules(0), [], 'with no copy, none');
 });
 
-test('requests that arrive while the index is read share the one read', async () => {
+test('requests that arrive while the rules are read share the one read', async () => {
   const fetch = mock.method(globalThis, 'fetch', async () => Response.json(INDEX));
   const rules = await Promise.all(Array.from({ length: 5 }, () => archetypeRules(0)));
   assert.ok(rules.every(each => each.length === 1));
