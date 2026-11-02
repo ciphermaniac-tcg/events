@@ -583,6 +583,12 @@ export interface StaffMember {
 /** How a player hands in their list: pasted on the site, or on paper to staff at the event. */
 export type DeckMode = 'digital' | 'paper';
 
+/** A player's list as anyone reads it once the event's lists are open: the pasted text, or '' for a paper one. */
+export interface OpenList {
+  mode: DeckMode;
+  deck: string;
+}
+
 /** A submitted decklist, as staff and its own submitter read it. */
 export interface Decklist extends PlayerProfile {
   /** The pasted list; '' for a paper one. */
