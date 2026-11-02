@@ -32,6 +32,7 @@ import { latestRoundOf } from '../../../shared/tournament/staffRecords';
 import { decklistMatcher } from '../../../shared/tournament/identify';
 import { decklistsLocked, decklistsOpen, decksEnabled, isSanctioned } from '../../../shared/tournament/view';
 import {
+  call,
   type Decklist,
   fetchDecklists,
   type Manage,
@@ -262,6 +263,47 @@ function NoLists(props: { loading: boolean; failed: boolean; onRetry: () => void
   );
 }
 
+/** Names every pasted list again by the archetype rules as they stand now, and says how many changed. */
+function RereadArchetypes(props: { state: ManageState; manage: Manage; onDone: () => void }) {
+  const [renamed, setRenamed] = createSignal<number | null>(null);
+  async function reread() {
+    const { code } = props.manage;
+    let count = 0;
+    const done = await props.state.run(async () => {
+      // Here rather than in api.ts, which the first page loads: only this tab asks.
+      const answer = await call<Manage & { renamed: number }>(
+        `/api/tournaments/${encodeURIComponent(code)}/archetypes`,
+        {
+          method: 'POST'
+        }
+      );
+      count = answer.renamed;
+      return answer;
+    });
+    if (done) {
+      setRenamed(count);
+      props.onDone();
+    }
+  }
+  return (
+    <>
+      <Show when={renamed() !== null}>
+        <span class='muted'>
+          {renamed() ? tn(renamed() ?? 0, 'Renamed {n} list.', 'Renamed {n} lists.') : t('No lists changed.')}
+        </span>
+      </Show>
+      <button
+        type='button'
+        class='btn btn-secondary tm-small'
+        disabled={props.state.busy()}
+        onClick={() => void reread()}
+      >
+        {t('Re-read archetypes')}
+      </button>
+    </>
+  );
+}
+
 export function DecklistsPanel(props: { state: ManageState; manage: Manage }) {
   const [lists, { refetch, mutate }] = createResource(
     () => props.manage.code,
@@ -331,6 +373,9 @@ export function DecklistsPanel(props: { state: ManageState; manage: Manage }) {
             <button type='button' class='btn btn-secondary tm-small' disabled={props.state.busy()} onClick={toggle}>
               {accepting() ? t('Close submission') : t('Open submission')}
             </button>
+          </Show>
+          <Show when={decksEnabled(props.manage.settings) && all().some(list => list.mode === 'digital')}>
+            <RereadArchetypes state={props.state} manage={props.manage} onDone={() => void refetch()} />
           </Show>
         </div>
         <div class='tm-box-bar'>

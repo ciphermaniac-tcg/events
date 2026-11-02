@@ -121,6 +121,18 @@ export function keptChanges(row: TournamentRow, kept: Kept, localTime: unknown):
 }
 
 /**
+ * The event's archetypes as `lists` read: each list's name under the ID its
+ * registration is kept by, cleared where a list has none. Players with no
+ * list here keep theirs.
+ */
+export function inferredFrom(row: TournamentRow, lists: readonly (Who & { archetype: string | null })[]) {
+  return lists.reduce((decks, list) => {
+    const id = keptId(row, rosterPlayer(row, list), list);
+    return id === null ? decks : withDeck(decks, id, list.archetype);
+  }, row.inferredDecks);
+}
+
+/**
  * The changes a withdrawal makes to the event: the player leaves its list (an
  * event the site runs, before round 1), and their check-in goes.
  */
