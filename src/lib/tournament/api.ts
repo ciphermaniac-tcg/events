@@ -27,6 +27,7 @@ import {
   type DeckMode,
   type Manage,
   type MyRegistration,
+  type OpenList,
   type PublishedView,
   publishedViewKey,
   type Registration,
@@ -450,6 +451,10 @@ export const removeStaff = (code: string, userId: string) =>
   call<{ staff: StaffMember[] }>(`${base(code)}/staff?${new URLSearchParams({ user: userId }).toString()}`, {
     method: 'DELETE'
   });
+
+/** One player's list, by the key the event's page knows them by, once the event's lists are open. */
+export const fetchOpenList = (code: string, player: string) =>
+  call<{ list: OpenList | null }>(`${base(code)}/lists?${new URLSearchParams({ player }).toString()}`);
 
 /** Every list, for staff. */
 export const fetchDecklists = (code: string) =>

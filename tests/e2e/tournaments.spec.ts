@@ -2271,3 +2271,144 @@ test('a sole division whose clock is paused says so under the clock', async ({ p
   await expect(page.locator('.tm-screen-big-clock').getByRole('timer')).toHaveText('22:05');
   await expect(page.locator('.tm-screen-big-clock p')).toHaveText('Paused');
 });
+
+test('an open list leads the player sheet as cards, as rows, and one card large @mobile', async ({ page }) => {
+  const view = {
+    ...VIEW,
+    settings: { ...VIEW.settings, decklists: 'closed', openLists: true }
+  } satisfies TournamentView;
+  await mockApi(page, view);
+  const hedy = keys[tdf.players.find(p => p.lastName === 'Lamarr')!.id]!;
+  const asked: string[] = [];
+  await page.route(`**/api/tournaments/${CODE}/lists?*`, route => {
+    asked.push(new URL(route.request().url()).searchParams.get('player') ?? '');
+    return route.fulfill({
+      json: {
+        list: {
+          mode: 'digital',
+          deck: 'Pokémon: 4\n4 Dreepy TWM 128\n\nTrainer: 4\n2 Arven SVI 166\n1 Mystery Card TG05\n1 Lost Print ZZZ 1\n\nEnergy: 3\n3 Basic {P} Energy'
+        }
+      }
+    });
+  });
+  // A print R2 has no art for draws as its name, as does one the line names no print for.
+  await page.route('**/card-images/**', route =>
+    route.request().url().includes('/ZZZ/')
+      ? route.fulfill({ status: 404 })
+      : route.fulfill({
+          contentType: 'image/png',
+          body: readFileSync(new URL('../../static/img/substitute.png', import.meta.url))
+        })
+  );
+  await page.goto(`/t/${CODE}`);
+  await page
+    .locator('.tm-matches')
+    .getByRole('button', { name: /Hedy Lamarr/ })
+    .first()
+    .click();
+  const sheet = page.getByRole('dialog');
+  const grid = sheet.locator('.tm-open-grid');
+  await expect(grid.locator('.tm-open-card')).toHaveCount(5);
+  expect(asked).toEqual([hedy]);
+  // The list sits above the record.
+  expect(
+    await sheet.evaluate(el => {
+      const list = el.querySelector('.tm-open-list')!;
+      const stats = el.querySelector('.tm-sheet-stats')!;
+      return Boolean(list.compareDocumentPosition(stats) & Node.DOCUMENT_POSITION_FOLLOWING);
+    })
+  ).toBe(true);
+  await expect(sheet.locator('.tm-open-meta')).toHaveText('Pokémon 4 · Trainer 4 · Energy 311 cards');
+  await expect(grid.locator('img')).toHaveCount(3);
+  await expect(grid.locator('.tm-art-missing')).toHaveText(['Mystery Card TG05', 'Lost Print']);
+  // Basic Energy draws from its Scarlet & Violet print whatever the line names.
+  await expect(grid.locator('img').last()).toHaveAttribute('src', /\/SVE\/SVE_005_R_EN_SM\.webp$/);
+
+  await sheet.getByRole('radio', { name: 'List' }).click();
+  await expect(sheet.locator('.tm-open-row')).toHaveCount(5);
+  await expect(sheet.locator('.tm-open-rows-head')).toHaveText(['Pokémon4', 'Trainer4', 'Energy3']);
+  await sheet.locator('.tm-open-row').first().click();
+  const peek = page.getByRole('dialog', { name: 'Dreepy' });
+  await expect(peek).toContainText('4 × Dreepy TWM 128');
+  await page.keyboard.press('Escape');
+  await expect(peek).toBeHidden();
+  await expect(sheet).toBeVisible();
+  await expect(sheet.locator('.tm-open-row').first()).toBeFocused();
+});
+
+test('a paper list says so, and an event whose lists are closed asks for none', async ({ page }) => {
+  let asked = 0;
+  const open = {
+    ...VIEW,
+    settings: { ...VIEW.settings, decklists: 'closed', openLists: true }
+  } satisfies TournamentView;
+  await mockApi(page, open);
+  await page.route(`**/api/tournaments/${CODE}/lists?*`, route => {
+    asked += 1;
+    return route.fulfill({ json: { list: { mode: 'paper', deck: '' } } });
+  });
+  await page.goto(`/t/${CODE}`);
+  await page
+    .locator('.tm-matches')
+    .getByRole('button', { name: /Hedy Lamarr/ })
+    .first()
+    .click();
+  await expect(page.getByRole('dialog')).toContainText('Handed in on paper.');
+  expect(asked).toBe(1);
+
+  await page.unrouteAll({ behavior: 'ignoreErrors' });
+  await mockApi(page, VIEW);
+  await page.route(`**/api/tournaments/${CODE}/lists?*`, route => {
+    asked += 1;
+    return route.abort();
+  });
+  await page.goto(`/t/${CODE}`);
+  await page
+    .locator('.tm-matches')
+    .getByRole('button', { name: /Hedy Lamarr/ })
+    .first()
+    .click();
+  await expect(page.getByRole('dialog').locator('.tm-sheet-stats')).toBeVisible();
+  await expect(page.getByRole('dialog').locator('.tm-open-list')).toHaveCount(0);
+  expect(asked).toBe(1);
+});
+
+test('before round 1 an open list says when it will show, and asks for nothing', async ({ page }) => {
+  const unpaired = { ...VIEW.tournament, pods: VIEW.tournament.pods.map(pod => ({ ...pod, rounds: [] })) };
+  await mockApi(page, {
+    ...VIEW,
+    tournament: unpaired,
+    settings: { ...VIEW.settings, decklists: 'closed', openLists: true }
+  });
+  let asked = 0;
+  await page.route(`**/api/tournaments/${CODE}/lists?*`, route => {
+    asked += 1;
+    return route.abort();
+  });
+  await page.goto(`/t/${CODE}`);
+  await page
+    .locator('.tm-registered')
+    .getByRole('button', { name: /Hedy Lamarr/ })
+    .click();
+  await expect(page.getByRole('dialog')).toContainText('Lists show here once round 1 is paired.');
+  expect(asked).toBe(0);
+});
+
+test('a list that fails to load can be asked for again', async ({ page }) => {
+  await mockApi(page, { ...VIEW, settings: { ...VIEW.settings, decklists: 'closed', openLists: true } });
+  let asked = 0;
+  await page.route(`**/api/tournaments/${CODE}/lists?*`, route => {
+    asked += 1;
+    return asked === 1 ? route.abort() : route.fulfill({ json: { list: { mode: 'paper', deck: '' } } });
+  });
+  await page.goto(`/t/${CODE}`);
+  await page
+    .locator('.tm-matches')
+    .getByRole('button', { name: /Hedy Lamarr/ })
+    .first()
+    .click();
+  const sheet = page.getByRole('dialog');
+  await sheet.getByRole('button', { name: 'Try again' }).click();
+  await expect(sheet).toContainText('Handed in on paper.');
+  expect(asked).toBe(2);
+});

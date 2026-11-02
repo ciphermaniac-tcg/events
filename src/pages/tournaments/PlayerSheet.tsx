@@ -11,13 +11,16 @@
 import { createEffect, createSignal, For, on, onCleanup, onMount, Show } from 'solid-js';
 import { isBye, percentLabel, recordLabel, type Standing } from '../../../shared/tournament/standings';
 import type { Pod } from '../../../shared/tournament/types';
-import type { TournamentView } from '../../../shared/tournament/view';
+import { decklistsLocked, type TournamentView } from '../../../shared/tournament/view';
 import { inertOutside, keepTabIn } from '../../lib/focusTrap';
 import { matchHistory } from '../../lib/tournament/present';
 import { t } from '../../lib/i18n';
 import { DeckIcons } from './DeckIcons';
 import { type Identified, IdentifyForm } from './Identify';
+import { lazyPanel } from './lazyPanel';
 import { Squares } from './Squares';
+
+const OpenList = lazyPanel(() => import('./OpenList').then(m => ({ default: m.OpenList })));
 
 export function PlayerSheet(props: {
   view: TournamentView;
@@ -103,6 +106,10 @@ export function PlayerSheet(props: {
           </button>
         </div>
         <div class='tm-sheet-body'>
+          {/* Their list leads, above the record, at an event whose organizer opened its lists. */}
+          <Show when={props.view.settings.openLists && props.view.settings.decklists !== 'off'}>
+            <OpenList code={props.view.code} player={props.playerId} locked={decklistsLocked(props.view)} />
+          </Show>
           <Show when={props.standing}>
             {row => (
               <dl class='tm-sheet-stats'>

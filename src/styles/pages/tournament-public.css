@@ -535,3 +535,185 @@
 .tm-logistics small {
   display: block;
 }
+
+/* ---------- Open decklists, in the player sheet (see OpenList) ---------- */
+.tm-open-list {
+  display: grid;
+  gap: var(--space-2);
+}
+.tm-open-list-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.tm-open-list-bar .btn {
+  margin-left: auto;
+}
+/* Every card at once: five across on a phone, the whole deck a screen tall. */
+.tm-open-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 4px;
+}
+.tm-open-card {
+  position: relative;
+  display: block;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+/* Printed card art takes the card's own corner: a radius in proportion to its width. */
+.tm-art {
+  display: block;
+  aspect-ratio: 63 / 88;
+  overflow: hidden;
+  border-radius: 4.6% / 3.3%;
+  background: var(--surface-2);
+}
+.tm-art img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.tm-art-missing {
+  display: grid;
+  place-items: center;
+  padding: 4px;
+  color: var(--muted);
+  font-size: var(--text-2xs);
+  line-height: 1.2;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+.tm-open-qty {
+  position: absolute;
+  left: 2px;
+  bottom: 2px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  background: var(--fg);
+  color: var(--bg);
+  font-size: var(--text-2xs);
+  font-weight: 700;
+}
+.tm-open-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+/* The list: a row per card, led by a crop of its art window as the main site frames one. */
+.tm-open-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.tm-open-rows-head {
+  display: flex;
+  justify-content: space-between;
+  padding: var(--space-3) 0 var(--space-1);
+  font-weight: 600;
+}
+.tm-open-rows-head:first-child {
+  padding-top: 0;
+}
+.tm-open-row {
+  width: 100%;
+  min-height: 44px;
+  display: grid;
+  grid-template-columns: 64px 2ch minmax(0, 1fr) auto;
+  gap: var(--space-2) 10px;
+  align-items: center;
+  padding: 4px 0;
+  border: 0;
+  border-top: 1px solid var(--rule);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.tm-open-count {
+  font-weight: 700;
+  text-align: right;
+}
+.tm-open-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tm-open-print {
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+.tm-crop {
+  display: block;
+  width: 64px;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: 4px;
+  background: var(--surface-2);
+}
+/* A little past the card's width, so the crop lands inside the art window rather than on its frame. */
+.tm-crop img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scale(1.18);
+}
+.tm-crop[data-crop='pokemon'] img {
+  object-position: 50% 15%;
+}
+.tm-crop[data-crop='trainer'] img,
+.tm-crop[data-crop='energy-special'] img {
+  object-position: 50% 22%;
+}
+.tm-crop[data-crop='energy-basic'] img {
+  object-position: 50% 55%;
+}
+/* One card large, above the sheet. */
+.tm-peek {
+  position: fixed;
+  inset: 0;
+  z-index: 62;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  background: var(--scrim);
+  cursor: pointer;
+}
+.tm-peek-art {
+  width: min(320px, 80vw);
+  aspect-ratio: 63 / 88;
+  border-radius: 4.6% / 3.3%;
+  background: var(--surface-2);
+  box-shadow: var(--shadow-float);
+}
+.tm-peek p {
+  margin: 0;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--fg);
+  font-size: var(--text-body);
+  font-weight: 600;
+  text-align: center;
+}
+.tm-peek-print {
+  font-weight: 400;
+  opacity: 0.8;
+}
