@@ -384,6 +384,7 @@ for (const failure of [
 test('an initial console network failure offers retry without suggesting a different account', async ({ page }) => {
   await page.route('**/api/tournaments/FIRST/manage*', route => route.abort());
   await page.goto('/host/FIRST');
+  await expect(page.getByRole('heading', { name: 'Couldn’t load this event' })).toBeVisible();
   await expect(page.getByText('Connection unavailable. Try again.', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Try again', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Switch account' })).toHaveCount(0);

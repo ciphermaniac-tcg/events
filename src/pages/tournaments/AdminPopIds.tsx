@@ -236,7 +236,7 @@ export function AdminPopIds() {
           }
         >
           {accounts => (
-            <Show when={accounts().length > 0} fallback={<p class='tm-empty muted'>{t('No account found')}</p>}>
+            <Show when={accounts().length > 0} fallback={<p class='tm-empty muted'>{t('No account found.')}</p>}>
               <For each={accounts()}>{account => <FoundRow account={account} onChanged={lookUp} />}</For>
             </Show>
           )}

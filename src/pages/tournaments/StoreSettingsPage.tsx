@@ -37,7 +37,7 @@ import { refreshSession } from './session';
 import { SignIn } from './SignIn';
 import { StoreFields } from './StoreFields';
 import { StoreDisplays } from './StoreDisplays';
-import { ErrorLine } from './Field';
+import { ErrorState } from '@ciphermaniac/design/components/ErrorState';
 import { createAction } from './action';
 import { SaveBar } from './StoreSave';
 import { StoreStaff } from './StoreStaff';
@@ -228,7 +228,11 @@ function Settings(props: { id: string }) {
       when={current()}
       fallback={
         <Show when={read.error} fallback={<Skeleton height='240px' />}>
-          <ErrorLine message={errorText(read.error)} />
+          <ErrorState code={t('Store')} title={t('Couldn’t load this store')} line={errorText(read.error)}>
+            <A href='/' class='btn btn-primary'>
+              {t('Go home')}
+            </A>
+          </ErrorState>
         </Show>
       }
     >

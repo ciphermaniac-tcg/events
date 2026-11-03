@@ -98,7 +98,7 @@ function Rounds(props: { entry: HistoryEntry; result: EntryResult | undefined; f
         }
       >
         {result => (
-          <Show when={result().finish.rounds.length} fallback={<p class='muted'>{t('No rounds played yet')}</p>}>
+          <Show when={result().finish.rounds.length} fallback={<p class='muted'>{t('No rounds played yet.')}</p>}>
             <ol class='tm-hist-rounds'>
               <For each={result().finish.rounds}>{row => <RoundLine row={row} result={result()} />}</For>
             </ol>

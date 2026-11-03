@@ -8,7 +8,7 @@ const STATUS = { upcoming: msg('Upcoming'), live: msg('In progress'), finished: 
 
 export function OrganizerActivity(props: { entries: readonly Activity[] }) {
   return (
-    <Show when={props.entries.length} fallback={<p class='muted tm-empty'>{t('No organizer activity yet')}</p>}>
+    <Show when={props.entries.length} fallback={<p class='muted tm-empty'>{t('No organizer activity yet.')}</p>}>
       <section class='tm-box tm-organizer-activity'>
         <div class='table-wrap'>
           <table class='data'>

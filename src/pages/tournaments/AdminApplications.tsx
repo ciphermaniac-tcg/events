@@ -191,7 +191,7 @@ function ApplicationRow(props: {
 }
 
 const EMPTY: Record<ApplicationStatus, string> = {
-  pending: msg('No pending applications'),
+  pending: msg('No pending applications.'),
   approved: msg('No approved applications'),
   rejected: msg('No rejected applications')
 };

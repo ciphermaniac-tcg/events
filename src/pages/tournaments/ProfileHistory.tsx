@@ -8,7 +8,7 @@ import '../../styles/pages/tournament-profile.css';
 
 function Playing(props: { entries: readonly HistoryEntry[] }) {
   return (
-    <Show when={props.entries.length} fallback={<p class='muted tm-empty'>{t('No events yet')}</p>}>
+    <Show when={props.entries.length} fallback={<p class='muted tm-empty'>{t('No events yet.')}</p>}>
       <HistoryList entries={props.entries} />
     </Show>
   );

@@ -567,9 +567,9 @@ test('Clerk’s refusals read as words: known codes as ours, others as Clerk’s
     'Long words.'
   );
   assert.equal(clerkProblem({ errors: [{ code: 'new_code', message: 'Short words.' }] }), 'Short words.');
-  assert.equal(clerkProblem({ errors: [] }), 'Sign-in failed. Try again.');
-  assert.equal(clerkProblem(new Error('network')), 'Sign-in failed. Try again.');
-  assert.equal(clerkProblem(null), 'Sign-in failed. Try again.');
+  assert.equal(clerkProblem({ errors: [] }), 'Sign-in didn’t go through. Try again.');
+  assert.equal(clerkProblem(new Error('network')), 'Sign-in didn’t go through. Try again.');
+  assert.equal(clerkProblem(null), 'Sign-in didn’t go through. Try again.');
 });
 
 test('a refusal names the one field Clerk says it is about, and never which of a username or password was wrong', () => {
@@ -590,7 +590,7 @@ test('a refusal names the one field Clerk says it is about, and never which of a
   assert.equal(of('form_identifier_not_found', 'identifier').field, null);
   assert.equal(of('user_locked').field, null);
   assert.deepEqual(problemOf(new Error('network')), {
-    text: 'Sign-in failed. Try again.',
+    text: 'Sign-in didn’t go through. Try again.',
     field: null,
     emailTaken: false
   });

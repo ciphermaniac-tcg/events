@@ -320,7 +320,7 @@ test('a lookup that finds no one says so, the same lookup asks again, and a move
   const field = page.getByLabel('POP ID, email or account ID');
   await field.fill('404');
   await page.getByRole('button', { name: 'Look up' }).click();
-  await expect(page.locator('.tm-empty')).toHaveText('No account found');
+  await expect(page.locator('.tm-empty')).toHaveText('No account found.');
   await field.fill('7200001');
   await page.getByRole('button', { name: 'Look up' }).click();
   await page.getByRole('button', { name: 'Look up' }).click();

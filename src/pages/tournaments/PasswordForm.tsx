@@ -420,7 +420,9 @@ export function UsernameForm(props: { publishableKey: string; next: string; focu
       }
       return { clerk, answer: await action(clerk, props.publishableKey) };
     } catch (error) {
-      setProblem(clerk?.problemOf(error) ?? { text: t('Sign-in failed. Try again.'), field: null, emailTaken: false });
+      setProblem(
+        clerk?.problemOf(error) ?? { text: t('Sign-in didn’t go through. Try again.'), field: null, emailTaken: false }
+      );
       setBusy(false);
       return null;
     }

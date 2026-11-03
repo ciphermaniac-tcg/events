@@ -219,10 +219,10 @@ function addPlayer(tournament: Tournament, input: NewPlayer, ctx: CommandContext
   }
   const id = input.id?.trim() || generatedId(tournament, ctx.random);
   if (!/^\d{1,10}$/.test(id)) {
-    return fail(msg('A POP ID is up to ten digits'));
+    return fail(msg('A Player ID is up to ten digits'));
   }
   if (tournament.players.some(p => p.id === id)) {
-    return fail(msg('That POP ID is already registered'));
+    return fail(msg('That Player ID is already registered'));
   }
   const birthDate = yearOnlyBirthDate(input.birthDate ?? '');
   const fields = { id, firstName, lastName, birthDate, fromList: input.fromList };

@@ -813,7 +813,7 @@ export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod
         winners={winners()}
         names={names()}
       />
-      <Show when={round()} fallback={<p class='muted'>{t('No rounds yet.')}</p>}>
+      <Show when={round()} fallback={<p class='muted tm-empty'>{t('No rounds yet.')}</p>}>
         {r => {
           // The room's tables with result entry; also what a cut shows when it cannot be drawn as a bracket.
           const roomTable = () => (

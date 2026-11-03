@@ -38,7 +38,7 @@ const PATHS: Record<Path, { title: string; joined: string; line: string; held: s
   community: {
     title: msg('I want to run a tournament for fun'),
     joined: msg('Community organizer'),
-    line: msg("Run unofficial, unsanctioned events using Ciphermaniac's swiss system."),
+    line: msg('Run unofficial, unsanctioned events using Ciphermaniac’s Swiss system.'),
     held: msg('You are currently approved for unsanctioned events.')
   },
   store: {

@@ -35,7 +35,7 @@ export async function onRequestPost({ request, env, waitUntil }: Context): Promi
   }
   // Per address, kept in D1 by its hash: the same everywhere the site runs, and saying nothing of any account.
   if (!(await reserve(db, 'address', await sha256(rateLimitAddress(request))))) {
-    return problem(429, 'too_many_requests', msg("You've hit our rate limits for resets. Please try again later."));
+    return problem(429, 'too_many_requests', msg('You’ve hit our rate limits for resets. Try again later.'));
   }
   const identifier = identifierOf(await readJsonObject(request, 1024));
   if (!identifier) {

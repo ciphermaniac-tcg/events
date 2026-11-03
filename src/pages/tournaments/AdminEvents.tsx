@@ -52,7 +52,7 @@ export function AdminEvents() {
     <Show when={resolved(list)} fallback={<ResourceFallback resource={list} onRetry={() => void refetch()} small />}>
       {events => (
         <section class='tm-box'>
-          <Show when={events().length > 0} fallback={<p class='tm-empty muted'>{t('No events yet')}</p>}>
+          <Show when={events().length > 0} fallback={<p class='tm-empty muted'>{t('No events yet.')}</p>}>
             <div class='table-wrap'>
               <table class='data tm-admin-events'>
                 <thead>

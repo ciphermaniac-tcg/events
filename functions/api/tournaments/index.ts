@@ -155,8 +155,7 @@ function describedTournament(value: Body, mode: NewEvent['mode']): Tournament | 
   }
   const tournament = mode === 'tom' ? tomEvent(value.tournament) : swissFrom(value);
   return (
-    tournament ??
-    (mode === 'tom' ? msg('Your .TDF could not be parsed. Please try again.') : msg('Please name your event.'))
+    tournament ?? (mode === 'tom' ? msg('Your .tdf could not be parsed. Try again.') : msg('Please name your event.'))
   );
 }
 

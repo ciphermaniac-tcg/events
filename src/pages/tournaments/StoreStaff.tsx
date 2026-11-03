@@ -247,7 +247,7 @@ export function StoreStaff(props: { storeId: string }) {
                   <tr>
                     <th>{t('Name')}</th>
                     <th>{t('Role')}</th>
-                    <th class='tm-wide-col'>POP ID</th>
+                    <th class='tm-wide-col'>{t('Player ID')}</th>
                     <th>
                       <span class='sr-only'>{t('Actions')}</span>
                     </th>

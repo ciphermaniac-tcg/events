@@ -46,6 +46,7 @@ import { latestValue } from '../../lib/resource';
 import { Skeleton } from '@ciphermaniac/design/components/Skeleton';
 import { SessionGate } from './SessionGate';
 import { ErrorLine } from './Field';
+import { ErrorState } from '@ciphermaniac/design/components/ErrorState';
 import { lookOnReturn, schedulePolls } from '../../lib/tournament/viewPoll';
 import { LiveDataStatus } from './LiveDataStatus';
 import { createManage, type ManageState } from './manageState';
@@ -644,18 +645,26 @@ export function ManageEvent(props: { code: string }) {
                 <Show
                   when={state.loadError()?.status === 401 || state.loadError()?.status === 403}
                   fallback={
-                    <p class='muted'>
-                      {state.loadError()?.status === 0
-                        ? t('Connection unavailable. Try again.')
-                        : errorText(state.loadError())}
-                    </p>
+                    <ErrorState
+                      code={props.code}
+                      title={t('Couldn’t load this event')}
+                      line={
+                        state.loadError()?.status === 0
+                          ? t('Connection unavailable. Try again.')
+                          : errorText(state.loadError())
+                      }
+                    >
+                      <button type='button' class='btn btn-primary' onClick={() => void state.load()}>
+                        {t('Try again')}
+                      </button>
+                    </ErrorState>
                   }
                 >
                   <Refused message={t(state.loadError()?.message ?? '')} name={user()?.name} />
+                  <button type='button' class='btn btn-secondary' onClick={() => void state.load()}>
+                    {t('Try again')}
+                  </button>
                 </Show>
-                <button type='button' class='btn btn-secondary' onClick={() => void state.load()}>
-                  {t('Try again')}
-                </button>
               </Show>
             }
           >

@@ -56,7 +56,7 @@ export function DropCheck(props: {
   return (
     <Modal open={props.open} title={t('Drop requests')} class='tm-drop-check' onClose={props.onClose}>
       <div class='tm-box-bar tm-modal-body'>
-        <Show when={waiting()} fallback={<p>{t('No drop requests waiting.')}</p>}>
+        <Show when={waiting()} fallback={<p class='muted'>{t('No drop requests waiting.')}</p>}>
           <ul class='tm-check-list'>
             <For each={props.drops}>
               {request => (

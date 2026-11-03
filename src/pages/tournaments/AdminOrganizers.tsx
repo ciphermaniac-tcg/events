@@ -85,7 +85,7 @@ export function AdminOrganizers() {
     <Show when={resolved(list)} fallback={<ResourceFallback resource={list} onRetry={() => void refetch()} small />}>
       {accounts => (
         <section class='tm-box'>
-          <Show when={accounts().length > 0} fallback={<p class='tm-empty muted'>{t('No organizers yet')}</p>}>
+          <Show when={accounts().length > 0} fallback={<p class='tm-empty muted'>{t('No organizers yet.')}</p>}>
             <div class='table-wrap'>
               <table class='data tm-people'>
                 <thead>

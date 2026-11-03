@@ -6,8 +6,11 @@ import { pairSearch } from './deckPairs';
 import type { ReportedDeck } from './reportedDeck';
 import { intlLocale, t } from '../../lib/i18n';
 
-const shareText = (share: number) =>
-  new Intl.NumberFormat(intlLocale(), { style: 'percent' }).format(Math.round(share) / 100);
+/** Whole percents, and <1% for any sliver under one. */
+const shareText = (share: number) => {
+  const text = new Intl.NumberFormat(intlLocale(), { style: 'percent' }).format(Math.max(Math.round(share), 1) / 100);
+  return share < 1 ? `<${text}` : text;
+};
 
 /**
  * The deck typeahead, wherever a deck is named: sprites in the field and in the

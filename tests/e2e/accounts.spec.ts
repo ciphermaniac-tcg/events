@@ -260,7 +260,7 @@ test('History with no events says so', async ({ page }) => {
       : route.fulfill({ json: { entries: [] } });
   });
   await page.goto('/history');
-  await expect(page.locator('.tm-empty')).toHaveText('No events yet');
+  await expect(page.locator('.tm-empty')).toHaveText('No events yet.');
 });
 
 test('a public profile shows the name and History read-only, and an unknown address is not found @mobile', async ({

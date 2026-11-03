@@ -307,7 +307,7 @@ function NoteRow(props: { note: PenaltyNote; onEdit: () => void; onRemove: () =>
         {props.note.notes}
         <Earlier note={props.note} />
       </td>
-      <td class='muted-cell tm-penalty-when'>
+      <td class='muted-cell tm-num tm-penalty-when'>
         {nameOr(props.note.recordedBy)}, {timeOfDay(props.note.recordedAt)}
       </td>
       <td class='tm-extra-col'>

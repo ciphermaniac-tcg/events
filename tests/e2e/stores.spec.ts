@@ -475,6 +475,14 @@ test('store settings: league nights and the dates that differ save together', as
   ]);
 });
 
+test('store settings that fail to load show the store page’s error, with a way home', async ({ page }) => {
+  await mock(page, { user: MANAGER });
+  await page.route('**/api/stores/store-1', route => route.fulfill({ status: 503, json: { error: 'Unavailable' } }));
+  await page.goto('/stores/store-1/settings');
+  await expect(page.getByRole('heading', { name: 'Couldn’t load this store' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Go home' })).toHaveAttribute('href', '/');
+});
+
 test('store settings: league nights edited while a save is on its way keep the edit to save next', async ({ page }) => {
   const answer = deferred<void>();
   const asks = await mock(page, { user: MANAGER, nightsAnswered: answer.promise });

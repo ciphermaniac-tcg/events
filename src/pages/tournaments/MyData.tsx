@@ -44,7 +44,7 @@ const PARTS: Record<ExportPart, { name: string; what: string }> = {
   username: { name: msg('Username'), what: msg('Your username, and any you changed from today') },
   events: { name: msg('Event history'), what: msg('The ended events you played in, and which players you were there') },
   organizer: { name: msg('Organizer history'), what: msg('The events you ran or staffed') },
-  account: { name: msg('Account'), what: msg('Email, sign-ins, sessions, Applications, stores, badges') }
+  account: { name: msg('Account'), what: msg('Email, sign-ins, sessions, applications, stores, badges') }
 };
 
 /** What follows from wiping each part. */

@@ -57,7 +57,7 @@ export function AdminUsers() {
                 onInput={e => setQuery(e.currentTarget.value)}
               />
             </div>
-            <Show when={shown().length > 0} fallback={<p class='tm-empty muted'>{t('No users')}</p>}>
+            <Show when={shown().length > 0} fallback={<p class='tm-empty muted'>{t('No users.')}</p>}>
               <div class='table-wrap'>
                 <table class='data tm-admin-users'>
                   <thead>

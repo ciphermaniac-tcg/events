@@ -27,7 +27,7 @@ interface Move {
 function readMove(body: Record<string, unknown> | null): Move | string {
   const popId = typeof body?.popId === 'string' ? body.popId.trim() : '';
   if (!isPopId(popId)) {
-    return msg('A POP ID is up to ten digits');
+    return msg('A Player ID is up to ten digits');
   }
   const to = body?.accountId;
   return typeof to === 'string' || to === null ? { popId, to } : msg('Name an account, or none');

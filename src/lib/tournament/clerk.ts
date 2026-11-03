@@ -392,7 +392,7 @@ export function clerkProblem(error: unknown): string {
   if (known) {
     return t(known, { n: PASSWORD_MIN });
   }
-  return first?.longMessage ?? first?.message ?? t('Sign-in failed. Try again.');
+  return first?.longMessage ?? first?.message ?? t('Sign-in didn’t go through. Try again.');
 }
 
 /** A field of the form, as Clerk names it. */

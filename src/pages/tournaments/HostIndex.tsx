@@ -97,7 +97,7 @@ function EventRow(props: { event: TournamentSummary }) {
         </Show>
       </td>
       <td class='muted-cell tm-host-status'>{t(PHASE_WORDS[phaseOf(props.event)])}</td>
-      <td class='muted-cell tm-nowrap tm-wide-col'>{shortDate(props.event.startDate)}</td>
+      <td class='muted-cell tm-num tm-nowrap tm-wide-col'>{shortDate(props.event.startDate)}</td>
       <td class='muted-cell tm-wide-col'>{props.event.mode === 'tom' ? 'TOM' : t('Swiss')}</td>
       {/* The unit shows on a phone, where the column heads do not. */}
       <td class='num tm-host-players' data-unit={tn(props.event.players, 'player', 'players')}>

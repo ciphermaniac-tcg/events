@@ -13,9 +13,13 @@ import { intlLocale, t } from '../../lib/i18n';
 
 const percent = (value: number) => `${Math.round(value * 100)}%`;
 
-/** A share as the language shown writes it: 42% in English, 42 % in Spanish. */
-const percentText = (value: number) =>
-  new Intl.NumberFormat(intlLocale(), { style: 'percent' }).format(Math.round(value * 100) / 100);
+/** A share as the language shown writes it: 42% in English, 42 % in Spanish, and <1% for any sliver under one. */
+const percentText = (value: number) => {
+  const text = new Intl.NumberFormat(intlLocale(), { style: 'percent' }).format(
+    Math.max(Math.round(value * 100), value > 0 ? 1 : 0) / 100
+  );
+  return value > 0 && value < 0.01 ? `<${text}` : text;
+};
 
 /** The main site's archetype page for a label: the index names archetypes with underscores for spaces. */
 const archetypeHref = (label: string) => `${MAIN_SITE}/archetypes/${encodeURIComponent(label.replace(/ /g, '_'))}`;

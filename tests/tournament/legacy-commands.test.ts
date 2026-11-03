@@ -131,6 +131,16 @@ test('no one joins once their division’s top cut is under way', () => {
   );
 });
 
+test('a new player’s ID is up to ten digits and not one already registered', () => {
+  const t = registered(2);
+  const add = (id: string): Command => ({
+    type: 'addPlayer',
+    player: { firstName: 'New', lastName: 'Player', id, birthDate: '01/01/1990' }
+  });
+  assert.equal(refusal(t, add('12345678901')), 'A Player ID is up to ten digits');
+  assert.equal(refusal(t, add('100')), 'That Player ID is already registered');
+});
+
 test('editing an unknown player, or removing a paired one, is refused', () => {
   const t = paired(registered(4));
   assert.equal(
