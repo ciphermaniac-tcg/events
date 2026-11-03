@@ -84,7 +84,7 @@ const SignIn = lazyPanel(() => import('./SignIn').then(m => ({ default: m.SignIn
 
 type Tab = 'round' | 'players' | 'standings' | 'decklists' | 'penalties' | 'event';
 
-type TabOption = { value: Tab; label: string; locked?: string };
+type TabOption = { value: Tab; label: string; locked?: string; count?: number; name?: string };
 
 const PAIRINGS_LOCKED = msg('Pairings open once round 1 starts.');
 const PENALTIES_LOCKED = msg('Penalty notes open once round 1 is paired.');
@@ -433,8 +433,9 @@ function withRequests(option: TabOption, manage: Manage): TabOption {
   const drops = open.filter(request => request.kind === 'drop').length;
   const others = open.length - drops;
   const counts = [others ? String(others) : '', drops ? tn(drops, '{n} drop', '{n} drops') : ''].filter(Boolean);
+  // A phone's bar has room for one number by the tab's icon; the tab's name still says them all.
   return option.value === 'players' && counts.length
-    ? { ...option, label: [option.label, ...counts].join(' · ') }
+    ? { ...option, count: open.length, name: [option.label, ...counts].join(' · ') }
     : option;
 }
 
@@ -456,6 +457,9 @@ function Console(props: { state: ReturnType<typeof createManage>; manage: Manage
   // In the URL, so a reload mid-event comes back to the same tab.
   const [params, setParams] = useSearchParams<{ tab?: string }>();
   const tabs = () => tabsFor(props.manage);
+  // The strip has the room to name each tab in full.
+  const wideTabs = () =>
+    tabs().map(option => ({ value: option.value, label: option.name ?? option.label, locked: option.locked }));
   const tab = (): Tab =>
     tabs().some(option => option.value === params.tab && !option.locked)
       ? (params.tab as Tab)
@@ -500,7 +504,7 @@ function Console(props: { state: ReturnType<typeof createManage>; manage: Manage
       <fieldset class='tm-readonly' disabled={watching}>
         <Hero state={props.state} manage={props.manage} pod={pod()} tom={tom} />
       </fieldset>
-      <Tabs id='console' options={tabs()} selected={tab()} onSelect={setTab} ariaLabel={t('Event sections')} />
+      <Tabs id='console' options={wideTabs()} selected={tab()} onSelect={setTab} ariaLabel={t('Event sections')} />
       {/* A phone's tabs, in a bar along the bottom of the screen as the dashboard's are. */}
       <TabBar
         id='console-bar'

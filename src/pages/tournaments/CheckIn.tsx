@@ -21,6 +21,7 @@ import { type Player, playerName } from '../../../shared/tournament/types';
 import { fetchDecklists, type Manage, saveCheckIn } from '../../lib/tournament/api';
 import { msg, t, tn } from '../../lib/i18n';
 import { ConfirmAction } from './ConfirmAction';
+import { OptionsMenu } from './OptionsMenu';
 import type { ManageState } from './manageState';
 import { registrantsSource, siteRegistrants } from './siteRegistrants';
 
@@ -154,36 +155,41 @@ export function CheckInCells(props: { state: ManageState; manage: Manage; id: st
   );
 }
 
-/** One player still open, with what lets them go: the checks staff can mark here, or a drop. */
+/** One player still open, with what lets them go under their menu, as a roster row's: the checks staff can mark here, or a drop. */
 function Blocker(props: { state: ManageState; manage: Manage; player: Player }) {
   const name = () => playerName(props.player);
   return (
     <li>
       <span>{name()}</span>
-      <span class='tm-grow' />
-      <For each={openMarks(props.manage, checkins(props.manage)[props.player.id])}>
-        {mark => (
-          <Show when={MARK_ACTIONS[mark]}>
-            {label => (
-              <button
-                type='button'
-                class='btn btn-secondary tm-small'
-                disabled={isSaving(props.player.id, mark)}
-                onClick={() => void tick(props.state, props.manage.code, { playerId: props.player.id, mark, on: true })}
-              >
-                {t(label())}
-              </button>
-            )}
-          </Show>
-        )}
-      </For>
-      <ConfirmAction
-        label={t('Drop')}
-        question={t('Drop {name}? You can reinstate them until the next round is paired.', { name: name() })}
-        danger
-        disabled={isSaving(props.player.id, 'drop')}
-        onConfirm={() => void drop(props.state, props.player.id)}
-      />
+      <OptionsMenu name={name()}>
+        <For each={openMarks(props.manage, checkins(props.manage)[props.player.id])}>
+          {mark => (
+            <Show when={MARK_ACTIONS[mark]}>
+              {label => (
+                <button
+                  type='button'
+                  class='tm-menu-item'
+                  data-closes-menu
+                  disabled={isSaving(props.player.id, mark)}
+                  onClick={() =>
+                    void tick(props.state, props.manage.code, { playerId: props.player.id, mark, on: true })
+                  }
+                >
+                  {t(label())}
+                </button>
+              )}
+            </Show>
+          )}
+        </For>
+        <ConfirmAction
+          label={t('Drop')}
+          question={t('Drop {name}? You can reinstate them until the next round is paired.', { name: name() })}
+          class='tm-menu-item'
+          danger
+          disabled={isSaving(props.player.id, 'drop')}
+          onConfirm={() => void drop(props.state, props.player.id)}
+        />
+      </OptionsMenu>
     </li>
   );
 }

@@ -16,8 +16,10 @@ import '../../styles/pages/tournament-tabbar.css';
 export interface BarTab<T extends string> {
   value: T;
   label: string;
-  /** Shown after the label, as the dashboard counts what is running. */
+  /** Shown by the tab's icon, as the dashboard counts what is running. */
   count?: number;
+  /** The tab's name when the label and count shown say less than it. */
+  name?: string;
   /** Why the tab cannot be opened yet. */
   locked?: string;
 }
@@ -84,6 +86,7 @@ function BarTabButton<T extends string>(props: { bar: TabBarProps<T>; tab: BarTa
           role='tab'
           id={id()}
           aria-selected={open()}
+          aria-label={props.tab.name}
           aria-controls={props.bar.panel}
           tabIndex={open() ? 0 : -1}
           onClick={() => props.bar.onSelect(props.tab.value)}

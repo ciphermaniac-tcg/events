@@ -8,7 +8,7 @@
  * The event is built with the same shared commands the functions apply.
  */
 
-import { expect, type Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
 import { chunkOf } from './build-manifest';
 import { test } from './network-guard';
 
@@ -1413,6 +1413,98 @@ test('a phone’s tab bar is one tab list: the arrows move and open, and a locke
   await expect(page.getByRole('tabpanel', { name: 'Settings' })).toBeVisible();
 });
 
+/** Where a thing sits on screen; it must be there. */
+async function boxOf(locator: Locator) {
+  const box = await locator.boundingBox();
+  expect(box).not.toBeNull();
+  return box ?? { x: 0, y: 0, width: 0, height: 0 };
+}
+
+/** The room the page keeps clear at the bottom of the screen, as the browser works it out. */
+const reservedBelow = (page: Page) =>
+  page.evaluate(() => parseFloat(getComputedStyle(document.documentElement).scrollPaddingBottom) || 0);
+
+test('a phone’s tab bar keeps one height and every tab on screen, however long its labels run @mobileOnly', async ({
+  page
+}) => {
+  await page.setViewportSize({ width: 320, height: 640 });
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'languages', { get: () => ['es'] });
+    Object.defineProperty(navigator, 'language', { get: () => 'es' });
+  });
+  const t = event(8, 1, true);
+  const requests: PlayerRequest[] = t.players.slice(0, 4).map((player, i) => ({
+    id: `request-${String(i)}`,
+    player: player.id,
+    kind: i % 2 ? 'drop' : 'staff',
+    at: i,
+    status: 'open'
+  }));
+  await mockConsole(page, t, settingsOf({ decklists: 'open' }), [], false, requests);
+  const bar = page.locator('.tm-tabbar');
+  await expect(bar.getByRole('tab')).toHaveCount(6);
+  // Six tabs in Spanish with requests waiting: the bar is as tall as the room the page leaves it.
+  const barBox = await boxOf(bar);
+  expect(barBox.height).toBe(64);
+  expect(await reservedBelow(page)).toBe(64);
+  for (const tab of await bar.getByRole('tab').all()) {
+    const box = await boxOf(tab);
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(320);
+  }
+  // The Players tab shows how many requests wait by its icon, and its name says which.
+  const players = page.locator('#console-bar-players');
+  await expect(players.locator('.tm-dash-count')).toHaveText('4');
+  await expect(players).toHaveAttribute('aria-label', /^\S+ · 2 · 2 \S+$/);
+  // Scrolled to the end, the site's foot clears the bar.
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  const foot = await boxOf(page.locator('.site-footer'));
+  expect(foot.y + foot.height).toBeLessThanOrEqual(barBox.y);
+});
+
+test('a phone’s locked tab says why above the bar, inside the screen @mobileOnly', async ({ page }) => {
+  await mockConsole(page, event(4, 0, false), settingsOf({}));
+  const bar = page.locator('.tm-tabbar');
+  const locked = bar.locator('.tab-locked').first();
+  // aria-disabled, as a locked tab is, but a tap still asks why.
+  await locked.getByRole('tab').click({ force: true });
+  const hint = locked.locator('.info-tip-bubble');
+  await expect(hint).toBeVisible();
+  const box = await boxOf(hint);
+  const width = page.viewportSize()?.width ?? 0;
+  expect(box.x).toBeGreaterThanOrEqual(0);
+  expect(box.x + box.width).toBeLessThanOrEqual(width);
+  expect(box.y + box.height).toBeLessThanOrEqual((await boxOf(bar)).y);
+});
+
+test('a phone’s tab bar steps aside while a field has the keyboard @mobileOnly', async ({ page }) => {
+  await mockConsole(page, event(4, 0, false), settingsOf({}));
+  const bar = page.locator('.tm-tabbar');
+  await expect(bar).toBeVisible();
+  const field = page.locator('#console-panel').getByRole('textbox').first();
+  await field.focus();
+  await expect(bar).toBeHidden();
+  await field.blur();
+  await expect(bar).toBeVisible();
+});
+
+test('a row’s menu opened just above a phone’s tab bar opens upward, clear of it @mobileOnly', async ({ page }) => {
+  await mockConsole(page, event(64, 0, false), settingsOf({}));
+  const bar = page.locator('.tm-tabbar');
+  const more = page.getByRole('button', { name: /^More for / }).nth(30);
+  const group = page.getByRole('group', { name: /^More for / });
+  await more.click();
+  const { height } = await boxOf(group);
+  await page.keyboard.press('Escape');
+  // Placed so the menu would fit on screen below its button, but only by running under the bar.
+  await more.evaluate((button, below) => {
+    window.scrollBy(0, button.getBoundingClientRect().bottom - (innerHeight - below));
+  }, height + 40);
+  await more.click();
+  const menu = await boxOf(group);
+  expect(menu.y + menu.height).toBeLessThanOrEqual((await boxOf(bar)).y);
+});
+
 test('the console leads back to the dashboard’s Organizing tab, above the event’s name @mobile', async ({ page }) => {
   await mockConsole(page, event(8, 0, true), settingsOf({}));
   const trail = page.getByRole('navigation', { name: 'Breadcrumb' });
@@ -1876,10 +1968,9 @@ test('a check-in tick waits on its own answer, not every other box on the page',
   await first.check();
   await expect(first).toBeDisabled();
   await expect(page.getByRole('checkbox', { name: 'Paid: Player2 Test' })).toBeEnabled();
-  const gate = page.locator('.tm-check-gate');
-  await expect(
-    gate.getByRole('listitem').filter({ hasText: 'Player3 Test' }).getByRole('button', { name: 'Mark paid' })
-  ).toBeEnabled();
+  const third = page.locator('.tm-check-gate').getByRole('listitem').filter({ hasText: 'Player3 Test' });
+  await third.getByRole('button', { name: 'More for Player3 Test' }).click();
+  await expect(third.getByRole('button', { name: 'Mark paid' })).toBeEnabled();
   answer();
   await expect(first).toBeEnabled();
 });
@@ -1887,6 +1978,7 @@ test('a check-in tick waits on its own answer, not every other box on the page',
 test('dropping a player from the check-in line asks first', async ({ page }) => {
   const sent = await mockConsole(page, event(3, 0, false), settingsOf({ entryFee: 10 }));
   const row = page.locator('.tm-check-gate').getByRole('listitem').filter({ hasText: 'Player2 Test' });
+  await row.getByRole('button', { name: 'More for Player2 Test' }).click();
   await row.getByRole('button', { name: 'Drop' }).click();
   expect(sent).toHaveLength(0);
   await row
@@ -2049,17 +2141,39 @@ test('before round 1 staff tick who paid, and the console names who is still ope
   await expect(open).toContainText('3 players aren’t checked in.');
   await page.getByRole('checkbox', { name: 'Paid: Player1 Test' }).check();
   await expect(open).toContainText('2 players aren’t checked in.');
-  await open
-    .getByRole('listitem')
-    .filter({ hasText: 'Player2 Test' })
-    .getByRole('button', { name: 'Mark paid' })
-    .click();
-  await open
-    .getByRole('listitem')
-    .filter({ hasText: 'Player3 Test' })
-    .getByRole('button', { name: 'Mark paid' })
-    .click();
+  // Each still open has what lets them go under their menu, as a roster row does, and the box keeps to its width.
+  expect(await open.evaluate(box => box.scrollWidth - box.clientWidth)).toBeLessThanOrEqual(0);
+  const first = open.getByRole('listitem').first();
+  const [end, dots] = await Promise.all([
+    first.evaluate(el => el.getBoundingClientRect().right),
+    first.getByRole('button', { name: /^More for / }).evaluate(el => el.getBoundingClientRect().right)
+  ]);
+  expect(Math.abs(end - dots)).toBeLessThan(2);
+  for (const name of ['Player2 Test', 'Player3 Test']) {
+    const line = open.getByRole('listitem').filter({ hasText: name });
+    await line.getByRole('button', { name: `More for ${name}` }).click();
+    await line.getByRole('button', { name: 'Mark paid' }).click();
+  }
   await expect(page.getByText('Everyone is checked in.')).toBeVisible();
+});
+
+test('the roster’s filter stays inside its box on a narrow phone, a choice to a line @mobileOnly', async ({ page }) => {
+  await page.setViewportSize({ width: 280, height: 640 });
+  await mockConsole(page, event(3, 0, false), settingsOf({ entryFee: 10 }));
+  const show = page.locator('.tm-roster-show');
+  await expect(show.getByRole('radio')).toHaveCount(4);
+  const [filter, box] = await Promise.all([
+    show.evaluate(el => el.getBoundingClientRect().right),
+    show.evaluate(el => el.parentElement?.getBoundingClientRect().right ?? 0)
+  ]);
+  expect(filter).toBeLessThanOrEqual(box);
+  // Past the box's width it scrolls, each choice still on one line.
+  const [one, long] = await Promise.all(
+    [show.getByRole('radio', { name: 'All' }), show.getByRole('radio', { name: /Not checked in/ })].map(radio =>
+      radio.evaluate(el => el.getBoundingClientRect().height)
+    )
+  );
+  expect(long).toBe(one);
 });
 
 /** The font size of every visible text field on the page, which iOS zooms into below 16px. */

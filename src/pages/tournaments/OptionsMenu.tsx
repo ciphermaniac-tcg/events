@@ -39,8 +39,11 @@ export function OptionsMenu(props: {
     }
     const width = menu?.offsetWidth ?? 240;
     const height = menu?.offsetHeight ?? 144;
-    const viewport = document.documentElement.getBoundingClientRect().width;
-    const top = rect.bottom + height + 8 > innerHeight ? Math.max(8, rect.top - height - 4) : rect.bottom + 4;
+    const html = document.documentElement;
+    const viewport = html.getBoundingClientRect().width;
+    // The room the page keeps clear at the bottom (a phone's tab bar) is not room for the menu.
+    const floor = innerHeight - (parseFloat(getComputedStyle(html).scrollPaddingBottom) || 0);
+    const top = rect.bottom + height + 8 > floor ? Math.max(8, rect.top - height - 4) : rect.bottom + 4;
     setAt({ top, left: Math.max(8, Math.min(rect.right - width, viewport - width - 8)) });
   };
   createEffect(() => {

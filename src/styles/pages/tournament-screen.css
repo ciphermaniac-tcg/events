@@ -57,26 +57,20 @@
   word-break: break-all;
 }
 
-/* Each phase rises in as the last gives way. */
+/* Each phase fades in as the last gives way. */
 .tm-screen-main {
   min-height: 0;
   padding-top: 1.1vw;
-  animation: tm-screen-rise 600ms var(--ease-spring) 100ms both;
+  animation: tm-screen-fade var(--ms-slow) var(--ease-base) 100ms both;
 }
-@keyframes tm-screen-rise {
+@keyframes tm-screen-fade {
   from {
     opacity: 0;
-    transform: translateY(2vw);
   }
 }
 @media (prefers-reduced-motion: reduce) {
   .tm-screen-main {
-    animation-name: tm-screen-fade;
-  }
-  @keyframes tm-screen-fade {
-    from {
-      opacity: 0;
-    }
+    animation: none;
   }
 }
 .tm-screen-main > .tm-screen-scroll {

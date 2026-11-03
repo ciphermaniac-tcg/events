@@ -176,17 +176,13 @@
   padding: var(--space-4) var(--space-4) calc(var(--space-4) + env(safe-area-inset-bottom));
   border: 1px solid var(--border);
   border-bottom: 0;
-  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
   background: var(--surface);
   box-shadow: var(--shadow-float);
-  transform: translateY(16px);
   opacity: 0;
-  transition:
-    transform var(--ms-base) var(--ease-spring),
-    opacity var(--ms-fast) var(--ease-base);
+  transition: opacity var(--ms-fast) var(--ease-base);
 }
 .tm-console .tm-result-sheet.is-in {
-  transform: none;
   opacity: 1;
 }
 @media (prefers-reduced-motion: reduce) {
@@ -269,6 +265,12 @@
   /* The tabs move to a bar along the bottom, as the dashboard's do. */
   .tm-console > .tabs {
     display: none;
+  }
+  /* Where :has() is not read to leave the bar its room below the page, the console leaves it. */
+  @supports not selector(:has(*)) {
+    .tm-console {
+      padding-bottom: var(--tabbar-h);
+    }
   }
   /* The head: on Pairings the clock rides with the round below, elsewhere it stays here;
      a step waiting on the round gives way to the line saying why. */
@@ -951,6 +953,12 @@
   background: var(--bg) !important;
   border-color: var(--border) !important;
 }
+.tm-console .tm-input:focus-visible,
+.tm-console .tm-select:focus-visible,
+.tm-console .tm-textarea:focus-visible,
+.tm-console .search:focus-visible {
+  border-color: var(--focus-color) !important;
+}
 .tm-console .tm-input[aria-invalid='true'],
 .tm-console .tm-select[aria-invalid='true'],
 .tm-console .tm-textarea[aria-invalid='true'],
@@ -1140,6 +1148,19 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
+}
+/* A check-in line's menu ends its row, as a roster row's does. */
+.tm-check-gate .tm-more {
+  margin-left: auto;
+}
+/* The roster's filter keeps each choice on one line; past the box's width it scrolls rather than spill. */
+.tm-roster-show {
+  max-width: 100%;
+  overflow-x: auto;
+}
+.tm-roster-show button {
+  flex: none;
+  white-space: nowrap;
 }
 .tm-check-warn {
   font-weight: 600;

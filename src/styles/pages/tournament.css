@@ -451,7 +451,6 @@ body[data-mode='dark'] .tm-sso-google:hover {
 @keyframes tm-signin-reveal {
   from {
     opacity: 0;
-    transform: translateY(-6px);
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -2077,10 +2076,6 @@ tr.is-in .tm-place {
 .tm-cut-label {
   font-weight: 600;
 }
-.tm-cut-dialog h3,
-.tm-end-dialog h3 {
-  font-size: var(--text-lg);
-}
 .tm-end-gaps {
   display: grid;
   gap: var(--space-1);
@@ -2111,11 +2106,11 @@ tr.is-in .tm-place {
   font-size: var(--text-base);
 }
 .tm-stepper .btn:first-child {
-  border-radius: var(--radius-md) 0 0 var(--radius-md);
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
 }
 .tm-stepper .btn:last-child {
   margin-left: -1px;
-  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
 .tm-stepper .tm-select {
   margin-left: -1px;
