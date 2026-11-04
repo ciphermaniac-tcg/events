@@ -1634,5 +1634,24 @@
   "This round still has results to enter.": "Esta ronda aún tiene resultados por registrar.",
   "You’ve started as many events as you can today; try again tomorrow": "Ya creaste el máximo de eventos por hoy; inténtalo de nuevo mañana",
   "You’re linked to another player here": "Tu cuenta ya está vinculada a otro jugador en este torneo",
-  "TOM already has a result for this match; change it in TOM": "TOM ya tiene un resultado para este encuentro; cámbialo en TOM"
+  "TOM already has a result for this match; change it in TOM": "TOM ya tiene un resultado para este encuentro; cámbialo en TOM",
+  "Allows players to submit their decklists in TCGL format. “Open” takes lists now, and “Closed” stops taking them.": "Permite a los jugadores enviar su lista de mazo en formato TCGL. Con “Abiertas” se reciben listas ahora, y con “Cerradas” se dejan de recibir.",
+  "When enabled, anyone on the event’s page can see each player’s list once round 1 is paired, after lists lock.": "Si está activado, cualquiera que visite la página del torneo puede ver la lista de cada jugador una vez emparejada la ronda 1, cuando las listas ya están bloqueadas.",
+  "Open decklists": "Listas públicas",
+  "Only the organizer can open the lists": "Solo el organizador puede hacer públicas las listas",
+  "This event’s lists aren’t open": "Las listas de este torneo no son públicas",
+  "Lists show here once round 1 is paired.": "Las listas aparecen aquí una vez emparejada la ronda 1.",
+  "Handed in on paper.": "Entregada en papel.",
+  "Cards": "Cartas",
+  "List": "Lista",
+  "Copy list": "Copiar lista",
+  "Read only. You’re not on this event’s staff.": "Solo lectura. No formas parte del personal de este torneo.",
+  "Re-read archetypes": "Recalcular arquetipos",
+  "No lists changed.": "No cambió ninguna lista.",
+  "Renamed {n} lists.": {
+    "one": "Se renombró {n} lista.",
+    "other": "Se renombraron {n} listas."
+  },
+  "Archetypes are off for this event": "Los arquetipos están desactivados en este torneo",
+  "Couldn’t read the archetype rules. Try again later.": "No se pudieron leer las reglas de arquetipos. Inténtalo de nuevo más tarde."
 }

@@ -82,3 +82,23 @@ for (const [languages, lang] of [
     await expect(page.getByRole('button', { name: catalog(lang).Continue })).toBeVisible();
   });
 }
+
+test('on a 320px phone the head keeps the site’s name and a long Sign in to one line each @mobileOnly', async ({
+  page
+}) => {
+  await page.setViewportSize({ width: 320, height: 700 });
+  const lines = (selector: string) =>
+    page.locator(selector).evaluate(el => {
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      // One line of text stands less than twice its font size tall; two stand more.
+      return Math.ceil(range.getBoundingClientRect().height / (2 * parseFloat(getComputedStyle(el).fontSize)));
+    });
+  for (const language of ['es', 'fr']) {
+    await page.goto(`/history?lang=${language}`);
+    await expect(page.locator('html')).toHaveAttribute('lang', language);
+    expect(await lines('.site-head-name > span')).toBe(1);
+    expect(await lines('.site-head-signin')).toBe(1);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320);
+  }
+});

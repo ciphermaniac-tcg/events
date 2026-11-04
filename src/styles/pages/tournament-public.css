@@ -58,9 +58,12 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 10px var(--space-4);
+  min-width: 0;
 }
 .tm-you-answers .tm-report-choices {
   flex: 1 1 360px;
+  /* Narrower than its basis, the group wraps its answers rather than running out of the box. */
+  min-width: 0;
   max-width: 760px;
   margin: 0;
 }
@@ -159,6 +162,11 @@
   .tm-you-end {
     width: 100%;
     justify-content: space-between;
+  }
+  /* Report result takes the rest of its row, as wide as the asks under it rather than narrower. */
+  .tm-you-end .btn {
+    flex: 1;
+    justify-content: center;
   }
   .tm-identify .tm-field,
   .tm-identify .btn {
@@ -342,6 +350,7 @@
 .tm-sheet-foot {
   display: flex;
   justify-content: flex-end;
+  gap: var(--space-2);
   padding: var(--space-3) var(--space-4);
   border-top: 1px solid var(--rule);
 }
@@ -355,6 +364,8 @@
     border-left: 0;
     border-top: 1px solid var(--border);
     border-radius: var(--radius-md) var(--radius-md) 0 0;
+    /* Its foot clears the home indicator, as the console's result sheet does. */
+    padding-bottom: env(safe-area-inset-bottom);
   }
   .tm-sheet-stats dd {
     font-size: var(--text-base);
@@ -465,10 +476,10 @@
     display: flex;
     align-items: center;
     min-height: 44px;
-    padding-left: var(--space-4);
+    padding-left: calc(16px + var(--space-2));
   }
   .tm-public-pairings .has-decks td.tm-seat > .muted-cell {
-    padding-left: 66px;
+    padding-left: calc(16px + 38px + 2 * var(--space-2));
   }
   .tm-public-pairings .data tr.is-me {
     background: color-mix(in srgb, var(--accent) 12%, transparent);

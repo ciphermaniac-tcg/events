@@ -342,6 +342,52 @@ test('the standings mark the viewer’s own row, and say so when a search finds 
   await expect(page.locator('.tm-standings .tm-empty-row')).toHaveText('No players match.');
 });
 
+test('a phone’s standings wrap a long deck so a Dropped after it shows @mobile', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 760 });
+  const [player] = tdf.players;
+  const dropped = { ...tdf, players: tdf.players.map(p => (p === player ? { ...p, droppedAfter: 1 } : p)) };
+  const tournament = publicTournament(dropped, keys);
+  const decks = publicDecks({ [player!.id]: 'Raging Bolt ex Ogerpon ex Teal Mask' }, keys);
+  await mockApi(page, { ...VIEW, tournament, decks });
+  await page.goto(`/t/${CODE}?tab=standings`);
+  const sub = page.locator('.tm-standings tr').filter({ hasText: player!.lastName }).locator('.tm-who-sub');
+  await expect(sub.locator('.tm-flag')).toHaveText('Dropped');
+  // The deck and its flag run onto a line of their own rather than past the cell's end.
+  const fits = await sub.evaluate(line => {
+    const flag = line.querySelector('.tm-flag')!.getBoundingClientRect();
+    return line.scrollWidth <= line.clientWidth && flag.right <= line.getBoundingClientRect().right;
+  });
+  expect(fits).toBe(true);
+});
+
+test('a phone’s standings show a name longer than its column whole @mobile', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 640 });
+  const [player] = tdf.players;
+  const long = {
+    ...tdf,
+    players: tdf.players.map(p => (p === player ? { ...p, lastName: 'Wolfeschlegelsteinhausen' } : p))
+  };
+  await mockApi(page, { ...VIEW, tournament: publicTournament(long, keys) });
+  await page.goto(`/t/${CODE}?tab=standings`);
+  const name = page.locator('.tm-standings .tm-name').filter({ hasText: 'Wolfeschlegel' });
+  await expect(name).toBeVisible();
+  expect(await name.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+});
+
+test('a phone’s pairings show a name longer than its column whole @mobile', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 640 });
+  const [player] = tdf.players;
+  const long = {
+    ...tdf,
+    players: tdf.players.map(p => (p === player ? { ...p, lastName: 'Wolfeschlegelsteinhausen' } : p))
+  };
+  await mockApi(page, { ...VIEW, tournament: publicTournament(long, keys) });
+  await page.goto(`/t/${CODE}`);
+  const name = page.locator('.tm-matches .tm-name').filter({ hasText: 'Wolfeschlegel' });
+  await expect(name).toBeVisible();
+  expect(await name.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+});
+
 test('a bye staff assigned reads as a bye in the pairings and on the player’s sheet, not as a missed round', async ({
   page
 }) => {
@@ -363,4 +409,19 @@ test('a bye staff assigned reads as a bye in the pairings and on the player’s 
   await row.locator('.tm-seat-link', { hasText: 'P0 Master' }).click();
   await expect(page.getByRole('dialog')).toContainText('Bye');
   await expect(page.getByRole('dialog')).not.toContainText('Missed round');
+});
+
+test('on a phone a bye starts where the names above it do, with decks shown or not @mobileOnly', async ({ page }) => {
+  const textStart = (cell: string) =>
+    page.locator(cell).evaluate(el => {
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      return Math.round(range.getBoundingClientRect().left);
+    });
+  for (const view of [VIEW, { ...VIEW, decks: {} }]) {
+    await mockApi(page, view);
+    await page.goto(`/t/${CODE}`);
+    const name = await textStart('.tm-matches .tm-seat .tm-name >> nth=0');
+    expect(await textStart('.tm-matches td.tm-seat > .muted-cell')).toBe(name);
+  }
 });

@@ -776,7 +776,7 @@ function Withdrawn(props: { form: Registration; closes: string | null }) {
         <Show when={props.closes}>
           {closes => <p class='tm-reg-note'>{t('You can register again until {start}.', { start: closes() })}</p>}
         </Show>
-        <button type='button' class='btn btn-secondary' onClick={() => props.form.notYou()}>
+        <button type='button' class='btn btn-secondary tm-reg-wide' onClick={() => props.form.notYou()}>
           {t('Done')}
         </button>
       </div>

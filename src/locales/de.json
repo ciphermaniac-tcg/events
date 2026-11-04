@@ -1634,5 +1634,24 @@
   "This round still has results to enter.": "In dieser Runde fehlen noch Ergebnisse.",
   "You’ve started as many events as you can today; try again tomorrow": "Du kannst heute keine weiteren Turniere anlegen. Versuch es morgen noch mal.",
   "You’re linked to another player here": "Dein Konto ist bei diesem Turnier schon mit einem anderen Spieler verknüpft.",
-  "TOM already has a result for this match; change it in TOM": "Für dieses Match gibt es in TOM schon ein Ergebnis. Ändere es in TOM."
+  "TOM already has a result for this match; change it in TOM": "Für dieses Match gibt es in TOM schon ein Ergebnis. Ändere es in TOM.",
+  "Allows players to submit their decklists in TCGL format. “Open” takes lists now, and “Closed” stops taking them.": "Spieler können ihre Deckliste im TCGL-Format einreichen. Bei „Offen“ werden jetzt Listen angenommen, bei „Geschlossen“ keine mehr.",
+  "When enabled, anyone on the event’s page can see each player’s list once round 1 is paired, after lists lock.": "Wenn aktiviert, kann jeder auf der Turnierseite die Liste jedes Spielers sehen, sobald Runde 1 ausgelost ist und die Listen gesperrt sind.",
+  "Open decklists": "Öffentliche Decklisten",
+  "Only the organizer can open the lists": "Nur der Veranstalter kann die Decklisten öffentlich machen",
+  "This event’s lists aren’t open": "Die Decklisten dieses Turniers sind nicht öffentlich",
+  "Lists show here once round 1 is paired.": "Die Listen erscheinen hier, sobald Runde 1 ausgelost ist.",
+  "Handed in on paper.": "Auf Papier abgegeben.",
+  "Cards": "Karten",
+  "List": "Liste",
+  "Copy list": "Liste kopieren",
+  "Read only. You’re not on this event’s staff.": "Nur Lesezugriff. Du gehörst nicht zum Turnierpersonal.",
+  "Re-read archetypes": "Archetypen neu zuordnen",
+  "No lists changed.": "Keine Liste geändert.",
+  "Renamed {n} lists.": {
+    "one": "{n} Liste umbenannt.",
+    "other": "{n} Listen umbenannt."
+  },
+  "Archetypes are off for this event": "Archetypen sind für dieses Turnier deaktiviert",
+  "Couldn’t read the archetype rules. Try again later.": "Die Archetyp-Regeln konnten nicht gelesen werden. Versuch es später noch mal."
 }

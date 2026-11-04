@@ -131,13 +131,19 @@ function SignedIn(props: { user: Me; providers: readonly Provider[] }) {
     new Set()
   );
   const label = () => t(SECTIONS.find(s => s.id === section())?.label ?? '');
+  let nav: HTMLElement | undefined;
+  // A phone runs the sections as a row of tabs: the open one is brought into the row, as the site's tabs are.
+  createEffect(() => {
+    section();
+    nav?.querySelector('.is-on')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  });
   return (
     <>
       <Trail here={t('Settings')} />
       <div class='tm-side-layout tm-settings-layout'>
         <div class='tm-settings-side'>
           <Identity user={props.user} providers={props.providers} />
-          <nav class='tm-side-nav' aria-label={t('Settings')}>
+          <nav ref={nav} class='tm-side-nav' aria-label={t('Settings')}>
             <For each={SECTIONS}>
               {s => (
                 <button

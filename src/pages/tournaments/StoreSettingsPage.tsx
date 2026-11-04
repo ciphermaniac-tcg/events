@@ -180,8 +180,14 @@ function DetailsSection(props: {
 
 /** The section list: down the left on a wide screen, a row of tabs on a phone. */
 function SectionNav(props: { current: Section; onPick: (section: Section) => void }) {
+  let nav: HTMLElement | undefined;
+  // On a phone, where the list is a row of tabs, the open one is brought into the row.
+  createEffect(() => {
+    void props.current;
+    nav?.querySelector('.is-on')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  });
   return (
-    <nav class='tm-side-nav' aria-label={t('Store settings')}>
+    <nav ref={nav} class='tm-side-nav' aria-label={t('Store settings')}>
       <For each={SECTIONS}>
         {section => (
           <button

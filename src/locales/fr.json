@@ -1634,5 +1634,24 @@
   "This round still has results to enter.": "Cette ronde a encore des résultats à saisir.",
   "You’ve started as many events as you can today; try again tomorrow": "Tu as lancé le maximum de tournois pour aujourd’hui ; réessaie demain",
   "You’re linked to another player here": "Ton compte est déjà associé à un autre joueur dans ce tournoi",
-  "TOM already has a result for this match; change it in TOM": "TOM a déjà un résultat pour ce match ; modifie-le dans TOM"
+  "TOM already has a result for this match; change it in TOM": "TOM a déjà un résultat pour ce match ; modifie-le dans TOM",
+  "Allows players to submit their decklists in TCGL format. “Open” takes lists now, and “Closed” stops taking them.": "Permet aux joueurs d’envoyer leur liste de deck au format TCGL. « Ouvert » accepte les listes dès maintenant, et « Fermé » arrête de les accepter.",
+  "When enabled, anyone on the event’s page can see each player’s list once round 1 is paired, after lists lock.": "Une fois activé, quiconque consulte la page du tournoi peut voir la liste de chaque joueur dès que la ronde 1 est appariée et que les listes sont verrouillées.",
+  "Open decklists": "Listes publiques",
+  "Only the organizer can open the lists": "Seul l’organisateur peut rendre les listes publiques",
+  "This event’s lists aren’t open": "Les listes de ce tournoi ne sont pas publiques",
+  "Lists show here once round 1 is paired.": "Les listes s’affichent ici dès que la ronde 1 est appariée.",
+  "Handed in on paper.": "Remise sur papier.",
+  "Cards": "Cartes",
+  "List": "Liste",
+  "Copy list": "Copier la liste",
+  "Read only. You’re not on this event’s staff.": "Lecture seule. Tu ne fais pas partie du staff de ce tournoi.",
+  "Re-read archetypes": "Recalculer les archétypes",
+  "No lists changed.": "Aucune liste modifiée.",
+  "Renamed {n} lists.": {
+    "one": "{n} liste renommée.",
+    "other": "{n} listes renommées."
+  },
+  "Archetypes are off for this event": "Les archétypes sont désactivés pour ce tournoi",
+  "Couldn’t read the archetype rules. Try again later.": "Impossible de lire les règles d’archétypes. Réessaie plus tard."
 }

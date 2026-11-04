@@ -955,6 +955,17 @@ const tomSaves = (page: Page, text?: string) =>
     file.modified = Math.max(file.modified + 1, Date.now());
   }, text);
 
+test('a TOM console’s round status wraps on a narrow phone rather than running off it @mobileOnly', async ({
+  page
+}) => {
+  await page.setViewportSize({ width: 320, height: 640 });
+  await tomConsole(page, () => ({ status: 409, json: { error: 'The site has a different copy of this event.' } }));
+  const lead = page.locator('.tm-meta-lead');
+  await expect(lead).toContainText('reconnect the .tdf to enter results');
+  const box = (await lead.boundingBox())!;
+  expect(box.x + box.width).toBeLessThanOrEqual(320);
+});
+
 test('a TOM console stops following its file when another copy was synced over it, and asks before replacing it', async ({
   page
 }) => {

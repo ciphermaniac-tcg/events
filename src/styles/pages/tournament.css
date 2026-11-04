@@ -32,9 +32,16 @@ body.tm-stream-mode {
   line-height: 1.3;
   margin-top: var(--space-3);
 }
+.tm-welcome-why {
+  margin: 0 0 var(--space-4);
+}
+/* Continue lines up with the date field, not with the field's label. */
+.tm-box-bar.tm-welcome-form {
+  align-items: end;
+}
 .tm-welcome-legal {
   display: flex;
-  gap: var(--space-2);
+  gap: var(--space-4);
   margin-top: var(--space-3);
   font-size: var(--text-sm);
 }
@@ -819,6 +826,20 @@ body[data-mode='dark'] :is(.tm-input, .tm-select) {
   align-items: center;
   white-space: nowrap;
 }
+/* On a phone, a question asked in a row or a box wraps its answers under it
+   rather than running them out of the box. */
+@media (max-width: 640px) {
+  .tm-confirm,
+  .tm-confirm-label,
+  .tm-row-actions:has(> .tm-confirm) {
+    flex-wrap: wrap;
+    white-space: normal;
+  }
+  /* Across a box, the question takes its own line and its answers the next. */
+  .tm-box-bar.tm-confirm > span:first-child {
+    flex-basis: 100%;
+  }
+}
 .tm-deck {
   display: inline-flex;
   flex: none;
@@ -838,6 +859,10 @@ body[data-mode='dark'] :is(.tm-input, .tm-select) {
   grid-template-columns: minmax(0, 1fr) 56px;
   align-items: center;
   gap: var(--space-1);
+}
+/* The list hangs from a table cell that keeps to one line; a long name wraps instead of pushing its share off. */
+.tm-deck-pick .tl-list li {
+  white-space: normal;
 }
 /* Naming decks from the pairings: the name, then its picker, on the seat's line. */
 .tm-table-input {
@@ -947,10 +972,12 @@ body[data-mode='dark'] :is(.tm-input, .tm-select) {
   /* Scoped to the table so these outrank the base result rules further down. */
   /* An empty last slot takes no room here, so an open row stays on one line. */
   /* The question Record answers is never cut short. */
-  /* A name wraps rather than losing its end: it is what a player looks for.
-     Each seat keeps a little air so two wrapped names never read as one. */
+  /* A name wraps rather than losing its end, a word too long for the column
+     too: it is what a player looks for. Each seat keeps a little air so two
+     wrapped names never read as one. */
   .tm-matches .tm-name {
     white-space: normal;
+    overflow-wrap: anywhere;
   }
   .tm-matches .tm-seat-link {
     padding-block: var(--space-2);
@@ -1017,9 +1044,12 @@ body[data-mode='dark'] :is(.tm-input, .tm-select) {
   .tm-standings .tm-who-sub {
     font-size: var(--text-sm);
   }
-  /* On the narrowest phones a long name or deck wraps rather than losing its end. */
-  .tm-standings :is(.tm-name, .tm-who-sub) {
+  /* On the narrowest phones a long name or deck wraps rather than losing its
+     end, a word too long for the column too, and a Dropped after it with it:
+     held a class over the deck's ellipsis below. */
+  .tm-standings .tm-who :is(.tm-name, .tm-who-sub) {
     white-space: normal;
+    overflow-wrap: anywhere;
   }
   /* The deck stats fit a phone without a sideways scroll: the deck, how many
      play it and how it is doing; share and matches are left to wider screens. */
@@ -1031,9 +1061,9 @@ body[data-mode='dark'] :is(.tm-input, .tm-select) {
   }
 }
 /* Under a finger, every control is a 44px target, as HIG asks: the site's
-   38px fields and 40px buttons are sized for a pointer. The hero's links
-   stay text in the line and take their target from padding the margin
-   gives back. */
+   38px fields and 40px buttons are sized for a pointer. The hero's links,
+   the way back above a title and the links beside a name stay text in the
+   line and take their target from padding the margin gives back. */
 @media (max-width: 640px), (pointer: coarse) {
   .tm-seat-link,
   .tm-small,
@@ -1050,12 +1080,14 @@ body[data-mode='dark'] :is(.tm-input, .tm-select) {
     height: 44px;
   }
   .tm-small,
+  .tm-stepper .btn,
   .tm-page .tm-clock-group button,
   .tm-page .tabs button {
     min-width: 44px;
     justify-content: center;
   }
-  .tm-event-name {
+  .tm-event-name,
+  .tm-welcome-legal a {
     display: inline-flex;
     align-items: center;
     min-height: 44px;
@@ -1068,7 +1100,9 @@ body[data-mode='dark'] :is(.tm-input, .tm-select) {
     font-size: var(--text-body);
   }
   .tm-hero .hero-meta a,
-  .tm-bar-link {
+  .tm-bar-link,
+  .tm-trail a,
+  .tm-identity-links a {
     display: inline-block;
     padding-block: var(--space-3);
     margin-block: calc(-1 * var(--space-3));
@@ -1548,6 +1582,15 @@ tr.is-in .tm-place {
   .tm-set-row {
     grid-template-columns: minmax(0, 1fr);
   }
+  /* A choice too long for the line, as a store's four event types, wraps
+     into rows that fill it rather than running out of the box. */
+  .tm-set-control > .segmented {
+    flex-wrap: wrap;
+  }
+  .tm-set-control > .segmented button {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
 }
 
 /* ---------- New event setup ---------- */
@@ -1656,19 +1699,24 @@ tr.is-in .tm-place {
 .tm-settings-body .tm-box .tm-select {
   background: var(--field);
 }
-/* Narrower, Sign out sits beside who is signed in, above the section tabs. */
+/* Off the box, Save leads its row as every other section's does, its note after it. */
+.tm-settings-body .tm-set-foot {
+  flex-direction: row-reverse;
+}
+/* Narrower, Sign out sits beside who is signed in, above the section tabs,
+   or under them when a long name and a long Sign out would squeeze the name. */
 @media (max-width: 900px) {
   .tm-settings-side {
-    grid-template-columns: minmax(0, 1fr) auto;
+    display: flex;
+    flex-wrap: wrap;
     align-items: start;
   }
-  .tm-settings-side > .tm-side-nav {
-    grid-column: 1 / -1;
-    grid-row: 2;
+  .tm-settings-who {
+    flex: 1 1 14em;
   }
-  .tm-settings-out {
-    grid-column: 2;
-    grid-row: 1;
+  .tm-settings-side > .tm-side-nav {
+    flex: 1 0 100%;
+    order: 1;
   }
 }
 
@@ -1809,27 +1857,41 @@ tr.is-in .tm-place {
    in the round stepper's bordered strip (live.css .round-step). */
 .tm-clock-group {
   display: inline-flex;
+  flex-wrap: wrap;
   align-items: stretch;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--surface);
   overflow: hidden;
 }
+/* Too narrow for one line, the time keeps the first and the actions share the second;
+   the actions' ring draws the rule beside the time or above them, the edge clipping the rest. */
 .tm-clock-face {
   display: inline-flex;
+  flex: 999 0 auto;
   align-items: center;
   min-width: 76px;
-  padding: 0 var(--space-3);
+  /* Whole pixels, so a line of its own leaves the page a whole height. */
+  padding: var(--space-2) var(--space-3);
+  line-height: 1;
+}
+.tm-clock-acts {
+  display: flex;
+  flex: auto;
+  box-shadow: 0 0 0 1px var(--rule);
 }
 .tm-clock-group button {
+  flex: 1 0 auto;
   min-height: calc(var(--control-h) - 2px);
   white-space: nowrap;
   padding: 0 var(--space-3);
   font-size: var(--text-base);
   font-weight: 600;
   color: var(--fg);
-  border-left: 1px solid var(--rule);
   transition: background var(--ms-fast) var(--ease-base);
+}
+.tm-clock-group button + button {
+  border-left: 1px solid var(--rule);
 }
 .tm-clock-group button:hover {
   background: var(--surface-2);
@@ -1971,15 +2033,13 @@ tr.is-in .tm-place {
   padding: var(--space-1) 10px;
   font-size: var(--text-base);
 }
-/* A confirm asked from the menu wraps inside it rather than widening the row. */
+/* A confirm asked from the menu wraps inside it rather than widening the row,
+   its question on its own lines above its answers, at a width that reads. */
 .tm-menu .tm-confirm {
   flex-wrap: wrap;
+  max-width: 26em;
   padding: var(--space-1);
   white-space: normal;
-}
-/* The question takes its own lines above its answers, at a width that reads. */
-.tm-menu .tm-confirm {
-  max-width: 26em;
 }
 .tm-menu .tm-confirm-label {
   flex-basis: 100%;
@@ -2181,6 +2241,14 @@ tr.is-in .tm-place {
   .tm-side-nav button.is-on {
     border-bottom-color: var(--fg);
     background: transparent;
+  }
+}
+/* On a phone the row runs to the screen's edges, as the page's other tabs do: a tab past the
+   edge reads as more to scroll to, not as a word cut off at the margin, and the first tab's
+   words line up with the page's. */
+@media (max-width: 640px) {
+  .tm-side-nav {
+    margin-inline: calc(-1 * var(--space-3));
   }
 }
 

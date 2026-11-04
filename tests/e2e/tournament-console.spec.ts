@@ -175,6 +175,22 @@ test('a late player added before the round starts is seated by a re-pair, and af
   await expect.poll(() => sent.at(-1)).toEqual({ type: 'repairRound', pod: 'masters', keepReported: true });
 });
 
+test('on a 320px phone, the re-pair question keeps its two answers on one line under it @mobileOnly', async ({
+  page
+}) => {
+  await page.setViewportSize({ width: 320, height: 640 });
+  await mockConsole(page, event(8, 0, true), settingsOf({}));
+  await page.getByRole('button', { name: 'Re-pair round' }).click();
+  const asking = page.getByRole('group', { name: 'Re-pair the open tables?' });
+  const question = await asking.locator('.tm-confirm-label').boundingBox();
+  const answers = await asking
+    .getByRole('button')
+    .evaluateAll(buttons => buttons.map(b => b.getBoundingClientRect().top));
+  expect(answers).toHaveLength(2);
+  expect(answers[0]).toBe(answers[1]);
+  expect(answers[0]).toBeGreaterThanOrEqual((question?.y ?? 0) + (question?.height ?? 0));
+});
+
 test('once a result is in, the round is not offered a re-pair the server would refuse', async ({ page }) => {
   let t = event(8, 0, true);
   const first = t.pods[0]?.rounds[0]?.matches[0];
@@ -369,6 +385,34 @@ test('a result the server does not take stays in its row as not saved, and Retry
   await expect(rowOf(page, match).locator('.tm-pending-mark.is-awaiting')).toHaveCount(0);
   await expect(rowOf(page, match).locator('.tm-mark.is-win > [aria-hidden]')).toHaveText('W');
   expect(tries[1]).toMatchObject({ type: 'reportResult', table: match.table, outcome: 'p1' });
+});
+
+test('on a 320px phone, a result not saved keeps its words clear of the table number @mobileOnly', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 640 });
+  const t = event(8, 0, true);
+  const match = firstMatch(t);
+  await mockConsole(page, t, settingsOf({}));
+  const theirs = runCommands(t, { type: 'reportResult', pod: 'masters', round: 1, ...match, outcome: 'p2' });
+  await page.route(`**/api/tournaments/${CODE}/commands`, route =>
+    route.fulfill({
+      status: 400,
+      json: { error: 'This result was changed on another device. Check it and enter yours again.' }
+    })
+  );
+  await page.route(`**/api/tournaments/${CODE}/manage*`, route => route.fulfill({ json: consoleOf(theirs, 4) }));
+  await rowOf(page, match).locator('.tm-row-open').click();
+  await page.getByRole('button', { name: /wins$/ }).first().click();
+  const words = rowOf(page, match).getByRole('group', { name: 'Result not saved' }).locator('.tm-result-label');
+  await expect(words).toContainText('another device entered');
+  const table = await rowOf(page, match)
+    .locator('td.tm-table-col')
+    .evaluate(td => {
+      const text = document.createRange();
+      text.selectNodeContents(td);
+      return text.getBoundingClientRect().right;
+    });
+  const label = await words.boundingBox();
+  expect(table).toBeLessThanOrEqual(label?.x ?? 0);
 });
 
 test('a retry reads the event first and sends nothing when the result had landed', async ({ page }) => {
@@ -910,6 +954,47 @@ test('reinstating a player asks first, and says when it gives a bye or lifts a d
   await expect.poll(() => sent.at(-1)).toEqual({ type: 'undropPlayer', id });
 });
 
+test('on a 320px phone a disqualified player’s name reads whole, its flag under it if need be @mobileOnly', async ({
+  page
+}) => {
+  await page.setViewportSize({ width: 320, height: 700 });
+  let t = event(8, 1, false);
+  const id = t.players.find(p => p.firstName === 'Player1')?.id ?? '';
+  t = runCommands(t, { type: 'disqualifyPlayer', id }, { type: 'pairRound', pod: 'masters' });
+  await mockConsole(page, t, settingsOf({}));
+  await page.getByRole('tab', { name: 'Players', exact: true }).click();
+  const name = page.locator('.tm-roster tr', { hasText: 'Disqualified' }).locator('.tm-name');
+  await expect(name).toHaveText('Test, Player1');
+  expect(await name.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+  expect(
+    await name.evaluate(el => el.getBoundingClientRect().height < 2 * parseFloat(getComputedStyle(el).lineHeight))
+  ).toBe(true);
+  // Dropped under the name, the flag starts where the name does.
+  const flag = name.locator('xpath=following-sibling::*[contains(@class, "tm-flag")]');
+  const left = async (el: typeof name) => el.evaluate(node => Math.round(node.getBoundingClientRect().left));
+  expect(await left(flag)).toBe(await left(name));
+});
+
+test('on a 320px phone a German Reinstate wraps rather than cutting a dropped player’s name short @mobileOnly', async ({
+  page
+}) => {
+  await page.setViewportSize({ width: 320, height: 700 });
+  let t = runCommands(event(7, 0, false), {
+    type: 'addPlayer',
+    player: { firstName: 'Christopher', lastName: 'Montgomery-Wallace' }
+  });
+  t = reportAll(runCommands(t, { type: 'pairRound', pod: 'masters' }));
+  const id = t.players.find(p => p.firstName === 'Christopher')?.id ?? '';
+  t = runCommands(t, { type: 'dropPlayer', id }, { type: 'pairRound', pod: 'masters' });
+  await mockConsole(page, t, settingsOf({}));
+  await page.goto(`/host/${CODE}?lang=de`);
+  await page.getByRole('tab', { name: 'Spieler', exact: true }).click();
+  const row = page.locator('.tm-roster tr', { hasText: 'Montgomery' });
+  await expect(row.getByRole('button', { name: 'Wieder aufnehmen' })).toBeVisible();
+  const name = row.locator('.tm-name');
+  expect(await name.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+});
+
 test('reinstating someone who dropped after pairing warns about the bye', async ({ page }) => {
   let t = event(8, 1, false);
   const id = t.players.find(p => p.firstName === 'Player1')?.id ?? '';
@@ -1114,6 +1199,24 @@ test('a deck list opened in the last row is drawn whole, not cut off at the tabl
     };
   });
   expect(drawn).toEqual({ tall: true, onScreen: true, uncovered: true });
+});
+
+test('on a 320px phone every deck in the list keeps its name and share inside the list @mobileOnly', async ({
+  page
+}) => {
+  await page.setViewportSize({ width: 320, height: 700 });
+  await mockConsole(page, event(8, 0, true), settingsOf({ deckVisibility: 'always' }));
+  await page.getByRole('tab', { name: 'Players' }).click();
+  await page.getByRole('combobox', { name: 'Deck' }).last().focus();
+  const list = page.getByRole('listbox');
+  await expect.poll(() => list.locator('li[role="option"]').count()).toBeGreaterThan(5);
+  const spill = await list.evaluate(el => {
+    const edge = el.getBoundingClientRect().right;
+    return [...el.querySelectorAll('li[role="option"] > *')]
+      .filter(part => part.getBoundingClientRect().right > edge)
+      .map(part => part.textContent);
+  });
+  expect(spill).toEqual([]);
 });
 
 test('Gym Leader Challenge decks show their type icons, still once a name is typed in beside them', async ({
@@ -1462,6 +1565,139 @@ test('a phone’s tab bar keeps one height and every tab on screen, however long
   expect(foot.y + foot.height).toBeLessThanOrEqual(barBox.y);
 });
 
+test('a phone’s pairings name each table and a bye in the page’s language @mobileOnly', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 700 });
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'languages', { get: () => ['de'] });
+    Object.defineProperty(navigator, 'language', { get: () => 'de' });
+  });
+  await mockConsole(page, event(7, 0, true), settingsOf({}), [], false);
+  const tables = page.locator('.tm-matches td.tm-table-col');
+  await expect(tables).toHaveCount(4);
+  const labels = await tables.evaluateAll(cells =>
+    cells.map(cell => `${getComputedStyle(cell, '::before').content} ${(cell as HTMLElement).innerText}`)
+  );
+  expect(labels.slice(0, 3)).toEqual(['"Tisch " 1', '"Tisch " 2', '"Tisch " 3']);
+  expect(labels[3]).toMatch(/^"Freilos "/);
+});
+
+/** Where a clock's time and actions sit, and the labels its buttons cut short. */
+function clockLayout(clock: Locator) {
+  return clock.evaluate(group => {
+    const [face, acts] = [group.querySelector('.tm-clock-face'), group.querySelector('.tm-clock-acts')].map(
+      part => part?.getBoundingClientRect() ?? new DOMRect()
+    ) as [DOMRect, DOMRect];
+    const cut = [...group.querySelectorAll('button')]
+      .filter(b => b.scrollWidth > b.clientWidth)
+      .map(b => b.textContent);
+    return { stacked: acts.top >= face.bottom, right: group.getBoundingClientRect().right, cut };
+  });
+}
+
+test('a 320px phone’s round clock keeps its time and actions on one line @mobileOnly', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 640 });
+  await mockConsole(page, partlyPlayed(8, 0, 2), settingsOf({}));
+  await page.getByRole('tablist', { name: 'Event sections' }).getByRole('tab', { name: 'Standings' }).click();
+  const head = await clockLayout(page.locator('.tm-console-hero').getByRole('group', { name: 'Round clock' }));
+  expect(head.cut).toEqual([]);
+  expect(head.stacked).toBe(false);
+  expect(head.right).toBeLessThanOrEqual(320);
+});
+
+test('a round clock too wide for a phone puts its actions under the time, every label whole @mobileOnly', async ({
+  page
+}) => {
+  await page.setViewportSize({ width: 320, height: 640 });
+  // Spanish's "Iniciar cronómetro" cannot sit beside the time on a 320px screen.
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'languages', { get: () => ['es'] });
+    Object.defineProperty(navigator, 'language', { get: () => 'es' });
+  });
+  await mockConsole(page, partlyPlayed(8, 0, 2), settingsOf({}));
+  const pin = await clockLayout(page.locator('.tm-round-pin [role="group"]'));
+  expect(pin.cut).toEqual([]);
+  expect(pin.stacked).toBe(true);
+  expect(pin.right).toBeLessThanOrEqual(320);
+  await page.locator('.tm-tabbar [role="tab"]').nth(2).click();
+  const head = await clockLayout(page.locator('.tm-console-hero [role="group"]'));
+  expect(head.cut).toEqual([]);
+  expect(head.stacked).toBe(true);
+  expect(head.right).toBeLessThanOrEqual(320);
+});
+
+test('a 320px phone wraps a store event’s four types inside the Event box @mobileOnly', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 640 });
+  await mockConsole(page, partlyPlayed(8, 0, 2), settingsOf({}));
+  await page.getByRole('tablist', { name: 'Event sections' }).getByRole('tab', { name: 'Settings' }).click();
+  const kinds = page.getByRole('radiogroup', { name: 'Event type', exact: true });
+  await expect(kinds.getByRole('radio')).toHaveCount(4);
+  const row = await kinds.evaluate(group => group.closest('.tm-set-row')!.getBoundingClientRect().right);
+  const rights = await kinds.getByRole('radio').evaluateAll(radios => radios.map(r => r.getBoundingClientRect().right));
+  expect(Math.max(...rights)).toBeLessThanOrEqual(row);
+});
+
+test('a 320px phone’s penalty form keeps each select inside its half @mobileOnly', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 640 });
+  await mockConsole(page, partlyPlayed(8, 0, 2), settingsOf({}));
+  await page.getByRole('tablist', { name: 'Event sections' }).getByRole('tab', { name: 'Penalties' }).click();
+  const form = page.locator('.tm-penalty-form');
+  await expect(form.locator('select')).toHaveCount(3);
+  const spill = await form.locator('label').evaluateAll(labels =>
+    labels.flatMap(label => {
+      const select = label.querySelector('select');
+      return select && select.getBoundingClientRect().right > label.getBoundingClientRect().right + 0.5
+        ? [label.firstChild?.textContent ?? '']
+        : [];
+    })
+  );
+  expect(spill).toEqual([]);
+});
+
+test('the penalty log and decklists that fail to load say so inside their boxes’ padding @mobile', async ({ page }) => {
+  await mockConsole(page, partlyPlayed(8, 0, 2), settingsOf({ decklists: 'open' }));
+  for (const tab of ['Penalties', 'Decklists']) {
+    await page.getByRole('tab', { name: tab, exact: true }).click();
+    const retry = page.getByRole('button', { name: 'Try again', exact: true });
+    await expect(retry).toBeVisible();
+    const box = await boxOf(page.locator('.tm-box').filter({ has: retry }));
+    const button = await boxOf(retry);
+    expect(button.x - box.x).toBeGreaterThanOrEqual(8);
+  }
+});
+
+test('a phone’s six tabs show their names whole on a 320px screen @mobileOnly', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 640 });
+  await mockConsole(page, event(8, 1, true), settingsOf({ decklists: 'open' }));
+  const bar = page.locator('.tm-tabbar');
+  await expect(bar.getByRole('tab')).toHaveCount(6);
+  await bar.getByRole('tab', { name: 'Standings' }).click();
+  // Every label fits its share of the bar, the open one too, rather than ending on an ellipsis.
+  const cut = await bar
+    .locator('[role="tab"] > span')
+    .evaluateAll(labels =>
+      labels.filter(label => label.scrollWidth > label.clientWidth).map(label => label.textContent)
+    );
+  expect(cut).toEqual([]);
+});
+
+test('a phone’s standings show a name longer than its column whole @mobileOnly', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 640 });
+  const long = { type: 'addPlayer', player: { firstName: 'Hubert', lastName: 'Wolfeschlegelsteinhausen' } } as const;
+  const t = runCommands(
+    emptyTournament({ name: 'Friday League' }),
+    long,
+    ...event(3, 0, false).players.map(
+      player => ({ type: 'addPlayer', player: { firstName: player.firstName, lastName: player.lastName } }) as const
+    ),
+    { type: 'pairRound', pod: 'masters' }
+  );
+  await mockConsole(page, t, settingsOf({}));
+  await page.locator('.tm-tabbar').getByRole('tab', { name: 'Standings' }).click();
+  const name = page.locator('.tm-standings .tm-name').filter({ hasText: 'Wolfeschlegel' });
+  await expect(name).toBeVisible();
+  expect(await name.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+});
+
 test('a phone’s locked tab says why above the bar, inside the screen @mobileOnly', async ({ page }) => {
   await mockConsole(page, event(4, 0, false), settingsOf({}));
   const bar = page.locator('.tm-tabbar');
@@ -1572,6 +1808,8 @@ test('organizer pairing rows stay compact and keep separate yellow player hover 
       .evaluate(el => getComputedStyle(el).backgroundColor);
     expect(playerFill).not.toBe(rowFill);
     await expect(row.locator('.tm-result.is-asking')).toHaveCSS('background-color', 'rgb(255, 219, 88)');
+    // The question reads in the fill's own ink in either theme, never the page's light dark-mode text.
+    await expect(row.locator('.tm-result.is-asking .tm-result-label')).toHaveCSS('color', 'rgb(33, 27, 11)');
     await page.getByRole('button', { name: 'Cancel', exact: true }).click();
   }
 });
@@ -1755,6 +1993,20 @@ test('a player’s personal clock includes their table extension @mobile', async
   await expect(page.getByText('Staff note', { exact: true })).toHaveCount(0);
 });
 
+test('the mobile result sheet keeps the table’s menu beside its number and the state at the far side @mobileOnly', async ({
+  page
+}) => {
+  await mockConsole(page, event(4, 0, true), settingsOf({}));
+  await page.locator('.tm-matches tbody tr:not(.tm-group-row)').first().click();
+  const sheet = page.getByRole('dialog', { name: 'Result, table 1', exact: true });
+  const title = await boxOf(sheet.locator('.tm-sheet-top strong'));
+  const more = await boxOf(sheet.getByRole('button', { name: 'More for table 1', exact: true }));
+  const state = await boxOf(sheet.locator('.tm-sheet-top .tm-result-label'));
+  const top = await boxOf(sheet.locator('.tm-sheet-top'));
+  expect(more.x - (title.x + title.width)).toBeLessThanOrEqual(16);
+  expect(Math.abs(state.x + state.width - (top.x + top.width))).toBeLessThanOrEqual(1);
+});
+
 test('Escape closes the extension menu before the mobile result sheet @mobileOnly', async ({ page }) => {
   await mockConsole(page, event(4, 0, true), settingsOf({}));
   await page.locator('.tm-matches tbody tr:not(.tm-group-row)').first().click();
@@ -1835,6 +2087,28 @@ test('staff see a drop request on the Players tab and confirm it by its ID in on
   expect(sent).toHaveLength(0);
   await expect(requests).toContainText('Confirmed · Organizer');
   await expect(page.getByRole('tab', { name: 'Players', exact: true })).toBeVisible();
+});
+
+test('on a 320px phone a drop request stacks in its box, its table named and its answers in reach @mobileOnly', async ({
+  page
+}) => {
+  await page.setViewportSize({ width: 320, height: 700 });
+  const t = event(8, 0, true);
+  const player = t.players[0]!;
+  const asked: PlayerRequest = { id: 'request-1', player: player.id, kind: 'drop', at: 1, status: 'open' };
+  await mockConsole(page, t, settingsOf({}), [], false, [asked]);
+  await page.getByRole('tab', { name: 'Players · 1 drop' }).click();
+  const requests = page.getByRole('region', { name: 'Player requests' });
+  const seat = await requests
+    .getByRole('cell')
+    .nth(1)
+    .evaluate(cell => getComputedStyle(cell, '::before').content);
+  expect(seat).toBe('"Table "');
+  const box = await requests.evaluate(el => el.getBoundingClientRect().right);
+  for (const name of ['Confirm drop', 'Decline']) {
+    const right = await requests.getByRole('button', { name }).evaluate(el => el.getBoundingClientRect().right);
+    expect(right).toBeLessThanOrEqual(box);
+  }
 });
 
 test('an open drop request holds the next pairing until it is answered, or paired past on purpose', async ({

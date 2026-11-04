@@ -96,12 +96,12 @@
     height: 56px;
   }
   .tm-profile-links {
-    margin: 0 0 0 -11px;
+    margin: 0 0 0 -13px;
   }
 }
 @media (max-width: 640px), (pointer: coarse) {
   .tm-profile-links a {
     min-height: 44px;
-    min-width: 40px;
+    min-width: 44px;
   }
 }

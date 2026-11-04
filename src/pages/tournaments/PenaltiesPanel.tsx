@@ -460,7 +460,11 @@ function LogState(props: {
   return (
     <Show
       when={!props.failed}
-      fallback={<RetryError error={t('Penalty notes could not be loaded.')} onRetry={() => props.onRetry()} small />}
+      fallback={
+        <div class='tm-box-bar'>
+          <RetryError error={t('Penalty notes could not be loaded.')} onRetry={() => props.onRetry()} small />
+        </div>
+      }
     >
       <Show when={!props.loading} fallback={<Skeleton height='160px' />}>
         <Show when={props.empty === null} fallback={<p class='muted tm-empty'>{props.empty}</p>}>
@@ -634,7 +638,9 @@ export function PenaltiesPanel(props: { state: ManageState; manage: Manage }) {
           onShown={setShown}
         />
         <Show when={shown() === 'checks' && checks.error}>
-          <RetryError error={t('Deck checks could not be loaded.')} onRetry={() => void retryChecks()} small />
+          <div class='tm-box-bar'>
+            <RetryError error={t('Deck checks could not be loaded.')} onRetry={() => void retryChecks()} small />
+          </div>
         </Show>
         <LogState
           failed={notes.failed()}

@@ -10,7 +10,7 @@
  */
 
 import { readFileSync } from 'node:fs';
-import { expect, type Page, type Route } from '@playwright/test';
+import { expect, type Locator, type Page, type Route } from '@playwright/test';
 import { test } from './network-guard';
 
 import type { AccountRole } from '../../shared/accounts/roles';
@@ -220,6 +220,34 @@ test('an event’s link rested on reads the event ahead of the click, and the pa
   await expect(page).toHaveURL(/\/t\/CUP001$/);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Apart');
   expect(read.filter(code => code === 'CUP001').length).toBe(before + 1);
+});
+
+test('the Place head fits its column on a 320px phone, at History’s type and the dashboard’s larger one @mobileOnly', async ({
+  page
+}) => {
+  await page.setViewportSize({ width: 320, height: 640 });
+  // Spanish's "Puesto" is the longest of the heads.
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'languages', { get: () => ['es'] });
+    Object.defineProperty(navigator, 'language', { get: () => 'es' });
+  });
+  await mockAccount(page);
+  await publishCopies(page);
+  for (const path of ['/history', '/?tab=playing']) {
+    await page.goto(path);
+    const head = page.locator('.tm-hist th.tm-hist-place').first();
+    await expect(head).toHaveText('Puesto');
+    const spill = await head.evaluate(th => {
+      const text = document.createRange();
+      text.selectNodeContents(th);
+      const style = getComputedStyle(th);
+      return (
+        text.getBoundingClientRect().width -
+        (th.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight))
+      );
+    });
+    expect(spill).toBeLessThanOrEqual(1);
+  }
 });
 
 test('History signed out offers sign-in, and asks for no History', async ({ page }) => {
@@ -537,6 +565,42 @@ test('Settings opens on the player profile, keeps its section in the address, an
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Username');
   await nav.getByRole('button', { name: 'Player profile' }).click();
   await expect(page.getByLabel('First name')).toHaveValue('Marianne');
+});
+
+/** How far the open item of a side nav’s phone tab row runs past the row's edges, 0 when it shows whole. */
+const navSpill = (nav: Locator) =>
+  nav.evaluate(row => {
+    const strip = row.getBoundingClientRect();
+    const open = row.querySelector('[aria-current="page"]')!.getBoundingClientRect();
+    return Math.max(0, strip.left - open.left, open.right - strip.right);
+  });
+
+test('Settings opened at a section on a phone shows that section’s tab whole in its tab row @mobileOnly', async ({
+  page
+}) => {
+  await page.setViewportSize({ width: 320, height: 640 });
+  await mockSettings(page, ME);
+  await page.goto('/settings?section=data');
+  const nav = page.getByRole('navigation', { name: 'Settings' });
+  await expect(nav.getByRole('button', { name: 'Your data' })).toHaveAttribute('aria-current', 'page');
+  expect(await navSpill(nav)).toBe(0);
+});
+
+test('on a 320px phone, a long French Sign out leaves a long name and handle their room @mobileOnly', async ({
+  page
+}) => {
+  await page.setViewportSize({ width: 320, height: 640 });
+  await mockSettings(page, { ...ME, name: 'Maximiliano Hernández-Villanueva', handle: 'maximiliano_hv' });
+  await page.goto('/settings?lang=fr');
+  await expect(page.getByRole('button', { name: 'Se déconnecter' })).toBeVisible();
+  for (const line of [page.locator('.tm-settings-name'), page.locator('.tm-settings-handle')]) {
+    expect(await line.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+  }
+  // Each word of the name stays whole: two lines at most, never one per syllable.
+  const name = page.locator('.tm-settings-name');
+  expect(
+    await name.evaluate(el => el.getBoundingClientRect().height <= 2.5 * parseFloat(getComputedStyle(el).lineHeight))
+  ).toBe(true);
 });
 
 test('Settings: a profile save that is refused names each problem on its field and moves focus to the first', async ({
@@ -1069,6 +1133,23 @@ test('on a device that never asked, an account linked by its Claim reports as it
   await expect
     .poll(() => reportsSent(asks))
     .toEqual([{ popId: undefined, lastName: 'Ketchum', firstName: 'Ash', reportToken: null }]);
+});
+
+test('on a 320px phone, every report answer stays inside the match box @mobileOnly', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 640 });
+  const { code } = await mockEvent(page, roundOne(false), {
+    sanctioned: false,
+    user: { ...ME, popId: null },
+    linked: true,
+    tokenless: true
+  });
+  await page.goto(`/t/${code}`);
+  await page.getByRole('button', { name: 'Report result' }).click();
+  const box = await page.locator('.tm-you').boundingBox();
+  for (const name of ['I won', 'I lost', 'Tie']) {
+    const answer = await page.getByRole('button', { name, exact: true }).boundingBox();
+    expect((answer?.x ?? 0) + (answer?.width ?? 0)).toBeLessThanOrEqual((box?.x ?? 0) + (box?.width ?? 0));
+  }
 });
 
 test('on a device that never asked, an account that holds its player’s seat by POP ID reports without a token', async ({
@@ -1631,6 +1712,32 @@ test('a player whose Application is pending has the Organizing tab, which a relo
     'true'
   );
   await expect(page.locator('.tm-applicant-line')).toHaveText('Application pending');
+});
+
+test('on a phone, a pending Application’s words start the line under Organizing @mobileOnly', async ({ page }) => {
+  await mockDashboard(page, ME);
+  await page.route('**/api/applications/mine', route =>
+    route.fulfill({
+      json: {
+        application: {
+          id: 'app-1',
+          status: 'pending',
+          explanation: '',
+          createdAt: 0,
+          decidedAt: null,
+          note: null,
+          store: null
+        },
+        eligible: { profile: true, email: true }
+      }
+    })
+  );
+  await page.goto('/?tab=organizing');
+  const words = page.locator('.tm-applicant-words');
+  await expect(words).toHaveText('Application pending');
+  const heading = await page.getByRole('heading', { name: 'Organizing', level: 1 }).boundingBox();
+  const line = await words.boundingBox();
+  expect(Math.abs((line?.x ?? 0) - (heading?.x ?? -9))).toBeLessThanOrEqual(1);
 });
 
 test('the dashboard’s tabs move with the arrow keys, and name the panel they open', async ({ page }) => {

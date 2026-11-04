@@ -161,8 +161,9 @@
   .tm-hist td.tm-hist-deck > * {
     display: none;
   }
+  /* In ems, so the head fits at the dashboard's larger type as at the page's. */
   .tm-hist th.tm-hist-place {
-    width: 44px;
+    width: 5em;
   }
   .tm-hist th.tm-hist-record {
     width: 64px;

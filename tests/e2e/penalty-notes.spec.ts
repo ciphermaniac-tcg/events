@@ -332,6 +332,25 @@ test('deck checks read in among the notes when the event takes decklists', async
   await expect(page.getByText('No notes match.')).toBeVisible();
 });
 
+test('on a 320px phone, removing a note asks with both answers inside the log @mobileOnly', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 640 });
+  const t = runCommands(emptyTournament({ name: 'Friday League' }), ...adds, { type: 'pairRound', pod: 'masters' });
+  await mockConsole(page, t);
+  const form = page.locator('.tm-penalty-form');
+  await pickPlayer(form, 'Ada');
+  await form.getByLabel('Penalty').selectOption({ label: 'Warning' });
+  await form.getByRole('button', { name: 'Save note' }).click();
+  const log = page.locator('.tm-penalty-log');
+  await log.getByRole('button', { name: 'Remove' }).click();
+  const question = log.getByRole('group', { name: 'Remove this penalty note?' });
+  const edge = await log.evaluate(table => table.getBoundingClientRect().right);
+  const rights = await question
+    .getByRole('button')
+    .evaluateAll(buttons => buttons.map(b => b.getBoundingClientRect().right));
+  expect(rights).toHaveLength(2);
+  expect(Math.max(...rights)).toBeLessThanOrEqual(edge);
+});
+
 test('a row a search or round keeps is the same row, still open as it was', async ({ page }) => {
   const t = runCommands(emptyTournament({ name: 'Friday League' }), ...adds, { type: 'pairRound', pod: 'masters' });
   await mockConsole(page, t);

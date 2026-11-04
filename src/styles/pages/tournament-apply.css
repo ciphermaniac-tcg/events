@@ -56,4 +56,12 @@
   .tm-applicant-step {
     margin-left: 0;
   }
+  /* Under the heading on a phone, where the account stands starts the line as the page's text does. */
+  .tm-applicant-line {
+    justify-content: flex-start;
+  }
+  /* Under the heading on a phone, the step fills the line as every page's own step does. */
+  .tm-applicant-line > .btn {
+    flex: 1;
+  }
 }

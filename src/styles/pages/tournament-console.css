@@ -20,6 +20,8 @@
 .tm-console .tm-meta-lead {
   color: var(--fg);
   font-weight: 500;
+  /* Long in some languages: it wraps within itself rather than running off a phone. */
+  white-space: normal;
 }
 .tm-console-steps {
   display: flex;
@@ -213,8 +215,11 @@
   gap: var(--space-2);
   display: flex;
   align-items: baseline;
-  justify-content: space-between;
   font-size: var(--text-lg);
+}
+/* The table's menu stays by its number; the state goes to the far side. */
+.tm-console .tm-sheet-top > :last-child {
+  margin-left: auto;
 }
 .tm-console .tm-sheet-seats {
   display: grid;
@@ -309,7 +314,7 @@
     width: auto;
   }
   .tm-console .tm-round-pin .tm-clock-group {
-    flex: 1 0 auto;
+    flex: auto;
   }
   .tm-console .tm-grow {
     display: none;
@@ -322,11 +327,10 @@
     margin-inline: calc(-1 * var(--space-2));
   }
   .tm-console .tm-round-pin .tm-clock-face {
-    flex: 1;
     min-width: 64px;
-    padding: 0 var(--space-2);
+    padding-inline: var(--space-2);
   }
-  .tm-console .tm-round-pin .tm-clock-group button {
+  .tm-console :is(.tm-round-pin, .tm-console-steps) .tm-clock-group button {
     min-width: 44px;
     padding: 0 var(--space-2);
   }
@@ -356,14 +360,12 @@
   .tm-console .tm-matches .data td.tm-table-col {
     font-size: var(--text-base);
   }
+  /* "Table 2", or a bye's own word, in the page's language. */
   .tm-console .tm-matches .data td.tm-table-col::before {
-    content: 'Table ';
+    content: attr(data-label) ' ';
   }
   .tm-console .tm-matches .data td.tm-table-col.is-bye .tm-table-num {
     display: none;
-  }
-  .tm-console .tm-matches .data td.tm-table-col.is-bye::before {
-    content: 'Bye';
   }
   /* The row already reads "Bye", so the empty seat does not say it again. */
   .tm-console .tm-matches .data tr:has(.tm-table-col.is-bye) td.tm-seat:has(> .muted-cell) {
@@ -405,9 +407,6 @@
   white-space: nowrap;
   color: var(--fg);
 }
-.tm-console .tm-result-label.is-problem {
-  color: color-mix(in srgb, var(--negative) 82%, var(--fg));
-}
 .tm-console .tm-result-acts {
   display: inline-flex;
   justify-content: flex-end;
@@ -448,6 +447,11 @@
     width: 100%;
     justify-content: center;
   }
+  /* The round's question takes its own line and its answers the next, never
+     one answer beside it and one under it. */
+  .tm-console .tm-round-acts .tm-confirm-label {
+    flex-basis: 100%;
+  }
 }
 @media (max-width: 900px) {
   .tm-console .tm-roster,
@@ -484,6 +488,14 @@
   .tm-console .tm-roster :is(.tm-who-sub, .tm-name) {
     white-space: normal;
   }
+  /* A flag beside a name that no longer fits drops under it, rather than squeezing the name to "Te…". */
+  .tm-console .tm-roster .tm-who-name {
+    flex-wrap: wrap;
+    column-gap: var(--space-2);
+  }
+  .tm-console .tm-roster .tm-flag {
+    margin: 0;
+  }
   .tm-console .tm-roster .tm-rounds-cell {
     grid-area: rounds;
   }
@@ -500,8 +512,11 @@
     justify-content: flex-end;
     margin-right: calc(-1 * var(--space-2));
   }
+  /* A long Reinstate, as German's, takes two lines rather than the name's room. */
   .tm-console .tm-roster td.tm-extra-col .btn {
     min-width: 0;
+    max-width: 7em;
+    white-space: normal;
   }
   .tm-console .tm-roster .tm-rounds-cell:empty,
   .tm-console .tm-roster .tm-extra-col:empty {
@@ -710,6 +725,10 @@
   .tm-console .tm-penalty-form {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }
+  /* A select is as wide as its longest option unless told otherwise, which ran it out of its half. */
+  .tm-console .tm-penalty-form .tm-select {
+    min-width: 0;
+  }
   .tm-console .tm-penalty-notes {
     grid-column: 1 / -1;
   }
@@ -751,6 +770,40 @@
   }
 }
 @media (max-width: 640px) {
+  /* A request stacks as the roster's rows do: the player, then where and what on one muted line, then its answers. */
+  .tm-console .tm-requests,
+  .tm-console .tm-requests tbody,
+  .tm-console .tm-requests td {
+    display: block;
+  }
+  .tm-console .tm-requests thead {
+    display: none;
+  }
+  /* The organizer row height would hold each stacked cell at 52px. */
+  .tm-console .tm-requests {
+    --tm-row-height: auto;
+  }
+  .tm-console .tm-requests tr {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px 14px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .tm-console .table-wrap .tm-requests td {
+    padding: 0;
+    border: 0;
+    white-space: normal;
+  }
+  .tm-console .tm-requests :is(td:first-child, td:last-child) {
+    flex-basis: 100%;
+  }
+  .tm-console .tm-requests td:not(:first-child, :last-child) {
+    color: var(--muted);
+  }
+  .tm-console .tm-requests td[data-label]::before {
+    content: attr(data-label) ' ';
+  }
   .tm-console .tm-lists,
   .tm-console .tm-lists tbody,
   .tm-console .tm-lists tr,
@@ -776,6 +829,16 @@
   }
   .tm-console .tm-lists .tm-list-sprite {
     grid-row: span 3;
+  }
+  /* With archetypes off there is no deck to show, so the name starts the row. */
+  .tm-console .tm-lists tr:has(> .tm-list-sprite:empty) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .tm-console .tm-lists .tm-list-sprite:empty {
+    display: none;
+  }
+  .tm-console .tm-lists tr:has(> .tm-list-sprite:empty) > .tm-extra-col {
+    grid-column: 1;
   }
   .tm-console .tm-lists .tm-list-when {
     width: auto;
@@ -924,7 +987,6 @@
   text-overflow: ellipsis;
   font-size: var(--text-base);
   font-weight: 600;
-  color: var(--fg);
   white-space: normal;
   overflow: visible;
 }
@@ -1050,11 +1112,8 @@
   .tm-console .tm-matches table.data {
     table-layout: fixed;
   }
-  .tm-console .tm-matches.has-extra th.tm-extra-col {
-    width: max(240px, calc(var(--text-base) * 16));
-  }
 }
-@media (min-width: 1101px) {
+@media (min-width: 901px) {
   .tm-console .tm-matches.has-extra th.tm-extra-col {
     width: max(240px, calc(var(--text-base) * 16));
   }
@@ -1075,10 +1134,6 @@
   }
 }
 @media (max-width: 640px) {
-  .tm-console .tm-standings .tm-who-sub {
-    white-space: normal;
-    overflow-wrap: anywhere;
-  }
   .tm-console .tm-standings .tm-cut-line .muted {
     display: block;
     margin-top: 4px;
@@ -1092,8 +1147,9 @@
   .tm-console .tm-lists .tm-list-columns {
     padding: 12px 14px;
   }
+  /* "Table 2" keeps its width; a result's long words wrap beside it rather than over it. */
   .tm-console .tm-matches .data tr:not(.tm-group-row) {
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: auto minmax(0, 1fr);
     grid-template-areas:
       'table extra'
       'player player'
@@ -1101,6 +1157,17 @@
     padding: 10px var(--space-3) var(--space-3);
     padding-block: 14px;
     row-gap: 4px;
+  }
+  .tm-console .tm-matches .data tr:not(.tm-group-row) > :is(.tm-table-col, .tm-extra-col) {
+    align-self: baseline;
+  }
+}
+/* On the narrowest phones the deck's name under each player says what its sprite
+   would, so the sprite's room goes to the name. */
+@media (max-width: 380px) {
+  .tm-console .tm-standings .tm-deck,
+  .tm-console .tm-standings .tm-seat-link::before {
+    display: none;
   }
 }
 .tm-console .tm-deck-cell .tl-combo-lead {

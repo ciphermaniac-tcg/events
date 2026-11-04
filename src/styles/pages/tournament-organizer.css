@@ -96,6 +96,11 @@
     max-width: 100%;
     transform: none !important;
   }
+  /* An event's two lines take their own height, not a table row's each, so its name sits level with its players. */
+  .tm-organizer-surface .tm-page .data.tm-host-table td {
+    height: auto;
+    padding-block: 0;
+  }
 }
 
 .tm-organizer-surface .tm-result-options {

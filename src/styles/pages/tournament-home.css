@@ -388,6 +388,7 @@ body.tm-home-mode .head-bar {
 }
 .tm-hp-signin {
   display: inline-flex;
+  flex: none;
   align-items: center;
   height: 26px;
   padding: 0 10px;
@@ -571,15 +572,22 @@ body.tm-home-mode .head-bar {
   font-size: 26px;
   font-weight: 600;
 }
+/* The handle wraps under the name flush, as on the profile itself. */
 .tm-hpr-name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: var(--space-2);
   margin: 0;
   font-size: 26px;
   font-weight: 700;
   letter-spacing: -0.02em;
   line-height: 1.15;
 }
+.tm-hpr .tm-badges {
+  margin-left: -5px;
+}
 .tm-hpr-name small {
-  margin-left: var(--space-2);
   font-size: 15px;
   font-weight: 400;
   letter-spacing: 0;
@@ -613,7 +621,7 @@ body.tm-home-mode .head-bar {
 }
 .tm-hpr-table td {
   height: 62px;
-  padding: 0 14px;
+  padding: var(--space-2) 14px;
   border-top: 1px solid var(--rule);
 }
 .tm-hpr-table b {
@@ -621,6 +629,7 @@ body.tm-home-mode .head-bar {
 }
 .tm-hpr-tag {
   margin-left: var(--space-2);
+  white-space: nowrap;
   padding: 0 6px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
@@ -703,6 +712,10 @@ body.tm-home-mode .head-bar {
   .tm-home-signin {
     justify-self: stretch;
     width: 100%;
+  }
+  /* The closing sign-in spans the column, as the hero's does. */
+  .tm-home-end {
+    display: grid;
   }
   .tm-home-pair {
     grid-template-columns: minmax(0, 1fr);

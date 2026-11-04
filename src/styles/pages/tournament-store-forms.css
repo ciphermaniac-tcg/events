@@ -46,8 +46,9 @@
   .tm-night > .tm-input:not(.tm-night-time, .tm-night-fee) {
     grid-column: 1 / -1;
   }
+  /* Remove ends its row at the fields' edge, rather than floating at the middle of the line. */
   .tm-night > .btn {
-    justify-self: start;
+    justify-self: end;
   }
 }
 /* As the field's own 16px there. */

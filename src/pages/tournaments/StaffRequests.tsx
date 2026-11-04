@@ -33,6 +33,9 @@ function seatText(manage: Manage, id: string): string {
   return seat === 'bye' ? t('Bye') : seat === null ? '—' : String(seat);
 }
 
+const seatLabel = (manage: Manage, id: string) =>
+  typeof seatOf(manage.tournament, id) === 'number' ? t('Table') : undefined;
+
 /** Open requests first, oldest first; then answered ones, latest first. Cancelled ones ask nothing. */
 const ordered = (requests: readonly PlayerRequest[]) => [
   ...requests.filter(request => request.status === 'open').sort((a, b) => a.at - b.at),
@@ -88,7 +91,10 @@ export function StaffRequests(props: { state: ManageState; manage: Manage }) {
                 {request => (
                   <tr>
                     <td>{name(request.player)}</td>
-                    <td class='tm-num'>{seatText(props.manage, request.player)}</td>
+                    {/* A phone names the seat as a table, its head gone (see tournament-console.css). */}
+                    <td class='tm-num' data-label={seatLabel(props.manage, request.player)}>
+                      {seatText(props.manage, request.player)}
+                    </td>
                     <td>{kindLabel(request.kind)}</td>
                     <td class='tm-num'>{timeOfDay(request.at)}</td>
                     <td>

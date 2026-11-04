@@ -700,8 +700,8 @@ function DeleteEvent(props: { manage: Manage }) {
           disabled={lists.loading}
           onConfirm={() => void remove()}
         />
+        <ErrorLine message={error()} />
       </SettingRow>
-      <ErrorLine message={error()} />
     </section>
   );
 }
@@ -747,8 +747,9 @@ function BigScreenPreset(props: { state: ManageState; manage: Manage }) {
           <option value=''>{t('Automatic')}</option>
           <For each={choices()}>{preset => <option value={preset.id}>{preset.name}</option>}</For>
         </select>
+        {/* Under the field, as every setting's error is. */}
+        <ErrorLine message={read.error ? errorText(read.error) : null} />
       </SettingRow>
-      <ErrorLine message={read.error ? errorText(read.error) : null} />
     </SettingsBox>
   );
 }

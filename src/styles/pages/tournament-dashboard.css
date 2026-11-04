@@ -67,6 +67,7 @@
   margin-top: 2px;
   font-size: var(--text-xl);
   font-weight: 700;
+  line-height: 1.25;
 }
 .tm-dash-live-deck {
   display: flex;
@@ -138,6 +139,11 @@
 .tm-welcome-steps li > * {
   grid-column: 2;
   justify-self: start;
+}
+/* A 44px tap from padding the margin gives back, as the store's links take. */
+.tm-welcome-steps a {
+  padding-block: var(--space-3);
+  margin-block: calc(-1 * var(--space-3));
 }
 .tm-welcome-run {
   margin: 0;

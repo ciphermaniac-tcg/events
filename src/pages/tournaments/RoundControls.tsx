@@ -21,15 +21,18 @@ export function ClockControls(props: { state: ManageState; pod: Pod; round: Roun
       <span class='tm-clock-face'>
         <Clock round={props.round} set />
       </span>
-      <button type='button' onClick={() => send(running() ? 'stopClock' : 'startClock')}>
-        {running() ? t('Pause') : props.round.startTime ? t('Resume') : t('Start clock')}
-      </button>
-      <button type='button' aria-label={t('Add a minute')} onClick={() => adjust(60)}>
-        +1
-      </button>
-      <button type='button' aria-label={t('Take a minute off')} onClick={() => adjust(-60)}>
-        −1
-      </button>
+      {/* One unit, so a narrow screen moves the actions under the time together, never one alone. */}
+      <span class='tm-clock-acts'>
+        <button type='button' onClick={() => send(running() ? 'stopClock' : 'startClock')}>
+          {running() ? t('Pause') : props.round.startTime ? t('Resume') : t('Start clock')}
+        </button>
+        <button type='button' aria-label={t('Add a minute')} onClick={() => adjust(60)}>
+          +1
+        </button>
+        <button type='button' aria-label={t('Take a minute off')} onClick={() => adjust(-60)}>
+          −1
+        </button>
+      </span>
     </span>
   );
 }

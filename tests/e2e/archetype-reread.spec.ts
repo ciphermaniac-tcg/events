@@ -103,3 +103,33 @@ test('an event with no pasted lists, or with archetypes off, has nothing to re-r
   await expect(page.locator('.tm-lists tbody tr')).toHaveCount(1);
   await expect(page.getByRole('button', { name: 'Re-read archetypes' })).toHaveCount(0);
 });
+
+test('on a phone with archetypes off, a list’s name starts its row instead of past an empty deck slot @mobileOnly', async ({
+  page
+}) => {
+  const settings: TournamentSettings = { ...DEFAULT_SETTINGS, decklists: 'open', deckVisibility: 'off' };
+  await page.route('**/api/**', route => {
+    const url = new URL(route.request().url());
+    if (url.pathname === '/api/me') {
+      return route.fulfill({ json: organizerMe() });
+    }
+    if (url.pathname === `/api/tournaments/${CODE}/manage`) {
+      const manage = manageOf(CODE, runCommands(emptyTournament({ name: 'Friday League' }), ...adds), { settings });
+      return url.searchParams.has('since') ? route.fulfill({ status: 204 }) : route.fulfill({ json: manage });
+    }
+    if (url.pathname === `/api/tournaments/${CODE}/decklists`) {
+      return route.fulfill({ json: { decklists: [list('Dragapult')], mine: null } });
+    }
+    return route.fulfill({ status: 404, json: { error: 'Not found' } });
+  });
+  await page.goto(`/host/${CODE}`);
+  await page.getByRole('tab', { name: 'Decklists' }).click();
+  const row = page.locator('.tm-lists tbody tr').first();
+  const start = await row.evaluate(
+    el => el.getBoundingClientRect().left + parseFloat(getComputedStyle(el).paddingLeft)
+  );
+  const name = await row.locator('.tm-name').evaluate(el => el.getBoundingClientRect().left);
+  expect(name).toBe(start);
+  const actions = await row.locator('.tm-row-actions').evaluate(el => el.getBoundingClientRect().left);
+  expect(actions).toBeLessThan(start);
+});

@@ -140,6 +140,8 @@
   .tm-store-staff,
   .tm-store-staff tbody {
     display: block;
+    /* An organizer page's row height would hold each cell of a stacked row at 52px, the words at its top. */
+    --tm-row-height: auto;
   }
   .tm-store-staff tr {
     display: grid;
@@ -188,7 +190,7 @@
 .tm-display-editor .tm-set-inline > .tm-input {
   width: 88px;
 }
-.tm-display-step {
+:where(.tm-display-step) {
   min-width: 34px;
   justify-content: center;
 }

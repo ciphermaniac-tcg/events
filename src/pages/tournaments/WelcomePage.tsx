@@ -62,7 +62,7 @@ export function WelcomePage() {
             </Switch>
           </Match>
           <Match when={true}>
-            <form class='tm-box-bar tm-add-row' onSubmit={event => void send(event)}>
+            <form class='tm-box-bar tm-add-row tm-welcome-form' onSubmit={event => void send(event)}>
               <Field id='welcome-birth' label={t('Birth date')}>
                 <input
                   id='welcome-birth'

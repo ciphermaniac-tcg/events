@@ -10,6 +10,10 @@
 .tm-storepage .tm-hero {
   margin-bottom: 0;
 }
+/* The way back sits on the title as on every other page, not a section's gap above it. */
+.tm-storepage > .tm-trail {
+  margin-bottom: calc(var(--space-2) - var(--section-gap));
+}
 .tm-storepage-top {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -88,6 +92,9 @@ body[data-mode='dark'] .tm-store-tile {
   font-size: var(--text-base);
 }
 .tm-storepage-links a {
+  /* A 44px tap from padding the margin gives back, so the line keeps its height. */
+  padding-block: var(--space-3);
+  margin-block: calc(-1 * var(--space-3));
   color: var(--accent-ink);
   font-weight: 500;
 }
@@ -134,9 +141,6 @@ body[data-mode='dark'] .tm-store-tile {
 .tm-storepage-none {
   margin: var(--space-2) 0 0;
   font-size: var(--text-sm);
-}
-.tm-storepage-events .tm-flag {
-  margin-left: var(--space-2);
 }
 
 @media (max-width: 760px) {

@@ -254,7 +254,9 @@ function NoLists(props: { loading: boolean; failed: boolean; onRetry: () => void
   return (
     <Switch fallback={<p class='muted tm-empty'>{t('No decklists yet.')}</p>}>
       <Match when={props.failed}>
-        <RetryError error={t('The decklists could not be loaded.')} onRetry={() => props.onRetry()} small />
+        <div class='tm-box-bar'>
+          <RetryError error={t('The decklists could not be loaded.')} onRetry={() => props.onRetry()} small />
+        </div>
       </Match>
       <Match when={props.loading}>
         <Skeleton height='160px' />

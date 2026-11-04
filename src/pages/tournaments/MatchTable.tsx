@@ -267,7 +267,11 @@ export function MatchTable(props: MatchTableProps) {
                         match.p2 !== null && !(event.target as Element).closest('a') && props.onRow?.(match)
                       }
                     >
-                      <td class='num muted-cell tm-table-col' classList={{ 'is-bye': !match.table }}>
+                      <td
+                        class='num muted-cell tm-table-col'
+                        classList={{ 'is-bye': !match.table }}
+                        data-label={match.table ? t('Table') : t('Bye')}
+                      >
                         <span class='tm-table-num'>{match.table || '—'}</span>
                       </td>
                       <SeatCell {...props} match={match} shownOf={shownOf} seat={1} records={records()} />

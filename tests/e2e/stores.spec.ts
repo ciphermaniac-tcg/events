@@ -545,6 +545,41 @@ test('store settings: a manager who makes themselves staff is asked in a dialog,
   await expect(page).toHaveURL(/\/stores\/store-1$/);
 });
 
+test('store settings: a phone’s staff rows set each name level with its row’s middle @mobileOnly', async ({ page }) => {
+  await mock(page, { user: MANAGER });
+  await page.goto('/stores/store-1/settings?section=staff');
+  const rows = page.locator('.tm-store-staff tbody tr');
+  await expect(rows).toHaveCount(3);
+  const offsets = await rows.evaluateAll(trs =>
+    trs.map(tr => {
+      const row = tr.getBoundingClientRect();
+      const text = document.createRange();
+      text.selectNodeContents(tr.querySelector('td')!.firstChild!);
+      const name = text.getBoundingClientRect();
+      return Math.abs(name.top + name.height / 2 - (row.top + row.height / 2));
+    })
+  );
+  for (const offset of offsets) {
+    expect(offset).toBeLessThanOrEqual(1);
+  }
+});
+
+test('store settings opened at a section on a phone shows that section’s tab whole in its tab row @mobileOnly', async ({
+  page
+}) => {
+  await page.setViewportSize({ width: 320, height: 640 });
+  await mock(page, { user: MANAGER });
+  await page.goto('/stores/store-1/settings?section=displays');
+  const nav = page.getByRole('navigation', { name: 'Store settings' });
+  await expect(nav.getByRole('button', { name: 'Displays' })).toHaveAttribute('aria-current', 'page');
+  const spill = await nav.evaluate(row => {
+    const strip = row.getBoundingClientRect();
+    const open = row.querySelector('[aria-current="page"]')!.getBoundingClientRect();
+    return Math.max(0, strip.left - open.left, open.right - strip.right);
+  });
+  expect(spill).toBe(0);
+});
+
 test('store settings: staff change role, invite links show once and withdraw', async ({ page }) => {
   const asks = await mock(page, { user: MANAGER });
   await page.goto('/stores/store-1/settings?section=staff');

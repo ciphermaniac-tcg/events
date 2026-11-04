@@ -37,6 +37,18 @@ test('the home page plays a sample event on the big screen, a phone and a profil
   await expect(page.locator('.tm-hpr-name')).toContainText('@rosematcha');
 });
 
+test('the sample phone’s Sign in keeps to one line inside its button, in Spanish too @mobile', async ({ page }) => {
+  // "Iniciar sesión" is the longest of the site's words for it.
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'languages', { get: () => ['es'] });
+    Object.defineProperty(navigator, 'language', { get: () => 'es' });
+  });
+  await signedOut(page);
+  const signIn = page.locator('.tm-hp-signin');
+  await expect(signIn).toHaveText('Iniciar sesión');
+  expect(await signIn.evaluate(button => button.scrollHeight <= button.clientHeight)).toBe(true);
+});
+
 test('leaving the home page gives the reader their own mode back', async ({ page }) => {
   await signedOut(page);
   await expect(page.locator('body')).toHaveClass(/tm-home-mode/);

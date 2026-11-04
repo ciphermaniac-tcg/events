@@ -221,6 +221,24 @@ test('a registered Player ID asks its birth year, then opens the registration to
   expect(calls.at(-1)).toMatchObject({ method: 'DELETE', query: { popId: '7', birthYear: '1998' } });
 });
 
+test('on a 320px phone, the withdraw question keeps both answers inside the box @mobileOnly', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 640 });
+  await mockEvent(page, { entryFee: 10 });
+  await page.goto(`/t/${CODE}?tab=decklist`);
+  await page.getByRole('textbox', { name: 'Player ID' }).fill('7');
+  await page.getByRole('button', { name: 'Continue' }).click();
+  await page.getByRole('textbox', { name: 'Birth year' }).fill('1998');
+  await page.getByRole('button', { name: 'Continue' }).click();
+  await page.getByRole('button', { name: 'More' }).click();
+  await page.getByRole('button', { name: 'Withdraw' }).click();
+  const box = await page.locator('.tm-reg').boundingBox();
+  const keep = await page
+    .getByRole('group', { name: 'Withdraw' })
+    .getByRole('button', { name: 'Keep my spot' })
+    .boundingBox();
+  expect((keep?.x ?? 0) + (keep?.width ?? 0)).toBeLessThanOrEqual((box?.x ?? 0) + (box?.width ?? 0));
+});
+
 test('any other Player ID registers, with a pasted list, and is told when check-in is @mobile', async ({ page }) => {
   const { calls } = await mockEvent(page, { checkInAt: '2099-10-24T10:00' });
   await page.goto(`/t/${CODE}?tab=decklist`);
