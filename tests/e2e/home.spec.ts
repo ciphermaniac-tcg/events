@@ -55,11 +55,15 @@ test('the sample console’s tabs open their panels, and In progress keeps only 
   const rows = sample.locator('.tm-hc-pairs tbody tr');
   await expect(rows).toHaveCount(8);
   await sample.getByRole('radio', { name: 'In progress' }).click();
-  const reported = Number((await sample.locator('.tm-hc-tally').textContent())?.match(/\d+/)?.[0]);
+  const tally = async () => Number((await sample.locator('.tm-hc-tally').textContent())?.match(/\d+/)?.[0]);
+  const reported = await tally();
   await expect(rows).toHaveCount(8 - reported);
   await expect(rows.locator('td:last-child')).toHaveText(Array(8 - reported).fill('—'));
+  // A result due the moment the clock paused lands with the next, so this
+  // step can land more than one.
   await page.clock.runFor(330);
-  await expect(rows).toHaveCount(Math.max(0, 7 - reported));
+  await expect.poll(tally).toBeGreaterThan(reported);
+  await expect(rows).toHaveCount(8 - (await tally()));
 });
 
 test('the sample console’s tabs move with the arrow keys', async ({ page }) => {
