@@ -895,6 +895,7 @@ export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod
                 views={
                   <Show when={cut()}>
                     <Segmented
+                      class='tm-show-tables'
                       options={matchViews()}
                       selected={matchView()}
                       onSelect={setMatchView}

@@ -2466,4 +2466,110 @@ test.describe('on a phone held sideways', () => {
     expect(sizes.length).toBeGreaterThan(0);
     expect(new Set(sizes)).toEqual(new Set(['16px']));
   });
+
+  test('the penalty form keeps each select inside its column and the box', async ({ page }) => {
+    await page.setViewportSize({ width: 667, height: 375 });
+    await mockConsole(page, partlyPlayed(8, 0, 2), settingsOf({}));
+    await page.getByRole('tab', { name: 'Penalties' }).click();
+    const form = page.locator('.tm-penalty-form');
+    await expect(form.locator('select')).toHaveCount(3);
+    const spill = await form.locator('label').evaluateAll(labels => {
+      const box = labels[0]?.closest('.tm-box')?.getBoundingClientRect().right ?? 0;
+      return labels.flatMap(label => {
+        const select = label.querySelector('select');
+        const right = select?.getBoundingClientRect().right ?? 0;
+        return right > label.getBoundingClientRect().right + 0.5 || right > box ? [label.firstChild?.textContent] : [];
+      });
+    });
+    expect(spill).toEqual([]);
+  });
+
+  test('a table’s result takes only its words’ room, leaving the rest to the names', async ({ page }) => {
+    await mockConsole(page, event(8, 1, true), settingsOf({}));
+    const row = page.locator('.tm-matches tbody tr:not(.tm-group-row)').first();
+    const result = await row.locator('td.tm-extra-col').boundingBox();
+    const seat = await row.locator('td.tm-seat').first().boundingBox();
+    expect(result?.width ?? 0).toBeLessThan(200);
+    expect(seat?.width ?? 0).toBeGreaterThan(400);
+  });
+
+  test('a row’s menu with no room below or above shows whole under the page’s head', async ({ page }) => {
+    await mockConsole(page, event(8, 0, false), settingsOf({}));
+    const more = page.getByRole('button', { name: /^More for / }).first();
+    const group = page.getByRole('group', { name: /^More for / });
+    // Mid-screen, the menu is taller than the room on either side of its button.
+    await more.evaluate(button => {
+      window.scrollBy(0, button.getBoundingClientRect().top - innerHeight * 0.45);
+    });
+    await more.click();
+    const head = await boxOf(page.locator('.site-head'));
+    expect((await boxOf(group)).y).toBeGreaterThanOrEqual(head.y + head.height);
+  });
+
+  test('a bye starts where the names above it do', async ({ page }) => {
+    await mockConsole(page, event(7, 0, true), settingsOf({}), [], false);
+    const start = (cell: string) =>
+      page.locator(cell).evaluate(el => {
+        const range = document.createRange();
+        range.selectNodeContents(el);
+        return Math.round(range.getBoundingClientRect().left);
+      });
+    const name = await start('.tm-matches .tm-seat .tm-name >> nth=0');
+    expect(await start('.tm-matches td.tm-seat > .muted-cell')).toBe(name);
+  });
+
+  test('standings show a long name whole beside the tiebreakers', async ({ page, context }) => {
+    await page.setViewportSize({ width: 667, height: 375 });
+    const cdp = await context.newCDPSession(page);
+    await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: { top: 0, left: 47, right: 47, bottom: 21 } });
+    const long = { type: 'addPlayer', player: { firstName: 'Hubert', lastName: 'Wolfeschlegelsteinhausen' } } as const;
+    const t = runCommands(
+      emptyTournament({ name: 'Friday League' }),
+      long,
+      ...event(7, 0, false).players.map(
+        player => ({ type: 'addPlayer', player: { firstName: player.firstName, lastName: player.lastName } }) as const
+      ),
+      { type: 'pairRound', pod: 'masters' }
+    );
+    await mockConsole(page, reportAll(t), settingsOf({}));
+    await page.getByRole('tab', { name: 'Standings' }).click();
+    await expect(page.locator('.tm-standings th', { hasText: 'OOWP' })).toBeVisible();
+    const name = page.locator('.tm-standings .tm-name').filter({ hasText: 'Wolfeschlegel' });
+    expect(await name.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+  });
+
+  test('six tabs in Spanish keep one line each and scroll rather than squeeze', async ({ page }) => {
+    await page.setViewportSize({ width: 667, height: 375 });
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, 'languages', { get: () => ['es'] });
+      Object.defineProperty(navigator, 'language', { get: () => 'es' });
+    });
+    await mockConsole(page, event(8, 1, true), settingsOf({ decklists: 'open' }));
+    const tabs = page.locator('.tm-console > .tabs');
+    await expect(tabs.getByRole('tab')).toHaveCount(6);
+    const squeezed = await tabs
+      .getByRole('tab')
+      .evaluateAll(all => all.filter(tab => tab.scrollWidth > tab.clientWidth || tab.clientHeight > 44).length);
+    expect(squeezed).toBe(0);
+    await expect(tabs).toHaveClass(/fade-r/);
+  });
+});
+
+test.describe('on a 640px phone held sideways', () => {
+  test.use({ viewport: { width: 640, height: 360 }, hasTouch: true, isMobile: true });
+
+  test('the tab bar keeps its first and last labels clear of a notch at the side', async ({ page, context }) => {
+    const cdp = await context.newCDPSession(page);
+    await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: { top: 0, left: 47, right: 47, bottom: 21 } });
+    await mockConsole(page, event(8, 1, true), settingsOf({}));
+    const labels = page.locator('.tm-tabbar [role="tab"] > span');
+    await expect(labels.first()).toBeVisible();
+    const edges = await labels.evaluateAll(spans =>
+      spans.map(span => {
+        const box = span.getBoundingClientRect();
+        return Math.min(box.left, innerWidth - box.right);
+      })
+    );
+    expect(Math.min(...edges)).toBeGreaterThanOrEqual(47);
+  });
 });

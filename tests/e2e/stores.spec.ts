@@ -863,6 +863,15 @@ test('store settings’ Start an event opens the setup as the store, and the das
   );
 });
 
+test('store settings’ Start an event ends where the page does on a phone held sideways', async ({ page }) => {
+  await page.setViewportSize({ width: 700, height: 390 });
+  await mock(page, { user: { ...MANAGER, role: 'community' } });
+  await page.goto('/stores/store-1/settings');
+  const start = await page.getByRole('link', { name: 'Start an event' }).boundingBox();
+  const head = await page.locator('.tm-hero').boundingBox();
+  expect((start?.x ?? 0) + (start?.width ?? 0)).toBeCloseTo((head?.x ?? 0) + (head?.width ?? 0), 0);
+});
+
 test('staff options remain visible on a narrow screen and return focus on Escape @mobile', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 640 });
   await mock(page, { user: MANAGER });
@@ -912,6 +921,58 @@ test('each league night keeps its fields on one line, and stacks them whole on a
     const touch = test.info().project.name === 'mobile';
     await expect(night.locator('input').first()).toHaveCSS('font-size', width <= 640 || touch ? '16px' : '14px');
   }
+});
+
+test('a date that differs ends with its Remove at the row’s edge, after its note, on a phone @mobileOnly', async ({
+  page
+}) => {
+  await mock(page, { user: MANAGER });
+  await page.goto('/stores/store-1/settings');
+  for (const width of [412, 320]) {
+    await page.setViewportSize({ width, height: 900 });
+    const row = page.locator('.tm-night-exception').first();
+    const [box, note, remove] = await Promise.all([
+      row.boundingBox(),
+      row.getByLabel('Date 1 note').boundingBox(),
+      row.getByLabel('Date 1 remove').boundingBox()
+    ]);
+    expect((remove?.x ?? 0) + (remove?.width ?? 0), `${width}`).toBeCloseTo((box?.x ?? 0) + (box?.width ?? 0), 0);
+    expect(remove?.y ?? 0, `${width}`).toBeGreaterThanOrEqual((note?.y ?? 0) + (note?.height ?? 0));
+  }
+});
+
+test('a date that differs stacks its fields whole on a phone held sideways', async ({ page }) => {
+  await mock(page, { user: MANAGER });
+  await page.goto('/stores/store-1/settings');
+  for (const width of [932, 700]) {
+    await page.setViewportSize({ width, height: 430 });
+    const row = page.locator('.tm-night-exception').first();
+    const [box, night, remove] = await Promise.all([
+      row.boundingBox(),
+      row.getByLabel('Date 1 night').boundingBox(),
+      row.getByLabel('Date 1 remove').boundingBox()
+    ]);
+    expect(night?.width ?? 0, `${width}`).toBeCloseTo(box?.width ?? 0, 0);
+    expect((remove?.x ?? 0) + (remove?.width ?? 0), `${width}`).toBeCloseTo((box?.x ?? 0) + (box?.width ?? 0), 0);
+  }
+});
+
+test('a touch screen held sideways shows a league night’s Wednesday whole at its 16px @mobileOnly', async ({
+  page
+}) => {
+  await page.setViewportSize({ width: 800, height: 430 });
+  await mock(page, { user: MANAGER });
+  await page.goto('/stores/store-1/settings');
+  const day = page.getByLabel('League night 2 day');
+  await expect(day).toHaveValue('3');
+  const room = await day.evaluate((select: HTMLSelectElement) => {
+    const style = getComputedStyle(select);
+    const pen = document.createElement('canvas').getContext('2d')!;
+    pen.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+    // The padding either side and the arrow's own room.
+    return select.clientWidth - 40 - pen.measureText(select.selectedOptions[0]?.text ?? '').width;
+  });
+  expect(room).toBeGreaterThan(0);
 });
 
 test('public store links hide legacy non-Discord URLs and canonicalize Discord invites', async ({ page }) => {

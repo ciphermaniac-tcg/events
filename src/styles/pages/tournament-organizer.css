@@ -79,11 +79,6 @@
 .tm-organizer-surface .tm-page:not(.tm-console) .tm-path-held {
   font-weight: 500;
 }
-@media (min-width: 641px) and (max-width: 1000px) {
-  .tm-organizer-surface .tm-page:not(.tm-console).tm-store-settings-page .tm-next {
-    margin-right: 48px;
-  }
-}
 @media (max-width: 640px) {
   .tm-organizer-surface .tm-page:not(.tm-console) .tm-set-label {
     position: relative;

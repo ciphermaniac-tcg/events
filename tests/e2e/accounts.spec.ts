@@ -187,6 +187,36 @@ test('History lists the account’s events with place and record from each copy,
   expect(errors).toEqual([]);
 });
 
+test('on a phone held sideways a long event name gives way before its In progress', async ({ page }) => {
+  await page.setViewportSize({ width: 667, height: 375 });
+  await mockAccount(page);
+  await publishCopies(page);
+  const long = ENTRIES.map(e => (e.code === 'LIVE01' ? { ...e, name: `${e.name} — November Championship Series` } : e));
+  await page.route('**/api/history', route => route.fulfill({ json: { entries: long } }));
+  await page.goto('/history');
+  const name = page.locator('.tm-hist tbody tr.is-link .tm-hist-name').filter({ hasText: 'November' });
+  const flag = name.locator('.tm-flag');
+  await expect(flag).toHaveText('In progress');
+  const [shown, edge] = await Promise.all([flag.boundingBox(), name.boundingBox()]);
+  expect((shown?.x ?? 0) + (shown?.width ?? 0)).toBeLessThanOrEqual((edge?.x ?? 0) + (edge?.width ?? 0) + 1);
+});
+
+test('on a phone held sideways History gives an event’s name the room a deck’s name took', async ({ page }) => {
+  await page.setViewportSize({ width: 667, height: 375 });
+  await mockAccount(page);
+  await publishCopies(page);
+  await page.goto('/history');
+  const row = page.locator('.tm-hist tbody tr.is-link').first();
+  await expect(row.locator('.tm-hist-deck .arche-icon').first()).toBeVisible();
+  await expect(row.locator('.tm-hist-deck-name')).toBeHidden();
+  const [event, deck] = await Promise.all([
+    row.locator('.tm-hist-event').boundingBox(),
+    row.locator('.tm-hist-deck').boundingBox()
+  ]);
+  expect(event?.width ?? 0).toBeGreaterThan(280);
+  expect(deck?.width ?? 0).toBeLessThanOrEqual(72);
+});
+
 test('a reload of a signed-in tab draws History before the session is read again, and gives way when it reads signed out', async ({
   page
 }) => {

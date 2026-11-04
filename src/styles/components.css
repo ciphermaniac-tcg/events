@@ -33,7 +33,8 @@
 .page {
   max-width: 1180px;
   margin: 0 auto;
-  padding: 36px 32px 64px;
+  /* A phone held sideways puts its notch and rounded corners at the sides. */
+  padding: 36px max(32px, env(safe-area-inset-right)) 64px max(32px, env(safe-area-inset-left));
 }
 .page > section + section {
   margin-top: var(--section-gap);
@@ -43,9 +44,18 @@
     /* env(safe-area-inset-*) keeps content clear of the Dynamic Island /
        rounded corners in landscape and the home-indicator bar at the bottom
        (viewport-fit=cover is set in index.html). */
-    padding: var(--space-5) max(var(--space-3), env(safe-area-inset-left))
-      max(var(--space-6), env(safe-area-inset-bottom));
-    padding-right: max(var(--space-3), env(safe-area-inset-right));
+    padding-block: var(--space-5) max(var(--space-6), env(safe-area-inset-bottom));
+  }
+  /* One gutter for the head, the page and the footer, and for what runs out to the
+     screen's edges past it. The head's and footer's own rules come later, hence the extra weight. */
+  :root {
+    --gl: max(var(--space-3), env(safe-area-inset-left));
+    --gr: max(var(--space-3), env(safe-area-inset-right));
+  }
+  .page,
+  body .site-head-row,
+  body .site-footer {
+    padding-inline: var(--gl) var(--gr);
   }
   .page > section + section {
     margin-top: var(--space-5);
@@ -117,7 +127,7 @@
   max-width: 1180px;
   height: var(--topnav-h);
   margin: 0 auto;
-  padding: 0 32px;
+  padding: 0 max(32px, env(safe-area-inset-right)) 0 max(32px, env(safe-area-inset-left));
 }
 .site-head-name {
   display: inline-flex;
@@ -169,7 +179,6 @@
 @media (max-width: 640px) {
   .site-head-row {
     gap: var(--space-1);
-    padding: 0 max(var(--space-3), env(safe-area-inset-right)) 0 max(var(--space-3), env(safe-area-inset-left));
   }
 }
 
@@ -185,7 +194,7 @@
      so without this the footer shrinks to its content and the note's
      push-apart margin has no room to work. */
   width: 100%;
-  padding: var(--space-4) 32px var(--space-6);
+  padding: var(--space-4) max(32px, env(safe-area-inset-right)) var(--space-6) max(32px, env(safe-area-inset-left));
   border-top: 1px solid var(--rule);
   display: flex;
   flex-wrap: wrap;
@@ -239,9 +248,7 @@
   .site-footer {
     /* Same safe-area treatment as `.page`: the toggle must not sit under the
        home-indicator bar. */
-    padding: var(--space-4) max(var(--space-3), env(safe-area-inset-left))
-      max(var(--space-5), env(safe-area-inset-bottom));
-    padding-right: max(var(--space-3), env(safe-area-inset-right));
+    padding-bottom: max(var(--space-5), env(safe-area-inset-bottom));
     display: grid;
     grid-template-columns: minmax(0, 1fr) max-content;
     grid-template-areas:

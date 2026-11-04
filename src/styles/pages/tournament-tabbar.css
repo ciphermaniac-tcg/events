@@ -16,7 +16,8 @@
     left: 0;
     z-index: 30;
     display: flex;
-    padding-bottom: env(safe-area-inset-bottom);
+    /* Held sideways, a notch at either end would cover the first or last label. */
+    padding: 0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
     border-top: 1px solid var(--border);
     background: var(--surface);
   }

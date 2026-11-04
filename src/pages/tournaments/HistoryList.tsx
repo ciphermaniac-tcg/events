@@ -167,7 +167,8 @@ function EntryRow(props: { entry: HistoryEntry; watch: Watch }) {
         </td>
         <td class='tm-hist-event'>
           <span class='tm-hist-name'>
-            {props.entry.name || props.entry.code}
+            {/* Its own box, so a long name gives way before its flag does. */}
+            <span>{props.entry.name || props.entry.code}</span>
             <Show when={STATUS_FLAGS[props.entry.status]}>{flag => <span class='tm-flag'>{t(flag())}</span>}</Show>
           </span>
           <span class='tm-hist-sub'>

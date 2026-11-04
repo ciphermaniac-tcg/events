@@ -282,6 +282,13 @@ test('a stream bar is sized for a broadcast inside title-safe, and a producer ca
   expect(await size('.tm-stream-name')).toBe(60);
 });
 
+/** Where a cell's text starts, past any padding before it. */
+const textStart = (page: Page, cell: string) =>
+  page.locator(cell).evaluate(el => {
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    return Math.round(range.getBoundingClientRect().left);
+  });
 /** The font size of every visible text field on the page, which iOS zooms into below 16px. */
 const fieldSizes = (page: Page) =>
   page
@@ -298,6 +305,136 @@ test.describe('on a phone held sideways', () => {
     const sizes = await fieldSizes(page);
     expect(sizes.length).toBeGreaterThan(0);
     expect(new Set(sizes)).toEqual(new Set(['16px']));
+  });
+
+  test('the head, the page and the footer clear a notch at the side', async ({ page, context }) => {
+    const cdp = await context.newCDPSession(page);
+    await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: { top: 0, left: 47, right: 47, bottom: 21 } });
+    await mockApi(page);
+    await page.goto(`/t/${CODE}`);
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+    const edges = await page.evaluate(() =>
+      ['.site-head-row > :first-child', '.site-head-row > :last-child', 'main h1', '.site-footer a'].map(selector => {
+        const box = document.querySelector(selector)!.getBoundingClientRect();
+        return Math.min(box.left, innerWidth - box.right);
+      })
+    );
+    expect(Math.min(...edges)).toBeGreaterThanOrEqual(47);
+  });
+
+  test('the viewer’s own table is tinted as one row, not cell by cell', async ({ page }) => {
+    await mockApi(page, { ...VIEW, viewer: { role: null, me: matches[0]!.p1, via: 'claim', signedIn: true } });
+    await page.goto(`/t/${CODE}`);
+    const mine = page.locator('.tm-matches tr.is-me');
+    await expect(mine).toBeVisible();
+    const fills = await mine.evaluate(row => ({
+      row: getComputedStyle(row).backgroundColor,
+      cells: [...row.children].map(cell => getComputedStyle(cell).backgroundColor)
+    }));
+    expect(fills.row).not.toBe('rgba(0, 0, 0, 0)');
+    expect(new Set(fills.cells)).toEqual(new Set(['rgba(0, 0, 0, 0)']));
+  });
+
+  test('without a notch the footer starts where the head and the page do', async ({ page }) => {
+    await mockApi(page);
+    await page.goto(`/t/${CODE}`);
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+    const lefts = await page.evaluate(() =>
+      ['.site-head-row > :first-child', 'main h1', '.site-footer a'].map(selector =>
+        Math.round(document.querySelector(selector)!.getBoundingClientRect().left)
+      )
+    );
+    expect(new Set(lefts).size).toBe(1);
+  });
+
+  test('the player sheet keeps its close and its answers clear of a notch at the side', async ({ page, context }) => {
+    const cdp = await context.newCDPSession(page);
+    await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: { top: 0, left: 47, right: 47, bottom: 21 } });
+    await mockApi(page);
+    await page.goto(`/t/${CODE}`);
+    await page.locator('.tm-matches .tm-seat-link').first().click();
+    const sheet = page.locator('.tm-sheet');
+    const rights = await sheet
+      .getByRole('button')
+      .evaluateAll(buttons => buttons.map(button => innerWidth - button.getBoundingClientRect().right));
+    expect(rights.length).toBeGreaterThan(0);
+    expect(Math.min(...rights)).toBeGreaterThanOrEqual(47);
+  });
+
+  test('the player sheet’s figures each fit their own cell beside a notch', async ({ page, context }) => {
+    const cdp = await context.newCDPSession(page);
+    await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: { top: 0, left: 47, right: 47, bottom: 21 } });
+    await mockApi(page);
+    await page.goto(`/t/${CODE}`);
+    await page.locator('.tm-matches .tm-seat-link').first().click();
+    const figures = page.locator('.tm-sheet-stats dd');
+    await expect(figures).toHaveCount(4);
+    const spilled = await figures.evaluateAll(all => all.filter(dd => dd.scrollWidth > dd.clientWidth).length);
+    expect(spilled).toBe(0);
+  });
+
+  test('a group’s heading and a search that finds nobody span the pairings', async ({ page }) => {
+    await mockApi(page);
+    await page.goto(`/t/${CODE}`);
+    const width = (row: string) =>
+      page
+        .locator(row)
+        .first()
+        .locator('> *')
+        .evaluate(el => el.clientWidth);
+    const box = await page.locator('.tm-matches').evaluate(el => el.clientWidth);
+    expect(await width('.tm-group-row')).toBeGreaterThan(box - 4);
+    await page.getByRole('searchbox', { name: 'Find a player' }).fill('Nobody by this name');
+    expect(await width('.tm-empty-row')).toBeGreaterThan(box - 4);
+  });
+
+  test('a bye starts where the names above it do, with decks shown or not', async ({ page }) => {
+    for (const view of [VIEW, { ...VIEW, decks: {} }]) {
+      await mockApi(page, view);
+      await page.goto(`/t/${CODE}`);
+      const name = await textStart(page, '.tm-matches .tm-seat .tm-name >> nth=0');
+      expect(await textStart(page, '.tm-matches td.tm-seat > .muted-cell')).toBe(name);
+    }
+  });
+});
+
+test.describe('on a 640px phone held sideways', () => {
+  test.use({ viewport: { width: 640, height: 360 }, hasTouch: true, isMobile: true });
+
+  test('the tabs’ rule runs to the screen’s edges past a notch, their first word where the page starts', async ({
+    page,
+    context
+  }) => {
+    const cdp = await context.newCDPSession(page);
+    await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: { top: 0, left: 47, right: 47, bottom: 21 } });
+    await mockApi(page);
+    await page.goto(`/t/${CODE}`);
+    const tabs = page.getByRole('tablist');
+    const box = await tabs.evaluate(el => {
+      const rect = el.getBoundingClientRect();
+      return { left: rect.left, right: innerWidth - rect.right };
+    });
+    expect(box).toEqual({ left: 0, right: 0 });
+    expect(await textStart(page, '.tabs > :first-child')).toBe(await textStart(page, 'main h1'));
+  });
+
+  test('the player sheet keeps its name and answers clear of a notch at either side', async ({ page, context }) => {
+    const cdp = await context.newCDPSession(page);
+    await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: { top: 0, left: 47, right: 47, bottom: 21 } });
+    await mockApi(page);
+    await page.goto(`/t/${CODE}`);
+    await page.locator('.tm-matches .tm-seat-link').first().click();
+    const edges = await page
+      .locator('.tm-sheet')
+      .locator('h2, button')
+      .evaluateAll(all =>
+        all.map(el => {
+          const box = el.getBoundingClientRect();
+          return Math.min(box.left, innerWidth - box.right);
+        })
+      );
+    expect(edges.length).toBeGreaterThan(1);
+    expect(Math.min(...edges)).toBeGreaterThanOrEqual(47);
   });
 });
 
@@ -412,16 +549,10 @@ test('a bye staff assigned reads as a bye in the pairings and on the player’s 
 });
 
 test('on a phone a bye starts where the names above it do, with decks shown or not @mobileOnly', async ({ page }) => {
-  const textStart = (cell: string) =>
-    page.locator(cell).evaluate(el => {
-      const range = document.createRange();
-      range.selectNodeContents(el);
-      return Math.round(range.getBoundingClientRect().left);
-    });
   for (const view of [VIEW, { ...VIEW, decks: {} }]) {
     await mockApi(page, view);
     await page.goto(`/t/${CODE}`);
-    const name = await textStart('.tm-matches .tm-seat .tm-name >> nth=0');
-    expect(await textStart('.tm-matches td.tm-seat > .muted-cell')).toBe(name);
+    const name = await textStart(page, '.tm-matches .tm-seat .tm-name >> nth=0');
+    expect(await textStart(page, '.tm-matches td.tm-seat > .muted-cell')).toBe(name);
   }
 });

@@ -41,9 +41,11 @@ export function OptionsMenu(props: {
     const height = menu?.offsetHeight ?? 144;
     const html = document.documentElement;
     const viewport = html.getBoundingClientRect().width;
-    // The room the page keeps clear at the bottom (a phone's tab bar) is not room for the menu.
-    const floor = innerHeight - (parseFloat(getComputedStyle(html).scrollPaddingBottom) || 0);
-    const top = rect.bottom + height + 8 > floor ? Math.max(8, rect.top - height - 4) : rect.bottom + 4;
+    // The room the page keeps clear at the top (the sticky head) and bottom (a phone's tab bar) is not room for the menu.
+    const { scrollPaddingTop, scrollPaddingBottom } = getComputedStyle(html);
+    const ceiling = parseFloat(scrollPaddingTop) || 8;
+    const floor = innerHeight - (parseFloat(scrollPaddingBottom) || 0);
+    const top = rect.bottom + height + 8 > floor ? Math.max(ceiling, rect.top - height - 4) : rect.bottom + 4;
     setAt({ top, left: Math.max(8, Math.min(rect.right - width, viewport - width - 8)) });
   };
   createEffect(() => {

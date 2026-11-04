@@ -1215,12 +1215,23 @@ body:has(.tm-sheet) {
   .tm-matches .data td.tm-extra-col {
     grid-area: extra;
   }
+  /* "Bye" and "Missed round" start where the names over them do: past the mark and the sprite slot. */
+  .tm-seat > .muted-cell {
+    padding-left: 24px;
+  }
+  .has-decks .tm-seat > .muted-cell {
+    padding-left: 70px;
+  }
   /* A stacked row's cells no longer fill it, so its state is drawn on the row. */
   .tm-matches .data tr.is-confirming {
     background: color-mix(in srgb, var(--accent) 9%, var(--surface));
   }
-  .tm-matches .data tr.is-confirming td {
+  .tm-matches .data tr.is-confirming td,
+  .tm-matches .data tr.is-me td {
     background: none;
+  }
+  .tm-matches .data tr.is-me {
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
   }
 }
 @media (min-width: 641px) and (max-width: 1100px) {
@@ -2245,10 +2256,16 @@ tr.is-in .tm-place {
 }
 /* On a phone the row runs to the screen's edges, as the page's other tabs do: a tab past the
    edge reads as more to scroll to, not as a word cut off at the margin, and the first tab's
-   words line up with the page's. */
+   words line up with the page's. Held sideways, the edges are past the notch's gutter too. */
 @media (max-width: 640px) {
+  .tm-side-nav,
+  :is(.tm-page, .tm-admin, .tm-profile-history) > .tabs {
+    margin-inline: calc(-1 * var(--gl)) calc(-1 * var(--gr));
+    padding-inline: var(--gl) var(--gr);
+    scroll-padding-inline: var(--gl) var(--gr);
+  }
   .tm-side-nav {
-    margin-inline: calc(-1 * var(--space-3));
+    padding-inline: calc(var(--gl) - var(--space-3)) calc(var(--gr) - var(--space-3));
   }
 }
 

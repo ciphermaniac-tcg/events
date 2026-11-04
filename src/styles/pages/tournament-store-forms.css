@@ -79,6 +79,12 @@
   min-width: 0;
   width: 100%;
 }
+/* A touch screen's 16px needs more than 124px for a Wednesday or a 03:00 PM. */
+@media (pointer: coarse) {
+  .tm-night {
+    grid-template-columns: 132px 132px minmax(100px, 1fr) 72px auto;
+  }
+}
 /* On a phone a night stacks: day and time, then its name, then fee and Remove. */
 @media (max-width: 640px) {
   .tm-night {

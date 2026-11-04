@@ -73,7 +73,10 @@
   .tm-store-pane {
     padding: var(--space-3);
   }
-  /* Its day and its change on one line, then which night, then why. */
+}
+/* Too narrow for its five fields on a line, which cut the night and the note
+   short: its day and its change on one line, then which night, then why. */
+@media (max-width: 1000px) {
   .tm-night.tm-night-exception {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     grid-auto-flow: row dense;
@@ -83,6 +86,10 @@
   }
   .tm-night.tm-night-exception > .tm-input.tm-night-date {
     grid-column: auto;
+  }
+  .tm-night.tm-night-exception > .btn {
+    grid-column: -2;
+    justify-self: end;
   }
   .tm-night-change {
     flex-wrap: wrap;
@@ -172,7 +179,8 @@
   }
 }
 @media (max-width: 380px) {
-  .tm-night.tm-night-exception > .tm-input.tm-night-date {
+  /* The date takes the line its change shared, so Remove keeps a line of its own after the note. */
+  .tm-night.tm-night-exception > :is(.tm-input.tm-night-date, .btn) {
     grid-column: 1 / -1;
   }
 }

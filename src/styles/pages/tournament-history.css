@@ -70,6 +70,14 @@
   font-size: var(--text-base);
   font-weight: 600;
 }
+/* A long name gives way before an In progress after it. */
+.tm-hist-event .tm-hist-name {
+  display: flex;
+}
+.tm-hist-name > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .tm-hist-sub {
   margin-top: 2px;
   font-size: var(--text-base);
@@ -146,6 +154,16 @@
   justify-self: end;
 }
 
+/* A phone held sideways shows the deck as its sprites alone, as the dashboard
+   does, so the event's name keeps the room it is read for. */
+@media (min-width: 641px) and (max-width: 900px) {
+  .tm-page .tm-hist .data th.tm-hist-deck {
+    width: 72px;
+  }
+  .tm-hist-deck-name {
+    display: none;
+  }
+}
 @media (max-width: 640px) {
   .tm-hist .data th,
   .tm-hist .data td {
@@ -186,6 +204,9 @@
   .tm-hist-name,
   .tm-hist-sub {
     white-space: normal;
+  }
+  .tm-hist-event .tm-hist-name {
+    display: block;
   }
   .tm-hist-name .tm-flag {
     margin-left: var(--space-1);

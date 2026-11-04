@@ -126,8 +126,7 @@ test('the big screen switches to the bracket with B, and remembers it', async ({
   await expect(page.getByRole('radio', { name: 'Bracket' })).toHaveAttribute('aria-checked', 'true');
 });
 
-test('the console looks at the top cut as a bracket, and enters results in the table', async ({ page }) => {
-  const t = quarterfinalsPlayed();
+async function mockConsole(page: Page, t: Tournament) {
   const manage = manageOf(CODE, t, { settings: SETTINGS });
   await page.route('**/api/**', route => {
     const url = new URL(route.request().url());
@@ -139,6 +138,10 @@ test('the console looks at the top cut as a bracket, and enters results in the t
     }
     return route.fulfill({ status: 404, json: { error: 'Not found' } });
   });
+}
+
+test('the console looks at the top cut as a bracket, and enters results in the table', async ({ page }) => {
+  await mockConsole(page, quarterfinalsPlayed());
   await page.goto(`/host/${CODE}`);
   await expect(page.locator('.tm-matches tbody tr')).toHaveCount(4);
   await page.getByRole('radio', { name: 'Bracket' }).click();
@@ -146,4 +149,15 @@ test('the console looks at the top cut as a bracket, and enters results in the t
   await expect(page.locator('.tm-matches')).toHaveCount(0);
   await page.getByRole('radio', { name: 'Table', exact: true }).click();
   await expect(page.locator('.tm-matches tbody tr')).toHaveCount(4);
+});
+
+test('on a phone the console’s Table and Bracket switch spans the box as the tables’ switch under it does @mobileOnly', async ({
+  page
+}) => {
+  await mockConsole(page, quarterfinalsPlayed());
+  await page.goto(`/host/${CODE}`);
+  const width = (name: string) =>
+    page.getByRole('radiogroup', { name, exact: true }).evaluate(el => el.getBoundingClientRect().width);
+  await expect(page.getByRole('radio', { name: 'Bracket' })).toBeVisible();
+  expect(await width('Show matches as')).toBe(await width('Show'));
 });
