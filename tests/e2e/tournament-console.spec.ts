@@ -2506,6 +2506,23 @@ test.describe('on a phone held sideways', () => {
     expect((await boxOf(group)).y).toBeGreaterThanOrEqual(head.y + head.height);
   });
 
+  test('a dialog taller than the screen keeps its answers in view', async ({ page }) => {
+    await page.setViewportSize({ width: 640, height: 360 });
+    await mockConsole(page, event(4, 0, true), settingsOf({ sanctioned: true }));
+    await page.getByRole('tab', { name: 'Players' }).click();
+    await page
+      .getByRole('button', { name: /^More for / })
+      .first()
+      .click();
+    await page
+      .getByRole('group', { name: /^More for / })
+      .getByRole('button', { name: 'Edit' })
+      .click();
+    const dialog = await boxOf(page.getByRole('dialog', { name: 'Edit player' }));
+    const save = await boxOf(page.getByRole('button', { name: 'Save' }));
+    expect(save.y + save.height).toBeLessThanOrEqual(dialog.y + dialog.height);
+  });
+
   test('a bye starts where the names above it do', async ({ page }) => {
     await mockConsole(page, event(7, 0, true), settingsOf({}), [], false);
     const start = (cell: string) =>

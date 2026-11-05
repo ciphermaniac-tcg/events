@@ -25,8 +25,10 @@
 .tm-page .tm-hist .data tbody tr {
   background: none;
 }
-.tm-page .tm-hist .data tbody tr.is-link:hover {
-  background: color-mix(in srgb, var(--fg) 8%, var(--surface));
+@media (hover: hover) {
+  .tm-page .tm-hist .data tbody tr.is-link:hover {
+    background: color-mix(in srgb, var(--fg) 8%, var(--surface));
+  }
 }
 .tm-page .tm-hist .data tbody td {
   /* Tall unstriped rows: a rule, not the shared zebra, tells them apart. */
@@ -218,6 +220,11 @@
     grid-template-columns: 88px minmax(0, 1fr) auto;
     gap: var(--space-2);
     min-height: 44px;
+  }
+  /* An opponent's name wraps rather than losing its end. */
+  .tm-hist-opp .tm-name {
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 }
 @media (max-width: 640px), (pointer: coarse) {

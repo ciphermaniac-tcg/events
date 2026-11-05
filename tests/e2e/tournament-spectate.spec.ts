@@ -497,6 +497,40 @@ test('a phone’s standings wrap a long deck so a Dropped after it shows @mobile
   expect(fits).toBe(true);
 });
 
+test('a 320px phone’s standings show a long language’s Dropped whole under a wrapped deck @mobileOnly', async ({
+  page
+}) => {
+  await page.setViewportSize({ width: 320, height: 640 });
+  const [player] = tdf.players;
+  const dropped = { ...tdf, players: tdf.players.map(p => (p === player ? { ...p, droppedAfter: 1 } : p)) };
+  const tournament = publicTournament(dropped, keys);
+  const decks = publicDecks({ [player!.id]: 'Raging Bolt ex Ogerpon ex' }, keys);
+  await mockApi(page, { ...VIEW, tournament, decks });
+  await page.goto(`/t/${CODE}?tab=standings&lang=de`);
+  const sub = page.locator('.tm-standings tr').filter({ hasText: player!.lastName }).locator('.tm-who-sub');
+  await expect(sub.locator('.tm-flag')).toHaveText('Ausgestiegen');
+  // The flag starts where the deck does and ends inside the line, not cut off by it.
+  const box = await sub.evaluate(line => {
+    const outer = line.getBoundingClientRect();
+    const flag = line.querySelector('.tm-flag')!.getBoundingClientRect();
+    return { left: flag.left - outer.left, over: flag.right - outer.right };
+  });
+  expect(box.left).toBeLessThan(1);
+  expect(box.over).toBeLessThanOrEqual(0);
+});
+
+test('a phone’s deck stats keep the win rate in the box beside a long deck name @mobile', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 640 });
+  const decks = publicDecks({ [tdf.players[0]!.id]: 'Raging Bolt ex Ogerpon ex Teal Mask' }, keys);
+  await mockApi(page, { ...VIEW, decks });
+  await page.goto(`/t/${CODE}?lang=fr`);
+  await page.getByRole('tab', { name: 'Decks' }).click();
+  const box = page.locator('.tm-deck-stats');
+  await expect(box.getByRole('columnheader', { name: 'Taux de victoire' })).toBeVisible();
+  // No column runs past the box's edge for a sideways scroll to reveal.
+  expect(await box.evaluate(wrap => wrap.scrollWidth <= wrap.clientWidth)).toBe(true);
+});
+
 test('a phone’s standings show a name longer than its column whole @mobile', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 640 });
   const [player] = tdf.players;
@@ -521,6 +555,69 @@ test('a phone’s pairings show a name longer than its column whole @mobile', as
   await mockApi(page, { ...VIEW, tournament: publicTournament(long, keys) });
   await page.goto(`/t/${CODE}`);
   const name = page.locator('.tm-matches .tm-name').filter({ hasText: 'Wolfeschlegel' });
+  await expect(name).toBeVisible();
+  expect(await name.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+});
+
+for (const [where, tab] of [
+  ['pairings', ''],
+  ['standings', '?tab=standings']
+] as const) {
+  test(`a phone’s ${where} keep each word of the viewer’s own name whole beside You @mobileOnly`, async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 640 });
+    const meId = Object.keys(keys).find(id => keys[id] === playing[0]?.p1)!;
+    const named = {
+      ...tdf,
+      players: tdf.players.map(p =>
+        p.id === meId ? { ...p, firstName: 'Maximiliano', lastName: 'Hernández-Villanueva' } : p
+      )
+    };
+    const me = keys[meId] ?? null;
+    await mockApi(page, { ...VIEW, tournament: publicTournament(named, keys), viewer: { ...VIEW.viewer, me } });
+    await page.goto(`/t/${CODE}${tab}`);
+    const name = page.locator(`.tm-${where === 'pairings' ? 'matches' : 'standings'} .tm-name`, {
+      hasText: 'Maximiliano'
+    });
+    await expect(name).toBeVisible();
+    // Each word lays out on one line: a word split across two is a name squeezed by its flag.
+    const split = await name.evaluate(el => {
+      const text = el.firstChild as Text;
+      const words = [...(text.data.matchAll(/[^\s-]+/g) as Iterable<RegExpMatchArray>)];
+      return words.filter(word => {
+        const range = document.createRange();
+        range.setStart(text, word.index!);
+        range.setEnd(text, word.index! + word[0].length);
+        return range.getClientRects().length > 1;
+      }).length;
+    });
+    expect(split).toBe(0);
+  });
+}
+
+test('a pairing row a touch screen leaves under the finger is not tinted as if chosen @mobileOnly', async ({
+  page
+}) => {
+  await mockApi(page, VIEW);
+  await page.goto(`/t/${CODE}`);
+  const row = page.locator('.tm-matches tbody tr:not(.tm-group-row)').first();
+  await expect(row).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  // A phone keeps :hover on what was last tapped; stand in for that with the pointer.
+  await row.hover();
+  await expect(row).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+});
+
+test('a phone’s player sheet shows an opponent’s name longer than its column whole @mobile', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 640 });
+  const [player] = tdf.players;
+  const long = {
+    ...tdf,
+    players: tdf.players.map(p => (p === player ? { ...p, lastName: 'Wolfeschlegelsteinhausen' } : p))
+  };
+  await mockApi(page, { ...VIEW, tournament: publicTournament(long, keys) });
+  await page.goto(`/t/${CODE}`);
+  const table = page.locator('.tm-matches tbody tr').filter({ hasText: 'Wolfeschlegel' }).first();
+  await table.locator('.tm-seat-link').filter({ hasNotText: 'Wolfeschlegel' }).first().click();
+  const name = page.locator('.tm-history .tm-name').filter({ hasText: 'Wolfeschlegel' }).first();
   await expect(name).toBeVisible();
   expect(await name.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
 });

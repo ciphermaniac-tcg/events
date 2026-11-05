@@ -179,10 +179,11 @@
   .tm-history .tm-seat-link {
     font-size: var(--text-base);
   }
-  /* A sheet's opponent is what it is read for: the name wraps rather than
-     giving way to a record the sheet already sums up above. */
+  /* A sheet's opponent is what it is read for: the name wraps, a word too long
+     for the column too, rather than giving way to a record the sheet already sums up above. */
   .tm-history .tm-name {
     white-space: normal;
+    overflow-wrap: anywhere;
   }
   .tm-history .tm-record {
     display: none;
@@ -703,8 +704,9 @@
   background: var(--scrim);
   cursor: pointer;
 }
+/* No taller than the screen leaves past its name and Close, so a phone held sideways shows all three. */
 .tm-peek-art {
-  width: min(320px, 80vw);
+  width: min(320px, 80vw, (100dvh - 176px) * 63 / 88);
   aspect-ratio: 63 / 88;
   border-radius: 4.6% / 3.3%;
   background: var(--surface-2);

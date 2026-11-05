@@ -187,6 +187,34 @@ test('History lists the account’s events with place and record from each copy,
   expect(errors).toEqual([]);
 });
 
+test('on a 320px phone an opponent’s name in History’s rounds wraps rather than losing its end @mobileOnly', async ({
+  page
+}) => {
+  await page.setViewportSize({ width: 320, height: 640 });
+  await mockAccount(page);
+  await publishCopies(page);
+  await page.goto('/history');
+  await page.locator('.tm-hist tbody tr.is-link').filter({ hasText: 'Fixture Challenge & Friends' }).click();
+  const name = page.locator('.tm-hist-rounds .tm-hist-opp .tm-name').first();
+  await expect(name).toHaveText('Dorothy Vaughan');
+  expect(await name.evaluate(el => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(0);
+});
+
+test('a History row a touch screen leaves under the finger is not tinted as if chosen @mobileOnly', async ({
+  page
+}) => {
+  await mockAccount(page);
+  await publishCopies(page);
+  await page.goto('/history');
+  const row = page.locator('.tm-hist tbody tr.is-link').filter({ hasText: 'Fixture Cup' });
+  await row.tap();
+  await row.tap();
+  await expect(page.locator('.tm-hist-rounds li')).toHaveCount(0);
+  // A phone keeps :hover on what was last tapped; stand in for that with the pointer.
+  await row.hover();
+  await expect(row).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+});
+
 test('on a phone held sideways a long event name gives way before its In progress', async ({ page }) => {
   await page.setViewportSize({ width: 667, height: 375 });
   await mockAccount(page);
@@ -1667,6 +1695,21 @@ test('account selections close the menu and its last action signs out @mobile', 
   await expect(page).toHaveURL(/:\d+\/$/);
   await expect(account).toHaveCount(0);
   expect(signedOut).toBe(true);
+});
+
+test('on a short phone held sideways the account menu scrolls to its Sign out under the sticky head @mobileOnly', async ({
+  page
+}) => {
+  await page.setViewportSize({ width: 667, height: 330 });
+  await mockDashboard(page, { ...ME, role: 'admin', publicProfile: true });
+  await page.goto('/history');
+  await page.getByRole('button', { name: 'Account', exact: true }).click();
+  const menu = page.locator('.tm-acct-menu');
+  const box = await menu.boundingBox();
+  expect((box?.y ?? 0) + (box?.height ?? 999)).toBeLessThanOrEqual(330);
+  const signOut = menu.getByRole('button', { name: 'Sign out', exact: true });
+  await signOut.scrollIntoViewIfNeeded();
+  await expect(signOut).toBeInViewport({ ratio: 1 });
 });
 
 test('an organizer who plays has both tabs, opens on the match being played, and keeps the tab in the address', async ({

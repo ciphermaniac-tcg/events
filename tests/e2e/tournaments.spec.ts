@@ -2357,6 +2357,30 @@ test('an open list leads the player sheet as cards, as rows, and one card large 
   await expect(sheet.locator('.tm-open-row').first()).toBeFocused();
 });
 
+test('on a phone held sideways one card large shows whole, with its name and Close', async ({ page }) => {
+  await page.setViewportSize({ width: 844, height: 390 });
+  await mockApi(page, { ...VIEW, settings: { ...VIEW.settings, decklists: 'closed', openLists: true } });
+  await page.route(`**/api/tournaments/${CODE}/lists?*`, route =>
+    route.fulfill({ json: { list: { mode: 'digital', deck: 'Trainer: 4\n4 Arven SVI 166' } } })
+  );
+  const png = readFileSync(new URL('../../static/img/substitute.png', import.meta.url));
+  await page.route(/card-images|limitlesstcg/, route => route.fulfill({ contentType: 'image/png', body: png }));
+  await page.goto(`/t/${CODE}`);
+  await page
+    .locator('.tm-matches')
+    .getByRole('button', { name: /Hedy Lamarr/ })
+    .first()
+    .click();
+  await page.getByRole('dialog').locator('.tm-open-card').click();
+  const peek = page.getByRole('dialog', { name: 'Arven' });
+  const [art, close] = await Promise.all([
+    peek.locator('img').boundingBox(),
+    peek.getByRole('button', { name: 'Close' }).boundingBox()
+  ]);
+  expect(art?.y ?? -1).toBeGreaterThanOrEqual(0);
+  expect((close?.y ?? 0) + (close?.height ?? 0)).toBeLessThanOrEqual(390);
+});
+
 test('a paper list says so, and an event whose lists are closed asks for none', async ({ page }) => {
   let asked = 0;
   const open = {

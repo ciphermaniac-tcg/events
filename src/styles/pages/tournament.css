@@ -7,6 +7,11 @@
 .tm-narrow {
   max-width: 640px;
 }
+/* A narrow page that failed centres its error state on the screen, as every other page does,
+   not in the form's column to the left of it. */
+.tm-narrow:has(.error-state) {
+  max-width: none;
+}
 /* The big screen and a stream overlay (TournamentsPage marks them) fill the
    screen from the first paint, so the site's head and footer never show only
    to vanish. A stream's page is transparent: a browser source lays it over video. */
@@ -243,8 +248,11 @@ body.tm-stream-mode {
 .tm-page .data tbody td {
   border-bottom-color: transparent;
 }
-.tm-page .data tbody tr:not(.tm-group-row):hover {
-  background: var(--row-hover);
+/* Only under a pointer: a tap would leave the row tinted, as if chosen. */
+@media (hover: hover) {
+  .tm-page .data tbody tr:not(.tm-group-row):hover {
+    background: var(--row-hover);
+  }
 }
 /* A row is read for its names and results, so its text-only actions take the
    secondary label and come up to full ink on the row in hand. A bar's actions
@@ -765,6 +773,10 @@ body[data-mode='dark'] :is(.tm-input, .tm-select) {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* A pairing's name and its You, one box only on a phone (below). */
+.tm-seat-name {
+  display: contents;
+}
 .tm-record {
   flex: none;
   font-variant-numeric: tabular-nums;
@@ -979,6 +991,22 @@ body[data-mode='dark'] :is(.tm-input, .tm-select) {
     white-space: normal;
     overflow-wrap: anywhere;
   }
+  /* A You beside a name that no longer fits drops under it, rather than squeezing the name to "Maxi|milian|o";
+     a Dropped under a wrapped deck starts where the deck does. */
+  .tm-seat-name,
+  .tm-standings :is(.tm-who-name, .tm-who-sub) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    column-gap: var(--space-2);
+  }
+  :is(.tm-seat-name, .tm-standings .tm-who-name, .tm-standings .tm-who-sub) .tm-flag {
+    margin: 0;
+  }
+  /* The name runs to the cell's end: the link's pull to the left is given back on its right. */
+  .tm-standings .tm-seat-link {
+    max-width: calc(100% + var(--space-2));
+  }
   .tm-matches .tm-seat-link {
     padding-block: var(--space-2);
   }
@@ -1052,12 +1080,14 @@ body[data-mode='dark'] :is(.tm-input, .tm-select) {
     overflow-wrap: anywhere;
   }
   /* The deck stats fit a phone without a sideways scroll: the deck, how many
-     play it and how it is doing; share and matches are left to wider screens. */
+     play it and how it is doing; share and matches are left to wider screens.
+     A long deck or column name wraps, so the win rate stays in the box. */
   .tm-deck-stats :is(th, td):is(:nth-child(3), :nth-child(4)) {
     display: none;
   }
   .tm-deck-stats .data :is(th, td) {
     padding: 0 var(--space-2);
+    white-space: normal;
   }
 }
 /* Under a finger, every control is a 44px target, as HIG asks: the site's
@@ -2161,6 +2191,14 @@ tr.is-in .tm-place {
 }
 .tm-modal .tm-box-bar + .tm-box-bar {
   border-top: 0;
+}
+/* Taller than a sideways phone, a dialog scrolls under its answers, which stay in view. */
+.tm-modal .tm-box-bar.tm-modal-foot {
+  position: sticky;
+  bottom: 0;
+  margin-top: -1px;
+  border-top: 1px solid var(--rule);
+  background: var(--surface);
 }
 
 /* ---------- The round picker between its neighbours (RoundStepper): console and public page ---------- */

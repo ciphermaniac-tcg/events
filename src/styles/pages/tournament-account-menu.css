@@ -43,6 +43,9 @@
   display: flex;
   flex-direction: column;
   width: 240px;
+  /* Below the sticky head, a phone held sideways has room for less than the whole menu: it scrolls. */
+  max-height: calc(100dvh - 52px);
+  overflow: auto;
   padding: var(--space-2);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);

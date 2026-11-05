@@ -79,10 +79,12 @@ function SeatCell(props: CellProps & { seat: 1 | 2; records: Map<string, string>
   const content = (playerId: string) => (
     <>
       <DeckIcons label={props.decks[playerId]} />
-      <span class='tm-name'>{name(playerId)}</span>
-      <Show when={props.status && playerId === props.me}>
-        <span class='tm-flag is-you'>{t('You')}</span>
-      </Show>
+      <span class='tm-seat-name'>
+        <span class='tm-name'>{name(playerId)}</span>
+        <Show when={props.status && playerId === props.me}>
+          <span class='tm-flag is-you'>{t('You')}</span>
+        </Show>
+      </span>
       <span class='muted-cell tm-record'>{props.records.get(playerId) ?? ''}</span>
     </>
   );

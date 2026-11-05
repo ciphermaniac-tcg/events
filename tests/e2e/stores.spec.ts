@@ -764,6 +764,30 @@ test('an invite link joins the store and goes on to its page; a used one says so
   expect(sentTo(asks, 'POST', '/api/stores/join')).toHaveLength(2);
 });
 
+test('a broken invite’s pale code word stays whole on a 320px phone in German @mobileOnly', async ({ page }) => {
+  await mock(page);
+  await page.setViewportSize({ width: 320, height: 640 });
+  await page.goto('/stores/join?lang=de');
+  const code = page.locator('.error-state-code');
+  await expect(code).toHaveText('Einladung');
+  const lines = await code.evaluate(el => {
+    const { height } = el.getBoundingClientRect();
+    return Math.round(height / parseFloat(getComputedStyle(el).lineHeight));
+  });
+  expect(lines).toBe(1);
+});
+
+test('a broken invite centres its error state on a phone held sideways @mobile', async ({ page }) => {
+  await mock(page);
+  await page.setViewportSize({ width: 844, height: 390 });
+  await page.goto('/stores/join');
+  const centre = async (selector: string) => {
+    const box = await page.locator(selector).boundingBox();
+    return (box?.x ?? 0) + (box?.width ?? 0) / 2;
+  };
+  expect(Math.abs((await centre('.error-state')) - (await centre('main')))).toBeLessThanOrEqual(1);
+});
+
 test('signed out, an invite link says what signing in is for, and sign-in comes back to it', async ({ page }) => {
   await mock(page, { user: null });
   await page.goto('/stores/join?invite=good');
