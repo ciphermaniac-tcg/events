@@ -93,14 +93,16 @@ test('staff whose copy the published file holds read the file like anyone', asyn
 });
 
 test('staff see more than the file only while decks are theirs alone', () => {
-  const staffWith = (deckVisibility: 'off' | 'after' | 'always', finished = false) =>
+  const staffWith = (deckVisibility: 'off' | 'after' | 'always', finished = false, started = true) =>
     ({
       viewer: { role: 'staff', me: null, signedIn: true },
-      settings: { ...DEFAULT_SETTINGS, deckVisibility, finished }
-    }) as TournamentView;
+      settings: { ...DEFAULT_SETTINGS, deckVisibility, finished },
+      tournament: { pods: [], ...(started ? { startedAt: 1 } : {}) }
+    }) as unknown as TournamentView;
   assert.equal(seesMoreThanPublished(staffWith('after')), true);
   assert.equal(seesMoreThanPublished(staffWith('after', true)), false, 'shown to all once the event ends');
   assert.equal(seesMoreThanPublished(staffWith('always')), false);
+  assert.equal(seesMoreThanPublished(staffWith('always', false, false)), true, 'before round 1 pairs');
   assert.equal(seesMoreThanPublished(staffWith('off')), false);
   const player = { ...staffWith('after'), viewer: { role: null, me: null, signedIn: true } } as TournamentView;
   assert.equal(seesMoreThanPublished(player), false);

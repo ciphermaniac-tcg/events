@@ -51,7 +51,7 @@ export async function firstView(source: {
 
 /** Whether the viewer's copy holds what the published file does not: decks staff see before the public does. */
 export function seesMoreThanPublished(view: TournamentView): boolean {
-  return view.viewer.role !== null && decksEnabled(view.settings) && !decksVisible(view.settings);
+  return view.viewer.role !== null && decksEnabled(view.settings) && !decksVisible(view);
 }
 
 export interface ViewSource {

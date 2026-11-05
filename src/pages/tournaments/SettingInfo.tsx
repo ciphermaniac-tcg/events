@@ -11,7 +11,7 @@ import { msg, t } from '../../lib/i18n';
 export const SETTING_INFO = {
   playerReporting: msg('When enabled, allows players to report the results of their match via their personal devices.'),
   archetypes: msg(
-    'Allows organizer entry of player deck archetypes. “Shown once the event ends” shows archetypes at the time of final standings and “Shown during the event” shows archetypes at the time of entry during your event.'
+    'Allows organizer entry of player deck archetypes. “Shown once the event ends” shows archetypes at the time of final standings and “Shown during the event” shows archetypes once round 1 is paired.'
   ),
   decklists: msg(
     'Allows players to submit their decklists in TCGL format. “Open” takes lists now, and “Closed” stops taking them.'

@@ -65,7 +65,7 @@ function finishOf(view: PublishedView, pod: Pod, key: string): Standing | undefi
 function shownOf(view: PublishedView, key: string): Pick<PlayerFinish, 'division' | 'deck'> {
   return {
     division: isSanctioned(view) ? (view.divisions[key] ?? null) : null,
-    deck: decksVisible(view.settings) ? (view.decks[key] ?? null) : null
+    deck: decksVisible(view) ? (view.decks[key] ?? null) : null
   };
 }
 
@@ -120,7 +120,5 @@ export interface EntryResult {
 /** The entry's event, or null when its copy has no player by the entry's key (a row left behind). */
 export function readEntry(entry: HistoryEntry, view: PublishedView): EntryResult | null {
   const finish = playerResult(view, entry.key);
-  return finish
-    ? { finish, names: namesById(view.tournament), decks: decksVisible(view.settings) ? view.decks : {} }
-    : null;
+  return finish ? { finish, names: namesById(view.tournament), decks: decksVisible(view) ? view.decks : {} } : null;
 }

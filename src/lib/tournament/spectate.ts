@@ -114,5 +114,6 @@ export function streamTable(tournament: Tournament, table: number, category?: Po
  * A staff browser's copy of the event carries decks before then, and a
  * stream is broadcast to everyone.
  */
-export const streamDecks = (view: Pick<TournamentView, 'decks' | 'settings'>): Readonly<Record<string, string>> =>
-  decksVisible(view.settings) ? view.decks : {};
+export const streamDecks = (
+  view: Pick<TournamentView, 'decks' | 'settings' | 'tournament'>
+): Readonly<Record<string, string>> => (decksVisible(view) ? view.decks : {});

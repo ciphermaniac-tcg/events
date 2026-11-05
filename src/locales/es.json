@@ -85,7 +85,7 @@
   "All ‖ players": "Todos",
   "Allow access to {file}": "Permitir acceso a {file}",
   "allow access to the .tdf to enter results": "permite el acceso al .tdf para registrar resultados",
-  "Allows organizer entry of player deck archetypes. “Shown once the event ends” shows archetypes at the time of final standings and “Shown during the event” shows archetypes at the time of entry during your event.": "Permite que el organizador registre el arquetipo del mazo de cada jugador. Con “Visibles al terminar el torneo”, los arquetipos aparecen junto a la clasificación final; con “Visibles durante el torneo”, aparecen en cuanto se registran.",
+  "Allows organizer entry of player deck archetypes. “Shown once the event ends” shows archetypes at the time of final standings and “Shown during the event” shows archetypes once round 1 is paired.": "Permite que el organizador registre el arquetipo del mazo de cada jugador. Con “Visibles al terminar el torneo”, los arquetipos aparecen junto a la clasificación final; con “Visibles durante el torneo”, aparecen una vez emparejada la ronda 1.",
   "Alphabetical pages": "Páginas por orden alfabético",
   "Already decided": "Ya se decidió",
   "An account already exists with that email.": "Ya existe una cuenta con ese correo.",

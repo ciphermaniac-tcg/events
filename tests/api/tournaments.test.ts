@@ -1064,6 +1064,9 @@ test('every change publishes the public view to R2, and deleting the event remov
     cookie: owner,
     body: { deckVisibility: 'always' }
   });
+  assert.deepEqual(bodyOf(objects.get(key)).decks, {}, 'decks shown during the event wait for round 1');
+  await settle(code, owner, { sanctioned: false });
+  assert.equal((await send(code, owner, { type: 'pairRound', pod: 'masters' })).status, 200);
   assert.deepEqual(Object.values(bodyOf(objects.get(key)).decks), ['Gardevoir']);
   await hit(event.onRequestDelete as Handler, '/', at(code), { method: 'DELETE', cookie: owner });
   assert.ok(!objects.has(key), 'deleting the event unpublishes it');

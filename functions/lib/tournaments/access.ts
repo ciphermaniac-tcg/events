@@ -188,7 +188,7 @@ function buildView(row: TournamentRow): PublishedView {
     reports: publicReports(row.reports, row.keys),
     requests: publicRequests(row.requests, row.keys),
     divisions: publicDivisions(row.tournament, row.keys, Date.now()),
-    decks: decksVisible(row.settings) ? publicDecks(shownDecks(row), row.keys) : {},
+    decks: decksVisible(row) ? publicDecks(shownDecks(row), row.keys) : {},
     settings: row.settings
   };
 }

@@ -283,9 +283,17 @@ export function decksEnabled(settings: TournamentSettings): boolean {
   return settings.deckVisibility !== 'off';
 }
 
-/** Whether the public may see players' archetypes now. */
-export function decksVisible(settings: TournamentSettings): boolean {
-  return settings.deckVisibility === 'always' || (settings.deckVisibility === 'after' && settings.finished);
+/**
+ * Whether the public may see players' archetypes now. Decks shown during the
+ * event wait for round 1 to pair, as open lists do, so nobody switches decks
+ * to beat a meta they saw.
+ */
+export function decksVisible(event: {
+  settings: Pick<TournamentSettings, 'deckVisibility' | 'finished'>;
+  tournament: Tournament;
+}): boolean {
+  const { deckVisibility, finished } = event.settings;
+  return deckVisibility === 'always' ? hasStarted(event.tournament) : deckVisibility === 'after' && finished;
 }
 
 export interface TournamentView {

@@ -80,7 +80,7 @@
   },
   "Allow access to {file}": "Autoriser l’accès à {file}",
   "allow access to the .tdf to enter results": "autorise l’accès au .tdf pour saisir les résultats",
-  "Allows organizer entry of player deck archetypes. “Shown once the event ends” shows archetypes at the time of final standings and “Shown during the event” shows archetypes at the time of entry during your event.": "Permet à l’organisateur de saisir l’archétype du deck de chaque joueur. « Affichés à la fin du tournoi » révèle les archétypes avec le classement final, et « Affichés pendant le tournoi » les montre dès leur saisie, en plein tournoi.",
+  "Allows organizer entry of player deck archetypes. “Shown once the event ends” shows archetypes at the time of final standings and “Shown during the event” shows archetypes once round 1 is paired.": "Permet à l’organisateur de saisir l’archétype du deck de chaque joueur. « Affichés à la fin du tournoi » révèle les archétypes avec le classement final, et « Affichés pendant le tournoi » les montre dès que la ronde 1 est appariée.",
   "Alphabetical pages": "Pages par ordre alphabétique",
   "Already decided": "Déjà traitée",
   "An account already exists with that email.": "Un compte existe déjà avec cette adresse e-mail.",

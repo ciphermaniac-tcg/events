@@ -132,9 +132,16 @@ test('once a combined pod’s divisions cut, a stream shows the cut at that tabl
 
 test('a stream shows decks only once the event shows them to everyone, whoever’s copy it reads', () => {
   const decks = { a: 'Gardevoir ex' };
-  const settings = (patch: Partial<typeof DEFAULT_SETTINGS>) => ({ ...DEFAULT_SETTINGS, ...patch });
-  assert.deepEqual(streamDecks({ decks, settings: settings({ deckVisibility: 'always' }) }), decks);
-  assert.deepEqual(streamDecks({ decks, settings: settings({ deckVisibility: 'after', finished: false }) }), {});
-  assert.deepEqual(streamDecks({ decks, settings: settings({ deckVisibility: 'after', finished: true }) }), decks);
-  assert.deepEqual(streamDecks({ decks, settings: settings({ deckVisibility: 'off' }) }), {});
+  const tournament = { pods: [], startedAt: 1 } as unknown as Tournament;
+  const shown = (patch: Partial<typeof DEFAULT_SETTINGS>, t = tournament) =>
+    streamDecks({ decks, settings: { ...DEFAULT_SETTINGS, ...patch }, tournament: t });
+  assert.deepEqual(shown({ deckVisibility: 'always' }), decks);
+  assert.deepEqual(
+    shown({ deckVisibility: 'always' }, { pods: [] } as unknown as Tournament),
+    {},
+    'not before round 1'
+  );
+  assert.deepEqual(shown({ deckVisibility: 'after', finished: false }), {});
+  assert.deepEqual(shown({ deckVisibility: 'after', finished: true }), decks);
+  assert.deepEqual(shown({ deckVisibility: 'off' }), {});
 });

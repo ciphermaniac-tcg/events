@@ -24,6 +24,7 @@ import {
   storedSettings,
   unsanctionedPlayer
 } from '../../shared/tournament/view.ts';
+import type { Tournament } from '../../shared/tournament/types.ts';
 import { decodeEntities, encodeEntities } from '../../shared/tournament/xml.ts';
 
 test('reads every well-formed command', () => {
@@ -171,11 +172,18 @@ test('settings changes are checked field by field', () => {
   assert.equal(readSettings('open', DEFAULT_SETTINGS), null);
   assert.equal(readSettings({ constructor: {} }, DEFAULT_SETTINGS), null);
   assert.equal(readSettings(JSON.parse('{"__proto__": 1}'), DEFAULT_SETTINGS), null);
-  assert.equal(decksVisible({ ...DEFAULT_SETTINGS, deckVisibility: 'always' }), true);
-  assert.equal(decksVisible({ ...DEFAULT_SETTINGS, deckVisibility: 'after' }), false);
-  assert.equal(decksVisible({ ...DEFAULT_SETTINGS, deckVisibility: 'after', idle: true }), false);
-  assert.equal(decksVisible({ ...DEFAULT_SETTINGS, deckVisibility: 'after', finished: true }), true);
-  assert.equal(decksVisible({ ...DEFAULT_SETTINGS, deckVisibility: 'off', finished: true }), false);
+});
+
+test('archetypes shown during the event wait for round 1 to pair', () => {
+  const tournament: Tournament = { ...emptyTournament({ name: 'x' }), startedAt: 1 };
+  const visible = (patch: Partial<typeof DEFAULT_SETTINGS>, t = tournament) =>
+    decksVisible({ settings: { ...DEFAULT_SETTINGS, ...patch }, tournament: t });
+  assert.equal(visible({ deckVisibility: 'always' }, emptyTournament({ name: 'x' })), false, 'not before round 1');
+  assert.equal(visible({ deckVisibility: 'always' }), true);
+  assert.equal(visible({ deckVisibility: 'after' }), false);
+  assert.equal(visible({ deckVisibility: 'after', idle: true }), false);
+  assert.equal(visible({ deckVisibility: 'after', finished: true }), true);
+  assert.equal(visible({ deckVisibility: 'off', finished: true }), false);
 });
 
 test('decklists are off, open or closed, and rounds are capped at up to fifteen', () => {
