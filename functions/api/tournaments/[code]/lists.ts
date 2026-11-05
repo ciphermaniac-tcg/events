@@ -1,4 +1,8 @@
 /**
+ * GET /api/tournaments/:code/lists — the public keys of the players whose
+ * list can be read here, a pasted one, as { players }, so the page can mark
+ * whose name opens a list. Paper lists and players who sent none are left out.
+ *
  * GET /api/tournaments/:code/lists?player=<public key> — one player's list,
  * for anyone, once the organizer has opened the event's lists and round 1 is
  * paired (see listsPublic). The player is named by the key the public view
@@ -48,18 +52,30 @@ export async function onRequestGet(context: Context<'code'>): Promise<Response> 
   if (!listsPublic(row)) {
     return jsonError(msg('This event’s lists aren’t open'), 404);
   }
-  const id = playerOf(row, new URL(context.request.url).searchParams.get('player') ?? '');
-  if (id === undefined) {
-    return jsonError(msg('No such player'), 404);
-  }
+  const key = new URL(context.request.url).searchParams.get('player');
   const { results } = await db
     .prepare('SELECT pop_id, first_name, last_name, deck, deck_mode FROM decklists WHERE code = ?')
     .bind(row.code)
     .all<ListRow>();
   const owner = decklistMatcher(row.tournament, isSanctioned(row));
-  const list = results.find(
-    candidate =>
-      owner({ popId: candidate.pop_id, firstName: candidate.first_name, lastName: candidate.last_name }) === id
-  );
+  const ownerOf = (list: ListRow) =>
+    owner({ popId: list.pop_id, firstName: list.first_name, lastName: list.last_name });
+  if (key === null) {
+    return jsonResponse({ players: readable(row, results, ownerOf) }, { cacheControl: CACHE, cors: false });
+  }
+  const id = playerOf(row, key);
+  if (id === undefined) {
+    return jsonError(msg('No such player'), 404);
+  }
+  const list = results.find(candidate => ownerOf(candidate) === id);
   return jsonResponse({ list: shown(list) }, { cacheControl: CACHE, cors: false });
+}
+
+/** The public keys of the players on the event whose list reads as a pasted one. */
+function readable(row: TournamentRow, lists: readonly ListRow[], ownerOf: (list: ListRow) => string | undefined) {
+  return lists.flatMap(list => {
+    const id = shown(list)?.mode === 'digital' ? ownerOf(list) : undefined;
+    const key = id === undefined ? undefined : row.keys[id];
+    return key === undefined ? [] : [key];
+  });
 }

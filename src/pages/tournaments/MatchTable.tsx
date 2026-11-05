@@ -19,6 +19,7 @@ import { t } from '../../lib/i18n';
 import { markText, recordsSoFar, seatMark, type SeatTag, shownOutcome } from '../../lib/tournament/present';
 import { PendingSeatMark } from './PendingSeatMark';
 import { DeckIcons } from './DeckIcons';
+import { Icon } from '@ciphermaniac/design/components/Icon';
 
 export interface MatchTableProps {
   pod: Pod;
@@ -30,6 +31,8 @@ export interface MatchTableProps {
   /** The viewer's own player ID, whose row is marked. */
   me?: string | null;
   onPlayer?: (id: string) => void;
+  /** The players whose name opens a pasted list, marked beside it. */
+  listed?: ReadonlySet<string>;
   /** Staff only: report `outcome` for the match. */
   onReport?: (match: Match, outcome: Outcome) => void;
   /** Staff only: record `outcome` at once, from a double click on the winner at an open table. */
@@ -83,6 +86,11 @@ function SeatCell(props: CellProps & { seat: 1 | 2; records: Map<string, string>
         <span class='tm-name'>{name(playerId)}</span>
         <Show when={props.status && playerId === props.me}>
           <span class='tm-flag is-you'>{t('You')}</span>
+        </Show>
+        <Show when={props.listed?.has(playerId)}>
+          <span class='tm-list-mark'>
+            <Icon name='list' label={t('Decklist')} />
+          </span>
         </Show>
       </span>
       <span class='muted-cell tm-record'>{props.records.get(playerId) ?? ''}</span>

@@ -31,6 +31,7 @@ import {
   decklistsLocked,
   decklistsOpen,
   isSanctioned,
+  listsPublic,
   type PublishedView,
   type TournamentSettings,
   type TournamentView
@@ -42,6 +43,7 @@ import { Skeleton } from '@ciphermaniac/design/components/Skeleton';
 import { TabPanel, Tabs } from '@ciphermaniac/design/components/Tabs';
 import {
   ApiError,
+  fetchListReaders,
   fetchPublished,
   fetchView,
   identifyPlayer,
@@ -441,6 +443,8 @@ function pickTab(tabs: readonly { value: Tab }[], wanted: string | undefined, vi
   return tabs.some(t => t.value === choice) ? choice : (tabs[0]?.value ?? 'pairings');
 }
 
+const NO_LISTS: ReadonlySet<string> = new Set();
+
 /** One line under every panel while decks wait for the event to end. */
 const deckNote = (view: TournamentView) =>
   view.settings.deckVisibility === 'after' && !view.settings.finished
@@ -589,6 +593,15 @@ function EventBody(props: {
   );
   const round = createMemo(() => pod()?.rounds.find(r => r.number === roundChoice()) ?? latestRound(pod()));
   const names = createMemo(() => namesById(props.view.tournament));
+  // Locked once round 1 pairs, so one read serves the page; a failed one leaves the names unmarked.
+  const [listed] = createResource(
+    () => listsPublic(props.view) && props.view.code,
+    code =>
+      fetchListReaders(code).then(
+        answer => new Set(answer.players),
+        () => NO_LISTS
+      )
+  );
   const divisionOf = (id: string) => props.view.divisions[id] ?? 'masters';
   // A memo: the bar is drawn from it, and a bar drawn again on every new copy drops the search mid-word.
   const started = createMemo(() => hasStarted(props.view.tournament));
@@ -693,6 +706,7 @@ function EventBody(props: {
               following={following()}
               registered={<RegisteredList view={props.view} me={me()} query={query()} onPlayer={setOpen} />}
               onPlayer={setOpen}
+              listed={listed() ?? NO_LISTS}
             />
             <Show when={started() && deckNote(props.view)}>
               {note => <p class='tm-box-bar tm-box-note muted'>{note()}</p>}
@@ -713,6 +727,7 @@ function EventBody(props: {
               me={me()}
               query={query()}
               onPlayer={setOpen}
+              listed={listed() ?? NO_LISTS}
               bar={bar(false)}
               note={deckNote(props.view)}
             />

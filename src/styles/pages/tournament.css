@@ -328,6 +328,15 @@ body.tm-stream-mode {
   border-color: var(--accent);
   color: var(--accent-ink);
 }
+/* A name that opens a pasted list, at an event whose lists are open. Centred on its line, the
+   glyph's ink sat 0.06em under the middle of the name's capitals. */
+.tm-list-mark {
+  display: inline-flex;
+  flex: none;
+  margin-left: var(--space-2);
+  color: var(--muted);
+  translate: 0 -0.06em;
+}
 
 /* ---------- Sign in with Google / Discord ----------
    Each drawn to its provider's guidelines. Google: the light theme (#FFFFFF,
@@ -1000,7 +1009,7 @@ body[data-mode='dark'] :is(.tm-input, .tm-select) {
     align-items: center;
     column-gap: var(--space-2);
   }
-  :is(.tm-seat-name, .tm-standings .tm-who-name, .tm-standings .tm-who-sub) .tm-flag {
+  :is(.tm-seat-name, .tm-standings .tm-who-name, .tm-standings .tm-who-sub) :is(.tm-flag, .tm-list-mark) {
     margin: 0;
   }
   /* The name runs to the cell's end: the link's pull to the left is given back on its right. */

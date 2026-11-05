@@ -41,6 +41,8 @@ export function PublicPairings(props: {
   /** Drawn in place of the tables before round 1. */
   registered: JSX.Element;
   onPlayer: (id: string) => void;
+  /** The players whose name opens a pasted list. */
+  listed: ReadonlySet<string>;
 }) {
   const [params, setParams] = useSearchParams<{ view?: string }>();
   const cut = createMemo(() => hasCut(props.pod));
@@ -81,6 +83,7 @@ export function PublicPairings(props: {
       pending={props.view.pending}
       me={props.me}
       onPlayer={props.onPlayer}
+      listed={props.listed}
       status
       inProgress={match => stillPlaying(match, { pod: props.pod!, round: props.round!, pending: props.view.pending })}
       empty={everyResult() ? t('Every table has a result.') : t('No tables match.')}

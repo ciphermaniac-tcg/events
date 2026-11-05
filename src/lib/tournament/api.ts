@@ -452,6 +452,9 @@ export const removeStaff = (code: string, userId: string) =>
     method: 'DELETE'
   });
 
+/** The keys of the players whose pasted list can be read, once the event's lists are open. */
+export const fetchListReaders = (code: string) => call<{ players: string[] }>(`${base(code)}/lists`);
+
 /** One player's list, by the key the event's page knows them by, once the event's lists are open. */
 export const fetchOpenList = (code: string, player: string) =>
   call<{ list: OpenList | null }>(`${base(code)}/lists?${new URLSearchParams({ player }).toString()}`);

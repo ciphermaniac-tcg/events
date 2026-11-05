@@ -16,6 +16,7 @@ import { percentLabel, recordLabel, type Standing } from '../../../shared/tourna
 import type { Division, Pod, Tournament } from '../../../shared/tournament/types';
 import { cutSplit, divisionHeading, podStandings } from '../../lib/tournament/present';
 import { DeckIcons } from './DeckIcons';
+import { Icon } from '@ciphermaniac/design/components/Icon';
 import { t } from '../../lib/i18n';
 
 interface TableProps {
@@ -27,6 +28,8 @@ interface TableProps {
   me?: string | null;
   query?: string;
   onPlayer?: (id: string) => void;
+  /** The players whose name opens a pasted list, marked beside it. */
+  listed?: ReadonlySet<string>;
   /** Show OWP and OOWP as columns, and what split the cut. */
   tiebreakers?: boolean;
   /** Hold back the decks of the players in a cut already under way. */
@@ -119,6 +122,11 @@ export function StandingsTable(props: TableProps) {
                                       <span class='tm-name'>{props.names.get(row().playerId) ?? row().playerId}</span>
                                       <Show when={row().playerId === props.me}>
                                         <span class='tm-flag is-you'>{t('You')}</span>
+                                      </Show>
+                                      <Show when={props.listed?.has(row().playerId)}>
+                                        <span class='tm-list-mark'>
+                                          <Icon name='list' label={t('Decklist')} />
+                                        </span>
                                       </Show>
                                     </span>
                                     {/* On the second line, so a dropped player's name keeps its room. */}

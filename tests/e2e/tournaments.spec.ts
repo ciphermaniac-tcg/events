@@ -2381,6 +2381,22 @@ test('on a phone held sideways one card large shows whole, with its name and Clo
   expect((close?.y ?? 0) + (close?.height ?? 0)).toBeLessThanOrEqual(390);
 });
 
+test('a name that opens a pasted list is marked, and a paper one is not', async ({ page }) => {
+  await mockApi(page, { ...VIEW, settings: { ...VIEW.settings, decklists: 'closed', openLists: true } });
+  const hedy = tdf.players.find(p => p.lastName === 'Lamarr')!;
+  const other = tdf.players.find(p => p !== hedy)!;
+  await page.route(`**/api/tournaments/${CODE}/lists`, route => route.fulfill({ json: { players: [keys[hedy.id]] } }));
+  await page.goto(`/t/${CODE}`);
+  const seat = (name: RegExp) => page.locator('.tm-matches').getByRole('button', { name }).first();
+  await expect(seat(/Hedy Lamarr/).getByRole('img', { name: 'Decklist' })).toBeVisible();
+  await expect(
+    seat(new RegExp(`${other.firstName} ${other.lastName}`)).getByRole('img', { name: 'Decklist' })
+  ).toHaveCount(0);
+  await page.getByRole('tab', { name: 'Standings', exact: true }).click();
+  const standing = page.locator('.tm-standings').getByRole('button', { name: /Hedy Lamarr/ });
+  await expect(standing.getByRole('img', { name: 'Decklist' })).toBeVisible();
+});
+
 test('a paper list says so, and an event whose lists are closed asks for none', async ({ page }) => {
   let asked = 0;
   const open = {

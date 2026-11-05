@@ -102,6 +102,28 @@ test('lists the organizer has not opened stay closed after round 1', async () =>
   assert.equal((await read(code, await keyOf(code, 'Nia'))).status, 404);
 });
 
+const readers = (code: string) => hit(lists.onRequestGet as Handler, '/lists', at(code));
+
+test('the event names whose pasted list can be read, once round 1 is paired, and never a paper one', async () => {
+  const { owner, code } = await eventWithLists(true);
+  assert.equal((await readers(code)).status, 404, 'not before round 1');
+  await pair(code, owner);
+  const answer = await readers(code);
+  assert.equal(answer.status, 200);
+  assert.deepEqual(answer.json, { players: [await keyOf(code, 'Nia')] }, 'Omar’s is on paper');
+  assert.equal(answer.headers.get('Cache-Control'), 'public, max-age=60');
+  (env.TOURNAMENT_DB as ReturnType<typeof sqliteD1>).raw
+    .prepare("UPDATE decklists SET deck = '' WHERE code = ? AND pop_id = ?")
+    .run(code, NIA.popId);
+  assert.deepEqual((await readers(code)).json, { players: [] }, 'a list whose cards went reads as none');
+});
+
+test('closed lists name nobody', async () => {
+  const { owner, code } = await eventWithLists(false);
+  await pair(code, owner);
+  assert.equal((await readers(code)).status, 404);
+});
+
 test('an event that does not exist answers no such tournament', async () => {
   assert.equal((await read('ZZZZZZ', 'x')).status, 404);
 });
