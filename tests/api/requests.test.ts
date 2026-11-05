@@ -32,6 +32,8 @@ async function eventWithPhone() {
   const owner = await signIn('Organizer', 'organizer');
   const code = await newSwiss(owner);
   await addPlayers(code, owner, 4);
+  // Drops are asked for once play starts: before round 1 a drop is a removal.
+  assert.equal((await send(code, owner, { type: 'pairRound', pod: 'masters' })).status, 200);
   const popId = '900';
   const device = 'phone-900';
   const said = await playerSays(code, { popId, device });
@@ -67,7 +69,7 @@ test('the reporting device asks to drop, publicly by key, and staff confirm it b
     [{ player: popId, status: 'accepted', by: 'organizer' }]
   );
   assert.equal(await versionOf(code), before + 1, 'the drop and its answer are one write');
-  assert.notEqual(await droppedAfter(), null, 'confirming the drop dropped the player');
+  assert.equal(await droppedAfter(), 1, 'confirming the drop dropped the player');
   assert.equal((await shown('drop'))?.by, undefined, 'the public copy does not name staff');
   assert.equal((await answer({ id: open?.id, status: 'declined' })).status, 400, 'answered once');
   const managed = await hit(manage.onRequestGet as Handler, '/manage', at(code), { cookie: owner });
@@ -92,7 +94,7 @@ test('a confirmation from a stale console does not drop a player who cancelled a
   assert.equal((await answer({ id: seen?.id, status: 'accepted' })).status, 400, 'the old answer still misses');
   assert.equal(await droppedAfter(), null);
   assert.equal((await answer({ id: again?.id, status: 'accepted' })).status, 200);
-  assert.notEqual(await droppedAfter(), null);
+  assert.equal(await droppedAfter(), 1);
 });
 
 test('asking again for an open request writes nothing, and cancelling then asking waits for the cooldown', async () => {

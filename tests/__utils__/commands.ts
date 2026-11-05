@@ -12,6 +12,8 @@ import {
   type CommandContext,
   type CommandResult
 } from '../../shared/tournament/commands.ts';
+import { applyLifecycleOperation } from '../../shared/tournament/lifecycle.ts';
+import { lifecycleDocument } from '../../shared/tournament/lifecycleImport.ts';
 import { seededRandom } from '../../shared/tournament/random.ts';
 import { latestRound } from '../../shared/tournament/rounds.ts';
 import type { Pod, Tournament } from '../../shared/tournament/types.ts';
@@ -49,4 +51,15 @@ export function pendingResults(pod: Pod): Command[] {
       p2: m.p2,
       outcome: 'p1'
     }));
+}
+
+/**
+ * Player `id` dropped before round 1, as an event from before such a drop
+ * became a removal, or a TOM file, can carry them: the site's own drop
+ * before round 1 now removes the player instead.
+ */
+export function droppedBeforeRoundOne(t: Tournament, id: string, localTime = '09/28/2026 10:00:00'): Tournament {
+  const drop = { type: 'drop', id, disqualified: false, timestamp: localTime } as const;
+  const ctx = { now: 0, localTime, season: 2027, random: seededRandom(1) };
+  return applyLifecycleOperation(lifecycleDocument(t), drop, ctx).tournament;
 }

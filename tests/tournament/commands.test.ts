@@ -90,6 +90,14 @@ test('repairing a running round is refused and preserves its reported matches', 
   assert.equal(writeTdf(t, { now: 0 }), before);
 });
 
+test('a drop before round 1 is paired removes the player, and one after keeps them on the record', () => {
+  const early = run(withPlayers(6), { type: 'dropPlayer', id: '100' });
+  assert.ok(!early.players.some(p => p.id === '100'), 'never played, so not kept');
+  assert.ok(!early.pods.some(pod => pod.playerIds.includes('100')));
+  const late = run(withPlayers(6), { type: 'pairRound', pod: 'masters' }, { type: 'dropPlayer', id: '100' });
+  assert.equal(late.players.find(p => p.id === '100')?.droppedAfter, 1);
+});
+
 test('later rounds avoid rematches and dropped players are not paired', () => {
   let t = reportAll(run(withPlayers(8), { type: 'pairRound', pod: 'masters' }));
   t = run(t, { type: 'dropPlayer', id: '100' }, { type: 'pairRound', pod: 'masters' });

@@ -28,7 +28,7 @@ import {
   type TournamentView
 } from '../../shared/tournament/view';
 import { manageOf, organizerMe, runCommands } from './console-fixture';
-import { pendingResults } from '../__utils__/commands';
+import { droppedBeforeRoundOne, pendingResults } from '../__utils__/commands';
 
 const CODE = 'SWISS2';
 
@@ -1016,8 +1016,7 @@ test('a player who never played is reinstated with a question in place, and no b
   let t = event(8, 0, false);
   const id = t.players.find(p => p.firstName === 'Player1')?.id ?? '';
   t = runCommands(
-    t,
-    { type: 'dropPlayer', id },
+    droppedBeforeRoundOne(t, id),
     { type: 'pairRound', pod: 'masters' },
     { type: 'startClock', pod: 'masters' }
   );

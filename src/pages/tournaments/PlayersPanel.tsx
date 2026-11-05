@@ -293,15 +293,18 @@ function PlayerActions(props: { state: ManageState; manage: Manage; player: Play
               />
             </Show>
             <Show when={!ended() && dropped() === null}>
-              <ConfirmAction
-                label={t('Drop')}
-                question={t('Drop {name}? You can reinstate them until the next round is paired.', {
-                  name: playerName(props.player)
-                })}
-                class='tm-menu-item'
-                danger
-                onConfirm={() => send('dropPlayer')}
-              />
+              {/* Before round 1 a drop is a removal (see unplayedDrop), which Remove already offers. */}
+              <Show when={hasStarted(props.manage.tournament)}>
+                <ConfirmAction
+                  label={t('Drop')}
+                  question={t('Drop {name}? You can reinstate them until the next round is paired.', {
+                    name: playerName(props.player)
+                  })}
+                  class='tm-menu-item'
+                  danger
+                  onConfirm={() => send('dropPlayer')}
+                />
+              </Show>
               <ConfirmAction
                 label={t('Disqualify')}
                 question={t('Disqualify {name}? It goes in the event file. Write the penalty note under Penalties.', {

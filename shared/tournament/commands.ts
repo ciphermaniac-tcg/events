@@ -335,7 +335,16 @@ const refused = (error: unknown): CommandResult => ({
   error: error instanceof Error ? error.message : msg('The command could not complete')
 });
 
-export function applyCommand(t: Tournament, command: Command, ctx: CommandContext): CommandResult {
+/**
+ * A drop before round 1 is paired is a removal: the player never played, so
+ * nothing of theirs belongs on the event's record.
+ */
+function unplayedDrop(t: Tournament, command: Command): Command {
+  return command.type === 'dropPlayer' && !hasStarted(t) ? { type: 'removePlayer', id: command.id } : command;
+}
+
+export function applyCommand(t: Tournament, given: Command, ctx: CommandContext): CommandResult {
+  const command = unplayedDrop(t, given);
   try {
     checkedAdmission(command, ctx);
     checkedCorrection(t, command, ctx);

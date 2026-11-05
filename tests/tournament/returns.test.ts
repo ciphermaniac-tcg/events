@@ -11,7 +11,7 @@ import { emptyTournament } from '../../shared/tournament/create.ts';
 import { seededRandom } from '../../shared/tournament/random.ts';
 import { returnEffects } from '../../shared/tournament/returns.ts';
 import type { Pod, Tournament } from '../../shared/tournament/types.ts';
-import { commandRunner, pendingResults } from '../__utils__/commands.ts';
+import { commandRunner, droppedBeforeRoundOne, pendingResults } from '../__utils__/commands.ts';
 
 function context(seed = 1): CommandContext {
   return { now: 1_000_000, localTime: '09/28/2026 10:00:00', season: 2027, random: seededRandom(seed) };
@@ -78,7 +78,7 @@ test('reinstating a disqualified player lifts the disqualification', () => {
 });
 
 test('a player whose only matches were not saved is refused, as the return refuses them', () => {
-  const t = run(withPlayers(5, { type: 'dropPlayer', id: '104' }), { type: 'pairRound', pod: 'masters' });
+  const t = run(droppedBeforeRoundOne(withPlayers(5), '104'), { type: 'pairRound', pod: 'masters' });
   const unsaved = { ...t, pods: [{ ...pod(t), unsavedPlayers: ['104'] }] };
   const effects = agreed(unsaved, '104');
   assert.equal(effects.refusal, 'A player whose only matches were not saved cannot return');
@@ -86,7 +86,7 @@ test('a player whose only matches were not saved is refused, as the return refus
 });
 
 test('a player who never played is refused once round three is paired', () => {
-  let t = withPlayers(5, { type: 'dropPlayer', id: '104' });
+  let t = droppedBeforeRoundOne(withPlayers(5), '104');
   for (let i = 0; i < 3; i += 1) {
     t = run(i ? reportAll(t) : t, { type: 'pairRound', pod: 'masters' });
   }
