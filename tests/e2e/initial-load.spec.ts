@@ -253,3 +253,56 @@ test('a failed event list is retryable and never renders an invented empty list'
   await expect(page.getByRole('tabpanel', { name: 'Playing' })).toBeVisible();
   expect(unexpected).toEqual([]);
 });
+
+/**
+ * How each document the tab loads was reached, and every alert any of them
+ * showed: kept in the tab's session storage, which outlives a reload.
+ */
+async function recordLoads(page: Page) {
+  await page.addInitScript(() => {
+    const keep = (key: string, value: string) =>
+      sessionStorage.setItem(
+        key,
+        JSON.stringify([...(JSON.parse(sessionStorage.getItem(key) ?? '[]') as string[]), value])
+      );
+    const entry = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined;
+    keep('test-loads', entry?.type ?? '');
+    new MutationObserver(() => {
+      const alert = document.querySelector('main [role=alert]');
+      if (alert) {
+        keep('test-alerts', alert.textContent ?? '');
+      }
+    }).observe(document, { childList: true, subtree: true });
+  });
+  return () =>
+    page.evaluate(() => ({
+      loads: JSON.parse(sessionStorage.getItem('test-loads') ?? '[]') as string[],
+      alerts: JSON.parse(sessionStorage.getItem('test-alerts') ?? '[]') as string[]
+    }));
+}
+
+for (const path of ['/', '/history', '/settings']) {
+  test(`a third-party module that fails to load never reloads ${path} over its session read`, async ({ page }) => {
+    const { session, dashboard, unexpected } = await holdSession(page, USER);
+    dashboard.resolve();
+    // As Cloudflare's analytics beacon does in production, where the site's policy blocks it.
+    const beacon = 'http://127.0.0.1:4320/beacon.min.js';
+    await page.route(beacon, route => route.abort('blockedbyclient'));
+    await page.route(path, async route => {
+      const response = await route.fetch();
+      const body = (await response.text()).replace('</body>', `<script type="module" src="${beacon}"></script></body>`);
+      await route.fulfill({ response, body });
+    });
+    const recorded = await recordLoads(page);
+    const blocked = page.waitForEvent('requestfailed', request => request.url() === beacon);
+    await page.goto(path);
+    await blocked;
+    // Long enough for a reload to have started.
+    await page.waitForTimeout(500);
+    session.resolve();
+    await expect(page.getByRole('button', { name: 'Account' })).toBeVisible();
+    await expect(page.locator('main .skeleton')).toHaveCount(0);
+    expect(await recorded()).toEqual({ loads: ['navigate'], alerts: [] });
+    expect(unexpected).toEqual([]);
+  });
+}
