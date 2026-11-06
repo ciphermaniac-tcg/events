@@ -17,6 +17,7 @@ import {
   type TournamentView,
   type Viewer
 } from '../../../shared/tournament/view.js';
+import { isAdmin } from '../../../shared/accounts/roles.js';
 import { birthYear } from '../../../shared/tournament/divisions.js';
 import { birthYearFits, fullNameKey } from '../../../shared/tournament/identify.js';
 import { lookupPlayers } from '../../../shared/tournament/lookup.js';
@@ -76,27 +77,41 @@ export function pollOf(context: Context<'code'>): { db: D1Like; code: string; si
   return since && db && isCode(code) ? { db, code, since } : null;
 }
 
-/** An event opened by one of its staff, with the hash of the session they asked with. */
-export type StaffAccess = Access & { role: Role; hash: string };
+/**
+ * An event opened by one of its staff, with the hash of the session they
+ * asked with. `watching` marks a site Admin off the event's staff reading it
+ * as staff would: never what a change opens with (see openForStaff).
+ */
+export type StaffAccess = Access & { role: Role; hash: string; watching?: true };
 
-/** The access as staff's, or why the asker may not act as the event's staff. */
-function staffOnly(access: Access): StaffAccess | Response {
-  const { role, hash } = access;
-  if (!access.user || !hash) {
+/**
+ * The access as staff's, or why the asker may not act as the event's staff.
+ * With `watch`, a site Admin off its staff reads it as its staff do.
+ */
+function staffOnly(access: Access, watch: boolean): StaffAccess | Response {
+  const { role, hash, user } = access;
+  if (!user || !hash) {
     return jsonError(SIGN_IN, 401);
   }
-  return role ? { ...access, role, hash } : jsonError(NOT_STAFF, 403);
+  if (role) {
+    return { ...access, role, hash };
+  }
+  return watch && isAdmin(user.role) ? { ...access, role: 'staff', hash, watching: true } : jsonError(NOT_STAFF, 403);
 }
 
-/** As `open`, for what only staff may read. */
+/** As `open`, for what only staff, or a site Admin watching, may read. */
 export async function openForStaffRead(context: Context<'code'>): Promise<StaffAccess | Response> {
   const access = await open(context);
-  return access instanceof Response ? access : staffOnly(access);
+  return access instanceof Response ? access : staffOnly(access, true);
 }
 
-/** As `open`, for a change only staff may make. */
+/** As `open`, for a change only staff may make: an Admin watching makes none. */
 export async function openForStaff(context: Context<'code'>): Promise<StaffAccess | Response> {
-  return sameOrigin(context.request) ? openForStaffRead(context) : jsonError('Forbidden', 403);
+  if (!sameOrigin(context.request)) {
+    return jsonError('Forbidden', 403);
+  }
+  const access = await open(context);
+  return access instanceof Response ? access : staffOnly(access, false);
 }
 
 /** As `openForStaff`, for what only the organizer may do; `refusal` tells anyone else so. */
@@ -260,8 +275,8 @@ export function viewOf(access: Access): TournamentView {
 }
 
 /** Staff get the whole document, pending results and invite token included. */
-export function manageView(access: Pick<StaffAccess, 'row' | 'role'>): Manage {
-  const { row, role } = access;
+export function manageView(access: Pick<StaffAccess, 'row' | 'role' | 'watching'>): Manage {
+  const { row, role, watching } = access;
   return {
     lastImportAt: row.lastImportAt ?? null,
     code: row.code,
@@ -278,7 +293,8 @@ export function manageView(access: Pick<StaffAccess, 'row' | 'role'>): Manage {
     pairedThrough: row.pairedThrough ?? {},
     role,
     staffToken: role === 'owner' ? row.staffToken : null,
-    store: row.storeId
+    store: row.storeId,
+    ...(watching ? { watching } : {})
   };
 }
 

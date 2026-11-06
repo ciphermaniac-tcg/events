@@ -571,6 +571,8 @@ export interface Manage {
   staffToken: string | null;
   /** The store that runs the event; null for one run under an account's own name, which is never sanctioned. */
   store: string | null;
+  /** Set for a site Admin off the event's staff, who reads the console but changes nothing. */
+  watching?: true;
 }
 
 export interface StaffMember {
