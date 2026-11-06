@@ -376,6 +376,14 @@
     display: none;
   }
 }
+/* Held sideways, the head, the pin and the tab bar would leave the tables a strip:
+   the round and its clock scroll with them, as they do on a wider screen.
+   Only a phone's width shows the pin, so the height alone says when; with no top it never sticks. */
+@media (max-height: 400px) {
+  .tm-console .tm-round-pin {
+    top: auto;
+  }
+}
 .tm-console .tm-deck-cell {
   min-width: 240px;
   padding-block: var(--space-1);

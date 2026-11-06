@@ -1486,6 +1486,17 @@ test('on a phone the tabs sit along the bottom, and the round and its clock stay
   expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
 });
 
+test('on a short phone held sideways the round and its clock scroll with the tables rather than leave them a strip @mobileOnly', async ({
+  page
+}) => {
+  await page.setViewportSize({ width: 640, height: 300 });
+  await mockConsole(page, partlyPlayed(16, 0, 2), settingsOf({}));
+  const pin = page.locator('.tm-round-pin');
+  await expect(pin.getByRole('group', { name: 'Round clock' })).toBeVisible();
+  await page.locator('.tm-matches tbody tr').last().scrollIntoViewIfNeeded();
+  await expect(pin).not.toBeInViewport();
+});
+
 test('a phone’s tab bar is one tab list: the arrows move and open, and a locked tab says why @mobileOnly', async ({
   page
 }) => {
