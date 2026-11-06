@@ -129,6 +129,10 @@ body.tm-stream-mode {
   align-items: baseline;
   margin: 0;
 }
+/* With no status between, the meta line keeps the status's 8px under the title, as the console's does. */
+.tm-hero h1 + .hero-meta {
+  margin-top: var(--space-2);
+}
 /* The meta line is a flex row, which drops the spaces around a separator. */
 .tm-hero-dot {
   margin: 0 var(--space-2);
@@ -874,12 +878,16 @@ body[data-mode='dark'] :is(.tm-input, .tm-select) {
 :is(.tm-matches, .tm-standings).has-decks .tm-seat-link:not(:has(.tm-deck))::before {
   content: '';
 }
-/* The picker and a slot for Clear, so every row's picker is the same width. */
+/* The picker and a slot for Clear, so every row's picker is the same width.
+   The slot grows with a longer word ("Löschen") rather than letting it spill. */
 .tm-deck-pick {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 56px;
+  grid-template-columns: minmax(0, 1fr) minmax(56px, auto);
   align-items: center;
   gap: var(--space-1);
+}
+.tm-deck-pick > :disabled {
+  visibility: hidden;
 }
 /* The list hangs from a table cell that keeps to one line; a long name wraps instead of pushing its share off. */
 .tm-deck-pick .tl-list li {
@@ -929,16 +937,19 @@ body[data-mode='dark'] :is(.tm-input, .tm-select) {
   padding-block: var(--space-2);
 }
 .tm-deck-link {
-  min-height: 44px;
   color: var(--fg);
   vertical-align: middle;
 }
 .tm-deck-link:hover {
   color: var(--accent-ink);
 }
-/* The deck stats: every name starts in line, however many sprites its deck has. */
+/* The deck stats: every name starts in line, however many sprites its deck has.
+   The row, not the link, holds the 44px, so a focused link's ring stays inside the box. */
 .tm-deck-stats .tm-deck {
   min-width: 44px;
+}
+.tm-deck-stats .data td {
+  height: 44px;
 }
 /* The public page's switch and search, above every division's box. */
 .tm-standings-bar {
@@ -1105,6 +1116,7 @@ body[data-mode='dark'] :is(.tm-input, .tm-select) {
    line and take their target from padding the margin gives back. */
 @media (max-width: 640px), (pointer: coarse) {
   .tm-seat-link,
+  .tm-deck-link,
   .tm-small,
   .tm-check,
   .tm-filter-bar .chip,
@@ -1784,6 +1796,8 @@ tr.is-in .tm-place {
 }
 .tm-profile-bar {
   display: block;
+  /* Save's row draws the rule between them. */
+  border-bottom: 0;
 }
 .tm-profile-bar .tm-grid-fields {
   grid-template-columns: repeat(auto-fit, minmax(max(150px, 40%), 1fr));

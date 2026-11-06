@@ -10,9 +10,10 @@
 .tm-storepage .tm-hero {
   margin-bottom: 0;
 }
-/* The way back sits on the title as on every other page, not a section's gap above it. */
-.tm-storepage > .tm-trail {
-  margin-bottom: calc(var(--space-2) - var(--section-gap));
+/* The way back sits on the title as on every other page, its own margin above it and
+   not a section's gap. The title rises into the gap: a grid row can't shrink below none. */
+.tm-storepage > .tm-trail + * {
+  margin-top: calc(-1 * var(--section-gap));
 }
 .tm-storepage-top {
   display: grid;
@@ -33,6 +34,8 @@
 .tm-store-map-link {
   position: absolute;
   inset: 0;
+  /* The tiles sit beneath the link's own focus ring rather than over it. */
+  isolation: isolate;
 }
 .tm-store-map-link:focus-visible {
   outline: var(--focus-width) solid var(--focus-color);
@@ -40,6 +43,7 @@
 }
 .tm-store-tile {
   position: absolute;
+  z-index: -1;
   left: 0;
   top: 0;
   max-width: none;
@@ -132,10 +136,9 @@ body[data-mode='dark'] .tm-store-tile {
 .tm-storepage-changes li {
   grid-template-columns: 120px auto minmax(0, 1fr);
 }
+/* A night's name or a date's note wraps: it is the only place a player reads it. */
 .tm-storepage-night-name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 .tm-storepage-zone,
 .tm-storepage-none {

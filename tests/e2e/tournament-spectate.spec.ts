@@ -531,6 +531,23 @@ test('a phone’s deck stats keep the win rate in the box beside a long deck nam
   expect(await box.evaluate(wrap => wrap.scrollWidth <= wrap.clientWidth)).toBe(true);
 });
 
+test('the deck stats’ last deck shows its whole focus ring inside the box', async ({ page }) => {
+  await mockApi(page);
+  await page.goto(`/t/${CODE}`);
+  await page.getByRole('tab', { name: 'Decks' }).click();
+  const last = page.locator('.tm-deck-stats .tm-deck-link').last();
+  await last.focus();
+  await page.keyboard.press('Shift');
+  // The ring, as drawn round the link, against the box that clips it.
+  const over = await last.evaluate(link => {
+    const style = getComputedStyle(link);
+    const reach = parseFloat(style.outlineOffset) + parseFloat(style.outlineWidth);
+    const box = (link.closest('.tm-deck-stats') as HTMLElement).getBoundingClientRect();
+    return link.getBoundingClientRect().bottom + reach - (box.bottom - 1);
+  });
+  expect(over).toBeLessThanOrEqual(0);
+});
+
 test('a phone’s standings show a name longer than its column whole @mobile', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 640 });
   const [player] = tdf.players;

@@ -232,6 +232,15 @@ test('no to a suggested player goes back to asking which player, and is remember
   await expect(page.getByRole('heading', { name: 'Is this you?' })).toHaveCount(0);
 });
 
+test('which player are you sets Find my match level with the field beside it', async ({ page }) => {
+  await mockApi(page, VIEW);
+  await page.goto(`/t/${CODE}`);
+  const field = await page.getByLabel('Last name', { exact: true }).boundingBox();
+  const button = await page.getByRole('button', { name: 'Find my match' }).boundingBox();
+  expect(button?.y).toBeCloseTo(field?.y ?? 0, 0);
+  expect(button?.height).toBeCloseTo(field?.height ?? 0, 0);
+});
+
 test('once the event is done nobody is asked which player they are', async ({ page }) => {
   await mockApi(page, { ...VIEW, settings: { ...VIEW.settings, finished: true } });
   await page.goto(`/t/${CODE}`);

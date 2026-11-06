@@ -121,6 +121,10 @@
   align-items: end;
   gap: var(--space-2);
 }
+/* The button stands 38px tall, as the field beside it does (a finger's are both 44px). */
+.tm-identify > .btn {
+  padding-block: 8.25px;
+}
 .tm-identify > .tm-error {
   flex-basis: 100%;
   margin: 0;

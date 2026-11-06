@@ -229,6 +229,23 @@ test('on a phone held sideways a long event name gives way before its In progres
   expect((shown?.x ?? 0) + (shown?.width ?? 0)).toBeLessThanOrEqual((edge?.x ?? 0) + (edge?.width ?? 0) + 1);
 });
 
+test('on a laptop History wraps a long event name rather than losing its end', async ({ page }) => {
+  await page.setViewportSize({ width: 1024, height: 768 });
+  await mockAccount(page);
+  await publishCopies(page);
+  const long = ENTRIES.map(e => (e.code === 'LIVE01' ? { ...e, name: `${e.name} — November Championship Series` } : e));
+  await page.route('**/api/history', route => route.fulfill({ json: { entries: long } }));
+  await page.goto('/history');
+  const name = page.locator('.tm-hist tbody tr.is-link .tm-hist-name').filter({ hasText: 'November' });
+  await expect(name).toContainText('November Championship Series');
+  expect(await name.evaluate(el => [...el.querySelectorAll('*'), el].every(n => n.scrollWidth <= n.clientWidth))).toBe(
+    true
+  );
+  const flag = name.locator('.tm-flag');
+  const [shown, edge] = await Promise.all([flag.boundingBox(), name.boundingBox()]);
+  expect((shown?.x ?? 0) + (shown?.width ?? 0)).toBeLessThanOrEqual((edge?.x ?? 0) + (edge?.width ?? 0) + 1);
+});
+
 test('on a phone held sideways History gives an event’s name the room a deck’s name took', async ({ page }) => {
   await page.setViewportSize({ width: 667, height: 375 });
   await mockAccount(page);
@@ -243,6 +260,41 @@ test('on a phone held sideways History gives an event’s name the room a deck�
   ]);
   expect(event?.width ?? 0).toBeGreaterThan(280);
   expect(deck?.width ?? 0).toBeLessThanOrEqual(72);
+});
+
+test('History’s last event meets the box’s edge without a second rule, opened or not', async ({ page }) => {
+  await mockAccount(page);
+  await publishCopies(page);
+  await page.goto('/history');
+  const last = page.locator('.tm-hist tbody tr').last();
+  const rule = () =>
+    last
+      .locator('td')
+      .first()
+      .evaluate(td => getComputedStyle(td).borderBottomWidth);
+  await expect(last).toBeVisible();
+  expect(await rule()).toBe('0px');
+  await last.click();
+  await expect(page.locator('.tm-hist tbody tr.row-expansion')).toBeVisible();
+  expect(await rule()).toBe('0px');
+});
+
+test('on a laptop History shows a two-Pokémon deck’s whole name', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await mockAccount(page);
+  await publishCopies(page);
+  const long = copyOf('LIVE01', CHALLENGE, {
+    mode: 'tom',
+    decks: { '7200001': 'Raging Bolt ex Ogerpon ex' },
+    settings: { deckVisibility: 'always', format: 'Standard' }
+  });
+  await page.route('**/tournaments/v1/LIVE01.json', route =>
+    route.fulfill({ json: long.view, headers: { 'access-control-allow-origin': '*' } })
+  );
+  await page.goto('/history');
+  const deck = page.locator('.tm-hist tbody tr.is-link .tm-hist-deck-name').first();
+  await expect(deck).toHaveText('Raging Bolt ex Ogerpon ex');
+  expect(await deck.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
 });
 
 test('a reload of a signed-in tab draws History before the session is read again, and gives way when it reads signed out', async ({
@@ -623,6 +675,16 @@ test('Settings opens on the player profile, keeps its section in the address, an
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Username');
   await nav.getByRole('button', { name: 'Player profile' }).click();
   await expect(page.getByLabel('First name')).toHaveValue('Marianne');
+});
+
+test('the player profile draws one rule above Save, not two', async ({ page }) => {
+  await mockSettings(page, ME);
+  await page.goto('/settings');
+  const width = (sel: string, side: 'Top' | 'Bottom') =>
+    page.locator(sel).evaluate((el, s) => getComputedStyle(el)[`border${s}Width`], side);
+  await expect(page.locator('.tm-profile-bar')).toBeVisible();
+  expect(await width('.tm-profile-bar', 'Bottom')).toBe('0px');
+  expect(await width('.tm-profile-bar + .tm-set-foot', 'Top')).toBe('1px');
 });
 
 /** How far the open item of a side nav’s phone tab row runs past the row's edges, 0 when it shows whole. */

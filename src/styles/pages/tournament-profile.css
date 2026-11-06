@@ -56,9 +56,6 @@
 .tm-profile-history .tabs {
   margin-bottom: 0;
 }
-.tm-profile-history .tm-hist th.tm-hist-deck {
-  width: 200px;
-}
 .tm-organizer-activity .data td {
   height: 64px;
   border-bottom: 1px solid var(--rule);
@@ -75,9 +72,6 @@
   gap: var(--space-3);
 }
 @media (max-width: 640px) {
-  .tm-profile-history .tm-hist th.tm-hist-deck {
-    width: 0;
-  }
   .tm-organizer-activity .data :is(th, td) {
     padding-inline: var(--space-2);
   }

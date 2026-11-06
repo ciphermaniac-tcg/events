@@ -3,7 +3,7 @@
  * where the list has none, and Clear once one is set.
  */
 
-import { createSignal, Show } from 'solid-js';
+import { createSignal } from 'solid-js';
 import { SETTINGS_LIMITS } from '../../../shared/tournament/view';
 import { type Manage, setDeck } from '../../lib/tournament/api';
 import { DeckCombo } from '../live/LiveDeck';
@@ -44,11 +44,10 @@ export function DeckPicker(props: {
           custom={SETTINGS_LIMITS.archetype}
           onPick={deck => void pick(deck.label)}
         />
-        <Show when={label()} fallback={<span />}>
-          <button type='button' class='btn btn-ghost tm-small' onClick={() => void pick(null)}>
-            {t('Clear')}
-          </button>
-        </Show>
+        {/* Kept, hidden, in a row without a deck: its slot is as wide as the word in every language. */}
+        <button type='button' class='btn btn-ghost tm-small' disabled={!label()} onClick={() => void pick(null)}>
+          {t('Clear')}
+        </button>
       </span>
       <ErrorLine message={error()} />
     </>

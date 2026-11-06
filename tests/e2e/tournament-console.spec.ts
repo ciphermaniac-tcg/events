@@ -862,6 +862,28 @@ test('the console’s tabs move with the arrow keys, pass over a locked one, and
   await expect(settings).toHaveAttribute('aria-controls', 'console-panel');
 });
 
+test('a focused console tab shows its whole ring, the first one included, though the tabs scroll', async ({ page }) => {
+  await mockConsole(page, event(4, 0, false), settingsOf({}));
+  const strip = page.locator('.tm-console > .tabs');
+  const first = strip.getByRole('tab').first();
+  await first.focus();
+  await page.keyboard.press('Shift');
+  // The ring, as drawn round the tab, against the box the scrolling strip shows.
+  const cut = await first.evaluate(tab => {
+    const style = getComputedStyle(tab);
+    const reach = parseFloat(style.outlineOffset) + parseFloat(style.outlineWidth);
+    const ring = tab.getBoundingClientRect();
+    const box = (tab.closest('.tabs') as HTMLElement).getBoundingClientRect();
+    return [
+      box.left - (ring.left - reach),
+      box.top - (ring.top - reach),
+      ring.right + reach - box.right,
+      ring.bottom + reach - box.bottom
+    ].filter(over => over > 0.5).length;
+  });
+  expect(cut).toBe(0);
+});
+
 test('a player row keeps its rarer actions and fixed table under its menu', async ({ page }) => {
   const sent = await mockConsole(page, event(4, 0, false), settingsOf({}));
   await expect(page.getByRole('button', { name: 'Drop' })).toHaveCount(0);
@@ -1174,6 +1196,48 @@ test('decks are named from Players, and a name the list lacks is taken as typed'
     .toEqual([{ playerId: t.players.find(p => p.firstName === 'Player1')?.id, archetype: 'Homebrew Box' }]);
 });
 
+test('a German Clear beside a named deck keeps inside its button, and every row’s picker stays one width', async ({
+  page
+}) => {
+  await mockConsole(page, event(8, 0, true), settingsOf({ deckVisibility: 'always' }), [], true);
+  await page.goto(`/host/${CODE}?lang=de`);
+  await page.getByRole('tab', { name: 'Spieler', exact: true }).click();
+  const picker = page.getByRole('combobox', { name: 'Deck' }).first();
+  await picker.fill('Homebrew Box');
+  await picker.press('Enter');
+  const clear = page.getByRole('button', { name: 'Löschen' });
+  await expect(clear).toHaveCount(1);
+  expect(await clear.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+  const widths = await page
+    .getByRole('combobox', { name: 'Deck' })
+    .evaluateAll(fields => fields.map(field => Math.round(field.getBoundingClientRect().width)));
+  expect(new Set(widths).size).toBe(1);
+});
+
+test('at 1024px a dropped player’s Reinstate and every row’s menu stay inside the roster beside a named deck', async ({
+  page
+}) => {
+  await page.setViewportSize({ width: 1024, height: 768 });
+  let t = runCommands(event(7, 0, true), {
+    type: 'addPlayer',
+    player: { firstName: 'Christopher', lastName: 'Montgomery-Wallace' }
+  });
+  t = reportAll(runCommands(t, { type: 'pairRound', pod: 'masters' }));
+  const id = t.players.find(p => p.firstName === 'Christopher')?.id ?? '';
+  t = runCommands(t, { type: 'dropPlayer', id }, { type: 'pairRound', pod: 'masters' });
+  await mockConsole(page, t, settingsOf({ deckVisibility: 'always' }));
+  await page.goto(`/host/${CODE}?lang=de`);
+  await page.getByRole('tab', { name: 'Spieler', exact: true }).click();
+  const roster = page.locator('.tm-roster');
+  await expect(roster.getByRole('button', { name: 'Wieder aufnehmen' })).toBeVisible();
+  const box = await roster.evaluate(el => Math.round((el.parentElement ?? el).getBoundingClientRect().right));
+  const rights = await roster
+    .getByRole('button', { name: /^Weitere Optionen für / })
+    .evaluateAll(buttons => buttons.map(button => Math.round(button.getBoundingClientRect().right)));
+  expect(rights.length).toBeGreaterThan(0);
+  expect(Math.max(...rights)).toBeLessThanOrEqual(box);
+});
+
 test('a deck list opened in the last row is drawn whole, not cut off at the table', async ({ page }) => {
   // The tables clip their overflow, and the list used to hang inside them: in
   // the bottom row it showed as a sliver under the field.
@@ -1371,6 +1435,30 @@ function partlyPlayed(players: number, rounds: number, done: number): Tournament
   }
   return t;
 }
+
+test('a laptop’s pairing rows stand as tall as a wider screen’s, either side of 1100px', async ({ page }) => {
+  await mockConsole(page, partlyPlayed(8, 1, 1), settingsOf({}));
+  const rows = page.locator('.tm-matches tbody tr:not(.tm-group-row)');
+  const heights = async () => rows.evaluateAll(list => list.map(row => Math.round(row.getBoundingClientRect().height)));
+  await page.setViewportSize({ width: 1200, height: 800 });
+  await expect(rows).toHaveCount(4);
+  const wide = await heights();
+  await page.setViewportSize({ width: 1000, height: 800 });
+  await expect.poll(heights).toEqual(wide);
+});
+
+test('on a laptop a long name in the pairings wraps rather than losing its end', async ({ page }) => {
+  await page.setViewportSize({ width: 1000, height: 800 });
+  const t = runCommands(
+    event(7, 0, false),
+    { type: 'addPlayer', player: { firstName: 'Maximiliano', lastName: 'Hernández-Villanueva' } },
+    { type: 'pairRound', pod: 'masters' }
+  );
+  await mockConsole(page, t, settingsOf({}));
+  const name = page.locator('.tm-matches .tm-name', { hasText: 'Hernández-Villanueva' });
+  await expect(name).toBeVisible();
+  expect(await name.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+});
 
 test('while a round plays, its tables in progress lead under their heading and the finished follow', async ({
   page
@@ -1820,6 +1908,8 @@ test('organizer pairing rows stay compact and keep separate yellow player hover 
     await expect(row.locator('.tm-result.is-asking')).toHaveCSS('background-color', 'rgb(255, 219, 88)');
     // The question reads in the fill's own ink in either theme, never the page's light dark-mode text.
     await expect(row.locator('.tm-result.is-asking .tm-result-label')).toHaveCSS('color', 'rgb(33, 27, 11)');
+    // Cancel too, with the pointer still on the row whose hover lifts its ghost buttons to page ink.
+    await expect(page.getByRole('button', { name: 'Cancel', exact: true })).toHaveCSS('color', 'rgb(33, 27, 11)');
     await page.getByRole('button', { name: 'Cancel', exact: true }).click();
   }
 });

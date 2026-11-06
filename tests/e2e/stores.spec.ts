@@ -475,6 +475,20 @@ test('store settings: league nights and the dates that differ save together', as
   ]);
 });
 
+test('store settings set each section’s heading 8px over its box, as the console does', async ({ page }) => {
+  await mock(page, { user: MANAGER });
+  for (const section of ['nights', 'staff', 'details']) {
+    await page.goto(`/stores/store-1/settings?section=${section}`);
+    const head = page.locator('.tm-store-section:visible > .tm-box-head').first();
+    await expect(head).toBeVisible();
+    const gap = await head.evaluate(h => {
+      const next = h.nextElementSibling;
+      return next ? Math.round(next.getBoundingClientRect().top - h.getBoundingClientRect().bottom) : -1;
+    });
+    expect(gap, section).toBe(8);
+  }
+});
+
 test('store settings that fail to load show the store page’s error, with a way home', async ({ page }) => {
   await mock(page, { user: MANAGER });
   await page.route('**/api/stores/store-1', route => route.fulfill({ status: 503, json: { error: 'Unavailable' } }));
@@ -745,10 +759,94 @@ test('a store page shows where it is, its league nights, its upcoming events and
   expect((sunday?.x ?? 0) + (sunday?.width ?? 0)).toBeLessThanOrEqual(page.viewportSize()?.width ?? 0);
 });
 
+test('a store page shows a long league night’s name and a date’s note whole, wrapped rather than cut', async ({
+  page
+}) => {
+  await mock(page, { user: null, role: null });
+  const note = 'Moved for the regional championship travel weekend, back the week after';
+  const store: PublicStore = {
+    ...STORE,
+    nights: [
+      {
+        id: 'wed',
+        weekday: 3,
+        time: '19:30',
+        name: 'Standard Locals with Prize Support and Pizza Night',
+        fee: '$15.50'
+      }
+    ],
+    exceptions: [{ date: '2099-10-14', nightId: 'wed', time: '18:00', note }]
+  };
+  await page.route('**/api/stores/store-1', route => route.fulfill({ json: { store, role: null } }));
+  await page.setViewportSize({ width: 1366, height: 800 });
+  await page.goto('/stores/store-1');
+  const texts = page.locator('.tm-storepage-night-name');
+  await expect(texts.last()).toHaveText(note);
+  for (const text of await texts.all()) {
+    expect(await text.evaluate(el => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(0);
+  }
+});
+
+test('a store page’s map shows its focus ring over the map’s tiles', async ({ page }) => {
+  await mock(page, { user: null, role: null });
+  // Opaque tiles, as the real ones are: a ring drawn beneath them would not show.
+  await page.route('https://tile.openstreetmap.org/**', route =>
+    route.fulfill({
+      contentType: 'image/svg+xml',
+      body: '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256"><rect width="256" height="256" fill="#7a9"/></svg>'
+    })
+  );
+  await page.goto('/stores/store-1');
+  const map = page.locator('.tm-store-map');
+  await expect(map.locator('img').first()).toHaveJSProperty('complete', true);
+  // A pixel on the map's left edge, halfway down: where the ring is drawn, and a tile otherwise.
+  const edge = async () => {
+    const shot = await map.screenshot();
+    return page.evaluate(
+      async src => {
+        const img = new Image();
+        img.src = src;
+        await img.decode();
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const context = canvas.getContext('2d');
+        context?.drawImage(img, 0, 0);
+        return [...(context?.getImageData(2, Math.round(img.height / 3), 1, 1).data ?? [])];
+      },
+      `data:image/png;base64,${shot.toString('base64')}`
+    );
+  };
+  const tile = await edge();
+  await page.getByRole('link', { name: 'Directions to Combat Power Gaming' }).focus();
+  await page.keyboard.press('Shift');
+  expect(await edge()).not.toEqual(tile);
+});
+
 test('a manager sees the way to the store’s settings from its page', async ({ page }) => {
   await mock(page, { user: MANAGER });
   await page.goto('/stores/store-1');
   await expect(page.getByRole('link', { name: 'Store settings' })).toHaveAttribute('href', '/stores/store-1/settings');
+});
+
+test('a store page’s title sits under its way back where the store settings’ title does', async ({ page }) => {
+  await mock(page, { user: MANAGER });
+  // From the way back's top: its box may stand taller than its line of text.
+  const drop = async (path: string) => {
+    await page.goto(path);
+    const trail = await page.getByRole('navigation', { name: 'Breadcrumb' }).boundingBox();
+    const title = await page.getByRole('heading', { level: 1 }).boundingBox();
+    return (title?.y ?? 0) - (trail?.y ?? 0);
+  };
+  expect(await drop('/stores/store-1')).toBe(await drop('/stores/store-1/settings'));
+});
+
+test('a store page’s League line sits as far under its title as an event’s first line does', async ({ page }) => {
+  await mock(page, { user: MANAGER });
+  await page.goto('/stores/store-1');
+  const title = await page.getByRole('heading', { level: 1 }).boundingBox();
+  const meta = await page.locator('.tm-hero .hero-meta').boundingBox();
+  expect((meta?.y ?? 0) - (title?.y ?? 0) - (title?.height ?? 0)).toBe(8);
 });
 
 test('an invite link joins the store and goes on to its page; a used one says so', async ({ page }) => {
