@@ -481,9 +481,12 @@ function Console(props: { state: ReturnType<typeof createManage>; manage: Manage
       EventPanel.preload
     ])
   );
+  // An Admin watching changes nothing, so their console neither follows the .tdf nor offers the event's controls.
+  // eslint-disable-next-line solid/reactivity -- who is watching is fixed for as long as the console is open
+  const watching = props.manage.watching === true;
   const tom =
     // eslint-disable-next-line solid/reactivity -- an event's mode never changes, and the link lives as long as the console
-    props.manage.mode === 'tom'
+    !watching && props.manage.mode === 'tom'
       ? createTomLink({
           manage: () => props.manage,
           onSynced: async answer => (answer ? props.state.take(answer) : props.state.load())
@@ -491,7 +494,12 @@ function Console(props: { state: ReturnType<typeof createManage>; manage: Manage
       : null;
   return (
     <div class='tm-page tm-console' classList={{ 'is-pairings': tab() === 'round' }}>
-      <Hero state={props.state} manage={props.manage} pod={pod()} tom={tom} />
+      <Show when={watching}>
+        <p class='muted'>{t('Read only. You’re not on this event’s staff.')}</p>
+      </Show>
+      <fieldset class='tm-readonly' disabled={watching}>
+        <Hero state={props.state} manage={props.manage} pod={pod()} tom={tom} />
+      </fieldset>
       <Tabs id='console' options={tabs()} selected={tab()} onSelect={setTab} ariaLabel={t('Event sections')} />
       {/* A phone's tabs, in a bar along the bottom of the screen as the dashboard's are. */}
       <TabBar
@@ -545,7 +553,9 @@ function Console(props: { state: ReturnType<typeof createManage>; manage: Manage
           <PenaltiesPanel state={props.state} manage={props.manage} />
         </Show>
         <Show when={tab() === 'event'}>
-          <EventPanel state={props.state} manage={props.manage} tom={tom} />
+          <fieldset class='tm-readonly' disabled={watching}>
+            <EventPanel state={props.state} manage={props.manage} tom={tom} />
+          </fieldset>
         </Show>
       </TabPanel>
     </div>

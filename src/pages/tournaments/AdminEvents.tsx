@@ -2,7 +2,8 @@
  * The admin page's Events tab: every event on the site, stores' and those
  * run under an account's own name alike, the last changed first, with who
  * runs it, its date, how far along it is and how many play. Each opens on
- * its public page.
+ * its public page, or on its console, which an Admin off its staff reads
+ * but cannot change.
  */
 
 import { A } from '@solidjs/router';
@@ -30,6 +31,8 @@ function EventRow(props: { event: AdminEvent }) {
     <tr>
       <td>
         <A href={`/t/${e().code}`}>{e().name || e().code}</A>
+        <span class='muted'> · </span>
+        <A href={`/host/${e().code}`}>{t('Console')}</A>
       </td>
       <td>
         <Show when={e().store} fallback={<span class='muted'>{e().owner}</span>}>

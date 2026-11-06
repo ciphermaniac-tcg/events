@@ -1202,3 +1202,10 @@
 .tm-list-total.is-off {
   color: var(--negative);
 }
+/* Holds the console's controls so a watching Admin's are off at once; no box of its own. */
+.tm-readonly {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
