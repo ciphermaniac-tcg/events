@@ -39,6 +39,7 @@
  * device and its account alike.
  */
 
+import { isAdmin } from '../../../../shared/accounts/roles.js';
 import { archetypeOfList } from '../../../../shared/tournament/archetypes.js';
 import { MAX_DECKLIST_CHARS, parseDecklist } from '../../../../shared/tournament/decklist.js';
 import { decklistMatcher, fullNameKey, similarlyNamed } from '../../../../shared/tournament/identify.js';
@@ -319,7 +320,7 @@ export async function onRequestGet(context: Context<'code'>): Promise<Response> 
   if (access instanceof Response) {
     return access;
   }
-  if (access.role) {
+  if (access.role || (access.user && isAdmin(access.user.role))) {
     const { results } = await access.db
       .prepare('SELECT * FROM decklists WHERE code = ? ORDER BY last_name, first_name')
       .bind(access.row.code)

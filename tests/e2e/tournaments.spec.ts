@@ -2291,8 +2291,16 @@ test('an open list leads the player sheet as cards, as rows, and one card large 
       }
     });
   });
-  // A print R2 has no art for draws as its name, as does one the line names no print for.
+  // A missing mirror image tries the original; a print absent from both draws its name.
   await page.route('**/card-images/**', route =>
+    ['/ZZZ/', '/TWM/'].some(set => route.request().url().includes(set))
+      ? route.fulfill({ status: 404 })
+      : route.fulfill({
+          contentType: 'image/png',
+          body: readFileSync(new URL('../../static/img/substitute.png', import.meta.url))
+        })
+  );
+  await page.route('https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/**', route =>
     route.request().url().includes('/ZZZ/')
       ? route.fulfill({ status: 404 })
       : route.fulfill({
@@ -2321,6 +2329,7 @@ test('an open list leads the player sheet as cards, as rows, and one card large 
   await expect(sheet.locator('.tm-open-meta')).toHaveText('Pokémon 4 · Trainer 4 · Energy 311 cards');
   await expect(grid.locator('img')).toHaveCount(3);
   await expect(grid.locator('.tm-art-missing')).toHaveText(['Mystery Card TG05', 'Lost Print']);
+  await expect(grid.locator('img').first()).toHaveAttribute('src', /TWM_128_R_EN_SM\.png$/);
   // Basic Energy draws from its Scarlet & Violet print whatever the line names.
   await expect(grid.locator('img').last()).toHaveAttribute('src', /\/SVE\/SVE_005_R_EN_SM\.webp$/);
 
@@ -2330,6 +2339,7 @@ test('an open list leads the player sheet as cards, as rows, and one card large 
   await sheet.locator('.tm-open-row').first().click();
   const peek = page.getByRole('dialog', { name: 'Dreepy' });
   await expect(peek).toContainText('4 × Dreepy TWM 128');
+  await expect(peek.locator('img')).toHaveAttribute('src', /TWM_128_R_EN_LG\.png$/);
   await page.keyboard.press('Escape');
   await expect(peek).toBeHidden();
   await expect(sheet).toBeVisible();

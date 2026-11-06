@@ -44,3 +44,14 @@ test('a crop frames the art window by section, and Energy by whether it is basic
   assert.equal(artCrop({ name: 'Basic {R} Energy', section: 'energy' }), 'energy-basic');
   assert.equal(artCrop({ name: 'Jet Energy', section: 'energy' }), 'energy-special');
 });
+
+test('cards absent from the mirror can use the original PNG at every size', () => {
+  const art = cardArt({ name: 'Fezandipiti ex', set: 'ASC', number: '142' }, true);
+  const base = 'https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/ASC/ASC_142_R_EN_';
+  assert.deepEqual(art, {
+    small: `${base}XS.png`,
+    src: `${base}SM.png`,
+    srcset: `${base}XS.png 136w, ${base}SM.png 274w, ${base}LG.png 460w`,
+    large: `${base}LG.png`
+  });
+});

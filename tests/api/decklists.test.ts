@@ -291,3 +291,15 @@ test('a deck check whose event is deleted before it is written leaves nothing be
   assert.deepEqual([refused.status, refused.json.error], [404, 'No such tournament']);
   assert.equal((db.raw.prepare('SELECT count(*) AS n FROM deck_checks').get() as { n: number }).n, 0);
 });
+
+test('site admins can read submitted lists without joining event staff', async () => {
+  const { code } = await eventWithList();
+  const admin = await signIn('Admin', 'admin');
+  const read = await hit(decklists.onRequestGet as Handler, '/decklists', at(code), { cookie: admin });
+  assert.equal(read.status, 200);
+  assert.equal(read.json.decklists.length, 1);
+  assert.equal(read.json.decklists[0].deck, LIST.deck);
+  const outsider = await signIn('Spectator');
+  const hidden = await hit(decklists.onRequestGet as Handler, '/decklists', at(code), { cookie: outsider });
+  assert.deepEqual(hidden.json.decklists, []);
+});

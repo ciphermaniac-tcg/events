@@ -51,8 +51,10 @@ function fileNumber(number: string): string | null {
   return parts ? `${parts[1]!.padStart(3, '0')}${parts[2]!.toLowerCase()}` : null;
 }
 
-function url(set: string, number: string, tier: keyof typeof TIERS): string {
-  return `${ART}/${set}/${set}_${number}_R_EN_${tier}.webp`;
+function url(set: string, number: string, tier: keyof typeof TIERS, original: boolean): string {
+  const origin = original ? 'https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci' : ART;
+  const extension = original ? 'png' : 'webp';
+  return `${origin}/${set}/${set}_${number}_R_EN_${tier}.${extension}`;
 }
 
 export interface CardArt {
@@ -66,7 +68,7 @@ export interface CardArt {
 }
 
 /** The art for a card as a list names it, or null when its print is unknown. */
-export function cardArt(card: Pick<DeckCard, 'name' | 'set' | 'number'>): CardArt | null {
+export function cardArt(card: Pick<DeckCard, 'name' | 'set' | 'number'>, original = false): CardArt | null {
   const energy = basicEnergy(card.name);
   const set = energy ? 'SVE' : card.set.toUpperCase();
   const number = fileNumber(energy ?? card.number);
@@ -74,12 +76,12 @@ export function cardArt(card: Pick<DeckCard, 'name' | 'set' | 'number'>): CardAr
     return null;
   }
   return {
-    small: url(set, number, 'XS'),
-    src: url(set, number, 'SM'),
+    small: url(set, number, 'XS', original),
+    src: url(set, number, 'SM', original),
     srcset: (Object.keys(TIERS) as (keyof typeof TIERS)[])
-      .map(tier => `${url(set, number, tier)} ${TIERS[tier]}w`)
+      .map(tier => `${url(set, number, tier, original)} ${TIERS[tier]}w`)
       .join(', '),
-    large: url(set, number, 'LG')
+    large: url(set, number, 'LG', original)
   };
 }
 

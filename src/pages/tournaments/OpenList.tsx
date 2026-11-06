@@ -178,7 +178,8 @@ const count = (cards: readonly DeckCard[]) => cards.reduce((sum, card) => sum + 
 
 /** A card's art, whole or cropped to its art window; its name where there is no art to show. */
 function Art(props: { card: DeckCard; crop?: boolean; sizes?: string }) {
-  const art = () => cardArt(props.card);
+  const [original, setOriginal] = createSignal(false);
+  const art = () => cardArt(props.card, original());
   const [missing, setMissing] = createSignal(false);
   return (
     <Show
@@ -198,7 +199,7 @@ function Art(props: { card: DeckCard; crop?: boolean; sizes?: string }) {
             alt=''
             loading='lazy'
             decoding='async'
-            onError={() => setMissing(true)}
+            onError={() => (original() ? setMissing(true) : setOriginal(true))}
           />
         </span>
       )}
@@ -208,7 +209,8 @@ function Art(props: { card: DeckCard; crop?: boolean; sizes?: string }) {
 
 /** One card large, over the sheet: any press or Escape puts it away. */
 function Peek(props: { card: DeckCard; onClose: () => void }) {
-  const art = () => cardArt(props.card);
+  const [original, setOriginal] = createSignal(false);
+  const art = () => cardArt(props.card, original());
   const close = () => props.onClose();
   return (
     <div
@@ -227,7 +229,9 @@ function Peek(props: { card: DeckCard; onClose: () => void }) {
         }
       }}
     >
-      <Show when={art()}>{shown => <img class='tm-peek-art' src={shown().large} alt='' />}</Show>
+      <Show when={art()}>
+        {shown => <img class='tm-peek-art' src={shown().large} alt='' onError={() => setOriginal(true)} />}
+      </Show>
       <p>
         {props.card.count} × {props.card.name}{' '}
         <span class='tm-peek-print'>{[props.card.set, props.card.number].join(' ')}</span>
