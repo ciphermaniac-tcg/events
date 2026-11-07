@@ -448,6 +448,8 @@ export function publicTournament(tournament: Tournament, keys: Record<string, st
       ...(player.scheduledSwissRounds === undefined ? {} : { scheduledSwissRounds: player.scheduledSwissRounds }),
       ...(player.seed ? { seed: player.seed } : {}),
       ...(player.disqualified ? { disqualified: true as const } : {}),
+      // Whether they started decides, with lateData, whether a list window is theirs.
+      ...(player.starter === undefined ? {} : { starter: player.starter }),
       ...(player.late ? { late: true } : {}),
       // The round they joined in decides when their list locks (see decklistOpenFor); when they were added stays private.
       ...(player.lateData ? { lateData: { ...player.lateData, timestamp: '' } } : {}),
@@ -615,6 +617,8 @@ export interface Decklist extends PlayerProfile {
   registered: boolean;
   /** Submitting this list is what added the player to the event. */
   fromList: boolean;
+  /** The player joined after round 1, so their list locks with the round after it (see enteredLate). */
+  late: boolean;
   /** Only the device that sent it can replace it, until staff unlock it. */
   locked: boolean;
 }

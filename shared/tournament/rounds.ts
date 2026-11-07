@@ -12,6 +12,7 @@ import {
   DIVISIONS,
   isDivision,
   type Match,
+  type Player,
   type Pod,
   type PodCategory,
   type Round,
@@ -321,6 +322,28 @@ export function joinedLate(pod: Pod | undefined, id: string): boolean {
   return (pod?.rounds ?? []).some(round =>
     round.matches.some(match => match.p1 === id && match.p2 === null && match.outcome === 'loss')
   );
+}
+
+/**
+ * The round a player joined the pod in, when they joined after round 1: the
+ * round TOM's Late box recorded, or without it the first round they were
+ * paired in (a bye included), or the latest round while they wait for their
+ * first pairing. Undefined for a starter: TOM's starter flag when it sent one,
+ * else no round missed to a late entry's loss.
+ */
+export function joiningRound(pod: Pod | undefined, player: Player): number | undefined {
+  if (player.lateData) {
+    return player.lateData.round;
+  }
+  if (player.starter === true || (player.starter === undefined && !joinedLate(pod, player.id))) {
+    return undefined;
+  }
+  const paired = (pod?.rounds ?? []).find(round =>
+    round.matches.some(
+      match => (match.p1 === player.id || match.p2 === player.id) && (match.p2 !== null || match.outcome !== 'loss')
+    )
+  );
+  return (paired ?? latestRound(pod))?.number;
 }
 
 /**

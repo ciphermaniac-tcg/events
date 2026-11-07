@@ -41,7 +41,7 @@
 
 import { isAdmin } from '../../../../shared/accounts/roles.js';
 import { archetypeOfList } from '../../../../shared/tournament/archetypes.js';
-import { decklistOpenFor } from '../../../../shared/tournament/lateLists.js';
+import { decklistOpenFor, enteredLate } from '../../../../shared/tournament/lateLists.js';
 import { MAX_DECKLIST_CHARS, parseDecklist } from '../../../../shared/tournament/decklist.js';
 import { decklistMatcher, fullNameKey, similarlyNamed } from '../../../../shared/tournament/identify.js';
 import { mayBeMinor, mayBeUnder13 } from '../../../../shared/accounts/age.js';
@@ -105,7 +105,7 @@ interface DecklistRow {
 }
 
 /** A list as stored, before it is checked against the roster (see presenter). */
-type Stored = Omit<Decklist, 'problems' | 'registered' | 'fromList'>;
+type Stored = Omit<Decklist, 'problems' | 'registered' | 'fromList' | 'late'>;
 
 const deckMode = (value: unknown): DeckMode | null => (value === 'paper' || value === 'digital' ? value : null);
 
@@ -138,7 +138,8 @@ function presenter(row: TournamentRow) {
       // A minor's cards are deleted once the event ends (see store.ts), leaving nothing to check.
       problems: list.deck ? parseDecklist(list.deck).problems : [],
       registered: player !== undefined,
-      fromList: player?.fromList === true
+      fromList: player?.fromList === true,
+      late: enteredLate(row.tournament, player?.id ?? null)
     };
   };
 }
@@ -685,17 +686,26 @@ async function enter(context: Context<'code'>, access: Access, submission: Submi
 const eventLimiter = createRateLimiter({ windowMs: 10 * 60 * 1000, maxRequests: 150 });
 const addressLimiter = createRateLimiter({ windowMs: 10 * 60 * 1000, maxRequests: 400 });
 
-/** Why a list cannot be sent or withdrawn now: the event takes none, round 1 is paired, or submission is closed. */
-function notTakingText(row: TournamentRow): string {
+/**
+ * Why a list cannot be sent or withdrawn now: the event takes none, the
+ * player's list locked (as round 1 paired, or for a late entrant the round
+ * after they joined), or submission is closed.
+ */
+function notTakingText(row: TournamentRow, playerId: string | null = null): string {
   if (row.settings.decklists === 'off') {
     return msg('This event does not take decklists');
   }
-  return decklistsLocked(row) ? LOCKED_AFTER_ROUND_1 : msg('Decklist submission is closed');
+  return decklistsLocked(row) ? lockedText(row, playerId) : msg('Decklist submission is closed');
 }
 
-const notTaking = (row: TournamentRow): Response => jsonError(notTakingText(row), 403);
+const lockedText = (row: TournamentRow, playerId: string | null): string =>
+  enteredLate(row.tournament, playerId) ? LOCKED_AFTER_JOINING : LOCKED_AFTER_ROUND_1;
+
+const notTaking = (row: TournamentRow, playerId: string | null = null): Response =>
+  jsonError(notTakingText(row, playerId), 403);
 
 const LOCKED_AFTER_ROUND_1 = msg('Decklists are locked once round 1 is paired');
+const LOCKED_AFTER_JOINING = msg('Decklists are locked once the round after you joined is paired');
 
 /** @internal exposed for tests */
 export function _resetRateLimitStore(): void {
@@ -799,8 +809,9 @@ export async function onRequestPut(context: Context<'code'>): Promise<Response> 
   if (typeof read === 'string') {
     return decklistsOpen(access.row) ? jsonError(read, 400) : notTaking(access.row);
   }
-  if (!decklistOpenFor(access.row, submitter(access.row, read))) {
-    return notTaking(access.row);
+  const sender = submitter(access.row, read);
+  if (!decklistOpenFor(access.row, sender)) {
+    return notTaking(access.row, sender);
   }
   const window = windowFor(access.row);
   const guard = await guardSubmission(access, read.profile);
@@ -892,7 +903,7 @@ export async function onRequestDelete(context: Context<'code'>): Promise<Respons
 async function refusedWrite(access: Access, playerId: string | null = null): Promise<Response> {
   const now = await loadTournament(access.db, access.row.code);
   if (now && !decklistOpenFor(now, playerId)) {
-    return notTaking(now);
+    return notTaking(now, playerId);
   }
   return isSanctioned(access.row) ? jsonError(WRONG_YEAR, 403) : jsonError(LOCKED, 409);
 }

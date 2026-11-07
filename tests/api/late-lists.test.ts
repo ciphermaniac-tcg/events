@@ -43,6 +43,8 @@ function serveRules(rules: unknown[]) {
 const LENA = { popId: '7777', firstName: 'Lena', lastName: 'Late', birthDate: `02/27/${PLAYER_BIRTH_YEAR}` };
 const STARTER = { popId: '900', firstName: 'Player', lastName: '0', birthDate: `02/27/${PLAYER_BIRTH_YEAR}` };
 
+const LOCKED_LATE = 'Decklists are locked once the round after you joined is paired';
+
 const db = () => env.TOURNAMENT_DB as ReturnType<typeof sqliteD1>;
 
 const submit = (code: string, profile: typeof LENA, deck = DECK) =>
@@ -98,6 +100,7 @@ test('a late entrant sends and replaces their list in their round, named by its 
   assert.equal(sent.status, 200, JSON.stringify(sent.json));
   assert.equal(sent.json.decklist.archetype, 'Dragapult');
   assert.equal(sent.json.registration, 'matched');
+  assert.equal(sent.json.decklist.late, true, 'their receipt says their list locks with the round after they joined');
 
   assert.equal((await unlock(code, owner, LENA.popId)).status, 204, 'staff may unlock it for another device');
   const replaced = await submit(code, LENA, '60 Basic {P} Energy SVE 5');
@@ -119,7 +122,7 @@ test('a late entrant’s list stays private until it locks, then shows like ever
   assert.equal((await pair(code, owner)).status, 200);
   assert.deepEqual((await readPublic(code, key)).json.list, { mode: 'digital', deck: DECK });
   const late = await submit(code, LENA, '60 Basic {P} Energy SVE 5');
-  assert.deepEqual([late.status, late.json.error], [403, 'Decklists are locked once round 1 is paired']);
+  assert.deepEqual([late.status, late.json.error], [403, LOCKED_LATE]);
   assert.equal((await unlock(code, owner, LENA.popId)).status, 403);
 
   serveRules([{ ...DRAGAPULT, variants: [DUSKNOIR] }]);
@@ -141,7 +144,7 @@ test('a late list sent as the next round pairs is refused, though the event read
       .run(code);
   env.TOURNAMENT_DB = racing(db(), 'INSERT INTO decklists', pairNow);
   const sent = await submit(code, LENA);
-  assert.deepEqual([sent.status, sent.json.error], [403, 'Decklists are locked once round 1 is paired']);
+  assert.deepEqual([sent.status, sent.json.error], [403, LOCKED_LATE]);
   env.TOURNAMENT_DB = db();
   const mine = await hit(decklists.onRequestGet as Handler, `/decklists?popId=${LENA.popId}`, at(code));
   assert.equal(mine.json.mine, null, 'nothing was stored');

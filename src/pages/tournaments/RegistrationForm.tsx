@@ -51,6 +51,8 @@ export interface RegistrationProps {
   full: boolean;
   /** The registration this device or account already holds, once read; it opens straight away. */
   mine: Decklist | null;
+  /** Whether a registration may be withdrawn now: only before round 1 is paired (see decklistsOpen). */
+  withdrawable: boolean;
 }
 
 type Step = 'lookup' | 'prove' | 'pick' | 'new' | 'edit' | 'withdrawn';
@@ -268,6 +270,7 @@ function createRegistration(props: RegistrationProps) {
     setNaming,
     withdrawing,
     setWithdrawing,
+    withdrawable: () => props.withdrawable,
     leaving,
     setLeaving,
     someoneElse,
@@ -441,16 +444,18 @@ function Head(props: { form: Registration; sanctioned: boolean; title: string; m
           <button type='button' class='tm-menu-item' onClick={() => f().someoneElse()}>
             {t('Register someone else')}
           </button>
-          <button
-            type='button'
-            class='tm-menu-item tm-danger'
-            onClick={() => {
-              f().setLeaving(false);
-              f().setWithdrawing(true);
-            }}
-          >
-            {t('Withdraw')}
-          </button>
+          <Show when={f().withdrawable()}>
+            <button
+              type='button'
+              class='tm-menu-item tm-danger'
+              onClick={() => {
+                f().setLeaving(false);
+                f().setWithdrawing(true);
+              }}
+            >
+              {t('Withdraw')}
+            </button>
+          </Show>
         </OptionsMenu>
       </Show>
     </div>

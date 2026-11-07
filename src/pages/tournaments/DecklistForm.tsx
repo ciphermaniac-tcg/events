@@ -30,6 +30,8 @@ interface FormProps {
   open: boolean;
   /** Round 1 is paired, which locks every list (see decklistsLocked). */
   locked: boolean;
+  /** Registrations may still be withdrawn (see decklistsOpen). */
+  withdrawable: boolean;
   /** The start as players read it, which is when changes close; null when none is set. */
   closes: string | null;
   /** Check-in as players read it; null when none is set. */
@@ -97,6 +99,16 @@ function ListStatus(props: { list: MyList }) {
   );
 }
 
+/** Why the receipt shows: the viewer's list locked as round 1 or the round after they joined paired, or registration closed. */
+function closedNote(locked: boolean, late: boolean): string {
+  if (!locked) {
+    return msg('Registration is closed.');
+  }
+  return late
+    ? msg('Registration closed when the round after you joined was paired.')
+    : msg('Registration closed when round 1 was paired.');
+}
+
 /** The list as it was sent, read-only, once players can no longer change it. */
 function Receipt(props: FormProps & { list: MyList }) {
   return (
@@ -124,9 +136,7 @@ function Receipt(props: FormProps & { list: MyList }) {
           </>
         )}
       </Show>
-      <p class='tm-box-bar muted'>
-        {props.locked ? t('Registration closed when round 1 was paired.') : t('Registration is closed.')}
-      </p>
+      <p class='tm-box-bar muted'>{t(closedNote(props.locked, props.list.current()?.late === true))}</p>
     </section>
   );
 }
@@ -146,6 +156,7 @@ export function DecklistForm(props: FormProps) {
               checkIn={props.checkIn}
               full={props.full}
               mine={mine}
+              withdrawable={props.withdrawable}
             />
           )}
         </Show>

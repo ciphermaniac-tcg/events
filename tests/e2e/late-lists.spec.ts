@@ -70,6 +70,7 @@ async function mockEvent(page: Page, current: () => PublishedView) {
           problems: [],
           registered: true,
           fromList: false,
+          late: true,
           locked: true
         };
   await page.route(`**/tournaments/v1/${CODE}.json`, route =>
@@ -109,6 +110,10 @@ test('a late entrant sends their list in the round they joined in, and it locks 
   await page.getByRole('textbox', { name: 'Birth year' }).fill('1998');
   await page.getByRole('button', { name: 'Continue' }).click();
   await expect(page.locator('.tm-reg-who')).toContainText('Lena Player');
+  await page.getByRole('button', { name: 'More' }).click();
+  await expect(page.getByRole('button', { name: 'Change name' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Withdraw' }), 'the server refuses a late withdrawal').toHaveCount(0);
+  await page.keyboard.press('Escape');
   await page.getByText('Digital').click();
   await page.getByRole('textbox', { name: 'Decklist' }).fill(DECK);
   await page.getByRole('button', { name: /Register|Save changes/ }).click();
@@ -117,7 +122,7 @@ test('a late entrant sends their list in the round they joined in, and it locks 
 
   view = publish(round3);
   await page.reload();
-  await expect(page.getByText('Registration closed when round 1 was paired.')).toBeVisible();
+  await expect(page.getByText('Registration closed when the round after you joined was paired.')).toBeVisible();
   await expect(page.getByRole('textbox', { name: 'Decklist' })).toHaveCount(0);
   await expect(page.locator('pre.tm-decklist-sent')).toHaveText(DECK);
 });

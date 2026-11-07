@@ -747,6 +747,7 @@ function EventBody(props: {
             owner={listOwner()}
             open={takingLists(props.view)}
             locked={decklistsLocked(props.view)}
+            withdrawable={decklistsOpen(props.view)}
             closes={
               decklistsOpen(props.view) ? timeShown(props.view.settings.startsAt, props.view.settings.timeZone) : null
             }
