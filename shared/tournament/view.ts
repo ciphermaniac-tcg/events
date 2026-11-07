@@ -449,6 +449,8 @@ export function publicTournament(tournament: Tournament, keys: Record<string, st
       ...(player.seed ? { seed: player.seed } : {}),
       ...(player.disqualified ? { disqualified: true as const } : {}),
       ...(player.late ? { late: true } : {}),
+      // The round they joined in decides when their list locks (see decklistOpenFor); when they were added stays private.
+      ...(player.lateData ? { lateData: { ...player.lateData, timestamp: '' } } : {}),
       created: '',
       modified: ''
     })),

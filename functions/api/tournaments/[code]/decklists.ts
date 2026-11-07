@@ -41,6 +41,7 @@
 
 import { isAdmin } from '../../../../shared/accounts/roles.js';
 import { archetypeOfList } from '../../../../shared/tournament/archetypes.js';
+import { decklistOpenFor } from '../../../../shared/tournament/lateLists.js';
 import { MAX_DECKLIST_CHARS, parseDecklist } from '../../../../shared/tournament/decklist.js';
 import { decklistMatcher, fullNameKey, similarlyNamed } from '../../../../shared/tournament/identify.js';
 import { mayBeMinor, mayBeUnder13 } from '../../../../shared/accounts/age.js';
@@ -196,17 +197,41 @@ function matchingAccount(access: Access, details: Details): ListAccount | null {
 }
 
 /**
- * A write's guard that the event (bound as its code) still takes lists as the
- * write lands: submission open (an event stored before decklists could be
- * turned off keeps its open switch, see storedSettings) and no round paired
- * (see decklistsLocked). A close or a round 1 since the request read the
- * event refuses the write all the same.
+ * When a write may land: before round 1 (no round paired), or in a late
+ * entrant's window (see decklistOpenFor), with as many rounds paired as when
+ * the request read the event.
+ */
+interface ListWindow {
+  late: boolean;
+  paired: number;
+}
+
+const BEFORE_ROUND_1: ListWindow = { late: false, paired: 0 };
+
+/** The window the player's write lands in, judged against the event as read; the caller has checked it is open. */
+function windowFor(row: TournamentRow): ListWindow {
+  return decklistsLocked(row)
+    ? { late: true, paired: row.tournament.pods.reduce((sum, pod) => sum + pod.rounds.length, 0) }
+    : BEFORE_ROUND_1;
+}
+
+/**
+ * A write's guard that the event still takes lists as the write lands:
+ * submission open (an event stored before decklists could be turned off keeps
+ * its open switch, see storedSettings) and no round paired since the request
+ * read the event (none at all outside a late entrant's window, which also
+ * closes as the event ends). A close or a round paired meanwhile refuses the
+ * write all the same.
  */
 const STILL_TAKING =
   'EXISTS (SELECT 1 FROM tournaments WHERE code = ? AND ' +
   "coalesce(json_extract(settings, '$.decklists'), " +
   "CASE WHEN json_extract(settings, '$.decklistsOpen') THEN 'open' END) = 'open' " +
-  `AND json_extract(state, '$.startedAt') IS NULL AND (${pairedRounds('state')}) = 0)`;
+  "AND (? = 0 OR coalesce(json_extract(settings, '$.finished'), 0) = 0) " +
+  `AND (? = 1 OR json_extract(state, '$.startedAt') IS NULL) AND (${pairedRounds('state')}) = ?)`;
+
+/** STILL_TAKING's values after the event's code. */
+const windowValues = (window: ListWindow) => [window.late ? 1 : 0, window.late ? 1 : 0, window.paired];
 
 /** No account: a write names none, and no list's account matches it. */
 const NO_ACCOUNT: ListAccount = { id: '', sql: 'NULL', values: [] };
@@ -487,7 +512,12 @@ const REPLACES =
  * that holds the token keeps the account its list had. False when the list
  * there is not the sender's to replace, which stays as it was.
  */
-async function store(access: Access, submission: Submission, tokenHash: string, now: number): Promise<boolean> {
+async function store(
+  access: Access,
+  submission: Submission,
+  write: { tokenHash: string; now: number; window: ListWindow }
+): Promise<boolean> {
+  const { tokenHash, now, window } = write;
   const { profile, deck } = submission;
   const sanctioned = isSanctioned(access.row);
   // The guard proved the birth year against the event's own list for a player on it.
@@ -525,6 +555,7 @@ async function store(access: Access, submission: Submission, tokenHash: string, 
       minor,
       access.row.code,
       access.row.code,
+      ...windowValues(window),
       held,
       proved ? 1 : 0,
       sanctioned ? 1 : 0,
@@ -545,7 +576,12 @@ async function store(access: Access, submission: Submission, tokenHash: string, 
  * sender owns it there (the device's token or the account) and nobody holds
  * the new names. Whether it moved; the store then saves the rest.
  */
-async function rename(access: Access, was: Details, profile: PlayerProfile, held: unknown): Promise<boolean> {
+async function rename(
+  access: Access,
+  submission: Pick<Submission, 'profile' | 'held'> & { was: Details },
+  window: ListWindow
+): Promise<boolean> {
+  const { was, profile, held } = submission;
   const token = typeof held === 'string' && held ? await sha256(held) : '';
   const account = matchingAccount(access, was) ?? NO_ACCOUNT;
   const moved = await access.db
@@ -563,6 +599,7 @@ async function rename(access: Access, was: Details, profile: PlayerProfile, held
       token,
       ...account.values,
       access.row.code,
+      ...windowValues(window),
       access.row.code,
       identityKey(profile, false)
     )
@@ -683,12 +720,12 @@ async function openForPlayer(context: Context<'code'>): Promise<Access | Respons
   if (!sameOrigin(context.request)) {
     return jsonError('Forbidden', 403);
   }
-  const access = await open(context, { claim: true });
-  if (access instanceof Response) {
-    return access;
-  }
-  return decklistsOpen(access.row) ? access : notTaking(access.row);
+  return open(context, { claim: true });
 }
+
+/** The roster player a submission is for, or null for someone not on the event. */
+const submitter = (row: TournamentRow, submission: Submission) =>
+  rosterPlayer(row, submission.was ?? submission.profile)?.id ?? null;
 
 /** Whether the submission is someone new to the event: not on its list, and with no list in under their details. */
 async function isNewcomer(access: Access, submission: Submission): Promise<boolean> {
@@ -700,13 +737,13 @@ async function isNewcomer(access: Access, submission: Submission): Promise<boole
 }
 
 /** Why the submission cannot go ahead before its list is stored, or null: the event is full, or a rename is not theirs. */
-async function beforeStore(access: Access, submission: Submission): Promise<Response | null> {
+async function beforeStore(access: Access, submission: Submission, window: ListWindow): Promise<Response | null> {
   if ((await isNewcomer(access, submission)) && (await isFull(access.db, access.row))) {
     return fullRefusal();
   }
   const { was, profile } = submission;
-  if (was && fullNameKey(was) !== fullNameKey(profile) && !(await rename(access, was, profile, submission.held))) {
-    return refusedWrite(access);
+  if (was && fullNameKey(was) !== fullNameKey(profile) && !(await rename(access, { ...submission, was }, window))) {
+    return refusedWrite(access, submitter(access.row, submission));
   }
   return null;
 }
@@ -719,12 +756,17 @@ const unstore = (access: Access, profile: PlayerProfile) =>
     .run();
 
 /** Stores a submission the guards let in, and registers its player: the answer, or the refusal. */
-async function submit(context: Context<'code'>, access: Access, submission: Submission): Promise<Response> {
+async function submit(
+  context: Context<'code'>,
+  access: Access,
+  submission: Submission,
+  window: ListWindow
+): Promise<Response> {
   const now = Date.now();
   // The device's own token stays its token, so a retry after a lost answer still owns the list.
   const token = deviceToken(submission.held) ?? crypto.randomUUID();
-  if (!(await store(access, submission, await sha256(token), now))) {
-    return refusedWrite(access);
+  if (!(await store(access, submission, { tokenHash: await sha256(token), now, window }))) {
+    return refusedWrite(access, submitter(access.row, submission));
   }
   const { profile, deck, mode, archetype, was, localTime } = submission;
   const kept = await enter(context, access, submission, {
@@ -755,13 +797,17 @@ export async function onRequestPut(context: Context<'code'>): Promise<Response> 
   }
   const read = await readSubmission(context.request, isSanctioned(access.row));
   if (typeof read === 'string') {
-    return jsonError(read, 400);
+    return decklistsOpen(access.row) ? jsonError(read, 400) : notTaking(access.row);
   }
+  if (!decklistOpenFor(access.row, submitter(access.row, read))) {
+    return notTaking(access.row);
+  }
+  const window = windowFor(access.row);
   const guard = await guardSubmission(access, read.profile);
   if (guard instanceof Response) {
     return guard;
   }
-  const refused = await beforeStore(access, read);
+  const refused = await beforeStore(access, read, window);
   if (refused) {
     await guard.stored(false);
     return refused;
@@ -772,7 +818,7 @@ export async function onRequestPut(context: Context<'code'>): Promise<Response> 
       ? archetypeOfList(read.deck, await archetypeRules())
       : null;
   const submission = { ...read, archetype };
-  const answer = await submit(context, access, submission);
+  const answer = await submit(context, access, submission, window);
   await guard.stored(answer.ok);
   return answer;
 }
@@ -797,7 +843,7 @@ async function dropList(access: Access, request: Request, details: Details): Pro
     }
     const deleted = await db
       .prepare(`DELETE FROM decklists WHERE code = ? AND user_id = ? AND ${STILL_TAKING}`)
-      .bind(row.code, key, row.code)
+      .bind(row.code, key, row.code, ...windowValues(BEFORE_ROUND_1))
       .run();
     return rowsChanged(deleted) === 1 ? true : refusedWrite(access);
   }
@@ -808,7 +854,7 @@ async function dropList(access: Access, request: Request, details: Details): Pro
       'DELETE FROM decklists WHERE code = ? AND user_id = ? ' +
         `AND (owner_token = ? OR account = ${account.sql}) AND ${STILL_TAKING}`
     )
-    .bind(row.code, key, held ? await sha256(held) : '', ...account.values, row.code)
+    .bind(row.code, key, held ? await sha256(held) : '', ...account.values, row.code, ...windowValues(BEFORE_ROUND_1))
     .run();
   return rowsChanged(deleted) === 1 ? true : refusedWrite(access);
 }
@@ -817,6 +863,10 @@ export async function onRequestDelete(context: Context<'code'>): Promise<Respons
   const access = await openForPlayer(context);
   if (access instanceof Response) {
     return access;
+  }
+  // A late entrant's window is for sending a list, not for leaving the event: withdrawing ends with round 1.
+  if (!decklistsOpen(access.row)) {
+    return notTaking(access.row);
   }
   const details = detailsFrom(context.request, isSanctioned(access.row));
   if (!details) {
@@ -839,9 +889,9 @@ export async function onRequestDelete(context: Context<'code'>): Promise<Respons
 }
 
 /** Why a write to a list did not land: the event stopped taking lists meanwhile, or the list is not the sender's. */
-async function refusedWrite(access: Access): Promise<Response> {
+async function refusedWrite(access: Access, playerId: string | null = null): Promise<Response> {
   const now = await loadTournament(access.db, access.row.code);
-  if (now && !decklistsOpen(now)) {
+  if (now && !decklistOpenFor(now, playerId)) {
     return notTaking(now);
   }
   return isSanctioned(access.row) ? jsonError(WRONG_YEAR, 403) : jsonError(LOCKED, 409);
@@ -858,6 +908,9 @@ export async function onRequestPatch(context: Context<'code'>): Promise<Response
     return jsonError('Say whose list to unlock', 400);
   }
   const { db, row } = access;
+  if (!decklistOpenFor(row, rosterPlayer(row, details)?.id ?? null, 'staff')) {
+    return notTaking(row);
+  }
   return staffWrites(access, guard => [
     db
       .prepare(

@@ -27,6 +27,7 @@ import { hasStarted, latestRound, livePods, playerPod, podOf, regularRounds } fr
 import { recordLabel, swissStandings } from '../../../shared/tournament/standings';
 import { type Pod, POD_CATEGORIES, type PodCategory, type Round } from '../../../shared/tournament/types';
 import type { PlayerClaim } from '../../../shared/tournament/identify';
+import { lateListsOpen } from '../../../shared/tournament/lateLists';
 import {
   decklistsLocked,
   decklistsOpen,
@@ -401,13 +402,16 @@ function createMe(view: () => TournamentView, events: { onView: (view: Published
   };
 }
 
+/** Whether the form takes lists: before round 1, or from a late entrant in their round (see lateListsOpen). */
+const takingLists = (view: TournamentView) => decklistsOpen(view) || lateListsOpen(view);
+
 /**
  * The registration tab: the form while players can register, and once they
  * cannot, the receipt for a viewer who may have a list (a device that sent
  * one, or an account that is a player here).
  */
 function decklistTab(view: TournamentView, mayHaveList: boolean): { value: Tab; label: string }[] {
-  if (decklistsOpen(view)) {
+  if (takingLists(view)) {
     return [{ value: 'decklist', label: mayHaveList ? t('Registration') : t('Register') }];
   }
   return view.settings.decklists !== 'off' && mayHaveList ? [{ value: 'decklist', label: t('Registration') }] : [];
@@ -741,10 +745,14 @@ function EventBody(props: {
             code={props.view.code}
             sanctioned={isSanctioned(props.view)}
             owner={listOwner()}
-            open={decklistsOpen(props.view)}
+            open={takingLists(props.view)}
             locked={decklistsLocked(props.view)}
-            closes={timeShown(props.view.settings.startsAt, props.view.settings.timeZone)}
-            checkIn={timeShown(props.view.settings.checkInAt, props.view.settings.timeZone)}
+            closes={
+              decklistsOpen(props.view) ? timeShown(props.view.settings.startsAt, props.view.settings.timeZone) : null
+            }
+            checkIn={
+              decklistsOpen(props.view) ? timeShown(props.view.settings.checkInAt, props.view.settings.timeZone) : null
+            }
             full={rosterFull(props.view)}
           />
         </Show>

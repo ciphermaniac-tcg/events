@@ -30,6 +30,7 @@ import { RetryError } from './Field';
 import { birthYear } from '../../../shared/tournament/divisions';
 import { latestRoundOf } from '../../../shared/tournament/staffRecords';
 import { decklistMatcher } from '../../../shared/tournament/identify';
+import { decklistOpenFor, lateListsOpen } from '../../../shared/tournament/lateLists';
 import { decklistsLocked, decklistsOpen, decksEnabled, isSanctioned } from '../../../shared/tournament/view';
 import {
   call,
@@ -180,7 +181,7 @@ function DecklistRow(props: RowProps) {
                 {t('Use their deck')}
               </button>
             </Show>
-            <Show when={props.list.locked && !decklistsLocked(props.manage)}>
+            <Show when={props.list.locked && decklistOpenFor(props.manage, playerId() ?? null, 'staff')}>
               <ConfirmAction
                 label={t('Unlock')}
                 question={t('Let another device send this list?')}
@@ -321,10 +322,10 @@ export function DecklistsPanel(props: { state: ManageState; manage: Manage }) {
       .then(result => mutate(shared(latestValue(lists), result.decklists)))
       .catch(() => undefined);
   // A list from a player already entered does not change the event, so the console's own refresh misses it.
-  // Lists only come in while submission is open, so that is when the tab looks, and once more as it closes.
+  // Lists come in while submission is open, or from a late entrant in their round: the tab looks then, and once as it closes.
   onMount(() => {
     const timer = setInterval(() => {
-      if (!document.hidden && accepting() && lists.state === 'ready') {
+      if (!document.hidden && (accepting() || lateListsOpen(props.manage)) && lists.state === 'ready') {
         look();
       }
     }, LISTS_REFRESH_MS);

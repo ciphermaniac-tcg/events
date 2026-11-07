@@ -8,10 +8,13 @@
  * paired (see listsPublic). The player is named by the key the public view
  * knows them by, never their Player ID. Answers { list }: the pasted text,
  * the word that it was handed in on paper, or null when the player sent none
- * (or the event ended and a minor's cards went with it, see store.ts).
+ * (or the event ended and a minor's cards went with it, see store.ts). A late
+ * entrant's list stays private while they may still change it (see
+ * decklistOpenFor), so every list read here is a locked one.
  */
 
 import { decklistMatcher } from '../../../../shared/tournament/identify.js';
+import { decklistOpenFor } from '../../../../shared/tournament/lateLists.js';
 import { isSanctioned, listsPublic, type OpenList } from '../../../../shared/tournament/view.js';
 import { jsonError, jsonResponse } from '../../../lib/api/responses.js';
 import type { Context } from '../../../lib/auth/env.js';
@@ -58,8 +61,10 @@ export async function onRequestGet(context: Context<'code'>): Promise<Response> 
     .bind(row.code)
     .all<ListRow>();
   const owner = decklistMatcher(row.tournament, isSanctioned(row));
-  const ownerOf = (list: ListRow) =>
-    owner({ popId: list.pop_id, firstName: list.first_name, lastName: list.last_name });
+  const ownerOf = (list: ListRow) => {
+    const id = owner({ popId: list.pop_id, firstName: list.first_name, lastName: list.last_name });
+    return id === undefined || decklistOpenFor(row, id) ? undefined : id;
+  };
   if (key === null) {
     return jsonResponse({ players: readable(row, results, ownerOf) }, { cacheControl: CACHE, cors: false });
   }

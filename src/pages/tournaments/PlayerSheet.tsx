@@ -11,6 +11,7 @@
 import { createEffect, createSignal, For, on, onCleanup, onMount, Show } from 'solid-js';
 import { isBye, percentLabel, recordLabel, type Standing } from '../../../shared/tournament/standings';
 import type { Pod } from '../../../shared/tournament/types';
+import { decklistOpenFor } from '../../../shared/tournament/lateLists';
 import { decklistsLocked, type TournamentView } from '../../../shared/tournament/view';
 import { inertOutside, keepTabIn } from '../../lib/focusTrap';
 import { matchHistory } from '../../lib/tournament/present';
@@ -106,8 +107,14 @@ export function PlayerSheet(props: {
           </button>
         </div>
         <div class='tm-sheet-body'>
-          {/* Their list leads, above the record, at an event whose organizer opened its lists. */}
-          <Show when={props.view.settings.openLists && props.view.settings.decklists !== 'off'}>
+          {/* Their list leads, above the record, at an event whose organizer opened its lists, once it locks. */}
+          <Show
+            when={
+              props.view.settings.openLists &&
+              props.view.settings.decklists !== 'off' &&
+              !(decklistsLocked(props.view) && decklistOpenFor(props.view, props.playerId))
+            }
+          >
             <OpenList code={props.view.code} player={props.playerId} locked={decklistsLocked(props.view)} />
           </Show>
           <Show when={props.standing}>
