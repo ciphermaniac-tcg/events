@@ -1,0 +1,263 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tournament type="2" stage="4" version="1.86" gametype="TRADING_CARD_GAME" mode="CUSTOM">
+	<data>
+		<name>Synthetic &amp; Co&apos;s Cup</name>
+		<id>26-10-000001</id>
+		<city>Synthetic City</city>
+		<state>TX</state>
+		<country>United States</country>
+		<roundtime>30</roundtime>
+		<finalsroundtime>75</finalsroundtime>
+		<organizer popid="1234567" name="Synthetic Organizer"/>
+		<startdate>10/01/2026</startdate>
+		<lessswiss>false</lessswiss>
+		<autotablenumber>true</autotablenumber>
+		<overflowtablestart>16</overflowtablestart>
+	</data>
+	<timeelapsed>0</timeelapsed>
+	<players>
+		<player userid="1000007">
+			<firstname>Synthetic1000007</firstname>
+			<lastname>Fixture</lastname>
+			<birthdate>02/27/1995</birthdate>
+			<starter>true</starter>
+			<creationdate>10/01/2026 12:00:00</creationdate>
+			<lastmodifieddate>10/01/2026 12:00:00</lastmodifieddate>
+		</player>
+		<player userid="1000001">
+			<firstname>Synthetic1000001</firstname>
+			<lastname>Fixture</lastname>
+			<birthdate>02/27/1995</birthdate>
+			<starter>true</starter>
+			<creationdate>10/01/2026 12:00:00</creationdate>
+			<lastmodifieddate>10/01/2026 12:00:00</lastmodifieddate>
+		</player>
+		<player userid="1000006">
+			<firstname>Synthetic1000006</firstname>
+			<lastname>Fixture</lastname>
+			<birthdate>02/27/1995</birthdate>
+			<starter>true</starter>
+			<creationdate>10/01/2026 12:00:00</creationdate>
+			<lastmodifieddate>10/01/2026 12:00:00</lastmodifieddate>
+		</player>
+		<player userid="1000003">
+			<firstname>Synthetic1000003</firstname>
+			<lastname>Fixture</lastname>
+			<birthdate>02/27/1995</birthdate>
+			<starter>true</starter>
+			<creationdate>10/01/2026 12:00:00</creationdate>
+			<lastmodifieddate>10/01/2026 12:00:00</lastmodifieddate>
+		</player>
+		<player userid="1000002">
+			<firstname>Synthetic1000002</firstname>
+			<lastname>Fixture</lastname>
+			<birthdate>02/27/1995</birthdate>
+			<starter>true</starter>
+			<creationdate>10/01/2026 12:00:00</creationdate>
+			<lastmodifieddate>10/01/2026 12:00:00</lastmodifieddate>
+		</player>
+		<player userid="1000008">
+			<firstname>Synthetic1000008</firstname>
+			<lastname>Fixture</lastname>
+			<birthdate>02/27/1995</birthdate>
+			<starter>true</starter>
+			<creationdate>10/01/2026 12:00:00</creationdate>
+			<lastmodifieddate>10/01/2026 12:00:00</lastmodifieddate>
+		</player>
+		<player userid="1000011">
+			<firstname>Synthetic1000011</firstname>
+			<lastname>Fixture</lastname>
+			<birthdate>02/27/1995</birthdate>
+			<starter>true</starter>
+			<creationdate>10/01/2026 12:00:00</creationdate>
+			<lastmodifieddate>10/01/2026 12:00:00</lastmodifieddate>
+		</player>
+		<player userid="1000010">
+			<firstname>Synthetic1000010</firstname>
+			<lastname>Fixture</lastname>
+			<birthdate>02/27/1995</birthdate>
+			<starter>true</starter>
+			<creationdate>10/01/2026 12:00:00</creationdate>
+			<lastmodifieddate>10/01/2026 12:00:00</lastmodifieddate>
+		</player>
+		<player userid="1000012">
+			<firstname>Synthetic1000012</firstname>
+			<lastname>Fixture</lastname>
+			<birthdate>02/27/1995</birthdate>
+			<starter>true</starter>
+			<creationdate>10/01/2026 12:00:00</creationdate>
+			<lastmodifieddate>10/01/2026 12:00:00</lastmodifieddate>
+		</player>
+		<player userid="1000004">
+			<firstname>Synthetic1000004</firstname>
+			<lastname>Fixture</lastname>
+			<birthdate>02/27/1995</birthdate>
+			<starter>true</starter>
+			<creationdate>10/01/2026 12:00:00</creationdate>
+			<lastmodifieddate>10/01/2026 12:00:00</lastmodifieddate>
+		</player>
+		<player userid="1000005">
+			<firstname>Synthetic1000005</firstname>
+			<lastname>Fixture</lastname>
+			<birthdate>02/27/1995</birthdate>
+			<starter>true</starter>
+			<creationdate>10/01/2026 12:00:00</creationdate>
+			<lastmodifieddate>10/01/2026 12:00:00</lastmodifieddate>
+		</player>
+		<player userid="1000009">
+			<firstname>Synthetic1000009</firstname>
+			<lastname>Fixture</lastname>
+			<birthdate>02/27/1995</birthdate>
+			<starter>true</starter>
+			<creationdate>10/01/2026 12:00:00</creationdate>
+			<lastmodifieddate>10/01/2026 12:00:00</lastmodifieddate>
+		</player>
+		<player userid="2000001">
+			<firstname>Synthetic</firstname>
+			<lastname>Player</lastname>
+			<birthdate>02/27/1995</birthdate>
+			<creationdate>10/01/2026 12:00:00</creationdate>
+			<lastmodifieddate>10/01/2026 12:00:00</lastmodifieddate>
+		</player>
+	</players>
+	<pods>
+		<pod category="2" stage="0">
+			<poddata>
+				<startingtable>1</startingtable>
+				<playoff3rd4th>false</playoff3rd4th>
+				<subgroupcount>1</subgroupcount>
+				<additionalrounds>0</additionalrounds>
+				<blockedranges>
+				</blockedranges>
+			</poddata>
+			<subgroups>
+				<subgroup number="1">
+					<players>
+						<player userid="1000005" />
+						<player userid="1000001" />
+						<player userid="1000010" />
+						<player userid="1000003" />
+						<player userid="1000008" />
+						<player userid="1000004" />
+						<player userid="1000011" />
+						<player userid="1000009" />
+						<player userid="1000002" />
+						<player userid="1000012" />
+						<player userid="1000006" />
+						<player userid="1000007" />
+						<player userid="2000001" />
+					</players>
+				</subgroup>
+			</subgroups>
+			<rounds>
+				<round number="1" type="2" stage="6" >
+					<timeleft>0</timeleft>
+					<pairtime>10/01/2026 12:00:00</pairtime>
+					<starttime>10/01/2026 12:00:00</starttime>
+					<matches>
+						<match outcome="1">
+							<player1 userid="1000001"/>
+							<player2 userid="1000006"/>
+							<timestamp>10/01/2026 12:00:00</timestamp>
+							<tablenumber>1</tablenumber>
+						</match>
+						<match outcome="2">
+							<player1 userid="1000005"/>
+							<player2 userid="1000010"/>
+							<timestamp>10/01/2026 12:00:00</timestamp>
+							<tablenumber>2</tablenumber>
+						</match>
+						<match outcome="3">
+							<player1 userid="1000004"/>
+							<player2 userid="1000003"/>
+							<timestamp>10/01/2026 12:00:00</timestamp>
+							<tablenumber>3</tablenumber>
+						</match>
+						<match outcome="10">
+							<player1 userid="1000008"/>
+							<player2 userid="1000002"/>
+							<timestamp>10/01/2026 12:00:00</timestamp>
+							<tablenumber>4</tablenumber>
+						</match>
+						<match outcome="1">
+							<player1 userid="1000007"/>
+							<player2 userid="1000012"/>
+							<timestamp>10/01/2026 12:00:00</timestamp>
+							<tablenumber>5</tablenumber>
+						</match>
+						<match outcome="2">
+							<player1 userid="1000011"/>
+							<player2 userid="1000009"/>
+							<timestamp>10/01/2026 12:00:00</timestamp>
+							<tablenumber>6</tablenumber>
+						</match>
+						<match outcome="8">
+							<player userid="2000001"/>
+							<timestamp>10/01/2026 12:00:00</timestamp>
+							<tablenumber>0</tablenumber>
+						</match>
+					</matches>
+				</round>
+				<round number="2" type="2" stage="2" >
+					<timeleft>1800</timeleft>
+					<pairtime>10/01/2026 12:00:00</pairtime>
+					<starttime></starttime>
+					<matches>
+						<match outcome="5">
+							<player userid="2000001"/>
+							<timestamp>10/01/2026 12:00:00</timestamp>
+							<tablenumber>0</tablenumber>
+						</match>
+						<match outcome="0">
+							<player1 userid="1000009"/>
+							<player2 userid="1000007"/>
+							<timestamp>10/01/2026 12:00:00</timestamp>
+							<tablenumber>1</tablenumber>
+						</match>
+						<match outcome="0">
+							<player1 userid="1000001"/>
+							<player2 userid="1000010"/>
+							<timestamp>10/01/2026 12:00:00</timestamp>
+							<tablenumber>2</tablenumber>
+						</match>
+						<match outcome="0">
+							<player1 userid="1000003"/>
+							<player2 userid="1000005"/>
+							<timestamp>10/01/2026 12:00:00</timestamp>
+							<tablenumber>4</tablenumber>
+						</match>
+						<match outcome="0">
+							<player1 userid="1000004"/>
+							<player2 userid="1000008"/>
+							<timestamp>10/01/2026 12:00:00</timestamp>
+							<tablenumber>3</tablenumber>
+						</match>
+						<match outcome="0">
+							<player1 userid="1000011"/>
+							<player2 userid="1000002"/>
+							<timestamp>10/01/2026 12:00:00</timestamp>
+							<tablenumber>5</tablenumber>
+						</match>
+						<match outcome="0">
+							<player1 userid="1000012"/>
+							<player2 userid="1000006"/>
+							<timestamp>10/01/2026 12:00:00</timestamp>
+							<tablenumber>6</tablenumber>
+						</match>
+					</matches>
+				</round>
+			</rounds>
+		</pod>
+	</pods>
+	<finalsoptions>
+		<categorycut key="2">
+			<options>
+				<value>0</value>
+				<value>4</value>
+			</options>
+			<cut>0</cut>
+			<playercount>12</playercount>
+			<paired3rd4th>false</paired3rd4th>
+		</categorycut>
+	</finalsoptions>
+</tournament>

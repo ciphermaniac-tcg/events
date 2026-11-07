@@ -1145,6 +1145,22 @@ test('a TOM upload saved before the site’s copy asks before replacing it', asy
   await expect.poll(() => syncs).toBe(1);
 });
 
+test('a TOM upload goes up even when it lacks a result the site’s copy has', async ({ page }, testInfo) => {
+  let syncs = 0;
+  await tomConsole(
+    page,
+    () => {
+      syncs += 1;
+      return synced();
+    },
+    { following: false }
+  );
+  const reopened = testInfo.outputPath('reopened.tdf');
+  writeFileSync(reopened, TDF_SOURCE.replace('<match outcome="1">', '<match outcome="0">'));
+  await page.locator('.tm-tom-status input[type="file"]').setInputFiles(reopened);
+  await expect.poll(() => syncs).toBe(1);
+});
+
 test('a TOM console gives up on a sync that hangs and sends the file again', async ({ page }) => {
   await page.clock.install();
   let syncs = 0;

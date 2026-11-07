@@ -11,7 +11,7 @@
  */
 
 import { withoutClocks } from './tomClock.js';
-import type { Tournament } from './types.js';
+import { REPORTABLE_OUTCOMES, type Tournament } from './types.js';
 
 export async function revisionOf(tournament: Tournament): Promise<string> {
   const text = JSON.stringify(withoutClocks(tournament));
@@ -22,11 +22,18 @@ export async function revisionOf(tournament: Tournament): Promise<string> {
 /** The number of the last round each pod has paired, by category. */
 const roundsByPod = (t: Tournament) => new Map(t.pods.map(pod => [pod.category, pod.rounds.at(-1)?.number ?? 0]));
 
-/** Every result a round has recorded, keyed by pod, round and table. */
+/**
+ * Every result entered for a round, keyed by pod, round and table. A bye, an
+ * assigned bye and a late entrant's forced loss are not results anyone
+ * entered: pairing sets them, and TOM takes them back when it pairs a round
+ * again, as it does for a player entered late while the round is paired.
+ */
 const results = (t: Tournament) =>
   t.pods.flatMap(pod =>
     pod.rounds.flatMap(round =>
-      round.matches.filter(m => m.outcome !== 'pending').map(m => `${pod.category}|${round.number}|${m.table}`)
+      round.matches
+        .filter(m => REPORTABLE_OUTCOMES.includes(m.outcome))
+        .map(m => `${pod.category}|${round.number}|${m.table}`)
     )
   );
 

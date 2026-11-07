@@ -158,13 +158,16 @@ export function createTomLink(props: { manage: () => Manage; onSynced: (answer?:
     return synced === null && !replacing && olderThan(parsed, props.manage().tournament);
   }
 
-  /** Sends the parsed file if it differs from what was last sent; false when it was stale, and following paused. */
+  /**
+   * Sends the parsed file if it differs from what was last sent; false when it was stale, and following paused.
+   * A file the organizer uploaded (`force`) always goes: UploadButton asked first if it was older.
+   */
   async function push(text: string, force = false): Promise<boolean> {
     const parsed = await during('parse', async () => parseTdf(text));
     const json = JSON.stringify(parsed);
     if (force || json !== lastSent) {
       const base = synced ?? (await revisionOf(props.manage().tournament));
-      if (stale(parsed)) {
+      if (!force && stale(parsed)) {
         pause('older');
         return false;
       }
