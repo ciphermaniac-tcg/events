@@ -195,8 +195,8 @@ function createRegistration(props: RegistrationProps) {
       setChanged(false);
       setStep('edit');
     } catch (err) {
-      // The server refused it, so nothing landed: the device keeps what it had.
-      if (err instanceof ApiError && err.status < 500) {
+      // The server refused it, so nothing landed: the device keeps what it had. No answer (status 0) may still have landed.
+      if (err instanceof ApiError && err.status >= 400 && err.status < 500) {
         remember(props.code, before);
       }
       throw err;

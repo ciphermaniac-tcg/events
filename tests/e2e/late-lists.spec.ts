@@ -126,3 +126,20 @@ test('a late entrant sends their list in the round they joined in, and it locks 
   await expect(page.getByRole('textbox', { name: 'Decklist' })).toHaveCount(0);
   await expect(page.locator('pre.tm-decklist-sent')).toHaveText(DECK);
 });
+
+test('a list sent without an answer stays this device’s to change', async ({ page }) => {
+  await mockEvent(page, () => publish(rounds().round2));
+  await page.route(`**/api/tournaments/${CODE}/decklists`, route =>
+    route.request().method() === 'PUT' ? route.abort('failed') : route.fallback()
+  );
+  await page.goto(`/t/${CODE}?tab=decklist`);
+  await page.getByRole('textbox', { name: 'Player ID' }).fill('7777');
+  await page.getByRole('button', { name: 'Continue' }).click();
+  await page.getByRole('textbox', { name: 'Birth year' }).fill('1998');
+  await page.getByRole('button', { name: 'Continue' }).click();
+  await page.getByText('Digital').click();
+  await page.getByRole('textbox', { name: 'Decklist' }).fill(DECK);
+  await page.getByRole('button', { name: /Register|Save changes/ }).click();
+  await expect(page.getByText('Couldn’t reach the site. Check your connection.')).toBeVisible();
+  expect(await page.evaluate(code => localStorage.getItem(`cm-decklist:${code}`), CODE)).toContain('"token"');
+});
