@@ -1,14 +1,32 @@
 /**
- * The signed-out home page: one sample event on every surface a real one
- * uses, a console to click around in, Reese's profile, and the features in
- * three rows that drift, stop when pressed, and move by hand.
+ * The signed-out home page: the two ways in, then one sample event on the big
+ * screen, a phone, a profile and the console, the events really run here
+ * lately, and the way to the demo.
  */
 
-import { expect, type Locator, type Page } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
 import { test } from './network-guard';
 
-async function signedOut(page: Page) {
+const RECENT = [
+  {
+    code: 'EPPVHG',
+    name: 'Collectibles Corner Locals',
+    place: '',
+    startsAt: '2026-11-05T19:30',
+    players: 7
+  },
+  {
+    code: 'PQFBVS',
+    name: 'Combat Power Locals',
+    place: 'Combat Power Gaming · San Antonio, TX',
+    startsAt: '2026-10-18T15:00',
+    players: 6
+  }
+];
+
+async function signedOut(page: Page, recent: unknown[] = RECENT) {
   await page.route('**/api/me', route => route.fulfill({ json: { user: null, providers: ['google', 'discord'] } }));
+  await page.route('**/api/recent-events', route => route.fulfill({ json: { events: recent } }));
   await page.goto('/');
   await expect(page.locator('.tm-home')).toBeVisible();
 }
@@ -22,13 +40,9 @@ async function signedOutPaused(page: Page) {
   await page.clock.pauseAt(new Date(START.getTime() + 2000));
 }
 
-/** A row's horizontal offset, from its track's transform. */
-const offsetOf = (reel: Locator) =>
-  reel.locator('.tm-reel-track').evaluate(track => new DOMMatrix(getComputedStyle(track).transform).m41);
-
 test('the home page plays a sample event on the big screen, a phone and a profile @mobile', async ({ page }) => {
   await signedOut(page);
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Run your Pokémon TCG events better');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Run an event');
   await expect(page.locator('#sign-in').getByRole('link', { name: 'Sign in with Google' })).toBeVisible();
   const screen = page.locator('.tm-hs');
   await expect(screen.locator('.tm-hs-code')).toHaveText('K7RW2P');
@@ -56,70 +70,15 @@ test('leaving the home page gives the reader their own mode back', async ({ page
   await expect(page.locator('body')).not.toHaveClass(/tm-home-mode/);
 });
 
-test('the sample console’s tabs open their panels, and In progress keeps only the open tables', async ({ page }) => {
-  await signedOutPaused(page);
-  const sample = page.getByRole('region', { name: 'A sample admin console' });
-  await sample.getByRole('tab', { name: 'Standings' }).click();
-  await expect(sample.getByRole('tabpanel').locator('tbody tr')).toHaveCount(10);
-  await sample.getByRole('tab', { name: 'Decklists' }).click();
-  await expect(sample.getByRole('tabpanel')).toContainText('5 copies of Grand Tree (the limit is 4)');
-  await sample.getByRole('tab', { name: 'Pairings' }).click();
-  const rows = sample.locator('.tm-hc-pairs tbody tr');
-  await expect(rows).toHaveCount(8);
-  await sample.getByRole('radio', { name: 'In progress' }).click();
-  const tally = async () => Number((await sample.locator('.tm-hc-tally').textContent())?.match(/\d+/)?.[0]);
-  const reported = await tally();
-  await expect(rows).toHaveCount(8 - reported);
-  await expect(rows.locator('td:last-child')).toHaveText(Array(8 - reported).fill('—'));
-  // A result due the moment the clock paused lands with the next, so this
-  // step can land more than one.
-  await page.clock.runFor(330);
-  await expect.poll(tally).toBeGreaterThan(reported);
-  await expect(rows).toHaveCount(8 - (await tally()));
-});
-
-test('the sample console’s tabs move with the arrow keys', async ({ page }) => {
-  await signedOut(page);
-  const sample = page.getByRole('region', { name: 'A sample admin console' });
-  await expect(sample.getByRole('tablist', { name: 'Event sections' })).toBeVisible();
-  await sample.getByRole('tab', { name: 'Pairings' }).focus();
-  await page.keyboard.press('ArrowRight');
-  await expect(sample.getByRole('tab', { name: 'Players' })).toHaveAttribute('aria-selected', 'true');
-});
-
 test('a badge on the profile names itself on hover', async ({ page }) => {
   await signedOut(page);
   await page.locator('.tm-hpr .tm-badge').first().hover();
   await expect(page.locator('.tm-hpr').getByText('Developer', { exact: true })).toBeVisible();
 });
 
-test('the feature rows drift, stop while pressed, and follow a drag', async ({ page }) => {
-  await signedOut(page);
-  const reels = page.locator('.tm-reel');
-  await expect(reels).toHaveCount(3);
-  const reel = reels.first();
-  await reel.scrollIntoViewIfNeeded();
-  const before = await offsetOf(reel);
-  await page.waitForTimeout(500);
-  expect(await offsetOf(reel)).not.toBe(before);
-
-  const box = (await reel.boundingBox())!;
-  const y = box.y + box.height / 2;
-  await page.mouse.move(box.x + box.width / 2, y);
-  await page.mouse.down();
-  await page.waitForTimeout(50);
-  const held = await offsetOf(reel);
-  await page.waitForTimeout(400);
-  expect(await offsetOf(reel)).toBe(held);
-  await page.mouse.move(box.x + box.width / 2 - 120, y, { steps: 6 });
-  const dragged = await offsetOf(reel);
-  expect(Math.abs(dragged - held)).toBeGreaterThan(60);
-  await page.mouse.up();
-});
-
 test('every preview holds its height through a whole sample event and into the next', async ({ page }) => {
   await signedOutPaused(page);
-  const surfaces = ['.tm-home-tv', '.tm-home-console', '.tm-hp-you', '.tm-hp-list', '.tm-home-profile'];
+  const surfaces = ['.tm-home-tv', '.tm-home-phone', '.tm-hp-you', '.tm-home-profile', '.tm-home-console'];
   const heights = () =>
     page.evaluate(
       selectors => selectors.map(s => Math.round(document.querySelector(s)?.getBoundingClientRect().height ?? -1)),
@@ -134,33 +93,68 @@ test('every preview holds its height through a whole sample event and into the n
   await expect(page.locator('.tm-hs-status')).toContainText('Round');
 });
 
-test('a feature row held by keyboard focus stays still, and is named', async ({ page }) => {
-  await signedOut(page);
-  const reel = page.getByRole('group', { name: 'Features, row 1' });
-  await reel.scrollIntoViewIfNeeded();
-  // Start the keyboard just before the rows, then Tab into the first.
-  await page.locator('#tm-home-features-title').evaluate(heading => {
-    heading.setAttribute('tabindex', '-1');
-    (heading as HTMLElement).focus();
-  });
-  await page.keyboard.press('Tab');
-  await expect(reel).toBeFocused();
-  await page.waitForTimeout(1500);
-  const held = await offsetOf(reel);
-  await page.waitForTimeout(400);
-  expect(Math.abs((await offsetOf(reel)) - held)).toBeLessThan(1);
-});
-
 test.describe('under reduced motion', () => {
   test.use({ reducedMotion: 'reduce' });
 
-  test('the sample event rests finished and the feature rows stay still', async ({ page }) => {
+  test('the sample event rests finished', async ({ page }) => {
     await signedOut(page);
     await expect(page.locator('.tm-hs-status')).toContainText('Round 5 of 5');
-    await page.evaluate(() => document.fonts.ready);
-    const reel = page.locator('.tm-reel').first();
-    const before = await offsetOf(reel);
-    await page.waitForTimeout(500);
-    expect(await offsetOf(reel)).toBe(before);
   });
+});
+
+test('an event code from the player’s door opens that event’s page @mobile', async ({ page }) => {
+  await signedOut(page);
+  await page.route('**/api/tournaments/K7RW2P*', route =>
+    route.fulfill({ status: 404, json: { error: 'No such event' } })
+  );
+  await page.getByRole('textbox', { name: 'Event code' }).fill(' k7rw2p ');
+  await page.getByRole('button', { name: 'Go' }).click();
+  await expect(page).toHaveURL(/\/t\/K7RW2P$/);
+});
+
+test('recent events list finished events, each row opening its event', async ({ page }) => {
+  await signedOut(page);
+  const recent = page.getByRole('region', { name: 'Recent events' });
+  const rows = recent.locator('tbody tr');
+  await expect(rows).toHaveCount(2);
+  await expect(rows.first()).toContainText('Collectibles Corner Locals');
+  await expect(rows.nth(1)).toContainText('Combat Power Gaming · San Antonio, TX');
+  await expect(rows.first().getByRole('link')).toHaveAttribute('href', '/t/EPPVHG');
+  await page.route('**/api/tournaments/PQFBVS*', route =>
+    route.fulfill({ status: 404, json: { error: 'No such event' } })
+  );
+  await rows.nth(1).locator('td.num').click();
+  await expect(page).toHaveURL(/\/t\/PQFBVS$/);
+});
+
+test('with no recent events the section is left out', async ({ page }) => {
+  await signedOut(page, []);
+  await expect(page.getByRole('heading', { name: 'At the venue' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Recent events' })).toHaveCount(0);
+});
+
+test('the big screen and the phone stand the same height, and the console is only a picture', async ({ page }) => {
+  await signedOut(page);
+  const tv = (await page.locator('.tm-home-tv').boundingBox())!;
+  const phone = (await page.locator('.tm-home-phone').boundingBox())!;
+  expect(Math.abs(tv.height - phone.height)).toBeLessThan(1);
+  await expect(page.locator('.tm-home-console')).toHaveAttribute('inert', '');
+  await expect(page.getByRole('link', { name: 'Open the demo' })).toHaveAttribute(
+    'href',
+    'https://demo.events.ciphermaniac.com'
+  );
+});
+
+test('on a phone the doors stack, the big screen steps aside and nothing scrolls sideways @mobile', async ({
+  page
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await signedOut(page);
+  await expect(page.locator('.tm-home-tv')).toBeHidden();
+  await expect(page.locator('.tm-home-phone')).toBeVisible();
+  const doors = page.locator('.tm-home-door');
+  const first = (await doors.first().boundingBox())!;
+  const second = (await doors.nth(1).boundingBox())!;
+  expect(second.y).toBeGreaterThanOrEqual(first.y + first.height - 1);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });

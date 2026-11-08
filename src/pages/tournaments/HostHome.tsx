@@ -1,20 +1,22 @@
 /**
- * The home page, for someone signed out: Ciphermaniac Events at night. The
- * headline and the way in, then one sample event (sampleRun) played out on
- * every surface a real one uses: the room's big screen, the organizer's
- * console to click around in, a player's phone, and a player's profile. Then
- * the features, drifting in three rows (FeatureReels), and the way in again.
- * The page is dark whatever the reader's mode; it marks the body while shown.
+ * The home page, for someone signed out, dark whatever the reader's mode.
+ * First the two ways in, side by side (stacked on a phone): run an event
+ * (sign in) or play in one (an event's code). Then, on a raised band, one
+ * sample event (sampleRun) on the surfaces it uses: the room's big screen
+ * beside a player's phone, a player's profile, the events really run here
+ * lately (RecentEvents), and the console, beside the way to the demo. Every
+ * preview is the sample; only the recent events are real, and finished.
  */
 
-import { onCleanup, onMount } from 'solid-js';
+import { createSignal, onCleanup, onMount } from 'solid-js';
+import { useNavigate } from '@solidjs/router';
 import type { SignInOffer } from '../../lib/tournament/api';
-import { t, tx } from '../../lib/i18n';
-import { FeatureReels } from './FeatureReels';
+import { t } from '../../lib/i18n';
 import { HomeConsole } from './HomeConsole';
 import { HomePhone } from './HomePhone';
 import { HomeProfile } from './HomeProfile';
 import { HomeScreen } from './HomeScreen';
+import { RecentEvents } from './RecentEvents';
 import { createSampleRun } from './sampleRun';
 import { SignIn } from './SignIn';
 import '../../styles/pages/tournament-home.css';
@@ -22,11 +24,13 @@ import '../../styles/pages/tournament-home.css';
 /** The page's ground, which the browser's bar takes while it shows. */
 const NIGHT = '#161615';
 
-export function HostHome(props: { offer: SignInOffer }) {
-  const run = createSampleRun();
+/** The console's demo: a sample event that runs in the visitor's browser and saves nothing. */
+const DEMO_SITE = 'https://demo.events.ciphermaniac.com';
+
+/** The dark page for as long as it shows, the browser's bar with it. */
+function useNight() {
   onMount(() => {
     document.body.classList.add('tm-home-mode');
-    // The browser's bar matches the night page, and goes back as it was.
     const bars = [...document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]')];
     const before = bars.map(bar => bar.content);
     bars.forEach(bar => bar.setAttribute('content', NIGHT));
@@ -35,45 +39,119 @@ export function HostHome(props: { offer: SignInOffer }) {
       bars.forEach((bar, i) => bar.setAttribute('content', before[i] ?? NIGHT));
     });
   });
+}
+
+/** A player's way to their event: its code, to its page. */
+function CodeForm() {
+  const navigate = useNavigate();
+  const [code, setCode] = createSignal('');
+  return (
+    <form
+      class='tm-home-code'
+      onSubmit={event => {
+        event.preventDefault();
+        const typed = code().replace(/\s+/g, '');
+        if (typed) {
+          navigate(`/t/${encodeURIComponent(typed.toUpperCase())}`);
+        }
+      }}
+    >
+      <input
+        class='tm-input'
+        placeholder={t('Event code')}
+        aria-label={t('Event code')}
+        autocomplete='off'
+        autocapitalize='characters'
+        spellcheck={false}
+        required
+        value={code()}
+        onInput={event => setCode(event.currentTarget.value)}
+      />
+      <button type='submit' class='btn btn-secondary'>
+        {t('Go')}
+      </button>
+    </form>
+  );
+}
+
+function Doors(props: { offer: SignInOffer }) {
+  return (
+    <section class='tm-home-doors'>
+      <div class='tm-home-door' id='sign-in'>
+        <div>
+          <h1>{t('Run an event')}</h1>
+          <p>{t('Registration, Swiss pairings, decklists, standings, and top cut for Pokémon TCG, from a browser.')}</p>
+        </div>
+        <SignIn offer={props.offer} next='/' stacked />
+      </div>
+      <div class='tm-home-door'>
+        <div>
+          <h2>{t('Play in one')}</h2>
+          <p>{t('Enter the code from the sign or the screen at your event.')}</p>
+        </div>
+        <CodeForm />
+      </div>
+    </section>
+  );
+}
+
+export function HostHome(props: { offer: SignInOffer }) {
+  useNight();
+  const run = createSampleRun();
   return (
     <div class='tm-home'>
-      <section class='tm-home-hero'>
-        <h1 class='tm-home-big'>
-          {/* A space before the break, so the heading reads as words where it is not drawn. */}
-          {tx('Run your Pokémon{br}TCG events better', { br: [' ', <br />] })}
-        </h1>
-        <div class='tm-home-signin' id='sign-in'>
-          <SignIn offer={props.offer} next='/' stacked />
-        </div>
-      </section>
-      <div class='tm-home-tv'>
-        <HomeScreen run={run} />
-      </div>
-      <section class='tm-home-part'>
-        <h2>{t('Responsive admin console')}</h2>
-        <div class='tm-home-frame tm-home-console'>
-          <HomeConsole run={run} />
-        </div>
-      </section>
-      <div class='tm-home-pair'>
-        <section class='tm-home-part'>
-          <h2>{t('Mobile reporting')}</h2>
-          <div class='tm-home-frame tm-home-phone'>
-            <HomePhone run={run} />
+      <Doors offer={props.offer} />
+      <div class='tm-home-band'>
+        <section class='tm-home-sec' aria-labelledby='tm-home-venue-title'>
+          <div class='tm-home-lede'>
+            <h2 id='tm-home-venue-title'>{t('At the venue')}</h2>
+            <p>
+              {t(
+                'The big screen shows the round’s pairings with a QR code to the event. Players find their table by last name on their phones and report from the table.'
+              )}
+            </p>
+          </div>
+          <div class='tm-home-venue'>
+            <div class='tm-home-box tm-home-tv'>
+              <HomeScreen run={run} />
+            </div>
+            <div class='tm-home-box tm-home-phone'>
+              <HomePhone run={run} />
+            </div>
           </div>
         </section>
-        <section class='tm-home-part'>
-          <h2>{t('Player profiles')}</h2>
-          <div class='tm-home-frame tm-home-profile'>
+        <section class='tm-home-sec tm-home-split' aria-labelledby='tm-home-profiles-title'>
+          <div class='tm-home-lede'>
+            <h2 id='tm-home-profiles-title'>{t('Player profiles')}</h2>
+            <p>
+              {t(
+                'Every event lands on the player’s profile with the deck, the place, and the record. Badges and event history stay with them from event to event.'
+              )}
+            </p>
+          </div>
+          <div class='tm-home-box tm-home-profile'>
             <HomeProfile run={run} />
           </div>
         </section>
+        <RecentEvents />
+        <section class='tm-home-sec tm-home-split tm-home-demo' aria-labelledby='tm-home-demo-title'>
+          {/* A picture of the console: the demo is where it is run. */}
+          <div class='tm-home-box tm-home-console' aria-hidden='true' inert>
+            <HomeConsole run={run} />
+          </div>
+          <div class='tm-home-lede'>
+            <h2 id='tm-home-demo-title'>{t('Try the console')}</h2>
+            <p>
+              {t(
+                'Open a sample event and run it yourself: pair rounds, enter results, and watch the standings move. It runs in your browser, and nothing you do leaves it.'
+              )}
+            </p>
+            <a class='btn btn-primary tm-home-demo-open' href={DEMO_SITE} rel='external'>
+              {t('Open the demo')}
+            </a>
+          </div>
+        </section>
       </div>
-      <FeatureReels />
-      <section class='tm-home-end'>
-        <h2 class='tm-home-big'>{t('Ready for your next event?')}</h2>
-        <SignIn offer={props.offer} next='/' />
-      </section>
     </div>
   );
 }

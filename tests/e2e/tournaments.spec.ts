@@ -461,14 +461,13 @@ test('a signed-out organizer is offered sign-in, not a console @mobile', async (
   // The site's own head, and none of the main site's nav.
   await expect(page.getByRole('link', { name: 'Ciphermaniac Events' })).toHaveAttribute('href', '/');
   await expect(page.getByRole('link', { name: 'Cards', exact: true })).toHaveCount(0);
-  // The sample event plays on the real engine, opening already paired on the big screen.
-  const screen = page.getByRole('img', { name: 'A sample event on the big screen' });
+  // The sample event plays on the real engine, opening already paired on the big screen (set aside on a phone).
+  const screen = page.locator('.tm-hs');
   await expect(screen.locator('.tm-hs-tables li')).toHaveCount(6);
   await expect(screen.locator('.tm-hs-status')).toContainText('Round 1 of 5');
   // The head's Sign in jumps to the hero's sign-in, every time it is pressed.
   await page.getByRole('link', { name: 'Sign in', exact: true }).click();
   await expect(page).toHaveURL(/#sign-in$/);
-  // The home page offers sign-in at the top and again at the end.
   const google = page.getByRole('link', { name: 'Sign in with Google' }).first();
   await expect(google).toHaveAttribute('href', '/api/auth/login/google?next=%2F');
   await expect(page.getByRole('link', { name: 'Sign in with Discord' }).first()).toBeVisible();

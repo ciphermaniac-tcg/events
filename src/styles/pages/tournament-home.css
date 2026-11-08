@@ -41,78 +41,223 @@ body.tm-home-mode .head-bar {
   --border: #4a4c48;
 }
 
-.tm-home {
-  padding-bottom: var(--space-6);
+/* The raised band under the doors, and the edge every preview on it shares. */
+body.tm-home-mode {
+  --home-raised: #232321;
+  --home-edge: #4a4a44;
+  --home-divide: #3a3a35;
+  --home-prose: #d9d6cb;
 }
-.tm-home-big {
+/* The band runs into the footer, which keeps the page's own dark. */
+body.tm-home-mode main.page {
+  padding-bottom: 0;
+}
+
+.tm-home-door h1,
+.tm-home-door h2,
+.tm-home-sec > h2,
+.tm-home-lede h2 {
   margin: 0;
-  font-size: clamp(34px, 5.2vw, 64px);
   font-weight: 700;
-  line-height: 1.02;
-  letter-spacing: -0.035em;
   text-wrap: balance;
 }
+.tm-home-door > div > p,
+.tm-home-lede p {
+  margin: 0;
+  font-size: 19px;
+  line-height: 1.55;
+  text-wrap: pretty;
+}
 
-/* ---------- Hero ---------- */
-.tm-home-hero {
+/* ---------- The two ways in ---------- */
+/* Side by side, each door's words in one row and its action in the next, so the actions line up. */
+.tm-home-doors {
   display: grid;
-  grid-template-columns: minmax(0, 7fr) minmax(0, 4fr);
-  gap: var(--space-6);
-  align-items: end;
-  padding: var(--space-6) 0 40px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: auto auto;
+  padding: var(--space-2) 0 48px;
 }
-.tm-home-signin {
-  justify-self: end;
-  width: min(100%, 380px);
+.tm-home-door {
+  display: grid;
+  grid-row: span 2;
+  grid-template-rows: subgrid;
+  align-items: start;
+  row-gap: var(--space-5);
+  padding-right: var(--space-6);
+}
+.tm-home-door + .tm-home-door {
+  padding: 0 0 0 var(--space-6);
+  border-left: 1px solid var(--rule);
+}
+.tm-home-door h1,
+.tm-home-door h2 {
+  margin-bottom: var(--space-3);
+  font-size: 32px;
+  letter-spacing: -0.025em;
+}
+.tm-home-door > div > p {
+  max-width: 34ch;
+}
+.tm-home-door .tm-signin,
+.tm-home-code {
+  width: 340px;
+  max-width: 100%;
+}
+.tm-home-code {
+  display: flex;
+  gap: var(--space-2);
+}
+.tm-home-code input {
+  flex: 1;
+  min-width: 0;
+  height: 40px;
+  font-size: 16px;
+}
+.tm-home-code .btn {
+  height: 40px;
+  padding-inline: var(--space-4);
 }
 
-/* ---------- Sections ---------- */
-.tm-home-part {
-  margin-top: 56px;
-  padding-top: var(--space-4);
-  border-top: 1px solid var(--rule);
+/* ---------- The raised band ---------- */
+/* The band's fill runs to the window's edges from inside the page's column. */
+.tm-home-band {
+  padding: 8px 0 56px;
+  background: var(--home-raised);
+  box-shadow: 0 0 0 100vmax var(--home-raised);
+  clip-path: inset(0 -100vmax);
 }
-.tm-home-part h2 {
-  margin: 0 0 var(--space-3);
-  font-size: 17px;
-  font-weight: 600;
+.tm-home-lede p {
+  color: var(--home-prose);
 }
-/* One outline for every preview: console, phone and profile alike. */
-.tm-home-frame {
+.tm-home-sec {
+  padding-top: 48px;
+}
+.tm-home-sec + .tm-home-sec {
+  margin-top: 48px;
+  border-top: 1px solid var(--home-divide);
+}
+.tm-home-sec > h2,
+.tm-home-lede h2 {
+  font-size: 26px;
+  letter-spacing: -0.02em;
+}
+.tm-home-lede {
+  display: grid;
+  gap: var(--space-3);
+  justify-items: start;
+}
+.tm-home-lede p {
+  max-width: 46ch;
+}
+/* Words beside a preview, on one five-to-seven grid. */
+.tm-home-split {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  gap: var(--space-6);
+  align-items: center;
+}
+.tm-home-demo {
+  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+}
+.tm-home-demo-open {
+  margin-top: var(--space-2);
+}
+
+/* One box for every preview: the same edge, corner, ground and inset. */
+.tm-home-box {
   overflow: hidden;
-  border: 1px solid var(--rule);
+  border: 1px solid var(--home-edge);
   border-radius: var(--radius-md);
   background: var(--bg);
 }
-.tm-home-pair {
+
+/* The big screen sets the row's height; the phone takes the same without adding to it. */
+.tm-home-venue {
   display: grid;
-  grid-template-columns: minmax(0, 320px) minmax(0, 640px);
-  justify-content: space-between;
-  gap: var(--space-6);
-}
-.tm-home-phone,
-.tm-home-profile {
-  height: 540px;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: var(--space-5);
+  margin-top: var(--space-5);
 }
 .tm-home-phone {
   display: flex;
   justify-content: center;
-  padding-top: var(--space-5);
+  height: 0;
+  min-height: 100%;
+  padding-top: var(--space-4);
 }
-.tm-home-console {
-  height: 600px;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  padding: var(--space-5) var(--space-5) 0;
+.tm-home-phone .tm-hp {
+  height: 100%;
+  overflow: hidden;
 }
 
-/* ---------- The big screen ---------- */
-.tm-home-tv {
-  overflow: hidden;
-  border: 6px solid #3a3a36;
-  border-radius: var(--radius-md);
-  background: var(--bg);
+/* The profile and the console end on a whole row. */
+.tm-home-profile,
+.tm-home-console {
+  padding: var(--space-4);
 }
+.tm-home-profile .tm-hpr-table tbody tr:nth-child(n + 3),
+.tm-home-console .tm-hc-table tbody tr:nth-child(n + 5) {
+  display: none;
+}
+/* The demo's button is the one filled button in view. */
+.tm-home-console .btn-primary {
+  border-color: var(--border);
+  background: transparent;
+  color: var(--fg);
+}
+
+/* ---------- Recent events ---------- */
+.tm-home-recent {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  gap: var(--space-6);
+  align-items: start;
+}
+.tm-home-recent-table {
+  overflow: hidden;
+  border: 1px solid var(--home-edge);
+  border-radius: var(--radius-md);
+}
+.tm-home-recent .data th {
+  position: static;
+}
+.tm-home-recent .data td {
+  height: 60px;
+  font-size: 15px;
+}
+.tm-home-recent .data a {
+  display: block;
+  font-weight: 600;
+  color: var(--fg);
+}
+.tm-home-recent-row {
+  cursor: pointer;
+}
+.tm-home-recent-row:hover td {
+  background: var(--row-hover);
+}
+.tm-home-recent-place {
+  display: block;
+  margin-top: 2px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.tm-home-recent-day {
+  color: var(--muted);
+  white-space: nowrap;
+}
+.tm-home-recent .num {
+  text-align: right;
+}
+.tm-home-recent-go {
+  width: 40px;
+  text-align: right;
+  color: var(--muted);
+}
+.tm-home-recent-row:hover .tm-home-recent-go {
+  color: var(--fg);
+}
+
 .tm-hs {
   padding: var(--space-5) 32px;
 }
@@ -437,7 +582,13 @@ body.tm-home-mode .head-bar {
   font-size: 26px;
   letter-spacing: -0.02em;
 }
+.tm-hp-table > * {
+  flex: none;
+  white-space: nowrap;
+}
 .tm-hp-table span {
+  flex: 1 1 auto;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -617,6 +768,7 @@ body.tm-home-mode .head-bar {
 }
 .tm-hpr-table th.num,
 .tm-hpr-table td.num {
+  white-space: nowrap;
   text-align: right;
 }
 .tm-hpr-table td {
@@ -640,86 +792,58 @@ body.tm-home-mode .head-bar {
   color: var(--muted);
 }
 
-/* ---------- Features ---------- */
-.tm-home-features {
-  margin-top: 72px;
-  padding-top: 40px;
-  border-top: 1px solid var(--rule);
-}
-.tm-home-features h2 {
-  margin-bottom: var(--space-5);
-}
-.tm-reel {
-  overflow: hidden;
-  cursor: grab;
-  touch-action: pan-y;
-  user-select: none;
-  mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
-}
-.tm-reel + .tm-reel {
-  border-top: 1px solid var(--rule);
-}
-.tm-reel.is-held {
-  cursor: grabbing;
-}
-.tm-reel-track {
-  display: flex;
-  width: max-content;
-  will-change: transform;
-}
-.tm-reel ul {
-  display: flex;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.tm-reel li {
-  padding: var(--space-4) 0;
-  font-size: 26px;
-  font-weight: 600;
-  letter-spacing: -0.015em;
-  white-space: nowrap;
-}
-.tm-reel li::after {
-  content: '';
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  margin: 0 32px;
-  border-radius: 1px;
-  background: var(--rule);
-  vertical-align: middle;
-}
-
-/* ---------- The way in, again ---------- */
-.tm-home-end {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-5);
-  margin-top: 72px;
-  padding-top: 56px;
-  border-top: 1px solid var(--rule);
-}
-
 @media (max-width: 900px) {
-  .tm-home-hero {
+  /* The doors become rows. */
+  .tm-home-doors {
     grid-template-columns: minmax(0, 1fr);
-    gap: var(--space-5);
-    padding: var(--space-5) 0 var(--space-5);
+    padding-bottom: var(--space-5);
   }
-  .tm-home-signin {
-    justify-self: stretch;
+  .tm-home-door,
+  .tm-home-door + .tm-home-door {
+    grid-row: auto;
+    grid-template-rows: none;
+    padding: var(--space-4) 0;
+    border-left: 0;
+  }
+  .tm-home-door + .tm-home-door {
+    border-top: 1px solid var(--rule);
+  }
+  .tm-home-door .tm-signin,
+  .tm-home-code {
     width: 100%;
   }
-  /* The closing sign-in spans the column, as the hero's does. */
-  .tm-home-end {
-    display: grid;
+  .tm-home-door h1,
+  .tm-home-door h2 {
+    font-size: 26px;
   }
-  .tm-home-pair {
+  .tm-home-door > div > p,
+  .tm-home-lede p {
+    font-size: 17px;
+  }
+  .tm-home-sec {
+    padding-top: 32px;
+  }
+  .tm-home-sec + .tm-home-sec {
+    margin-top: 32px;
+  }
+  /* One column, each preview above its words; the phone stands for the room. */
+  .tm-home-split,
+  .tm-home-demo,
+  .tm-home-recent,
+  .tm-home-venue {
     grid-template-columns: minmax(0, 1fr);
-    gap: 0;
+    gap: var(--space-4);
+  }
+  .tm-home-split > .tm-home-box {
+    order: -1;
+  }
+  .tm-home-tv {
+    display: none;
+  }
+  .tm-home-phone {
+    height: 430px;
+    min-height: 0;
+    padding-top: var(--space-3);
   }
   .tm-hs {
     padding: var(--space-4);
@@ -740,12 +864,9 @@ body.tm-home-mode .head-bar {
   .tm-hs-table {
     font-size: 20px;
   }
-  .tm-home-console {
-    height: 560px;
-    padding: var(--space-4) var(--space-4) 0;
-  }
   .tm-hc-wide,
-  .tm-hpr-wide {
+  .tm-hpr-wide,
+  .tm-home-recent-day {
     display: none;
   }
   .tm-hc-head {
@@ -753,16 +874,7 @@ body.tm-home-mode .head-bar {
     align-items: flex-start;
   }
   .tm-hpr {
-    padding: var(--space-4);
-  }
-  .tm-home-profile {
-    height: auto;
-  }
-  .tm-reel li {
-    font-size: 20px;
-  }
-  .tm-reel li::after {
-    margin: 0 var(--space-5);
+    padding: 0;
   }
 }
 /* On a phone the console keeps both seats of a table and drops what a glance can spare. */

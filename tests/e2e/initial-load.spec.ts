@@ -28,6 +28,7 @@ async function holdSession(page: Page, user: Me | null, status = 200) {
     return route.fulfill({ status: 500, json: { error: 'Unexpected test request' } });
   });
   await page.route('**/api/admin/applications*', route => route.fulfill({ json: { applications: [] } }));
+  await page.route('**/api/recent-events', route => route.fulfill({ json: { events: [] } }));
   await page.route('**/api/applications/mine', route =>
     route.fulfill({ json: { application: null, eligible: { profile: true, email: true } } })
   );
