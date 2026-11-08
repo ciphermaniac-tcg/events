@@ -36,7 +36,7 @@ export default defineConfig({
             },
             {
               // Share the shell, controls and event helpers so route chunks do not repeat their wrappers. The TOM
-              // file reader and writer stay out: only organizer pages load them, the download on demand. So
+              // file reader, writer and file link stay out: only organizer pages load them, the download on demand. So
               // does the Clerk sign-in client, which only the sign-in box uses, and the zoned event times and
               // players' requests, which only the event page and the Players tab show, setup's drafts, and what a
               // dropped player's return does, which only the Players tab asks.
@@ -47,7 +47,7 @@ export default defineConfig({
               // than it saves up front.
               name: 'tournament',
               priority: 1,
-              test: /(?:src[\\/]components[\\/]|src[\\/]main\.tsx$|tournaments[\\/](Field|SettingControls|OptionsMenu|Modal|ConfirmAction)\.tsx$|shared[\\/]tournament[\\/](?!tdf\.|xml\.|eventTime\.|requests\.|returns\.)|src[\\/]lib[\\/]tournament[\\/](?!admin|applications|clerk|exportTdf|setupDraft|staff\.|stores\.|changes\.|tomSaves\.|liveData\.))/,
+              test: /(?:src[\\/]components[\\/]|src[\\/]main\.tsx$|tournaments[\\/](Field|SettingControls|OptionsMenu|Modal|ConfirmAction)\.tsx$|shared[\\/]tournament[\\/](?!tdf\.|xml\.|eventTime\.|requests\.|returns\.)|src[\\/]lib[\\/]tournament[\\/](?!admin|applications|clerk|exportTdf|setupDraft|staff\.|stores\.|changes\.|tomSaves\.|liveData\.|tomLink\.))/,
               includeDependenciesRecursively: true
             },
             // The Swiss engine runs in the browser only for the /host home page's sample event. Its own
