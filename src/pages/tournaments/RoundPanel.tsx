@@ -226,7 +226,6 @@ function StandingResult(props: ResultProps) {
   const open = () => shown().outcome === 'pending';
   const elimination = () => props.round.kind === 'elimination';
   const report = createMemo(() => staffReport(props.reports, props.match, props.names));
-  const lone = () => (props.reports.length > 0 && !isDisputed(props.reports) ? props.reports[0] : undefined);
   return (
     <div class='tm-result'>
       <span
@@ -287,9 +286,9 @@ function StandingResult(props: ResultProps) {
               </button>
             }
           >
-            <Show when={lone()}>
-              {r => (
-                <button type='button' class='btn tm-small tm-accept' onClick={() => props.onAccept(r().outcome)}>
+            <Show when={loneReport(props.reports)}>
+              {outcome => (
+                <button type='button' class='btn tm-small tm-accept' onClick={() => props.onAccept(outcome())}>
                   {t('Accept')}
                 </button>
               )}
@@ -319,18 +318,16 @@ function Result(props: ResultProps) {
 /** A result that can still be entered or changed from its row. */
 function LiveResult(props: ResultProps) {
   return (
-    <>
-      <Show
-        when={props.asking}
-        fallback={
-          <Show when={props.sent || props.locked ? undefined : props.failed} fallback={<StandingResult {...props} />}>
-            {failed => <UnsavedResult {...props} failed={failed()} />}
-          </Show>
-        }
-      >
-        {asking => <ConfirmResult {...props} asking={asking()} />}
-      </Show>
-    </>
+    <Show
+      when={props.asking}
+      fallback={
+        <Show when={props.sent || props.locked ? undefined : props.failed} fallback={<StandingResult {...props} />}>
+          {failed => <UnsavedResult {...props} failed={failed()} />}
+        </Show>
+      }
+    >
+      {asking => <ConfirmResult {...props} asking={asking()} />}
+    </Show>
   );
 }
 
@@ -391,8 +388,6 @@ interface RoundBarProps {
   tom: boolean;
   /** The round can still be acted on: its latest, no champion, not TOM's. */
   live: boolean;
-  /** The round's clock can be run: its latest, no champion, TOM's or not (the site runs a TOM event's clock). */
-  timed: boolean;
   played: number;
   open: number;
   waiting: boolean;
@@ -451,7 +446,6 @@ function RoundBar(props: RoundBarProps) {
   );
 }
 
-/** `locked`: a TOM event whose file needs reconnecting takes no results until the site can see it again. */
 /** A phone's pinned bar: the round, and its clock while it runs, kept in reach as the tables scroll. */
 function RoundPin(props: {
   state: ManageState;
@@ -880,7 +874,6 @@ export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod
                 round={r()}
                 tom={tom()}
                 live={live()}
-                timed={timed()}
                 played={counts().played}
                 open={counts().open}
                 waiting={waiting().length > 0}
