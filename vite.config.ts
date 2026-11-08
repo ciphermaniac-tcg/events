@@ -22,10 +22,11 @@ export default defineConfig({
     sourcemap: false,
     rollupOptions: {
       output: {
-        // Keep entry + chunk filenames predictable so cache busting is by hash only.
+        // Keep entry + chunk filenames predictable so cache busting is by hash only. Chunks and assets drop the
+        // name: their paths repeat in every chunk's preload list, and the manifest still maps each to its source.
         entryFileNames: 'assets/[name]-[hash].js',
         chunkFileNames: 'assets/[hash].js',
-        assetFileNames: 'assets/[name]-[hash][extname]',
+        assetFileNames: 'assets/[hash][extname]',
         codeSplitting: {
           groups: [
             {
