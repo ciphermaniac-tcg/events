@@ -21,6 +21,9 @@ const ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"'
 
 /** `&amp;` and friends, and numeric references, back to the characters they stand for. */
 export function decodeEntities(value: string): string {
+  if (!value.includes('&')) {
+    return value;
+  }
   return value.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (whole, ref: string) => {
     if (ref.startsWith('#x') || ref.startsWith('#X')) {
       return String.fromCodePoint(Number.parseInt(ref.slice(2), 16));
@@ -32,21 +35,20 @@ export function decodeEntities(value: string): string {
   });
 }
 
+const ESCAPES: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&apos;', '"': '&quot;' };
+const ESCAPED = /[&<>'"]/g;
+
 /** Text or an attribute value made safe to write between tags or inside double quotes. */
 export function encodeEntities(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/'/g, '&apos;')
-    .replace(/"/g, '&quot;');
+  return value.replace(ESCAPED, char => ESCAPES[char]!);
 }
 
 const ATTR_RE = /([A-Za-z_][\w.-]*)\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
 
 function readAttrs(source: string): [string, string][] {
   const attrs: [string, string][] = [];
-  for (const match of source.matchAll(ATTR_RE)) {
+  ATTR_RE.lastIndex = 0;
+  for (let match = ATTR_RE.exec(source); match; match = ATTR_RE.exec(source)) {
     attrs.push([match[1] ?? '', decodeEntities(match[2] ?? match[3] ?? '')]);
   }
   return attrs;
@@ -59,15 +61,16 @@ interface Cursor {
   at: number;
 }
 
+const MARKUP: readonly [string, string][] = [
+  ['<?', '?>'],
+  ['<!--', '-->'],
+  ['<!', '>']
+];
+
 /** Skips declarations, comments and processing instructions; true if it moved. */
 function skipMarkup(state: Cursor): boolean {
   const { source, at } = state;
-  const pairs: [string, string][] = [
-    ['<?', '?>'],
-    ['<!--', '-->'],
-    ['<!', '>']
-  ];
-  for (const [open, close] of pairs) {
+  for (const [open, close] of MARKUP) {
     if (source.startsWith(open, at)) {
       const end = source.indexOf(close, at + open.length);
       if (end === -1) {
