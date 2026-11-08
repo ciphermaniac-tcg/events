@@ -1620,5 +1620,18 @@
     "other": "Se renombraron {n} listas."
   },
   "Archetypes are off for this event": "Los arquetipos están desactivados en este torneo",
-  "Couldn’t read the archetype rules. Try again later.": "No se pudieron leer las reglas de arquetipos. Inténtalo de nuevo más tarde."
+  "Couldn’t read the archetype rules. Try again later.": "No se pudieron leer las reglas de arquetipos. Inténtalo de nuevo más tarde.",
+  "Event code": "Código del evento",
+  "Go": "Ir",
+  "Run an event": "Organiza un evento",
+  "Registration, Swiss pairings, decklists, standings, and top cut for Pokémon TCG, from a browser.": "Inscripción, emparejamientos suizos, listas de mazo, clasificación y top cut para Pokémon TCG, desde el navegador.",
+  "Play in one": "Juega en uno",
+  "Enter the code from the sign or the screen at your event.": "Introduce el código del cartel o de la pantalla de tu evento.",
+  "At the venue": "En el local",
+  "The big screen shows the round’s pairings with a QR code to the event. Players find their table by last name on their phones and report from the table.": "La pantalla grande muestra los emparejamientos de la ronda con un código QR del evento. Los jugadores buscan su mesa por apellido en el móvil y registran el resultado desde la mesa.",
+  "Every event lands on the player’s profile with the deck, the place, and the record. Badges and event history stay with them from event to event.": "Cada evento queda en el perfil del jugador con el mazo, la posición y el récord. Las insignias y el historial lo acompañan de un evento a otro.",
+  "Try the console": "Prueba la consola de administración",
+  "Open a sample event and run it yourself: pair rounds, enter results, and watch the standings move. It runs in your browser, and nothing you do leaves it.": "Abre un evento de muestra y dirígelo tú: empareja rondas, introduce resultados y mira cómo cambia la clasificación. Funciona en tu navegador y nada de lo que hagas sale de él.",
+  "Open the demo": "Abrir la demo",
+  "Recent events": "Eventos recientes"
 }
