@@ -684,8 +684,7 @@ export function filterMatches(matches: readonly Match[], names: Map<string, stri
 
 /** Each player's record going into `round`, as W-L-T. */
 export function recordsBefore(pod: Pod, round: Round): Map<string, string> {
-  const tallies = tallySwiss(pod, round.number - 1);
-  return new Map([...tallies].map(([id, tally]) => [id, recordLabel(tally.record)]));
+  return recordsSoFar(pod, { ...round, matches: [] }, () => 'pending');
 }
 
 const SIDE_KEY = { win: 'wins', loss: 'losses', tie: 'ties' } as const;
@@ -853,7 +852,7 @@ const REPORTED_TITLES: Record<string, string> = {
  * Reported or Disputed, and a longer tag cut the name short.
  */
 function reportTag(report: PlayerReport, match: Match, problem: boolean): SeatTag {
-  const winner = report.outcome === 'p1' ? match.p1 : report.outcome === 'p2' ? match.p2 : null;
+  const winner = winnerOf(report.outcome, match);
   const word = winner
     ? winner === report.by
       ? msg('Won')
