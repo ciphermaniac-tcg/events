@@ -760,6 +760,57 @@ test('once the event ends the big screen shows the standings', async ({ page }) 
   expect((name?.x ?? 0) - ((place?.x ?? 0) + (place?.width ?? 0))).toBeGreaterThanOrEqual(0);
 });
 
+/** A Cup of nine Masters and three Seniors paired together, its four Swiss rounds played and its top cut not yet paired. */
+function cupAfterSwiss(): TournamentView {
+  const ctx = { now: 0, localTime: '11/08/2026 12:00:00', season: 2027, random: seededRandom(3) };
+  const step = (t: ReturnType<typeof emptyTournament>, command: Parameters<typeof applyCommand>[1]) => {
+    const result = applyCommand(t, command, ctx);
+    if (!result.ok) {
+      throw new Error(result.error);
+    }
+    return result.tournament;
+  };
+  let t = emptyTournament({ name: 'Sunday Cup', eventType: 'cup', startDate: '11/08/2026' });
+  for (let i = 0; i < 12; i++) {
+    const birthDate = i < 9 ? '02/27/1990' : '02/27/2013';
+    t = step(t, {
+      type: 'addPlayer',
+      player: { firstName: `P${i}`, lastName: 'Test', id: String(100 + i), birthDate }
+    });
+  }
+  for (let round = 1; round <= 4; round++) {
+    t = step(t, { type: 'pairRound', pod: t.pods[0]!.category });
+    for (const m of t.pods[0]!.rounds.at(-1)!.matches.filter(match => match.outcome === 'pending')) {
+      const { table, p1, p2 } = m;
+      t = step(t, { type: 'reportResult', pod: t.pods[0]!.category, round, table, p1, p2, outcome: 'p1' });
+    }
+  }
+  const cupKeys = assignKeys(t, {});
+  return {
+    ...VIEW,
+    mode: 'swiss',
+    tournament: publicTournament(t, cupKeys),
+    divisions: publicDivisions(t, cupKeys, Date.UTC(2026, 10, 8)),
+    decks: {},
+    settings: { ...DEFAULT_SETTINGS, sanctioned: true }
+  };
+}
+
+test('once the Swiss rounds are played the big screen shows who makes the top cut', async ({ page }) => {
+  await mockApi(page, cupAfterSwiss());
+  await page.goto(`/t/${CODE}?screen=1`);
+  await expect(page.locator('.tm-screen-tables')).toHaveCount(0);
+  const pods = page.locator('.tm-screen-pod');
+  await expect(pods).toHaveCount(2);
+  const masters = pods.first();
+  await expect(masters).toContainText('Masters', { useInnerText: true });
+  await expect(masters.locator('tbody tr')).toHaveCount(10);
+  await expect(masters.locator('tr.tm-screen-cut')).toHaveText('Top 4');
+  await expect(masters.locator('tbody tr').nth(4)).toHaveClass('tm-screen-cut');
+  // Three Seniors are too few for a top cut of their own.
+  await expect(pods.filter({ hasText: 'Seniors' }).locator('tr.tm-screen-cut')).toHaveCount(0);
+});
+
 test('before round 1 the public page lists everyone registered @mobile', async ({ page }) => {
   const unpaired = { ...VIEW.tournament, pods: VIEW.tournament.pods.map(pod => ({ ...pod, rounds: [] })) };
   await mockApi(page, { ...VIEW, tournament: unpaired });

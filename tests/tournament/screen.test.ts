@@ -32,8 +32,8 @@ const reports = (t: Tournament): Command[] =>
     outcome: 'p1'
   }));
 
-const phase = (t: Tournament, pending: PendingResult[] = [], finished = false) =>
-  screenPhase(t.pods, pending, finished);
+const phase = (t: Tournament, pending: PendingResult[] = [], finished = false, planned = 3) =>
+  screenPhase(t.pods, pending, finished, () => planned);
 
 test('lists the room before round 1, even once the event is marked over', () => {
   assert.equal(phase(registered), 'roster');
@@ -62,6 +62,13 @@ test('shows the results once every table has one, counting results entered on th
     at: 0
   })) as PendingResult[];
   assert.equal(phase(started, pending), 'results');
+});
+
+test('shows the standings once the last Swiss round is in, so the room sees who advances', () => {
+  const done = run(paired, ...reports(paired));
+  assert.equal(phase(done, [], false, 1), 'standings');
+  assert.equal(phase(done, [], false, 2), 'results', 'a round still to play shows its results first');
+  assert.equal(phase(paired, [], false, 1), 'paired', 'the last round still playing shows its tables');
 });
 
 test('shows the standings once the event ends', () => {
