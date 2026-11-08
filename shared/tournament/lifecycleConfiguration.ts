@@ -309,7 +309,6 @@ export function startEvent(t: Tournament, ctx: LifecycleContext): Tournament {
   if (!t.pods.length) {
     throw new Error(msg('Configure pods before starting the tournament'));
   }
-  const of = divisionLookup(t);
   const players = orderedRoster(t.players, ctx.recorded?.rosterOrder, ctx).map((p, index) => ({
     ...p,
     starter: true,
@@ -323,7 +322,7 @@ export function startEvent(t: Tournament, ctx: LifecycleContext): Tournament {
         {
           ...p,
           stage: p.stage ?? 0,
-          divisionCounts: Object.fromEntries(DIVISIONS.map(d => [d, p.playerIds.filter(id => of(id) === d).length]))
+          divisionCounts: divisionCountsOf(t, p)
         },
         ctx
       )
