@@ -29,8 +29,9 @@ import type { Player, Tournament } from '../../shared/tournament/types.ts';
 import { apiSuite, type Handler } from '../__utils__/apiCalls.ts';
 import { at, eventCalls } from '../__utils__/eventCalls.ts';
 import { countingTrips, racing, sqliteD1 } from '../__utils__/sqliteD1.ts';
+import { resetRateLimiters } from '../../functions/lib/api/rateLimiter.ts';
 
-const { env, hit, saveProfile, signIn } = apiSuite(decklists, report, event, profiles);
+const { env, hit, saveProfile, signIn } = apiSuite();
 const { newEvent, newSwiss, send, addPlayers, settle, playerSays } = eventCalls(hit);
 
 const db = () => env.TOURNAMENT_DB as ReturnType<typeof sqliteD1>;
@@ -604,12 +605,12 @@ test('a profile is one wait on the database, and an address that asks too often 
   const { trips } = watch();
   assert.equal((await profileAt('player')).status, 200);
   assert.equal(trips(), 1);
-  profiles._resetRateLimitStore();
+  resetRateLimiters();
   for (let i = 0; i < 1200; i += 1) {
     await profileAt('nope');
   }
   assert.equal((await profileAt('player')).status, 429);
-  profiles._resetRateLimitStore();
+  resetRateLimiters();
 });
 
 test('an event that becomes sanctioned ends its Claims, and its devices keep reporting', async () => {

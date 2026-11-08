@@ -16,11 +16,6 @@ import type { D1Like } from '../lib/types.js';
 
 const rateLimiter = createRateLimiter({ windowMs: 10 * 60 * 1000, maxRequests: 600 });
 
-/** @internal exposed for tests */
-export function _resetRateLimitStore(): void {
-  rateLimiter.reset();
-}
-
 /** How many events the list holds. */
 export const RECENT_EVENTS = 6;
 
@@ -100,7 +95,7 @@ export async function recentEvents(db: D1Like): Promise<RecentEvent[]> {
 
 /** Five minutes at the edge: the list changes when an event ends, a few times a week. */
 export async function onRequestGet(context: Context): Promise<Response> {
-  if (!rateLimiter.check(rateLimitAddress(context.request)).allowed) {
+  if (!rateLimiter.allows(rateLimitAddress(context.request))) {
     return jsonError('Too many requests from here. Try again shortly.', 429);
   }
   const db = context.env.TOURNAMENT_DB;

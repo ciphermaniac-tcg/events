@@ -16,11 +16,6 @@ import { msg } from '../../../shared/i18n.js';
 
 const rateLimiter = createRateLimiter({ windowMs: 10 * 60 * 1000, maxRequests: 1200 });
 
-/** @internal exposed for tests */
-export function _resetRateLimitStore(): void {
-  rateLimiter.reset();
-}
-
 /** A minute at the edge: a profile turned off is gone from shared links within it. */
 const answer = (body: unknown, status = 200) =>
   jsonResponse(body, {
@@ -31,7 +26,7 @@ const answer = (body: unknown, status = 200) =>
   });
 
 export async function onRequestGet(context: Context<'handle'>): Promise<Response> {
-  if (!rateLimiter.check(rateLimitAddress(context.request)).allowed) {
+  if (!rateLimiter.allows(rateLimitAddress(context.request))) {
     return jsonError('Too many requests from here. Try again shortly.', 429);
   }
   const db = context.env.TOURNAMENT_DB;

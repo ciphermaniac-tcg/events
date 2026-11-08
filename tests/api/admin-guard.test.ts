@@ -24,6 +24,7 @@ import { apiCalls, type Handler } from '../__utils__/apiCalls.ts';
 import { eventCalls } from '../__utils__/eventCalls.ts';
 import { storeApplication } from '../__utils__/storeApplication.ts';
 import { racing, sqliteD1 } from '../__utils__/sqliteD1.ts';
+import { resetRateLimiters } from '../../functions/lib/api/rateLimiter.ts';
 
 let env: TournamentEnv;
 let db: ReturnType<typeof sqliteD1>;
@@ -33,7 +34,7 @@ const { storeOf } = eventCalls(hit);
 beforeEach(() => {
   db = sqliteD1('tournaments.sql');
   env = { TOURNAMENT_DB: db, DEV_LOGIN: 'true' };
-  applications._resetRateLimitStore();
+  resetRateLimiters();
 });
 
 /** Runs `change` just ahead of the next statement starting with `prefix`: as if it landed between read and write. */

@@ -10,7 +10,7 @@ import { apiSuite, type Handler, request } from '../__utils__/apiCalls.ts';
 import { eventCalls } from '../__utils__/eventCalls.ts';
 import { sqliteD1 } from '../__utils__/sqliteD1.ts';
 
-const { env, hit, signIn } = apiSuite(profiles);
+const { env, hit, signIn } = apiSuite();
 const { newSwiss, addPlayers, settle } = eventCalls(hit);
 const db = () => env.TOURNAMENT_DB as ReturnType<typeof sqliteD1>;
 const read = (cookie?: string) => hit(preferences.onRequestGet as Handler, '/api/me/profile', {}, { cookie });

@@ -45,27 +45,31 @@ function ipv6Groups(address: string): number[] {
   return groups.map(group => parseInt(group, 16));
 }
 
-interface RateLimitResult {
-  allowed: boolean;
-  retryAfter?: number;
+interface RateLimiter {
+  /** Record a request under `key` and report whether it is within the limit. */
+  allows(key: string): boolean;
 }
 
-export interface RateLimiter {
-  /** Record a request from `ip` and report whether it is within the limit. */
-  check(ip: string): RateLimitResult;
-  /** Clear all tracked state. Exposed primarily for tests. */
-  reset(): void;
-}
-
-export interface RateLimiterOptions {
+interface RateLimiterOptions {
   /** Sliding window length in milliseconds (default 1 hour). */
   windowMs?: number;
-  /** Max allowed requests per IP per window (default 5). */
+  /** Max allowed requests per key per window (default 5). */
   maxRequests?: number;
-  /** Hard cap on tracked IPs; overflow leaves existing windows intact (default 10k). */
+  /** Hard cap on tracked keys; overflow leaves existing windows intact (default 10k). */
   maxStoreSize?: number;
   /** Run expiry cleanup every Nth request (default 100). */
   cleanupInterval?: number;
+}
+
+type Windows = Map<string, { count: number; windowStart: number }>;
+
+const everyStore = new Set<Windows>();
+
+/** @internal Clears every limiter's windows, so each test starts fresh. */
+export function resetRateLimiters(): void {
+  for (const store of everyStore) {
+    store.clear();
+  }
 }
 
 export function createRateLimiter(options: RateLimiterOptions = {}): RateLimiter {
@@ -74,44 +78,43 @@ export function createRateLimiter(options: RateLimiterOptions = {}): RateLimiter
   const maxStoreSize = options.maxStoreSize ?? 10_000;
   const cleanupInterval = options.cleanupInterval ?? 100;
 
-  const store = new Map<string, { count: number; windowStart: number }>();
+  const store: Windows = new Map();
+  everyStore.add(store);
   let requestCount = 0;
 
-  function cleanup(): void {
-    const now = Date.now();
-    for (const [ip, data] of store.entries()) {
+  function cleanup(now: number): void {
+    for (const [key, data] of store.entries()) {
       if (now - data.windowStart > windowMs) {
-        store.delete(ip);
+        store.delete(key);
       }
     }
   }
 
-  function check(ip: string): RateLimitResult {
+  function allows(key: string): boolean {
     const now = Date.now();
 
     // Deterministic cleanup every N requests + hard cap to prevent OOM.
     requestCount++;
     if (requestCount % cleanupInterval === 0) {
-      cleanup();
+      cleanup(now);
     }
-    const existing = store.get(ip);
-    if (!existing && store.size >= maxStoreSize) {
-      return { allowed: true };
+    const existing = store.get(key);
+    if (!existing) {
+      if (store.size < maxStoreSize) {
+        store.set(key, { count: 1, windowStart: now });
+      }
+      return true;
     }
-    if (!existing || now - existing.windowStart > windowMs) {
-      store.set(ip, { count: 1, windowStart: now });
-      return { allowed: true };
+    if (now - existing.windowStart > windowMs) {
+      store.set(key, { count: 1, windowStart: now });
+      return true;
     }
     if (existing.count >= maxRequests) {
-      const retryAfter = Math.ceil((existing.windowStart + windowMs - now) / 1000);
-      return { allowed: false, retryAfter };
+      return false;
     }
     existing.count++;
-    return { allowed: true };
+    return true;
   }
 
-  return {
-    check,
-    reset: (): void => store.clear()
-  };
+  return { allows };
 }

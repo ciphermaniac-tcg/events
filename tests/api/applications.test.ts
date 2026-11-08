@@ -17,8 +17,9 @@ import type { TournamentEnv } from '../../functions/lib/auth/env.ts';
 import { apiSuite, type Handler, ORIGIN } from '../__utils__/apiCalls.ts';
 import { storeApplication } from '../__utils__/storeApplication.ts';
 import { racing, sqliteD1 } from '../__utils__/sqliteD1.ts';
+import { resetRateLimiters } from '../../functions/lib/api/rateLimiter.ts';
 
-const { env, hit, signIn } = apiSuite(applications);
+const { env, hit, signIn } = apiSuite();
 
 /** The test database itself, for what no applicant's request sets. */
 const raw = () => (env.TOURNAMENT_DB as ReturnType<typeof sqliteD1>).raw;
@@ -124,7 +125,7 @@ test('an Application says what store and that the applicant is certified; a note
   const tooLong = await apply(cookie, { explanation: 'x'.repeat(2001) });
   assert.deepEqual([tooLong.status, tooLong.json.error], [400, 'Up to 2000 characters']);
   // Ten tries an hour from one address; the rest of this test is not about that.
-  applications._resetRateLimitStore();
+  resetRateLimiters();
   const byUrl = storeApplication('https://www.pokemon.com/us/play-pokemon/pokemon-events/leagues/6238620/');
   const bare = await apply(cookie, { store: byUrl });
   assert.equal(bare.status, 201, 'no note');

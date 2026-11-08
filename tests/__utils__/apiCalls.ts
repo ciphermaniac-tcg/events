@@ -16,6 +16,7 @@ import type { TournamentEnv } from '../../functions/lib/auth/env.ts';
 import { sha256 } from '../../functions/lib/auth/session.ts';
 import type { AccountRole } from '../../shared/accounts/roles.ts';
 import { sqliteD1 } from './sqliteD1.ts';
+import { resetRateLimiters } from '../../functions/lib/api/rateLimiter.ts';
 
 export const ORIGIN = 'https://cm.test';
 
@@ -113,15 +114,15 @@ export function apiCalls(envOf: () => TournamentEnv) {
 
 /**
  * An API suite's ground: before each test, a fresh database with dev sign-in
- * in `env`, one object a test may add to, and the rate limits of the routes
- * `limited` names cleared; with the calls made against it.
+ * in `env`, one object a test may add to, and every rate limit cleared; with
+ * the calls made against it.
  */
-export function apiSuite(...limited: { _resetRateLimitStore: () => void }[]) {
+export function apiSuite() {
   const env: TournamentEnv = {};
   beforeEach(() => {
     Object.keys(env).forEach(key => Reflect.deleteProperty(env, key));
     Object.assign(env, { TOURNAMENT_DB: sqliteD1('tournaments.sql'), DEV_LOGIN: 'true' });
-    limited.forEach(route => route._resetRateLimitStore());
+    resetRateLimiters();
   });
   return { env, ...apiCalls(() => env) };
 }

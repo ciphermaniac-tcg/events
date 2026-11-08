@@ -18,7 +18,7 @@ import { pendingResults } from '../__utils__/commands.ts';
 import { at, eventCalls, PLAYER_BIRTH_YEAR } from '../__utils__/eventCalls.ts';
 import { racing, type sqliteD1 } from '../__utils__/sqliteD1.ts';
 
-const { env, hit, signIn } = apiSuite(decklists);
+const { env, hit, signIn } = apiSuite();
 const { newSwiss, send, addPlayers, settle } = eventCalls(hit);
 
 afterEach(() => {

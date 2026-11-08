@@ -17,6 +17,7 @@ import { loadTournament } from '../../functions/lib/tournaments/store.ts';
 import { apiCalls, type Handler } from '../__utils__/apiCalls.ts';
 import { eventCalls } from '../__utils__/eventCalls.ts';
 import { racing, sqliteD1 } from '../__utils__/sqliteD1.ts';
+import { resetRateLimiters } from '../../functions/lib/api/rateLimiter.ts';
 
 let env: TournamentEnv;
 let db: ReturnType<typeof sqliteD1>;
@@ -26,7 +27,7 @@ const { newSwiss, send, addPlayers, settle, playerSays } = eventCalls(hit);
 beforeEach(() => {
   db = sqliteD1('tournaments.sql');
   env = { TOURNAMENT_DB: db, DEV_LOGIN: 'true' };
-  report._resetRateLimitStore();
+  resetRateLimiters();
 });
 
 const NOT_REPORTER = 'Someone else is already reporting for this player. Ask staff if that’s wrong.';

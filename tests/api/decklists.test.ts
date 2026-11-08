@@ -19,6 +19,7 @@ import { type DeckCheckEntry, standingChecks } from '../../shared/tournament/dec
 import { apiCalls, type Handler } from '../__utils__/apiCalls.ts';
 import { at, eventCalls } from '../__utils__/eventCalls.ts';
 import { racing, sqliteD1 } from '../__utils__/sqliteD1.ts';
+import { resetRateLimiters } from '../../functions/lib/api/rateLimiter.ts';
 
 let env: TournamentEnv;
 let db: ReturnType<typeof sqliteD1>;
@@ -28,7 +29,7 @@ const { newSwiss, send, addPlayers, settle, joinStaff } = eventCalls(hit);
 beforeEach(() => {
   db = sqliteD1('tournaments.sql');
   env = { TOURNAMENT_DB: db, DEV_LOGIN: 'true' };
-  decklists._resetRateLimitStore();
+  resetRateLimiters();
 });
 
 const PROFILE = { popId: '4242', firstName: 'Nia', lastName: 'Okafor', birthDate: '02/27/2001' };

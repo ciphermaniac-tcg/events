@@ -28,6 +28,7 @@ import { at, eventCalls } from '../__utils__/eventCalls.ts';
 import { racing, sqliteD1 } from '../__utils__/sqliteD1.ts';
 import { storeApplication } from '../__utils__/storeApplication.ts';
 import { migrate } from '../__utils__/migrations.ts';
+import { resetRateLimiters } from '../../functions/lib/api/rateLimiter.ts';
 
 let env: TournamentEnv;
 const { hit, signIn } = apiCalls(() => env);
@@ -40,9 +41,7 @@ beforeEach(() => {
     GOOGLE_CLIENT_ID: 'id',
     GOOGLE_CLIENT_SECRET: 'secret'
   };
-  applications._resetRateLimitStore();
-  decklists._resetRateLimitStore();
-  report._resetRateLimitStore();
+  resetRateLimiters();
 });
 
 const raw = () => (env.TOURNAMENT_DB as ReturnType<typeof sqliteD1>).raw;

@@ -33,7 +33,7 @@ import { at, eventCalls } from '../__utils__/eventCalls.ts';
 import { storeApplication } from '../__utils__/storeApplication.ts';
 import { sqliteD1 } from '../__utils__/sqliteD1.ts';
 
-const { env, hit, signIn } = apiSuite(applications, report);
+const { env, hit, signIn } = apiSuite();
 const { newSwiss, send, addPlayers, settle, playerSays } = eventCalls(hit);
 
 /** The test database itself, for what no request sets. */

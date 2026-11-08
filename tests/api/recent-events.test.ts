@@ -5,7 +5,7 @@ import { apiSuite, type Handler } from '../__utils__/apiCalls.ts';
 import { eventCalls } from '../__utils__/eventCalls.ts';
 import { sqliteD1 } from '../__utils__/sqliteD1.ts';
 
-const { env, hit, signIn } = apiSuite(recent);
+const { env, hit, signIn } = apiSuite();
 const { newEvent, addPlayers, settle } = eventCalls(hit);
 const db = () => env.TOURNAMENT_DB as ReturnType<typeof sqliteD1>;
 const list = async () => {

@@ -26,6 +26,7 @@ import { frontendApi } from '../../shared/accounts/clerk.ts';
 import type { TournamentEnv } from '../../functions/lib/auth/env.ts';
 import { apiCalls, type Handler, ORIGIN, request } from '../__utils__/apiCalls.ts';
 import { sqliteD1 } from '../__utils__/sqliteD1.ts';
+import { resetRateLimiters } from '../../functions/lib/api/rateLimiter.ts';
 
 const ISSUER = 'https://clerk.cm.test';
 const PUBLISHABLE = `pk_test_${btoa('clerk.cm.test$')}`;
@@ -80,7 +81,7 @@ beforeEach(() => {
     CLERK_SECRET_KEY: 'sk_test_secret',
     CLERK_JWT_KEY: PEM
   };
-  applications._resetRateLimitStore();
+  resetRateLimiters();
 });
 
 const raw = () => (env.TOURNAMENT_DB as ReturnType<typeof sqliteD1>).raw as DatabaseSync;

@@ -19,7 +19,7 @@ import { at, eventCalls } from '../__utils__/eventCalls.ts';
 import { sqliteD1 } from '../__utils__/sqliteD1.ts';
 import { REQUEST_COOLDOWN_MS, TOO_SOON } from '../../shared/tournament/requests.ts';
 
-const { env, hit, signIn } = apiSuite(report, event);
+const { env, hit, signIn } = apiSuite();
 const { newSwiss, send, addPlayers, settle, playerSays, view } = eventCalls(hit);
 
 afterEach(() => mock.timers.reset());

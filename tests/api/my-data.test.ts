@@ -24,7 +24,7 @@ import { apiSuite, type Handler, ORIGIN, request } from '../__utils__/apiCalls.t
 import { eventCalls } from '../__utils__/eventCalls.ts';
 import { racing, sqliteD1 } from '../__utils__/sqliteD1.ts';
 
-const { env, hit, saveProfile, signIn } = apiSuite(report, event);
+const { env, hit, saveProfile, signIn } = apiSuite();
 const { newEvent, newSwiss, addPlayers, settle, playerSays, send } = eventCalls(hit);
 
 /** Ash and Gary at an unsanctioned event, as staff add them by name. */

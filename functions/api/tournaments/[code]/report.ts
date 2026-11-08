@@ -132,17 +132,12 @@ function reportChanges(row: TournamentRow, filing: Filing): Changes | string {
  */
 const rateLimiter = createRateLimiter({ windowMs: 10 * 60 * 1000, maxRequests: 1200 });
 
-/** @internal exposed for tests */
-export function _resetRateLimitStore(): void {
-  rateLimiter.reset();
-}
-
 /** The event, when this request may ask of it; the refusal when it may not. */
 async function reachable(context: Context<'code'>): Promise<Access | Response> {
   if (!sameOrigin(context.request)) {
     return jsonError('Forbidden', 403);
   }
-  if (!rateLimiter.check(rateLimitAddress(context.request)).allowed) {
+  if (!rateLimiter.allows(rateLimitAddress(context.request))) {
     return jsonError('Too many reports from here. Try again shortly.', 429);
   }
   return open(context);

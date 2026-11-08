@@ -73,6 +73,7 @@ import { storeApplication } from '../__utils__/storeApplication.ts';
 import { countingTrips, racing, sqliteD1 } from '../__utils__/sqliteD1.ts';
 import { completed, context, generatedEvent, operated } from '../tournament/conformance-generated.ts';
 import { type MainSiteData, serveMainSiteData } from '../__utils__/mainSiteData.ts';
+import { resetRateLimiters } from '../../functions/lib/api/rateLimiter.ts';
 
 /** Every scalar in a JSON value, keys included, for asserting what a public copy never carries. */
 function jsonValues(value: unknown): unknown[] {
@@ -95,9 +96,7 @@ let mainSite: MainSiteData;
 beforeEach(() => {
   env = { TOURNAMENT_DB: sqliteD1('tournaments.sql'), DEV_LOGIN: 'true' };
   mainSite = serveMainSiteData();
-  decklists._resetRateLimitStore();
-  report._resetRateLimitStore();
-  event._resetRateLimitStore();
+  resetRateLimiters();
 });
 
 /** The revision of the event's document as the console loads it, as the browser following the .tdf sends it. */

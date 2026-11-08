@@ -20,7 +20,7 @@ import { apiSuite, type Handler } from '../__utils__/apiCalls.ts';
 import { at, eventCalls } from '../__utils__/eventCalls.ts';
 import { sqliteD1 } from '../__utils__/sqliteD1.ts';
 
-const { env, hit, saveProfile, signIn } = apiSuite(event, report, profiles);
+const { env, hit, saveProfile, signIn } = apiSuite();
 const { newSwiss, send, addPlayers, settle } = eventCalls(hit);
 
 const db = () => env.TOURNAMENT_DB as ReturnType<typeof sqliteD1>;

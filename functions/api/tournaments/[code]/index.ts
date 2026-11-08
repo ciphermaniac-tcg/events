@@ -46,17 +46,12 @@ async function representationOf(context: Context<'code'>): Promise<JsonRepresent
 
 const rateLimiter = createRateLimiter({ windowMs: 10 * 60 * 1000, maxRequests: 1200 });
 
-/** @internal exposed for tests */
-export function _resetRateLimitStore(): void {
-  rateLimiter.reset();
-}
-
 export async function onRequestGet(context: Context<'code'>): Promise<Response> {
   // An unchanged answer needs a real code and its current version, so it walks nothing: a venue's polls go free.
   if (await unchanged(context)) {
     return noContent();
   }
-  if (!rateLimiter.check(rateLimitAddress(context.request)).allowed) {
+  if (!rateLimiter.allows(rateLimitAddress(context.request))) {
     return jsonError('Too many requests from here. Try again shortly.', 429);
   }
   const db = context.env.TOURNAMENT_DB;

@@ -31,11 +31,6 @@ import { msgf } from '../../../shared/i18n.js';
 
 const rateLimiter = createRateLimiter({ windowMs: 60 * 60 * 1000, maxRequests: 10 });
 
-/** @internal exposed for tests */
-export function _resetRateLimitStore(): void {
-  rateLimiter.reset();
-}
-
 interface Asked {
   store: StoreApplication;
   explanation: string;
@@ -103,7 +98,7 @@ async function attempt(applicant: Applicant, asked: Asked): Promise<Response | n
 }
 
 export async function onRequestPost(context: Context): Promise<Response> {
-  if (!rateLimiter.check(rateLimitAddress(context.request)).allowed) {
+  if (!rateLimiter.allows(rateLimitAddress(context.request))) {
     return jsonError('Too many applications from here. Try again later.', 429);
   }
   let applicant = await openApplicant(context);

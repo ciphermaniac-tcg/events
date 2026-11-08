@@ -11,6 +11,7 @@ import { REPORT_WINDOW_MS } from '../../shared/tournament/reports.ts';
 import { apiCalls, type Handler } from '../__utils__/apiCalls.ts';
 import { at, eventCalls } from '../__utils__/eventCalls.ts';
 import { racing, sqliteD1 } from '../__utils__/sqliteD1.ts';
+import { resetRateLimiters } from '../../functions/lib/api/rateLimiter.ts';
 
 let db: ReturnType<typeof sqliteD1>;
 let env: TournamentEnv;
@@ -19,7 +20,7 @@ const { newSwiss, send, settle, playerSays, addPlayers } = eventCalls(hit);
 beforeEach(() => {
   db = sqliteD1('tournaments.sql');
   env = { TOURNAMENT_DB: db, DEV_LOGIN: 'true' };
-  report._resetRateLimitStore();
+  resetRateLimiters();
 });
 
 afterEach(() => mock.timers.reset());

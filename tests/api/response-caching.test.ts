@@ -10,6 +10,7 @@ import { apiCalls, request } from '../__utils__/apiCalls.ts';
 import { deferred } from '../__utils__/deferred.ts';
 import { eventCalls } from '../__utils__/eventCalls.ts';
 import { countingTrips, sqliteD1 } from '../__utils__/sqliteD1.ts';
+import { resetRateLimiters } from '../../functions/lib/api/rateLimiter.ts';
 
 let env: TournamentEnv;
 const { hit, signIn } = apiCalls(() => env);
@@ -17,7 +18,7 @@ const { newSwiss, addPlayers, send } = eventCalls(hit);
 
 beforeEach(() => {
   env = { TOURNAMENT_DB: sqliteD1('tournaments.sql'), DEV_LOGIN: 'true' };
-  event._resetRateLimitStore();
+  resetRateLimiters();
 });
 
 function get(code: string | null, cookie?: string, etag?: string, suffix = '') {

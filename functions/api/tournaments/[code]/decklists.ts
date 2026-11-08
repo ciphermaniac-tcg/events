@@ -707,16 +707,10 @@ const notTaking = (row: TournamentRow, playerId: string | null = null): Response
 const LOCKED_AFTER_ROUND_1 = msg('Decklists are locked once round 1 is paired');
 const LOCKED_AFTER_JOINING = msg('Decklists are locked once the round after you joined is paired');
 
-/** @internal exposed for tests */
-export function _resetRateLimitStore(): void {
-  eventLimiter.reset();
-  addressLimiter.reset();
-}
-
 function limited(context: Context<'code'>): boolean {
   const address = rateLimitAddress(context.request);
   const code = codeOf(context);
-  return !(addressLimiter.check(address).allowed && eventLimiter.check(`${code}:${address}`).allowed);
+  return !(addressLimiter.allows(address) && eventLimiter.allows(`${code}:${address}`));
 }
 
 /** A token the device made for itself, when it sent one that looks like one. */

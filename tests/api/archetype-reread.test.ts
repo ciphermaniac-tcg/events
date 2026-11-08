@@ -15,7 +15,7 @@ import { apiSuite, type Handler } from '../__utils__/apiCalls.ts';
 import { at, eventCalls } from '../__utils__/eventCalls.ts';
 import type { sqliteD1 } from '../__utils__/sqliteD1.ts';
 
-const { env, hit, signIn } = apiSuite(decklists);
+const { env, hit, signIn } = apiSuite();
 const { newSwiss, settle, joinStaff } = eventCalls(hit);
 
 afterEach(() => {
