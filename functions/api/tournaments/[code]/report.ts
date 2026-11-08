@@ -150,13 +150,19 @@ const askerOf = (access: Access, body: Body): Asker => ({
   user: access.user
 });
 
-/** The asker's standing for player `id`, or the answer that refuses them: linked elsewhere, or no standing to be had. */
-async function standingIn(access: Access, body: Body, id: string): Promise<Claim | Response> {
+/**
+ * The asker's standing as player `id`'s reporter, or the answer that refuses them: linked elsewhere, no
+ * standing to be had, or another device reporting (`taken`, with its status).
+ */
+async function standingIn(access: Access, body: Body, id: string, taken: [string, number]): Promise<Claim | Response> {
   const standing = await claimReporter(access.db, access.row, id, askerOf(access, body));
   if ('elsewhere' in standing) {
     return linkedElsewhere(access.row, standing);
   }
-  return 'error' in standing ? jsonError(standing.error, standing.status) : standing;
+  if ('error' in standing) {
+    return jsonError(standing.error, standing.status);
+  }
+  return standing.reporter ? standing : jsonError(...taken);
 }
 
 /** The refusal for an account that is already another player here, naming that player by their public key. */
@@ -186,6 +192,10 @@ const standingOf = (claim: Claim) => ({
   ...(claim.token ? { reportToken: claim.token } : {})
 });
 
+/** The answer to a player's ask: their public key, the event's public view, and their standing. */
+const answer = (row: TournamentRow, id: string, claim: Claim) =>
+  privateJson({ key: row.keys[id] ?? null, view: publicViewOf(row), ...standingOf(claim) });
+
 /** Files the report, from the device that reports for the player, and publishes what it changed. */
 async function report(context: Context<'code'>, access: Access, body: Body, who: { claim: PlayerClaim; id: string }) {
   const result = body.result as PlayerResult;
@@ -193,12 +203,9 @@ async function report(context: Context<'code'>, access: Access, body: Body, who:
     return jsonError('Not a result', 400);
   }
   const { db, row } = access;
-  const standing = await standingIn(access, body, who.id);
+  const standing = await standingIn(access, body, who.id, [NOT_REPORTER, 403]);
   if (standing instanceof Response) {
     return standing;
-  }
-  if (!standing.reporter) {
-    return jsonError(NOT_REPORTER, 403);
   }
   const filing = {
     claim: who.claim,
@@ -213,11 +220,7 @@ async function report(context: Context<'code'>, access: Access, body: Body, who:
     return jsonError(outcome.error, outcome.status);
   }
   await publishAfter(context, outcome.row);
-  return privateJson({
-    key: outcome.row.keys[who.id] ?? null,
-    view: publicViewOf(outcome.row),
-    ...standingOf(standing)
-  });
+  return answer(outcome.row, who.id, standing);
 }
 
 /**
@@ -230,12 +233,9 @@ async function ask(context: Context<'code'>, access: Access, body: Body, id: str
   if (!isRequestKind(kind)) {
     return jsonError('Not a request', 400);
   }
-  const standing = await standingIn(access, body, id);
+  const standing = await standingIn(access, body, id, [NOT_REPORTER, 403]);
   if (standing instanceof Response) {
     return standing;
-  }
-  if (!standing.reporter) {
-    return jsonError(NOT_REPORTER, 403);
   }
   const request = { id: crypto.randomUUID(), player: id, kind, cancel: body.cancel === true, at: Date.now() };
   const outcome = await mutateHeld(
@@ -251,7 +251,7 @@ async function ask(context: Context<'code'>, access: Access, body: Body, id: str
   if (outcome.row.version !== access.row.version) {
     await publishAfter(context, outcome.row);
   }
-  return privateJson({ key: outcome.row.keys[id] ?? null, view: publicViewOf(outcome.row), ...standingOf(standing) });
+  return answer(outcome.row, id, standing);
 }
 
 const CLAIMED = msg('Another device already claimed this player. Ask staff if that’s wrong.');
@@ -263,15 +263,8 @@ const CLAIMED = msg('Another device already claimed this player. Ask staff if th
  * the player. It can still look up their table.
  */
 async function identify(access: Access, body: Body, id: string) {
-  const standing = await standingIn(access, body, id);
-  if (standing instanceof Response) {
-    return standing;
-  }
-  if (!standing.reporter) {
-    return jsonError(CLAIMED, 409);
-  }
-  const { row } = access;
-  return privateJson({ key: row.keys[id] ?? null, view: publicViewOf(row), ...standingOf(standing) });
+  const standing = await standingIn(access, body, id, [CLAIMED, 409]);
+  return standing instanceof Response ? standing : answer(access.row, id, standing);
 }
 
 /** Staff let another device claim a player ({ player }, their Player ID or the event's own ID for them). */
