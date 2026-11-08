@@ -27,10 +27,11 @@ const config: KnipConfig = {
     // reaches it.
     'tests/e2e/serve-fixtures.ts',
 
-    // Run by session.test.ts and account-memory.test.ts in a child process under the browser build of solid-js.
+    // Run by their .test.ts files in a child process under the browser build of solid-js.
     'tests/tournament/session.browser.ts',
     'tests/tournament/account-memory.browser.ts',
-    'tests/tournament/kept-session.browser.ts'
+    'tests/tournament/kept-session.browser.ts',
+    'tests/tournament/deck-presets.browser.ts'
   ],
 
   project: [

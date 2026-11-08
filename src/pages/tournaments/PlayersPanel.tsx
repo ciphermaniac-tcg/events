@@ -24,7 +24,6 @@ import { t, tc, tn } from '../../lib/i18n';
 import type { ReportedDeck } from '../live/reportedDeck';
 import { OptionsMenu } from './OptionsMenu';
 import { ConfirmAction } from './ConfirmAction';
-import { decksFor } from './deckOptions';
 import { createDeckOptions } from './deckPresets';
 import { DeckPicker } from './DeckPicker';
 import { EditPlayerDialog } from './EditPlayer';
@@ -454,10 +453,7 @@ export function PlayersPanel(props: { state: ManageState; manage: Manage }) {
   const sanctioned = () => isSanctioned(props.manage);
   const started = () => hasStarted(props.manage.tournament);
   const archetypes = () => decksEnabled(props.manage.settings);
-  const decks = createDeckOptions(() => props.manage.settings.format, decksFor, {
-    inEvent: () => Object.values(props.manage.decks),
-    startDate: () => props.manage.tournament.info.startDate
-  });
+  const decks = createDeckOptions(() => props.manage);
   const players = createMemo(() =>
     inRoster(props.manage, props.manage.tournament.players, filter(), query()).sort(byLastName)
   );
