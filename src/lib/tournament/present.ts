@@ -43,6 +43,7 @@ import {
   type EventType,
   isDivision,
   type Match,
+  matchSeats,
   type Outcome,
   playerName,
   type Pod,
@@ -618,9 +619,7 @@ export function unseated(tournament: Tournament, pod: Pod): string[] {
   if (!round || !repairable(round)) {
     return [];
   }
-  const seated = new Set(
-    round.matches.filter(m => m.outcome !== 'loss').flatMap(m => (m.p2 === null ? [m.p1] : [m.p1, m.p2]))
-  );
+  const seated = new Set(round.matches.filter(m => m.outcome !== 'loss').flatMap(matchSeats));
   const dropped = new Set(tournament.players.filter(p => p.droppedAfter !== null).map(p => p.id));
   return pod.playerIds.filter(id => !seated.has(id) && !dropped.has(id));
 }

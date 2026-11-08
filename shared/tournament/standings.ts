@@ -24,7 +24,7 @@
  * `placeFinals` lays those places over the Swiss order.
  */
 
-import type { Match, Outcome, Player, Pod, Round } from './types.js';
+import { type Match, matchSeats, type Outcome, type Player, type Pod, type Round } from './types.js';
 
 export const WIN_POINTS = 3;
 export const TIE_POINTS = 1;
@@ -221,7 +221,7 @@ function snapshotRound(current: Map<string, Tally>, round: Round): Map<string, T
     return current;
   }
   const snapshot = new Map(current);
-  const seats = new Set(round.matches.flatMap(m => (m.p2 === null ? [m.p1] : [m.p1, m.p2])));
+  const seats = new Set(round.matches.flatMap(matchSeats));
   for (const id of seats) {
     const old = tallyFor(snapshot, id);
     snapshot.set(id, {
@@ -258,7 +258,7 @@ function appendGrouped<K, V>(groups: Map<K, V[]>, key: K, value: V): void {
 function recordedRoundHistory(rounds: readonly Round[]): Map<string, number[]> {
   const history = new Map<string, number[]>();
   for (const round of rounds) {
-    const ids = round.matches.flatMap(m => (m.p2 === null ? [m.p1] : [m.p1, m.p2]));
+    const ids = round.matches.flatMap(matchSeats);
     for (const id of ids) {
       appendGrouped(history, id, round.number);
     }

@@ -279,6 +279,10 @@ export interface TdfPassthrough {
  */
 export const isGeneratedId = (id: string): boolean => /^9\d{9}$/.test(id);
 
+/** Who a pairing or match seats: p1, then p2 unless it is a bye. */
+export const matchSeats = (match: { p1: string; p2: string | null }): string[] =>
+  match.p2 === null ? [match.p1] : [match.p1, match.p2];
+
 export function playerName(player: Pick<Player, 'firstName' | 'lastName'>): string {
   return `${player.firstName} ${player.lastName}`.trim();
 }

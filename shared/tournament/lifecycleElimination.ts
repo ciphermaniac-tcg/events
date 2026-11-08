@@ -17,6 +17,7 @@ import {
   type Division,
   DIVISIONS,
   type Match,
+  matchSeats,
   type Player,
   type Pod,
   type PodCategory,
@@ -31,7 +32,7 @@ export function bracketPlayers(
   writeSeed: boolean
 ): Player[] {
   const seedOf = new Map(seeds.map((id, index) => [id, index + 1]));
-  const order = pairings.flatMap(p => (p.p2 === null ? [p.p1] : [p.p1, p.p2]));
+  const order = pairings.flatMap(matchSeats);
   const orderOf = new Map(order.map((id, index) => [id, index + 1]));
   return players.map(p =>
     orderOf.has(p.id) ? { ...p, order: orderOf.get(p.id)!, ...(writeSeed ? { seed: seedOf.get(p.id)! } : {}) } : p
@@ -318,7 +319,7 @@ export function nextElimination(t: Tournament, category: PodCategory | undefined
     }
     if (t.settings?.type !== 1 && last.kind === 'swiss') {
       players = brackets.reduce(
-        (current, bracket) => bracketPlayers(current, seatsOf(bracket.pairings), bracket.pairings, false),
+        (current, bracket) => bracketPlayers(current, bracket.pairings.flatMap(matchSeats), bracket.pairings, false),
         players
       );
     }
@@ -331,8 +332,6 @@ export function nextElimination(t: Tournament, category: PodCategory | undefined
   });
   return { ...replacePods(t, pods), players };
 }
-
-export const seatsOf = (pairings: readonly Pairing[]) => pairings.flatMap(p => (p.p2 === null ? [p.p1] : [p.p1, p.p2]));
 
 export const bracketPairings = (bracket: Bracket): Pairing[] =>
   bracket.playoff ? [...bracket.pairings, bracket.playoff] : bracket.pairings;

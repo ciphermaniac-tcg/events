@@ -7,7 +7,7 @@
 import { divisionLookup } from './divisions.js';
 import { countsComplete, latestRound } from './rounds.js';
 import { thirdPlaceMatch } from './standings.js';
-import type { Division, Match, Pod, Tournament } from './types.js';
+import { type Division, type Match, matchSeats, type Pod, type Tournament } from './types.js';
 
 export const departed = (t: Tournament, id: string | null | undefined): boolean =>
   Boolean(id && t.players.find(p => p.id === id)?.droppedAfter !== null);
@@ -115,7 +115,7 @@ export function confirmedSurvivors(t: Tournament, pod: Pod): Pod {
     return pod;
   }
   const { survivorsUnconfirmed: _held, ...rest } = pod;
-  const seats = (latestRound(pod)?.matches ?? []).flatMap(m => (m.p2 === null ? [m.p1] : [m.p1, m.p2]));
+  const seats = (latestRound(pod)?.matches ?? []).flatMap(matchSeats);
   return survivorList(t, rest).length ? rest : { ...rest, survivors: seats };
 }
 
@@ -135,7 +135,7 @@ export function checkedSurvivors(t: Tournament): Tournament {
  * departed, after numbering its tables and before the renumbering.
  */
 export function seatedPlayers(t: Tournament, pod: Pod, matches: readonly Match[]): Pod {
-  const seated = matches.flatMap(m => (m.p2 === null ? [m.p1] : [m.p1, m.p2])).filter(id => !departed(t, id));
+  const seated = matches.flatMap(matchSeats).filter(id => !departed(t, id));
   return t.settings?.type === 1 ? withSurvivors(t, pod, ids => seated.reduce(added, ids)) : pod;
 }
 
