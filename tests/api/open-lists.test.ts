@@ -4,26 +4,18 @@
  */
 
 import assert from 'node:assert/strict';
-import { beforeEach, test } from 'node:test';
+import { test } from 'node:test';
 
 import * as checkins from '../../functions/api/tournaments/[code]/checkins.ts';
 import * as decklists from '../../functions/api/tournaments/[code]/decklists.ts';
 import * as event from '../../functions/api/tournaments/[code]/index.ts';
 import * as lists from '../../functions/api/tournaments/[code]/lists.ts';
-import type { TournamentEnv } from '../../functions/lib/auth/env.ts';
-import { apiCalls, type Handler } from '../__utils__/apiCalls.ts';
+import { apiSuite, type Handler } from '../__utils__/apiCalls.ts';
 import { at, eventCalls } from '../__utils__/eventCalls.ts';
 import { sqliteD1 } from '../__utils__/sqliteD1.ts';
-import { resetRateLimiters } from '../../functions/lib/api/rateLimiter.ts';
 
-let env: TournamentEnv;
-const { hit, signIn } = apiCalls(() => env);
+const { env, hit, signIn } = apiSuite();
 const { newSwiss, send, addPlayers, settle } = eventCalls(hit);
-
-beforeEach(() => {
-  env = { TOURNAMENT_DB: sqliteD1('tournaments.sql'), DEV_LOGIN: 'true' };
-  resetRateLimiters();
-});
 
 const NIA = { popId: '4242', firstName: 'Nia', lastName: 'Okafor', birthDate: '02/27/2001' };
 const OMAR = { popId: '5151', firstName: 'Omar', lastName: 'Diaz', birthDate: '03/14/1999' };

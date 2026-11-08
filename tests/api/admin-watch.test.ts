@@ -5,24 +5,17 @@
  */
 
 import assert from 'node:assert/strict';
-import { beforeEach, test } from 'node:test';
+import { test } from 'node:test';
 
 import * as corrections from '../../functions/api/tournaments/[code]/corrections.ts';
 import * as headJudge from '../../functions/api/tournaments/[code]/head-judge.ts';
 import * as manage from '../../functions/api/tournaments/[code]/manage.ts';
 import * as players from '../../functions/api/tournaments/[code]/players.ts';
-import type { TournamentEnv } from '../../functions/lib/auth/env.ts';
-import { apiCalls, type Handler } from '../__utils__/apiCalls.ts';
+import { apiSuite, type Handler } from '../__utils__/apiCalls.ts';
 import { at, eventCalls } from '../__utils__/eventCalls.ts';
-import { sqliteD1 } from '../__utils__/sqliteD1.ts';
 
-let env: TournamentEnv;
-const { hit, signIn } = apiCalls(() => env);
+const { hit, signIn } = apiSuite();
 const { send, settle, runningEvent } = eventCalls(hit, signIn);
-
-beforeEach(() => {
-  env = { TOURNAMENT_DB: sqliteD1('tournaments.sql'), DEV_LOGIN: 'true' };
-});
 
 const readConsole = (code: string, cookie: string) =>
   hit(manage.onRequestGet as Handler, '/manage', at(code), { cookie });

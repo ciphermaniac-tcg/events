@@ -67,13 +67,12 @@ import {
   rotateStaff
 } from '../../functions/lib/tournaments/store.ts';
 import { juniorsCutApart } from '../__utils__/divisionCuts.ts';
-import { apiCalls, type Handler, ORIGIN, request } from '../__utils__/apiCalls.ts';
+import { apiSuite, type Handler, ORIGIN, request } from '../__utils__/apiCalls.ts';
 import { at, eventCalls } from '../__utils__/eventCalls.ts';
 import { storeApplication } from '../__utils__/storeApplication.ts';
 import { countingTrips, racing, sqliteD1 } from '../__utils__/sqliteD1.ts';
 import { completed, context, generatedEvent, operated } from '../tournament/conformance-generated.ts';
 import { type MainSiteData, serveMainSiteData } from '../__utils__/mainSiteData.ts';
-import { resetRateLimiters } from '../../functions/lib/api/rateLimiter.ts';
 
 /** Every scalar in a JSON value, keys included, for asserting what a public copy never carries. */
 function jsonValues(value: unknown): unknown[] {
@@ -86,17 +85,14 @@ function jsonValues(value: unknown): unknown[] {
   return [value];
 }
 
-let env: TournamentEnv;
-const { hit, signIn } = apiCalls(() => env);
+const { env, hit, signIn } = apiSuite();
 const { newEvent, newSwiss, send, addPlayers, settle, playerSays, view, storeOf } = eventCalls(hit);
 
 // No test reaches the real main site for the event locator's league files.
 let mainSite: MainSiteData;
 
 beforeEach(() => {
-  env = { TOURNAMENT_DB: sqliteD1('tournaments.sql'), DEV_LOGIN: 'true' };
   mainSite = serveMainSiteData();
-  resetRateLimiters();
 });
 
 /** The revision of the event's document as the console loads it, as the browser following the .tdf sends it. */
