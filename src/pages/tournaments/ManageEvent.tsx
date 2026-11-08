@@ -31,16 +31,14 @@ import {
   type DivisionCut,
   divisionCuts,
   namesById,
-  type NextStep,
-  nextStep,
   podLabel,
   podProgress,
   type PodProgress,
   roundStatus,
   shownDecks,
-  swissPlanOf,
   unseated
 } from '../../lib/tournament/present';
+import { type NextStep, nextStep, swissPlanOf } from '../../lib/tournament/staff';
 import { session } from './session';
 import { latestValue } from '../../lib/resource';
 import { Skeleton } from '@ciphermaniac/design/components/Skeleton';

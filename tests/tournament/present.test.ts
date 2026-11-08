@@ -31,12 +31,10 @@ import {
   filterMatches,
   matchHistory,
   namesById,
-  nextStep,
   plannedRounds,
   podLabel,
   podProgress,
   podStandings,
-  recordsBefore,
   recordsSoFar,
   reportState,
   RESULT_WORDS,
@@ -54,8 +52,10 @@ import {
   changeQuestion,
   cutSplit,
   endGaps,
+  nextStep,
   outcomeLabel,
   outcomeNoun,
+  recordsBefore,
   staffReport
 } from '../../src/lib/tournament/staff.ts';
 import { commandRunner, freshContext, pendingResults } from '../__utils__/commands.ts';

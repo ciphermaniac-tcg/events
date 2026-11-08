@@ -38,7 +38,6 @@ import {
   type MatchView,
   matchViews,
   namesById,
-  recordsBefore,
   RESULT_WORDS,
   roundLabel,
   shownDecks,
@@ -46,7 +45,7 @@ import {
   STATUS_LABELS,
   unseated
 } from '../../lib/tournament/present';
-import { changeQuestion, outcomeLabel, outcomeNoun, staffReport } from '../../lib/tournament/staff';
+import { changeQuestion, outcomeLabel, outcomeNoun, recordsBefore, staffReport } from '../../lib/tournament/staff';
 import type { ManageState } from './manageState';
 import { OptionsMenu } from './OptionsMenu';
 import { ExtensionClock } from './ExtensionClock';

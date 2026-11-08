@@ -8,11 +8,74 @@
 import { isDisputed, oneDevice, type PlayerReport } from '../../../shared/tournament/reports';
 import { percentLabel, type Standing } from '../../../shared/tournament/standings';
 import { livePods } from '../../../shared/tournament/rounds';
-import type { Match, Outcome, Pod, Tournament } from '../../../shared/tournament/types';
+import type { Match, Outcome, Pod, Round, Tournament } from '../../../shared/tournament/types';
 import type { PendingResult, TournamentMode, TournamentSettings } from '../../../shared/tournament/view';
 import { ordinal } from '../format';
 import { msg, t } from '../i18n';
-import { type NextStep, nextStep, openWords, podLabel, podProgress, type SeatTag, swissPlanOf } from './present';
+import { divisionLookup } from '../../../shared/tournament/divisions';
+import { eventTypeOf } from '../../../shared/tournament/structure';
+import {
+  divisionCuts,
+  openWords,
+  plannedRounds,
+  podLabel,
+  podProgress,
+  type PodProgress,
+  recordsSoFar,
+  type SeatTag,
+  type SwissPlan
+} from './present';
+
+/**
+ * The one step the console offers next, the same on every tab: pair the next
+ * round or stage (disabled, with the reason, while tables are still open);
+ * once the plan's Swiss rounds are played, decide between the top cut (when
+ * the plan has one), another round and ending the event; or end it once the
+ * final has a champion (and the match for third, when the cut plays one, a
+ * result).
+ */
+export type NextStep =
+  | { kind: 'pair'; label: string; ready: boolean; reason?: string }
+  | { kind: 'decide'; label: string; cut: number; ready: boolean; reason?: string }
+  | { kind: 'close'; champion: string; ready: boolean; reason?: string }
+  | { kind: 'none' };
+
+export function nextStep(progress: PodProgress, finished: boolean, plan: SwissPlan | null = null): NextStep {
+  const { round, open, champion: winner } = progress;
+  if (finished) {
+    return { kind: 'none' };
+  }
+  if (!round) {
+    return { kind: 'pair', label: t('Pair round {n}', { n: 1 }), ready: true };
+  }
+  const waiting = open > 0 ? { ready: false, reason: openWords(open, round.kind) } : { ready: true };
+  if (winner) {
+    return { kind: 'close', champion: winner, ...waiting };
+  }
+  const swiss = round.kind === 'swiss';
+  const label = swiss ? t('Pair round {n}', { n: round.number + 1 }) : t('Pair {stage}', { stage: progress.next });
+  return plan && swiss && round.number >= plan.rounds
+    ? { kind: 'decide', label, cut: plan.cut, ...waiting }
+    : { kind: 'pair', label, ...waiting };
+}
+
+/**
+ * The Swiss rounds and top cut a pod plans: its attendance's rounds held to
+ * the event's cap, and the cut of the last division left to cut (Masters
+ * where it plays), as the console's next step offers it first.
+ */
+export function swissPlanOf(tournament: Tournament, pod: Pod, roundCap: number): SwissPlan {
+  const cut =
+    divisionCuts(tournament, pod, divisionLookup(tournament))
+      .filter(c => !c.started)
+      .at(-1)?.cut ?? 0;
+  return { rounds: plannedRounds(pod, roundCap, eventTypeOf(tournament), tournament), cut };
+}
+
+/** Each player's record going into `round`, as W-L-T. */
+export function recordsBefore(pod: Pod, round: Round): Map<string, string> {
+  return recordsSoFar(pod, { ...round, matches: [] }, () => 'pending');
+}
 
 /** What a pod has left to play when the event ends: `where` names the pod while the event has several. */
 export interface EndGap {
