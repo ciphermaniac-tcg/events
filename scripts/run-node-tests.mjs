@@ -1,11 +1,15 @@
 import { readdir } from 'node:fs/promises';
-import { join, relative, sep } from 'node:path';
+import { join } from 'node:path';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const projectRoot = fileURLToPath(new URL('..', import.meta.url));
 const testsRoot = join(projectRoot, 'tests');
-const excludedDirectories = new Set(['e2e', 'mobile', 'perf']);
+const suite = process.argv[2] ?? 'node';
+if (!['unit', 'api', 'node'].includes(suite)) {
+  throw new Error(`Unknown test suite "${suite}". Expected unit, api, or node.`);
+}
+const excludedDirectories = new Set(['e2e', 'mobile', 'perf', ...(suite === 'unit' ? ['api'] : [])]);
 
 async function collectTestFiles(directory) {
   const entries = await readdir(directory, { withFileTypes: true });
@@ -24,22 +28,7 @@ async function collectTestFiles(directory) {
   return files;
 }
 
-function suiteFiles(files, suite) {
-  const relativeFiles = files.map(file => relative(testsRoot, file).split(sep).join('/'));
-  if (suite === 'api') {
-    return files.filter((_, index) => relativeFiles[index].startsWith('api/'));
-  }
-  if (suite === 'unit') {
-    return files.filter((_, index) => !relativeFiles[index].startsWith('api/'));
-  }
-  if (suite === 'node') {
-    return files;
-  }
-  throw new Error(`Unknown test suite "${suite}". Expected unit, api, or node.`);
-}
-
-const suite = process.argv[2] ?? 'node';
-const files = suiteFiles(await collectTestFiles(testsRoot), suite);
+const files = await collectTestFiles(suite === 'api' ? join(testsRoot, 'api') : testsRoot);
 if (files.length === 0) {
   throw new Error(`No Node test files found for suite "${suite}".`);
 }
