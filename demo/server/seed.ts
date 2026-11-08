@@ -149,4 +149,7 @@ export async function seed(env: TournamentEnv, db: Database, answer: Answer): Pr
     );
     db.run('UPDATE decklists SET archetype = ? WHERE code = ? AND pop_id = ?', [list?.archetype ?? null, code, id]);
   }
+  // As a list read on arrival would: each player is shown on their list's archetype until staff say otherwise.
+  const inferred = Object.fromEntries(players.map(({ id, list }) => [id, list?.archetype ?? '']));
+  db.run('UPDATE tournaments SET inferred_decks = ? WHERE code = ?', [JSON.stringify(inferred), code]);
 }

@@ -49,6 +49,8 @@ test('every player handed in a real list, named by its archetype', async ({ page
   await expect(page.getByText('16 lists')).toBeVisible();
   await expect(page.getByText('Archaludon Zoroark').first()).toBeVisible();
   await expect(page.getByText(/unclassified/i)).toHaveCount(0);
+  // Each player is already on their list's deck, with nothing for staff to copy over.
+  await expect(page.getByRole('button', { name: 'Use their deck' })).toHaveCount(0);
 });
 
 test('what you do stays across a reload, and Reset starts over', async ({ page }) => {
