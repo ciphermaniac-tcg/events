@@ -2,6 +2,7 @@ import { randomHandle } from '../../../shared/accounts/handle.js';
 import type { D1Like, ProofBucket } from '../types.js';
 import type { Profile } from './oauth.js';
 import { verifiedEmail } from './session.js';
+import { profileAccount } from './signup.js';
 
 /** Remove provider responses still waiting for the same rejected identity. */
 function pendingRemoval(db: D1Like, profile: Profile) {
@@ -41,15 +42,8 @@ export async function purgeProofs(db: D1Like, bucket: ProofBucket | undefined): 
  * rechecks age_checked_at: a concurrent passing age check is never erased.
  */
 export async function rejectSignup(db: D1Like, profile: Profile, bucket: ProofBucket | undefined): Promise<void> {
-  const email = verifiedEmail(profile);
-  const user = await db
-    .prepare(
-      'SELECT id FROM users WHERE age_checked_at IS NULL AND id = COALESCE(' +
-        '(SELECT user_id FROM identities WHERE provider = ? AND subject = ?), ' +
-        '(SELECT id FROM users WHERE email IS NOT NULL AND email = ?))'
-    )
-    .bind(profile.provider, profile.subject, email)
-    .first<{ id: string }>();
+  const account = await profileAccount(db, profile);
+  const user = account?.age_checked_at === null ? account : null;
   const statements = user ? legacyRemoval(db, user.id) : [];
   await db.batch([pendingRemoval(db, profile), ...statements]);
   await purgeProofs(db, bucket);

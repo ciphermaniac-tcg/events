@@ -3276,7 +3276,7 @@ const ACCOUNT_STATEMENTS = [
   'FROM tournaments WHERE code = ?3 AND version = ?8',
   'DELETE FROM decklists WHERE code = ?1 AND EXISTS',
   'DELETE FROM tournaments WHERE code = ? AND version = ?',
-  'SELECT age_checked_at FROM users WHERE id = COALESCE',
+  'SELECT id, age_checked_at FROM users WHERE id = COALESCE',
   'INSERT INTO pending_signups',
   'DELETE FROM pending_signups WHERE token_hash = ?',
   'DELETE FROM pending_signups WHERE expires_at <= ?',
