@@ -249,12 +249,18 @@ function tallySnapshots(pod: Pod, rounds: readonly Round[]): Map<number, Map<str
   return records;
 }
 
+function appendGrouped<K, V>(groups: Map<K, V[]>, key: K, value: V): void {
+  const group = groups.get(key) ?? [];
+  group.push(value);
+  groups.set(key, group);
+}
+
 function recordedRoundHistory(rounds: readonly Round[]): Map<string, number[]> {
   const history = new Map<string, number[]>();
   for (const round of rounds) {
     const ids = round.matches.flatMap(m => (m.p2 === null ? [m.p1] : [m.p1, m.p2]));
     for (const id of ids) {
-      history.set(id, [...(history.get(id) ?? []), round.number]);
+      appendGrouped(history, id, round.number);
     }
   }
   return history;
@@ -509,7 +515,7 @@ export function undecidedThirdPlaceGroups(pod: Pod, swiss: readonly Standing[], 
   for (const row of swiss) {
     const tally = tallies.get(row.playerId);
     if (tally) {
-      groups.set(tally.record.wins, [...(groups.get(tally.record.wins) ?? []), tally]);
+      appendGrouped(groups, tally.record.wins, tally);
     }
   }
   const qualifies = (tally: Tally) => tally.record.losses === 1 && tally.record.wins >= rounds - 1;
@@ -576,7 +582,7 @@ export function repairedEliminationGroups(
   for (const row of swiss) {
     const tally = tallies.get(row.playerId);
     if (tally) {
-      groups.set(tally.record.wins, [...(groups.get(tally.record.wins) ?? []), row.playerId]);
+      appendGrouped(groups, tally.record.wins, row.playerId);
     }
   }
   const qualifies = (id: string) => {
@@ -599,16 +605,11 @@ export function repairedEliminationGroups(
 /** Recorded matches use personal match numbers, including one-seat matches. */
 function matchOpponents(pod: Pod): Map<string, (string | null)[]> {
   const history = new Map<string, (string | null)[]>();
-  const append = (id: string, opponent: string | null) => {
-    const matches = history.get(id) ?? [];
-    matches.push(opponent);
-    history.set(id, matches);
-  };
   for (const round of [...pod.rounds].sort((a, b) => a.number - b.number)) {
     for (const match of round.matches) {
-      append(match.p1, match.p2);
+      appendGrouped(history, match.p1, match.p2);
       if (match.p2 !== null) {
-        append(match.p2, match.p1);
+        appendGrouped(history, match.p2, match.p1);
       }
     }
   }
@@ -792,12 +793,7 @@ function orderHeadToHeadGroup(rows: Standing[], group: readonly string[]): Stand
   if (group.length < 3 || new Set(group).size !== group.length || members.length !== group.length) {
     throw new Error('A recorded head-to-head cycle requires at least three distinct finished players');
   }
-  const first = members[0]!;
-  if (
-    members.some(
-      row => row.points !== first.points || row.late !== first.late || row.owp !== first.owp || row.oowp !== first.oowp
-    )
-  ) {
+  if (!equalBeforeHeadToHead(members, group)) {
     throw new Error('A recorded head-to-head cycle cannot override earlier standings comparisons');
   }
   const positions = rows.flatMap((row, index) => (group.includes(row.playerId) ? [index] : []));
