@@ -55,7 +55,7 @@ interface Field {
   met: number[][];
   /** The most opponents any player has met. */
   mostMet: number;
-  entrants: ReadonlyMap<string, Entrant>;
+  entrants: readonly (Entrant | undefined)[];
   highestPoints: number;
   minimumDifference: number;
   pointDifference: number;
@@ -64,6 +64,7 @@ interface Field {
 
 function fieldOf(ranked: readonly string[], history: PairingHistory, entrants: readonly Entrant[]): Field {
   const seatOf = new Map(ranked.map((id, seat) => [id, seat]));
+  const byId = new Map(entrants.map(e => [e.id, e]));
   const met = ranked.map(id => {
     const seats: number[] = [];
     for (const opponent of history.opponents.get(id) ?? []) {
@@ -78,7 +79,7 @@ function fieldOf(ranked: readonly string[], history: PairingHistory, entrants: r
     ranked,
     met,
     mostMet: met.reduce((most, seats) => Math.max(most, seats.length), 0),
-    entrants: new Map(entrants.map(e => [e.id, e])),
+    entrants: ranked.map(id => byId.get(id)),
     highestPoints: Math.max(...entrants.map(e => e.points)),
     minimumDifference: minimumDifference(entrants, history),
     pointDifference: 0,
@@ -119,11 +120,11 @@ interface Search {
   open: number;
   /** For each seat, how many of the players it has met are still unseated. */
   metLeft: Int32Array;
+  fits: boolean[][];
   pairings: Pairing[];
   /** Rematches the walk may still take. */
   rematches: number;
   steps: number;
-  budget: number;
   protectedTop: boolean;
 }
 
@@ -134,7 +135,7 @@ interface Choice {
   rematch: boolean;
 }
 
-function newSearch(field: Field, rematches: number, budget: number): Search {
+function newSearch(field: Field, rematches: number): Search {
   const size = field.ranked.length;
   const next = new Int32Array(size + 1);
   const prev = new Int32Array(size + 1);
@@ -142,9 +143,8 @@ function newSearch(field: Field, rematches: number, budget: number): Search {
     next[seat] = seat === size ? 0 : seat + 1;
     prev[seat] = seat === 0 ? size : seat - 1;
   }
-  prev[size] = size - 1;
   const metLeft = Int32Array.from(field.met, seats => seats.length);
-  return { field, next, prev, open: size, metLeft, pairings: [], rematches, steps: 0, budget, protectedTop: false };
+  return { field, next, prev, open: size, metLeft, fits: [], pairings: [], rematches, steps: 0, protectedTop: false };
 }
 
 function take(state: Search, seat: number): void {
@@ -200,11 +200,12 @@ function stranded(state: Search): boolean {
 function nextOpponent(state: Search, seat: number, from: number, rematch: boolean): number {
   const end = state.field.ranked.length;
   const met = state.field.met[seat] ?? [];
+  const fits = (state.fits[seat] ??= []);
   // `seat` is taken, so its old link may be stale; every open seat is below it anyway.
   let other = from === seat ? firstOpen(state) : (state.next[from] as number);
-  while (other !== end && state.steps < state.budget) {
+  while (other !== end && state.steps < STEP_BUDGET) {
     state.steps += 1;
-    if (met.includes(other) === rematch && permitted(state.field, seat, other)) {
+    if (met.includes(other) === rematch && (fits[other] ??= permitted(state.field, seat, other))) {
       return other;
     }
     other = state.next[other] as number;
@@ -256,7 +257,7 @@ function lowerBracketRepair(state: Search): boolean {
   }
   const first = firstOpen(state);
   const second = state.next[first]!;
-  const points = (seat: number) => state.field.entrants.get(state.field.ranked[seat]!)?.points;
+  const points = (seat: number) => state.field.entrants[seat]?.points;
   return points(first) === points(second) && (state.field.met[first] ?? []).includes(second);
 }
 
@@ -266,8 +267,7 @@ function protectsHighest(state: Search, choice: Choice): boolean {
   }
   const highest = state.field.highestPoints;
   return (
-    state.field.entrants.get(state.field.ranked[choice.seat]!)?.points === highest &&
-    state.field.entrants.get(state.field.ranked[choice.other]!)?.points === highest
+    state.field.entrants[choice.seat]?.points === highest && state.field.entrants[choice.other]?.points === highest
   );
 }
 
@@ -308,7 +308,7 @@ function search(state: Search): boolean {
     // Nothing left for this seat: undo the choice above it and try past that.
     untake(state, seat);
     last = choices.pop() ?? null;
-    if (!last || state.steps >= state.budget) {
+    if (!last || state.steps >= STEP_BUDGET) {
       return false;
     }
     if (protectsHighest(state, last)) {
@@ -326,8 +326,8 @@ export class PairingError extends Error {}
 export class SearchExhausted extends PairingError {}
 
 function permitted(field: Field, seat: number, other: number): boolean {
-  const a = field.entrants.get(field.ranked[seat]!);
-  const b = field.entrants.get(field.ranked[other]!);
+  const a = field.entrants[seat];
+  const b = field.entrants[other];
   return (
     a !== undefined &&
     b !== undefined &&
@@ -346,7 +346,7 @@ function pairAt(field: Field, constraints: Constraints, walks: number[]): Pairin
     return null;
   }
   const constrained = { ...field, pointDifference: constraints.points, divisionDifference: constraints.division };
-  const state = newSearch(constrained, 0, STEP_BUDGET);
+  const state = newSearch(constrained, 0);
   const found = search(state);
   walks.push(state.steps);
   return found ? state.pairings : null;
