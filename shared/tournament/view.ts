@@ -489,12 +489,6 @@ export function prunePending(tournament: Tournament, pending: readonly PendingRe
   return pending.filter(result => isOpenMatch(tournament, result));
 }
 
-/** Records a pending result, replacing any earlier one for the same match; `pending` outcome clears it. */
-export function withPending(pending: readonly PendingResult[], result: PendingResult): PendingResult[] {
-  const rest = pending.filter(p => !sameMatch(p, result));
-  return result.outcome === 'pending' ? rest : [...rest, result];
-}
-
 /**
  * The pending result entered for one match, if any. A division's cut pod
  * (see Pod.cutOf) shares its parent's rounds, so its results are held under

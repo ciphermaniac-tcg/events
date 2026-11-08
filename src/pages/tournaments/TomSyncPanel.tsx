@@ -375,7 +375,7 @@ export function createTomLink(props: { manage: () => Manage; onSynced: (answer?:
     importedAt: () => props.manage().lastImportAt ?? null,
     error,
     pending: () => props.manage().pending.length,
-    /** Results can't be entered while the site can't see the file TOM keeps. */
+    /** The site has stopped following the file TOM keeps, so time extensions wait until it is reconnected. */
     locked: () => state() === 'reconnect',
     lapse,
     /** When TOM last saved the file this page follows, or null before the first read. */

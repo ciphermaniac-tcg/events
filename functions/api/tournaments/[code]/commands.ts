@@ -2,9 +2,9 @@
  * POST /api/tournaments/:code/commands — one organizer action (see
  * shared/tournament/commands.ts), from the event's staff.
  *
- * A Swiss event applies it to the document. A TOM-run event takes results,
- * held as pending until the .tdf that TOM writes has its own, and the round
- * clock, which the site runs (see functions/lib/tournaments/results.ts).
+ * A Swiss event applies it to the document. A TOM-run event takes only the
+ * round clock, which the site runs; its results are entered in TOM (see
+ * functions/lib/tournaments/results.ts).
  */
 
 import type { Command } from '../../../../shared/tournament/commands.js';

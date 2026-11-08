@@ -83,7 +83,7 @@ test('unauthorized, malformed, completed and finished-event extensions are refus
   assert.equal((await send(code, owner, command)).status, 400);
 });
 
-test('TOM extensions survive file updates without changing revision or leaking pending results', async () => {
+test('TOM extensions survive file updates without changing revision, and a result stays TOM’s', async () => {
   const owner = await signIn('Organizer', 'organizer');
   const file = parseTdf(readFileSync(new URL('../fixtures/tdf/challenge-midevent.tdf', import.meta.url), 'utf8'));
   const code = await newEvent(owner, { mode: 'tom', tournament: file });
@@ -102,9 +102,8 @@ test('TOM extensions survive file updates without changing revision or leaking p
   });
   assert.equal(synced.status, 200);
   assert.deepEqual(selected(await current(code), command).timeExtension, selected(saved, command).timeExtension);
-  await send(code, owner, { ...command, type: 'reportResult', outcome: 'p1' });
-  assert.equal((await send(code, owner, command)).status, 400);
+  assert.equal((await send(code, owner, { ...command, type: 'reportResult', outcome: 'p1' })).status, 400);
   assert.equal(selected(await current(code), command).outcome, 'pending');
   const console = await hit(manage.onRequestGet as Handler, '/manage', at(code), { cookie: owner });
-  assert.equal(console.json.pending.length, 1);
+  assert.deepEqual(console.json.pending, []);
 });

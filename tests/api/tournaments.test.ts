@@ -590,7 +590,7 @@ test('staff join by invite link, and a new link retires the old one', async () =
   assert.equal(stale.status, 403);
 });
 
-test('a TOM event holds site results as pending until the synced file settles them', async () => {
+test('a TOM event takes no results from the site: TOM enters them', async () => {
   const owner = await signIn('Organizer', 'organizer');
   const tdf = parseTdf(readFileSync(new URL('../fixtures/tdf/challenge-midevent.tdf', import.meta.url), 'utf8'));
   const created = await hit(
@@ -604,32 +604,17 @@ test('a TOM event holds site results as pending until the synced file settles th
     }
   );
   const { code } = created.json;
-  const reported = await send(code, owner, {
-    type: 'reportResult',
-    pod: 'mixed',
-    round: 2,
-    table: 1,
-    p1: '7200001',
-    p2: '7200004',
-    outcome: 'p1'
-  });
-  const decided = await send(code, owner, {
-    type: 'reportResult',
-    pod: 'mixed',
-    round: 2,
-    table: 2,
-    p1: '7200005',
-    p2: '7200007',
-    outcome: 'p1'
-  });
-  assert.match(decided.json.error, /TOM already has a result/);
-  assert.equal(reported.json.pending.length, 1);
-  assert.equal(reported.json.tournament.pods[0].rounds[1].matches[1].outcome, 'pending', 'TOM’s copy is untouched');
+  const open = { type: 'reportResult', pod: 'mixed', round: 2, table: 1, p1: '7200001', p2: '7200004' };
+  for (const outcome of ['p1', 'tie', 'double-loss', 'pending']) {
+    const refused = await send(code, owner, { ...open, outcome, expected: 'pending' });
+    assert.match(refused.json.error, /make this change in TOM/, outcome);
+  }
+  const decided = { type: 'reportResult', pod: 'mixed', round: 2, table: 2, p1: '7200005', p2: '7200007' };
+  assert.match((await send(code, owner, { ...decided, outcome: 'p2' })).json.error, /make this change in TOM/);
   assert.match((await send(code, owner, { type: 'pairRound', pod: 'mixed' })).json.error, /make this change in TOM/);
-
   const publicView = await view(code);
-  assert.equal(publicView.pending.length, 1);
-  assert.notEqual(publicView.pending[0]?.p1, '7200001', 'pending results use public keys too');
+  assert.deepEqual(publicView.pending, []);
+  assert.equal(publicView.tournament.pods[0]?.rounds[1]?.matches[1]?.outcome, 'pending', 'TOM’s copy is untouched');
 
   const refused = await hit(sync.onRequestPut as Handler, '/sync', at(code), {
     method: 'PUT',
@@ -659,7 +644,7 @@ test('a TOM event holds site results as pending until the synced file settles th
     body: { tournament: settled, base: await revisionNow(code, owner) }
   });
   assert.equal(synced.status, 200);
-  assert.deepEqual(synced.json.pending, []);
+  assert.equal(synced.json.tournament.pods[0].rounds[1].matches[1].outcome, 'p1', 'the result comes from TOM’s file');
 });
 
 test('a TOM file another sync changed while it was sent is refused as a conflict', async () => {
@@ -1497,29 +1482,6 @@ test('a result expecting what no longer stands is refused, and a console that se
   assert.equal(older.json.tournament.pods[0].rounds[0].matches[0].outcome, 'tie', 'an older console sends none');
 });
 
-test('a TOM event refuses a stale result against the pending one, and leaves a decided match to TOM', async () => {
-  const owner = await signIn('Organizer', 'organizer');
-  const tdf = parseTdf(readFileSync(new URL('../fixtures/tdf/challenge-midevent.tdf', import.meta.url), 'utf8'));
-  const created = await hit(
-    tournaments.onRequestPost as Handler,
-    '/api/tournaments',
-    {},
-    { method: 'POST', cookie: owner, body: { mode: 'tom', tournament: tdf, store: await storeOf(owner) } }
-  );
-  const { code } = created.json;
-  const open = { type: 'reportResult', pod: 'mixed', round: 2, table: 1, p1: '7200001', p2: '7200004' };
-  assert.equal((await send(code, owner, { ...open, outcome: 'p1', expected: 'pending' })).json.pending.length, 1);
-  const stale = await send(code, owner, { ...open, outcome: 'p2', expected: 'pending' });
-  assert.match(stale.json.error, /changed on another device/);
-  const meant = await send(code, owner, { ...open, outcome: 'p2', expected: 'p1' });
-  assert.equal(meant.json.pending[0].outcome, 'p2');
-  const decided = { type: 'reportResult', pod: 'mixed', round: 2, table: 2, p1: '7200005', p2: '7200007' };
-  assert.match(
-    (await send(code, owner, { ...decided, outcome: 'p1', expected: 'pending' })).json.error,
-    /TOM already has a result/
-  );
-});
-
 test('a sanctioned event admits a player only with a Player ID and birth year, and a correction keeps their year and division', async () => {
   const owner = await signIn('Organizer', 'organizer');
   const code = await newSwiss(owner);
@@ -1639,7 +1601,7 @@ test('an unsanctioned event finds players by last name, asking for a first name 
   assert.equal(byId.status, 404, 'no Player IDs at an unsanctioned event');
 });
 
-test('at a TOM event an agreed report needs staff acceptance before becoming pending for TOM', async () => {
+test('at a TOM event an agreed report stays a report for staff to enter in TOM', async () => {
   const owner = await signIn('Organizer', 'organizer');
   mock.timers.enable({ apis: ['Date'], now: Date.now() });
   const tdf = parseTdf(readFileSync(new URL('../fixtures/tdf/challenge-midevent.tdf', import.meta.url), 'utf8'));
@@ -1680,8 +1642,7 @@ test('at a TOM event an agreed report needs staff acceptance before becoming pen
     p2: '7200004',
     outcome: 'tie'
   });
-  assert.equal(accepted.status, 200);
-  assert.equal(accepted.json.pending[0]?.outcome, 'tie');
+  assert.match(accepted.json.error, /make this change in TOM/, 'staff accept it in TOM, not here');
   const table = agreed.json.tournament.pods[0]?.rounds[1]?.matches.find(m => m.table === 1);
   assert.equal(table?.outcome, 'pending', 'TOM’s copy is untouched');
 });

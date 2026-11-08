@@ -969,7 +969,7 @@ test('a TOM console’s round status wraps on a narrow phone rather than running
   await page.setViewportSize({ width: 320, height: 640 });
   await tomConsole(page, () => ({ status: 409, json: { error: 'The site has a different copy of this event.' } }));
   const lead = page.locator('.tm-meta-lead');
-  await expect(lead).toContainText('reconnect the .tdf to enter results');
+  await expect(lead).toContainText('reconnect the .tdf to keep players updated');
   const box = (await lead.boundingBox())!;
   expect(box.x + box.width).toBeLessThanOrEqual(320);
 });
@@ -983,7 +983,7 @@ test('a TOM console stops following its file when another copy was synced over i
     return { status: 409, json: { error: 'The site has a different copy of this event.' } };
   });
   await expect(page.getByText('The site has a different copy of this event.')).toBeVisible();
-  await expect(page.locator('.hero-meta')).toContainText('reconnect the .tdf to enter results');
+  await expect(page.locator('.hero-meta')).toContainText('reconnect the .tdf to keep players updated');
   await page.getByRole('button', { name: 'Reconnect event.tdf' }).click();
   const dialog = page.getByRole('dialog', { name: 'Replace the site’s copy with event.tdf?' });
   await expect(dialog).toContainText('Another device synced this event at');
@@ -1016,7 +1016,7 @@ test('a linked file missing a round the site’s copy has waits to be reconnecte
     },
     { manage: { ...tomManage(), tournament: later } }
   );
-  await expect(page.locator('.hero-meta')).toContainText('reconnect the .tdf to enter results');
+  await expect(page.locator('.hero-meta')).toContainText('reconnect the .tdf to keep players updated');
   expect(syncs).toBe(0);
   await page.getByRole('button', { name: 'Reconnect event.tdf' }).click();
   const dialog = page.getByRole('dialog', { name: 'Replace the site’s copy with event.tdf?' });
@@ -1095,7 +1095,7 @@ test('a TOM console holds off results when the browser takes back the file', asy
   });
   await expect(page.getByRole('button', { name: 'Allow access to event.tdf' })).toBeVisible();
   await expect(saved(page)).toContainText('event.tdf needs access again');
-  await expect(page.locator('.hero-meta')).toContainText('allow access to the .tdf to enter results');
+  await expect(page.locator('.hero-meta')).toContainText('allow access to the .tdf to keep players updated');
 });
 
 test('a TOM console whose file was moved asks for it to be picked again', async ({ page }) => {
@@ -1109,7 +1109,7 @@ test('a TOM console whose file was moved asks for it to be picked again', async 
     (window as unknown as { tdfFile: { lost: string } }).tdfFile.lost = 'NotFoundError';
   });
   await expect(saved(page)).toContainText('event.tdf can’t be read');
-  await expect(page.locator('.hero-meta')).toContainText('pick the .tdf again to enter results');
+  await expect(page.locator('.hero-meta')).toContainText('pick the .tdf again to keep players updated');
   await page.evaluate(() => {
     (window as unknown as { tdfFile: { lost: null; modified: number } }).tdfFile.lost = null;
   });
@@ -1222,6 +1222,21 @@ test('a TOM console never offers to pair a round, even with every result in', as
   });
   await expect(saved(page)).toContainText('Saved by TOM');
   await expect(page.getByRole('button', { name: /^Pair / })).toHaveCount(0);
+});
+
+test('a TOM console takes no results: its tables show what stands, and keep only time extensions', async ({ page }) => {
+  await tomConsole(page, synced);
+  await expect(saved(page)).toContainText('Saved by TOM');
+  const matches = page.locator('.tm-matches');
+  await expect(matches.locator('.tm-seat-link').first()).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Report .* as the winner$/ })).toHaveCount(0);
+  await matches.locator('.tm-seat-link').first().click();
+  await expect(page.getByRole('group', { name: 'Confirm result' })).toHaveCount(0);
+  await expect(matches.getByRole('button', { name: /^(Clear|Accept|Record)$/ })).toHaveCount(0);
+  const more = matches.getByRole('button', { name: /^More for table / }).first();
+  await more.click();
+  await expect(page.getByRole('button', { name: 'Time extension' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Double loss' })).toHaveCount(0);
 });
 
 test('a TOM console says when TOM last saved, how often once it has seen, and when TOM goes quiet', async ({

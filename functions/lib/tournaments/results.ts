@@ -2,39 +2,25 @@
  * What one organizer action changes in the stored event, used by staff commands. Player reports require staff acceptance.
  *
  * A Swiss event applies the command to the document. A TOM-run event takes
- * results and the round clock: TOM owns its pairings, so a result entered here
- * is held as pending and shown until the .tdf that TOM writes has its own,
- * while the clock is the site's (see shared/tournament/tomClock.ts).
+ * the round clock only, which is the site's (see shared/tournament/tomClock.ts):
+ * TOM owns its pairings and results, and a result entered here would be one
+ * TOM never reads.
  */
 
 import { applyCommand as applySiteClock } from '../../../shared/tournament/legacyCommands.js';
 import { applyCommand, type Command } from '../../../shared/tournament/commands.js';
 import { lockedRound } from '../../../shared/tournament/corrections.js';
 import { checkInError } from '../../../shared/tournament/checkins.js';
-import { countsComplete, findMatch, hasStarted, isOpenMatch, latestRound } from '../../../shared/tournament/rounds.js';
+import { countsComplete, findMatch, hasStarted, latestRound } from '../../../shared/tournament/rounds.js';
 import { withSiteClocks } from '../../../shared/tournament/tomClock.js';
 import type { PodCategory, Tournament } from '../../../shared/tournament/types.js';
-import { applyPending, isSanctioned, prunePending, withPending } from '../../../shared/tournament/view.js';
+import { applyPending, isSanctioned } from '../../../shared/tournament/view.js';
 import { commandContext } from './commandContext.js';
 import { type Changes, type TournamentRow } from './store.js';
 import { msg } from '../../../shared/i18n.js';
 
-/**
- * A result for TOM to take in. Only an open match takes one: TOM's own result
- * wins over anything written here, so a correction would never land.
- */
-function pendingChange(row: TournamentRow, command: Extract<Command, { type: 'reportResult' }>): Changes | string {
-  if (!isOpenMatch(row.tournament, command)) {
-    return msg('TOM already has a result for this match; change it in TOM');
-  }
-  const { pod: category, round, table, p1, p2, outcome } = command;
-  const next = { pod: category, round, table, p1, p2, outcome, at: Date.now() };
-  return { pending: withPending(prunePending(row.tournament, row.pending), next) };
-}
-
-/** What a TOM-run event takes from the site: results for TOM, and the round clock, which the site runs. */
+/** What a TOM-run event takes from the site: the round clock, which the site runs. Results are TOM's. */
 const TOM_COMMANDS: ReadonlySet<Command['type']> = new Set([
-  'reportResult',
   'startClock',
   'stopClock',
   'adjustClock',
@@ -58,16 +44,14 @@ const takesOnceEnded = (command: Command) =>
 const STALE_RESULT = msg('This result was changed on another device. Check it and enter yours again.');
 
 /**
- * Whether a result expected another outcome than the one standing now,
- * pending results included. A console that sends no expectation is taken as
- * before, and a TOM match TOM has decided is refused for that instead (see
- * pendingChange).
+ * Whether a result expected another outcome than the one standing now. A
+ * console that sends no expectation is taken as before.
  */
 function isStale(row: TournamentRow, command: Extract<Command, { type: 'reportResult' }>): boolean {
-  if (command.expected === undefined || (row.mode === 'tom' && !isOpenMatch(row.tournament, command))) {
+  if (command.expected === undefined) {
     return false;
   }
-  const standing = findMatch(applyPending(row.tournament, row.pending), command)?.match.outcome;
+  const standing = findMatch(row.tournament, command)?.match.outcome;
   return standing !== undefined && standing !== command.expected;
 }
 
@@ -77,11 +61,11 @@ function commandRefusal(row: TournamentRow, command: Command): string | null {
   if (row.settings.finished && !takesOnceEnded(command)) {
     return FINISHED_REFUSAL;
   }
-  if (command.type === 'reportResult' && isStale(row, command)) {
-    return STALE_RESULT;
-  }
   if (row.mode === 'tom') {
     return TOM_COMMANDS.has(command.type) ? null : msg('Please make this change in TOM.');
+  }
+  if (command.type === 'reportResult' && isStale(row, command)) {
+    return STALE_RESULT;
   }
   if (command.type === 'pairRound') {
     return pairingRefusal(row, command.pod);
@@ -109,7 +93,7 @@ export function commandChanges(row: TournamentRow, command: Command, localTime: 
   if (refusal) {
     return refusal;
   }
-  const apply = row.mode === 'tom' && command.type !== 'reportResult' ? applySiteClock : applyCommand;
+  const apply = row.mode === 'tom' ? applySiteClock : applyCommand;
   const source = commandSource(row, command);
   const result = apply(source, command, commandContext(row.tournament, localTime, isSanctioned(row)));
   if (!result.ok) {
@@ -117,9 +101,7 @@ export function commandChanges(row: TournamentRow, command: Command, localTime: 
   }
   if (row.mode === 'tom') {
     // A clock may change only the clock: anything more is a copy the next file sync would be refused against.
-    return command.type === 'reportResult'
-      ? pendingChange(row, command)
-      : { tournament: withSiteClocks(row.tournament, result.tournament) };
+    return { tournament: withSiteClocks(row.tournament, result.tournament) };
   }
   return { tournament: result.tournament };
 }
