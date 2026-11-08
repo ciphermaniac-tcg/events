@@ -1,7 +1,6 @@
 /** Format metadata loaded on demand from R2 for the Tier List Maker. */
 
 import { fetchArchetypes } from './archetypes';
-import { ONLINE } from './paths';
 import { createSignal } from 'solid-js';
 import { dataClient } from './client';
 import type { ArchetypeIndexEntry } from '../../types';
@@ -159,7 +158,7 @@ export function tierFormat(id: string | undefined): TierFormat {
 export async function fetchFormatArchetypes(id: string): Promise<ArchetypeIndexEntry[]> {
   const format = tierFormat(id);
   if (format.id === STANDARD_FORMAT_ID) {
-    return fetchArchetypes(ONLINE);
+    return fetchArchetypes();
   }
   return (scraped().find(entry => entry.id === format.id)?.archetypes ?? []).map(archetype => ({
     name: archetype.name,

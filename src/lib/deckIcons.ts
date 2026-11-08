@@ -7,7 +7,7 @@
  */
 
 import { createSignal } from 'solid-js';
-import { archetypeIconMapSettled, getArchetypeIconMap, resolveArchetypeIcons } from './data';
+import { archetypeIconMapSettled, getArchetypeIconMap, resolveArchetypeIcons } from './data/archetypes';
 
 type Species = typeof import('../../shared/pokemon/species');
 

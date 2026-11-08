@@ -1,6 +1,6 @@
 import { createSignal, Show } from 'solid-js';
 import { ArchetypeIcons } from '../../components/ArchetypeIcon';
-import { normalizeArchetypeKey } from '../../lib/data';
+import { normalizeArchetypeKey } from '../../../shared/data/archetypes/winRate';
 import { deckIcons, deckIconsSettled } from '../../lib/deckIcons';
 
 /**

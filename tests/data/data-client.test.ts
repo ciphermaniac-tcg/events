@@ -1,9 +1,8 @@
 /**
  * Characterization tests for the browser data transport.
  *
- * These pin the behavior `src/lib/data.ts` has always had — dedupe, TTL,
- * eviction on failure, 404 handling, release-path
- * resolution, and missing-release-body recovery — so the decomposition of that
+ * These pin the transport's behavior — dedupe, TTL, eviction on failure, 404
+ * handling, release-path resolution, and missing-release-body recovery — so the decomposition of that
  * module cannot change it by accident. Written against the injected seams, not
  * against the app's globals.
  */

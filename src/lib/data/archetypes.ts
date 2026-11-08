@@ -9,19 +9,19 @@
  */
 
 import { normalizeArchetypeKey } from '../../../shared/data/archetypes/winRate';
-export { normalizeArchetypeKey } from '../../../shared/data/archetypes/winRate';
-
 import { dataClient } from './client';
 import { normalizeIndexPercentScale } from './compat';
-import { ONLINE, tournamentPath } from './paths';
 import { createSignal } from 'solid-js';
 import type { ArchetypeIndexEntry } from '../../types';
 
 const { fetchJson } = dataClient;
 
-export async function fetchArchetypes(tournament: string = ONLINE): Promise<ArchetypeIndexEntry[]> {
-  const list = await fetchJson<ArchetypeIndexEntry[]>(`${tournamentPath(tournament)}/archetypes/index.json`);
-  return normalizeIndexPercentScale(list);
+/** The rolling online meta report's archetype index, its folder name encoded. */
+const ONLINE_INDEX = '/reports/Online%20-%20Last%2014%20Days/archetypes/index.json';
+
+/** The online meta's archetypes, in descending play order. */
+export async function fetchArchetypes(): Promise<ArchetypeIndexEntry[]> {
+  return normalizeIndexPercentScale(await fetchJson<ArchetypeIndexEntry[]>(ONLINE_INDEX));
 }
 
 const [archetypeIconMap, setArchetypeIconMap] = createSignal(new Map<string, string[]>());
@@ -96,8 +96,3 @@ export function resolveArchetypeIcons(
   }
   return map.get(normalizeArchetypeKey(identifiers.label)) ?? map.get(normalizeArchetypeKey(identifiers.name)) ?? [];
 }
-
-// Backwards-compatible alias (always online meta)
-export const fetchOnlineArchetypes = (): Promise<ArchetypeIndexEntry[]> => fetchArchetypes(ONLINE);
-
-/** One archetype's usage of a card, from the precomputed `cardUsage.json` index. */

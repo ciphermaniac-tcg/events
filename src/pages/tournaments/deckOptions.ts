@@ -12,7 +12,7 @@
  * Loaded once per format per page and shared by every picker on it.
  */
 
-import { fetchArchetypeLabels, fetchOnlineArchetypes } from '../../lib/data';
+import { fetchArchetypeLabels, fetchArchetypes } from '../../lib/data/archetypes';
 import { fetchFormatArchetypes, loadTierFormats, STANDARD_FORMAT_ID, tierFormats } from '../../lib/data/formats';
 import { loadSpecies } from '../../lib/deckIcons';
 import type { ReportedDeck } from '../live/reportedDeck';
@@ -20,7 +20,7 @@ import { learnDeckIcons } from './DeckIcons';
 
 async function standardDecks(): Promise<ReportedDeck[]> {
   const [online, labels] = await Promise.all([
-    fetchOnlineArchetypes().catch(() => []),
+    fetchArchetypes().catch(() => []),
     fetchArchetypeLabels().catch(() => [])
   ]);
   const seen = new Set(online.map(entry => entry.label));

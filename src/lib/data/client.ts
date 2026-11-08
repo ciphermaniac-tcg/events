@@ -1,9 +1,8 @@
 /**
  * HTTP transport for the browser data layer.
  *
- * Split out of `src/lib/data.ts` so the fetch/dedupe/cache behavior — which
- * every page depends on and which nothing could test — has a seam. The
- * dependencies that made it untestable are now parameters: `fetch`, the clock,
+ * Its own module so the fetch/dedupe/cache behavior, which every page depends
+ * on, has a seam. The dependencies that made it untestable are now parameters: `fetch`, the clock,
  * release-path resolution, and missing-release-body recovery.
  *
  * There is no DI framework here and there should not be one. {@link createDataClient}

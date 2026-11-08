@@ -110,9 +110,8 @@ test('with a release, scope paths resolve to immutable release roots', async () 
     /not present in release/
   );
   // The real data layer encodes folder names before passing them to the resolver.
-  const { tournamentPath } = await import('../../src/lib/data/paths.ts');
   assert.strictEqual(
-    resolvePathWith(resolver, `${tournamentPath('Online - Last 14 Days')}/archetypes/Mega%20Gardevoir.json`),
+    resolvePathWith(resolver, '/reports/Online%20-%20Last%2014%20Days/archetypes/Mega%20Gardevoir.json'),
     '/releases/v1/online/aaa/archetypes/Mega%20Gardevoir.json'
   );
 });
