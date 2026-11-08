@@ -264,17 +264,17 @@ function readRound(element: XmlElement): Round {
 const categoryOf = (pod: XmlElement): PodCategory => known(CATEGORIES_BY_CODE, attr(pod, 'category'), 'pod category');
 
 /** TOM's own type and stage for every round, so a round the site did not touch is written back as it was. */
-function roundCodesOf(pods: readonly XmlElement[]): TdfPassthrough['roundCodes'] {
+function roundCodesOf(elements: readonly XmlElement[], pods: readonly Pod[]): TdfPassthrough['roundCodes'] {
   return Object.fromEntries(
-    pods.flatMap(pod =>
-      children(child(pod, 'rounds'), 'round').map(round => [
+    elements.flatMap((pod, p) =>
+      children(child(pod, 'rounds'), 'round').map((round, r) => [
         `${categoryOf(pod)}:${attr(round, 'number')}`,
         {
           type: attr(round, 'type'),
           stage: attr(round, 'stage'),
           timeLeft: int(childText(round, 'timeleft')),
           startTime: childText(round, 'starttime'),
-          state: roundState(readRound(round))
+          state: roundState(pods[p]!.rounds[r]!)
         }
       ])
     )
@@ -285,19 +285,14 @@ function readPod(element: XmlElement): Pod {
   const category = categoryOf(element);
   const poddata = child(element, 'poddata');
   const rounds = children(child(element, 'rounds'), 'round');
+  const flights = children(child(element, 'subgroups'), 'subgroup').map(subgroup => ({
+    number: int(attr(subgroup, 'number')),
+    playerIds: children(child(subgroup, 'players'), 'player').map(player => attr(player, 'userid'))
+  }));
   return {
     category,
-    playerIds: children(child(element, 'subgroups'), 'subgroup').flatMap(subgroup =>
-      children(child(subgroup, 'players'), 'player').map(player => attr(player, 'userid'))
-    ),
-    ...(children(child(element, 'subgroups'), 'subgroup').length
-      ? {
-          flights: children(child(element, 'subgroups'), 'subgroup').map(subgroup => ({
-            number: int(attr(subgroup, 'number')),
-            playerIds: children(child(subgroup, 'players'), 'player').map(player => attr(player, 'userid'))
-          }))
-        }
-      : {}),
+    playerIds: flights.flatMap(flight => flight.playerIds),
+    ...(flights.length ? { flights } : {}),
     rounds: rounds.map(readRound),
     cut: 0,
     playoff3rd4th: childText(poddata, 'playoff3rd4th') === 'true',
@@ -366,10 +361,11 @@ export function parseTdf(source: string): Tournament {
   const playerElements = children(child(root, 'players'), 'player');
   const podElements = children(child(root, 'pods'), 'pod');
   const finals = child(root, 'finalsoptions');
+  const pods = podElements.map(readPod);
   let tournament: Tournament = {
     info: readInfo(data, attr(root, 'mode'), attr(root, 'type')),
     players: playerElements.map(readPlayer),
-    pods: applyCuts(podElements.map(readPod), finals),
+    pods: applyCuts(pods, finals),
     passthrough: {
       rootAttrs: root.attrs,
       extraData: extras(data, INFO_TAGS),
@@ -381,7 +377,7 @@ export function parseTdf(source: string): Tournament {
           { stage: attr(pod, 'stage'), extra: extras(child(pod, 'poddata'), PODDATA_TAGS) }
         ])
       ),
-      roundCodes: roundCodesOf(podElements),
+      roundCodes: roundCodesOf(podElements, pods),
       finalsOptions: finals ? serializeElement(finals) : ''
     }
   };
