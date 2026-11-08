@@ -42,9 +42,12 @@ export default defineConfig({
               // dropped player's return does, which only the Players tab asks.
               // The format picker too: it carries every past format's archetypes, for setup and settings alone.
               // And staff.ts, the words only the organizer's pages put to results, reports and an ending.
+              // Stores, the tab-to-tab change word, TOM's save beat and the live data status stay out as well:
+              // the shell uses none of them. The rest of the folder stays, as splitting it costs more in total
+              // than it saves up front.
               name: 'tournament',
               priority: 1,
-              test: /(?:src[\\/]components[\\/]|src[\\/]main\.tsx$|tournaments[\\/](Field|SettingControls|OptionsMenu|Modal|ConfirmAction)\.tsx$|shared[\\/]tournament[\\/](?!tdf\.|xml\.|eventTime\.|requests\.|returns\.)|src[\\/]lib[\\/]tournament[\\/](?!admin|applications|clerk|exportTdf|setupDraft|staff\.))/,
+              test: /(?:src[\\/]components[\\/]|src[\\/]main\.tsx$|tournaments[\\/](Field|SettingControls|OptionsMenu|Modal|ConfirmAction)\.tsx$|shared[\\/]tournament[\\/](?!tdf\.|xml\.|eventTime\.|requests\.|returns\.)|src[\\/]lib[\\/]tournament[\\/](?!admin|applications|clerk|exportTdf|setupDraft|staff\.|stores\.|changes\.|tomSaves\.|liveData\.))/,
               includeDependenciesRecursively: true
             },
             // The Swiss engine runs in the browser only for the /host home page's sample event. Its own
