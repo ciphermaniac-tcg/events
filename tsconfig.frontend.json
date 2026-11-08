@@ -22,6 +22,6 @@
     },
     "types": ["vite/client"]
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx", "shared/**/*.ts", "types/**/*.d.ts", "vite.config.ts"],
+  "include": ["src/**/*.ts", "src/**/*.tsx", "shared/**/*.ts", "types/**/*.d.ts", "vite.config.ts", "demo/**/*.ts"],
   "exclude": ["node_modules", "dist", "functions", "config", "archive"]
 }

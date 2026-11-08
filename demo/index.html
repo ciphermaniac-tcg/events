@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <!-- The page background in each mode (tokens.css), since the head sits on it. -->
+  <meta name="theme-color" content="#ececea" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#161615" media="(prefers-color-scheme: dark)">
+  <title>Ciphermaniac Events demo</title>
+  <meta name="robots" content="noindex">
+
+  <link rel="icon" type="image/svg+xml" href="/logo.svg">
+
+  <!-- Overlap TLS handshakes with JS download: report data comes from the R2
+       custom domain and archetype icons from r2.limitlesstcg.net. On a 150ms-RTT mobile
+       connection each cold handshake costs ~300-500ms if it waits for app boot.
+       R2 gets two preconnects on purpose: browsers keep separate connection
+       pools for CORS vs non-CORS requests to the same origin. The `crossorigin`
+       line warms the pool used by the JSON `fetch()`es; the bare line warms the
+       pool `<img>` card art loads on (no-CORS) — without it, the first card pays
+       a fresh DNS+TLS handshake the JSON preconnect never shared. -->
+  <link rel="preconnect" href="https://r2.ciphermaniac.com" crossorigin>
+  <link rel="preconnect" href="https://r2.ciphermaniac.com">
+  <link rel="preconnect" href="https://r2.limitlesstcg.net">
+
+  <!-- Inter is self-hosted (see src/styles/fonts.css): one variable file draws every
+       weight, so preloading it brings the headings and the body text together. -->
+  <link rel="preload" as="font" type="font/woff2" href="/fonts/inter-latin-var.woff2" crossorigin>
+</head>
+<body>
+  <!-- Theme before first paint. main.tsx sets the same attribute (lib/theme.ts),
+       but it is a module script, so it does not run until the document has been
+       parsed — long enough for someone who chose dark to be shown a white page
+       first. Stored choice only; the system preference is handled in CSS
+       (tokens.css) for exactly the same reason. -->
+  <script>
+    try {
+      var saved = localStorage.getItem('cm:mode');
+      if (saved === 'light' || saved === 'dark') { document.body.dataset.mode = saved; }
+    } catch (e) { /* storage unavailable: the CSS default stands */ }
+  </script>
+  <div id="root"></div>
+  <!-- Recovery: if the entry bundle fails to load (a cached shell pointing at
+       a hashed asset a deploy has since removed), reload once with a fresh
+       network fetch instead of leaving a blank page. Session-scoped
+       guard prevents a reload loop when the network is genuinely down.
+       Only this site's own modules count: Cloudflare injects its analytics
+       beacon as a module from another origin, which the security policy
+       blocks, and a reload for it cut the first page's session read short. -->
+  <script>
+    window.addEventListener('error', event => {
+      const el = event.target;
+      if (!(el instanceof HTMLScriptElement) || el.type !== 'module') { return; }
+      if (new URL(el.src, location.href).origin !== location.origin) { return; }
+      if (sessionStorage.getItem('cm-shell-recovered')) { return; }
+      sessionStorage.setItem('cm-shell-recovered', '1');
+      location.reload();
+    }, true);
+  </script>
+  <script type="module" src="/main.ts"></script>
+</body>
+</html>

@@ -15,6 +15,10 @@ const config: KnipConfig = {
     'scripts/*.{ts,mjs}!',
     '.github/scripts/*.{ts,mjs}!',
 
+    // The demo site's own build (demo/vite.config.ts and the page it serves).
+    'demo/main.ts!',
+    'demo/vite.config.ts',
+
     // Tests (so their imports count as "used")
     'tests/**/*.{test,spec}.{ts,js,mjs}',
 
@@ -33,6 +37,7 @@ const config: KnipConfig = {
     'src/**/*.{ts,tsx}!',
     'shared/**/*.ts!',
     'functions/**/*.{ts,js}!',
+    'demo/**/*.ts!',
     'scripts/*.{ts,mjs}!',
     'scripts/quality/*.{mjs,ts}',
     '.github/scripts/*.{ts,mjs}!',

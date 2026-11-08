@@ -28,7 +28,9 @@
     "playwright.config.ts",
     "knip.config.ts",
     "types/cloudflare-shim.d.ts",
-    "playwright.local.config.ts"
+    "playwright.local.config.ts",
+    "playwright.demo.config.ts",
+    "demo/vite.config.ts"
   ],
   "exclude": ["node_modules", "dist"]
 }
