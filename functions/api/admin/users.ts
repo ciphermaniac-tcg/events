@@ -3,7 +3,7 @@
  * name, username, email, POP ID and role, and when it was made.
  */
 
-import { readAccountRole } from '../../../shared/accounts/roles.js';
+import { foundAccount, type FoundAccountRow } from '../../lib/accounts/admin.js';
 import type { AdminUser } from '../../../shared/accounts/types.js';
 import { displayNameSql } from '../../lib/accounts/handles.js';
 import { openForAdmin } from '../../lib/auth/admin.js';
@@ -13,25 +13,11 @@ import { privateJson } from '../../lib/tournaments/access.js';
 /** More accounts than the list is any use past; a bound on the read. */
 const MAX_USERS = 1000;
 
-interface UserRow {
-  id: string;
-  name: string;
+interface UserRow extends FoundAccountRow {
   handle: string | null;
-  email: string | null;
-  pop_id: string | null;
-  role: string | null;
-  created_at: number;
 }
 
-const userOf = (row: UserRow): AdminUser => ({
-  id: row.id,
-  name: row.name,
-  handle: row.handle ?? '',
-  email: row.email,
-  popId: row.pop_id,
-  role: readAccountRole(row.role),
-  createdAt: row.created_at
-});
+const userOf = (row: UserRow): AdminUser => ({ ...foundAccount(row), handle: row.handle ?? '' });
 
 const QUERY =
   `SELECT id, ${displayNameSql('users')} AS name, handle, email, pop_id, role, created_at FROM users ` +

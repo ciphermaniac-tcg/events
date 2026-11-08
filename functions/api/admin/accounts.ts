@@ -4,8 +4,7 @@
  * Each is an index lookup. Answers { accounts }, empty when none match.
  */
 
-import { readAccountRole } from '../../../shared/accounts/roles.js';
-import type { FoundAccount } from '../../../shared/accounts/types.js';
+import { foundAccount, type FoundAccountRow } from '../../lib/accounts/admin.js';
 import { displayNameSql } from '../../lib/accounts/handles.js';
 import { jsonError } from '../../lib/api/responses.js';
 import { openForAdmin } from '../../lib/auth/admin.js';
@@ -14,24 +13,6 @@ import { privateJson } from '../../lib/tournaments/access.js';
 
 /** What may be looked up by, each the column an index keeps. */
 const COLUMNS = { popId: 'pop_id', email: 'email', id: 'id' } as const;
-
-interface FoundRow {
-  id: string;
-  name: string;
-  email: string | null;
-  pop_id: string | null;
-  role: string | null;
-  created_at: number;
-}
-
-const foundOf = (row: FoundRow): FoundAccount => ({
-  id: row.id,
-  name: row.name,
-  email: row.email,
-  popId: row.pop_id,
-  role: readAccountRole(row.role),
-  createdAt: row.created_at
-});
 
 /** The column and value the query looks up by; null when it names none. */
 function lookupOf(url: URL): { column: string; value: string } | null {
@@ -60,6 +41,6 @@ export async function onRequestGet(context: Context): Promise<Response> {
         `WHERE ${lookup.column} = ? LIMIT 20`
     )
     .bind(lookup.value)
-    .all<FoundRow>();
-  return privateJson({ accounts: results.map(foundOf) });
+    .all<FoundAccountRow>();
+  return privateJson({ accounts: results.map(foundAccount) });
 }
