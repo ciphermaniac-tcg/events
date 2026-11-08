@@ -24,6 +24,7 @@ import {
   tallySwiss
 } from '../../../shared/tournament/standings';
 import {
+  activeIds,
   attendees,
   cutPodOf,
   divisionBrackets,
@@ -206,11 +207,11 @@ export interface DivisionCut {
  * §5.2.1; every attendance table counts competitors per age division).
  */
 export function divisionCuts(tournament: Tournament, pod: Pod, divisionOf: (id: string) => Division): DivisionCut[] {
-  const dropped = new Set(tournament.players.filter(p => p.droppedAfter !== null).map(p => p.id));
+  const stillIn = activeIds(tournament, pod);
   const came = attendees(pod);
   return DIVISIONS.flatMap(division => {
     const ids = pod.playerIds.filter(id => divisionOf(id) === division);
-    const active = ids.filter(id => !dropped.has(id)).length;
+    const active = stillIn.filter(id => divisionOf(id) === division).length;
     const attendance = came.filter(id => divisionOf(id) === division).length;
     const cut = plannedCut(attendance, active, eventTypeOf(tournament));
     const started = cutPodOf(tournament, pod, division) !== undefined;
@@ -620,8 +621,7 @@ export function unseated(tournament: Tournament, pod: Pod): string[] {
     return [];
   }
   const seated = new Set(round.matches.filter(m => m.outcome !== 'loss').flatMap(matchSeats));
-  const dropped = new Set(tournament.players.filter(p => p.droppedAfter !== null).map(p => p.id));
-  return pod.playerIds.filter(id => !seated.has(id) && !dropped.has(id));
+  return activeIds(tournament, pod).filter(id => !seated.has(id));
 }
 
 /** The archetypes to draw beside names: none when the event has them off. */
