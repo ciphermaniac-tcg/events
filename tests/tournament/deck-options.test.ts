@@ -19,12 +19,10 @@ test('Standard offers the online meta, scaled to percent, then every other deck 
       : new Response('not found', { status: 404 });
   }) as typeof fetch;
   const { decksFor } = await import('../../src/pages/tournaments/deckOptions.ts');
-  const { fetchFormatArchetypes } = await import('../../src/lib/data/formats.ts');
 
   const decks = await decksFor('Standard');
   assert.deepEqual(decks.slice(0, 2), [
     { label: 'Dragapult ex', icons: ['dragapult'], percent: 20, played: true },
     { label: 'Gardevoir ex' }
   ]);
-  assert.deepEqual(await fetchFormatArchetypes('standard'), [{ ...ONLINE[0], percent: 20 }]);
 });

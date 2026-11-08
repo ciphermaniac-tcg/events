@@ -1,6 +1,5 @@
 /** Format metadata loaded on demand from R2 for the Tier List Maker. */
 
-import { fetchArchetypes } from './archetypes';
 import { createSignal } from 'solid-js';
 import { dataClient } from './client';
 import type { ArchetypeIndexEntry } from '../../types';
@@ -45,8 +44,7 @@ interface SnapshotFormat {
 const FROZEN_RETRO_FORMATS = frozenRetroSnapshot.formats as SnapshotFormat[];
 
 /**
- * Standard's id. It is the default and the only format not in the snapshot,
- * so both halves of the module special-case it.
+ * Standard's id. It is the default and the only format not in the snapshot.
  */
 export const STANDARD_FORMAT_ID = 'standard';
 
@@ -148,19 +146,13 @@ export function tierFormat(id: string | undefined): TierFormat {
 }
 
 /**
- * A format's archetypes, in descending play order.
- *
- * Async for both sources so the caller does not have to know which one it got.
+ * A snapshot format's archetypes, in descending play order.
  * The snapshot's entries fill in the index shape's required fields rather than
  * inventing data: its cards are the ones the format's own decklists were built
  * around, but no report stands behind them, so the deck count stays null.
  */
 export async function fetchFormatArchetypes(id: string): Promise<ArchetypeIndexEntry[]> {
-  const format = tierFormat(id);
-  if (format.id === STANDARD_FORMAT_ID) {
-    return fetchArchetypes();
-  }
-  return (scraped().find(entry => entry.id === format.id)?.archetypes ?? []).map(archetype => ({
+  return (scraped().find(entry => entry.id === id)?.archetypes ?? []).map(archetype => ({
     name: archetype.name,
     label: archetype.name,
     deckCount: null,
