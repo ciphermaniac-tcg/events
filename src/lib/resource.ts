@@ -35,13 +35,6 @@ export function resolved<T>(r: Resource<T>): T | undefined {
  * switcher, filters): the old table updating in place beats a skeleton flash.
  */
 export function latestValue<T>(r: Resource<T>): T | undefined {
-  if (r.state === 'ready') {
-    return r();
-  }
-  if (r.state === 'refreshing') {
-    // `.latest` is documented not to trigger Suspense/transitions once a
-    // value exists — which it does in the refreshing state.
-    return r.latest;
-  }
-  return undefined;
+  // `.latest` keeps resolved reads non-suspending, including during refresh.
+  return r.state === 'refreshing' ? r.latest : resolved(r);
 }
