@@ -11,20 +11,21 @@ import type { Database } from 'sql.js';
 import type { TournamentEnv } from '../../functions/lib/auth/env';
 import { sha256 } from '../../functions/lib/auth/session';
 import { SESSION_COOKIE } from '../../functions/lib/auth/cookies';
-import { SAMPLE_PLAYERS } from '../../src/lib/tournament/sampleEvent';
 import { setCookie } from './cookies';
-import { DEMO_LISTS } from './decklists';
+import { DEMO_ENTRANTS, DEMO_LISTS } from './decklists';
 
 type Answer = (request: Request, env: TournamentEnv) => Promise<Response>;
 
 const ORGANIZER = 'demo-organizer';
 const STORE = 'demo-store';
 const DAY = 24 * 60 * 60 * 1000;
+/** The players' Play! Pokémon IDs run up from here, seven digits each. */
+const FIRST_ID = 1000000;
 
 function account(db: Database, tokenHash: string, now: number): void {
   db.run(
     'INSERT INTO users (id, email, pop_id, first_name, last_name, birth_date, created_at, handle, age_checked_at) ' +
-      "VALUES (?, 'demo@example.com', '1000001', 'Demo', 'Organizer', '01/01/1990', ?, 'demo', ?)",
+      "VALUES (?, 'demo@example.com', '9000001', 'Demo', 'Organizer', '01/01/1990', ?, 'demo', ?)",
     [ORGANIZER, now, now]
   );
   db.run(
@@ -115,32 +116,37 @@ export async function seed(env: TournamentEnv, db: Database, answer: Answer): Pr
     store: STORE
   });
   const code = created.code as string;
-  for (const [i, name] of SAMPLE_PLAYERS.entries()) {
-    const [firstName = '', lastName = ''] = name.split(' ');
+  const players = DEMO_ENTRANTS.map((entrant, i) => {
+    const [firstName = '', lastName = ''] = entrant.name.split(' ');
+    return {
+      firstName,
+      lastName,
+      id: String(FIRST_ID + i),
+      birthDate: `06/15/${entrant.birthYear}`,
+      list: DEMO_LISTS[entrant.list]
+    };
+  });
+  for (const { firstName, lastName, id, birthDate } of players) {
     await send(answer, env, `/api/tournaments/${code}/commands`, {
-      command: {
-        type: 'addPlayer',
-        player: { firstName, lastName, id: String(2000001 + i), birthDate: '06/15/1995' }
-      },
+      command: { type: 'addPlayer', player: { firstName, lastName, id, birthDate } },
       localTime: localTime(new Date())
     });
   }
-  // Lists open, and every player's in: one of the real lists each.
+  // Lists open, and every player's in, each named as Limitless names it.
   await send(answer, env, `/api/tournaments/${code}/settings`, { decklists: 'open', deckVisibility: 'after' }, 'PUT');
-  for (const [i, name] of SAMPLE_PLAYERS.entries()) {
-    const [firstName = '', lastName = ''] = name.split(' ');
-    const list = DEMO_LISTS[i % DEMO_LISTS.length];
+  for (const { firstName, lastName, id, birthDate, list } of players) {
     await send(
       answer,
       env,
       `/api/tournaments/${code}/decklists`,
       {
-        profile: { popId: String(2000001 + i), firstName, lastName, birthDate: '06/15/1995' },
+        profile: { popId: id, firstName, lastName, birthDate },
         mode: 'digital',
         deck: list?.text ?? '',
         localTime: localTime(new Date())
       },
       'PUT'
     );
+    db.run('UPDATE decklists SET archetype = ? WHERE code = ? AND pop_id = ?', [list?.archetype ?? null, code, id]);
   }
 }

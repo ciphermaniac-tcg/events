@@ -42,11 +42,13 @@ test('opens signed in on the sample event, and pairs a round for real @mobile', 
   expect(out).toEqual([]);
 });
 
-test('every player handed in a real list', async ({ page }) => {
+test('every player handed in a real list, named by its archetype', async ({ page }) => {
   await watched(page);
   await openConsole(page);
   await page.getByRole('tab', { name: 'Decklists' }).click();
   await expect(page.getByText('16 lists')).toBeVisible();
+  await expect(page.getByText('Archaludon Zoroark').first()).toBeVisible();
+  await expect(page.getByText(/unclassified/i)).toHaveCount(0);
 });
 
 test('what you do stays across a reload, and Reset starts over', async ({ page }) => {

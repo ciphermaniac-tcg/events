@@ -18,7 +18,7 @@ import { demoBucket } from '../../demo/server/bucket.ts';
 import { browserD1 } from '../../demo/server/d1.ts';
 import { cookieHeader, setCookie } from '../../demo/server/cookies.ts';
 import { type FunctionModule, routerFor } from '../../demo/server/routes.ts';
-import { DEMO_LISTS } from '../../demo/server/decklists.ts';
+import { DEMO_ENTRANTS, DEMO_LISTS } from '../../demo/server/decklists.ts';
 import { parseDecklist } from '../../shared/tournament/decklist.ts';
 
 const ORIGIN = 'https://demo.test';
@@ -166,11 +166,18 @@ test('the demo’s own cookies go out with every request', () => {
 });
 
 test('every demo list is a legal-sized list the site reads in full', () => {
-  assert.equal(DEMO_LISTS.length, 16);
-  for (const list of DEMO_LISTS) {
+  for (const list of Object.values(DEMO_LISTS)) {
     const parsed = parseDecklist(list.text);
     assert.equal(parsed.total, 60, list.archetype);
     assert.deepEqual(parsed.unread, [], list.archetype);
     assert.deepEqual(parsed.problems, [], list.archetype);
+  }
+});
+
+test('every demo player has a list and a year of birth', () => {
+  assert.equal(DEMO_ENTRANTS.length, 16);
+  for (const entrant of DEMO_ENTRANTS) {
+    assert.ok(DEMO_LISTS[entrant.list], entrant.name);
+    assert.ok(entrant.birthYear > 1900 && entrant.birthYear < 2026, entrant.name);
   }
 });
