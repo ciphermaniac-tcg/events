@@ -14,6 +14,7 @@ import type { StoreInvite, StoreMember } from '../../../shared/accounts/types';
 import { errorText } from '../../lib/tournament/api';
 import { t } from '../../lib/i18n';
 import { dayOf } from '../../lib/tournament/applications';
+import { createCopied } from './copied';
 import {
   createInvite,
   fetchPeople,
@@ -40,12 +41,7 @@ const inviteLabel = (role: GivenRole) => (role === 'manager' ? t('Manager invite
  * one just made also shows its address, the only time it can, with Copy.
  */
 function InviteRow(props: { invite: StoreInvite; link: string | null; busy: boolean; onWithdraw: () => void }) {
-  const [copied, setCopied] = createSignal(false);
-  async function copy(link: string) {
-    await navigator.clipboard.writeText(link);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
-  }
+  const { copied, copy } = createCopied();
   return (
     <div class='tm-box-bar tm-store-invite'>
       <span class='tm-store-invite-what'>

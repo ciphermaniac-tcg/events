@@ -6,7 +6,7 @@
  * nothing.
  */
 
-import { createEffect, createMemo, createSignal, For, on, onCleanup, Show } from 'solid-js';
+import { createEffect, createMemo, createSignal, For, on, Show } from 'solid-js';
 import { Segmented } from '@ciphermaniac/design/components/Segmented';
 import { Skeleton } from '@ciphermaniac/design/components/Skeleton';
 import { type DeckCard, parseDecklist } from '../../../shared/tournament/decklist';
@@ -14,6 +14,7 @@ import type { OpenList as List } from '../../../shared/tournament/view';
 import { artCrop, cardArt } from '../../lib/cardArt';
 import { msg, t, tn } from '../../lib/i18n';
 import { fetchOpenList } from '../../lib/tournament/api';
+import { createCopied } from './copied';
 import { RetryError } from './Field';
 
 type View = 'cards' | 'list';
@@ -77,27 +78,13 @@ function ReadList(props: { code: string; player: string }) {
 function Deck(props: { deck: string }) {
   const parsed = createMemo(() => parseDecklist(props.deck));
   const [view, setView] = createSignal<View>('cards');
-  const [copied, setCopied] = createSignal(false);
+  const { copied, copy } = createCopied();
   const [peek, setPeek] = createSignal<{ card: DeckCard; from: HTMLElement } | null>(null);
   const totals = () =>
     SECTIONS.map(s => ({
       ...s,
       cards: parsed().cards.filter(card => card.section === s.section)
     })).filter(s => s.cards.length > 0);
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  onCleanup(() => clearTimeout(timer));
-  async function copy() {
-    // A browser that refuses the clipboard leaves the button as it was.
-    const done = await navigator.clipboard.writeText(props.deck).then(
-      () => true,
-      () => false
-    );
-    if (done) {
-      setCopied(true);
-      clearTimeout(timer);
-      timer = setTimeout(() => setCopied(false), 1500);
-    }
-  }
   const open = (card: DeckCard) => (event: MouseEvent) => setPeek({ card, from: event.currentTarget as HTMLElement });
   return (
     <section class='tm-open-list'>
@@ -111,7 +98,7 @@ function Deck(props: { deck: string }) {
           onSelect={setView}
           ariaLabel={t('Decklist')}
         />
-        <button type='button' class='btn btn-ghost' onClick={() => void copy()}>
+        <button type='button' class='btn btn-ghost' onClick={() => void copy(props.deck)}>
           {copied() ? t('Copied') : t('Copy list')}
         </button>
       </div>

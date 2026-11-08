@@ -31,6 +31,7 @@ import {
   type SignInOffer
 } from '../../lib/tournament/api';
 import { applicantStage, fetchApplication } from '../../lib/tournament/applications';
+import { createCopied } from './copied';
 import { latestValue } from '../../lib/resource';
 import { ApplicantStatus } from './ApplicantStatus';
 import { OrganizerRoles } from './OrganizerRoles';
@@ -342,17 +343,12 @@ const profileUrl = (handle: string) => `${location.origin}/u/${handle}`;
  */
 function HistorySection(props: { user: Me }) {
   const action = createAction();
-  const [copied, setCopied] = createSignal(false);
+  const { copied, copy } = createCopied();
   async function change(field: 'publicProfile' | 'profileName', ask: () => Promise<{ user: Me }>) {
     const answer = await action.run(ask);
     if (answer) {
       mergeUser(answer.user, field);
     }
-  }
-  async function copy() {
-    await navigator.clipboard.writeText(profileUrl(props.user.handle));
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
   }
   return (
     <section>
@@ -394,7 +390,7 @@ function HistorySection(props: { user: Me }) {
               <A class='tm-link-inline' href={`/u/${props.user.handle}`}>
                 {profileUrl(props.user.handle).replace(/^https?:\/\//, '')}
               </A>
-              <button type='button' class='btn btn-secondary' onClick={() => void copy()}>
+              <button type='button' class='btn btn-secondary' onClick={() => void copy(profileUrl(props.user.handle))}>
                 {copied() ? t('Copied') : t('Copy')}
               </button>
             </span>
