@@ -48,9 +48,15 @@ body.tm-home-mode {
   --home-divide: #3a3a35;
   --home-prose: #d9d6cb;
 }
-/* The band runs into the footer, which keeps the page's own dark. */
+/* The band runs into the footer, which keeps the page's own dark, and out to
+   the window's edges: the page lets it past its column, and the body clips
+   what overflows sideways instead (main.page's clip, global.css). */
+body.tm-home-mode {
+  overflow-x: clip;
+}
 body.tm-home-mode main.page {
   padding-bottom: 0;
+  overflow-x: visible;
 }
 
 .tm-home-door h1,

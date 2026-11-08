@@ -158,3 +158,14 @@ test('on a phone the doors stack, the big screen steps aside and nothing scrolls
   expect(second.y).toBeGreaterThanOrEqual(first.y + first.height - 1);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
+
+test('the raised band runs to the window’s edges', async ({ page }) => {
+  await signedOut(page);
+  const band = (await page.locator('.tm-home-band').boundingBox())!;
+  // One pixel at the window's left edge, inside the band's height: the band's fill, not the page's.
+  const shot = await page.screenshot({ clip: { x: 0, y: band.y + 20, width: 1, height: 1 } });
+  const raised = await page.screenshot({
+    clip: { x: band.x + band.width / 2, y: band.y + 4, width: 1, height: 1 }
+  });
+  expect(shot.equals(raised)).toBe(true);
+});
