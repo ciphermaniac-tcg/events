@@ -33,23 +33,20 @@ import type { Manage } from '../../lib/tournament/api';
 import {
   type Champion,
   champions,
-  changeQuestion,
   filterMatches,
   hasCut,
   type MatchView,
   matchViews,
   namesById,
-  outcomeLabel,
-  outcomeNoun,
   recordsBefore,
   RESULT_WORDS,
   roundLabel,
   shownDecks,
   shownOutcome,
-  staffReport,
   STATUS_LABELS,
   unseated
 } from '../../lib/tournament/present';
+import { changeQuestion, outcomeLabel, outcomeNoun, staffReport } from '../../lib/tournament/staff';
 import type { ManageState } from './manageState';
 import { OptionsMenu } from './OptionsMenu';
 import { ExtensionClock } from './ExtensionClock';

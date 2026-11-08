@@ -13,7 +13,8 @@
 import { createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import type { Match, Outcome, Round } from '../../../shared/tournament/types';
 import { msg, t } from '../../lib/i18n';
-import { changeQuestion, RESULT_WORDS } from '../../lib/tournament/present';
+import { RESULT_WORDS } from '../../lib/tournament/present';
+import { changeQuestion } from '../../lib/tournament/staff';
 import { DeckIcons } from './DeckIcons';
 import { OptionsMenu } from './OptionsMenu';
 import { ExtensionClock } from './ExtensionClock';

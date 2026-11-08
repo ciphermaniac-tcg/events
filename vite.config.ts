@@ -41,9 +41,10 @@ export default defineConfig({
               // players' requests, which only the event page and the Players tab show, setup's drafts, and what a
               // dropped player's return does, which only the Players tab asks.
               // The format picker too: it carries every past format's archetypes, for setup and settings alone.
+              // And staff.ts, the words only the organizer's pages put to results, reports and an ending.
               name: 'tournament',
               priority: 1,
-              test: /(?:src[\\/]components[\\/]|src[\\/]main\.tsx$|tournaments[\\/](Field|SettingControls|OptionsMenu|Modal|ConfirmAction)\.tsx$|shared[\\/]tournament[\\/](?!tdf\.|xml\.|eventTime\.|requests\.|returns\.)|src[\\/]lib[\\/]tournament[\\/](?!admin|applications|clerk|exportTdf|setupDraft))/,
+              test: /(?:src[\\/]components[\\/]|src[\\/]main\.tsx$|tournaments[\\/](Field|SettingControls|OptionsMenu|Modal|ConfirmAction)\.tsx$|shared[\\/]tournament[\\/](?!tdf\.|xml\.|eventTime\.|requests\.|returns\.)|src[\\/]lib[\\/]tournament[\\/](?!admin|applications|clerk|exportTdf|setupDraft|staff\.))/,
               includeDependenciesRecursively: true
             },
             // The Swiss engine runs in the browser only for the /host home page's sample event. Its own

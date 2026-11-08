@@ -14,7 +14,8 @@
 import { createMemo, Index, type JSX, Show } from 'solid-js';
 import { percentLabel, recordLabel, type Standing } from '../../../shared/tournament/standings';
 import type { Division, Pod, Tournament } from '../../../shared/tournament/types';
-import { cutSplit, divisionHeading, podStandings } from '../../lib/tournament/present';
+import { divisionHeading, podStandings } from '../../lib/tournament/present';
+import { cutSplit } from '../../lib/tournament/staff';
 import { DeckIcons } from './DeckIcons';
 import { Icon } from '@ciphermaniac/design/components/Icon';
 import { t } from '../../lib/i18n';

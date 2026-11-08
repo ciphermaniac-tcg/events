@@ -23,20 +23,15 @@ import { tdfFilename, tdfText } from '../../src/lib/tournament/exportTdf.ts';
 import { ordinal } from '../../src/lib/format.ts';
 import {
   champion,
-  changeQuestion,
   currentMatchOf,
-  cutSplit,
   deckBreakdown,
   divisionCuts,
   divisionHeading,
-  endGaps,
   eventStatus,
   filterMatches,
   matchHistory,
   namesById,
   nextStep,
-  outcomeLabel,
-  outcomeNoun,
   plannedRounds,
   podLabel,
   podProgress,
@@ -52,10 +47,17 @@ import {
   seatOf,
   shownDecks,
   shownOutcome,
-  staffReport,
   statusParts,
   unseated
 } from '../../src/lib/tournament/present.ts';
+import {
+  changeQuestion,
+  cutSplit,
+  endGaps,
+  outcomeLabel,
+  outcomeNoun,
+  staffReport
+} from '../../src/lib/tournament/staff.ts';
 import { commandRunner, freshContext, pendingResults } from '../__utils__/commands.ts';
 
 const CHALLENGE = parseTdf(readFileSync(new URL('../fixtures/tdf/challenge-midevent.tdf', import.meta.url), 'utf8'));
