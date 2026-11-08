@@ -109,12 +109,23 @@ export interface Session {
 /** What the sign-in box needs of the session: the ways in, and Clerk's key when username sign-in is one. */
 export type SignInOffer = Pick<Session, 'providers' | 'clerkKey'>;
 
-/** Who a list belongs to, as a query string: the Player ID, or the name at an unsanctioned event. */
-function listOwner(profile: Pick<PlayerProfile, 'popId' | 'firstName' | 'lastName'>, token?: string): string {
+type ListOwner = Pick<PlayerProfile, 'popId' | 'firstName' | 'lastName'>;
+
+/** What proves a list is the asker's: the device's token, or a sanctioned event's birth year. */
+interface ListProof {
+  token?: string;
+  birthYear?: string;
+}
+
+/** Who a list belongs to, as a query string: the Player ID, or the name at an unsanctioned event; then its proof. */
+function listOwner(profile: ListOwner, proof: ListProof = {}): string {
   // All three go: the server reads the Player ID at a sanctioned event and the name at any other.
   const query = new URLSearchParams({ popId: profile.popId, firstName: profile.firstName, lastName: profile.lastName });
-  if (token) {
-    query.set('token', token);
+  if (proof.token) {
+    query.set('token', proof.token);
+  }
+  if (proof.birthYear) {
+    query.set('birthYear', proof.birthYear);
   }
   return query.toString();
 }
@@ -468,17 +479,8 @@ export const fetchDecklists = (code: string) =>
  * the device sent; with a sanctioned event's birth year, whose registration
  * the Player ID is. A wrong year counts against the Player ID.
  */
-export const lookUpRegistration = (
-  code: string,
-  owner: Pick<PlayerProfile, 'popId' | 'firstName' | 'lastName'>,
-  proof: { token?: string; birthYear?: string } = {}
-) => {
-  const query = new URLSearchParams(listOwner(owner, proof.token));
-  if (proof.birthYear) {
-    query.set('birthYear', proof.birthYear);
-  }
-  return call<MyRegistration>(`${base(code)}/decklists?${query.toString()}`);
-};
+export const lookUpRegistration = (code: string, owner: ListOwner, proof: ListProof = {}) =>
+  call<MyRegistration>(`${base(code)}/decklists?${listOwner(owner, proof)}`);
 
 /** Registers or changes a registration; `was` renames an unsanctioned one from the names it had. */
 export const submitRegistration = (
@@ -497,17 +499,8 @@ export const submitRegistration = (
   );
 
 /** Withdraws a registration: by its birth year at a sanctioned event, by the device's token at another. */
-export const withdrawRegistration = (
-  code: string,
-  owner: Pick<PlayerProfile, 'popId' | 'firstName' | 'lastName'>,
-  proof: { token?: string; birthYear?: string }
-) => {
-  const query = new URLSearchParams(listOwner(owner, proof.token));
-  if (proof.birthYear) {
-    query.set('birthYear', proof.birthYear);
-  }
-  return call<null>(`${base(code)}/decklists?${query.toString()}`, { method: 'DELETE' });
-};
+export const withdrawRegistration = (code: string, owner: ListOwner, proof: ListProof) =>
+  call<null>(`${base(code)}/decklists?${listOwner(owner, proof)}`, { method: 'DELETE' });
 
 /** Staff tick or clear one check for a player before round 1 (see shared/tournament/checkins.ts). */
 export const saveCheckIn = (code: string, check: { playerId: string; mark: CheckMark; on: boolean }) =>
@@ -575,5 +568,5 @@ export const nameHeadJudge = (code: string, userId: string | null) =>
   call<HeadJudgeChoice>(`${base(code)}/head-judge`, json('PUT', { userId }));
 
 /** Staff unlock a list, so the player can send it again from another device. */
-export const unlockDecklist = (code: string, owner: Pick<PlayerProfile, 'popId' | 'firstName' | 'lastName'>) =>
+export const unlockDecklist = (code: string, owner: ListOwner) =>
   call<null>(`${base(code)}/decklists?${listOwner(owner)}`, { method: 'PATCH' });
