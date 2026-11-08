@@ -82,10 +82,10 @@ export const setMemberRole = (id: string, user: string, role: StoreRole) =>
   call<People>(`${storePath(id)}/members`, json('PATCH', { user, role }));
 
 export const removeMember = (id: string, user: string) =>
-  call<null>(`${storePath(id)}/members?${new URLSearchParams({ user }).toString()}`, { method: 'DELETE' });
+  call<null>(`${storePath(id)}/members?${new URLSearchParams({ user })}`, { method: 'DELETE' });
 
 export const withdrawInvite = (id: string, invite: string) =>
-  call<null>(`${storePath(id)}/members?${new URLSearchParams({ invite }).toString()}`, { method: 'DELETE' });
+  call<null>(`${storePath(id)}/members?${new URLSearchParams({ invite })}`, { method: 'DELETE' });
 
 /** The signed-in account joins the store an invite link was made for. */
 export const joinStore = (token: string) => call<{ storeId: string }>('/api/stores/join', json('POST', { token }));
@@ -95,7 +95,7 @@ export const fetchListings = (id: string) => call<{ listings: Listing[] }>(`${st
 
 /** The link a new store member opens: it signs them in if needed, then joins them. */
 export const inviteLink = (origin: string, token: string) =>
-  `${origin}/stores/join?${new URLSearchParams({ invite: token }).toString()}`;
+  `${origin}/stores/join?${new URLSearchParams({ invite: token })}`;
 
 /** Role names for display; pass them through `t` where they show. */
 export const STORE_ROLE_WORDS: Record<StoreRole, string> = {
