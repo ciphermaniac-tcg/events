@@ -2376,7 +2376,7 @@ test('a sole division whose clock is paused says so under the clock', async ({ p
 test('an open list leads the player sheet as cards, as rows, and one card large @mobile', async ({ page }) => {
   const view = {
     ...VIEW,
-    settings: { ...VIEW.settings, decklists: 'closed', openLists: true }
+    settings: { ...VIEW.settings, decklists: 'open' }
   } satisfies TournamentView;
   await mockApi(page, view);
   const hedy = keys[tdf.players.find(p => p.lastName === 'Lamarr')!.id]!;
@@ -2449,7 +2449,7 @@ test('an open list leads the player sheet as cards, as rows, and one card large 
 
 test('on a phone held sideways one card large shows whole, with its name and Close', async ({ page }) => {
   await page.setViewportSize({ width: 844, height: 390 });
-  await mockApi(page, { ...VIEW, settings: { ...VIEW.settings, decklists: 'closed', openLists: true } });
+  await mockApi(page, { ...VIEW, settings: { ...VIEW.settings, decklists: 'open' } });
   await page.route(`**/api/tournaments/${CODE}/lists?*`, route =>
     route.fulfill({ json: { list: { mode: 'digital', deck: 'Trainer: 4\n4 Arven SVI 166' } } })
   );
@@ -2472,7 +2472,7 @@ test('on a phone held sideways one card large shows whole, with its name and Clo
 });
 
 test('a name that opens a pasted list is marked, and a paper one is not', async ({ page }) => {
-  await mockApi(page, { ...VIEW, settings: { ...VIEW.settings, decklists: 'closed', openLists: true } });
+  await mockApi(page, { ...VIEW, settings: { ...VIEW.settings, decklists: 'open' } });
   const hedy = tdf.players.find(p => p.lastName === 'Lamarr')!;
   const other = tdf.players.find(p => p !== hedy)!;
   await page.route(`**/api/tournaments/${CODE}/lists`, route => route.fulfill({ json: { players: [keys[hedy.id]] } }));
@@ -2491,7 +2491,7 @@ test('a paper list says so, and an event whose lists are closed asks for none', 
   let asked = 0;
   const open = {
     ...VIEW,
-    settings: { ...VIEW.settings, decklists: 'closed', openLists: true }
+    settings: { ...VIEW.settings, decklists: 'open' }
   } satisfies TournamentView;
   await mockApi(page, open);
   await page.route(`**/api/tournaments/${CODE}/lists?*`, route => {
@@ -2524,29 +2524,8 @@ test('a paper list says so, and an event whose lists are closed asks for none', 
   expect(asked).toBe(1);
 });
 
-test('before round 1 an open list says when it will show, and asks for nothing', async ({ page }) => {
-  const unpaired = { ...VIEW.tournament, pods: VIEW.tournament.pods.map(pod => ({ ...pod, rounds: [] })) };
-  await mockApi(page, {
-    ...VIEW,
-    tournament: unpaired,
-    settings: { ...VIEW.settings, decklists: 'closed', openLists: true }
-  });
-  let asked = 0;
-  await page.route(`**/api/tournaments/${CODE}/lists?*`, route => {
-    asked += 1;
-    return route.abort();
-  });
-  await page.goto(`/t/${CODE}`);
-  await page
-    .locator('.tm-registered')
-    .getByRole('button', { name: /Hedy Lamarr/ })
-    .click();
-  await expect(page.getByRole('dialog')).toContainText('Lists show here once round 1 is paired.');
-  expect(asked).toBe(0);
-});
-
 test('a list that fails to load can be asked for again', async ({ page }) => {
-  await mockApi(page, { ...VIEW, settings: { ...VIEW.settings, decklists: 'closed', openLists: true } });
+  await mockApi(page, { ...VIEW, settings: { ...VIEW.settings, decklists: 'open' } });
   let asked = 0;
   await page.route(`**/api/tournaments/${CODE}/lists?*`, route => {
     asked += 1;

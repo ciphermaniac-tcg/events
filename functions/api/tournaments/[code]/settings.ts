@@ -30,9 +30,6 @@ import { msg, msgf } from '../../../../shared/i18n.js';
 const SOONER = msg('Only the organizer can show decks sooner');
 const OPENS = msg('Only the organizer can open the lists');
 
-/** Whether lists the settings take are open to everyone. Taking no lists closes them, whatever the switch says. */
-const listsOpen = (settings: TournamentSettings) => settings.openLists && settings.decklists !== 'off';
-
 /** Why the settings reveal more than the row does, which only the organizer may; null when they don't, or the asker is the organizer. */
 function revealRefusal(role: Role | null, row: TournamentRow, next: TournamentSettings): string | null {
   if (role === 'owner') {
@@ -41,8 +38,8 @@ function revealRefusal(role: Role | null, row: TournamentRow, next: TournamentSe
   if (showsDecksSooner(next.deckVisibility, row.settings.deckVisibility)) {
     return SOONER;
   }
-  // Turning decklists back on reopens lists the switch left open, so that counts as opening them too.
-  return listsOpen(next) && !listsOpen(row.settings) ? OPENS : null;
+  // Open decklists are shown to everyone once round 1 is paired, so opening them is the organizer's call.
+  return next.decklists === 'open' && row.settings.decklists !== 'open' ? OPENS : null;
 }
 
 /**

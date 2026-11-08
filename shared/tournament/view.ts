@@ -48,16 +48,15 @@ export type DeckVisibility = 'always' | 'after' | 'off';
 
 /**
  * Whether the event takes decklists: 'off' leaves them out altogether (no
- * form for players, no tab for staff); 'open' and 'closed' say whether
- * players can send one now.
+ * form for players, no tab for staff). 'open' takes them until round 1 is
+ * paired and then shows them to anyone on the event's page (see
+ * listsPublic); 'closed' takes none and keeps them to staff and their owners.
  */
 export type DecklistMode = 'off' | 'open' | 'closed';
 
 export interface TournamentSettings {
   display: DisplaySelection | null;
   decklists: DecklistMode;
-  /** Whether anyone on the event's page may read each player's list once round 1 is paired (see listsPublic). */
-  openLists: boolean;
   deckVisibility: DeckVisibility;
   /** The organizer's own notes for players: prizes, schedule, what to bring. */
   details: string;
@@ -104,7 +103,6 @@ export interface TournamentSettings {
 export const DEFAULT_SETTINGS: TournamentSettings = {
   display: null,
   decklists: 'off',
-  openLists: false,
   deckVisibility: 'off',
   details: '',
   format: 'Standard',
@@ -148,7 +146,6 @@ const SETTING_CHECKS: { [K in keyof TournamentSettings]: SettingCheck } = {
   // Never the client's to write: /display copies the picked preset from the event's own store.
   display: () => false,
   decklists: value => DECKLIST_MODES.includes(value as DecklistMode),
-  openLists: value => typeof value === 'boolean',
   roundCap: value =>
     typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= SETTINGS_LIMITS.roundCap,
   entryFee: value =>
@@ -192,7 +189,9 @@ export function readSettings(body: unknown, current: TournamentSettings): Tourna
     return null;
   }
   const next: Record<string, unknown> = { ...current };
-  for (const [key, value] of Object.entries(withoutLegacy(body))) {
+  // A console loaded while sharing lists was a switch of its own still sends it; Decklists decides that now.
+  const { openLists: _shared, ...change } = withoutLegacy(body);
+  for (const [key, value] of Object.entries(change)) {
     const check = Object.hasOwn(SETTING_CHECKS, key) ? SETTING_CHECKS[key as keyof TournamentSettings] : undefined;
     if (!check?.(value)) {
       return null;
@@ -237,10 +236,16 @@ export function sanctionedSettingsError(
 /**
  * Settings as stored, laid over the defaults. Events stored before decklists
  * could be turned off kept an open or closed switch; they keep the tab.
+ * Events stored while sharing lists was a switch of its own (`openLists`)
+ * keep showing what they showed once their lists locked: shared lists read
+ * as Open, the rest as Closed. One not `started` takes the choice it has.
  */
-export function storedSettings(stored: Record<string, unknown>): TournamentSettings {
-  const { decklistsOpen: _old, ...current } = withoutLegacy(stored);
-  return { ...DEFAULT_SETTINGS, ...(current as Partial<TournamentSettings>) };
+export function storedSettings(stored: Record<string, unknown>, started: boolean): TournamentSettings {
+  const { decklistsOpen: _old, openLists, ...current } = withoutLegacy(stored);
+  const settings = { ...DEFAULT_SETTINGS, ...(current as Partial<TournamentSettings>) };
+  return typeof openLists === 'boolean' && started && settings.decklists !== 'off'
+    ? { ...settings, decklists: openLists ? 'open' : 'closed' }
+    : settings;
 }
 
 /**
@@ -262,15 +267,15 @@ export function decklistsOpen(event: {
 }
 
 /**
- * Whether anyone may read the event's lists now: the organizer opened them,
- * and round 1 is paired, so the lists are locked and nobody builds against
- * one they saw.
+ * Whether anyone may read the event's lists now: decklists are open, and
+ * round 1 is paired, so the lists are locked and nobody builds against one
+ * they saw.
  */
 export function listsPublic(event: {
-  settings: Pick<TournamentSettings, 'decklists' | 'openLists'>;
+  settings: Pick<TournamentSettings, 'decklists'>;
   tournament: Tournament;
 }): boolean {
-  return event.settings.openLists && event.settings.decklists !== 'off' && decklistsLocked(event);
+  return event.settings.decklists === 'open' && decklistsLocked(event);
 }
 
 /** Whether players are known by Player ID and birth year: a TOM event always is. */

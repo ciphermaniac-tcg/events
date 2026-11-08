@@ -11,7 +11,7 @@ import { ADULT_AGE, mayBeMinor } from '../../../shared/accounts/age.js';
 import { birthYear } from '../../../shared/tournament/divisions.js';
 import { managesStore, storeRoleOf } from '../../../shared/accounts/stores.js';
 import { DAY_MS, eventDay } from '../../../shared/tournament/limits.js';
-import { type MatchKey, normalizeCutPods } from '../../../shared/tournament/rounds.js';
+import { hasStarted, type MatchKey, normalizeCutPods } from '../../../shared/tournament/rounds.js';
 import { POD_CATEGORIES, type Tournament } from '../../../shared/tournament/types.js';
 import {
   applyPending,
@@ -113,7 +113,7 @@ export function fromRaw(raw: RawRow): TournamentRow {
     pending: legacyMatchKeys(tournament, JSON.parse(raw.pending) as PendingResult[]),
     reports: legacyMatchKeys(tournament, JSON.parse(raw.reports) as PlayerReport[]),
     requests: withRequestIds(JSON.parse(raw.requests) as PlayerRequest[]),
-    settings: storedSettings(JSON.parse(raw.settings) as Record<string, unknown>),
+    settings: storedSettings(JSON.parse(raw.settings) as Record<string, unknown>, hasStarted(tournament)),
     keys: JSON.parse(raw.player_keys) as Record<string, string>,
     decks: JSON.parse(raw.decks) as Record<string, string>,
     checkins: JSON.parse(raw.checkins ?? '{}') as CheckIns,

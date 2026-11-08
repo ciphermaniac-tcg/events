@@ -73,14 +73,12 @@ const isListing = (value: unknown): value is Listing | null => {
   );
 };
 
-/** What the event does with decks: archetypes, whether it takes lists, and whether anyone may read them. */
+/** What the event does with decks: archetypes, and whether it takes lists (Open lists are shown once round 1 is paired). */
 function DeckRows(props: {
   archetypes: DeckVisibility;
   decklists: DecklistMode;
-  openLists: boolean;
   onArchetypes: (value: DeckVisibility) => void;
   onDecklists: (value: DecklistMode) => void;
-  onOpenLists: (value: boolean) => void;
 }) {
   return (
     <>
@@ -90,11 +88,6 @@ function DeckRows(props: {
       <SettingRow label={t('Decklists')} info={<SettingInfo text={SETTING_INFO.decklists} />}>
         <DecklistsSwitch value={props.decklists} onChange={props.onDecklists} />
       </SettingRow>
-      <Show when={props.decklists !== 'off'}>
-        <SettingRow label={t('Open decklists')} info={<SettingInfo text={SETTING_INFO.openLists} />}>
-          <Toggle label={t('Open decklists')} value={props.openLists} onChange={props.onOpenLists} />
-        </SettingRow>
-      </Show>
     </>
   );
 }
@@ -143,7 +136,6 @@ export function EventSetup(props: {
   const [decklists, setDecklists] = field<DecklistMode>('decklists', 'off', (value): value is DecklistMode =>
     ['off', 'open', 'closed'].includes(String(value))
   );
-  const [openLists, setOpenLists] = field('openLists', false, isBoolean);
   const [roundCap, setRoundCap] = field('roundCap', 0, isNumber);
   const [eventType, setEventType] = field<EventType>('eventType', 'cup', (value): value is EventType =>
     EVENT_TYPES.includes(value as EventType)
@@ -254,7 +246,6 @@ export function EventSetup(props: {
         ...logistics(),
         deckVisibility: archetypes(),
         decklists: decklists(),
-        openLists: decklists() !== 'off' && openLists(),
         playerReporting: reporting(),
         ...(swiss() ? { sanctioned: sanctioned(), roundCap: roundCap() } : {})
       }
@@ -342,10 +333,8 @@ export function EventSetup(props: {
           <DeckRows
             archetypes={archetypes()}
             decklists={decklists()}
-            openLists={openLists()}
             onArchetypes={setArchetypes}
             onDecklists={setDecklists}
-            onOpenLists={setOpenLists}
           />
         </Show>
       </div>

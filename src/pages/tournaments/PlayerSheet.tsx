@@ -107,11 +107,10 @@ export function PlayerSheet(props: {
           </button>
         </div>
         <div class='tm-sheet-body'>
-          {/* Their list leads, above the record, at an event whose organizer opened its lists, once it locks. */}
+          {/* Their list leads, above the record, at an event whose decklists are open, once it locks. */}
           <Show
             when={
-              props.view.settings.openLists &&
-              props.view.settings.decklists !== 'off' &&
+              props.view.settings.decklists === 'open' &&
               !(decklistsLocked(props.view) && decklistOpenFor(props.view, props.playerId))
             }
           >

@@ -210,29 +210,37 @@ test('decklists are off, open or closed, and rounds are capped at up to fifteen'
   );
 });
 
-test('open lists are read by anyone only once round 1 is paired, at an event that takes lists', () => {
-  assert.equal(readSettings({ openLists: true }, DEFAULT_SETTINGS)?.openLists, true);
-  assert.equal(readSettings({ openLists: 'yes' }, DEFAULT_SETTINGS), null);
-  assert.equal(storedSettings({}).openLists, false);
+test('open lists are read by anyone only once round 1 is paired; closed ones stay private', () => {
+  assert.equal(readSettings({ openLists: 'yes' }, DEFAULT_SETTINGS)?.decklists, 'off', 'the old switch is ignored');
+  assert.equal('openLists' in DEFAULT_SETTINGS, false);
   const tournament = emptyTournament({ name: 'x' });
   const started = { ...tournament, startedAt: 1 };
-  const open = { decklists: 'closed', openLists: true } as const;
-  assert.equal(listsPublic({ settings: open, tournament }), false, 'not before round 1');
-  assert.equal(listsPublic({ settings: open, tournament: started }), true);
-  assert.equal(listsPublic({ settings: { ...open, openLists: false }, tournament: started }), false);
-  assert.equal(listsPublic({ settings: { ...open, decklists: 'off' }, tournament: started }), false);
+  assert.equal(listsPublic({ settings: { decklists: 'open' }, tournament }), false, 'not before round 1');
+  assert.equal(listsPublic({ settings: { decklists: 'open' }, tournament: started }), true);
+  assert.equal(listsPublic({ settings: { decklists: 'closed' }, tournament: started }), false);
+  assert.equal(listsPublic({ settings: { decklists: 'off' }, tournament: started }), false);
 });
 
 test('settings stored before decklists could be turned off keep their switch', () => {
-  assert.deepEqual(storedSettings({ decklistsOpen: true, format: 'Expanded' }), {
+  assert.deepEqual(storedSettings({ decklistsOpen: true, format: 'Expanded' }, false), {
     ...DEFAULT_SETTINGS,
     decklists: 'open',
     format: 'Expanded'
   });
-  assert.equal(storedSettings({ decklistsOpen: false }).decklists, 'closed');
-  assert.equal(storedSettings({}).decklists, 'off');
-  assert.equal(storedSettings({ decklists: 'open', decklistsOpen: false }).decklists, 'open');
-  assert.equal('decklistsOpen' in storedSettings({ decklistsOpen: true }), false);
+  assert.equal(storedSettings({ decklistsOpen: false }, false).decklists, 'closed');
+  assert.equal(storedSettings({}, false).decklists, 'off');
+  assert.equal(storedSettings({ decklists: 'open', decklistsOpen: false }, false).decklists, 'open');
+  assert.equal('decklistsOpen' in storedSettings({ decklistsOpen: true }, false), false);
+});
+
+test('an event stored with sharing as its own switch shows what it showed once its lists locked', () => {
+  const stored = (decklists: string, openLists: boolean) => ({ decklists, openLists });
+  assert.equal(storedSettings(stored('open', false), true).decklists, 'closed', 'unshared lists stay private');
+  assert.equal(storedSettings(stored('closed', true), true).decklists, 'open', 'shared lists stay shared');
+  assert.equal(storedSettings(stored('open', true), true).decklists, 'open');
+  assert.equal(storedSettings(stored('off', true), true).decklists, 'off', 'an event taking no lists shows none');
+  assert.equal(storedSettings(stored('open', false), false).decklists, 'open', 'before round 1, Open shares them');
+  assert.equal('openLists' in storedSettings(stored('closed', true), true), false);
 });
 
 test('a player profile needs an ID, a name and a birth date', () => {

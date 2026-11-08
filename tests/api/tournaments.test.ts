@@ -2094,24 +2094,28 @@ test('only the organizer shows decks sooner; staff can still hide them', async (
 test('only the organizer opens the lists; staff can still close them', async () => {
   const { owner, code, helper } = await withHelper();
   await settle(code, owner, { decklists: 'closed' });
-  const put = (cookie: string, openLists: boolean) =>
-    hit(settings.onRequestPut as Handler, '/settings', at(code), { method: 'PUT', cookie, body: { openLists } });
-  const refused = await put(helper, true);
-  assert.deepEqual([refused.status, refused.json.error], [403, 'Only the organizer can open the lists']);
-  assert.equal((await put(owner, true)).status, 200);
-  assert.equal((await put(helper, true)).status, 200, 'leaving them open is no change of theirs');
-  assert.equal((await put(helper, false)).status, 200, 'but can close them');
-});
-
-test('staff cannot reopen open lists by taking decklists again after they were off', async () => {
-  const { owner, code, helper } = await withHelper();
-  await settle(code, owner, { decklists: 'open', openLists: true });
-  await settle(code, owner, { decklists: 'off' });
   const put = (cookie: string, decklists: string) =>
     hit(settings.onRequestPut as Handler, '/settings', at(code), { method: 'PUT', cookie, body: { decklists } });
-  const refused = await put(helper, 'closed');
+  const refused = await put(helper, 'open');
   assert.deepEqual([refused.status, refused.json.error], [403, 'Only the organizer can open the lists']);
-  assert.equal((await put(owner, 'closed')).status, 200);
+  assert.equal((await put(owner, 'open')).status, 200);
+  assert.equal((await put(helper, 'open')).status, 200, 'leaving them open is no change of theirs');
+  assert.equal((await put(helper, 'closed')).status, 200, 'but can close them');
+  assert.equal((await put(helper, 'off')).status, 200, 'or stop taking lists');
+  const again = await put(helper, 'open');
+  assert.deepEqual([again.status, again.json.error], [403, 'Only the organizer can open the lists']);
+});
+
+test('a console from before Open meant shared still saves, its sharing switch left to Decklists', async () => {
+  const { owner, code } = await withHelper();
+  const saved = await hit(settings.onRequestPut as Handler, '/settings', at(code), {
+    method: 'PUT',
+    cookie: owner,
+    body: { decklists: 'closed', openLists: true }
+  });
+  assert.equal(saved.status, 200);
+  assert.equal(saved.json.settings.decklists, 'closed');
+  assert.equal('openLists' in saved.json.settings, false);
 });
 
 test('staff cannot show decks again that the organizer hid while their change was on its way', async () => {
