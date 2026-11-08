@@ -93,10 +93,17 @@ export async function sha256(value: string): Promise<string> {
 const USER_COLUMNS =
   'users.id, handle, email, avatar, pop_id, first_name, last_name, birth_date, role, public_profile, profile_name';
 
-/** The SHA-256 of the request's session token, as the sessions table keys it; null without the cookie. */
-export async function sessionHash(request: Request): Promise<string | null> {
-  const token = readCookie(request, SESSION_COOKIE);
-  return token ? sha256(token) : null;
+const hashes = new WeakMap<Request, Promise<string | null>>();
+
+/** The SHA-256 of the request's session token, as the sessions table keys it, once a request; null without the cookie. */
+export function sessionHash(request: Request): Promise<string | null> {
+  let hash = hashes.get(request);
+  if (!hash) {
+    const token = readCookie(request, SESSION_COOKIE);
+    hash = token ? sha256(token) : Promise.resolve(null);
+    hashes.set(request, hash);
+  }
+  return hash;
 }
 
 /**

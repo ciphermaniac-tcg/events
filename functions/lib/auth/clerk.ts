@@ -35,22 +35,14 @@ function decodeJson(part: string): Json | null {
   }
 }
 
-const keys = new Map<string, CryptoKey>();
+const keys = new Map<string, Promise<CryptoKey>>();
 
 /** The PEM public key as a verifying key, imported once per isolate. Literal `\n`s from a pasted secret are dropped. */
-async function publicKey(pem: string): Promise<CryptoKey> {
-  const cached = keys.get(pem);
-  if (cached) {
-    return cached;
-  }
-  const body = pem.replace(/-----[^-]+-----|\\n|\s/gu, '');
-  const key = await crypto.subtle.importKey(
-    'spki',
-    base64Bytes(body),
-    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
-    false,
-    ['verify']
-  );
+function publicKey(pem: string): Promise<CryptoKey> {
+  const body = () => base64Bytes(pem.replace(/-----[^-]+-----|\\n|\s/gu, ''));
+  const key =
+    keys.get(pem) ??
+    crypto.subtle.importKey('spki', body(), { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify']);
   keys.set(pem, key);
   return key;
 }
