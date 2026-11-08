@@ -11,7 +11,7 @@ import { type Asker, askerValues, asksStill, onStaff } from './roles.js';
 import { staffAccounts, staffAccountsQuery } from './staffRecords.js';
 
 /** The event's staff accounts, and the head judge among them. */
-export interface StaffContext {
+interface StaffContext {
   /** Null when the event names none, or the account has left the staff or been deleted. */
   headJudge: StaffAccount | null;
   staff: StaffAccount[];

@@ -25,7 +25,7 @@ export const fullRefusal = (): Response =>
   jsonResponse({ error: FULL, status: 403, full: true }, { status: 403, cacheControl: 'no-store', cors: false });
 
 /** Who is registered: everyone still on the event's list, and at a TOM event anyone with a list in who is not on it yet. */
-export async function registeredCount(db: D1Like, row: TournamentRow): Promise<number> {
+async function registeredCount(db: D1Like, row: TournamentRow): Promise<number> {
   const listed = row.tournament.players.filter(player => player.droppedAfter === null);
   if (row.mode !== 'tom') {
     return listed.length;

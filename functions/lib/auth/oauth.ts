@@ -77,7 +77,7 @@ async function getJson(url: string, accessToken: string, fetcher: typeof fetch):
 }
 
 /** Discord's display name, then its username; its avatar when one is set. */
-export function discordProfile(user: Json): Profile {
+function discordProfile(user: Json): Profile {
   const id = text(user.id) ?? '';
   const avatar = text(user.avatar);
   return {
@@ -90,7 +90,7 @@ export function discordProfile(user: Json): Profile {
   };
 }
 
-export function googleProfile(user: Json): Profile {
+function googleProfile(user: Json): Profile {
   return {
     provider: 'google',
     subject: text(user.sub) ?? '',
@@ -137,7 +137,7 @@ export function configuredOAuth(env: AuthEnv): OAuthProvider[] {
   return (['google', 'discord'] as const).filter(id => PROVIDERS[id].credentials(env) !== null);
 }
 
-export function redirectUri(request: Request, provider: OAuthProvider): string {
+function redirectUri(request: Request, provider: OAuthProvider): string {
   return `${new URL(request.url).origin}/api/auth/callback/${provider}`;
 }
 
@@ -160,7 +160,7 @@ export function authorizeUrl(env: AuthEnv, request: Request, provider: OAuthProv
   return url.toString();
 }
 
-export interface CodeExchange {
+interface CodeExchange {
   env: AuthEnv;
   request: Request;
   provider: OAuthProvider;

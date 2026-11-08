@@ -8,7 +8,7 @@
  */
 
 /** A body's bytes, or why there are none. */
-export type BytesBody = { ok: true; bytes: Uint8Array } | { ok: false; reason: 'too-large' | 'unreadable' };
+type BytesBody = { ok: true; bytes: Uint8Array } | { ok: false; reason: 'too-large' | 'unreadable' };
 
 const TOO_LARGE: BytesBody = { ok: false, reason: 'too-large' };
 

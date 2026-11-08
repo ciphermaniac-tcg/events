@@ -13,7 +13,7 @@ import type { D1Like } from '../types.js';
 /** Seconds a delivery's timestamp may be from now, either way, as Svix's own libraries allow. */
 const TOLERANCE_SECONDS = 5 * 60;
 
-export interface Delivery {
+interface Delivery {
   id: string | null;
   timestamp: string | null;
   /** Svix's `svix-signature`: space-separated `v1,<base64>` entries, one per secret in use. */

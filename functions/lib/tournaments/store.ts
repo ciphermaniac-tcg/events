@@ -131,10 +131,10 @@ export function fromRaw(raw: RawRow): TournamentRow {
 
 /** Codes are short enough to read aloud and type from a table sign: no 0/O or 1/I/L. */
 const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
-export const CODE_LENGTH = 6;
+const CODE_LENGTH = 6;
 
 /** A random code in that alphabet; a public profile's address is a longer one (functions/lib/accounts/publicProfile.ts). */
-export function newCode(length = CODE_LENGTH, random: () => number = Math.random): string {
+function newCode(length = CODE_LENGTH, random: () => number = Math.random): string {
   let code = '';
   for (let i = 0; i < length; i += 1) {
     code += CODE_ALPHABET[Math.floor(random() * CODE_ALPHABET.length)];
@@ -780,7 +780,7 @@ async function attempt(db: D1Like, writer: Writer, change: Change): Promise<Muta
 }
 
 /** What the console's polls check before anything else: whether the copy they hold still stands. */
-export interface TournamentHead {
+interface TournamentHead {
   version: number;
   /** Whether the request's session belongs to the event's organizer or one of its staff. */
   staff: boolean;

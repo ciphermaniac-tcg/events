@@ -32,7 +32,7 @@ import { type Guard, rowsChanged } from '../d1.js';
 import type { D1Like, D1Statement } from '../types.js';
 
 /** How long a store's invite link lets someone in. */
-export const INVITE_DAYS = 7;
+const INVITE_DAYS = 7;
 const INVITE_MS = INVITE_DAYS * 24 * 60 * 60 * 1000;
 
 export interface StoreRow {
@@ -95,7 +95,7 @@ export async function storeOfLeague(db: D1Like, leagueId: string): Promise<Store
   return row && storeFromRow(row);
 }
 
-export interface NewStore {
+interface NewStore {
   /** Null for an unsanctioned store, which an Admin makes ahead of its certification. */
   leagueId: string | null;
   details: StoreDetails;
@@ -108,7 +108,7 @@ export interface NewStore {
 const ALWAYS: Guard = { sql: '1 = 1', values: [] };
 
 /** A store to make: under `id`, with its first member in their role, at `now`, each write only while `guard` holds. */
-export interface StoreMaking {
+interface StoreMaking {
   id: string;
   store: NewStore;
   member: { id: string; role: StoreRole };

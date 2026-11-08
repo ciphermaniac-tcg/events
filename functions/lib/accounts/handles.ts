@@ -15,13 +15,13 @@ import { rowsChanged } from '../d1.js';
 import type { D1Like } from '../types.js';
 
 /** `handleKey` in SQL, written as the users_by_handle_key index is, so a lookup by key uses it. */
-export const handleKeySql = (column: string) => `replace(replace(replace(${column}, '.', ''), '-', ''), '_', '')`;
+const handleKeySql = (column: string) => `replace(replace(replace(${column}, '.', ''), '-', ''), '_', '')`;
 
 /** The name the site calls the account in `alias` by, as `displayName` makes it. */
 export const displayNameSql = (alias: string) =>
   `COALESCE(NULLIF(TRIM(COALESCE(${alias}.first_name, '') || ' ' || COALESCE(${alias}.last_name, '')), ''), ${alias}.handle)`;
 
-export type RenameRefusal = 'taken' | 'limit';
+type RenameRefusal = 'taken' | 'limit';
 
 function renameWrites(db: D1Like, userId: string, handle: string, now: number) {
   const token = randomToken(12);

@@ -10,7 +10,7 @@ export function noContent(): Response {
   return new Response(null, { status: 204, headers: { 'Cache-Control': 'no-store' } });
 }
 
-export interface JsonResponseOptions {
+interface JsonResponseOptions {
   status?: number;
   /** Value for the Cache-Control header. Omitted entirely when unset. */
   cacheControl?: string;

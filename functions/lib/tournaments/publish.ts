@@ -25,7 +25,7 @@ import type { D1Like, PublishBucket, PublishedObject } from '../types.js';
 import { publicViewOf } from './access.js';
 
 /** Short: pairings go stale fast, and a poll that finds the edge copy is still a free read. */
-export const PUBLISHED_CACHE_CONTROL = 'public, max-age=5';
+const PUBLISHED_CACHE_CONTROL = 'public, max-age=5';
 
 /**
  * Each refused write means another publish landed first, and a landing only

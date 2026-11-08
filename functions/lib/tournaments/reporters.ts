@@ -105,7 +105,7 @@ const readHeld = ({ db, code, account }: Seat) =>
 const ACCOUNT_SQL = '(SELECT id FROM users WHERE id = ?1 AND (?2 IS NULL OR pop_id = ?2))';
 
 /** A browser's own ID, hashed; one that sent none counts as its own device. */
-export const deviceOf = async (device: unknown) =>
+const deviceOf = async (device: unknown) =>
   sha256(typeof device === 'string' && device ? device.slice(0, 80) : randomToken(16));
 
 /**

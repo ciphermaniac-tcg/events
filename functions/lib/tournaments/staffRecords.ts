@@ -38,7 +38,7 @@ import { playerName, type Tournament } from '../../../shared/tournament/types.js
 import { msg, msgf } from '../../../shared/i18n.js';
 
 /** An entry's row, with its columns named alike whatever its kind. */
-export interface RecordRow {
+interface RecordRow {
   id: string;
   player_id: string;
   player_name: string;
@@ -56,14 +56,14 @@ export interface RecordRow {
 }
 
 /** What every kind of entry is sent as, once read: its verdict and staff member under the kind's own names. */
-export interface RecordInput {
+interface RecordInput {
   playerId: string;
   round: number;
   notes: string;
   replaces: string | null;
 }
 
-export interface RecordKind<Input extends RecordInput, Entry> {
+interface RecordKind<Input extends RecordInput, Entry> {
   table: 'deck_checks' | 'penalty_notes';
   /** The column prefix of the staff member an entry names: `checker_id`, `checker_name`. */
   person: 'checker' | 'judge';

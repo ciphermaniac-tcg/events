@@ -11,7 +11,7 @@
 import { readBoundedBytes } from './bytes.js';
 
 /** A parsed body, or why there isn't one. */
-export type JsonBody = { ok: true; value: unknown } | { ok: false; reason: 'too-large' | 'unparseable' };
+type JsonBody = { ok: true; value: unknown } | { ok: false; reason: 'too-large' | 'unparseable' };
 
 /**
  * Parse a request's JSON body, refusing anything over `maxBytes`. An empty

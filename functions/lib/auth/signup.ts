@@ -16,7 +16,7 @@ import { randomToken, sha256, verifiedEmail } from './session.js';
 export const SIGNUP_SECONDS = 15 * 60;
 
 /** A sign-up taken back out of its wait: the provider's answer, and where to go once in. */
-export interface HeldSignup {
+interface HeldSignup {
   profile: Profile;
   next: string;
 }

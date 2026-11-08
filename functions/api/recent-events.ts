@@ -81,7 +81,7 @@ function placeOf(row: Row): string {
   return [row.store, town].filter(Boolean).join(' · ');
 }
 
-export async function recentEvents(db: D1Like): Promise<RecentEvent[]> {
+async function recentEvents(db: D1Like): Promise<RecentEvent[]> {
   const { results } = await db.prepare(RECENT_SQL).all<Row>();
   return (results ?? []).map(row => ({
     code: row.code,

@@ -25,7 +25,7 @@ export interface StoreAccess {
   guard: (need: Exclude<Need, 'anyone'>) => Guard;
 }
 
-export type Need = 'anyone' | 'member' | 'manager' | 'owner';
+type Need = 'anyone' | 'member' | 'manager' | 'owner';
 
 /** The stored role, an Admin raised to at least a Manager; null for someone not in the store. */
 function roleOf(stored: string | undefined, admin: boolean): StoreRole | null {

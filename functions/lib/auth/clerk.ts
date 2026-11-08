@@ -69,7 +69,7 @@ async function signatureHolds(pem: string, signed: string, signature: string): P
   }
 }
 
-export interface TokenCheck {
+interface TokenCheck {
   publicKeyPem: string;
   /** The Frontend API origin (shared/accounts/clerk.ts). */
   issuer: string;
@@ -98,7 +98,7 @@ function claimsHold(claims: Json, check: TokenCheck): boolean {
 }
 
 /** What a token that holds up stands for: the Clerk user and session, and when it was made (seconds). */
-export interface TokenSession {
+interface TokenSession {
   subject: string;
   sessionId: string;
   issuedAt: number;

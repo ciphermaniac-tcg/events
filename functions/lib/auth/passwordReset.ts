@@ -184,7 +184,7 @@ async function sendCode(mail: Mail, to: string, code: string): Promise<void> {
 }
 
 /** How a code and new password came out: the error code the page reads as words, or done. */
-export type ResetOutcome = { ok: true } | { ok: false; status: number; code: string };
+type ResetOutcome = { ok: true } | { ok: false; status: number; code: string };
 
 const refused = (status: number, code: string): ResetOutcome => ({ ok: false, status, code });
 

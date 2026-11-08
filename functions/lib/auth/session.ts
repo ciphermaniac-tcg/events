@@ -18,7 +18,7 @@ import { type Context, sameOrigin } from './env.js';
 import { readCookie, SESSION_COOKIE } from './cookies.js';
 import type { Profile } from './oauth.js';
 
-export const SESSION_DAYS = 30;
+const SESSION_DAYS = 30;
 export const SESSION_SECONDS = SESSION_DAYS * 24 * 60 * 60;
 
 /** Which name a public profile shows: the real one from the player profile, or the username. */
@@ -349,7 +349,7 @@ export async function upsertUser(db: D1Like, profile: Profile, birthDate: string
  * What a session is made on: when the sign-in was proven (ms), and the Clerk
  * user it was proven as, for a password sign-in.
  */
-export interface SignInProof {
+interface SignInProof {
   clerkSubject: string | null;
   authAt: number;
 }

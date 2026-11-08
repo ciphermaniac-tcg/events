@@ -30,7 +30,7 @@ interface Row {
   exceptions: string;
 }
 
-export async function storesIndex(db: D1Like, now = Date.now()): Promise<StoresIndex> {
+async function storesIndex(db: D1Like, now = Date.now()): Promise<StoresIndex> {
   const { results } = await db
     .prepare(
       'SELECT id, league_id, name, address, city, region, country, lat, lon, time_zone, nights, exceptions ' +

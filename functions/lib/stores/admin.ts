@@ -6,7 +6,7 @@ import { firstRow, type Guard, rowsChanged } from '../d1.js';
 import { handOverWrites } from './db.js';
 import type { D1Like, D1Statement } from '../types.js';
 
-export interface AdminStore {
+interface AdminStore {
   id: string;
   leagueId: string | null;
   name: string;
