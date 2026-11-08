@@ -3,14 +3,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import type { ReportedDeck } from '../../src/pages/live/reportedDeck.ts';
-
-/**
- * deckOptions imports a component, which the node type-check project cannot
- * follow into, so it is loaded by a path the checker does not resolve.
- */
-const DECK_OPTIONS: string = '../../src/pages/tournaments/deckOptions.ts';
-
 const ONLINE = [{ name: 'dragapult ex', label: 'Dragapult ex', deckCount: 40, percent: 0.2, icons: ['dragapult'] }];
 const ICONS = { 'Dragapult ex': ['dragapult'], 'Gardevoir ex': ['gardevoir'] };
 
@@ -26,7 +18,7 @@ test('Standard offers the online meta, scaled to percent, then every other deck 
       ? Response.json(ICONS)
       : new Response('not found', { status: 404 });
   }) as typeof fetch;
-  const { decksFor } = (await import(DECK_OPTIONS)) as { decksFor: (format: string) => Promise<ReportedDeck[]> };
+  const { decksFor } = await import('../../src/pages/tournaments/deckOptions.ts');
   const { fetchFormatArchetypes } = await import('../../src/lib/data/formats.ts');
 
   const decks = await decksFor('Standard');
