@@ -90,6 +90,15 @@ export async function sha256(value: string): Promise<string> {
   return [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, '0')).join('');
 }
 
+/** Whether two digests match, in time that doesn't depend on where they first differ. */
+export function sameDigest(a: string, b: string): boolean {
+  let diff = a.length ^ b.length;
+  for (let i = 0; i < a.length; i += 1) {
+    diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return diff === 0;
+}
+
 const USER_COLUMNS =
   'users.id, handle, email, avatar, pop_id, first_name, last_name, birth_date, role, public_profile, profile_name';
 
