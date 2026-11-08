@@ -147,18 +147,14 @@ body.tm-stream-mode {
   justify-items: end;
   gap: var(--space-1);
 }
-/* A Swiss round's end: another round, the top cut and ending the event on
-   one line (see RoundEndStep), the three set a little further apart than the
-   cut's own fields so they read as three choices. */
+/* TOM's status in the console's head (TomStatus): the results to write, when
+   TOM last saved and the file's buttons, on one line. */
 .tm-next-acts {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
   align-items: center;
   gap: var(--space-2) var(--space-4);
-}
-.tm-next-acts .tm-inline-form {
-  gap: var(--space-1);
 }
 .tm-next-reason {
   font-size: var(--text-sm);
@@ -173,16 +169,10 @@ body.tm-stream-mode {
   .tm-next .btn {
     justify-content: center;
   }
-  /* On a phone the three are full-width rows, the cut's fields sharing theirs. */
+  /* On a phone each is a full-width row. */
   .tm-next-acts {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
-  }
-  .tm-next-acts .tm-inline-form {
-    flex-wrap: nowrap;
-  }
-  .tm-next-acts .tm-inline-form .btn {
-    flex: 1;
   }
 }
 
@@ -904,9 +894,6 @@ body[data-mode='dark'] :is(.tm-input, .tm-select) {
 .tm-table-input::placeholder {
   color: var(--muted);
 }
-.tm-filter-bar .chip {
-  min-height: var(--control-h);
-}
 
 /* Desktop: fixed columns, so a row's confirm prompt never moves the names under
    the pointer, and stacked division tables share one set of column edges. */
@@ -1119,7 +1106,6 @@ body[data-mode='dark'] :is(.tm-input, .tm-select) {
   .tm-deck-link,
   .tm-small,
   .tm-check,
-  .tm-filter-bar .chip,
   .tm-table-input,
   .tm-page :is(.btn, .tm-input, .tm-select),
   .tm-page .segmented button,
