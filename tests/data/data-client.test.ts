@@ -2,7 +2,7 @@
  * Characterization tests for the browser data transport.
  *
  * These pin the behavior `src/lib/data.ts` has always had — dedupe, TTL,
- * eviction on failure, optional-vs-required 404 handling, release-path
+ * eviction on failure, 404 handling, release-path
  * resolution, and missing-release-body recovery — so the decomposition of that
  * module cannot change it by accident. Written against the injected seams, not
  * against the app's globals.
@@ -54,9 +54,7 @@ function json(body: unknown, status = 200): Response {
 function client(options: DataClientOptions = {}) {
   return createDataClient({
     resolvePath: p => p,
-    isReleaseBodyPath: () => false,
     recoverFromMissingBody: () => false,
-    useLocalOrigin: () => false,
     ...options
   });
 }
@@ -73,13 +71,6 @@ test('a successful fetch returns the parsed body from the R2 origin', async () =
   assert.equal((calls[0].init as RequestInit).mode, 'cors', 'CORS mode is required for cross-origin R2 reads');
 });
 
-test('a local-origin path skips the R2 base', async () => {
-  const { impl, calls } = makeFetch({ Snapshots: () => json([]) });
-  const c = client({ fetch: impl, useLocalOrigin: p => p.startsWith('/reports/Snapshots/') });
-  await c.fetchJson('/reports/Snapshots/2026-01-01/master.json');
-  assert.equal(calls[0].url, '/reports/Snapshots/2026-01-01/master.json');
-});
-
 // ---------------------------------------------------------------------------
 // Error responses
 // ---------------------------------------------------------------------------
@@ -89,16 +80,11 @@ test('a required fetch rejects on 404 with the URL and status in the message', a
   await assert.rejects(client({ fetch: impl }).fetchJson('/reports/missing.json'), /missing\.json: 404/);
 });
 
-test('an optional fetch still rejects on a non-404 error', async () => {
-  const { impl } = makeFetch({}, () => new Response('boom', { status: 500, statusText: 'Server Error' }));
-  await assert.rejects(client({ fetch: impl }).fetchJsonOptional('/reports/x.json'), /500/);
-});
-
-test('a transport failure propagates rather than resolving to null', async () => {
+test('a transport failure propagates', async () => {
   const impl = (async () => {
     throw new TypeError('network down');
   }) as typeof globalThis.fetch;
-  await assert.rejects(client({ fetch: impl }).fetchJsonOptional('/reports/x.json'), /network down/);
+  await assert.rejects(client({ fetch: impl }).fetchJson('/reports/x.json'), /network down/);
 });
 
 // ---------------------------------------------------------------------------
@@ -149,22 +135,14 @@ test('an error response is released rather than left unread', async () => {
     responses.push(response);
     return response;
   };
-  const { impl } = makeFetch({ optional: answer(404), required: answer(500) });
+  const { impl } = makeFetch({ missing: answer(404), required: answer(500) });
   const c = client({ fetch: impl });
-  assert.equal(await c.fetchJsonOptional('/reports/optional.json'), null);
+  await assert.rejects(c.fetchJson('/reports/missing.json'), /404/);
   await assert.rejects(c.fetchJson('/reports/required.json'), /500/);
   assert.deepEqual(
     responses.map(response => response.bodyUsed),
     [true, true]
   );
-});
-
-test('an optional miss is cached like any other resolved response', async () => {
-  const { impl, calls } = makeFetch({}, () => new Response('gone', { status: 404 }));
-  const c = client({ fetch: impl });
-  assert.equal(await c.fetchJsonOptional('/reports/x.json'), null);
-  assert.equal(await c.fetchJsonOptional('/reports/x.json'), null);
-  assert.equal(calls.length, 1, 'a known-absent optional artifact is not re-requested every render');
 });
 
 // ---------------------------------------------------------------------------
@@ -264,7 +242,6 @@ test('a 404 on an immutable release body starts recovery and never resolves', as
   const c = client({
     fetch: impl,
     resolvePath: () => '/releases/v1/abc/master.json',
-    isReleaseBodyPath: p => p.startsWith('/releases/v1/'),
     recoverFromMissingBody: () => {
       recovered += 1;
       return true;
@@ -282,26 +259,9 @@ test('a release-body 404 that cannot recover falls back to normal 404 handling',
   const c = client({
     fetch: impl,
     resolvePath: () => '/releases/v1/abc/master.json',
-    isReleaseBodyPath: () => true,
     recoverFromMissingBody: () => false
   });
   await assert.rejects(c.fetchJson('/reports/master.json'), /404/);
-  assert.equal(await c.fetchJsonOptional('/reports/optional.json'), null);
-});
-
-test('a 404 on a legacy path never triggers release recovery', async () => {
-  const { impl } = makeFetch({}, () => new Response('gone', { status: 404 }));
-  let recovered = 0;
-  const c = client({
-    fetch: impl,
-    isReleaseBodyPath: () => false,
-    recoverFromMissingBody: () => {
-      recovered += 1;
-      return true;
-    }
-  });
-  assert.equal(await c.fetchJsonOptional('/players/1/profile.json'), null);
-  assert.equal(recovered, 0, 'optional misses do not trigger a release reload');
 });
 
 test('a non-404 error on a release body is an error, not a recovery', async () => {
@@ -309,7 +269,6 @@ test('a non-404 error on a release body is an error, not a recovery', async () =
   let recovered = 0;
   const c = client({
     fetch: impl,
-    isReleaseBodyPath: () => true,
     recoverFromMissingBody: () => {
       recovered += 1;
       return true;
@@ -327,14 +286,5 @@ test('two clients do not share a cache', async () => {
   const { impl, calls } = makeFetch({}, () => json({ ok: 1 }));
   await client({ fetch: impl }).fetchJson('/reports/x.json');
   await client({ fetch: impl }).fetchJson('/reports/x.json');
-  assert.equal(calls.length, 2);
-});
-
-test('clearCache forces the next request back to the network', async () => {
-  const { impl, calls } = makeFetch({}, () => json({ ok: 1 }));
-  const c = client({ fetch: impl });
-  await c.fetchJson('/reports/x.json');
-  c.clearCache();
-  await c.fetchJson('/reports/x.json');
   assert.equal(calls.length, 2);
 });

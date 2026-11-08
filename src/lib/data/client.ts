@@ -4,7 +4,7 @@
  * Split out of `src/lib/data.ts` so the fetch/dedupe/cache behavior — which
  * every page depends on and which nothing could test — has a seam. The
  * dependencies that made it untestable are now parameters: `fetch`, the clock,
- * the base URL, and release-path resolution.
+ * release-path resolution, and missing-release-body recovery.
  *
  * There is no DI framework here and there should not be one. {@link createDataClient}
  * is a factory over a small options bag; the module-level default instance is
@@ -12,7 +12,7 @@
  * @module src/lib/data/client
  */
 
-import { isReleasePath, recoverFromMissingReleaseBody, resolveDataPath } from '../releaseClient';
+import { recoverFromMissingReleaseBody, resolveDataPath } from '../releaseClient';
 
 import { R2_ORIGIN as R2_BASE } from '../constants';
 
@@ -31,50 +31,22 @@ export interface DataClientOptions {
   fetch?: typeof globalThis.fetch;
   /** Clock for cache expiry, in ms. Defaults to `Date.now`. */
   now?: () => number;
-  /** Origin for non-local reads. Defaults to {@link R2_BASE}. */
-  baseUrl?: string;
-  /** Resolved-response cache lifetime. Defaults to {@link FETCH_TTL_MS}. */
-  ttlMs?: number;
   /**
    * Legacy path → path to actually fetch. Defaults to the current release
    * resolver, which is a no-op when no release could be read.
    */
   resolvePath?: (path: string) => string | Promise<string>;
   /**
-   * True when a resolved path targets an immutable release body, where a 404
-   * means corruption rather than an optional miss.
-   */
-  isReleaseBodyPath?: (resolvedPath: string) => boolean;
-  /**
-   * Handle a 404 on an immutable release body. Returns true when it started a
-   * recovery navigation, in which case the request never resolves.
+   * Handle a 404 on a resolved path. Returns true when it started a recovery
+   * navigation (a missing immutable release body), in which case the request
+   * never resolves.
    */
   recoverFromMissingBody?: (resolvedPath: string) => boolean;
-  /**
-   * Serve this path from the local origin instead of `baseUrl`. Defaults to the
-   * dev-only snapshot rule below.
-   */
-  useLocalOrigin?: (resolvedPath: string) => boolean;
-}
-
-/**
- * Snapshot data (frozen pre-rotation reports) lives at /reports/Snapshots/{date}/.
- * In dev, the build-rotation-snapshots script writes to `static/reports/Snapshots/`
- * so vite serves them at the root; in prod they're on R2 like everything else.
- * The choice is per call rather than per helper so non-snapshot reads keep their
- * fast path.
- */
-function defaultUseLocalOrigin(path: string): boolean {
-  return Boolean(import.meta.env?.DEV) && path.startsWith('/reports/Snapshots/');
 }
 
 export interface DataClient {
-  /** Fetch JSON; rejects on any non-OK response. */
+  /** Fetch JSON from R2; rejects on any non-OK response. */
   fetchJson: <T>(path: string) => Promise<T>;
-  /** Fetch JSON; resolves to null on 404 rather than rejecting. */
-  fetchJsonOptional: <T>(path: string) => Promise<T | null>;
-  /** Drop every cached entry. For tests and hard refreshes; not used in the app. */
-  clearCache: () => void;
   /** Number of entries currently held. For tests. */
   readonly cacheSize: number;
 }
@@ -95,12 +67,8 @@ export function createDataClient(options: DataClientOptions = {}): DataClient {
   const {
     fetch: fetchImpl = (...args: Parameters<typeof globalThis.fetch>) => globalThis.fetch(...args),
     now = Date.now,
-    baseUrl = R2_BASE,
-    ttlMs = FETCH_TTL_MS,
     resolvePath = resolveDataPath,
-    isReleaseBodyPath = isReleasePath,
-    recoverFromMissingBody = recoverFromMissingReleaseBody,
-    useLocalOrigin = defaultUseLocalOrigin
+    recoverFromMissingBody = recoverFromMissingReleaseBody
   } = options;
 
   const inflight = new Map<string, { promise: Promise<unknown>; expires: number }>();
@@ -128,7 +96,7 @@ export function createDataClient(options: DataClientOptions = {}): DataClient {
     inflight.set(url, entry);
     promise.then(
       () => {
-        entry.expires = now() + ttlMs;
+        entry.expires = now() + FETCH_TTL_MS;
       },
       () => {
         // Only evict if this entry is still the current one — a retry may have
@@ -140,50 +108,38 @@ export function createDataClient(options: DataClientOptions = {}): DataClient {
     );
   }
 
-  async function fetchJsonCore<T>(path: string, optional: boolean): Promise<T | null> {
+  async function read<T>(url: string, resolvedPath: string): Promise<T> {
+    const response = await fetchImpl(url, { mode: 'cors' });
+    if (response.ok) {
+      return (await response.json()) as T;
+    }
+    // A 404 on an IMMUTABLE release body is corruption, not a miss: recover
+    // with one controlled reload (adopt a newer release) rather than mixing a
+    // legacy generation into this document.
+    if (response.status === 404 && recoverFromMissingBody(resolvedPath)) {
+      return new Promise<T>(() => {}); // navigation underway; never resolves
+    }
+    // An unread body holds the request open, and with it the page's network idle.
+    void response.body?.cancel();
+    throw new Error(`Failed to fetch ${url}: ${response.status} ${response.statusText}`);
+  }
+
+  async function fetchJson<T>(path: string): Promise<T> {
     // Release-aware resolution: rewrites scope paths to their immutable release
     // roots, or a no-op when no release could be read.
     const resolvedPath = await resolvePath(path);
-    const url = useLocalOrigin(resolvedPath) ? resolvedPath : `${baseUrl}${resolvedPath}`;
+    const url = `${R2_BASE}${resolvedPath}`;
     const hit = cached(url);
     if (hit) {
-      return hit as Promise<T | null>;
+      return hit as Promise<T>;
     }
-    const promise = (async () => {
-      const response = await fetchImpl(url, { mode: 'cors' });
-      // A 404 on an IMMUTABLE release body is corruption, not an optional miss:
-      // recover with one controlled reload (adopt a newer release) rather than
-      // mixing a legacy generation into this document. recoverFromMissingBody
-      // is a no-op unless a release drives resolution and this is a release path.
-      if (
-        !optional &&
-        response.status === 404 &&
-        isReleaseBodyPath(resolvedPath) &&
-        recoverFromMissingBody(resolvedPath)
-      ) {
-        return new Promise<T | null>(() => {}); // navigation underway; never resolves
-      }
-      if (!response.ok) {
-        // An unread body holds the request open, and with it the page's
-        // network idle.
-        void response.body?.cancel();
-      }
-      if (optional && response.status === 404) {
-        return null;
-      }
-      if (!response.ok) {
-        throw new Error(`Failed to fetch ${url}: ${response.status} ${response.statusText}`);
-      }
-      return (await response.json()) as T;
-    })();
+    const promise = read<T>(url, resolvedPath);
     remember(url, promise);
     return promise;
   }
 
   return {
-    fetchJson: <T>(path: string) => fetchJsonCore<T>(path, false) as Promise<T>,
-    fetchJsonOptional: <T>(path: string) => fetchJsonCore<T>(path, true),
-    clearCache: () => inflight.clear(),
+    fetchJson,
     get cacheSize() {
       return inflight.size;
     }
