@@ -432,6 +432,8 @@ export interface MatchStamp {
   fixed?: ReadonlyMap<string, number>;
   /** Tables already in use this round, by matches a re-pair keeps. */
   taken?: ReadonlySet<number>;
+  /** Tables a match is playing at: a fixed seat there takes a free table this round instead. */
+  occupied?: ReadonlySet<number>;
   blocked?: readonly { start: number; end: number }[];
   ignoreFixed?: boolean;
   ceiling?: number;
@@ -448,9 +450,16 @@ function claimed(pairing: Pairing, stamp: MatchStamp): number | undefined {
   return stamp.fixed?.get(pairing.p1) ?? (pairing.p2 === null ? undefined : stamp.fixed?.get(pairing.p2));
 }
 
+/** The claimed table, unless a match is still playing there. */
+function claimable(pairing: Pairing, stamp: MatchStamp): number | undefined {
+  const table = stamp.ignoreFixed ? undefined : claimed(pairing, stamp);
+  return table !== undefined && stamp.occupied?.has(table) ? undefined : table;
+}
+
 /**
  * Pairings as table-numbered matches, in the pairings' own order. A match
- * with a fixed-seat player takes that player's table; the rest fill the
+ * with a fixed-seat player takes that player's table, unless a match still
+ * plays there (see MatchStamp.occupied); the rest fill the
  * tables left, skipping any a kept match already holds. A bye sits at no
  * table and is already decided. A top cut keeps this order, as its next
  * round pairs neighbouring matches' winners; pages sort by table.
@@ -481,7 +490,7 @@ function availableTable(
 export function seatPairings(pairings: readonly Pairing[], stamp: MatchStamp): Match[] {
   const used = new Set(stamp.taken ?? []);
   const tables = pairings.map(pairing => {
-    const table = pairing.p2 === null ? 0 : stamp.ignoreFixed ? undefined : claimed(pairing, stamp);
+    const table = pairing.p2 === null ? 0 : claimable(pairing, stamp);
     if (table) {
       used.add(table);
     }

@@ -602,6 +602,36 @@ test("players who dropped before round 1 leave no gap between the divisions' tab
   assert.ok(Math.max(...(t.pods[0]!.rounds[0]?.matches.map(m => m.table) ?? [])) <= 4);
 });
 
+const liveTables = (t: Tournament) =>
+  t.pods.flatMap(p => (p.rounds.at(-1)?.matches ?? []).filter(m => m.p2 !== null).map(m => m.table));
+
+test('a fixed table set mid-event waits while another division still plays there', () => {
+  let t = twoDivisions();
+  const [juniors, masters] = t.pods;
+  t = run(t, { type: 'pairRound', pod: juniors!.category }, { type: 'pairRound', pod: masters!.category });
+  // Masters play tables 6-11; their round 1 is still on table 7 when the Juniors pair round 2.
+  t = run(t, ...pendingResults(t.pods[0]!), { type: 'setFixedTable', id: '305', table: 7 });
+  t = run(t, { type: 'pairRound', pod: juniors!.category });
+  assert.equal(new Set(liveTables(t)).size, liveTables(t).length, 'no two matches share a table');
+  t = run(t, ...pendingResults(t.pods[0]!), ...pendingResults(t.pods[1]!));
+  t = run(t, { type: 'pairRound', pod: masters!.category }, { type: 'pairRound', pod: juniors!.category });
+  assert.equal(tableOf(t, '305'), 7);
+  assert.equal(new Set(liveTables(t)).size, liveTables(t).length);
+});
+
+test('a re-pair keeps a fixed player off the table a kept match holds', () => {
+  let t = run(withPlayers(8), { type: 'pairRound', pod: 'masters' });
+  const holder = round(t).matches.find(m => m.table === 1)!;
+  t = run(
+    t,
+    { type: 'setFixedTable', id: '103', table: 1 },
+    { type: 'addPlayer', player: { firstName: 'Late', lastName: 'One', id: '990' } },
+    { type: 'repairRound', pod: 'masters', keepReported: true }
+  );
+  assert.ok(round(t).matches.some(m => m.table === 1 && m.p1 === holder.p1));
+  assert.equal(new Set(liveTables(t)).size, liveTables(t).length);
+});
+
 test('two players cannot share a fixed table, and one can be cleared', () => {
   const t = run(withPlayers(2), { type: 'setFixedTable', id: '100', table: 5 });
   assert.match(attempt(t, { type: 'setFixedTable', id: '101', table: 5 }), /already fixed for Player 1/);

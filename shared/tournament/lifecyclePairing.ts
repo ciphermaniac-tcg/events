@@ -55,10 +55,20 @@ function tableStamp(
         : overflowTables(t, pod, ctx, repairing)),
       ...(ctx.recorded?.heldRepairTables ?? [])
     ]),
+    ...(ctx.siteTables ? { occupied: new Set([...taken, ...liveTables(t, pod)]) } : {}),
     blocked: pod.blockedRanges,
     ceiling: tableCeiling(t, pod),
     overflow: t.settings?.overflowTableStart
   };
+}
+
+/** Tables the other pods' unfinished rounds are playing at. */
+function liveTables(t: Tournament, pod: Pod): number[] {
+  return t.pods
+    .filter(other => other !== pod)
+    .map(other => latestRound(other))
+    .filter((round): round is Round => round !== undefined && !countsComplete(round))
+    .flatMap(round => round.matches.filter(m => m.p2 !== null).map(m => m.table));
 }
 
 function overflowTables(
