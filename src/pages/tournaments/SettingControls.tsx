@@ -14,9 +14,9 @@ import { Segmented } from '@ciphermaniac/design/components/Segmented';
 import { msg, t } from '../../lib/i18n';
 
 export const VISIBILITY_LABELS: Record<DeckVisibility, string> = {
-  always: msg('Shown during the event'),
-  after: msg('Shown once the event ends'),
-  off: msg('Disabled')
+  always: msg('During the event'),
+  after: msg('Once the event ends'),
+  off: msg('Keep hidden')
 };
 
 /**

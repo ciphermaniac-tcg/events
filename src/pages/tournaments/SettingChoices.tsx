@@ -15,8 +15,8 @@ const CAPS = Array.from({ length: SETTINGS_LIMITS.roundCap }, (_, i) => i + 1);
 
 const DECKLIST_OPTIONS: { value: DecklistMode; label: string }[] = [
   { value: 'off', label: msg('Disabled') },
-  { value: 'closed', label: msg('Closed') },
-  { value: 'open', label: msg('Open') }
+  { value: 'closed', label: msg('Closed lists') },
+  { value: 'open', label: msg('Open lists') }
 ];
 
 /** The event kind, which sets its mode and initial round structure. */
@@ -36,7 +36,7 @@ export function DecklistsSwitch(props: { value: DecklistMode; onChange: (value: 
       options={DECKLIST_OPTIONS.map(option => ({ ...option, label: t(option.label) }))}
       selected={props.value}
       onSelect={props.onChange}
-      ariaLabel={t('Decklists')}
+      ariaLabel={t('Virtual list submission')}
     />
   );
 }

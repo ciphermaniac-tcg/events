@@ -565,16 +565,17 @@ for (const [eventType, label] of [
   ['local', 'Local'],
   ['prerelease', 'Prerelease']
 ] as const) {
-  test(`${label} setup sends the selected kind @mobile`, async ({ page }) => {
+  test(`sanctioned ${label} setup sends the selected kind @mobile`, async ({ page }) => {
     const submissions = await mockOrganizer(page);
     await page.goto('/');
     await page.getByRole('button', { name: 'Start an event' }).click();
     await page.getByRole('textbox', { name: 'Event name' }).fill('Synthetic');
+    await page.getByRole('radiogroup', { name: 'Sanctioned', exact: true }).getByRole('radio', { name: 'Yes' }).click();
+    await page.getByRole('checkbox', { name: 'I’ve created this event in Play! Tools' }).check();
     const kinds = page.getByRole('radiogroup', { name: 'Event type', exact: true });
     await kinds.getByRole('radio', { name: label, exact: true }).click();
-    await expect(page.locator('#setup-minutes')).toHaveAttribute('min', eventType === 'local' ? '10' : '20');
+    await expect(page.locator('#setup-minutes')).toHaveAttribute('min', '30');
     await expect(page.locator('#setup-minutes')).toHaveAttribute('max', '90');
-    await page.locator('#setup-minutes').fill(eventType === 'local' ? '10' : '20');
     await expect(kinds.getByRole('radio', { name: label, exact: true })).toHaveAttribute('aria-checked', 'true');
     await page.getByRole('button', { name: 'Create event' }).click();
     await expect(page.locator('.tm-error')).toHaveText('Fixture submission');

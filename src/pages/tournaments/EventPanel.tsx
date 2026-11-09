@@ -345,7 +345,7 @@ function ForPlayers(props: { state: ManageState; manage: Manage }) {
       <SettingRow label={t('Format')} for='set-format'>
         <FormatSelect id='set-format' value={draft().format} onChange={value => set('format', value)} />
       </SettingRow>
-      <SettingRow label={t('Archetypes')} for='set-decks' info={<SettingInfo text={SETTING_INFO.archetypes} />}>
+      <SettingRow label={t('Show archetypes')} for='set-decks' info={<SettingInfo text={SETTING_INFO.archetypes} />}>
         {/* Showing decks sooner than the event does now is the organizer's call alone (see settings.ts). */}
         <ArchetypesSelect
           id='set-decks'
@@ -378,7 +378,7 @@ function ForPlayers(props: { state: ManageState; manage: Manage }) {
         />
       </SettingRow>
       <SettingRow
-        label={t('Decklists')}
+        label={t('Virtual list submission')}
         info={<SettingInfo text={SETTING_INFO.decklists} />}
         note={midEvent(props.manage, t('Players can’t send lists once round 1 is paired.'))}
       >

@@ -574,16 +574,16 @@ test('/host: an account whose only store was revoked keeps its link, and applies
   await expect(page.getByRole('link', { name: 'Apply to run events' })).toBeVisible();
 });
 
-test('the new event setup explains player reporting, archetypes and decklists, each set Disabled to start', async ({
+test('the new event setup explains archetypes and list submission, and starts archetypes at Once the event ends', async ({
   page
 }) => {
   await mockHost(page, { ...ME, role: 'community' });
   await page.goto('/');
   await page.getByRole('button', { name: 'Start an event' }).click();
+  await expect(page.locator('.tm-set-row', { hasText: 'Mobile result reporting' }).locator('.info-tip')).toHaveCount(0);
   for (const [setting, words] of [
-    ['Mobile result reporting', 'report the results of their match'],
-    ['Archetypes', 'organizer entry of player deck archetypes'],
-    ['Decklists', 'submit their decklists in TCGL format']
+    ['Show archetypes', 'organizer entry of player deck archetypes'],
+    ['Virtual list submission', 'submit their decklists in TCGL format']
   ]) {
     const tip = page.locator('.tm-set-row', { hasText: setting }).locator('.info-tip');
     await tip.hover();
@@ -593,8 +593,8 @@ test('the new event setup explains player reporting, archetypes and decklists, e
   await expect(
     page.getByRole('radiogroup', { name: 'Mobile result reporting' }).getByRole('radio', { checked: true })
   ).toHaveText('Disabled');
-  await expect(page.getByRole('combobox', { name: 'Archetypes', exact: true })).toHaveValue('off');
-  await expect(page.getByRole('combobox', { name: 'Archetypes', exact: true }).locator('option:checked')).toHaveText(
-    'Disabled'
-  );
+  await expect(page.getByRole('combobox', { name: 'Show archetypes', exact: true })).toHaveValue('after');
+  await expect(
+    page.getByRole('combobox', { name: 'Show archetypes', exact: true }).locator('option:checked')
+  ).toHaveText('Once the event ends');
 });

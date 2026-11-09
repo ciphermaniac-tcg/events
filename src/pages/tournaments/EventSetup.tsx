@@ -1,9 +1,12 @@
 /**
- * Setting up a new event on one screen: a heading and the name, then one box
- * of settings rows with every other answer at its default, changed in place.
- * A Swiss event asks everything; an event followed from TOM asks only what
- * its .tdf does not say (the name, sanctioning, divisions and round length all
- * come from the file). The controls are the ones the console's Event tab
+ * Setting up a new event on one screen: a heading and the name, then the
+ * settings in three sections (the event itself and where it is played, its
+ * format and rounds, and what players do from their devices), every answer at
+ * its default and changed in place. A Swiss event asks everything; an event
+ * followed from TOM asks only what its .tdf does not say (the name,
+ * sanctioning, divisions and round length all come from the file). Only a
+ * sanctioned event asks its kind, unless a listing says it; an unsanctioned
+ * one plays as a Local. The controls are the ones the console's Event tab
  * uses, so a setting looks the same in both places. An account that may run
  * events more than one way picks who runs this one first: one of its stores,
  * or itself, whose events are never sanctioned and so ask nothing about it.
@@ -30,7 +33,7 @@ import { ListingPicker } from './ListingPicker';
 import { browserZone, type Logistics, LogisticsRows } from './LogisticsRows';
 import { DecklistsSwitch, EventTypeSwitch, RoundsSelect } from './SettingChoices';
 import { ArchetypesSelect, SettingRow, Toggle } from './SettingControls';
-import { reportingInfo, SETTING_INFO, SettingInfo } from './SettingInfo';
+import { SETTING_INFO, SettingInfo } from './SettingInfo';
 
 export interface Setup {
   name: string;
@@ -73,19 +76,42 @@ const isListing = (value: unknown): value is Listing | null => {
   );
 };
 
-/** What the event does with decks: archetypes, and whether it takes lists (Open lists are shown once round 1 is paired). */
-function DeckRows(props: {
+/** A group of settings under its heading. */
+function SetupSection(props: { title: string; children: JSX.Element }) {
+  return (
+    <section>
+      <h3 class='tm-subhead tm-box-head'>{props.title}</h3>
+      <div class='tm-box'>{props.children}</div>
+    </section>
+  );
+}
+
+/**
+ * What players do from their own devices and what the event shows of their
+ * decks: reporting results, archetypes, and lists (Open lists are shown once
+ * round 1 is paired).
+ */
+function PlayerToolRows(props: {
+  reporting: boolean;
   archetypes: DeckVisibility;
   decklists: DecklistMode;
+  onReporting: (value: boolean) => void;
   onArchetypes: (value: DeckVisibility) => void;
   onDecklists: (value: DecklistMode) => void;
 }) {
   return (
     <>
-      <SettingRow label={t('Archetypes')} for='setup-archetypes' info={<SettingInfo text={SETTING_INFO.archetypes} />}>
+      <SettingRow label={t('Mobile result reporting')}>
+        <Toggle label={t('Mobile result reporting')} value={props.reporting} onChange={props.onReporting} />
+      </SettingRow>
+      <SettingRow
+        label={t('Show archetypes')}
+        for='setup-archetypes'
+        info={<SettingInfo text={SETTING_INFO.archetypes} />}
+      >
         <ArchetypesSelect id='setup-archetypes' value={props.archetypes} onChange={props.onArchetypes} />
       </SettingRow>
-      <SettingRow label={t('Decklists')} info={<SettingInfo text={SETTING_INFO.decklists} />}>
+      <SettingRow label={t('Virtual list submission')} info={<SettingInfo text={SETTING_INFO.decklists} />}>
         <DecklistsSwitch value={props.decklists} onChange={props.onDecklists} />
       </SettingRow>
     </>
@@ -130,14 +156,14 @@ export function EventSetup(props: {
   const [address, setAddress] = field('address', '', isString);
   const [roundTime, setRoundTime] = field('roundTime', String(DEFAULT_ROUND_MINUTES), isString);
   const [reporting, setReporting] = field('reporting', false, isBoolean);
-  const [archetypes, setArchetypes] = field<DeckVisibility>('archetypes', 'off', (value): value is DeckVisibility =>
+  const [archetypes, setArchetypes] = field<DeckVisibility>('archetypes', 'after', (value): value is DeckVisibility =>
     ['off', 'always', 'after'].includes(String(value))
   );
   const [decklists, setDecklists] = field<DecklistMode>('decklists', 'off', (value): value is DecklistMode =>
     ['off', 'open', 'closed'].includes(String(value))
   );
   const [roundCap, setRoundCap] = field('roundCap', 0, isNumber);
-  const [eventType, setEventType] = field<EventType>('eventType', 'cup', (value): value is EventType =>
+  const [chosenType, setEventType] = field<EventType>('eventType', 'cup', (value): value is EventType =>
     EVENT_TYPES.includes(value as EventType)
   );
   const initial = untrack(() => props.initialRunAs ?? props.runAs[0]?.id ?? null);
@@ -183,7 +209,14 @@ export function EventSetup(props: {
   }
   /** The listing it starts from, which says whether it is sanctioned and its kind; none run as the account's own. */
   const listed = () => (own() ? null : listing());
-  const selectedEventType = () => (own() && !['local', 'prerelease'].includes(eventType()) ? 'local' : eventType());
+  /** The kind a listing says, or the one picked for a sanctioned event; an unsanctioned event plays as a Local. */
+  const eventType = (): EventType => {
+    const from = listed();
+    if (from) {
+      return listingFill(from).eventType;
+    }
+    return sanctioned() ? chosenType() : 'local';
+  };
   const needsName = () => swiss() && !name().trim();
   const needsPlayTools = () => (swiss() ? sanctioned() : props.tdfSanctioned);
   const shortRounds = () => swiss() && sanctioned() && Number(roundTime()) < SANCTIONED.minutes;
@@ -217,7 +250,6 @@ export function EventSetup(props: {
     const fill = listingFill(next);
     setName(fill.name);
     setStartsAt(fill.startsAt);
-    setEventType(fill.eventType);
     setSanctionedTo(fill.sanctioned);
     // Listed on pokemon.com is what being created in Play! Tools leads to.
     setPlayToolsConfirmed(fill.sanctioned);
@@ -236,7 +268,7 @@ export function EventSetup(props: {
     props.onCreate({
       name: name().trim(),
       roundTime: Number(roundTime()),
-      eventType: selectedEventType(),
+      eventType: eventType(),
       store: runAs(),
       today: localToday(),
       ...(from ? { sanctionId: from.sanctionId } : {}),
@@ -275,18 +307,10 @@ export function EventSetup(props: {
       <Show when={swiss() && !own() && !tomPairs() && runAs()}>
         {store => <ListingPicker storeId={store()} picked={listing()?.sanctionId ?? ''} onPick={pick} />}
       </Show>
-      <div class='tm-box'>
+      <SetupSection title={t('Event')}>
         <Show when={!tomPairs() && listing()}>{picked => <ListingRow listing={picked()} />}</Show>
         <Show when={swiss() && !own() && !listed()}>
-          <SettingRow label={t('Sanctioned')}>
-            <Toggle
-              label={t('Sanctioned')}
-              value={sanctioned()}
-              on={t('Yes')}
-              off={t('No')}
-              onChange={setSanctionedTo}
-            />
-          </SettingRow>
+          <SanctionedRow value={sanctioned()} onChange={setSanctionedTo} />
         </Show>
         <Show when={asksPairing()}>
           <PairingRow tom={pairsInTom()} onChange={choosePairing} />
@@ -295,9 +319,6 @@ export function EventSetup(props: {
           <Show when={needsPlayTools()}>
             <PlayToolsRow confirmed={playToolsConfirmed()} onConfirm={setPlayToolsConfirmed} />
           </Show>
-          <SettingRow label={t('Format')} for='setup-format'>
-            <FormatSelect id='setup-format' value={format()} onChange={setFormat} />
-          </SettingRow>
           <SettingRow label={t('Starts')} for='setup-starts'>
             <input
               id='setup-starts'
@@ -313,31 +334,38 @@ export function EventSetup(props: {
             place={!atStore()}
             onChange={(key, value) => setLogistics[key](value)}
           />
+        </Show>
+      </SetupSection>
+      <Show when={!tomPairs()}>
+        <SetupSection title={t('Format and rounds')}>
+          <SettingRow label={t('Format')} for='setup-format'>
+            <FormatSelect id='setup-format' value={format()} onChange={setFormat} />
+          </SettingRow>
           <Show when={swiss()}>
             <SwissRows
-              eventType={selectedEventType()}
-              listed={listed() !== null}
-              own={own()}
+              eventType={eventType()}
+              asksType={sanctioned() && !listed()}
+              onEventType={setEventType}
               sanctioned={sanctioned()}
               roundTime={roundTime()}
               invalidMinutes={invalidMinutes()}
               roundCap={roundCap()}
-              onEventType={setEventType}
               onRoundTime={setRoundTime}
               onRoundCap={setRoundCap}
             />
           </Show>
-          <SettingRow label={t('Mobile result reporting')} info={<SettingInfo text={reportingInfo(sanctioned())} />}>
-            <Toggle label={t('Mobile result reporting')} value={reporting()} onChange={setReporting} />
-          </SettingRow>
-          <DeckRows
+        </SetupSection>
+        <SetupSection title={t('Results and decks')}>
+          <PlayerToolRows
+            reporting={reporting()}
             archetypes={archetypes()}
             decklists={decklists()}
+            onReporting={setReporting}
             onArchetypes={setArchetypes}
             onDecklists={setDecklists}
           />
-        </Show>
-      </div>
+        </SetupSection>
+      </Show>
       <Show
         when={tomPairs()}
         fallback={
@@ -358,6 +386,14 @@ export function EventSetup(props: {
       </Show>
       <ErrorLine message={props.error} />
     </form>
+  );
+}
+
+function SanctionedRow(props: { value: boolean; onChange: (value: boolean) => void }) {
+  return (
+    <SettingRow label={t('Sanctioned')}>
+      <Toggle label={t('Sanctioned')} value={props.value} on={t('Yes')} off={t('No')} onChange={props.onChange} />
+    </SettingRow>
   );
 }
 
@@ -385,29 +421,25 @@ function TdfFooter(props: { link: JSX.Element; onCancel: () => void }) {
   );
 }
 
-/** What only an event paired here asks: its kind, unless a listing said, and its rounds' length and count. */
+/** What only an event paired here asks: its kind when sanctioned and unlisted, and its rounds' length and count. */
 function SwissRows(props: {
   eventType: EventType;
-  listed: boolean;
-  own: boolean;
+  /** Whether to ask the kind: only a sanctioned event the organizer did not start from a listing. */
+  asksType: boolean;
+  onEventType: (value: EventType) => void;
   sanctioned: boolean;
   roundTime: string;
   invalidMinutes: boolean;
   roundCap: number;
-  onEventType: (value: EventType) => void;
   onRoundTime: (value: string) => void;
   onRoundCap: (value: number) => void;
 }) {
   const timeLimits = () => eventTimeLimits(props.eventType);
   return (
     <>
-      <Show when={!props.listed}>
+      <Show when={props.asksType}>
         <SettingRow label={t('Event type')}>
-          <EventTypeSwitch
-            value={props.eventType}
-            types={props.own ? ['local', 'prerelease'] : undefined}
-            onChange={props.onEventType}
-          />
+          <EventTypeSwitch value={props.eventType} onChange={props.onEventType} />
         </SettingRow>
       </Show>
       <SettingRow label={t('Swiss round minutes')} for='setup-minutes'>

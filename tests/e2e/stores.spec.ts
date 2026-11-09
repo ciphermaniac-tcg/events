@@ -939,12 +939,17 @@ test('Not listed here keeps what was typed and sends no sanction ID', async ({ p
   await picker.getByRole('radio', { name: 'Not listed here' }).check();
   await expect(page.locator('.tm-set-row', { hasText: 'Sanction ID' })).toHaveCount(0);
   await expect(page.getByRole('radiogroup', { name: 'Sanctioned', exact: true })).toBeVisible();
+  // Unsanctioned, as the Locals listing left it: no kind to pick until it is sanctioned.
+  await expect(page.getByRole('radiogroup', { name: 'Event type', exact: true })).toHaveCount(0);
+  await page.getByRole('radiogroup', { name: 'Sanctioned', exact: true }).getByRole('radio', { name: 'Yes' }).click();
   await expect(page.getByRole('radiogroup', { name: 'Event type', exact: true })).toBeVisible();
+  await page.getByRole('radiogroup', { name: 'Sanctioned', exact: true }).getByRole('radio', { name: 'No' }).click();
   await expect(page.getByRole('textbox', { name: 'Event name' })).toHaveValue('Combat Power Locals');
   await page.getByRole('button', { name: 'Create event' }).click();
   await expect(page).toHaveURL(/\/host\/NEW001/);
   const [sent] = sentTo(asks, 'POST', '/api/tournaments') as Record<string, unknown>[];
   expect(sent?.sanctionId).toBeUndefined();
+  expect(sent?.eventType).toBe('local');
 });
 
 test('an event run under the account’s own name offers no listings', async ({ page }) => {
@@ -957,14 +962,14 @@ test('an event run under the account’s own name offers no listings', async ({ 
   expect(asks.filter(a => a.path.endsWith('/listings'))).toHaveLength(1);
 });
 
-test('an unsanctioned store’s event offers Local and Prerelease without listings or sanctioning', async ({ page }) => {
+test('an unsanctioned store’s event asks no kind, listings or sanctioning', async ({ page }) => {
   const asks = await mock(page, { user: { ...ME, stores: [{ ...MY_STORE, leagueId: null }] } });
   await page.goto('/');
   await page.getByRole('button', { name: 'Start an event' }).click();
   await expect(page.getByRole('textbox', { name: 'Event name' })).toBeVisible();
   await expect(page.getByRole('group', { name: 'On pokemon.com' })).toHaveCount(0);
   await expect(page.locator('.tm-set-row', { hasText: 'Sanctioned' })).toHaveCount(0);
-  await expect(page.getByRole('radiogroup', { name: 'Event type', exact: true })).toBeVisible();
+  await expect(page.getByRole('radiogroup', { name: 'Event type', exact: true })).toHaveCount(0);
   expect(asks.filter(a => a.path.endsWith('/listings'))).toHaveLength(0);
 });
 
