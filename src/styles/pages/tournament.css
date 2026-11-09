@@ -1589,6 +1589,11 @@ tr.is-in .tm-place {
   font-weight: 600;
   box-shadow: 0 0 0 1px var(--border);
 }
+/* The travelling pill draws the fill and edge (Segmented.tsx). */
+.tm-page .segmented.has-thumb button.active {
+  background: transparent;
+  box-shadow: none;
+}
 .tm-set-foot {
   justify-content: flex-end;
   border-top: 1px solid var(--rule);
