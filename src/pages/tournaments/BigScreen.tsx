@@ -11,7 +11,10 @@
  * clock starts, the clock is the largest thing on the screen and the tables
  * run under it. Once every table has a result, the tables again with each
  * result in the middle, for the room to check before the next round. Once
- * the event ends, the standings, with each player's archetype once decks show.
+ * the last Swiss round is in, the standings, with a line under the last
+ * player each division's top cut takes, so the room knows who advances
+ * before the cut is paired; and once the event ends, the final standings,
+ * with each player's archetype once decks show.
  *
  * Every list scrolls itself when it does not fit, at the speed set on the
  * screen. The header carries the event's name and status, and after round 1
@@ -42,6 +45,7 @@ import {
   type MatchView,
   matchViews,
   namesById,
+  plannedRounds,
   podLabel,
   podStandings,
   recordsSoFar,
@@ -51,6 +55,7 @@ import {
 } from '../../lib/tournament/present';
 import { type ScreenPhase, screenPhase } from '../../lib/tournament/screen';
 import { latestRound, livePods, sortMatches, withSwiss } from '../../../shared/tournament/rounds';
+import { eventTypeOf } from '../../../shared/tournament/structure';
 import type { LiveData } from '../../lib/tournament/liveData';
 import { LiveDataStatus } from './LiveDataStatus';
 import { DivisionClocks } from './DivisionClocks';
@@ -323,17 +328,26 @@ function Matches(props: { view: TournamentView; pods: Pod[]; prefs: Prefs }) {
   );
 }
 
-/** Each pod's final standings, a table per division, under its name when there are several. */
+/**
+ * Each pod's standings, a table per division, under its name when there are
+ * several. Until a division's top cut starts, a line under its last place in
+ * says who advances.
+ */
 function Standings(props: { view: TournamentView; pods: Pod[] }) {
   const names = createMemo(() => namesById(props.view.tournament));
   const divisionOf = (id: string) => props.view.divisions[id] ?? 'masters';
   const groups = createMemo(() =>
-    props.pods.flatMap(pod =>
-      podStandings(props.view.tournament, pod, divisionOf).map(group => ({
-        heading: group.division ? divisionHeading(group.division) : podLabel(pod),
-        rows: group.rows
-      }))
-    )
+    props.pods
+      .flatMap(pod =>
+        podStandings(props.view.tournament, pod, divisionOf).map(group => ({
+          heading: group.division ? divisionHeading(group.division) : podLabel(pod),
+          rows: group.rows,
+          // Not on an ended event's standings: a cut it never played advances nobody.
+          cut: group.cutStarted || props.view.settings.finished || group.rows.length <= group.cut ? 0 : group.cut
+        }))
+      )
+      // A division with a cut to announce leads, so the room sees who advances before the list scrolls.
+      .sort((a, b) => Number(b.cut > 0) - Number(a.cut > 0))
   );
   return (
     <For each={groups()}>
@@ -355,23 +369,32 @@ function Standings(props: { view: TournamentView; pods: Pod[] }) {
             <tbody>
               <For each={group.rows}>
                 {row => (
-                  <tr>
-                    <td class='tm-screen-place'>{row.place}</td>
-                    <td class='tm-screen-player'>
-                      {names().get(row.playerId) ?? row.playerId}
-                      <Show when={props.view.decks[row.playerId]}>
-                        {deck => (
-                          <span class='tm-screen-deck'>
-                            <DeckIcons label={deck()} size={32} />
-                            <span class='tm-screen-deck-name'>{deck()}</span>
-                          </span>
-                        )}
-                      </Show>
-                    </td>
-                    <td>{recordLabel(row.record)}</td>
-                    <td class='tm-screen-points'>{row.points}</td>
-                    <td>{percentLabel(row.owp)}</td>
-                  </tr>
+                  <>
+                    <tr>
+                      <td class='tm-screen-place'>{row.place}</td>
+                      <td class='tm-screen-player'>
+                        {names().get(row.playerId) ?? row.playerId}
+                        <Show when={props.view.decks[row.playerId]}>
+                          {deck => (
+                            <span class='tm-screen-deck'>
+                              <DeckIcons label={deck()} size={32} />
+                              <span class='tm-screen-deck-name'>{deck()}</span>
+                            </span>
+                          )}
+                        </Show>
+                      </td>
+                      <td>{recordLabel(row.record)}</td>
+                      <td class='tm-screen-points'>{row.points}</td>
+                      <td>{percentLabel(row.owp)}</td>
+                    </tr>
+                    <Show when={row.place === group.cut}>
+                      <tr class='tm-screen-cut'>
+                        <td colSpan={5}>
+                          <span class='tm-cut-top'>{t('Top {n}', { n: group.cut })}</span>
+                        </td>
+                      </tr>
+                    </Show>
+                  </>
                 )}
               </For>
             </tbody>
@@ -505,7 +528,9 @@ export function BigScreen(props: { view: TournamentView; liveData?: LiveData; on
   const url = () => `${location.origin}/t/${props.view.code}`;
   const pods = createMemo(() => livePods(props.view.tournament).filter(pod => latestRound(pod)));
   const anyBracket = createMemo(() => pods().some(hasCut));
-  const phase = createMemo(() => screenPhase(pods(), props.view.pending, props.view.settings.finished));
+  const planned = (pod: Pod) =>
+    plannedRounds(pod, roundCapOf(props.view) ?? 0, eventTypeOf(props.view.tournament), props.view.tournament);
+  const phase = createMemo(() => screenPhase(pods(), props.view.pending, props.view.settings.finished, planned));
   const status = createMemo(() =>
     eventStatus(
       props.view.tournament,

@@ -20,7 +20,6 @@ import {
 } from 'solid-js';
 import { activeIds, cutPodsOf, latestRound, livePods, roundComplete } from '../../../shared/tournament/rounds';
 
-import { eventTypeOf } from '../../../shared/tournament/structure';
 import type { Pod, PodCategory } from '../../../shared/tournament/types';
 import { Segmented } from '@ciphermaniac/design/components/Segmented';
 import { TabPanel, Tabs } from '@ciphermaniac/design/components/Tabs';
@@ -28,7 +27,6 @@ import { Icon } from '@ciphermaniac/design/components/Icon';
 import { msg, t, tn, tx } from '../../lib/i18n';
 import { errorText, joinStaff, type Manage } from '../../lib/tournament/api';
 import {
-  type DivisionCut,
   divisionCuts,
   namesById,
   podLabel,
@@ -105,10 +103,10 @@ const NO_PROGRESS: PodProgress = { round: undefined, tables: 0, open: 0, champio
 
 /** What a TOM event's head says to do once following its file stops, by why. */
 const TOM_LAPSES: Record<Lapse, string> = {
-  permission: msg('allow access to the .tdf to enter results'),
-  unreadable: msg('pick the .tdf again to enter results'),
-  conflict: msg('reconnect the .tdf to enter results'),
-  older: msg('reconnect the .tdf to enter results')
+  permission: msg('allow access to the .tdf to keep players updated'),
+  unreadable: msg('pick the .tdf again to keep players updated'),
+  conflict: msg('reconnect the .tdf to keep players updated'),
+  older: msg('reconnect the .tdf to keep players updated')
 };
 
 /** What a TOM event's head adds to the round: whether TOM has every result entered here. */
@@ -153,50 +151,12 @@ function PairButton(props: {
 /** What the disabled step says while the round plays, when it is not pairing. */
 const WAITING_WORDS: Partial<Record<RoundEnd, string>> = { cut: msg('Start top cut'), end: msg('End event') };
 
-/**
- * The end of a Swiss round: the step the plan calls for as one button, the
- * others behind its caret (see RoundEndSplit). While the round is still
- * playing, only that step shows, disabled, with the reason under it.
- */
-function RoundEndStep(props: {
-  state: ManageState;
-  manage: Manage;
-  pod: Pod;
-  label: string;
-  ready: boolean;
-  step: RoundEnd;
-  cuts: readonly DivisionCut[];
-  /** The pod's divisions have begun their top cuts: its Swiss rounds are over, and only the others' cuts are left. */
-  swissOver: boolean;
-}) {
-  const open = () => props.cuts.filter(c => !c.started);
-  // A League Challenge plays Swiss rounds only.
-  const canCut = () =>
-    !props.pod.prereleaseConcluded &&
-    eventTypeOf(props.manage.tournament) !== 'challenge' &&
-    (props.step === 'cut' || open().some(c => c.active >= 4));
-  return (
-    <Show
-      when={props.ready}
-      fallback={
-        <button type='button' class='btn btn-primary is-waiting' disabled>
-          {t(WAITING_WORDS[props.step] ?? props.label)}
-        </button>
-      }
-    >
-      <RoundEndSplit
-        state={props.state}
-        manage={props.manage}
-        pod={props.pod}
-        label={props.label}
-        step={props.step}
-        cuts={props.cuts}
-        canCut={canCut()}
-        swissOver={props.swissOver}
-      />
-    </Show>
-  );
-}
+/** The step to take next, disabled while the round still plays. */
+const WaitingStep = (props: { label: string }) => (
+  <button type='button' class='btn btn-primary is-waiting' disabled>
+    {props.label}
+  </button>
+);
 
 /**
  * The console's head, the same on every tab: the event, where its round
@@ -246,20 +206,15 @@ function Hero(props: { state: ManageState; manage: Manage; pod: Pod | undefined;
   const step = createMemo(() =>
     props.tom ? ({ kind: 'none' } as NextStep) : nextStep(progress(), finished(), plan())
   );
-  const pairStep = () => {
+  /** The step, when it is of the kind asked for. */
+  const stepOf = <K extends NextStep['kind']>(kind: K) => {
     const s = step();
-    return s.kind === 'pair' ? s : null;
+    return s.kind === kind ? (s as Extract<NextStep, { kind: K }>) : null;
   };
-  const decideStep = () => {
-    const s = step();
-    return s.kind === 'decide' ? s : null;
-  };
+  const pairStep = () => stepOf('pair');
   /** The champion is known; a third-place match still playing holds the end back. */
-  const closeStep = () => {
-    const s = step();
-    return s.kind === 'close' ? s : null;
-  };
-  /** A Swiss round's end, as RoundEndStep lays it out; round one and the top cut's rounds only pair. */
+  const closeStep = () => stepOf('close');
+  /** A Swiss round's end, as RoundEndSplit lays it out; round one and the top cut's rounds only pair. */
   const roundEnd = () => {
     const s = step();
     if (s.kind === 'decide' || (s.kind === 'pair' && swissOver() && cuts().some(c => !c.started && c.cut > 0))) {
@@ -282,7 +237,7 @@ function Hero(props: { state: ManageState; manage: Manage; pod: Pod | undefined;
     }
     return drops()
       ? tn(drops(), '{n} drop request waiting', '{n} drop requests waiting')
-      : (pairStep() ?? decideStep() ?? closeStep())?.reason;
+      : (pairStep() ?? stepOf('decide') ?? closeStep())?.reason;
   };
   // The open tables need no saying twice: the lead already counts them.
   const openTablesOnly = () => reason() === tn(progress().open, '{n} table open', '{n} tables open');
@@ -291,16 +246,17 @@ function Hero(props: { state: ManageState; manage: Manage; pod: Pod | undefined;
       <Match when={props.tom}>{tom => <TomStatus link={tom()} />}</Match>
       <Match when={props.pod && roundEnd()}>
         {s => (
-          <RoundEndStep
-            state={props.state}
-            manage={props.manage}
-            pod={props.pod as Pod}
-            label={s().label}
-            ready={s().ready}
-            step={s().end}
-            cuts={cuts()}
-            swissOver={swissOver()}
-          />
+          <Show when={s().ready} fallback={<WaitingStep label={t(WAITING_WORDS[s().end] ?? s().label)} />}>
+            <RoundEndSplit
+              state={props.state}
+              manage={props.manage}
+              pod={props.pod as Pod}
+              label={s().label}
+              step={s().end}
+              cuts={cuts()}
+              swissOver={swissOver()}
+            />
+          </Show>
         )}
       </Match>
       <Match when={pairStep()}>
@@ -316,14 +272,7 @@ function Hero(props: { state: ManageState; manage: Manage; pod: Pod | undefined;
       </Match>
       <Match when={closeStep()}>
         {s => (
-          <Show
-            when={s().ready}
-            fallback={
-              <button type='button' class='btn btn-primary is-waiting' disabled>
-                {t('End event')}
-              </button>
-            }
-          >
+          <Show when={s().ready} fallback={<WaitingStep label={t('End event')} />}>
             <EndEventStep state={props.state} manage={props.manage} primary={!othersPlaying()} />
           </Show>
         )}
@@ -471,8 +420,6 @@ function Console(props: { state: ReturnType<typeof createManage>; manage: Manage
   const pod = createMemo(
     () => pods().find(p => p.category === podChoice()) ?? livePods(props.manage.tournament)[0] ?? pods()[0]
   );
-  const names = createMemo(() => namesById(props.manage.tournament));
-  const divisionOf = createMemo(() => divisionLookup(props.manage.tournament));
   // A TOM event's file is linked for as long as the console is open, whatever the tab.
   // The other tabs, fetched while the venue's Wi-Fi holds rather than when one is opened.
   onMount(() =>
@@ -536,17 +483,22 @@ function Console(props: { state: ReturnType<typeof createManage>; manage: Manage
         </Show>
         <Show when={tab() === 'standings'}>
           <Show when={pod()}>
-            {p => (
-              <StandingsTable
-                tournament={props.manage.tournament}
-                pod={p()}
-                names={names()}
-                decks={shownDecks(props.manage)}
-                divisionOf={divisionOf()}
-                tiebreakers
-                hideCutDecks={props.manage.settings.deckVisibility !== 'always' && !props.manage.settings.finished}
-              />
-            )}
+            {p => {
+              // Worked out while Standings is open only, not on every refresh behind Pairings.
+              const names = createMemo(() => namesById(props.manage.tournament));
+              const divisionOf = createMemo(() => divisionLookup(props.manage.tournament));
+              return (
+                <StandingsTable
+                  tournament={props.manage.tournament}
+                  pod={p()}
+                  names={names()}
+                  decks={shownDecks(props.manage)}
+                  divisionOf={divisionOf()}
+                  tiebreakers
+                  hideCutDecks={props.manage.settings.deckVisibility !== 'always' && !props.manage.settings.finished}
+                />
+              );
+            }}
           </Show>
         </Show>
         <Show when={tab() === 'decklists'}>

@@ -1,3 +1,133 @@
+/* ---------- The head's TOM status, the clock and the champion ---------- */
+/* TOM's status in the console's head (TomStatus): the results to write, when
+   TOM last saved and the file's buttons, on one line. */
+.tm-next-acts {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+}
+@media (max-width: 640px) {
+  /* On a phone each is a full-width row. */
+  .tm-next-acts {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.tm-box-bar .tm-clock-group {
+  margin-left: 0;
+}
+/* Both classes, so the strip keeps its side padding over .tm-champion's own. */
+.tm-strip.tm-champion {
+  padding: 10px 14px;
+}
+.tm-strip .tm-champion-name {
+  font-size: var(--text-lg);
+}
+/* The clock is one control, drawn as one: the time, then its three actions,
+   in the round stepper's bordered strip (live.css .round-step). */
+.tm-clock-group {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  overflow: hidden;
+}
+/* Too narrow for one line, the time keeps the first and the actions share the second;
+   the actions' ring draws the rule beside the time or above them, the edge clipping the rest. */
+.tm-clock-face {
+  display: inline-flex;
+  flex: 999 0 auto;
+  align-items: center;
+  min-width: 76px;
+  /* Whole pixels, so a line of its own leaves the page a whole height. */
+  padding: var(--space-2) var(--space-3);
+  line-height: 1;
+}
+.tm-clock-acts {
+  display: flex;
+  flex: auto;
+  box-shadow: 0 0 0 1px var(--rule);
+}
+.tm-clock-group button {
+  flex: 1 0 auto;
+  min-height: calc(var(--control-h) - 2px);
+  white-space: nowrap;
+  padding: 0 var(--space-3);
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--fg);
+  transition: background var(--ms-fast) var(--ease-base);
+}
+.tm-clock-group button + button {
+  border-left: 1px solid var(--rule);
+}
+.tm-clock-group button:hover {
+  background: var(--surface-2);
+}
+@media (max-width: 640px), (pointer: coarse) {
+  .tm-clock-group button {
+    min-height: 42px;
+  }
+}
+.tm-champion {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.tm-champion-label {
+  font-size: var(--text-base);
+  color: var(--muted);
+}
+.tm-champion-name {
+  font-size: var(--text-xl);
+  letter-spacing: -0.015em;
+}
+.tm-champion .btn {
+  margin-left: auto;
+}
+
+/* ---------- The console's next step: a split button (NextStep) ---------- */
+.tm-split {
+  display: inline-flex;
+}
+.tm-split > .btn {
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+}
+.tm-split .tm-split-caret {
+  padding-inline: 10px;
+  border-left-color: color-mix(in srgb, var(--accent-fg) 30%, transparent);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+.tm-split .tm-more {
+  display: inline-flex;
+}
+.tm-cut-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+.tm-cut-label {
+  font-weight: 600;
+}
+.tm-end-gaps {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding-left: var(--space-4);
+}
+.tm-end-gaps li::marker {
+  color: var(--muted);
+}
+
 /* ---------- Event console (/host/:code) ----------
    The head: the event's name beside the account button, a meta line led by
    where the round stands, then the round's clock opposite the steps that end

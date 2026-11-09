@@ -67,13 +67,12 @@ import {
   rotateStaff
 } from '../../functions/lib/tournaments/store.ts';
 import { juniorsCutApart } from '../__utils__/divisionCuts.ts';
-import { apiCalls, type Handler, ORIGIN, request } from '../__utils__/apiCalls.ts';
+import { apiSuite, type Handler, ORIGIN, request } from '../__utils__/apiCalls.ts';
 import { at, eventCalls } from '../__utils__/eventCalls.ts';
 import { storeApplication } from '../__utils__/storeApplication.ts';
 import { countingTrips, racing, sqliteD1 } from '../__utils__/sqliteD1.ts';
 import { completed, context, generatedEvent, operated } from '../tournament/conformance-generated.ts';
 import { type MainSiteData, serveMainSiteData } from '../__utils__/mainSiteData.ts';
-import { resetRateLimiters } from '../../functions/lib/api/rateLimiter.ts';
 
 /** Every scalar in a JSON value, keys included, for asserting what a public copy never carries. */
 function jsonValues(value: unknown): unknown[] {
@@ -86,17 +85,14 @@ function jsonValues(value: unknown): unknown[] {
   return [value];
 }
 
-let env: TournamentEnv;
-const { hit, signIn } = apiCalls(() => env);
+const { env, hit, signIn } = apiSuite();
 const { newEvent, newSwiss, send, addPlayers, settle, playerSays, view, storeOf } = eventCalls(hit);
 
 // No test reaches the real main site for the event locator's league files.
 let mainSite: MainSiteData;
 
 beforeEach(() => {
-  env = { TOURNAMENT_DB: sqliteD1('tournaments.sql'), DEV_LOGIN: 'true' };
   mainSite = serveMainSiteData();
-  resetRateLimiters();
 });
 
 /** The revision of the event's document as the console loads it, as the browser following the .tdf sends it. */
@@ -594,7 +590,7 @@ test('staff join by invite link, and a new link retires the old one', async () =
   assert.equal(stale.status, 403);
 });
 
-test('a TOM event holds site results as pending until the synced file settles them', async () => {
+test('a TOM event takes no results from the site: TOM enters them', async () => {
   const owner = await signIn('Organizer', 'organizer');
   const tdf = parseTdf(readFileSync(new URL('../fixtures/tdf/challenge-midevent.tdf', import.meta.url), 'utf8'));
   const created = await hit(
@@ -608,32 +604,17 @@ test('a TOM event holds site results as pending until the synced file settles th
     }
   );
   const { code } = created.json;
-  const reported = await send(code, owner, {
-    type: 'reportResult',
-    pod: 'mixed',
-    round: 2,
-    table: 1,
-    p1: '7200001',
-    p2: '7200004',
-    outcome: 'p1'
-  });
-  const decided = await send(code, owner, {
-    type: 'reportResult',
-    pod: 'mixed',
-    round: 2,
-    table: 2,
-    p1: '7200005',
-    p2: '7200007',
-    outcome: 'p1'
-  });
-  assert.match(decided.json.error, /TOM already has a result/);
-  assert.equal(reported.json.pending.length, 1);
-  assert.equal(reported.json.tournament.pods[0].rounds[1].matches[1].outcome, 'pending', 'TOM’s copy is untouched');
+  const open = { type: 'reportResult', pod: 'mixed', round: 2, table: 1, p1: '7200001', p2: '7200004' };
+  for (const outcome of ['p1', 'tie', 'double-loss', 'pending']) {
+    const refused = await send(code, owner, { ...open, outcome, expected: 'pending' });
+    assert.match(refused.json.error, /make this change in TOM/, outcome);
+  }
+  const decided = { type: 'reportResult', pod: 'mixed', round: 2, table: 2, p1: '7200005', p2: '7200007' };
+  assert.match((await send(code, owner, { ...decided, outcome: 'p2' })).json.error, /make this change in TOM/);
   assert.match((await send(code, owner, { type: 'pairRound', pod: 'mixed' })).json.error, /make this change in TOM/);
-
   const publicView = await view(code);
-  assert.equal(publicView.pending.length, 1);
-  assert.notEqual(publicView.pending[0]?.p1, '7200001', 'pending results use public keys too');
+  assert.deepEqual(publicView.pending, []);
+  assert.equal(publicView.tournament.pods[0]?.rounds[1]?.matches[1]?.outcome, 'pending', 'TOM’s copy is untouched');
 
   const refused = await hit(sync.onRequestPut as Handler, '/sync', at(code), {
     method: 'PUT',
@@ -663,7 +644,7 @@ test('a TOM event holds site results as pending until the synced file settles th
     body: { tournament: settled, base: await revisionNow(code, owner) }
   });
   assert.equal(synced.status, 200);
-  assert.deepEqual(synced.json.pending, []);
+  assert.equal(synced.json.tournament.pods[0].rounds[1].matches[1].outcome, 'p1', 'the result comes from TOM’s file');
 });
 
 test('a TOM file another sync changed while it was sent is refused as a conflict', async () => {
@@ -1501,29 +1482,6 @@ test('a result expecting what no longer stands is refused, and a console that se
   assert.equal(older.json.tournament.pods[0].rounds[0].matches[0].outcome, 'tie', 'an older console sends none');
 });
 
-test('a TOM event refuses a stale result against the pending one, and leaves a decided match to TOM', async () => {
-  const owner = await signIn('Organizer', 'organizer');
-  const tdf = parseTdf(readFileSync(new URL('../fixtures/tdf/challenge-midevent.tdf', import.meta.url), 'utf8'));
-  const created = await hit(
-    tournaments.onRequestPost as Handler,
-    '/api/tournaments',
-    {},
-    { method: 'POST', cookie: owner, body: { mode: 'tom', tournament: tdf, store: await storeOf(owner) } }
-  );
-  const { code } = created.json;
-  const open = { type: 'reportResult', pod: 'mixed', round: 2, table: 1, p1: '7200001', p2: '7200004' };
-  assert.equal((await send(code, owner, { ...open, outcome: 'p1', expected: 'pending' })).json.pending.length, 1);
-  const stale = await send(code, owner, { ...open, outcome: 'p2', expected: 'pending' });
-  assert.match(stale.json.error, /changed on another device/);
-  const meant = await send(code, owner, { ...open, outcome: 'p2', expected: 'p1' });
-  assert.equal(meant.json.pending[0].outcome, 'p2');
-  const decided = { type: 'reportResult', pod: 'mixed', round: 2, table: 2, p1: '7200005', p2: '7200007' };
-  assert.match(
-    (await send(code, owner, { ...decided, outcome: 'p1', expected: 'pending' })).json.error,
-    /TOM already has a result/
-  );
-});
-
 test('a sanctioned event admits a player only with a Player ID and birth year, and a correction keeps their year and division', async () => {
   const owner = await signIn('Organizer', 'organizer');
   const code = await newSwiss(owner);
@@ -1643,7 +1601,7 @@ test('an unsanctioned event finds players by last name, asking for a first name 
   assert.equal(byId.status, 404, 'no Player IDs at an unsanctioned event');
 });
 
-test('at a TOM event an agreed report needs staff acceptance before becoming pending for TOM', async () => {
+test('at a TOM event an agreed report stays a report for staff to enter in TOM', async () => {
   const owner = await signIn('Organizer', 'organizer');
   mock.timers.enable({ apis: ['Date'], now: Date.now() });
   const tdf = parseTdf(readFileSync(new URL('../fixtures/tdf/challenge-midevent.tdf', import.meta.url), 'utf8'));
@@ -1684,8 +1642,7 @@ test('at a TOM event an agreed report needs staff acceptance before becoming pen
     p2: '7200004',
     outcome: 'tie'
   });
-  assert.equal(accepted.status, 200);
-  assert.equal(accepted.json.pending[0]?.outcome, 'tie');
+  assert.match(accepted.json.error, /make this change in TOM/, 'staff accept it in TOM, not here');
   const table = agreed.json.tournament.pods[0]?.rounds[1]?.matches.find(m => m.table === 1);
   assert.equal(table?.outcome, 'pending', 'TOM’s copy is untouched');
 });
@@ -2137,24 +2094,28 @@ test('only the organizer shows decks sooner; staff can still hide them', async (
 test('only the organizer opens the lists; staff can still close them', async () => {
   const { owner, code, helper } = await withHelper();
   await settle(code, owner, { decklists: 'closed' });
-  const put = (cookie: string, openLists: boolean) =>
-    hit(settings.onRequestPut as Handler, '/settings', at(code), { method: 'PUT', cookie, body: { openLists } });
-  const refused = await put(helper, true);
-  assert.deepEqual([refused.status, refused.json.error], [403, 'Only the organizer can open the lists']);
-  assert.equal((await put(owner, true)).status, 200);
-  assert.equal((await put(helper, true)).status, 200, 'leaving them open is no change of theirs');
-  assert.equal((await put(helper, false)).status, 200, 'but can close them');
-});
-
-test('staff cannot reopen open lists by taking decklists again after they were off', async () => {
-  const { owner, code, helper } = await withHelper();
-  await settle(code, owner, { decklists: 'open', openLists: true });
-  await settle(code, owner, { decklists: 'off' });
   const put = (cookie: string, decklists: string) =>
     hit(settings.onRequestPut as Handler, '/settings', at(code), { method: 'PUT', cookie, body: { decklists } });
-  const refused = await put(helper, 'closed');
+  const refused = await put(helper, 'open');
   assert.deepEqual([refused.status, refused.json.error], [403, 'Only the organizer can open the lists']);
-  assert.equal((await put(owner, 'closed')).status, 200);
+  assert.equal((await put(owner, 'open')).status, 200);
+  assert.equal((await put(helper, 'open')).status, 200, 'leaving them open is no change of theirs');
+  assert.equal((await put(helper, 'closed')).status, 200, 'but can close them');
+  assert.equal((await put(helper, 'off')).status, 200, 'or stop taking lists');
+  const again = await put(helper, 'open');
+  assert.deepEqual([again.status, again.json.error], [403, 'Only the organizer can open the lists']);
+});
+
+test('a console from before Open meant shared still saves, its sharing switch left to Decklists', async () => {
+  const { owner, code } = await withHelper();
+  const saved = await hit(settings.onRequestPut as Handler, '/settings', at(code), {
+    method: 'PUT',
+    cookie: owner,
+    body: { decklists: 'closed', openLists: true }
+  });
+  assert.equal(saved.status, 200);
+  assert.equal(saved.json.settings.decklists, 'closed');
+  assert.equal('openLists' in saved.json.settings, false);
 });
 
 test('staff cannot show decks again that the organizer hid while their change was on its way', async () => {
@@ -3280,7 +3241,7 @@ const ACCOUNT_STATEMENTS = [
   'FROM tournaments WHERE code = ?3 AND version = ?8',
   'DELETE FROM decklists WHERE code = ?1 AND EXISTS',
   'DELETE FROM tournaments WHERE code = ? AND version = ?',
-  'SELECT age_checked_at FROM users WHERE id = COALESCE',
+  'SELECT id, age_checked_at FROM users WHERE id = COALESCE',
   'INSERT INTO pending_signups',
   'DELETE FROM pending_signups WHERE token_hash = ?',
   'DELETE FROM pending_signups WHERE expires_at <= ?',

@@ -9,8 +9,7 @@ import {
   bracketPairings,
   bracketPlayers,
   nextBracket,
-  playoffCandidates,
-  seatsOf
+  playoffCandidates
 } from './lifecycleElimination.js';
 import { playoffPlayers, survivorList, twoSeatLosers } from './lifecycleSurvivors.js';
 import { createdStage, finishedAtRepair, momentRange, repairedStage, repairStamp } from './lifecyclePairing.js';
@@ -22,6 +21,7 @@ import { countsComplete, latestRound, seatPairings } from './rounds.js';
 import {
   DIVISIONS,
   type Match,
+  matchSeats,
   type Player,
   type Pod,
   type PodCategory,
@@ -55,8 +55,8 @@ function recordedOrder(pod: Pod, computed: Pairing[], ctx: LifecycleContext, kep
     throw new PairingError('Recorded opening repairs must keep their retained matches first');
   }
   const fresh = recorded.slice(kept.length);
-  const expected = seatsOf(computed).sort();
-  const seats = seatsOf(fresh).sort();
+  const expected = computed.flatMap(matchSeats).sort();
+  const seats = fresh.flatMap(matchSeats).sort();
   if (seats.length !== expected.length || seats.some((id, i) => id !== expected[i])) {
     throw new PairingError('Recorded elimination seats must cover the repaired field exactly once');
   }
@@ -88,19 +88,22 @@ function repairedOpening(t: Tournament, pod: Pod, round: Round, ctx: LifecycleCo
   const draws = openingDraw(t, pod, ctx);
   const history = { ...pod, rounds: pod.rounds.filter(r => r !== round) };
   const brackets = draws.map(pairings => {
-    const [p1, p2] = playoffCandidates(t, history, seatsOf(pairings));
+    const [p1, p2] = playoffCandidates(t, history, pairings.flatMap(matchSeats));
     return { pairings, ...(p1 && p2 ? { playoff: { p1, p2 } } : {}) };
   });
   const computed = brackets.flatMap(bracketPairings);
   const pairings = t.settings?.type === 1 ? recordedOrder(pod, computed, ctx, kept) : computed;
   const ordered = pairings.filter(p => !brackets.some(b => b.playoff?.p1 === p.p1 && b.playoff.p2 === p.p2));
   const groups = t.settings?.type === 1 ? [ordered] : draws;
-  const players = groups.reduce((current, group) => bracketPlayers(current, seatsOf(group), group, false), t.players);
+  const players = groups.reduce(
+    (current, group) => bracketPlayers(current, group.flatMap(matchSeats), group, false),
+    t.players
+  );
   const paired = brackets.reduce((current, bracket) => {
     // V19-3: Swiss opponents can belong to another division; the drawn finalists own the playoff flag.
     const added = playoffPlayers(t, current, bracket.playoff, divisionLookup(t)(bracket.pairings[0]!.p1));
     return bracket.playoff
-      ? { ...added, survivors: [...survivorList(t, added), ...seatsOf([bracket.playoff])] }
+      ? { ...added, survivors: [...survivorList(t, added), ...matchSeats(bracket.playoff)] }
       : added;
   }, pod);
   const counted = replacePods(t, [paired]);
@@ -112,7 +115,7 @@ function repairedOpening(t: Tournament, pod: Pod, round: Round, ctx: LifecycleCo
 function laterField(t: Tournament, pod: Pod, round: Round): string[] {
   const order = new Map(t.players.map(p => [p.id, p.order ?? 0]));
   const roster = new Map(t.players.map((p, i) => [p.id, i]));
-  const seated = new Set(seatsOf(round.matches));
+  const seated = new Set(round.matches.flatMap(matchSeats));
   const lost = twoSeatLosers(pod);
   const waiting =
     t.settings?.type === 1
@@ -127,7 +130,7 @@ function laterField(t: Tournament, pod: Pod, round: Round): string[] {
   const field = new Set([
     ...waiting,
     ...(firstBye ? [firstBye.p1] : []),
-    ...seatsOf(round.matches.filter(m => m !== firstBye)),
+    ...round.matches.filter(m => m !== firstBye).flatMap(matchSeats),
     ...deleted
   ]);
   return [...field].sort((a, b) => (order.get(a) ?? 0) - (order.get(b) ?? 0));

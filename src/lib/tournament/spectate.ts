@@ -6,7 +6,14 @@
  */
 
 import { latestRound, livePods } from '../../../shared/tournament/rounds';
-import type { Match, Pod, PodCategory, Round, Tournament } from '../../../shared/tournament/types';
+import {
+  type Match,
+  matchSeats,
+  type Pod,
+  type PodCategory,
+  type Round,
+  type Tournament
+} from '../../../shared/tournament/types';
 import { decksVisible, type PendingResult, type TournamentView } from '../../../shared/tournament/view';
 import { shownOutcome } from './present';
 
@@ -28,8 +35,6 @@ interface RoundContext {
   following: ReadonlySet<string>;
 }
 
-const seats = (match: Match) => (match.p2 === null ? [match.p1] : [match.p1, match.p2]);
-
 /** A table with two players and no result yet, a result entered on the site counting as one. */
 export function stillPlaying(match: Match, context: Pick<RoundContext, 'pod' | 'round' | 'pending'>): boolean {
   return match.p2 !== null && shownOutcome(match, context.pod, context.round, context.pending).outcome === 'pending';
@@ -38,7 +43,7 @@ export function stillPlaying(match: Match, context: Pick<RoundContext, 'pod' | '
 const SHOWING: Record<Showing, (match: Match, context: RoundContext) => boolean> = {
   all: () => true,
   playing: stillPlaying,
-  following: (match, context) => seats(match).some(id => context.following.has(id))
+  following: (match, context) => matchSeats(match).some(id => context.following.has(id))
 };
 
 /** The round's matches the filter leaves. */
@@ -46,14 +51,15 @@ export function spectatorMatches(matches: readonly Match[], filter: SpectateFilt
   const { deck } = filter;
   return matches.filter(
     match =>
-      SHOWING[filter.showing](match, context) && (deck === null || seats(match).some(id => context.decks[id] === deck))
+      SHOWING[filter.showing](match, context) &&
+      (deck === null || matchSeats(match).some(id => context.decks[id] === deck))
   );
 }
 
 /** The archetypes played in a round, most played first, for the deck filter. */
 export function roundDecks(matches: readonly Match[], decks: Readonly<Record<string, string>>): string[] {
   const counts = new Map<string, number>();
-  for (const id of matches.flatMap(seats)) {
+  for (const id of matches.flatMap(matchSeats)) {
     const deck = decks[id];
     if (deck) {
       counts.set(deck, (counts.get(deck) ?? 0) + 1);

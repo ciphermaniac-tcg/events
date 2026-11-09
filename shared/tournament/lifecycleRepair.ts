@@ -2,7 +2,7 @@ import { divisionLookup } from './divisions.js';
 import type { LifecycleContext } from './lifecycleTypes.js';
 import { activeIds, latestRound, pointsBefore } from './rounds.js';
 import { swissStandings } from './standings.js';
-import { DIVISIONS, type Match, type Pod, type Tournament } from './types.js';
+import { DIVISIONS, type Match, matchSeats, type Pod, type Tournament } from './types.js';
 
 interface RepairField {
   points: ReadonlyMap<string, number>;
@@ -12,7 +12,6 @@ interface RepairField {
   ctx: LifecycleContext;
 }
 
-const seats = (match: Match): string[] => (match.p2 === null ? [match.p1] : [match.p1, match.p2]);
 /** An unstarted round's forced loss is a repair candidate like a two-seat match. */
 const forcedLoss = (match: Match): boolean => match.outcome === 'loss' && match.p2 === null;
 
@@ -25,10 +24,10 @@ function candidate(field: RepairField, points: number, division: number): Match 
   const eligible = [...field.survivors].filter(
     m =>
       (m.p2 !== null || m.outcome === 'assigned-bye' || forcedLoss(m)) &&
-      seats(m).some(id => (field.points.get(id) ?? 0) === points && field.division(id) <= division)
+      matchSeats(m).some(id => (field.points.get(id) ?? 0) === points && field.division(id) <= division)
   );
   const exact = eligible.filter(m =>
-    seats(m).some(id => (field.points.get(id) ?? 0) === points && field.division(id) === division)
+    matchSeats(m).some(id => (field.points.get(id) ?? 0) === points && field.division(id) === division)
   );
   const matches = exact.length ? exact : eligible;
   const preferred = matches.filter(m => mixedTotals(m, field));
@@ -44,10 +43,10 @@ function dissolveAt(field: RepairField, points: number, division: number): void 
   const count = [...field.pool].filter(
     id => (field.points.get(id) ?? 0) === points && field.division(id) === division
   ).length;
-  const divisions = new Set(seats(match).map(field.division));
+  const divisions = new Set(matchSeats(match).map(field.division));
   if (count < 3 || mixedTotals(match, field) || divisions.size > 1) {
     field.survivors.delete(match);
-    seats(match).forEach(id => field.pool.add(id));
+    matchSeats(match).forEach(id => field.pool.add(id));
   }
 }
 
@@ -71,7 +70,7 @@ function generatedSurvivors(t: Tournament, pod: Pod, ctx: LifecycleContext): Set
   const division = (id: string) => DIVISIONS.indexOf(of(id));
   const active = new Set(activeIds(t, pod));
   const retained = new Set(round.matches.filter(m => forcedLoss(m) || m.outcome === 'assigned-bye' || m.p2 !== null));
-  const seated = new Set([...retained].flatMap(seats));
+  const seated = new Set([...retained].flatMap(matchSeats));
   const unpaired = swissStandings(pod, t.players, { throughRound: round.number - 1 }).filter(
     row => active.has(row.playerId) && !seated.has(row.playerId)
   );

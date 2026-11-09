@@ -21,6 +21,7 @@ import {
   fetchDecklists,
   fetchHistory,
   fetchManage,
+  fetchOpenList,
   fetchPenaltyNotes,
   fetchProfile,
   fetchProfilePreferences,
@@ -39,6 +40,7 @@ import {
   preloadPublished,
   recordDeckCheck,
   recordPenaltyNote,
+  releaseReporter,
   removeDeckCheck,
   removePenaltyNote,
   removeStaff,
@@ -204,6 +206,8 @@ test('every call goes to its endpoint with its body', async () => {
   await saveCheckIn('ABC', { playerId: '1', mark: 'paid', on: true });
   await fetchStaff('ABC');
   await removeStaff('ABC', 'u-1');
+  await releaseReporter('ABC', 'p-1');
+  await fetchOpenList('ABC', 'k 1');
   await fetchDataHolds();
   assert.deepEqual(
     sent.map(s => `${s.method} ${s.url}`),
@@ -230,6 +234,8 @@ test('every call goes to its endpoint with its body', async () => {
       'PUT /api/tournaments/ABC/checkins',
       'GET /api/tournaments/ABC/staff',
       'DELETE /api/tournaments/ABC/staff?user=u-1',
+      'DELETE /api/tournaments/ABC/report?player=p-1',
+      'GET /api/tournaments/ABC/lists?player=k+1',
       'GET /api/me/data?holds'
     ]
   );

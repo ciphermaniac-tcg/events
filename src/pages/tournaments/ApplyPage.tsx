@@ -15,7 +15,7 @@ import { A, useNavigate, useSearchParams } from '@solidjs/router';
 import { createResource, createSignal, type JSX, onMount, Show, untrack } from 'solid-js';
 import { canJoinCommunity } from '../../../shared/accounts/roles';
 import type { MyApplication } from '../../../shared/accounts/types';
-import { type Me, type SignInOffer } from '../../lib/tournament/api';
+import { type Me } from '../../lib/tournament/api';
 import { msg, t, tx } from '../../lib/i18n';
 import { applicantStage, fetchApplication } from '../../lib/tournament/applications';
 import { joinCommunity } from '../../lib/tournament/stores';
@@ -24,7 +24,7 @@ import { ApplicantStatus, createSessionCatchUp } from './ApplicantStatus';
 import { ErrorLine, ResourceFallback } from './Field';
 import { TournamentHero } from './Hero';
 import { refreshSession } from './session';
-import { SignIn } from './SignIn';
+import { SignedOutBox } from './SignIn';
 import { StoreApplicationForm } from './StoreApplicationForm';
 import '../../styles/pages/tournament-store-apply.css';
 import { pageTitle } from '../../lib/title';
@@ -48,24 +48,6 @@ const PATHS: Record<Path, { title: string; joined: string; line: string; held: s
     held: msg('You are currently not approved for sanctioned events.')
   }
 };
-
-function SignedOut(props: { offer: SignInOffer }) {
-  return (
-    <>
-      <TournamentHero title={t(TITLE)} />
-      <section class='tm-box'>
-        <div class='tm-box-bar'>
-          <strong>{t('Sign in')}</strong>
-          <span class='tm-grow' />
-          <span class='tm-flag'>{t('Signed out')}</span>
-        </div>
-        <div class='tm-box-bar'>
-          <SignIn offer={props.offer} next='/apply' />
-        </div>
-      </section>
-    </>
-  );
-}
 
 /** One way in: what it is, and, for a Community organizer, what it may run and may not yet. */
 function PathRow(props: { path: Path; joined: boolean; children: JSX.Element }) {
@@ -157,79 +139,76 @@ function Applying(props: { user: Me }) {
   const open = () => stage() !== 'pending' && ((stage() !== 'rejected' && stage() !== 'revoked') || again());
   const sent = (application: MyApplication) => mutate(prev => prev && { ...prev, application });
   return (
-    <>
-      <TournamentHero title={t(TITLE)} />
-      <Show when={current()} fallback={<ResourceFallback resource={state} onRetry={() => void refetch()} small />}>
-        {s => (
-          <div class='tm-apply'>
-            <Show when={stage() !== 'none' && stage() !== 'community'}>
-              <ApplicantStatus
-                stage={stage()}
-                application={s().application}
-                again={!open()}
-                onApplyAgain={() => {
-                  setAgain(true);
-                  setStoreOpen(true);
-                }}
-                onChanged={() => void refetch()}
-              />
-            </Show>
-            <Show when={open()}>
-              <PathRows
-                role={props.user.role}
-                store={stage() === 'store'}
-                storeOpen={storeOpen()}
-                onStore={() => setStoreOpen(true)}
-              />
-              <Show when={storeOpen()}>
+    <Show when={current()} fallback={<ResourceFallback resource={state} onRetry={() => void refetch()} small />}>
+      {s => (
+        <div class='tm-apply'>
+          <Show when={stage() !== 'none' && stage() !== 'community'}>
+            <ApplicantStatus
+              stage={stage()}
+              application={s().application}
+              again={!open()}
+              onApplyAgain={() => {
+                setAgain(true);
+                setStoreOpen(true);
+              }}
+              onChanged={() => void refetch()}
+            />
+          </Show>
+          <Show when={open()}>
+            <PathRows
+              role={props.user.role}
+              store={stage() === 'store'}
+              storeOpen={storeOpen()}
+              onStore={() => setStoreOpen(true)}
+            />
+            <Show when={storeOpen()}>
+              <Show
+                when={s().eligible.profile}
+                fallback={
+                  <>
+                    <p class='tm-apply-profile'>
+                      {t('A store application needs your Player ID, name and birth year.')}
+                    </p>
+                    <p class='tm-apply-profile'>
+                      <A class='btn btn-primary' href='/settings'>
+                        {t('Complete your profile')}
+                      </A>
+                    </p>
+                  </>
+                }
+              >
                 <Show
-                  when={s().eligible.profile}
+                  when={s().eligible.email}
                   fallback={
-                    <>
-                      <p class='tm-apply-profile'>
-                        {t('A store application needs your Player ID, name and birth year.')}
-                      </p>
-                      <p class='tm-apply-profile'>
-                        <A class='btn btn-primary' href='/settings'>
-                          {t('Complete your profile')}
-                        </A>
-                      </p>
-                    </>
+                    // Linking Google or Discord gives the account its email (see linkIdentity).
+                    <p class='tm-apply-profile'>
+                      {tx(
+                        'A store application needs an email we can reach you at. Link Google or Discord in {settings} to add one.',
+                        {
+                          settings: (
+                            <A class='tm-link-inline' href='/settings'>
+                              {t('Settings')}
+                            </A>
+                          )
+                        }
+                      )}
+                    </p>
                   }
                 >
-                  <Show
-                    when={s().eligible.email}
-                    fallback={
-                      // Linking Google or Discord gives the account its email (see linkIdentity).
-                      <p class='tm-apply-profile'>
-                        {tx(
-                          'A store application needs an email we can reach you at. Link Google or Discord in {settings} to add one.',
-                          {
-                            settings: (
-                              <A class='tm-link-inline' href='/settings'>
-                                {t('Settings')}
-                              </A>
-                            )
-                          }
-                        )}
-                      </p>
-                    }
-                  >
-                    <StoreApplicationForm
-                      onSent={sent}
-                      onStale={() => {
-                        void refetch();
-                        void refreshSession();
-                      }}
-                    />
-                  </Show>
+                  <StoreApplicationForm
+                    onSent={sent}
+                    onStale={() => {
+                      void refetch();
+                      void refreshSession();
+                    }}
+                  />
                 </Show>
               </Show>
             </Show>
-          </div>
-        )}
-      </Show>
-    </>
+          </Show>
+        </div>
+      )}
+    </Show>
   );
 }
 
@@ -241,9 +220,12 @@ export function ApplyPage() {
     <div class='tm-page tm-narrow tm-apply-page'>
       <SessionGate>
         {s => (
-          <Show when={s().user} fallback={<SignedOut offer={s()} />}>
-            {user => <Applying user={user()} />}
-          </Show>
+          <>
+            <TournamentHero title={t(TITLE)} />
+            <Show when={s().user} fallback={<SignedOutBox offer={s()} next='/apply' />}>
+              {user => <Applying user={user()} />}
+            </Show>
+          </>
         )}
       </SessionGate>
     </div>

@@ -551,6 +551,10 @@ test('an Admin finds accounts by POP ID, email or ID, exactly', async () => {
     [found.name, found.email, found.popId, found.role, typeof found.createdAt],
     ['Pat Player', 'holder@example.com', '4242', null, 'number']
   );
+  const listed = await hit(adminUsers.onRequestGet as Handler, '/api/admin/users', {}, { cookie: admin });
+  const user = listed.json.users.find((account: { id: string }) => account.id === id);
+  assert.deepEqual(user, { ...found, handle: 'holder' });
+  assert.deepEqual(Object.keys(found).sort(), ['createdAt', 'email', 'id', 'name', 'popId', 'role']);
   assert.equal((await lookUp(admin, 'email=holder%40example.com')).json.accounts[0].id, id);
   assert.equal((await lookUp(admin, 'email=%20HoLdEr%40EXAMPLE.COM%20')).json.accounts[0].id, id);
   assert.equal((await lookUp(admin, `id=${id}`)).json.accounts[0].name, 'Pat Player');

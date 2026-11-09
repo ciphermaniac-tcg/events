@@ -90,13 +90,29 @@ export async function sha256(value: string): Promise<string> {
   return [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, '0')).join('');
 }
 
+/** Whether two digests match, in time that doesn't depend on where they first differ. */
+export function sameDigest(a: string, b: string): boolean {
+  let diff = a.length ^ b.length;
+  for (let i = 0; i < a.length; i += 1) {
+    diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return diff === 0;
+}
+
 const USER_COLUMNS =
   'users.id, handle, email, avatar, pop_id, first_name, last_name, birth_date, role, public_profile, profile_name';
 
-/** The SHA-256 of the request's session token, as the sessions table keys it; null without the cookie. */
-export async function sessionHash(request: Request): Promise<string | null> {
-  const token = readCookie(request, SESSION_COOKIE);
-  return token ? sha256(token) : null;
+const hashes = new WeakMap<Request, Promise<string | null>>();
+
+/** The SHA-256 of the request's session token, as the sessions table keys it, once a request; null without the cookie. */
+export function sessionHash(request: Request): Promise<string | null> {
+  let hash = hashes.get(request);
+  if (!hash) {
+    const token = readCookie(request, SESSION_COOKIE);
+    hash = token ? sha256(token) : Promise.resolve(null);
+    hashes.set(request, hash);
+  }
+  return hash;
 }
 
 /**

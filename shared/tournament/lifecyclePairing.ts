@@ -20,6 +20,7 @@ import {
 import {
   DIVISIONS,
   type Match,
+  matchSeats,
   type Player,
   type Pod,
   type PodCategory,
@@ -122,7 +123,7 @@ export function flightField(
   const seated = new Set(kept.flatMap(m => [m.p1, m.p2]));
   // V18-3: a repair returns every seat of a dissolved match to the pool, a departed player's included.
   const round = repair ? (latestRound(pod)?.matches ?? []) : [];
-  const dissolved = new Set(round.flatMap(m => (m.p2 === null ? [m.p1] : [m.p1, m.p2])));
+  const dissolved = new Set(round.flatMap(matchSeats));
   const players = t.players.filter(
     p => ids.includes(p.id) && (active.has(p.id) || dissolved.has(p.id)) && !seated.has(p.id)
   );
@@ -400,7 +401,7 @@ function terminalNothingToPlace(t: Tournament, pod: Pod): boolean {
   if (!round || [4, 5].includes(round.stage ?? 4)) {
     return false;
   }
-  const seated = new Set(round.matches.flatMap(m => (m.p2 === null ? [m.p1] : [m.p1, m.p2])));
+  const seated = new Set(round.matches.flatMap(matchSeats));
   return !round.matches.some(m => m.outcome === 'bye') && activeIds(t, pod).every(id => seated.has(id));
 }
 
@@ -551,7 +552,7 @@ function repairTurnIds(
     return batch.ids;
   }
   const dissolved = batch.kept.filter(m => m.p2 !== null && !survivors.some(s => sameSeats(s, m)));
-  return [...new Set([...batch.ids, ...dissolved.flatMap(m => (m.p2 === null ? [m.p1] : [m.p1, m.p2]))])];
+  return [...new Set([...batch.ids, ...dissolved.flatMap(matchSeats)])];
 }
 
 /** V23-3: an exhausted repair search releases existing matches from the round's end. */
@@ -589,9 +590,9 @@ function repairFlight(
 ): FlightRepair {
   const { survivors, ctx, flight } = options;
   const last = latestRound(pod)!;
-  const seated = new Set(batch.kept.flatMap(m => (m.p2 === null ? [m.p1] : [m.p1, m.p2])));
+  const seated = new Set(batch.kept.flatMap(matchSeats));
   // The pool also holds the dissolved bye's holder, departed or not (V18-3).
-  const pool = new Set([...activeIds(t, pod), ...last.matches.flatMap(m => (m.p2 === null ? [m.p1] : [m.p1, m.p2]))]);
+  const pool = new Set([...activeIds(t, pod), ...last.matches.flatMap(matchSeats)]);
   const unpaired = batch.ids.some(id => pool.has(id) && !seated.has(id));
   if (!unpaired) {
     return { matches: batch.kept, stage: last.stage ?? 2 };
@@ -665,10 +666,7 @@ function ordinaryUnstartedRepair(t: Tournament, pod: Pod, repair: boolean, ctx: 
   if (!repair || ctx.terminalPairing || !last || (last.stage ?? 4) >= 4) {
     return undefined;
   }
-  const seated = new Set([
-    ...(pod.repairOmittedPlayers ?? []),
-    ...last.matches.flatMap(m => (m.p2 === null ? [m.p1] : [m.p1, m.p2]))
-  ]);
+  const seated = new Set([...(pod.repairOmittedPlayers ?? []), ...last.matches.flatMap(matchSeats)]);
   if (activeIds(t, pod).some(id => !seated.has(id))) {
     return undefined;
   }

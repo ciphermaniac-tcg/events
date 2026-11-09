@@ -117,17 +117,15 @@ test('with a release, scope paths resolve to immutable release roots', async () 
 });
 
 test('missing-release-body recovery: reload once for a release path, never for legacy or twice', async () => {
-  const { planMissingBodyRecovery, isReleasePath } = await import('../../src/lib/releaseClient.ts');
+  const { shouldReloadMissingBody } = await import('../../src/lib/releaseClient.ts');
   // Release-aware + immutable release path + not yet reloaded -> one reload.
-  assert.strictEqual(planMissingBodyRecovery('/releases/v1/online/aaa/master.json', true, false), 'reload');
+  assert.strictEqual(shouldReloadMissingBody('/releases/v1/online/aaa/master.json', true, false), true);
   // Already reloaded once -> passthrough (no loop; must not combine roots).
-  assert.strictEqual(planMissingBodyRecovery('/releases/v1/online/aaa/master.json', true, true), 'passthrough');
+  assert.strictEqual(shouldReloadMissingBody('/releases/v1/online/aaa/master.json', true, true), false);
   // A legacy path 404 is a normal miss, never a recovery reload.
-  assert.strictEqual(planMissingBodyRecovery('/reports/Online - Last 14 Days/master.json', true, false), 'passthrough');
+  assert.strictEqual(shouldReloadMissingBody('/reports/Online - Last 14 Days/master.json', true, false), false);
   // Not release-aware (no release could be read) -> never reloads.
-  assert.strictEqual(planMissingBodyRecovery('/releases/v1/online/aaa/master.json', false, false), 'passthrough');
-  assert.strictEqual(isReleasePath('/releases/v1/x/y.json'), true);
-  assert.strictEqual(isReleasePath('/reports/x/y.json'), false);
+  assert.strictEqual(shouldReloadMissingBody('/releases/v1/online/aaa/master.json', false, false), false);
 });
 
 test('a release that could not be read is asked for again by the next path', async () => {

@@ -21,14 +21,15 @@ interface Delivery {
   body: string;
 }
 
-async function hmacKey(secret: string): Promise<CryptoKey> {
-  return crypto.subtle.importKey(
-    'raw',
-    base64Bytes(secret.replace(/^whsec_/u, '')),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['verify']
-  );
+const keys = new Map<string, Promise<CryptoKey>>();
+
+/** The webhook's secret as a verifying key, imported once per isolate. */
+function hmacKey(secret: string): Promise<CryptoKey> {
+  const raw = () => base64Bytes(secret.replace(/^whsec_/u, ''));
+  const key =
+    keys.get(secret) ?? crypto.subtle.importKey('raw', raw(), { name: 'HMAC', hash: 'SHA-256' }, false, ['verify']);
+  keys.set(secret, key);
+  return key;
 }
 
 function recent(timestamp: string, now: number): boolean {

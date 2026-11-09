@@ -368,6 +368,13 @@
 .tm-screen-standings th:nth-child(2) {
   padding-left: 0;
 }
+/* Under the last player a top cut takes, as on the standings page: a marigold rule closing the cut. */
+.tm-screen-standings tr.tm-screen-cut td {
+  padding: 0.3em 0;
+  border-bottom: 2px solid var(--accent);
+  font-size: 0.52em;
+  text-align: left;
+}
 
 /* For whoever is at the laptop: shown while the pointer moves, never to the room. */
 .tm-screen-controls {

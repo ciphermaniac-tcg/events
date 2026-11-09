@@ -760,6 +760,57 @@ test('once the event ends the big screen shows the standings', async ({ page }) 
   expect((name?.x ?? 0) - ((place?.x ?? 0) + (place?.width ?? 0))).toBeGreaterThanOrEqual(0);
 });
 
+/** A Cup of nine Masters and three Seniors paired together, its four Swiss rounds played and its top cut not yet paired. */
+function cupAfterSwiss(): TournamentView {
+  const ctx = { now: 0, localTime: '11/08/2026 12:00:00', season: 2027, random: seededRandom(3) };
+  const step = (t: ReturnType<typeof emptyTournament>, command: Parameters<typeof applyCommand>[1]) => {
+    const result = applyCommand(t, command, ctx);
+    if (!result.ok) {
+      throw new Error(result.error);
+    }
+    return result.tournament;
+  };
+  let t = emptyTournament({ name: 'Sunday Cup', eventType: 'cup', startDate: '11/08/2026' });
+  for (let i = 0; i < 12; i++) {
+    const birthDate = i < 9 ? '02/27/1990' : '02/27/2013';
+    t = step(t, {
+      type: 'addPlayer',
+      player: { firstName: `P${i}`, lastName: 'Test', id: String(100 + i), birthDate }
+    });
+  }
+  for (let round = 1; round <= 4; round++) {
+    t = step(t, { type: 'pairRound', pod: t.pods[0]!.category });
+    for (const m of t.pods[0]!.rounds.at(-1)!.matches.filter(match => match.outcome === 'pending')) {
+      const { table, p1, p2 } = m;
+      t = step(t, { type: 'reportResult', pod: t.pods[0]!.category, round, table, p1, p2, outcome: 'p1' });
+    }
+  }
+  const cupKeys = assignKeys(t, {});
+  return {
+    ...VIEW,
+    mode: 'swiss',
+    tournament: publicTournament(t, cupKeys),
+    divisions: publicDivisions(t, cupKeys, Date.UTC(2026, 10, 8)),
+    decks: {},
+    settings: { ...DEFAULT_SETTINGS, sanctioned: true }
+  };
+}
+
+test('once the Swiss rounds are played the big screen shows who makes the top cut', async ({ page }) => {
+  await mockApi(page, cupAfterSwiss());
+  await page.goto(`/t/${CODE}?screen=1`);
+  await expect(page.locator('.tm-screen-tables')).toHaveCount(0);
+  const pods = page.locator('.tm-screen-pod');
+  await expect(pods).toHaveCount(2);
+  const masters = pods.first();
+  await expect(masters).toContainText('Masters', { useInnerText: true });
+  await expect(masters.locator('tbody tr')).toHaveCount(10);
+  await expect(masters.locator('tr.tm-screen-cut')).toHaveText('Top 4');
+  await expect(masters.locator('tbody tr').nth(4)).toHaveClass('tm-screen-cut');
+  // Three Seniors are too few for a top cut of their own.
+  await expect(pods.filter({ hasText: 'Seniors' }).locator('tr.tm-screen-cut')).toHaveCount(0);
+});
+
 test('before round 1 the public page lists everyone registered @mobile', async ({ page }) => {
   const unpaired = { ...VIEW.tournament, pods: VIEW.tournament.pods.map(pod => ({ ...pod, rounds: [] })) };
   await mockApi(page, { ...VIEW, tournament: unpaired });
@@ -969,7 +1020,7 @@ test('a TOM console’s round status wraps on a narrow phone rather than running
   await page.setViewportSize({ width: 320, height: 640 });
   await tomConsole(page, () => ({ status: 409, json: { error: 'The site has a different copy of this event.' } }));
   const lead = page.locator('.tm-meta-lead');
-  await expect(lead).toContainText('reconnect the .tdf to enter results');
+  await expect(lead).toContainText('reconnect the .tdf to keep players updated');
   const box = (await lead.boundingBox())!;
   expect(box.x + box.width).toBeLessThanOrEqual(320);
 });
@@ -983,7 +1034,7 @@ test('a TOM console stops following its file when another copy was synced over i
     return { status: 409, json: { error: 'The site has a different copy of this event.' } };
   });
   await expect(page.getByText('The site has a different copy of this event.')).toBeVisible();
-  await expect(page.locator('.hero-meta')).toContainText('reconnect the .tdf to enter results');
+  await expect(page.locator('.hero-meta')).toContainText('reconnect the .tdf to keep players updated');
   await page.getByRole('button', { name: 'Reconnect event.tdf' }).click();
   const dialog = page.getByRole('dialog', { name: 'Replace the site’s copy with event.tdf?' });
   await expect(dialog).toContainText('Another device synced this event at');
@@ -1016,7 +1067,7 @@ test('a linked file missing a round the site’s copy has waits to be reconnecte
     },
     { manage: { ...tomManage(), tournament: later } }
   );
-  await expect(page.locator('.hero-meta')).toContainText('reconnect the .tdf to enter results');
+  await expect(page.locator('.hero-meta')).toContainText('reconnect the .tdf to keep players updated');
   expect(syncs).toBe(0);
   await page.getByRole('button', { name: 'Reconnect event.tdf' }).click();
   const dialog = page.getByRole('dialog', { name: 'Replace the site’s copy with event.tdf?' });
@@ -1095,7 +1146,7 @@ test('a TOM console holds off results when the browser takes back the file', asy
   });
   await expect(page.getByRole('button', { name: 'Allow access to event.tdf' })).toBeVisible();
   await expect(saved(page)).toContainText('event.tdf needs access again');
-  await expect(page.locator('.hero-meta')).toContainText('allow access to the .tdf to enter results');
+  await expect(page.locator('.hero-meta')).toContainText('allow access to the .tdf to keep players updated');
 });
 
 test('a TOM console whose file was moved asks for it to be picked again', async ({ page }) => {
@@ -1109,7 +1160,7 @@ test('a TOM console whose file was moved asks for it to be picked again', async 
     (window as unknown as { tdfFile: { lost: string } }).tdfFile.lost = 'NotFoundError';
   });
   await expect(saved(page)).toContainText('event.tdf can’t be read');
-  await expect(page.locator('.hero-meta')).toContainText('pick the .tdf again to enter results');
+  await expect(page.locator('.hero-meta')).toContainText('pick the .tdf again to keep players updated');
   await page.evaluate(() => {
     (window as unknown as { tdfFile: { lost: null; modified: number } }).tdfFile.lost = null;
   });
@@ -1222,6 +1273,21 @@ test('a TOM console never offers to pair a round, even with every result in', as
   });
   await expect(saved(page)).toContainText('Saved by TOM');
   await expect(page.getByRole('button', { name: /^Pair / })).toHaveCount(0);
+});
+
+test('a TOM console takes no results: its tables show what stands, and keep only time extensions', async ({ page }) => {
+  await tomConsole(page, synced);
+  await expect(saved(page)).toContainText('Saved by TOM');
+  const matches = page.locator('.tm-matches');
+  await expect(matches.locator('.tm-seat-link').first()).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Report .* as the winner$/ })).toHaveCount(0);
+  await matches.locator('.tm-seat-link').first().click();
+  await expect(page.getByRole('group', { name: 'Confirm result' })).toHaveCount(0);
+  await expect(matches.getByRole('button', { name: /^(Clear|Accept|Record)$/ })).toHaveCount(0);
+  const more = matches.getByRole('button', { name: /^More for table / }).first();
+  await more.click();
+  await expect(page.getByRole('button', { name: 'Time extension' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Double loss' })).toHaveCount(0);
 });
 
 test('a TOM console says when TOM last saved, how often once it has seen, and when TOM goes quiet', async ({
@@ -2310,7 +2376,7 @@ test('a sole division whose clock is paused says so under the clock', async ({ p
 test('an open list leads the player sheet as cards, as rows, and one card large @mobile', async ({ page }) => {
   const view = {
     ...VIEW,
-    settings: { ...VIEW.settings, decklists: 'closed', openLists: true }
+    settings: { ...VIEW.settings, decklists: 'open' }
   } satisfies TournamentView;
   await mockApi(page, view);
   const hedy = keys[tdf.players.find(p => p.lastName === 'Lamarr')!.id]!;
@@ -2383,7 +2449,7 @@ test('an open list leads the player sheet as cards, as rows, and one card large 
 
 test('on a phone held sideways one card large shows whole, with its name and Close', async ({ page }) => {
   await page.setViewportSize({ width: 844, height: 390 });
-  await mockApi(page, { ...VIEW, settings: { ...VIEW.settings, decklists: 'closed', openLists: true } });
+  await mockApi(page, { ...VIEW, settings: { ...VIEW.settings, decklists: 'open' } });
   await page.route(`**/api/tournaments/${CODE}/lists?*`, route =>
     route.fulfill({ json: { list: { mode: 'digital', deck: 'Trainer: 4\n4 Arven SVI 166' } } })
   );
@@ -2406,7 +2472,7 @@ test('on a phone held sideways one card large shows whole, with its name and Clo
 });
 
 test('a name that opens a pasted list is marked, and a paper one is not', async ({ page }) => {
-  await mockApi(page, { ...VIEW, settings: { ...VIEW.settings, decklists: 'closed', openLists: true } });
+  await mockApi(page, { ...VIEW, settings: { ...VIEW.settings, decklists: 'open' } });
   const hedy = tdf.players.find(p => p.lastName === 'Lamarr')!;
   const other = tdf.players.find(p => p !== hedy)!;
   await page.route(`**/api/tournaments/${CODE}/lists`, route => route.fulfill({ json: { players: [keys[hedy.id]] } }));
@@ -2425,7 +2491,7 @@ test('a paper list says so, and an event whose lists are closed asks for none', 
   let asked = 0;
   const open = {
     ...VIEW,
-    settings: { ...VIEW.settings, decklists: 'closed', openLists: true }
+    settings: { ...VIEW.settings, decklists: 'open' }
   } satisfies TournamentView;
   await mockApi(page, open);
   await page.route(`**/api/tournaments/${CODE}/lists?*`, route => {
@@ -2458,29 +2524,8 @@ test('a paper list says so, and an event whose lists are closed asks for none', 
   expect(asked).toBe(1);
 });
 
-test('before round 1 an open list says when it will show, and asks for nothing', async ({ page }) => {
-  const unpaired = { ...VIEW.tournament, pods: VIEW.tournament.pods.map(pod => ({ ...pod, rounds: [] })) };
-  await mockApi(page, {
-    ...VIEW,
-    tournament: unpaired,
-    settings: { ...VIEW.settings, decklists: 'closed', openLists: true }
-  });
-  let asked = 0;
-  await page.route(`**/api/tournaments/${CODE}/lists?*`, route => {
-    asked += 1;
-    return route.abort();
-  });
-  await page.goto(`/t/${CODE}`);
-  await page
-    .locator('.tm-registered')
-    .getByRole('button', { name: /Hedy Lamarr/ })
-    .click();
-  await expect(page.getByRole('dialog')).toContainText('Lists show here once round 1 is paired.');
-  expect(asked).toBe(0);
-});
-
 test('a list that fails to load can be asked for again', async ({ page }) => {
-  await mockApi(page, { ...VIEW, settings: { ...VIEW.settings, decklists: 'closed', openLists: true } });
+  await mockApi(page, { ...VIEW, settings: { ...VIEW.settings, decklists: 'open' } });
   let asked = 0;
   await page.route(`**/api/tournaments/${CODE}/lists?*`, route => {
     asked += 1;

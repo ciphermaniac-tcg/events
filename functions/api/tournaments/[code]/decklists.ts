@@ -478,17 +478,12 @@ async function readSubmission(request: Request, sanctioned: boolean): Promise<Su
  * already there stay.
  */
 function saveToAccount(access: Access, userId: string, profile: PlayerProfile) {
-  const { db } = access;
-  return isSanctioned(access.row)
-    ? db
-        .prepare('UPDATE users SET first_name = ?, last_name = ? WHERE id = ? AND pop_id = ?')
-        .bind(profile.firstName, profile.lastName, userId, profile.popId)
-    : db
-        .prepare(
-          'UPDATE users SET first_name = ?, last_name = ? ' +
-            "WHERE id = ? AND (pop_id IS NULL OR pop_id = '' OR (first_name = ? AND last_name = ?))"
-        )
-        .bind(profile.firstName, profile.lastName, userId, profile.firstName, profile.lastName);
+  const sanctioned = isSanctioned(access.row);
+  const guard = sanctioned ? 'pop_id = ?' : "(pop_id IS NULL OR pop_id = '' OR (first_name = ? AND last_name = ?))";
+  const values = sanctioned ? [profile.popId] : [profile.firstName, profile.lastName];
+  return access.db
+    .prepare(`UPDATE users SET first_name = ?, last_name = ? WHERE id = ? AND ${guard}`)
+    .bind(profile.firstName, profile.lastName, userId, ...values);
 }
 
 /**
@@ -838,28 +833,23 @@ export async function onRequestPut(context: Context<'code'>): Promise<Response> 
  */
 async function dropList(access: Access, request: Request, details: Details): Promise<true | Response> {
   const { db, row } = access;
-  const key = identityKey(details, isSanctioned(row));
+  const sanctioned = isSanctioned(row);
+  const key = identityKey(details, sanctioned);
   const query = new URL(request.url).searchParams;
-  if (isSanctioned(row)) {
+  if (sanctioned) {
     const listed = await listUnder(access, key);
     const proved = await proveYear(access, details.popId, query.get('birthYear') ?? '', listed);
     if (proved !== true || !listed) {
       return proved;
     }
-    const deleted = await db
-      .prepare(`DELETE FROM decklists WHERE code = ? AND user_id = ? AND ${STILL_TAKING}`)
-      .bind(row.code, key, row.code, ...windowValues(BEFORE_ROUND_1))
-      .run();
-    return rowsChanged(deleted) === 1 ? true : refusedWrite(access);
   }
   const held = query.get('token') ?? '';
   const account = matchingAccount(access, details) ?? NO_ACCOUNT;
+  const ownership = sanctioned ? '' : `AND (owner_token = ? OR account = ${account.sql}) `;
+  const values = sanctioned ? [] : [held ? await sha256(held) : '', ...account.values];
   const deleted = await db
-    .prepare(
-      'DELETE FROM decklists WHERE code = ? AND user_id = ? ' +
-        `AND (owner_token = ? OR account = ${account.sql}) AND ${STILL_TAKING}`
-    )
-    .bind(row.code, key, held ? await sha256(held) : '', ...account.values, row.code, ...windowValues(BEFORE_ROUND_1))
+    .prepare(`DELETE FROM decklists WHERE code = ? AND user_id = ? ${ownership}AND ${STILL_TAKING}`)
+    .bind(row.code, key, ...values, row.code, ...windowValues(BEFORE_ROUND_1))
     .run();
   return rowsChanged(deleted) === 1 ? true : refusedWrite(access);
 }

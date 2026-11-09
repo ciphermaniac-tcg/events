@@ -136,15 +136,13 @@ export function serializeElement(element: XmlElement): string {
     return `<player${attrs} />`;
   }
   const content = children.length
-    ? ['', ...children.map(child => indent(serializeElement(child), 1)), ''].join('\n')
+    ? ['', ...children.map(child => indent(serializeElement(child))), ''].join('\n')
     : encodeEntities(text) || '\n';
   return `<${name}${attrs}>${content}</${name}>`;
 }
 
-function indent(xml: string, depth: number): string {
-  const tabs = '\t'.repeat(depth);
-  // Most elements are one line; only a nested one has lines to shift.
-  return xml.includes('\n') ? tabs + xml.replace(/\n/g, `\n${tabs}`) : tabs + xml;
+function indent(xml: string): string {
+  return `\t${xml.replace(/\n/g, '\n\t')}`;
 }
 
 function extras(element: XmlElement | undefined, known: ReadonlySet<string>): [string, string][] {
@@ -264,17 +262,17 @@ function readRound(element: XmlElement): Round {
 const categoryOf = (pod: XmlElement): PodCategory => known(CATEGORIES_BY_CODE, attr(pod, 'category'), 'pod category');
 
 /** TOM's own type and stage for every round, so a round the site did not touch is written back as it was. */
-function roundCodesOf(pods: readonly XmlElement[]): TdfPassthrough['roundCodes'] {
+function roundCodesOf(elements: readonly XmlElement[], pods: readonly Pod[]): TdfPassthrough['roundCodes'] {
   return Object.fromEntries(
-    pods.flatMap(pod =>
-      children(child(pod, 'rounds'), 'round').map(round => [
+    elements.flatMap((pod, p) =>
+      children(child(pod, 'rounds'), 'round').map((round, r) => [
         `${categoryOf(pod)}:${attr(round, 'number')}`,
         {
           type: attr(round, 'type'),
           stage: attr(round, 'stage'),
           timeLeft: int(childText(round, 'timeleft')),
           startTime: childText(round, 'starttime'),
-          state: roundState(readRound(round))
+          state: roundState(pods[p]!.rounds[r]!)
         }
       ])
     )
@@ -285,19 +283,14 @@ function readPod(element: XmlElement): Pod {
   const category = categoryOf(element);
   const poddata = child(element, 'poddata');
   const rounds = children(child(element, 'rounds'), 'round');
+  const flights = children(child(element, 'subgroups'), 'subgroup').map(subgroup => ({
+    number: int(attr(subgroup, 'number')),
+    playerIds: children(child(subgroup, 'players'), 'player').map(player => attr(player, 'userid'))
+  }));
   return {
     category,
-    playerIds: children(child(element, 'subgroups'), 'subgroup').flatMap(subgroup =>
-      children(child(subgroup, 'players'), 'player').map(player => attr(player, 'userid'))
-    ),
-    ...(children(child(element, 'subgroups'), 'subgroup').length
-      ? {
-          flights: children(child(element, 'subgroups'), 'subgroup').map(subgroup => ({
-            number: int(attr(subgroup, 'number')),
-            playerIds: children(child(subgroup, 'players'), 'player').map(player => attr(player, 'userid'))
-          }))
-        }
-      : {}),
+    playerIds: flights.flatMap(flight => flight.playerIds),
+    ...(flights.length ? { flights } : {}),
     rounds: rounds.map(readRound),
     cut: 0,
     playoff3rd4th: childText(poddata, 'playoff3rd4th') === 'true',
@@ -366,10 +359,11 @@ export function parseTdf(source: string): Tournament {
   const playerElements = children(child(root, 'players'), 'player');
   const podElements = children(child(root, 'pods'), 'pod');
   const finals = child(root, 'finalsoptions');
+  const pods = podElements.map(readPod);
   let tournament: Tournament = {
     info: readInfo(data, attr(root, 'mode'), attr(root, 'type')),
     players: playerElements.map(readPlayer),
-    pods: applyCuts(podElements.map(readPod), finals),
+    pods: applyCuts(pods, finals),
     passthrough: {
       rootAttrs: root.attrs,
       extraData: extras(data, INFO_TAGS),
@@ -381,7 +375,7 @@ export function parseTdf(source: string): Tournament {
           { stage: attr(pod, 'stage'), extra: extras(child(pod, 'poddata'), PODDATA_TAGS) }
         ])
       ),
-      roundCodes: roundCodesOf(podElements),
+      roundCodes: roundCodesOf(podElements, pods),
       finalsOptions: finals ? serializeElement(finals) : ''
     }
   };
@@ -480,9 +474,9 @@ function tag(name: string, value: string | number): string {
   return `<${name}>${esc(String(value))}</${name}>`;
 }
 
-/** A block of lines at `depth`, each already written at depth 0. */
-function block(depth: number, lines: readonly string[]): string[] {
-  return lines.map(line => indent(line, depth));
+/** An element around lines written at depth 0, which it shifts one level in. */
+function el(name: string, lines: readonly string[], attrs = ''): string[] {
+  return [`<${name}${attrs}>`, ...lines.map(indent), `</${name}>`];
 }
 
 const NEW_FILE_DATA = [
@@ -512,22 +506,18 @@ function writeData(t: Tournament): string[] {
         tag('overflowtablestart', t.settings.overflowTableStart)
       ])
     : (t.passthrough?.extraData.map(([, xml]) => xml) ?? NEW_FILE_DATA);
-  return [
-    '<data>',
-    ...block(1, [
-      tag('name', info.name),
-      tag('id', info.sanctionId),
-      tag('city', info.city),
-      tag('state', info.state),
-      tag('country', info.country),
-      tag('roundtime', info.roundTime),
-      tag('finalsroundtime', info.finalsRoundTime),
-      `<organizer popid="${esc(info.organizerPopId)}" name="${esc(info.organizerName)}"/>`,
-      tag('startdate', info.startDate),
-      ...extra
-    ]),
-    '</data>'
-  ];
+  return el('data', [
+    tag('name', info.name),
+    tag('id', info.sanctionId),
+    tag('city', info.city),
+    tag('state', info.state),
+    tag('country', info.country),
+    tag('roundtime', info.roundTime),
+    tag('finalsroundtime', info.finalsRoundTime),
+    `<organizer popid="${esc(info.organizerPopId)}" name="${esc(info.organizerName)}"/>`,
+    tag('startdate', info.startDate),
+    ...extra
+  ]);
 }
 
 function writeDrop(player: Player, extra: [string, string][]): string[] {
@@ -543,15 +533,11 @@ function writeDrop(player: Player, extra: [string, string][]): string[] {
   ) {
     return [saved];
   }
-  return [
-    '<dropped>',
-    ...block(1, [
-      tag('status', player.disqualified ? 2 : 1),
-      tag('round', player.droppedAfter),
-      tag('timestamp', player.droppedAt ?? player.modified)
-    ]),
-    '</dropped>'
-  ];
+  return el('dropped', [
+    tag('status', player.disqualified ? 2 : 1),
+    tag('round', player.droppedAfter),
+    tag('timestamp', player.droppedAt ?? player.modified)
+  ]);
 }
 
 function writeLate(player: Player): string[] {
@@ -559,16 +545,12 @@ function writeLate(player: Player): string[] {
     return [];
   }
   const late = player.lateData ?? { round: -1, timestamp: player.created, forcedLoss: false, usedForcedLoss: true };
-  return [
-    '<late>',
-    ...block(1, [
-      tag('round', late.round),
-      tag('timestamp', late.timestamp),
-      tag('forcedloss', String(late.forcedLoss)),
-      tag('usedforcedloss', String(!late.forcedLoss || late.usedForcedLoss))
-    ]),
-    '</late>'
-  ];
+  return el('late', [
+    tag('round', late.round),
+    tag('timestamp', late.timestamp),
+    tag('forcedloss', String(late.forcedLoss)),
+    tag('usedforcedloss', String(!late.forcedLoss || late.usedForcedLoss))
+  ]);
 }
 
 const KNOWN_PLAYER_FIELDS = new Set([
@@ -602,16 +584,16 @@ function birthYearDate(date: string): string {
 }
 
 function writePlayer(player: Player, extra: [string, string][], started: boolean): string[] {
-  return [
-    `<player userid="${esc(player.id)}">`,
-    ...block(1, [
+  return el(
+    'player',
+    [
       tag('firstname', player.firstName),
       tag('lastname', player.lastName),
       tag('birthdate', birthYearDate(player.birthDate)),
       ...playerFields(player, extra, started)
-    ]),
-    '</player>'
-  ];
+    ],
+    ` userid="${esc(player.id)}"`
+  );
 }
 
 function seatAttr(table: number | undefined): string {
@@ -626,11 +608,11 @@ function writeMatch(match: Match, fixed: ReadonlyMap<string, number>): string[] 
           `<player1 userid="${esc(match.p1)}"${seatAttr(fixed.get(match.p1))}/>`,
           `<player2 userid="${esc(match.p2)}"${seatAttr(fixed.get(match.p2))}/>`
         ];
-  return [
-    `<match outcome="${OUTCOME_CODES[match.outcome]}">`,
-    ...block(1, [...seats, tag('timestamp', match.timestamp), tag('tablenumber', match.p2 === null ? 0 : match.table)]),
-    '</match>'
-  ];
+  return el(
+    'match',
+    [...seats, tag('timestamp', match.timestamp), tag('tablenumber', match.p2 === null ? 0 : match.table)],
+    ` outcome="${OUTCOME_CODES[match.outcome]}"`
+  );
 }
 
 interface RoundContext {
@@ -710,18 +692,16 @@ function writeRound(round: Round, context: RoundContext): string[] {
   const type = round.kind === 'elimination' ? ELIMINATION_TYPE : (context.codes?.type ?? context.swissType);
   const matches = round.matches.flatMap(m => writeMatch(m, context.fixed));
   const held = context.preserveClock && round.startedAt === undefined ? context.codes : undefined;
-  return [
-    `<round number="${round.number}" type="${type}" stage="${roundStage(round, context)}" >`,
-    ...block(1, [
+  return el(
+    'round',
+    [
       tag('timeleft', held?.timeLeft ?? exportTimeLeft(round, context)),
       tag('pairtime', round.pairTime),
       tag('starttime', held?.startTime ?? round.startTime),
-      '<matches>',
-      ...block(1, matches),
-      '</matches>'
-    ]),
-    '</round>'
-  ];
+      ...el('matches', matches)
+    ],
+    ` number="${round.number}" type="${type}" stage="${roundStage(round, context)}" `
+  );
 }
 
 const NEW_POD_EXTRAS = [
@@ -775,12 +755,10 @@ function podSettings(pod: Pod): string[] {
   return [
     tag('subgroupcount', pod.subgroupCount ?? 1),
     tag('additionalrounds', pod.additionalRounds ?? 0),
-    '<blockedranges>',
-    ...block(
-      1,
+    ...el(
+      'blockedranges',
       (pod.blockedRanges ?? []).map(range => `<range starttable="${range.start}" endtable="${range.end}"/>`)
-    ),
-    '</blockedranges>'
+    )
   ];
 }
 
@@ -794,37 +772,29 @@ function writePod(t: Tournament, pod: Pod, save: PodSave): string[] {
   const hasCut = rootValue(t, 'type') !== '1' && pod.rounds.some(r => r.kind === 'elimination');
   const rounds = writePodRounds(t, pod, save);
   const flights = pod.flights ?? [{ number: 1, playerIds: pod.playerIds }];
-  const groups = flights.flatMap(flight => [
-    `<subgroup number="${flight.number}">`,
-    ...block(1, [
-      '<players>',
-      ...block(
-        1,
+  const groups = flights.flatMap(flight =>
+    el(
+      'subgroup',
+      el(
+        'players',
         flight.playerIds.map(id => `<player userid="${esc(id)}" />`)
       ),
-      '</players>'
-    ]),
-    '</subgroup>'
-  ]);
-  return [
-    `<pod category="${CATEGORY_CODES[pod.category]}" stage="${pod.stage ?? (hasCut ? '1' : (extra?.stage ?? '0'))}">`,
-    ...block(1, [
-      '<poddata>',
-      ...block(1, [
+      ` number="${flight.number}"`
+    )
+  );
+  return el(
+    'pod',
+    [
+      ...el('poddata', [
         tag('startingtable', pod.startingTable),
         tag('playoff3rd4th', String(pod.playoff3rd4th)),
         ...writtenPodSettings(t, pod)
       ]),
-      '</poddata>',
-      '<subgroups>',
-      ...block(1, hasStarted(t) ? groups : []),
-      '</subgroups>',
-      '<rounds>',
-      ...block(1, rounds),
-      '</rounds>'
-    ]),
-    '</pod>'
-  ];
+      ...el('subgroups', hasStarted(t) ? groups : []),
+      ...el('rounds', rounds)
+    ],
+    ` category="${CATEGORY_CODES[pod.category]}" stage="${pod.stage ?? (hasCut ? '1' : (extra?.stage ?? '0'))}"`
+  );
 }
 
 /** Division of each player as the event placed them: their pod's, or for a combined pod, `divisionOf`. */
@@ -932,18 +902,15 @@ function writeStandings(t: Tournament, divisionOf: (id: string) => Division): st
     );
     const rows = ordered.map(row => `<player id="${esc(row.playerId)}" place="${row.place}" />`);
     return [
-      `<pod category="${code}" type="finished">`,
-      ...block(1, rows),
-      '</pod>',
-      `<pod category="${code}" type="dnf">`,
-      ...block(
-        1,
-        dnf.map(p => `<player id="${esc(p.id)}" />`)
-      ),
-      '</pod>'
+      ...el('pod', rows, ` category="${code}" type="finished"`),
+      ...el(
+        'pod',
+        dnf.map(p => `<player id="${esc(p.id)}" />`),
+        ` category="${code}" type="dnf"`
+      )
     ];
   });
-  return ['<standings>', ...block(1, pods), '</standings>'];
+  return el('standings', pods);
 }
 
 function finalStandings(t: Tournament, divisionOf: (id: string) => Division): string[] {
@@ -1013,21 +980,19 @@ function categoryCut(t: Tournament, division: Division, pods: Pod[], of: (id: st
   // Only a division with a cut of its own pairs its playoff.
   const recorded = pod?.playoffsPaired ? pod.playoffsPaired.includes(division) : pairedThirdPlace(cut);
   const paired = rootValue(t, 'type') !== '1' && size > 0 && recorded;
-  return [
-    `<categorycut key="${CATEGORY_CODES[division]}">`,
-    ...block(1, [
-      '<options>',
-      ...block(
-        1,
+  return el(
+    'categorycut',
+    [
+      ...el(
+        'options',
         values.map(value => tag('value', value))
       ),
-      '</options>',
       tag('cut', size),
       tag('playercount', count),
       tag('paired3rd4th', String(paired))
-    ]),
-    '</categorycut>'
-  ];
+    ],
+    ` key="${CATEGORY_CODES[division]}"`
+  );
 }
 
 function writeFinalsOptions(t: Tournament, divisionOf: (id: string) => Division): string[] {
@@ -1036,7 +1001,7 @@ function writeFinalsOptions(t: Tournament, divisionOf: (id: string) => Division)
   }
   const byDivision = divisionPlayers(t, divisionOf);
   const cuts = [...DIVISIONS].reverse().flatMap(d => categoryCut(t, d, byDivision.get(d) ?? [], divisionOf));
-  return ['<finalsoptions>', ...block(1, cuts), '</finalsoptions>'];
+  return el('finalsoptions', cuts);
 }
 
 /** The root's stage: finalized, as TOM left it, or for a new file, whether play has started. */
@@ -1112,20 +1077,18 @@ export function writeTdf(input: Tournament, options: WriteOptions = {}): string 
   );
   const lines = [
     '<?xml version="1.0" encoding="UTF-8"?>',
-    `<tournament${rootAttrs(t, finalized)}>`,
-    ...block(1, [
-      ...writeData(t),
-      tag('timeelapsed', t.passthrough?.timeElapsed ?? '0'),
-      '<players>',
-      ...block(1, players),
-      '</players>',
-      '<pods>',
-      ...block(1, pods),
-      '</pods>',
-      ...savedStandingsLines(t, options, finalized && !pending, divisionOf),
-      ...writeFinalsOptions(t, divisionOf)
-    ]),
-    '</tournament>'
+    ...el(
+      'tournament',
+      [
+        ...writeData(t),
+        tag('timeelapsed', t.passthrough?.timeElapsed ?? '0'),
+        ...el('players', players),
+        ...el('pods', pods),
+        ...savedStandingsLines(t, options, finalized && !pending, divisionOf),
+        ...writeFinalsOptions(t, divisionOf)
+      ],
+      rootAttrs(t, finalized)
+    )
   ];
   return `${lines.join('\n')}\n`;
 }

@@ -72,7 +72,7 @@ async function lateInRound2() {
   serveRules([DRAGAPULT]);
   const owner = await signIn('Organizer', 'organizer');
   const code = await newSwiss(owner);
-  await settle(code, owner, { decklists: 'open', openLists: true, deckVisibility: 'always' });
+  await settle(code, owner, { decklists: 'open', deckVisibility: 'always' });
   await addPlayers(code, owner, 4);
   assert.equal((await pair(code, owner)).status, 200);
   await finishRound(code, owner);

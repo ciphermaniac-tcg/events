@@ -453,13 +453,13 @@ export const leaveEvent = (code: string) => call<null>(`${base(code)}/claim`, { 
 
 /** Staff let another device report for a player, as when they change phones. */
 export const releaseReporter = (code: string, playerId: string) =>
-  call<null>(`${base(code)}/report?${new URLSearchParams({ player: playerId }).toString()}`, { method: 'DELETE' });
+  call<null>(`${base(code)}/report?${new URLSearchParams({ player: playerId })}`, { method: 'DELETE' });
 
 /** Everyone the invite link let onto the staff; the organizer's to see. */
 export const fetchStaff = (code: string) => call<{ staff: StaffMember[] }>(`${base(code)}/staff`);
 
 export const removeStaff = (code: string, userId: string) =>
-  call<{ staff: StaffMember[] }>(`${base(code)}/staff?${new URLSearchParams({ user: userId }).toString()}`, {
+  call<{ staff: StaffMember[] }>(`${base(code)}/staff?${new URLSearchParams({ user: userId })}`, {
     method: 'DELETE'
   });
 
@@ -468,7 +468,7 @@ export const fetchListReaders = (code: string) => call<{ players: string[] }>(`$
 
 /** One player's list, by the key the event's page knows them by, once the event's lists are open. */
 export const fetchOpenList = (code: string, player: string) =>
-  call<{ list: OpenList | null }>(`${base(code)}/lists?${new URLSearchParams({ player }).toString()}`);
+  call<{ list: OpenList | null }>(`${base(code)}/lists?${new URLSearchParams({ player })}`);
 
 /** Every list, for staff. */
 export const fetchDecklists = (code: string) =>
@@ -521,7 +521,7 @@ export const recordDeckCheck = (
 ) => call<DeckCheckRecord>(`${base(code)}/deck-checks`, json('POST', check));
 
 export const removeDeckCheck = (code: string, id: string) =>
-  call<DeckCheckRecord>(`${base(code)}/deck-checks?${new URLSearchParams({ id }).toString()}`, { method: 'DELETE' });
+  call<DeckCheckRecord>(`${base(code)}/deck-checks?${new URLSearchParams({ id })}`, { method: 'DELETE' });
 
 /** Every entry in the event's penalty note record, with the staff a note may name as its judge. */
 export interface PenaltyNoteRecord {
@@ -538,7 +538,7 @@ export const recordPenaltyNote = (
 ) => call<PenaltyNoteRecord>(`${base(code)}/penalty-notes`, json('POST', note));
 
 export const removePenaltyNote = (code: string, id: string) =>
-  call<PenaltyNoteRecord>(`${base(code)}/penalty-notes?${new URLSearchParams({ id }).toString()}`, {
+  call<PenaltyNoteRecord>(`${base(code)}/penalty-notes?${new URLSearchParams({ id })}`, {
     method: 'DELETE'
   });
 

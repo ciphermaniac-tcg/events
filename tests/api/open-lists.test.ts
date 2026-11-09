@@ -4,26 +4,18 @@
  */
 
 import assert from 'node:assert/strict';
-import { beforeEach, test } from 'node:test';
+import { test } from 'node:test';
 
 import * as checkins from '../../functions/api/tournaments/[code]/checkins.ts';
 import * as decklists from '../../functions/api/tournaments/[code]/decklists.ts';
 import * as event from '../../functions/api/tournaments/[code]/index.ts';
 import * as lists from '../../functions/api/tournaments/[code]/lists.ts';
-import type { TournamentEnv } from '../../functions/lib/auth/env.ts';
-import { apiCalls, type Handler } from '../__utils__/apiCalls.ts';
+import { apiSuite, type Handler } from '../__utils__/apiCalls.ts';
 import { at, eventCalls } from '../__utils__/eventCalls.ts';
 import { sqliteD1 } from '../__utils__/sqliteD1.ts';
-import { resetRateLimiters } from '../../functions/lib/api/rateLimiter.ts';
 
-let env: TournamentEnv;
-const { hit, signIn } = apiCalls(() => env);
+const { env, hit, signIn } = apiSuite();
 const { newSwiss, send, addPlayers, settle } = eventCalls(hit);
-
-beforeEach(() => {
-  env = { TOURNAMENT_DB: sqliteD1('tournaments.sql'), DEV_LOGIN: 'true' };
-  resetRateLimiters();
-});
 
 const NIA = { popId: '4242', firstName: 'Nia', lastName: 'Okafor', birthDate: '02/27/2001' };
 const OMAR = { popId: '5151', firstName: 'Omar', lastName: 'Diaz', birthDate: '03/14/1999' };
@@ -47,11 +39,15 @@ async function keyOf(code: string, firstName: string): Promise<string> {
 const read = (code: string, player: string) =>
   hit(lists.onRequestGet as Handler, `/lists?player=${encodeURIComponent(player)}`, at(code));
 
-/** A Swiss event taking lists with Nia's pasted, Omar's on paper, and two players with none. */
-async function eventWithLists(openLists: boolean) {
+/**
+ * A Swiss event that took lists, Nia's pasted, Omar's on paper, and two
+ * players with none; `shared` leaves decklists open, or closes them once
+ * the lists are in, which keeps them private.
+ */
+async function eventWithLists(shared: boolean) {
   const owner = await signIn('Organizer', 'organizer');
   const code = await newSwiss(owner);
-  await settle(code, owner, { decklists: 'open', openLists });
+  await settle(code, owner, { decklists: 'open' });
   await addPlayers(code, owner, 2);
   assert.equal((await submit(code, NIA, { mode: 'digital', deck: DECK })).status, 200);
   assert.equal((await submit(code, OMAR, { mode: 'paper', deck: '' })).status, 200);
@@ -62,6 +58,9 @@ async function eventWithLists(openLists: boolean) {
     body: { playerId: OMAR.popId, mark: 'list', on: true }
   });
   assert.equal(handed.status, 200);
+  if (!shared) {
+    await settle(code, owner, { decklists: 'closed' });
+  }
   return { owner, code };
 }
 
@@ -97,7 +96,7 @@ test('a player with no list reads as none, and a key the event lacks as no playe
   }
 });
 
-test('lists the organizer has not opened stay closed after round 1', async () => {
+test('closed lists stay private after round 1', async () => {
   const { owner, code } = await eventWithLists(false);
   await pair(code, owner);
   assert.equal((await read(code, await keyOf(code, 'Nia'))).status, 404);

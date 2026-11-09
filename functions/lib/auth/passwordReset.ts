@@ -17,7 +17,7 @@
 import type { D1Like } from '../types.js';
 import { type ClerkKeys, clerkKeys, endSessionsBeforePassword, passwordChangedAt, primaryEmail } from './clerk.js';
 import type { AuthEnv } from './oauth.js';
-import { randomToken, sha256 } from './session.js';
+import { randomToken, sameDigest, sha256 } from './session.js';
 
 /** The cookie that holds a reset request's token. */
 export const RESET_COOKIE = 'cm_reset';
@@ -261,7 +261,7 @@ export async function completeReset(
   if (!held) {
     return refused(410, 'verification_expired');
   }
-  if (!held.subject || held.code_hash !== digest) {
+  if (!held.subject || !sameDigest(held.code_hash ?? '', digest)) {
     return refused(400, 'form_code_incorrect');
   }
   if (!(await claim(db, tokenHash, held.subject, now))) {

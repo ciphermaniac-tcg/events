@@ -21,22 +21,25 @@ interface HeldSignup {
   next: string;
 }
 
-/**
- * Whether this sign-in has to pass the age check first: no account has the
- * identity or its verified email, or the one that does never passed it (made
- * before the check existed). One read: the identity's owner, else the email's.
- */
-export async function needsAgeCheck(db: D1Like, profile: Profile): Promise<boolean> {
-  const email = verifiedEmail(profile);
-  const row = await db
+/** The account a sign-in reaches: the identity's owner, else its verified email's. One read. */
+export function profileAccount(db: D1Like, profile: Profile) {
+  return db
     .prepare(
-      'SELECT age_checked_at FROM users WHERE id = COALESCE(' +
+      'SELECT id, age_checked_at FROM users WHERE id = COALESCE(' +
         '(SELECT user_id FROM identities WHERE provider = ? AND subject = ?), ' +
         '(SELECT id FROM users WHERE email IS NOT NULL AND email = ?))'
     )
-    .bind(profile.provider, profile.subject, email)
-    .first<{ age_checked_at: number | null }>();
-  return !row?.age_checked_at;
+    .bind(profile.provider, profile.subject, verifiedEmail(profile))
+    .first<{ id: string; age_checked_at: number | null }>();
+}
+
+/**
+ * Whether this sign-in has to pass the age check first: no account has the
+ * identity or its verified email, or the one that does never passed it (made
+ * before the check existed).
+ */
+export async function needsAgeCheck(db: D1Like, profile: Profile): Promise<boolean> {
+  return !(await profileAccount(db, profile))?.age_checked_at;
 }
 
 /**

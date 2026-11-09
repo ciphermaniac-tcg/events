@@ -41,6 +41,19 @@ test('a correct year atomically resets expired failures and the next wrong year 
   assert.equal(inner.raw.prepare('SELECT failures FROM identify_failures').get()?.failures, 1);
 });
 
+test('neither admission path changes an active lock or extends its expiry', async () => {
+  const inner = db();
+  const now = Date.now();
+  const lockedUntil = now + 60_000;
+  inner.raw.prepare('INSERT INTO identify_failures VALUES (?, ?, ?, ?)').run('CODE', '123', FREE_TRIES, lockedUntil);
+  for (const right of [false, true]) {
+    assert.equal(await admitTry({ db: inner, code: 'CODE', popId: '123', right, now }), false);
+    const stored = inner.raw.prepare('SELECT failures, locked_until FROM identify_failures').get();
+    assert.equal(stored?.failures, FREE_TRIES);
+    assert.equal(stored?.locked_until, lockedUntil);
+  }
+});
+
 test('community revocation during event creation admits no event and spends no quota', async () => {
   const cookie = await signIn('Community', 'community');
   const inner = db();

@@ -10,7 +10,7 @@
 import { createMemo, createSignal, For, Show } from 'solid-js';
 import { finalPodRound, prereleaseChoiceAvailable } from '../../../shared/tournament/lifecycleWorkflow';
 import { latestRound } from '../../../shared/tournament/rounds';
-import { TOP_CUT_SIZES } from '../../../shared/tournament/structure';
+import { eventTypeOf, TOP_CUT_SIZES } from '../../../shared/tournament/structure';
 import { type Division, DIVISION_LABELS, type Pod } from '../../../shared/tournament/types';
 import { type Manage, saveSettings } from '../../lib/tournament/api';
 import { type DivisionCut, podLabel } from '../../lib/tournament/present';
@@ -205,8 +205,7 @@ export function RoundEndSplit(props: {
   label: string;
   step: RoundEnd;
   cuts: readonly DivisionCut[];
-  /** Whether a top cut can be offered at all (see ManageEvent). */
-  canCut: boolean;
+  /** The pod's divisions have begun their top cuts: its Swiss rounds are over, and only the others' cuts are left. */
   swissOver: boolean;
 }) {
   const [dialog, setDialog] = createSignal<Exclude<RoundEnd, 'pair'> | null>(null);
@@ -216,6 +215,11 @@ export function RoundEndSplit(props: {
     pod: () => props.pod
   });
   const open = () => props.cuts.filter(c => !c.started);
+  // A League Challenge plays Swiss rounds only.
+  const canCut = () =>
+    !props.pod.prereleaseConcluded &&
+    eventTypeOf(props.manage.tournament) !== 'challenge' &&
+    (props.step === 'cut' || open().some(c => c.active >= 4));
   const allDone = () =>
     props.manage.tournament.pods.every(pod => {
       const round = latestRound(pod);
@@ -226,7 +230,7 @@ export function RoundEndSplit(props: {
     ...(prereleaseChoiceAvailable(props.manage.tournament, props.pod)
       ? [{ end: 'conclude' as const, label: t('Conclude pod') }]
       : []),
-    ...(props.canCut ? [{ end: 'cut' as const, label: t(CUT_LABEL) }] : []),
+    ...(canCut() ? [{ end: 'cut' as const, label: t(CUT_LABEL) }] : []),
     ...(props.manage.tournament.settings?.mode !== 'PRERELEASE' || allDone()
       ? [{ end: 'end' as const, label: t(END_LABEL) }]
       : [])
@@ -269,7 +273,7 @@ export function RoundEndSplit(props: {
           </For>
         </OptionsMenu>
       </Show>
-      <Show when={props.canCut}>
+      <Show when={canCut()}>
         <CutDialog
           state={props.state}
           pod={props.pod}

@@ -35,6 +35,7 @@ import { currencySymbol } from '../../lib/events/format';
 import { intlLocale, t, tn } from '../../lib/i18n';
 import { latestValue } from '../../lib/resource';
 import { downloadBlob } from '../../lib/download';
+import { createCopied } from './copied';
 import { ConfirmAction } from './ConfirmAction';
 import { registrantsSource, siteRegistrants } from './siteRegistrants';
 import { settingsDraft } from './settingsDrafts';
@@ -227,13 +228,12 @@ type PlayerSettings = Logistics &
     | 'sanctioned'
     | 'playerReporting'
     | 'decklists'
-    | 'openLists'
     | 'entryFee'
     | 'playerCap'
   >;
 
 const pickPlayerSettings = (settings: TournamentSettings): PlayerSettings => {
-  const { details, format, startsAt, deckVisibility, sanctioned, playerReporting, decklists, openLists } = settings;
+  const { details, format, startsAt, deckVisibility, sanctioned, playerReporting, decklists } = settings;
   const { timeZone, checkInAt, venue, address, entryFee, playerCap } = settings;
   return {
     details,
@@ -247,7 +247,6 @@ const pickPlayerSettings = (settings: TournamentSettings): PlayerSettings => {
     sanctioned,
     playerReporting,
     decklists,
-    openLists,
     entryFee,
     playerCap
   };
@@ -385,12 +384,6 @@ function ForPlayers(props: { state: ManageState; manage: Manage }) {
       >
         <DecklistsSwitch value={draft().decklists} onChange={v => set('decklists', v)} />
       </SettingRow>
-      {/* Opening the lists is the organizer's call alone (see settings.ts); staff can still close them. */}
-      <Show when={draft().decklists !== 'off' && (props.manage.role === 'owner' || saved().openLists)}>
-        <SettingRow label={t('Open decklists')} info={<SettingInfo text={SETTING_INFO.openLists} />}>
-          <Toggle label={t('Open decklists')} value={draft().openLists} onChange={v => set('openLists', v)} />
-        </SettingRow>
-      </Show>
       <SettingRow label={t('Event description')} for='set-details'>
         <textarea
           id='set-details'
@@ -452,7 +445,7 @@ function Finish(props: { state: ManageState; manage: Manage }) {
 }
 
 function StaffInvite(props: { state: ManageState; manage: Manage }) {
-  const [copied, setCopied] = createSignal(false);
+  const { copied, copy } = createCopied();
   const [removals, setRemovals] = createSignal(0);
   // Blurred until pressed, so the link stays off a screen being shared or projected.
   const [revealed, setRevealed] = createSignal(false);
@@ -461,11 +454,6 @@ function StaffInvite(props: { state: ManageState; manage: Manage }) {
     void props.state.run(() => rotateStaffToken(code));
   }
   const link = () => `${location.origin}/host/${props.manage.code}?invite=${props.manage.staffToken ?? ''}`;
-  async function copy() {
-    await navigator.clipboard.writeText(link());
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
-  }
   return (
     <section>
       <h2 class='tm-subhead tm-box-head'>{t('Staff')}</h2>
@@ -513,7 +501,7 @@ function StaffInvite(props: { state: ManageState; manage: Manage }) {
                 onFocus={e => e.currentTarget.select()}
               />
             </Show>
-            <button type='button' class='btn btn-secondary' onClick={() => void copy()}>
+            <button type='button' class='btn btn-secondary' onClick={() => void copy(link())}>
               {copied() ? t('Copied') : t('Copy invite link')}
             </button>
             <ConfirmAction

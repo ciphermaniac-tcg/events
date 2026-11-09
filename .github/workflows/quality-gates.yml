@@ -23,7 +23,7 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           python: 'true'
-      - run: npx playwright install --with-deps chromium
+      - run: npx playwright install --with-deps --only-shell chromium
       - run: npm audit --omit=dev --audit-level=high
       - run: npm run verify
   lighthouse:
@@ -36,7 +36,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - uses: ./.github/actions/setup
-      - run: npx playwright install --with-deps chromium
+      - run: npx playwright install --with-deps --no-shell chromium
       - run: npm run test:lighthouse
   deploy:
     needs: [quality-gates, lighthouse]
@@ -70,7 +70,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - uses: ./.github/actions/setup
-      - run: npx playwright install --with-deps chromium
+      - run: npx playwright install --with-deps --only-shell chromium
       - run: npm run test:demo
   deploy-demo:
     needs: [quality-gates, demo]

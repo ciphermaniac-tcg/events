@@ -35,22 +35,14 @@ function decodeJson(part: string): Json | null {
   }
 }
 
-const keys = new Map<string, CryptoKey>();
+const keys = new Map<string, Promise<CryptoKey>>();
 
 /** The PEM public key as a verifying key, imported once per isolate. Literal `\n`s from a pasted secret are dropped. */
-async function publicKey(pem: string): Promise<CryptoKey> {
-  const cached = keys.get(pem);
-  if (cached) {
-    return cached;
-  }
-  const body = pem.replace(/-----[^-]+-----|\\n|\s/gu, '');
-  const key = await crypto.subtle.importKey(
-    'spki',
-    base64Bytes(body),
-    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
-    false,
-    ['verify']
-  );
+function publicKey(pem: string): Promise<CryptoKey> {
+  const body = () => base64Bytes(pem.replace(/-----[^-]+-----|\\n|\s/gu, ''));
+  const key =
+    keys.get(pem) ??
+    crypto.subtle.importKey('spki', body(), { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify']);
   keys.set(pem, key);
   return key;
 }
@@ -317,7 +309,8 @@ export function endSessionsBeforePassword(db: D1Like, subject: string, changedAt
  * under the Workers limit on subrequests.
  */
 export async function purgeClerkDeletions(db: D1Like, env: AuthEnv): Promise<void> {
-  if (!clerkKeys(env)) {
+  const clerk = clerkKeys(env);
+  if (!clerk) {
     return;
   }
   const [, queued] = await db.batch([
@@ -327,7 +320,7 @@ export async function purgeClerkDeletions(db: D1Like, env: AuthEnv): Promise<voi
     db.prepare('SELECT subject FROM clerk_deletions ORDER BY subject LIMIT 20')
   ]);
   const subjects = ((queued?.results ?? []) as { subject: string }[]).map(row => row.subject);
-  const settled = await Promise.allSettled(subjects.map(subject => deleteClerkUser(env, subject)));
+  const settled = await Promise.allSettled(subjects.map(subject => deleteClerkUser(clerk, subject)));
   const deleted = subjects.filter((_, i) => settled[i]?.status === 'fulfilled');
   for (const failed of settled.filter(result => result.status === 'rejected')) {
     console.error('Clerk user of a deleted account will be retried', failed.reason);
@@ -346,11 +339,7 @@ export async function purgeClerkDeletions(db: D1Like, env: AuthEnv): Promise<voi
  * password are gone with the account. A user Clerk no longer has counts as
  * deleted. Throws when Clerk can't be reached or refuses.
  */
-async function deleteClerkUser(env: AuthEnv, subject: string): Promise<void> {
-  const clerk = clerkKeys(env);
-  if (!clerk) {
-    throw new Error('Clerk is not configured');
-  }
+async function deleteClerkUser(clerk: ClerkKeys, subject: string): Promise<void> {
   const response = await fetch(`https://api.clerk.com/v1/users/${encodeURIComponent(subject)}`, {
     method: 'DELETE',
     headers: { Authorization: `Bearer ${clerk.secretKey}` }

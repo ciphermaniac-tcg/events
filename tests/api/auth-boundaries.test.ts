@@ -3,6 +3,7 @@ import { test } from 'node:test';
 
 import { readCookie, safeNext } from '../../functions/lib/auth/cookies.ts';
 import { sameOrigin } from '../../functions/lib/auth/env.ts';
+import { sameDigest, sessionHash, sha256 } from '../../functions/lib/auth/session.ts';
 
 const ORIGIN = 'https://cm.test';
 
@@ -51,4 +52,21 @@ test('mutations require an explicit matching Origin; ordinary reads need none', 
   assert.equal(sameOrigin(new Request(ORIGIN)), true);
   assert.equal(sameOrigin(new Request(ORIGIN, { method: 'HEAD' })), true);
   assert.equal(sameOrigin(new Request(ORIGIN, { headers: { origin: 'null' } })), false);
+});
+
+test('a request hashes its session token once, however many reads ask', async () => {
+  const request = new Request(ORIGIN, { headers: { Cookie: 'cm_session=abc' } });
+  const first = sessionHash(request);
+  assert.equal(sessionHash(request), first);
+  assert.equal(await first, await sha256('abc'));
+  assert.equal(await sessionHash(new Request(ORIGIN)), null);
+});
+
+test('digests match only when every character and the length agree', () => {
+  assert.equal(sameDigest('ab12', 'ab12'), true);
+  assert.equal(sameDigest('ab12', 'ab13'), false);
+  assert.equal(sameDigest('ab12', 'ab1'), false);
+  assert.equal(sameDigest('ab1', 'ab12'), false);
+  assert.equal(sameDigest('', 'ab12'), false);
+  assert.equal(sameDigest('', ''), true);
 });

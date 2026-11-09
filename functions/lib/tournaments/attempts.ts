@@ -26,26 +26,6 @@ const MAX_LOCK_MS = 60 * 60_000;
 export const LOCKED_OUT = msg('Too many tries. Ask staff for help.');
 
 /**
- * Counts a try against the Player ID unless it is refused now; whether it was
- * let in. From the FREE_TRIES-th the Player ID is refused for a minute,
- * doubling with each (2^0 .. 2^6 minutes, capped at an hour). A refused try
- * changes nothing, so it neither counts nor lengthens the wait.
- */
-async function countTry(db: D1Like, code: string, popId: string, now: number): Promise<boolean> {
-  const counted = await db
-    .prepare(
-      'INSERT INTO identify_failures (code, pop_id, failures, locked_until) VALUES (?1, ?2, 1, 0) ' +
-        'ON CONFLICT (code, pop_id) DO UPDATE SET failures = failures + 1, locked_until = CASE ' +
-        'WHEN failures + 1 >= ?3 THEN ?4 + min(?5, ?6 * (1 << min(failures + 1 - ?3, 6))) ' +
-        'ELSE locked_until END ' +
-        'WHERE identify_failures.locked_until <= ?4 RETURNING failures'
-    )
-    .bind(code, popId, FREE_TRIES, now, MAX_LOCK_MS, FIRST_LOCK_MS)
-    .first<{ failures: number }>();
-  return counted !== null;
-}
-
-/**
  * Forgives the Player ID's wrong tries, unless it is refused now: a lock that
  * tries landing alongside earned stays theirs.
  */
@@ -54,19 +34,6 @@ export function forgive(db: D1Like, code: string, popId: string, now: number) {
     .prepare('DELETE FROM identify_failures WHERE code = ? AND pop_id = ? AND locked_until <= ?')
     .bind(code, popId, now)
     .run();
-}
-
-/** Lets in a try with the right year unless the Player ID is refused now, forgiving the wrong ones before it. */
-async function admitRight(db: D1Like, code: string, popId: string, now: number): Promise<boolean> {
-  const admitted = await db
-    .prepare(
-      'INSERT INTO identify_failures (code, pop_id, failures, locked_until) VALUES (?1, ?2, 0, 0) ' +
-        'ON CONFLICT (code, pop_id) DO UPDATE SET failures = 0, locked_until = 0 ' +
-        'WHERE identify_failures.locked_until <= ?3 RETURNING failures'
-    )
-    .bind(code, popId, now)
-    .first<{ failures: number }>();
-  return admitted !== null;
 }
 
 /** One try: the event, the Player ID it names, whether its year is right, and when it lands. */
@@ -78,9 +45,25 @@ interface Try {
   now: number;
 }
 
-/** Lets in a try: a right year by `admitRight`, a wrong one by counting it. Whether it was let in. */
-export const admitTry = ({ db, code, popId, right, now }: Try) =>
-  right ? admitRight(db, code, popId, now) : countTry(db, code, popId, now);
+/** Lets in a right year by resetting unlocked failures, or a wrong one by counting it. */
+export async function admitTry({ db, code, popId, right, now }: Try): Promise<boolean> {
+  const sql = right
+    ? 'INSERT INTO identify_failures (code, pop_id, failures, locked_until) VALUES (?1, ?2, 0, 0) ' +
+      'ON CONFLICT (code, pop_id) DO UPDATE SET failures = 0, locked_until = 0 ' +
+      'WHERE identify_failures.locked_until <= ?3 RETURNING failures'
+    : 'INSERT INTO identify_failures (code, pop_id, failures, locked_until) VALUES (?1, ?2, 1, 0) ' +
+      'ON CONFLICT (code, pop_id) DO UPDATE SET failures = failures + 1, locked_until = CASE ' +
+      'WHEN failures + 1 >= ?3 THEN ?4 + min(?5, ?6 * (1 << min(failures + 1 - ?3, 6))) ' +
+      'ELSE locked_until END ' +
+      'WHERE identify_failures.locked_until <= ?4 RETURNING failures';
+  const values = right ? [code, popId, now] : [code, popId, FREE_TRIES, now, MAX_LOCK_MS, FIRST_LOCK_MS];
+  return (
+    (await db
+      .prepare(sql)
+      .bind(...values)
+      .first<{ failures: number }>()) !== null
+  );
+}
 
 /** Forgets a Player ID's wrong tries outright, while `guard` holds: staff vouch for the player. */
 export function clearFailures(db: D1Like, code: string, popId: string, guard: Guard): D1Statement {

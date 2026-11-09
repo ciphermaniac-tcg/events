@@ -11,7 +11,7 @@ import { ADULT_AGE, mayBeMinor } from '../../../shared/accounts/age.js';
 import { birthYear } from '../../../shared/tournament/divisions.js';
 import { managesStore, storeRoleOf } from '../../../shared/accounts/stores.js';
 import { DAY_MS, eventDay } from '../../../shared/tournament/limits.js';
-import { type MatchKey, normalizeCutPods } from '../../../shared/tournament/rounds.js';
+import { hasStarted, type MatchKey, normalizeCutPods } from '../../../shared/tournament/rounds.js';
 import { POD_CATEGORIES, type Tournament } from '../../../shared/tournament/types.js';
 import {
   applyPending,
@@ -113,7 +113,7 @@ export function fromRaw(raw: RawRow): TournamentRow {
     pending: legacyMatchKeys(tournament, JSON.parse(raw.pending) as PendingResult[]),
     reports: legacyMatchKeys(tournament, JSON.parse(raw.reports) as PlayerReport[]),
     requests: withRequestIds(JSON.parse(raw.requests) as PlayerRequest[]),
-    settings: storedSettings(JSON.parse(raw.settings) as Record<string, unknown>),
+    settings: storedSettings(JSON.parse(raw.settings) as Record<string, unknown>, hasStarted(tournament)),
     keys: JSON.parse(raw.player_keys) as Record<string, string>,
     decks: JSON.parse(raw.decks) as Record<string, string>,
     checkins: JSON.parse(raw.checkins ?? '{}') as CheckIns,
@@ -907,9 +907,9 @@ export async function listTournaments(db: D1Like, userId: string): Promise<Tourn
  * A new invite token and nobody on staff, in one transaction: no join can
  * fall between the two and keep a place the old link gave. Only while the
  * asker still organizes the event.
- * @returns Whether it landed
+ * @returns The event as the rotation left it, read in the same transaction; null when it did not land
  */
-export async function rotateStaff(db: D1Like, code: string, asker: Asker): Promise<boolean> {
+export async function rotateStaff(db: D1Like, code: string, asker: Asker): Promise<TournamentRow | null> {
   // The same check on both, in one transaction: the staff go only where the new link lands.
   const organizes = asksStill(asker, '?2', '?3');
   const values = askerValues(asker);
@@ -924,9 +924,11 @@ export async function rotateStaff(db: D1Like, code: string, asker: Asker): Promi
       .prepare(
         `DELETE FROM staff WHERE code = ?1 AND EXISTS (SELECT 1 FROM tournaments WHERE code = ?1 AND ${organizes})`
       )
-      .bind(code, ...values)
+      .bind(code, ...values),
+    tournamentQuery(db, code)
   ]);
-  return rowsChanged(results[0]) === 1;
+  const raw = firstRow<RawRow>(results[2]);
+  return rowsChanged(results[0]) === 1 && raw ? fromRaw(raw) : null;
 }
 
 /**
