@@ -18,7 +18,8 @@ export default defineConfig({
     emptyOutDir: true,
     target: 'es2022',
     minify: 'terser',
-    terserOptions: { compress: { passes: 3 } },
+    // Separate statements gzip better across the shared controls and lazy pages.
+    terserOptions: { compress: { passes: 3, sequences: false } },
     sourcemap: false,
     rollupOptions: {
       output: {
@@ -47,12 +48,13 @@ export default defineConfig({
               // the shell uses none of them. Nor the next-step workflow and share.ts, which keeps the parts of a
               // polled event that did not change: only the organizer's and event pages use them. Nor a correction's
               // preview or the linked .tdf's read beat, which only the console's corrections and TOM sync use.
+              // History copy reads stay with the profile and history pages that use them.
               // The rest of the folder stays, as splitting it costs more in total than it saves up front: each
               // export the shell loses renames the ones before it in every route's imports, so a cut that removes
               // as many exports as it adds is the one that stays cheap.
               name: 'tournament',
               priority: 1,
-              test: /(?:src[\\/]components[\\/]|src[\\/]main\.tsx$|tournaments[\\/](Field|SettingControls|OptionsMenu|Modal|ConfirmAction)\.tsx$|shared[\\/]tournament[\\/](?!tdf\.|xml\.|eventTime\.|requests\.|returns\.|lifecycleWorkflow\.)|src[\\/]lib[\\/]tournament[\\/](?!admin|applications|clerk|exportTdf|setupDraft|staff\.|stores\.|changes\.|tomSaves\.|liveData\.|tomLink\.|share\.|corrections\.|fileTicks\.))/,
+              test: /(?:src[\\/]components[\\/]|src[\\/]main\.tsx$|tournaments[\\/](Field|SettingControls|OptionsMenu|Modal|ConfirmAction)\.tsx$|shared[\\/]tournament[\\/](?!tdf\.|xml\.|eventTime\.|requests\.|returns\.|lifecycleWorkflow\.)|src[\\/]lib[\\/]tournament[\\/](?!historyCopies\.|admin|applications|clerk|exportTdf|setupDraft|staff\.|stores\.|changes\.|tomSaves\.|liveData\.|tomLink\.|share\.|corrections\.|fileTicks\.))/,
               includeDependenciesRecursively: true
             },
             // The Swiss engine runs in the browser only for the /host home page's sample event. Its own

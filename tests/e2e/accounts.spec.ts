@@ -446,7 +446,7 @@ test('a profile’s badges fit one line and move into overflow before wrapping @
   const row = page.locator('.tm-profile-hero .tm-badges');
   await expect(row.locator('.tm-badge')).toHaveCount(8);
   await expect(row.locator('.tm-badge-rule')).toHaveCount(1);
-  const played = row.getByRole('note', { name: 'Played 25 events' });
+  const played = row.getByRole('button', { name: 'Played 25 events' });
   if (test.info().project.name === 'mobile') {
     // A 28px badge still takes a 44px tap: a finger 7px above it lands on it.
     const reached = await played.evaluate(badge => {
@@ -458,6 +458,15 @@ test('a profile’s badges fit one line and move into overflow before wrapping @
   }
   await played.click();
   await expect(played.getByRole('tooltip')).toBeVisible();
+  await expect(played).toHaveAttribute('aria-expanded', 'true');
+  await page.keyboard.press('Escape');
+  await expect(played.getByRole('tooltip')).toBeHidden();
+  await played.focus();
+  await page.keyboard.press('Enter');
+  await expect(played).toHaveAttribute('aria-expanded', 'true');
+  await expect(played.getByRole('tooltip')).toBeVisible();
+  await page.keyboard.press('Space');
+  await expect(played).toHaveAttribute('aria-expanded', 'false');
   await row.evaluate(element => {
     element.style.width = '225px';
   });

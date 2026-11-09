@@ -867,7 +867,9 @@ test('a broken invite’s pale code word stays whole on a 320px phone in German 
   await page.setViewportSize({ width: 320, height: 640 });
   await page.goto('/stores/join?lang=de');
   const code = page.locator('.error-state-code');
-  await expect(code).toHaveText('Einladung');
+  await expect(code).toHaveAttribute('data-code', 'Einladung');
+  await expect(code).toHaveAttribute('aria-hidden', 'true');
+  expect(await code.evaluate(el => getComputedStyle(el, '::before').content)).toBe('"Einladung"');
   const lines = await code.evaluate(el => {
     const { height } = el.getBoundingClientRect();
     return Math.round(height / parseFloat(getComputedStyle(el).lineHeight));
