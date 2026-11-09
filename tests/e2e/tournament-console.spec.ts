@@ -831,14 +831,18 @@ test('with decklists off the console has no Decklists tab', async ({ page }) => 
   await expect(page.getByRole('tab', { name: 'Decklists' })).toHaveCount(0);
 });
 
-test('before round 1 the console opens on Players, and Pairings says why it is locked', async ({ page }) => {
+test('before round 1 the console opens on Players, and Pairings says why it is locked without a clipped bubble', async ({
+  page
+}) => {
   await mockConsole(page, event(4, 0, false), settingsOf({}));
   await expect(page.getByRole('tab', { name: 'Players' })).toHaveAttribute('aria-selected', 'true');
   const pairings = page.getByRole('tab', { name: 'Pairings' });
   await expect(pairings).toHaveAttribute('aria-disabled', 'true');
   await expect(pairings).toHaveAccessibleDescription('Pairings open once round 1 starts.');
+  await pairings.hover();
+  await expect(page.locator('.tabs .info-tip-bubble').first()).toBeHidden();
   await pairings.click({ force: true });
-  await expect(page.locator('.tabs .info-tip-bubble', { hasText: 'Pairings open once round 1 starts.' })).toBeVisible();
+  await expect(page.locator('.tabs .info-tip-bubble').first()).toBeHidden();
   await expect(page.getByRole('tab', { name: 'Players' })).toHaveAttribute('aria-selected', 'true');
 });
 

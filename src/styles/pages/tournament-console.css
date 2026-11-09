@@ -1167,6 +1167,10 @@
   border-bottom: 0;
   background: linear-gradient(var(--rule) 0 0) 4px calc(100% - 3px) / calc(100% - 8px) 1px no-repeat;
 }
+/* The scroller clips a locked tab's bubble to a stray shadow; the tab keeps its hint as its description. */
+.tm-console > .tabs .info-tip-bubble {
+  display: none;
+}
 .tm-console > .tabs.fade-l {
   mask-image: linear-gradient(to right, #0000, #000 36px);
 }
