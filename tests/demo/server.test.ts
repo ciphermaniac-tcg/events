@@ -73,8 +73,14 @@ test('the real functions run over sql.js: an event is started, filled and paired
   const db = await database();
   let writes = 0;
   const env: TournamentEnv = {
-    TOURNAMENT_DB: browserD1(db, () => (writes += 1)),
-    EVENTS_DATA: demoBucket(db, () => {})
+    TOURNAMENT_DB: browserD1(
+      () => db,
+      () => (writes += 1)
+    ),
+    EVENTS_DATA: demoBucket(
+      () => db,
+      () => {}
+    )
   };
   const token = await organizer(db);
 
@@ -126,7 +132,10 @@ test('the router ranks literal paths over parameters, and answers 404 and 405 as
 
 test('a batch is one transaction: a failing statement undoes the ones before it', async () => {
   const db = await database();
-  const d1 = browserD1(db, () => {});
+  const d1 = browserD1(
+    () => db,
+    () => {}
+  );
   await assert.rejects(
     d1.batch([
       d1.prepare(
@@ -146,7 +155,10 @@ test('a batch is one transaction: a failing statement undoes the ones before it'
 
 test('the bucket keeps what was published, and refuses a write over a newer one', async () => {
   const db = await database();
-  const bucket = demoBucket(db, () => {});
+  const bucket = demoBucket(
+    () => db,
+    () => {}
+  );
   const first = await bucket.put('k', 'one', { httpMetadata: {}, customMetadata: {} });
   assert.equal(bucket.read('k'), 'one');
   await bucket.put('k', 'two', { httpMetadata: {}, customMetadata: {} });

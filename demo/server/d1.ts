@@ -27,10 +27,10 @@ interface BrowserStatement extends D1Statement {
   now: () => { results: Record<string, unknown>[]; changes: number };
 }
 
-function statement(db: Database, sql: string, args: unknown[], changed: () => void): BrowserStatement {
+function statement(db: () => Database, sql: string, args: unknown[], changed: () => void): BrowserStatement {
   const now = () => {
-    const results = rows(db, sql, args);
-    const changes = db.getRowsModified();
+    const results = rows(db(), sql, args);
+    const changes = db().getRowsModified();
     if (changes > 0) {
       changed();
     }
@@ -45,21 +45,25 @@ function statement(db: Database, sql: string, args: unknown[], changed: () => vo
   };
 }
 
-/** `db` as D1; `changed` hears of every write, so the database is saved after it. */
-export function browserD1(db: Database, changed: () => void): D1Like {
+/**
+ * The database `db` gives as D1, asked for at each statement, since another
+ * tab's save replaces it (server/index.ts); `changed` hears of every write,
+ * so the database is saved after it.
+ */
+export function browserD1(db: () => Database, changed: () => void): D1Like {
   return {
     prepare: sql => statement(db, sql, [], changed),
     batch: statements => {
-      db.exec('BEGIN');
+      db().exec('BEGIN');
       try {
         const results = statements.map(item => {
           const { results: found, changes } = (item as BrowserStatement).now();
           return { results: found, meta: { changes } };
         });
-        db.exec('COMMIT');
+        db().exec('COMMIT');
         return Promise.resolve(results);
       } catch (error) {
-        db.exec('ROLLBACK');
+        db().exec('ROLLBACK');
         return Promise.reject(error instanceof Error ? error : new Error(String(error)));
       }
     }

@@ -70,15 +70,41 @@ test('what you do stays across a reload, and Reset starts over', async ({ page }
   await expect(page.getByRole('button', { name: 'Pair round 1' })).toBeVisible();
 });
 
-test('signing out leaves you signed in, since the demo has one account', async ({ page }) => {
+test('the big screen in another tab follows what the console does', async ({ context, page }) => {
+  await watched(page);
+  await openConsole(page);
+  const screen = await context.newPage();
+  await watched(screen);
+  const code = new URL(page.url()).pathname.split('/')[2] ?? '';
+  await screen.goto(`/t/${code}?screen=1`);
+  await expect(screen.locator('.tm-screen-table')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Pair round 1' }).click();
+  await expect(page.getByText('Round 1 of 5 in progress')).toBeVisible();
+  await expect(screen.locator('.tm-screen-table').first()).toBeVisible({ timeout: 10_000 });
+
+  // Reset in the console's tab starts the screen over too.
+  const bar = page.getByRole('region', { name: 'Demo' });
+  await bar.getByRole('button', { name: 'Reset demo' }).click();
+  await bar.getByRole('button', { name: 'Reset', exact: true }).click();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(screen.locator('.tm-screen-table')).toHaveCount(0, { timeout: 10_000 });
+});
+
+test('signing out and deleting the account are not part of the demo', async ({ page }) => {
   await watched(page);
   await page.goto('/');
   await expect(page.getByRole('cell', { name: 'Demo Games League Challenge' })).toBeVisible();
-  const handle = await page.evaluate(async () => {
-    await fetch('/api/auth/logout', { method: 'POST' });
-    return ((await (await fetch('/api/me')).json()) as { user?: { handle?: string } }).user?.handle;
+  const answers = await page.evaluate(async () => {
+    const out = await fetch('/api/auth/logout', { method: 'POST' });
+    const gone = await fetch('/api/me', { method: 'DELETE', body: JSON.stringify({ confirm: 'demo' }) });
+    const me = (await (await fetch('/api/me')).json()) as { user?: { handle?: string } };
+    return [out.status, gone.status, me.user?.handle];
   });
-  expect(handle).toBe('demo');
+  expect(answers).toEqual([403, 403, 'demo']);
+
+  await page.goto('/settings');
+  await page.getByRole('button', { name: 'Sign out' }).click();
+  await expect(page.getByText('This isn’t part of the demo.')).toBeVisible();
 });
 
 test('a request for anywhere else is refused before it leaves', async ({ page }) => {
