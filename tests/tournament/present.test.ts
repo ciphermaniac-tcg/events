@@ -206,11 +206,11 @@ test('a table’s records count its result as soon as it shows', () => {
   assert.equal(recordsSoFar(pod, cut, () => 'p1').get(open.p1), before.get(open.p1), 'a top cut keeps Swiss records');
 });
 
-test('the deck breakdown counts players and decided matches', () => {
+test('the deck breakdown counts players and decided matches and scales bars to the top deck', () => {
   const decks = { '7200005': 'Dragapult ex', '7200007': 'Gardevoir ex', '7200001': 'Gardevoir ex' };
   const rows = deckBreakdown(CHALLENGE, decks);
-  assert.deepEqual(rows[0], { label: 'Gardevoir ex', players: 2, matches: 2, winRate: 1 });
-  assert.deepEqual(rows[1], { label: 'Dragapult ex', players: 1, matches: 2, winRate: 0 });
+  assert.deepEqual(rows[0], { label: 'Gardevoir ex', players: 2, fill: 1, matches: 2, winRate: 1 });
+  assert.deepEqual(rows[1], { label: 'Dragapult ex', players: 1, fill: 0.5, matches: 2, winRate: 0 });
   assert.deepEqual(deckBreakdown(CHALLENGE, {}), []);
 });
 

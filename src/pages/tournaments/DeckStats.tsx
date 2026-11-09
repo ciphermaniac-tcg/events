@@ -54,7 +54,7 @@ export function DeckStats(props: { tournament: Tournament; decks: Record<string,
                   <td class='num tm-share-col'>
                     <span class='tm-share'>
                       <span class='tm-bar' aria-hidden='true'>
-                        <span class='tm-bar-fill' style={{ width: percent(row.players / total()) }} />
+                        <span class='tm-bar-fill' style={{ width: percent(row.fill) }} />
                       </span>
                       <span class='tm-share-value'>{percentText(row.players / total())}</span>
                     </span>

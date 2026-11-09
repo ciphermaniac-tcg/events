@@ -518,6 +518,8 @@ export function seatOf(tournament: Tournament, playerId: string): number | 'bye'
 export interface DeckShare {
   label: string;
   players: number;
+  /** Players against the most played deck's, 0 to 1, so the top deck fills its bar. */
+  fill: number;
   /** Decided matches the deck played, byes and missed rounds aside. */
   matches: number;
   /** Match win rate over those matches, ties counting half; null with none played. */
@@ -563,11 +565,18 @@ export function deckBreakdown(tournament: Tournament, decks: Record<string, stri
   for (const pod of tournament.pods) {
     deckTally(pod, decks, tally);
   }
+  const most = Math.max(0, ...counts.values());
   return [...counts]
     .map(([label, players]) => {
       const record = tally.get(label);
       const played = record?.played ?? 0;
-      return { label, players, matches: played, winRate: record && played > 0 ? record.won / played : null };
+      return {
+        label,
+        players,
+        fill: players / most,
+        matches: played,
+        winRate: record && played > 0 ? record.won / played : null
+      };
     })
     .sort((a, b) => b.players - a.players || a.label.localeCompare(b.label));
 }
