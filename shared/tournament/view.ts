@@ -54,6 +54,31 @@ export type DeckVisibility = 'always' | 'after' | 'off';
  */
 export type DecklistMode = 'off' | 'open' | 'closed';
 
+/**
+ * What a player gives on entry. A player tag is the name a player chooses to
+ * go by in place of their own. Every field asked is required, but where both
+ * the name and the tag are asked, either one will do.
+ */
+export type PlayerField = 'name' | 'tag' | 'birthYear' | 'popId';
+
+/** Every field, in the order setup lists them. */
+export const PLAYER_FIELDS: readonly PlayerField[] = ['name', 'tag', 'birthYear', 'popId'];
+
+/** What a sanctioned or TOM event asks of every player, whatever its setting says: TOM has no tags. */
+export const SANCTIONED_FIELDS: readonly PlayerField[] = ['name', 'birthYear', 'popId'];
+
+/** Whether `value` is a set of fields an event can ask: known, each once, and the name or the tag among them. */
+function isPlayerFields(value: unknown): boolean {
+  if (!Array.isArray(value) || new Set(value).size !== value.length) {
+    return false;
+  }
+  const fields = value as unknown[];
+  return (
+    fields.every(field => PLAYER_FIELDS.includes(field as PlayerField)) &&
+    (fields.includes('name') || fields.includes('tag'))
+  );
+}
+
 export interface TournamentSettings {
   display: DisplaySelection | null;
   decklists: DecklistMode;
@@ -98,6 +123,8 @@ export interface TournamentSettings {
   entryFee: number;
   /** The most players who can register themselves; 0 for no cap. Staff may add past it. */
   playerCap: number;
+  /** What an unsanctioned event asks on entry; a sanctioned one asks SANCTIONED_FIELDS. */
+  playerFields: PlayerField[];
 }
 
 export const DEFAULT_SETTINGS: TournamentSettings = {
@@ -118,7 +145,9 @@ export const DEFAULT_SETTINGS: TournamentSettings = {
   playerReporting: false,
   roundCap: 0,
   entryFee: 0,
-  playerCap: 0
+  playerCap: 0,
+  // Events made before the choice existed asked an unsanctioned player for the name alone.
+  playerFields: ['name']
 };
 
 export const SETTINGS_LIMITS = {
@@ -157,6 +186,7 @@ const SETTING_CHECKS: { [K in keyof TournamentSettings]: SettingCheck } = {
     Math.abs(value * 100 - Math.round(value * 100)) < 1e-6,
   playerCap: value =>
     typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= SETTINGS_LIMITS.playerCap,
+  playerFields: isPlayerFields,
   finished: value => typeof value === 'boolean',
   idle: value => typeof value === 'boolean',
   sanctioned: value => typeof value === 'boolean',

@@ -1640,6 +1640,10 @@ tr.is-in .tm-place {
   min-height: 46px;
   font-size: var(--text-lg);
 }
+/* Each box already keeps a 44px tap target, so the stack needs no gap of its own. */
+.tm-setup-asked {
+  gap: 0;
+}
 .tm-setup-file {
   margin: 0;
   font-size: var(--text-lg);

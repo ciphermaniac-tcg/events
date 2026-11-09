@@ -134,6 +134,21 @@ test('a sanctioned event cannot be capped under three Swiss rounds or turned san
   assert.equal(judge({ format: 'Expanded' }, DEFAULT_SETTINGS, short), null);
 });
 
+test('an event asks the name or the tag on entry, among known fields given once each', () => {
+  assert.deepEqual(readSettings({ playerFields: ['tag', 'birthYear'] }, DEFAULT_SETTINGS)?.playerFields, [
+    'tag',
+    'birthYear'
+  ]);
+  assert.deepEqual(readSettings({ playerFields: ['name', 'tag', 'popId'] }, DEFAULT_SETTINGS)?.playerFields, [
+    'name',
+    'tag',
+    'popId'
+  ]);
+  for (const playerFields of [[], ['birthYear', 'popId'], ['name', 'name'], ['name', 'email'], 'name']) {
+    assert.equal(readSettings({ playerFields }, DEFAULT_SETTINGS), null, JSON.stringify(playerFields));
+  }
+});
+
 test('settings changes are checked field by field', () => {
   assert.deepEqual(readSettings({ format: 'Expanded', startsAt: '2026-10-10T11:00' }, DEFAULT_SETTINGS), {
     ...DEFAULT_SETTINGS,

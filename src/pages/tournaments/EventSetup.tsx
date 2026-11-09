@@ -1,8 +1,8 @@
 /**
  * Setting up a new event on one screen: a heading and the name, then the
- * settings in three sections (the event itself and where it is played, its
- * format and rounds, and what players do from their devices), every answer at
- * its default and changed in place. A Swiss event asks everything; an event
+ * settings in three sections (the event itself, where it is played and what
+ * players give on entry; its format and rounds; and what players do from
+ * their devices), every answer at its default and changed in place. A Swiss event asks everything; an event
  * followed from TOM asks only what its .tdf does not say (the name,
  * sanctioning, divisions and round length all come from the file). Only a
  * sanctioned event asks its kind, unless a listing says it; an unsanctioned
@@ -25,11 +25,19 @@ import { createMedia, NOT_TOM_DESKTOP } from '../../lib/media';
 import { setupDraft } from '../../lib/tournament/setupDraft';
 import { SANCTIONED } from '../../../shared/tournament/structure';
 import { EVENT_TYPES, type EventType } from '../../../shared/tournament/types';
-import type { DecklistMode, DeckVisibility, TournamentSettings } from '../../../shared/tournament/view';
+import {
+  type DecklistMode,
+  type DeckVisibility,
+  PLAYER_FIELDS,
+  type PlayerField,
+  SANCTIONED_FIELDS,
+  type TournamentSettings
+} from '../../../shared/tournament/view';
 import { LISTING_KINDS, listingFill } from '../../lib/tournament/stores';
 import { ErrorLine } from './Field';
 import { FormatSelect } from './FormatSelect';
 import { ListingPicker } from './ListingPicker';
+import { PlayerFieldsRow } from './PlayerFieldsRow';
 import { browserZone, type Logistics, LogisticsRows } from './LogisticsRows';
 import { DecklistsSwitch, EventTypeSwitch, RoundsSelect } from './SettingChoices';
 import { ArchetypesSelect, SettingRow, Toggle } from './SettingControls';
@@ -61,6 +69,8 @@ export interface RunAs {
 const isString = (value: unknown): value is string => typeof value === 'string';
 const isBoolean = (value: unknown): value is boolean => typeof value === 'boolean';
 const isNumber = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
+const isPlayerFields = (value: unknown): value is PlayerField[] =>
+  Array.isArray(value) && value.every(field => PLAYER_FIELDS.includes(field as PlayerField));
 const isRunAs = (value: unknown): value is string | null => value === null || isString(value);
 const isListing = (value: unknown): value is Listing | null => {
   if (value === null) {
@@ -163,6 +173,7 @@ export function EventSetup(props: {
     ['off', 'open', 'closed'].includes(String(value))
   );
   const [roundCap, setRoundCap] = field('roundCap', 0, isNumber);
+  const [playerFields, setPlayerFields] = field<PlayerField[]>('playerFields', ['name'], isPlayerFields);
   const [chosenType, setEventType] = field<EventType>('eventType', 'cup', (value): value is EventType =>
     EVENT_TYPES.includes(value as EventType)
   );
@@ -193,6 +204,8 @@ export function EventSetup(props: {
   /** Run under the account's own name or an unsanctioned store's: never sanctioned. */
   const own = () => !props.runAs.find(option => option.id === runAs())?.sanctions;
   const sanctioned = () => !own() && sanctionedChoice();
+  /** A sanctioned or TOM event asks what TOM needs, whatever was picked. */
+  const fixedFields = () => !swiss() || sanctioned();
   /** A sanctioned event TOM pairs: it starts from TOM's file, which answers the rest. */
   const tomOffered = () => swiss() && sanctioned() && props.tdfLink !== undefined && !notTomDesktop();
   const tomPairs = () => tomOffered() && tomChosen();
@@ -279,6 +292,7 @@ export function EventSetup(props: {
         deckVisibility: archetypes(),
         decklists: decklists(),
         playerReporting: reporting(),
+        playerFields: fixedFields() ? [...SANCTIONED_FIELDS] : playerFields(),
         ...(swiss() ? { sanctioned: sanctioned(), roundCap: roundCap() } : {})
       }
     });
@@ -334,6 +348,7 @@ export function EventSetup(props: {
             place={!atStore()}
             onChange={(key, value) => setLogistics[key](value)}
           />
+          <PlayerFieldsRow value={playerFields()} fixed={fixedFields()} onChange={setPlayerFields} />
         </Show>
       </SetupSection>
       <Show when={!tomPairs()}>

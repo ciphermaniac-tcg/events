@@ -561,6 +561,40 @@ test('sanctioned setup requires Play! Tools confirmation; local setup skips it @
   await expect(confirmation).toBeChecked();
 });
 
+test('an unsanctioned setup asks the name or the tag on entry; a sanctioned one asks what TOM needs', async ({
+  page
+}) => {
+  const submissions = await mockOrganizer(page);
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Start an event' }).click();
+  await page.getByRole('textbox', { name: 'Event name' }).fill('Synthetic');
+  const asked = page.getByRole('group', { name: 'Asked on entry' });
+  const name = asked.getByRole('checkbox', { name: 'First and last name' });
+  const tag = asked.getByRole('checkbox', { name: 'Player tag' });
+  await expect(name).toBeChecked();
+  await expect(name).toBeDisabled();
+  await tag.check();
+  await name.uncheck();
+  await expect(tag).toBeDisabled();
+  await asked.getByRole('checkbox', { name: 'Year of birth' }).check();
+  const tip = page.locator('.tm-set-row', { hasText: 'Asked on entry' }).locator('.info-tip');
+  await tip.hover();
+  await expect(tip.getByRole('tooltip')).toContainText('An informal name a player chooses to go by');
+  const sanctioned = page.getByRole('radiogroup', { name: 'Sanctioned', exact: true });
+  await sanctioned.getByRole('radio', { name: 'Yes' }).click();
+  await expect(tag).toHaveCount(0);
+  for (const field of ['First and last name', 'Year of birth', 'POP ID']) {
+    await expect(asked.getByRole('checkbox', { name: field })).toBeChecked();
+    await expect(asked.getByRole('checkbox', { name: field })).toBeDisabled();
+  }
+  await sanctioned.getByRole('radio', { name: 'No' }).click();
+  await page.getByRole('button', { name: 'Create event' }).click();
+  await expect(page.locator('.tm-error')).toHaveText('Fixture submission');
+  expect(submissions).toEqual([
+    expect.objectContaining({ settings: expect.objectContaining({ playerFields: ['tag', 'birthYear'] }) })
+  ]);
+});
+
 for (const [eventType, label] of [
   ['local', 'Local'],
   ['prerelease', 'Prerelease']
