@@ -124,6 +124,8 @@ test('on a phone with archetypes off, a list’s name starts its row instead of 
   });
   await page.goto(`/host/${CODE}`);
   await page.getByRole('tab', { name: 'Decklists' }).click();
+  // Measure once the panel has finished entering from its tab's side.
+  await page.getByRole('tabpanel').evaluate(el => Promise.all(el.getAnimations().map(a => a.finished)));
   const row = page.locator('.tm-lists tbody tr').first();
   const start = await row.evaluate(
     el => el.getBoundingClientRect().left + parseFloat(getComputedStyle(el).paddingLeft)

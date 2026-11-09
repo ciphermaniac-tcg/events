@@ -446,7 +446,7 @@ test('a profile’s badges fit one line and move into overflow before wrapping @
   const row = page.locator('.tm-profile-hero .tm-badges');
   await expect(row.locator('.tm-badge')).toHaveCount(8);
   await expect(row.locator('.tm-badge-rule')).toHaveCount(1);
-  const played = row.getByRole('note', { name: 'Played 25 events' });
+  const played = row.getByRole('button', { name: 'Played 25 events' });
   if (test.info().project.name === 'mobile') {
     // A 28px badge still takes a 44px tap: a finger 7px above it lands on it.
     const reached = await played.evaluate(badge => {
