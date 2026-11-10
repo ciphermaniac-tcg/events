@@ -52,7 +52,8 @@
   flex: auto;
   box-shadow: 0 0 0 1px var(--rule);
 }
-.tm-clock-group button {
+.tm-clock-group > button,
+.tm-clock-acts > button {
   flex: 1 0 auto;
   min-height: calc(var(--control-h) - 2px);
   white-space: nowrap;
@@ -62,14 +63,47 @@
   color: var(--fg);
   transition: background var(--ms-fast) var(--ease-base);
 }
-.tm-clock-group button + button {
+.tm-clock-acts > button + button {
   border-left: 1px solid var(--rule);
 }
-.tm-clock-group button:hover {
+.tm-clock-group > button:hover,
+.tm-clock-acts > button:hover {
   background: var(--surface-2);
 }
+/* The face is a button too: a press types the time left. It keeps the face's own size and weight. */
+.tm-clock-group .tm-clock-face {
+  flex: 999 0 auto;
+  padding: var(--space-2) var(--space-3);
+  font-weight: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.tm-clock-setter {
+  display: flex;
+  flex: 1 0 100%;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-3);
+  border-top: 1px solid var(--rule);
+}
+.tm-clock-setter .tm-input {
+  width: 7ch;
+  font-size: 16px;
+}
+.tm-clock-setter-acts {
+  display: flex;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+@media (pointer: coarse) {
+  .tm-clock-setter .btn {
+    min-height: 44px;
+  }
+}
 @media (max-width: 640px), (pointer: coarse) {
-  .tm-clock-group button {
+  .tm-clock-group > button,
+  .tm-clock-acts > button {
     min-height: 42px;
   }
 }

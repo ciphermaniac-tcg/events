@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { Round } from '../../shared/tournament/types.ts';
-import { clockState, clockTime } from '../../src/lib/tournament/clockState.ts';
+import { clockState, clockTime, parseClock } from '../../src/lib/tournament/clockState.ts';
 import { clockWords } from '../../src/lib/tournament/present.ts';
 
 const START = 1_000_000;
@@ -102,4 +102,13 @@ test('one table through its round: running, extended, over, and done once it rep
     [table(0), table(599), table(600), table(779), table(780), table(800, true)],
     ['running', 'running', 'extended', 'extended', 'over', 'done']
   );
+});
+
+test('reads a typed clock as m:ss or whole minutes', () => {
+  assert.equal(parseClock(' 27:00 '), 1620);
+  assert.equal(parseClock('5:07'), 307);
+  assert.equal(parseClock('50'), 3000);
+  assert.equal(parseClock('5:7'), null);
+  assert.equal(parseClock('5:60'), null);
+  assert.equal(parseClock('abc'), null);
 });

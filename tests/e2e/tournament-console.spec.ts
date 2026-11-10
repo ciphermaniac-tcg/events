@@ -1712,14 +1712,15 @@ function clockLayout(clock: Locator) {
   });
 }
 
-test('a 320px phone’s round clock keeps its time and actions on one line @mobileOnly', async ({ page }) => {
-  await page.setViewportSize({ width: 320, height: 640 });
+test('a 360px phone’s round clock keeps its time and actions on one line @mobileOnly', async ({ page }) => {
+  // With +5 beside +1 and −1, a 320px screen puts the actions under the time, as the next test checks.
+  await page.setViewportSize({ width: 360, height: 640 });
   await mockConsole(page, partlyPlayed(8, 0, 2), settingsOf({}));
   await page.getByRole('tablist', { name: 'Event sections' }).getByRole('tab', { name: 'Standings' }).click();
   const head = await clockLayout(page.locator('.tm-console-hero').getByRole('group', { name: 'Round clock' }));
   expect(head.cut).toEqual([]);
   expect(head.stacked).toBe(false);
-  expect(head.right).toBeLessThanOrEqual(320);
+  expect(head.right).toBeLessThanOrEqual(360);
 });
 
 test('a round clock too wide for a phone puts its actions under the time, every label whole @mobileOnly', async ({
@@ -2715,4 +2716,20 @@ test.describe('on a 640px phone held sideways', () => {
     );
     expect(Math.min(...edges)).toBeGreaterThanOrEqual(47);
   });
+});
+
+test('staff add five minutes, or type the time left and see the change before it is sent', async ({ page }) => {
+  const sent = await mockConsole(page, partlyPlayed(8, 0, 2), settingsOf({}));
+  const clock = page.locator('.tm-console-hero').getByRole('group', { name: 'Round clock' });
+  await clock.getByRole('button', { name: 'Add five minutes' }).click();
+  await expect.poll(() => sent.at(-1)).toEqual({ type: 'adjustClock', pod: 'masters', seconds: 300 });
+  await clock.getByRole('button', { name: 'Set the time left' }).click();
+  const field = clock.getByRole('textbox', { name: 'Time left' });
+  await expect(field).toBeFocused();
+  await field.fill('99:59');
+  await expect(field).toHaveAccessibleDescription(/^Adds \d+ minutes/);
+  await clock.getByRole('button', { name: 'Set', exact: true }).click();
+  await expect.poll(() => sent.at(-1)).toMatchObject({ type: 'adjustClock', pod: 'masters' });
+  expect((sent.at(-1) as { seconds: number }).seconds).toBeGreaterThan(300);
+  await expect(field).toBeHidden();
 });

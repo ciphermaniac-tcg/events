@@ -46,6 +46,12 @@ export function clockTime(seconds: number): string {
   return `${Math.floor(abs / 60)}:${String(abs % 60).padStart(2, '0')}`;
 }
 
+/** Seconds from what staff typed for a clock: m:ss, or whole minutes alone; null for anything else. */
+export function parseClock(text: string): number | null {
+  const match = /^(\d{1,2})(?::([0-5]\d))?$/.exec(text.trim());
+  return match ? Number(match[1]) * 60 + Number(match[2] ?? 0) : null;
+}
+
 const neverStarted = (round: Round) => round.clockStartedAt == null && !round.startTime;
 
 function phaseOf(input: ClockInput, roundLeft: number, left: number): ClockPhase {
