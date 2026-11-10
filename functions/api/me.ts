@@ -19,7 +19,7 @@ import { accountYear } from '../../shared/accounts/age.js';
 import { displayName, handleProblem, normalizeHandle } from '../../shared/accounts/handle.js';
 import { birthYear, yearOnlyBirthDate } from '../../shared/tournament/divisions.js';
 import { type PlayerProfile, readProfile } from '../../shared/tournament/profile.js';
-import { renameAccount } from '../lib/accounts/handles.js';
+import { RENAME_REFUSED, renameAccount } from '../lib/accounts/handles.js';
 import { deleteAccount } from '../lib/accounts/wipe.js';
 import { readJsonBody, readJsonObject } from '../lib/api/body.js';
 import { jsonError, jsonResponse, PRIVATE } from '../lib/api/responses.js';
@@ -109,17 +109,12 @@ function readChange(body: Record<string, unknown>): AccountChange | string {
   return profileName === 'real' || profileName === 'handle' ? { profileName } : msg('Not a valid change');
 }
 
-const REFUSED = {
-  taken: { error: msg('That username is taken'), status: 409 },
-  limit: { error: msg('You can change your username three times a day'), status: 429 }
-} as const;
-
 /** Makes the change, and answers the fields of the account it changed, or why it was refused. */
 async function applyChange(db: D1Like, user: User, change: AccountChange): Promise<Partial<User> | Response> {
   if ('handle' in change) {
     const refused = await renameAccount(db, user, change.handle);
     if (refused) {
-      return jsonError(REFUSED[refused].error, REFUSED[refused].status);
+      return jsonError(RENAME_REFUSED[refused].error, RENAME_REFUSED[refused].status);
     }
     return { handle: change.handle, name: displayName({ ...user, handle: change.handle }) };
   }

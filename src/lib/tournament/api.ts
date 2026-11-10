@@ -164,6 +164,17 @@ export const fetchSession = () => call<Session>('/api/me');
 export const saveProfile = (profile: PlayerProfile) => call<{ user: Me }>('/api/me', json('PUT', profile));
 export const saveHandle = (handle: string) => call<{ user: Me }>('/api/me', json('PATCH', { handle }));
 
+/** A username and name, each left empty to skip it (functions/lib/accounts/setup.ts). */
+export interface AccountSetup {
+  handle: string;
+  firstName: string;
+  lastName: string;
+}
+
+/** Saves the username and name offered once to an older account; nothing given is "Not now". */
+export const setUpAccount = (setup: AccountSetup | Record<string, never>) =>
+  call<{ user: Me }>('/api/me/setup', json('POST', setup));
+
 /** The parts asked for of what the site keeps on the account, as a Markdown file and the name it saves under. */
 export async function exportData(parts: readonly ExportPart[]): Promise<{ file: Blob; name: string }> {
   const response = await answer(`/api/me/data?parts=${parts.join(',')}`, {});

@@ -8,10 +8,11 @@
  */
 
 import { EARLY_LIMIT, launchBadge } from '../../../shared/accounts/achievements.js';
-import { DAY_MS, displayName, isHandle, randomHandle } from '../../../shared/accounts/handle.js';
+import { displayName, isHandle, randomHandle } from '../../../shared/accounts/handle.js';
 import { type AccountRole, readAccountRole } from '../../../shared/accounts/roles.js';
 import { storeRoleOf } from '../../../shared/accounts/stores.js';
 import type { MyStore } from '../../../shared/accounts/types.js';
+import { handleFreeSql } from '../accounts/handleSql.js';
 import { jsonError } from '../api/responses.js';
 import type { D1Like, D1Statement } from '../types.js';
 import { type Context, sameOrigin } from './env.js';
@@ -283,18 +284,21 @@ function typedHandle(profile: Profile): string | null {
   return asked && isHandle(typed, { reserved: profile.provider === 'clerk' }) ? typed : null;
 }
 
-/** `handleKey` in SQL, as the users_by_handle_key index is written. */
-const HANDLE_KEY_SQL = (column: string) => `replace(replace(replace(${column}, '.', ''), '-', ''), '_', '')`;
-
 /**
- * A new account's username, in SQL: the one it asked for (`typedHandle`)
- * when no account holds it or let it go within the day, as a rename checks
- * (lib/accounts/handles.ts), else a random one until it picks its own.
+ * A new account's username, in SQL: the one it asked for when no account
+ * holds it or let it go within the day, as a rename checks, else a random
+ * one until it picks its own.
  */
-const FIRST_HANDLE_SQL =
-  `COALESCE((SELECT ?7 WHERE ?7 IS NOT NULL ` +
-  `AND NOT EXISTS (SELECT 1 FROM users WHERE ${HANDLE_KEY_SQL('handle')} = ${HANDLE_KEY_SQL('?7')}) ` +
-  `AND NOT EXISTS (SELECT 1 FROM handle_changes WHERE old_key = ${HANDLE_KEY_SQL('?7')} AND at > ?6 - ${DAY_MS})), ?2)`;
+const FIRST_HANDLE_SQL = `COALESCE((SELECT ?7 WHERE ?7 IS NOT NULL AND ${handleFreeSql('?7', 'NULL', '?6')}), ?2)`;
+
+/** What a new account says about itself at the age check: each part may be left out. */
+export interface AccountSetup {
+  handle: string | null;
+  firstName: string | null;
+  lastName: string | null;
+}
+
+const NO_SETUP: AccountSetup = { handle: null, firstName: null, lastName: null };
 
 /**
  * A new account's Beta tester or Early adopter badge. Early adopter stops
@@ -309,30 +313,41 @@ export function launchGrant(db: D1Like, userId: string, badge = launchBadge()): 
     .bind(userId, badge, Date.now(), EARLY_LIMIT);
 }
 
+/** What the age check gave a new account: the birth date it keeps, and the username and name. */
+interface AgeAnswers {
+  birthDate: string | null;
+  setup: AccountSetup;
+}
+
+function newUser(db: D1Like, profile: Profile, userId: string, { birthDate, setup }: AgeAnswers): D1Statement {
+  return db
+    .prepare(
+      'INSERT INTO users (id, handle, email, avatar, birth_date, age_checked_at, created_at, ' +
+        'first_name, last_name, setup_offered_at) ' +
+        `VALUES (?1, ${FIRST_HANDLE_SQL}, ?3, ?4, ?5, CASE WHEN ?5 IS NULL THEN NULL ELSE ?6 END, ?6, ?8, ?9, ?6)`
+    )
+    .bind(
+      userId,
+      randomHandle(),
+      verifiedEmail(profile),
+      profile.avatar,
+      birthDate,
+      Date.now(),
+      setup.handle ?? typedHandle(profile),
+      setup.firstName,
+      setup.lastName
+    );
+}
+
 async function insertAccount(
   db: D1Like,
   profile: Profile,
   existing: string | null,
-  birthDate: string | null
+  answers: AgeAnswers
 ): Promise<string> {
   const userId = existing ?? randomToken(12);
   await db.batch([
-    existing
-      ? refreshUser(db, profile, userId, birthDate)
-      : db
-          .prepare(
-            'INSERT INTO users (id, handle, email, avatar, birth_date, age_checked_at, created_at) ' +
-              `VALUES (?1, ${FIRST_HANDLE_SQL}, ?3, ?4, ?5, CASE WHEN ?5 IS NULL THEN NULL ELSE ?6 END, ?6)`
-          )
-          .bind(
-            userId,
-            randomHandle(),
-            verifiedEmail(profile),
-            profile.avatar,
-            birthDate,
-            Date.now(),
-            typedHandle(profile)
-          ),
+    existing ? refreshUser(db, profile, userId, answers.birthDate) : newUser(db, profile, userId, answers),
     identityInsert(db, profile, userId),
     ...(existing ? [] : [launchGrant(db, userId)])
   ]);
@@ -368,7 +383,17 @@ async function resolveAccount(db: D1Like, profile: Profile, error: unknown): Pro
  * account is made only with the birth date (year only) its age check gave;
  * the callback holds back anyone who has not passed one (see signup.ts).
  */
-export async function upsertUser(db: D1Like, profile: Profile, birthDate: string | null = null): Promise<string> {
+/**
+ * The account a sign-in reaches, made when there is none; `setup` is what a
+ * new account said about itself at the age check, which an existing one
+ * keeps from before.
+ */
+export async function upsertUser(
+  db: D1Like,
+  profile: Profile,
+  birthDate: string | null = null,
+  setup: AccountSetup = NO_SETUP
+): Promise<string> {
   const owner = await identityOwner(db, profile);
   if (owner) {
     await refreshUser(db, profile, owner, birthDate).run();
@@ -376,7 +401,7 @@ export async function upsertUser(db: D1Like, profile: Profile, birthDate: string
   }
   const existing = await emailOwner(db, profile);
   try {
-    return await insertAccount(db, profile, existing, birthDate);
+    return await insertAccount(db, profile, existing, { birthDate, setup });
   } catch (error) {
     const winner = await resolveAccount(db, profile, error);
     await refreshUser(db, profile, winner, birthDate).run();

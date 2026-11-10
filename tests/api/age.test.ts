@@ -18,6 +18,7 @@ import * as callback from '../../functions/api/auth/callback/[provider].ts';
 import * as login from '../../functions/api/auth/login/[provider].ts';
 import * as community from '../../functions/api/community.ts';
 import * as me from '../../functions/api/me.ts';
+import * as setup from '../../functions/api/me/setup.ts';
 import * as decklists from '../../functions/api/tournaments/[code]/decklists.ts';
 import * as report from '../../functions/api/tournaments/[code]/report.ts';
 import * as idle from '../../functions/api/tournaments/idle.ts';
@@ -96,6 +97,55 @@ test('a sign-up under 16 makes no account and keeps nothing the provider sent', 
   assert.deepEqual([count('users'), count('identities'), count('pending_signups')], [0, 0, 0]);
   const retry = await checkAge(cookieOf(waiting, 'cm_signup'), `${ADULT}-03-01`);
   assert.equal(retry.status, 410, 'another date needs another sign-in');
+});
+
+test('the age check keeps the username and name given; a username someone holds is refused without using the wait', async () => {
+  raw().exec(
+    "INSERT INTO users (id, handle, birth_date, age_checked_at, created_at) VALUES ('held', 'gato-gingado', '02/27/1980', 1, 1)"
+  );
+  const waiting = await asGoogle('gato', 'gato@example.com', googleCallback);
+  const cookie = cookieOf(waiting, 'cm_signup');
+  const answer = (body: Record<string, string>) =>
+    hit(
+      ageCheck.onRequestPost as Handler,
+      '/api/auth/age',
+      {},
+      { method: 'POST', cookie, body: { birthDate: `${ADULT}-03-01`, ...body } }
+    );
+  assert.equal((await answer({ handle: 'gato gingado' })).status, 400);
+  assert.equal((await answer({ handle: 'Gato_Gingado' })).status, 409);
+  assert.equal(count('pending_signups'), 1, 'neither used the wait up');
+  const passed = await answer({ handle: 'Gato.Club', firstName: ' Thiago ', lastName: 'Oliveira' });
+  assert.equal(passed.status, 200);
+  const made = raw()
+    .prepare(
+      'SELECT handle, first_name AS firstName, last_name AS lastName, setup_offered_at IS NOT NULL AS offered ' +
+        "FROM users WHERE id <> 'held'"
+    )
+    .get();
+  assert.deepEqual({ ...made }, { handle: 'gato.club', firstName: 'Thiago', lastName: 'Oliveira', offered: 1 });
+});
+
+test('an account still on its random username is offered a username and name once, which Not now turns down', async () => {
+  raw().exec(
+    'INSERT INTO users (id, handle, email, birth_date, age_checked_at, created_at) ' +
+      "VALUES ('old', 'player-ab12cd34', 'old@example.com', '02/27/1980', 1, 1);" +
+      "INSERT INTO identities (provider, subject, user_id) VALUES ('google', 'old-sub', 'old')"
+  );
+  const first = await asGoogle('old-sub', 'old@example.com', googleCallback);
+  assert.equal(first.headers.get('location'), '/welcome?next=%2Fhost');
+  const offer = (body: Record<string, string>) =>
+    hit(
+      setup.onRequestPost as Handler,
+      '/api/me/setup',
+      {},
+      { method: 'POST', cookie: cookieOf(first, 'cm_session'), body }
+    );
+  assert.equal((await offer({})).status, 200);
+  const again = await asGoogle('old-sub', 'old@example.com', googleCallback);
+  assert.equal(again.headers.get('location'), '/host', 'offered once');
+  const saved = await offer({ handle: 'old.timer', firstName: 'Olga' });
+  assert.deepEqual([saved.status, saved.json.user.handle, saved.json.user.name], [200, 'old.timer', 'Olga']);
 });
 
 test('a 16-year-old’s sign-up makes an account', async () => {

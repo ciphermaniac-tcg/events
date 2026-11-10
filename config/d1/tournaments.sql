@@ -40,7 +40,10 @@ CREATE TABLE IF NOT EXISTS users (
   -- NULL only on an account made before the check existed: it holds no
   -- session (sessionUserQuery reads it as no one) and passes the check at its
   -- next sign-in.
-  age_checked_at INTEGER
+  age_checked_at INTEGER,
+  -- When the account was offered its username and name (functions/api/me/setup.ts):
+  -- at the age check for a new one, once at a later visit for one made before.
+  setup_offered_at INTEGER
 );
 -- Provider writes normalize verified emails before storing or looking them up.
 CREATE UNIQUE INDEX IF NOT EXISTS users_by_verified_email ON users (email) WHERE email IS NOT NULL;

@@ -2,8 +2,9 @@
  * The end of every sign-in, once something has said who this is: a profile
  * from Google or Discord's callback, or from a Clerk token
  * (functions/api/auth/clerk.ts). A new sign-up waits for the age check; a
- * known account gets a session; a link adds the identity to the signed-in
- * account.
+ * known account gets a session, and is offered its username and name once
+ * if it was made before the age check asked for them; a link adds the
+ * identity to the signed-in account.
  */
 
 import { cookie, redirectWithCookies, SESSION_COOKIE, SIGNUP_COOKIE } from './cookies.js';
@@ -11,6 +12,7 @@ import type { Profile } from './oauth.js';
 import { createSession, currentUser, linkIdentity, proofOf, SESSION_SECONDS, upsertUser } from './session.js';
 import { holdSignup, needsAgeCheck, SIGNUP_SECONDS } from './signup.js';
 import type { D1Like } from '../types.js';
+import { offerSetup } from '../accounts/setup.js';
 
 export interface Started {
   next: string;
@@ -48,5 +50,17 @@ export async function finishSignIn(
     return redirectWithCookies(`/settings?${error}`, cookies);
   }
   const token = await createSession(db, userId, proofOf(profile));
-  return redirectWithCookies(started.next, [...cookies, cookie(request, SESSION_COOKIE, token, SESSION_SECONDS)]);
+  return redirectWithCookies(await landing(db, userId, started), [
+    ...cookies,
+    cookie(request, SESSION_COOKIE, token, SESSION_SECONDS)
+  ]);
+}
+
+/**
+ * Where a sign-in lands: where it started, or first, once, the offer of a
+ * username and name to an account made before the age check asked for them.
+ */
+async function landing(db: D1Like, userId: string, started: Started): Promise<string> {
+  const offer = !started.linking && (await offerSetup(db, userId));
+  return offer ? `/welcome?next=${encodeURIComponent(started.next)}` : started.next;
 }

@@ -1,5 +1,5 @@
 -- Read-only preflight. Missing columns, tables or indexes stop deployment.
-SELECT age_checked_at, handle, profile_name FROM users WHERE 0;
+SELECT age_checked_at, handle, profile_name, setup_offered_at FROM users WHERE 0;
 SELECT token_hash, profile, expires_at FROM pending_signups WHERE 0;
 SELECT store_id, community_day, last_import_at, requests FROM tournaments INDEXED BY tournaments_one_community_day
  WHERE community_day IS NOT NULL LIMIT 0;

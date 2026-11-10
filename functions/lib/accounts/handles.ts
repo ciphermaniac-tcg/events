@@ -9,19 +9,24 @@
  * a time, so two requests cannot both pass a check the other changes.
  */
 
-import { DAY_MS, handleKey, RENAMES_PER_DAY } from '../../../shared/accounts/handle.js';
+import { DAY_MS, RENAMES_PER_DAY } from '../../../shared/accounts/handle.js';
+import { msg } from '../../../shared/i18n.js';
 import { randomToken } from '../auth/session.js';
 import { rowsChanged } from '../d1.js';
 import type { D1Like } from '../types.js';
-
-/** `handleKey` in SQL, written as the users_by_handle_key index is, so a lookup by key uses it. */
-const handleKeySql = (column: string) => `replace(replace(replace(${column}, '.', ''), '-', ''), '_', '')`;
+import { handleFreeSql, handleKeySql } from './handleSql.js';
 
 /** The name the site calls the account in `alias` by, as `displayName` makes it. */
 export const displayNameSql = (alias: string) =>
   `COALESCE(NULLIF(TRIM(COALESCE(${alias}.first_name, '') || ' ' || COALESCE(${alias}.last_name, '')), ''), ${alias}.handle)`;
 
 type RenameRefusal = 'taken' | 'limit';
+
+/** What a refused rename answers, by why. */
+export const RENAME_REFUSED = {
+  taken: { error: msg('That username is taken'), status: 409 },
+  limit: { error: msg('You can change your username three times a day'), status: 429 }
+} as const satisfies Record<RenameRefusal, { error: string; status: number }>;
 
 function renameWrites(db: D1Like, userId: string, handle: string, now: number) {
   const token = randomToken(12);
@@ -33,12 +38,11 @@ function renameWrites(db: D1Like, userId: string, handle: string, now: number) {
     .prepare(
       `INSERT OR IGNORE INTO handle_changes (user_id, at, old_key, handle, token) ` +
         `SELECT u.id, max(?2, coalesce((SELECT max(at) + 1 FROM handle_changes WHERE user_id = ?1), ?2)), ` +
-        `${handleKeySql('u.handle')}, ?3, ?5 FROM users u WHERE u.id = ?1 AND u.handle IS NOT ?3 ` +
+        `${handleKeySql('u.handle')}, ?3, ?4 FROM users u WHERE u.id = ?1 AND u.handle IS NOT ?3 ` +
         `AND (SELECT COUNT(*) FROM handle_changes WHERE user_id = ?1 AND at > ?2 - ${DAY_MS}) < ${RENAMES_PER_DAY} ` +
-        `AND NOT EXISTS (SELECT 1 FROM users WHERE ${handleKeySql('handle')} = ?4 AND id <> ?1) ` +
-        `AND NOT EXISTS (SELECT 1 FROM handle_changes WHERE old_key = ?4 AND at > ?2 - ${DAY_MS} AND user_id <> ?1)`
+        `AND ${handleFreeSql('?3', '?1', '?2')}`
     )
-    .bind(userId, now, handle, handleKey(handle), token);
+    .bind(userId, now, handle, token);
   const update = db
     .prepare(
       'UPDATE users SET handle = ?2 WHERE id = ?1 ' +
