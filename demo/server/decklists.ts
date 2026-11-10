@@ -2,7 +2,7 @@
  * The demo's players and their decklists. The lists are real ones from
  * Limitless (limitlesstcg.com/decks/list/<id>), named with the archetype
  * Limitless gives them, so the demo names every deck without reading any
- * archetype rules. The players are the home page's sample players.
+ * archetype rules. The players' names are made up.
  */
 
 export interface DemoList {
@@ -74,22 +74,22 @@ export interface DemoEntrant {
   list: string;
 }
 
-/** The sample event's players, in the order the home page lists them. */
+/** The sample event's players, in the order they register. */
 export const DEMO_ENTRANTS: readonly DemoEntrant[] = [
-  { name: 'Annie Haberstroh', birthYear: 2003, list: '30712' },
-  { name: 'Olivia Battaglia', birthYear: 2004, list: '30207' },
-  { name: 'Lake Lubrano', birthYear: 2005, list: '31102' },
-  { name: 'Andrew Hedrick', birthYear: 2000, list: '29678' },
-  { name: 'Iris Morgan', birthYear: 2006, list: '31086' },
-  { name: 'Sky Delsol', birthYear: 2005, list: '30207' },
-  { name: 'Colby Rose', birthYear: 2001, list: '31175' },
-  { name: 'James Musser', birthYear: 1987, list: '31096' },
-  { name: 'Emma Hagen', birthYear: 1995, list: '31119' },
-  { name: 'Jasmine Dickinson', birthYear: 2006, list: '31134' },
-  { name: 'Reese Lundquist', birthYear: 2002, list: '30351' },
-  { name: 'Macey Marlowe', birthYear: 2001, list: '30440' },
-  { name: 'Cynthia Rodriguez', birthYear: 1999, list: '30540' },
-  { name: 'Jessie Espinoza', birthYear: 2002, list: '31102' },
-  { name: 'Kaycee Adams', birthYear: 2000, list: '30207' },
-  { name: 'Jane Ester', birthYear: 2003, list: '31089' }
+  { name: 'Avery Quill', birthYear: 2003, list: '30712' },
+  { name: 'Blair Fenwick', birthYear: 2004, list: '30207' },
+  { name: 'Casey Thornbury', birthYear: 2005, list: '31102' },
+  { name: 'Dana Whitlock', birthYear: 2000, list: '29678' },
+  { name: 'Ellis Marrow', birthYear: 2006, list: '31086' },
+  { name: 'Finley Ashgrove', birthYear: 2005, list: '30207' },
+  { name: 'Gray Pemberton', birthYear: 2001, list: '31175' },
+  { name: 'Harper Vance', birthYear: 1987, list: '31096' },
+  { name: 'Indigo Sallow', birthYear: 1995, list: '31119' },
+  { name: 'Jordan Brightwater', birthYear: 2006, list: '31134' },
+  { name: 'Kit Larkspur', birthYear: 2002, list: '30351' },
+  { name: 'Logan Fairweather', birthYear: 2001, list: '30440' },
+  { name: 'Morgan Tidewell', birthYear: 1999, list: '30540' },
+  { name: 'Noel Kestrel', birthYear: 2002, list: '31102' },
+  { name: 'Parker Elmswood', birthYear: 2000, list: '30207' },
+  { name: 'Quinn Hollis', birthYear: 2003, list: '31089' }
 ];

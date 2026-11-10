@@ -1,6 +1,6 @@
 /**
  * The demo's starting point: a demo organizer who manages a demo store, signed
- * in, and one sample event of the store's with the home page's sixteen players
+ * in, and one sample event of the store's with sixteen made-up players
  * registered, each with a real decklist (decklists.ts), waiting for its first
  * round. The account and the store go
  * straight into the database (there is no sign-in to go through); the event
