@@ -47,11 +47,19 @@ const SignIn = lazyPanel(() => import('./SignIn').then(m => ({ default: m.SignIn
 
 const SAID: Record<PlayerResult, string> = { win: msg('You won'), loss: msg('You lost'), tie: msg('You tied') };
 
+const REPORTED: Record<PlayerResult, string> = {
+  win: msg('You reported a win'),
+  loss: msg('You reported a loss'),
+  tie: msg('You reported a tie')
+};
+
 const NOT_REPORTER = msg('Someone else is already reporting for this player. Ask staff if that’s wrong.');
 
 const NOTES = {
   open: msg('Staff must accept your result.'),
-  reported: msg('Waiting for staff acceptance.'),
+  reported: msg('Staff will accept it shortly. You can change it until then.'),
+  /** Past the window to change it, the report only waits for staff. */
+  locked: msg('Your report is locked in. Staff will accept it shortly.'),
   disputed: msg('Your reports don’t match. If you pressed the wrong one, change it. Otherwise, find a judge.'),
   /** Once the report is locked there is nothing to change: only the judge is left. */
   disputedLocked: msg('Your reports don’t match. Find a judge.')
@@ -212,7 +220,7 @@ function ReportPanel(props: { report: Report; found: Found }) {
     if (state.disputed) {
       return t('Reports don’t match');
     }
-    return t('Waiting for staff');
+    return t(REPORTED[state.chosen]);
   };
   const note = () => {
     const state = s();
@@ -222,7 +230,7 @@ function ReportPanel(props: { report: Report; found: Found }) {
     if (state.disputed) {
       return t(state.locked ? NOTES.disputedLocked : NOTES.disputed);
     }
-    return t(NOTES.reported);
+    return t(state.locked ? NOTES.locked : NOTES.reported);
   };
   const fixed = () => Boolean(s()?.locked || s()?.final);
   return (
