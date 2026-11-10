@@ -8,9 +8,9 @@
  * events the account played from its History and unlinks it from the
  * players and decklists it held there; a running event is left alone, since
  * the account still reports in it. Wiping organizer history takes the
- * organizer's name and POP ID off the events the account owns or is named
- * on, hands their ownership to no one, and drops its staff places; players
- * keep those events in their histories. It waits while one of those events
+ * organizer's name and POP ID off the events the account owns, hands their
+ * ownership to no one, and drops its staff places; players keep those
+ * events in their histories. It waits while one of those events
  * runs, since a running event still needs its organizer.
  *
  * Deleting wipes organizer history the same way, unlinks the account from
@@ -29,12 +29,12 @@ import type { User } from '../auth/session.js';
 import type { D1Like, D1Statement } from '../types.js';
 import { msg } from '../../../shared/i18n.js';
 
-/** The events an organizer wipe changes: owned, or naming the account's POP ID as their organizer. */
-const ORGANIZED = "(owner_id = ?1 OR (?2 IS NOT NULL AND json_extract(state, '$.info.organizerPopId') = ?2))";
+/** Only ownership authorizes changing an event; a saved POP ID is unverified. */
+const ORGANIZED = 'owner_id = ?1';
 
 const FINISHED = "coalesce(json_extract(settings, '$.finished'), 0) = 1";
 
-/** The running events an organizer wipe would change, or whose staff the account is on; binds the id and POP ID. */
+/** The running events an organizer wipe would change, or whose staff the account is on; binds the account id. */
 const RUNNING =
   `SELECT code, coalesce(json_extract(state, '$.info.name'), '') AS name FROM tournaments WHERE NOT ${FINISHED} ` +
   `AND (${ORGANIZED} OR code IN (SELECT code FROM staff WHERE user_id = ?1))`;
@@ -46,10 +46,7 @@ const OWNED_STORES =
 const ENDED = `SELECT code FROM tournaments WHERE ${FINISHED}`;
 
 async function runningEvents(db: D1Like, user: User): Promise<RunningEvent[]> {
-  const { results } = await db
-    .prepare(`${RUNNING} ORDER BY created_at LIMIT 50`)
-    .bind(user.id, user.popId)
-    .all<RunningEvent>();
+  const { results } = await db.prepare(`${RUNNING} ORDER BY created_at LIMIT 50`).bind(user.id).all<RunningEvent>();
   return results;
 }
 
@@ -82,7 +79,7 @@ async function refusalOf(db: D1Like, user: User, deleting: boolean): Promise<Dat
  */
 function stillClear(db: D1Like, user: User, deleting: boolean): D1Statement {
   const stores = deleting ? ` OR EXISTS (${OWNED_STORES})` : '';
-  return db.prepare(`SELECT CASE WHEN EXISTS (${RUNNING})${stores} THEN json('wait') END`).bind(user.id, user.popId);
+  return db.prepare(`SELECT CASE WHEN EXISTS (${RUNNING})${stores} THEN json('wait') END`).bind(user.id);
 }
 
 /** The player profile goes, and with its POP ID the players the account was at events as it, as a new POP ID would. */
@@ -128,19 +125,18 @@ function eventWrites(db: D1Like, user: User): D1Statement[] {
 }
 
 /**
- * The organizer's name and POP ID off the ended events the account owns or is
- * named on, each owned one given an owner no account is, and its staff
- * places gone. Each event's version moves, as any write to it does.
+ * The organizer's name and POP ID off the ended events the account owns,
+ * each given an owner no account is, and its staff places gone. Each event's version moves, as any write to it does.
  */
 function organizerWrites(db: D1Like, user: User, now: number): D1Statement[] {
   return [
     db
       .prepare(
         "UPDATE tournaments SET state = json_set(state, '$.info.organizerName', '', '$.info.organizerPopId', ''), " +
-          "owner_id = CASE WHEN owner_id = ?1 THEN 'wiped:' || code ELSE owner_id END, " +
-          `version = version + 1, updated_at = ?3 WHERE ${ORGANIZED} AND ${FINISHED}`
+          "owner_id = 'wiped:' || code, " +
+          `version = version + 1, updated_at = ?2 WHERE ${ORGANIZED} AND ${FINISHED}`
       )
-      .bind(user.id, user.popId, now),
+      .bind(user.id, now),
     db.prepare(`DELETE FROM staff WHERE user_id = ? AND code IN (${ENDED})`).bind(user.id)
   ];
 }

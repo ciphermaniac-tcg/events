@@ -496,6 +496,23 @@ test('/host: on a phone, an event row keeps its links on screen without scrollin
   await expect(row.locator('.tm-host-players')).toHaveAttribute('data-unit', 'players');
 });
 
+test('/host: on a phone, a long event name wraps clear of its player count @mobile', async ({ page }) => {
+  await mockHost(page, { ...ME, role: 'community' });
+  const name = 'Lakeside Games Thursday Night League Challenge Cup Qualifier';
+  expect(name).toHaveLength(60);
+  await page.route('**/api/tournaments', route => route.fulfill({ json: { tournaments: [{ ...SUMMARY, name }] } }));
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  const row = page.locator('.tm-host-table tbody tr').first();
+  const [link, players] = await Promise.all([
+    row.getByRole('link', { name }).boundingBox(),
+    row.locator('.tm-host-players').boundingBox()
+  ]);
+  expect((link?.x ?? 0) + (link?.width ?? 0)).toBeLessThanOrEqual(players?.x ?? 0);
+  // Wrapped, not cut: the whole name still shows.
+  expect(await row.getByRole('link', { name }).evaluate(el => el.scrollWidth - el.clientWidth)).toBe(0);
+});
+
 test('/host: the events table keeps the box’s rounded corners @mobile', async ({ page }) => {
   await mockHost(page, { ...ME, role: 'community' });
   await page.goto('/');

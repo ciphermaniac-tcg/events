@@ -14,6 +14,7 @@ import { test } from './network-guard';
 
 import { type Command } from '../../shared/tournament/commands';
 import { emptyTournament } from '../../shared/tournament/create';
+import { fullNameKey, nameKey, shortLastNames } from '../../shared/tournament/identify';
 import {
   assignKeys,
   DEFAULT_SETTINGS,
@@ -103,7 +104,19 @@ async function mockEvent(page: Page, settings: Partial<TournamentSettings> = {})
     if (typed === 'alex kim') {
       return people.filter(p => p.lastName === 'Kim');
     }
-    return typed === 'avery chen' || typed === 'avry chen' ? people.slice(0, 1) : [];
+    return typed === 'avery chen' || typed === 'avry chen' || typed === 'avery chon' ? people.slice(0, 1) : [];
+  };
+  const short = shortLastNames(t.players);
+  const rawByName = new Map(t.players.map(player => [fullNameKey(player), player]));
+  const displayMatch = (person: Held, query: Record<string, string>) => {
+    const raw = rawByName.get(fullNameKey(person));
+    const typed = { firstName: query.firstName ?? '', lastName: query.lastName ?? '' };
+    return {
+      firstName: person.firstName,
+      lastName: (raw && short.get(raw.id)) || person.lastName,
+      sameName: raw ? fullNameKey(raw) === fullNameKey(typed) : false,
+      sameSurname: raw ? nameKey(raw.lastName) === nameKey(typed.lastName) : false
+    };
   };
   await page.route(`**/tournaments/v1/${CODE}.json`, route =>
     route.fulfill({ json: published, headers: { 'access-control-allow-origin': '*' } })
@@ -143,7 +156,7 @@ async function mockEvent(page: Page, settings: Partial<TournamentSettings> = {})
       return route.fulfill({
         json: {
           known: near.length > 0,
-          matches: near.map(({ firstName, lastName }) => ({ firstName, lastName })),
+          matches: near.map(person => displayMatch(person, query)),
           mine: null
         }
       });
@@ -354,7 +367,7 @@ test('at an unsanctioned event a name a slip away is asked about, never opened, 
   };
   // One letter off Avery Chen is someone new until they say otherwise: nothing of Avery's opens.
   await lookUp('Avry', 'Chen');
-  await expect(page.getByText('Did you mean Avery Chen?')).toBeVisible();
+  await expect(page.getByText('Did you mean Avery C.?')).toBeVisible();
   await expect(page.locator('.tm-reg-who')).toHaveCount(0);
   await page.getByRole('button', { name: 'No, register Avry Chen' }).click();
   await expect(page.getByText('New registration')).toBeVisible();
@@ -362,7 +375,18 @@ test('at an unsanctioned event a name a slip away is asked about, never opened, 
 
   await page.getByRole('button', { name: 'Not you?' }).click();
   await lookUp('Avry', 'Chen');
-  await page.getByRole('button', { name: 'Avery Chen' }).click();
+  await page.getByRole('button', { name: 'Avery C.' }).click();
+  await expect(page.locator('.tm-reg-who')).toContainText('Avery Chen');
+
+  // A surname one letter off cannot open the match by the shortened name: it asks for the surname to be corrected.
+  await page.getByRole('button', { name: 'More' }).click();
+  await page.getByRole('button', { name: 'Register someone else' }).click();
+  await lookUp('Avery', 'Chon');
+  await page.getByRole('button', { name: 'Avery C.' }).click();
+  await expect(page.getByText('That last name isn’t this player’s')).toBeVisible();
+  await expect(page.getByRole('textbox', { name: 'Last name' })).toHaveValue('Chon');
+  await page.getByRole('textbox', { name: 'Last name' }).fill('Chen');
+  await page.getByRole('button', { name: 'Continue' }).click();
   await expect(page.locator('.tm-reg-who')).toContainText('Avery Chen');
 
   await page.getByRole('button', { name: 'More' }).click();

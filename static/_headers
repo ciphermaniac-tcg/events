@@ -17,6 +17,10 @@
 # public landing page; /host/* is each event's console.
 /settings
   X-Robots-Tag: noindex
+/sign-in
+  X-Robots-Tag: noindex
+/create-account
+  X-Robots-Tag: noindex
 /account
   X-Robots-Tag: noindex
 /welcome

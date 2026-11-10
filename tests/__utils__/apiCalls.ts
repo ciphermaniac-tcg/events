@@ -21,6 +21,7 @@ import { resetRateLimiters } from '../../functions/lib/api/rateLimiter.ts';
 export const ORIGIN = 'https://cm.test';
 
 export interface Call {
+  address?: string;
   method?: string;
   body?: unknown;
   cookie?: string;
@@ -30,6 +31,9 @@ export interface Call {
 export function request(path: string, call: Call = {}): Request {
   const method = call.method ?? 'GET';
   const headers: Record<string, string> = {};
+  if (call.address) {
+    headers['CF-Connecting-IP'] = call.address;
+  }
   if (call.cookie) {
     headers.cookie = call.cookie;
   }

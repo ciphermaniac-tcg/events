@@ -8,12 +8,12 @@
  * stands on running events, with the way to apply, its events or the admin
  * page, and My data: export, wipe or delete (MyData). A POP ID another account holds is refused, with the way to the
  * feedback form, where an admin settles who holds it. Signed out: one box to
- * sign in.
+ * sign in, which /sign-in is too, and /create-account to make an account.
  */
 
 import { SessionGate } from './SessionGate';
 import { SignOutButton } from './SignOutButton';
-import { A, useSearchParams } from '@solidjs/router';
+import { A, Navigate, useLocation, useNavigate, useSearchParams } from '@solidjs/router';
 import { createEffect, createMemo, createResource, createSignal, For, type JSX, on, Show } from 'solid-js';
 import { displayName, HANDLE_MAX, handleProblem, normalizeHandle } from '../../../shared/accounts/handle';
 import { type PlayerProfile, profileErrors } from '../../../shared/tournament/profile';
@@ -43,11 +43,13 @@ import { session, setSession } from './session';
 import { SettingRow, Toggle } from './SettingControls';
 import { SettingInfo } from './SettingInfo';
 import { SignIn } from './SignIn';
+import type { FormPage } from './PasswordForm';
 import { Trail } from './Trail';
 import { ContactLink } from './ContactLink';
 import { pageTitle } from '../../lib/title';
 import { msg, t } from '../../lib/i18n';
 import { ProfileLinksForm } from './ProfileLinksForm';
+import '../../styles/pages/tournament-auth.css';
 import { createAction } from './action';
 
 /**
@@ -441,27 +443,57 @@ function OrganizerSection(props: { user: Me }) {
   );
 }
 
-/** A page on this site to come back to after signing in; anything else, Settings. */
-export function returnTo(next: string | undefined): string {
-  return next?.startsWith('/') && !next.startsWith('//') ? next : '/settings';
+/** The pages for signing in and making an account, which send someone signed in on. */
+const AUTH_PAGES = { in: '/sign-in', up: '/create-account' } as const;
+
+/**
+ * A page on this site to come back to after signing in, other than the
+ * sign-in pages themselves; anything else, `fallback`.
+ */
+export function returnTo(next: string | undefined, fallback = '/settings'): string {
+  const own = (path: string) => path.startsWith('/') && !path.startsWith('//');
+  return next && own(next) && !Object.values(AUTH_PAGES).some(page => next.startsWith(page)) ? next : fallback;
 }
 
-/** Signed out: the way to sign in, back to the page that asked for it (`?next=`). */
-function SignedOut(props: { offer: SignInOffer; next: string }) {
+/**
+ * Signed out: every way in, laid open, signing in or making an account
+ * (`making`), back to the page that asked for it (`?next=`). The way to the
+ * other leaves for its page, so the heading and the buttons say the same.
+ */
+function SignedOut(props: { offer: SignInOffer; next: string; making: boolean }) {
+  const navigate = useNavigate();
+  const page: FormPage = {
+    get making() {
+      return props.making;
+    },
+    swap: (mode, kept) => {
+      page.kept = kept;
+      navigate(`${AUTH_PAGES[mode]}?${new URLSearchParams({ next: props.next })}`);
+    }
+  };
   return (
-    <>
-      <h1 class='tm-settings-title'>{t('Sign in')}</h1>
-      <SignIn offer={props.offer} next={props.next} />
-    </>
+    <div class='tm-auth'>
+      <h1 class='tm-settings-title'>{props.making ? t('Create an account') : t('Sign in')}</h1>
+      {/* Remade on the way between the two pages, so the form starts as the page asks. */}
+      <Show when={props.making} fallback={<SignIn offer={props.offer} next={props.next} page={page} />}>
+        <SignIn offer={props.offer} next={props.next} page={page} />
+      </Show>
+    </div>
   );
 }
 
 export function SettingsPage() {
   const [params] = useSearchParams<{ signin?: string; link?: string; next?: string }>();
+  const location = useLocation();
+  // The sign-in pages are this page signed out; signed in, they move on to where they were asked from, or home.
+  const authPage = () => /^\/sign-in\/?$|^\/create-account\/?$/.test(location.pathname);
+  const making = () => authPage() && location.pathname.startsWith(AUTH_PAGES.up);
+  const next = () => returnTo(params.next, authPage() ? '/' : '/settings');
   const current = () => latestValue(session);
   createEffect(() => {
     const read = current();
-    document.title = pageTitle(read && !read.user ? t('Sign in') : t('Settings'));
+    const signedOut = making() ? t('Create an account') : t('Sign in');
+    document.title = pageTitle(read && !read.user ? signedOut : t('Settings'));
   });
   return (
     <div class='tm-page tm-settings'>
@@ -482,8 +514,12 @@ export function SettingsPage() {
       </Show>
       <SessionGate>
         {s => (
-          <Show when={s().user} fallback={<SignedOut offer={s()} next={returnTo(params.next)} />}>
-            {user => <SignedIn user={user()} providers={s().providers} />}
+          <Show when={s().user} fallback={<SignedOut offer={s()} next={next()} making={making()} />}>
+            {user => (
+              <Show when={!authPage()} fallback={<Navigate href={next()} />}>
+                <SignedIn user={user()} providers={s().providers} />
+              </Show>
+            )}
           </Show>
         )}
       </SessionGate>

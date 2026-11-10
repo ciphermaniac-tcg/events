@@ -107,6 +107,27 @@ test('events select only their own store presets, follow its edits while running
   assert.equal((await select(code, preset.id, await signIn('Visitor'))).status, 403);
 });
 
+test('a preset edit follows events only while the manager still manages the store', async () => {
+  const { manager, store } = await storeSetup();
+  const made = await put(store, manager, { name: 'Wall TV', options: OPTIONS });
+  const { preset } = made.json;
+  const code = await newEvent(manager, { store });
+  const selected = await hit(eventDisplay.onRequestPut as Handler, '/display', at(code), {
+    method: 'PUT',
+    cookie: manager,
+    body: { preset: preset.id }
+  });
+  assert.equal(selected.status, 200);
+  const before = settingsOf(code).display;
+  const db = env.TOURNAMENT_DB as ReturnType<typeof sqliteD1>;
+  env.TOURNAMENT_DB = racing(db, 'UPDATE tournaments', () => {
+    db.raw.prepare('DELETE FROM store_members WHERE store_id = ?').run(store);
+  });
+  const edited = { id: preset.id, name: 'Changed', options: { ...OPTIONS, scale: 2 } };
+  assert.equal((await put(store, manager, edited)).status, 200, 'the preset itself was saved');
+  assert.deepEqual(settingsOf(code).display, before, 'the running event was not changed');
+});
+
 test('preset input and store limits are bounded; expired manager authorization is checked at the write', async () => {
   const { manager, store } = await storeSetup();
   for (const scale of [0, -1, 3, '1', null]) {

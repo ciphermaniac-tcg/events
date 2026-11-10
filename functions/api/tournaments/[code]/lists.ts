@@ -16,6 +16,7 @@
 import { decklistMatcher } from '../../../../shared/tournament/identify.js';
 import { decklistOpenFor } from '../../../../shared/tournament/lateLists.js';
 import { isSanctioned, listsPublic, type OpenList } from '../../../../shared/tournament/view.js';
+import { createRateLimiter, rateLimitAddress } from '../../../lib/api/rateLimiter.js';
 import { jsonError, jsonResponse } from '../../../lib/api/responses.js';
 import type { Context } from '../../../lib/auth/env.js';
 import { open } from '../../../lib/tournaments/access.js';
@@ -30,8 +31,8 @@ interface ListRow {
   deck_mode: string;
 }
 
-/** Locked lists change only as the event ends, so a minute's copy is fine anywhere. */
-const CACHE = 'public, max-age=60';
+/** Whether a list is public depends on settings staff can change, so no cache may keep a copy past that change. */
+const CACHE = 'no-store';
 
 /** The player a public key names, or undefined when it names none. */
 function playerOf(row: TournamentRow, key: string): string | undefined {
@@ -46,10 +47,15 @@ function shown(list: ListRow | undefined): OpenList | null {
   return list?.deck.trim() ? { mode: 'digital', deck: list.deck } : null;
 }
 
+const rateLimiter = createRateLimiter({ windowMs: 10 * 60 * 1000, maxRequests: 1200 });
+
 export async function onRequestGet(context: Context<'code'>): Promise<Response> {
   const access = await open(context);
   if (access instanceof Response) {
     return access;
+  }
+  if (!access.user && !rateLimiter.allows(rateLimitAddress(context.request))) {
+    return jsonError('Too many requests from here. Try again shortly.', 429);
   }
   const { row, db } = access;
   if (!listsPublic(row)) {

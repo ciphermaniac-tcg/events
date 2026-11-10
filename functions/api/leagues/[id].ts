@@ -24,7 +24,13 @@ export async function onRequestGet({ request, env, params }: Context<'id'>): Pro
   if (!(await currentUser(db, request))) {
     return jsonError('Sign in first', 401);
   }
-  const leagueId = readLeagueId(decodeURIComponent(param(params.id)));
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(param(params.id));
+  } catch {
+    return jsonError('Not a league ID', 400);
+  }
+  const leagueId = readLeagueId(decoded);
   if (!leagueId) {
     return jsonError('Not a league ID', 400);
   }

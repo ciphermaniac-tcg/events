@@ -13,7 +13,7 @@ import * as manage from '../../functions/api/tournaments/[code]/manage.ts';
 import { _forgetRules } from '../../functions/lib/tournaments/archetypeRules.ts';
 import { apiSuite, type Handler } from '../__utils__/apiCalls.ts';
 import { at, eventCalls } from '../__utils__/eventCalls.ts';
-import type { sqliteD1 } from '../__utils__/sqliteD1.ts';
+import { racing, type sqliteD1 } from '../__utils__/sqliteD1.ts';
 
 const { env, hit, signIn } = apiSuite();
 const { newSwiss, settle, joinStaff } = eventCalls(hit);
@@ -116,6 +116,21 @@ test('a list whose cards went as the event ended keeps its name', async () => {
   assert.equal(answer.json.renamed, 1, 'only Zoe’s');
   assert.equal(answer.json.decks[NIA.popId], 'Dragapult');
   assert.equal((await listNames(code, owner))[NIA.popId], 'Dragapult');
+});
+
+test('a decklist re-read lands only while the asker is still staff', async () => {
+  const { owner, code } = await eventWithLists();
+  const helper = await signIn('Helper');
+  await joinStaff(code, owner, helper);
+  serveRules([{ ...DRAGAPULT, variants: [DUSKNOIR] }]);
+  const before = await listNames(code, owner);
+  const db = env.TOURNAMENT_DB as ReturnType<typeof sqliteD1>;
+  env.TOURNAMENT_DB = racing(db, 'UPDATE decklists', () => {
+    db.raw.prepare('DELETE FROM staff WHERE code = ?').run(code);
+  });
+  const answer = await reread(code, helper);
+  assert.equal(answer.status, 200, 'the event write landed before the removal');
+  assert.deepEqual(await listNames(code, owner), before, 'no list is renamed after the asker leaves staff');
 });
 
 test('re-reading is for staff, at an event with archetypes, with rules to read', async () => {

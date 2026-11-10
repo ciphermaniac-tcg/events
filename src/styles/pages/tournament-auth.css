@@ -1,0 +1,63 @@
+/* The sign-in pages (SettingsPage signed out), loaded with its lazy chunk. */
+
+/* Signing in or making an account, a page to itself: one centred column at
+   full reading size, the organizer pages' 14px set back to 16 (the forced
+   input and button size reads --text-base), and the providers ruled off from
+   the username form. */
+.tm-auth {
+  --text-base: 16px;
+  --text-sm: 14px;
+  display: grid;
+  gap: 32px;
+  width: 100%;
+  max-width: 440px;
+  margin: 0 auto;
+  padding-top: 10vh;
+}
+.tm-auth .tm-settings-title {
+  font-size: 44px;
+  line-height: 1.1;
+  letter-spacing: -0.025em;
+  text-align: center;
+}
+.tm-auth .tm-signin-split {
+  --signin-control: 48px;
+  max-width: none;
+}
+.tm-auth .tm-signin-ways {
+  gap: 12px;
+}
+.tm-auth .tm-sso {
+  height: var(--signin-control);
+  gap: 12px;
+  font-size: 16px;
+}
+.tm-auth .tm-sso svg {
+  width: 20px;
+  height: 20px;
+}
+.tm-auth .tm-signin-form {
+  gap: 16px;
+  margin-top: 16px;
+  padding-top: 28px;
+  border-top: 1px solid var(--rule);
+}
+.tm-auth .tm-label {
+  font-size: 15px;
+}
+/* Height, not min-height: the organizer pages hold every control at 44px or more. */
+.tm-auth .tm-signin-form .tm-input,
+.tm-auth .tm-signin-submit {
+  height: var(--signin-control);
+}
+.tm-auth .tm-signin-form .tm-input {
+  padding-inline: 14px;
+}
+@media (max-width: 640px) {
+  .tm-auth {
+    padding-top: var(--space-2);
+  }
+  .tm-auth .tm-settings-title {
+    font-size: 35px;
+  }
+}

@@ -497,6 +497,20 @@ test('store settings that fail to load show the store page’s error, with a way
   await expect(page.getByRole('link', { name: 'Go home' })).toHaveAttribute('href', '/');
 });
 
+test('store settings whose first load fails can be tried again', async ({ page }) => {
+  await mock(page, { user: MANAGER });
+  let attempts = 0;
+  await page.route('**/api/stores/store-1', route => {
+    attempts += 1;
+    return attempts === 1 ? route.fulfill({ status: 503, json: { error: 'Unavailable' } }) : route.fallback();
+  });
+  await page.goto('/stores/store-1/settings');
+  await expect(page.getByRole('heading', { name: 'Couldn’t load this store' })).toBeVisible();
+  await page.getByRole('button', { name: 'Try again' }).click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Combat Power Gaming');
+  expect(attempts).toBe(2);
+});
+
 test('store settings: league nights edited while a save is on its way keep the edit to save next', async ({ page }) => {
   const answer = deferred<void>();
   const asks = await mock(page, { user: MANAGER, nightsAnswered: answer.promise });
@@ -757,6 +771,31 @@ test('a store page shows where it is, its league nights, its upcoming events and
   expect(spill).toBeLessThanOrEqual(0);
   const sunday = await nights.locator('li').first().boundingBox();
   expect((sunday?.x ?? 0) + (sunday?.width ?? 0)).toBeLessThanOrEqual(page.viewportSize()?.width ?? 0);
+});
+
+test('a store whose id reads as an auth page is still its own page', async ({ page }) => {
+  await mock(page, { user: null, role: null });
+  await page.route('**/api/stores/sign-in', route =>
+    route.fulfill({ json: { store: { ...STORE, id: 'sign-in' }, role: null } })
+  );
+  await page.goto('/stores/sign-in');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Combat Power Gaming');
+  await expect(page.getByRole('heading', { name: 'Sign in' })).toHaveCount(0);
+});
+
+test('a store page whose first load fails can be tried again', async ({ page }) => {
+  await mock(page, { user: null, role: null });
+  let attempts = 0;
+  await page.route('**/api/stores/store-1', route => {
+    attempts += 1;
+    return attempts === 1 ? route.fulfill({ status: 503, json: { error: 'Unavailable' } }) : route.fallback();
+  });
+  await page.goto('/stores/store-1');
+  await expect(page.getByRole('heading', { name: 'Couldn’t load this store' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Go home' })).toHaveAttribute('href', '/');
+  await page.getByRole('button', { name: 'Try again' }).click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Combat Power Gaming');
+  expect(attempts).toBe(2);
 });
 
 test('a store page shows a long league night’s name and a date’s note whole, wrapped rather than cut', async ({

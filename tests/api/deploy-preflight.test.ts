@@ -18,6 +18,7 @@ const required: [name: string, drop: string][] = [
   ['result_corrections', 'DROP TABLE result_corrections'],
   ['clerk_sessions_used', 'DROP TABLE clerk_sessions_used'],
   ['clerk_password_cutoffs', 'DROP TABLE clerk_password_cutoffs'],
+  ['clerk_revocations', 'DROP TABLE clerk_revocations'],
   ['auth_at', 'ALTER TABLE sessions RENAME COLUMN auth_at TO gone'],
   ['password_resets', 'DROP TABLE password_resets'],
   ['claimed_at', 'ALTER TABLE password_resets RENAME COLUMN claimed_at TO gone'],

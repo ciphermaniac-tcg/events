@@ -111,6 +111,7 @@ export function deleteWrites(db: D1Like, event: IndexedEvent & { code: string; v
         'staff',
         'decklists',
         'deck_checks',
+        'identify_failures',
         'penalty_notes',
         'result_corrections',
         'report_devices',

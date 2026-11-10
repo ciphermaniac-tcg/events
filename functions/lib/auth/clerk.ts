@@ -158,7 +158,7 @@ export function clerkKeys(env: AuthEnv): ClerkKeys | null {
 }
 
 /** Whether Clerk will no longer sign this user in. */
-const shutOut = (user: Json) => user.banned === true || user.locked === true;
+export const shutOut = (user: Json) => user.banned === true || user.locked === true;
 
 /**
  * When the user's password last changed, in milliseconds, or null when Clerk

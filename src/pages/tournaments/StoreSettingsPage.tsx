@@ -8,7 +8,7 @@
  * page; signed out, one box to sign in.
  */
 
-import { SessionGate } from './SessionGate';
+import { SessionGate, StoreLoadError } from './SessionGate';
 import { A, useSearchParams } from '@solidjs/router';
 import { createEffect, createMemo, createResource, createSignal, For, type JSX, Show, untrack } from 'solid-js';
 import {
@@ -37,7 +37,6 @@ import { refreshSession } from './session';
 import { SignIn } from './SignIn';
 import { StoreFields } from './StoreFields';
 import { StoreDisplays } from './StoreDisplays';
-import { ErrorState } from '@ciphermaniac/design/components/ErrorState';
 import { createAction } from './action';
 import { SaveBar } from './StoreSave';
 import { StoreStaff } from './StoreStaff';
@@ -215,7 +214,7 @@ function Pane(props: { of: Section; current: Section; opened: ReadonlySet<Sectio
 
 function Settings(props: { id: string }) {
   const [params, setParams] = useSearchParams<{ section?: string }>();
-  const [read, { mutate }] = createResource(() => props.id, fetchStore);
+  const [read, { refetch, mutate }] = createResource(() => props.id, fetchStore);
   const current = () => latestValue(read);
   const section = () => readSection(params.section);
   // A section stays mounted once opened, hidden while another shows, so its unsaved edits survive the switch.
@@ -234,11 +233,7 @@ function Settings(props: { id: string }) {
       when={current()}
       fallback={
         <Show when={read.error} fallback={<Skeleton height='240px' />}>
-          <ErrorState code={t('Store')} title={t('Couldn’t load this store')} line={errorText(read.error)}>
-            <A href='/' class='btn btn-primary'>
-              {t('Go home')}
-            </A>
-          </ErrorState>
+          <StoreLoadError line={errorText(read.error)} onRetry={() => void refetch()} />
         </Show>
       }
     >

@@ -11,6 +11,8 @@
  * of writes puts up what it can skip, and nothing asks the database. Within
  * one isolate a burst goes further: an event publishes one copy at a time,
  * and only the newest row waiting is built and put up next (see publishView).
+ * A later change can replace a drain stuck for 20 seconds; conditional
+ * writes still protect newer copies when the old operation settles.
  *
  * A publish can also land after the event was deleted. Deleting takes the
  * copy down after the row, so a publish that lands on a copy still up is
@@ -34,6 +36,9 @@ const PUBLISHED_CACHE_CONTROL = 'public, max-age=5';
  * reaches.
  */
 const MAX_TRIES = 32;
+
+/** Let a later change bypass a stuck R2 head/put after 20 seconds. */
+const DRAIN_MAX_AGE_MS = 20_000;
 
 interface PublishEnv {
   EVENTS_DATA?: PublishBucket;
@@ -68,14 +73,19 @@ async function putOver(bucket: PublishBucket, row: TournamentRow, body: string):
   return held ? 'up' : 'landed';
 }
 
-async function publishOnce(env: PublishEnv, bucket: PublishBucket, row: TournamentRow): Promise<void> {
+async function publishOnce(
+  env: PublishEnv,
+  bucket: PublishBucket,
+  row: TournamentRow,
+  cleanup: () => Promise<void>
+): Promise<void> {
   const view: PublishedView = publicViewOf(row);
   const body = JSON.stringify(view);
   try {
     for (let tries = 0; tries < MAX_TRIES; tries += 1) {
       const outcome = await putOver(bucket, row, body);
       if (outcome === 'landed') {
-        await takeDownIfGone(env, row.code);
+        await takeDownIfGone(env, row.code, cleanup);
       }
       if (outcome !== 'raced') {
         return;
@@ -86,7 +96,7 @@ async function publishOnce(env: PublishEnv, bucket: PublishBucket, row: Tourname
     console.error('Publishing the event view failed', error);
   }
   // A copy left up could stay stale; without one, the page asks the API.
-  await unpublishView(bucket, row.code);
+  await cleanup();
 }
 
 interface Pending {
@@ -96,36 +106,53 @@ interface Pending {
 
 /** One event's publishing in this isolate: `offer` a row to it, and `done` is when all it took is up. */
 interface Drain {
-  offer: (pending: Pending) => void;
+  offer: (pending: Pending) => Pending;
+  startedAt: number;
+  cleaning: boolean;
   done: Promise<void>;
 }
 
 /** Publishes `first`, then the newest row offered meanwhile, until none waits; then `finish`. */
-function drain(bucket: PublishBucket, first: Pending, finish: () => void): Drain {
-  let newest = first.row.version;
+function drain(bucket: PublishBucket, first: Pending, isCurrent: () => boolean, finish: () => void): Drain {
+  let newest = first;
   let waiting: Pending | null = first;
   const take = () => {
     const next = waiting;
     waiting = null;
     return next;
   };
+  const cleanup = async () => {
+    if (!isCurrent()) {
+      return;
+    }
+    // R2 has no conditional delete. Do not permit takeover during an issued delete.
+    state.cleaning = true;
+    try {
+      await unpublishView(bucket, first.row.code);
+    } finally {
+      state.cleaning = false;
+    }
+  };
   // Let go in the same step that finds nothing waiting, so no row is offered to a drain that has stopped.
   const run = async () => {
     try {
-      for (let next = take(); next; next = take()) {
-        await publishOnce(next.env, bucket, next.row);
+      for (let next = take(); next; next = isCurrent() ? take() : null) {
+        await publishOnce(next.env, bucket, next.row, cleanup);
       }
     } finally {
       finish();
     }
   };
   const offer = (pending: Pending) => {
-    if (pending.row.version > newest) {
-      newest = pending.row.version;
+    if (pending.row.version > newest.row.version) {
+      newest = pending;
       waiting = pending;
     }
+    return newest;
   };
-  return { offer, done: run() };
+  const state: Drain = { offer, startedAt: Date.now(), cleaning: false, done: Promise.resolve() };
+  state.done = run();
+  return state;
 }
 
 /** Each bucket's drains, by event code. */
@@ -135,6 +162,8 @@ const drains = new WeakMap<PublishBucket, Map<string, Drain>>();
  * Publishes `row`. While this isolate is already publishing the event, the
  * row waits its turn instead, and a newer row waiting takes its place: a
  * burst of changes builds and puts up the newest it has, not every one.
+ * An aged drain is replaced unless its unconditional cleanup delete is in
+ * flight; retired drains cannot clean up or remove the replacement.
  * Resolves once the copy up is this row's or newer, or the publish failed.
  */
 export function publishView(env: PublishEnv, row: TournamentRow): Promise<void> {
@@ -145,19 +174,24 @@ export function publishView(env: PublishEnv, row: TournamentRow): Promise<void> 
   const byCode = drains.get(bucket) ?? new Map<string, Drain>();
   drains.set(bucket, byCode);
   const running = byCode.get(row.code);
-  if (running) {
-    running.offer({ env, row });
+  const newest = running?.offer({ env, row }) ?? { env, row };
+  if (running && (running.cleaning || Date.now() - running.startedAt < DRAIN_MAX_AGE_MS)) {
     return running.done;
   }
-  const started = drain(bucket, { env, row }, () => byCode.delete(row.code));
+  const isCurrent = () => byCode.get(row.code) === started;
+  const started = drain(bucket, newest, isCurrent, () => {
+    if (isCurrent()) {
+      byCode.delete(row.code);
+    }
+  });
   byCode.set(row.code, started);
   return started.done;
 }
 
 /** A copy put where there was none may belong to an event deleted meanwhile. */
-async function takeDownIfGone(env: PublishEnv, code: string): Promise<void> {
+async function takeDownIfGone(env: PublishEnv, code: string, cleanup: () => Promise<void>): Promise<void> {
   if (env.TOURNAMENT_DB && (await loadVersion(env.TOURNAMENT_DB, code)) === null) {
-    await unpublishView(env.EVENTS_DATA, code);
+    await cleanup();
   }
 }
 

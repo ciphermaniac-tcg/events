@@ -46,6 +46,8 @@ void initLocale().then(() =>
             '/host/:code',
             '/t/:code',
             '/settings',
+            '/sign-in',
+            '/create-account',
             '/account',
             '/history',
             '/u/:handle',

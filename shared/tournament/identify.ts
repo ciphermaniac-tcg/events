@@ -175,7 +175,8 @@ export function similarlyNamed<T extends { firstName: string; lastName: string }
   typed: { firstName: string; lastName: string }
 ): T[] {
   const wanted = `${nameKey(typed.firstName)} ${nameKey(typed.lastName)}`;
-  return players.filter(
-    player => editDistance(`${nameKey(player.firstName)} ${nameKey(player.lastName)}`, wanted) <= 1
-  );
+  return players.filter(player => {
+    const full = `${nameKey(player.firstName)} ${nameKey(player.lastName)}`;
+    return Math.abs(full.length - wanted.length) <= 1 && editDistance(full, wanted) <= 1;
+  });
 }

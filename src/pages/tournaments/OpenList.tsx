@@ -6,7 +6,7 @@
  * nothing.
  */
 
-import { createEffect, createMemo, createSignal, For, on, Show } from 'solid-js';
+import { createEffect, createMemo, createSignal, For, Show } from 'solid-js';
 import { Segmented } from '@ciphermaniac/design/components/Segmented';
 import { Skeleton } from '@ciphermaniac/design/components/Skeleton';
 import { type DeckCard, parseDecklist } from '../../../shared/tournament/decklist';
@@ -51,17 +51,12 @@ function ReadList(props: { code: string; player: string }) {
       (err: unknown) => ask === asked && setError(err)
     );
   }
-  createEffect(
-    on(
-      () => [props.code, props.player] as const,
-      ([code, player]) => load(code, player)
-    )
-  );
+  // Memos, so only another event or player asks again, not every redraw of the view the props come from.
+  const code = createMemo(() => props.code);
+  const player = createMemo(() => props.player);
+  createEffect(() => load(code(), player()));
   return (
-    <Show
-      when={!error()}
-      fallback={<RetryError error={error()} onRetry={() => load(props.code, props.player)} small />}
-    >
+    <Show when={!error()} fallback={<RetryError error={error()} onRetry={() => load(code(), player())} small />}>
       <Show when={list() !== undefined} fallback={<Skeleton height='240px' />}>
         <Show when={list()}>
           {shown => (

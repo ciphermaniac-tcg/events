@@ -100,7 +100,8 @@ export function PlayerSheet(props: {
           <button
             type='button'
             class='btn btn-ghost'
-            ref={el => queueMicrotask(() => el.focus())}
+            // Once mounted: an open list still loading holds the sheet out of the page until it arrives.
+            ref={el => onMount(() => el.focus())}
             onClick={() => props.onClose()}
           >
             {t('Close')}

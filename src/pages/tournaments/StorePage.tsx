@@ -12,7 +12,6 @@ import { createEffect, createResource, For, Show } from 'solid-js';
 import { addressOf, dateIn, managesStore, readDiscordInvite } from '../../../shared/accounts/stores';
 import type { PastEvent, PublicStore, StoreEvent } from '../../../shared/accounts/types';
 import { Skeleton } from '@ciphermaniac/design/components/Skeleton';
-import { errorText } from '../../lib/tournament/api';
 import { msg, t } from '../../lib/i18n';
 import {
   bareLink,
@@ -26,11 +25,12 @@ import {
   zoneName
 } from '../../lib/tournament/stores';
 import { latestValue } from '../../lib/resource';
+import { errorText } from '../../lib/tournament/api';
 import { TournamentHero } from './Hero';
+import { StoreLoadError } from './SessionGate';
 import { StoreMap } from './StoreMap';
 import '../../styles/pages/tournament-store-page.css';
 import { pageTitle } from '../../lib/title';
-import { ErrorState } from '@ciphermaniac/design/components/ErrorState';
 
 /** Third-party links from store-entered data: no referrer, no endorsement. */
 const STORE_LINK_REL = 'noopener noreferrer nofollow ugc';
@@ -189,7 +189,7 @@ function LeagueLine(props: { leagueId: string | null }) {
 }
 
 export function StorePage(props: { id: string }) {
-  const [read] = createResource(() => props.id, fetchStore);
+  const [read, { refetch }] = createResource(() => props.id, fetchStore);
   const current = () => latestValue(read);
   createEffect(() => {
     document.title = pageTitle(current()?.store.name ?? t('Store'));
@@ -200,11 +200,7 @@ export function StorePage(props: { id: string }) {
         when={current()}
         fallback={
           <Show when={read.error} fallback={<Skeleton height='320px' />}>
-            <ErrorState code={t('Store')} title={t('Couldn’t load this store')} line={errorText(read.error)}>
-              <A href='/' class='btn btn-primary'>
-                {t('Go home')}
-              </A>
-            </ErrorState>
+            <StoreLoadError line={errorText(read.error)} onRetry={() => void refetch()} />
           </Show>
         }
       >

@@ -100,9 +100,14 @@ export function createRateLimiter(options: RateLimiterOptions = {}): RateLimiter
     }
     const existing = store.get(key);
     if (!existing) {
-      if (store.size < maxStoreSize) {
-        store.set(key, { count: 1, windowStart: now });
+      // A full store must not turn the limiter off: expire what has, then refuse a new key if it is still full.
+      if (store.size >= maxStoreSize) {
+        cleanup(now);
       }
+      if (store.size >= maxStoreSize) {
+        return false;
+      }
+      store.set(key, { count: 1, windowStart: now });
       return true;
     }
     if (now - existing.windowStart > windowMs) {

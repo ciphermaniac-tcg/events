@@ -1841,8 +1841,11 @@ tr.is-in .tm-place {
     height: auto;
     min-width: 0;
   }
-  .tm-host-table .tm-host-name {
+  /* A long name wraps under itself rather than running into its players. */
+  .tm-host-table td.tm-host-name {
     grid-area: name;
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
   .tm-host-table .tm-host-players {
     grid-area: players;

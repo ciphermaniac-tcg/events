@@ -11,12 +11,13 @@ export interface DemoBucket extends PublishBucket {
   read: (key: string) => string | null;
 }
 
-export function demoBucket(db: Database, changed: () => void): DemoBucket {
-  db.exec('CREATE TABLE IF NOT EXISTS demo_objects (key TEXT PRIMARY KEY, value TEXT NOT NULL, etag TEXT NOT NULL)');
+/** The bucket in the database `db` gives, asked for at each call, as browserD1 asks. */
+export function demoBucket(db: () => Database, changed: () => void): DemoBucket {
+  db().exec('CREATE TABLE IF NOT EXISTS demo_objects (key TEXT PRIMARY KEY, value TEXT NOT NULL, etag TEXT NOT NULL)');
   const etagOf = (key: string) =>
-    (db.exec('SELECT etag FROM demo_objects WHERE key = ?', [key])[0]?.values[0]?.[0] as string | undefined) ?? null;
+    (db().exec('SELECT etag FROM demo_objects WHERE key = ?', [key])[0]?.values[0]?.[0] as string | undefined) ?? null;
   const read = (key: string) =>
-    (db.exec('SELECT value FROM demo_objects WHERE key = ?', [key])[0]?.values[0]?.[0] as string | undefined) ?? null;
+    (db().exec('SELECT value FROM demo_objects WHERE key = ?', [key])[0]?.values[0]?.[0] as string | undefined) ?? null;
   return {
     head: key => {
       const etag = etagOf(key);
@@ -28,12 +29,12 @@ export function demoBucket(db: Database, changed: () => void): DemoBucket {
         return Promise.resolve(null);
       }
       const etag = crypto.randomUUID();
-      db.run('INSERT OR REPLACE INTO demo_objects (key, value, etag) VALUES (?, ?, ?)', [key, value, etag]);
+      db().run('INSERT OR REPLACE INTO demo_objects (key, value, etag) VALUES (?, ?, ?)', [key, value, etag]);
       changed();
       return Promise.resolve({ etag, customMetadata: options.customMetadata });
     },
     delete: key => {
-      db.run('DELETE FROM demo_objects WHERE key = ?', [key]);
+      db().run('DELETE FROM demo_objects WHERE key = ?', [key]);
       changed();
       return Promise.resolve(true);
     },

@@ -995,10 +995,12 @@ test('on a 320px phone a disqualified player’s name reads whole, its flag unde
   expect(
     await name.evaluate(el => el.getBoundingClientRect().height < 2 * parseFloat(getComputedStyle(el).lineHeight))
   ).toBe(true);
-  // Dropped under the name, the flag starts where the name does.
-  const flag = name.locator('xpath=following-sibling::*[contains(@class, "tm-flag")]');
-  const left = async (el: typeof name) => el.evaluate(node => Math.round(node.getBoundingClientRect().left));
-  expect(await left(flag)).toBe(await left(name));
+  // Dropped under the name, the flag starts where the name does: both read at once, as the panel may still be settling.
+  const offset = await name.evaluate(node => {
+    const flag = node.parentElement?.querySelector('.tm-name ~ .tm-flag');
+    return flag ? flag.getBoundingClientRect().left - node.getBoundingClientRect().left : Number.NaN;
+  });
+  expect(Math.abs(offset)).toBeLessThan(1);
 });
 
 test('on a 320px phone a German Reinstate wraps rather than cutting a dropped player’s name short @mobileOnly', async ({
@@ -1798,6 +1800,18 @@ test('a phone’s standings show a name longer than its column whole @mobileOnly
   const name = page.locator('.tm-standings .tm-name').filter({ hasText: 'Wolfeschlegel' });
   await expect(name).toBeVisible();
   expect(await name.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+});
+
+test('on a phone a Paid check-in and a standings name are each a 44px target @mobileOnly', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockConsole(page, event(4, 0, false), settingsOf({ entryFee: 10 }));
+  const paid = await page.locator('.tm-check-cell', { has: page.getByLabel('Paid: Player1 Test') }).boundingBox();
+  expect(paid?.width).toBeGreaterThanOrEqual(44);
+  expect(paid?.height).toBeGreaterThanOrEqual(44);
+  await mockConsole(page, event(4, 1, false), settingsOf({}));
+  await page.locator('.tm-tabbar').getByRole('tab', { name: 'Standings' }).click();
+  const name = await page.locator('.tm-standings .tm-seat-link').first().boundingBox();
+  expect(name?.height).toBeGreaterThanOrEqual(44);
 });
 
 test('a phone’s locked tab says why above the bar, inside the screen @mobileOnly', async ({ page }) => {

@@ -97,6 +97,8 @@ test('every page is HTTPS-only and refuses to be framed by another site', () => 
 test('account and organizer pages stay out of search, public pages do not', () => {
   for (const path of [
     '/settings',
+    '/sign-in',
+    '/create-account',
     '/account',
     '/welcome',
     '/history',

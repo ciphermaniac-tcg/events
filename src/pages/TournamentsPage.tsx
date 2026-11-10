@@ -2,7 +2,8 @@
  * Every tournament route through one entry in main.tsx: / (the home page,
  * or signed in an organizer's events), /host/:code (running one), /t/:code (the public page
  * players follow), /settings (sign-in, sign-out and the player profile;
- * /account is its older name), /history (the events an account played),
+ * /account is its older name, and /sign-in and /create-account the same page
+ * for signing in or making an account), /history (the events an account played),
  * /u/:handle (an account's public profile), /apply (applying to run events),
  * /welcome (a new sign-up's age check), /privacy (the privacy policy), /terms (the terms of service), /admin (an Admin's page), and a
  * store's /stores/:id (its public page), /stores/:id/settings and
@@ -88,7 +89,10 @@ export function TournamentsPage() {
   const location = useLocation();
   const params = useParams<{ code?: string; handle?: string }>();
   const code = () => (params.code ?? '').toUpperCase();
-  const settings = () => location.pathname.startsWith('/account') || location.pathname.startsWith('/settings');
+  const settings = () =>
+    location.pathname.startsWith('/account') ||
+    location.pathname.startsWith('/settings') ||
+    /^\/sign-in\/?$|^\/create-account\/?$/.test(location.pathname);
   // Nobody is signed in yet at the age check, and its only way on is the form.
   const welcome = () => location.pathname.startsWith('/welcome');
   const dashboard = () => location.pathname === '/' || location.pathname.startsWith('/host/');

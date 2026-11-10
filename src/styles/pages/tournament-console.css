@@ -1324,9 +1324,6 @@
   .tm-console .tm-result {
     padding: 0;
   }
-  .tm-console .tm-seat-link {
-    min-height: 36px;
-  }
 }
 @media (max-width: 640px) {
   .tm-console .tm-standings .tm-cut-line .muted {
@@ -1443,6 +1440,9 @@
 @media (max-width: 900px) {
   .tm-check-name {
     display: inline;
+  }
+  .tm-check-cell {
+    min-height: 44px;
   }
 }
 

@@ -25,7 +25,7 @@ import { eventCalls } from '../__utils__/eventCalls.ts';
 import { racing, sqliteD1 } from '../__utils__/sqliteD1.ts';
 
 const { env, hit, saveProfile, signIn } = apiSuite();
-const { newEvent, newSwiss, addPlayers, settle, playerSays, send } = eventCalls(hit);
+const { newEvent, newSwiss, addPlayers, settle, playerSays, send, joinStaff } = eventCalls(hit);
 
 /** Ash and Gary at an unsanctioned event, as staff add them by name. */
 async function addNamed(code: string, owner: string) {
@@ -126,6 +126,23 @@ test('the export lists the events an organizer runs, and escapes what could brea
   const file = await exported(owner);
   assert.match(file.text, /## Events you organized or staffed\n\n### Cup \\\*one\\\* \\`x\\`\n/u);
   assert.match(file.text, new RegExp(`- Event code: ${code}\\n- Start date: .+\\n- Role: organizer\\n`, 'u'));
+});
+
+test('an account saving an organizer’s Player ID gains none of their organizer events', async () => {
+  const organizer = await signIn('Organizer', 'organizer');
+  await saveProfile(organizer, '5150');
+  const code = await newSwiss(organizer);
+  const stranger = await signIn('Stranger');
+  await saveProfile(stranger, '5150');
+  const wrong = await exported(stranger, 'organizer');
+  assert.match(wrong.text, /## Events you organized or staffed\n\nNone\./u);
+  assert.ok(!wrong.text.includes(code), 'a saved Player ID is not an organizer link');
+  const helper = await signIn('Helper');
+  await joinStaff(code, organizer, helper);
+  const staffed = await exported(helper, 'organizer');
+  assert.match(staffed.text, new RegExp(`- Event code: ${code}\\n- .*\\n- Role: staff\\n`, 'u'));
+  const owned = await exported(organizer, 'organizer');
+  assert.match(owned.text, new RegExp(`- Event code: ${code}\\n- .*\\n- Role: organizer\\n`, 'u'));
 });
 
 test('the export is for a signed-in account from this site only', async () => {
@@ -264,16 +281,27 @@ test('wiping organizer history waits for running events, then takes the organize
   assert.deepEqual(await codesOf(player), [code], 'the player keeps it');
 });
 
-test('wiping organizer history takes the name off an event that names the account’s POP ID', async () => {
+test('a saved Player ID cannot wipe or delete another account’s organizer history', async () => {
   const organizer = await signIn('Organizer', 'organizer');
   await saveProfile(organizer, '5150');
   const code = await newSwiss(organizer);
+  assert.equal((await wipe(organizer, ['profile'])).status, 200);
+  const stranger = await signIn('Stranger');
+  assert.equal((await saveProfile(stranger, '5150')).status, 200);
+  assert.deepEqual((await holds(stranger)).json.running, [], 'the stranger does not run this event');
   await settle(code, organizer, { finished: true });
-  assert.equal((await loadTournament(env.TOURNAMENT_DB!, code))?.tournament.info.organizerPopId, '5150');
+  const before = await loadTournament(env.TOURNAMENT_DB!, code);
+  assert.equal(before?.tournament.info.organizerPopId, '5150');
+  assert.equal((await wipe(stranger, ['organizer'])).status, 200);
+  assert.deepEqual(await loadTournament(env.TOURNAMENT_DB!, code), before);
+  assert.equal((await remove(stranger, account(await idOf(stranger)).handle)).status, 204);
+  assert.deepEqual(await loadTournament(env.TOURNAMENT_DB!, code), before);
+
   assert.equal((await wipe(organizer, ['organizer'])).status, 200);
   const stored = await loadTournament(env.TOURNAMENT_DB!, code);
   assert.equal(stored?.tournament.info.organizerPopId, '');
   assert.equal(stored?.tournament.info.organizerName, '');
+  assert.equal(stored?.ownerId, `wiped:${code}`);
 });
 
 // ---------- Delete ----------
@@ -563,22 +591,38 @@ test('deleting an admin takes its id off what it decided', async () => {
   assert.equal(account(other).role, 'community', 'the decision stands');
 });
 
-test('the export holds decklists sent under the POP ID while signed out, and the events hidden from History', async () => {
+test('the export includes only account-linked decklists, and the events hidden from History', async () => {
   const player = await signIn('Player');
-  const { owner, code } = await playedEvent(player);
+  const owner = await signIn('Organizer', 'organizer');
+  const code = await newSwiss(owner);
+  await addPlayers(code, owner, 4);
   raw()
     .prepare(
       'INSERT INTO decklists (code, user_id, pop_id, first_name, last_name, birth_date, deck, submitted_at) ' +
-        "VALUES (?, 'pop:901', '901', 'Pat', 'Player', '02/27/2001', '4 Pikachu', 1)"
+        "VALUES (?, 'pop:901', '901', 'Private', 'Person', '02/27/1990', '4 Pikachu', 1)"
     )
     .run(code);
+  raw()
+    .prepare(
+      'INSERT INTO decklists (code, user_id, pop_id, first_name, last_name, birth_date, account, deck, submitted_at) ' +
+        "VALUES (?, 'pop:902', '902', 'Pat', 'Player', '02/27/2001', ?, '4 Eevee', 2)"
+    )
+    .run(code, await idOf(player));
+  assert.equal((await saveProfile(player, '901')).status, 200);
+  const file = await exported(player, 'events');
+  assert.equal(file.status, 200);
+  assert.match(file.text, /## Decklists\n\n### Test Cup\n/u);
+  assert.match(file.text, /```\n4 Eevee\n```/u);
+  for (const privateField of ['4 Pikachu', 'Private', 'Person', '02/27/1990']) {
+    assert.ok(!file.text.includes(privateField), privateField);
+  }
+
   await settle(code, owner, { finished: true });
-  await wipe(player, ['events']);
-  const file = (await exported(player)).text;
-  assert.match(file, /## Decklists\n\n### Test Cup\n/u);
-  assert.match(file, /```\n4 Pikachu\n```/u);
+  assert.equal((await wipe(player, ['events'])).status, 200);
+  const wiped = (await exported(player, 'events')).text;
+  assert.match(wiped, /## Decklists\n\nNone\./u);
   assert.match(
-    file,
+    wiped,
     new RegExp(
       `## Events hidden from your history\\n\\n### Test Cup\\n\\n- Event: Test Cup\\n- Event code: ${code}`,
       'u'

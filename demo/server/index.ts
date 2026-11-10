@@ -6,18 +6,24 @@
  * anywhere. The only requests that leave are reads of the public card and
  * archetype data the real site reads too (PUBLIC_DATA); any other request
  * for another origin is refused.
+ *
+ * Every tab runs its own server over one saved database, as a big screen
+ * beside the console does. Each request takes the demo's lock, loads what
+ * another tab saved since this one last looked, and saves what it changed
+ * before letting go, so every tab answers from the same event.
  */
 
-import initSqlJs, { type Database } from 'sql.js';
+import initSqlJs, { type Database, type SqlJsStatic } from 'sql.js';
 import wasmUrl from 'sql.js/dist/sql-wasm.wasm?url';
 import schema from '../../config/d1/tournaments.sql?raw';
 import type { TournamentEnv } from '../../functions/lib/auth/env';
 import { demoBucket, type DemoBucket } from './bucket';
 import { browserD1 } from './d1';
 import { route } from './router';
-import { forget, loadSaved, save } from './store';
+import { alone, forget, loadSaved, save, savedVersion } from './store';
 import { seed, stayingSignedIn } from './seed';
 import { cookieHeader } from './cookies';
+import { closedAnswer } from './closed';
 
 /** Where the demo build reads published event pages from (VITE_EVENTS_DATA_ORIGIN). */
 export const DATA_PATH = '/demo-data';
@@ -37,24 +43,74 @@ let resetting = false;
 /** Whether anything changed since the last save. */
 let dirty = false;
 
+let SQL: SqlJsStatic;
+let db: Database;
+/**
+ * The saved version this tab's database is, "<demo> <save>": which demo it
+ * is, new on each Reset, and which save of it. Null while nothing is shared
+ * (storage closed to the page).
+ */
+let version: string | null = null;
+
+/** The demo a version belongs to; empty for a database saved before versions were kept. */
+const demoOf = (saved: string): string => saved.split(' ')[0] ?? '';
+
 /** Saves the database if a request changed it, before that request's answer is handed back. */
-async function saveIfChanged(db: Database): Promise<void> {
+async function saveIfChanged(): Promise<void> {
   if (dirty && !resetting) {
     dirty = false;
-    await save(db.export());
+    const next = `${demoOf(version ?? '') || crypto.randomUUID()} ${crypto.randomUUID()}`;
+    version = (await save(db.export(), next)) ? next : null;
   }
 }
 
+/**
+ * Leaves for the home page, as the tab that reset the demo does: the event
+ * this tab showed is gone. The request waits on the page going rather than
+ * answer from the old demo.
+ */
+async function startOver(): Promise<void> {
+  resetting = true;
+  location.assign('/');
+  await new Promise<never>(() => {
+    // Never settles: the page goes before the request would be answered.
+  });
+}
+
+/**
+ * Takes up what another tab saved since this one last looked. Once another
+ * tab has reset the demo, this one starts over too.
+ */
+async function catchUp(): Promise<void> {
+  if (version === null || resetting) {
+    return;
+  }
+  const saved = await savedVersion();
+  if (saved === version) {
+    return;
+  }
+  const loaded = saved !== null && demoOf(saved) === demoOf(version) ? await loadSaved() : null;
+  if (!loaded) {
+    await startOver();
+    return;
+  }
+  db.close();
+  ({ version } = loaded);
+  db = new SQL.Database(loaded.bytes);
+}
+
 /** The database as it was left, or a new one with the sample event in it. */
-async function openDatabase(): Promise<{ db: Database; fresh: boolean }> {
-  const SQL = await initSqlJs({ locateFile: () => wasmUrl });
+async function openDatabase(): Promise<boolean> {
+  SQL = await initSqlJs({ locateFile: () => wasmUrl });
   const saved = await loadSaved();
   if (saved) {
-    return { db: new SQL.Database(saved), fresh: false };
+    db = new SQL.Database(saved.bytes);
+    ({ version } = saved);
+    return false;
   }
-  const db = new SQL.Database();
+  db = new SQL.Database();
   db.exec(schema);
-  return { db, fresh: true };
+  return true;
 }
 
 /**
@@ -80,10 +136,8 @@ function delivered(request: Request): Request {
   });
 }
 
-async function answer(request: Request, env: TournamentEnv, db?: Database): Promise<Response> {
-  if (db) {
-    stayingSignedIn(db);
-  }
+async function answer(request: Request, env: TournamentEnv): Promise<Response> {
+  stayingSignedIn(db);
   return route(delivered(request), env);
 }
 
@@ -94,14 +148,40 @@ function dataResponse(bucket: DemoBucket, path: string): Response {
     : new Response(body, { headers: { 'Content-Type': 'application/json' } });
 }
 
+/** A call to /api, answered once this tab is caught up, and saved before the lock is let go. */
+function apiResponse(request: Request, env: TournamentEnv): Promise<Response> {
+  const url = new URL(request.url);
+  const closed = closedAnswer(request.method, url.pathname);
+  if (closed) {
+    return Promise.resolve(closed);
+  }
+  return alone(async () => {
+    await catchUp();
+    const response = await answer(request, env);
+    await saveIfChanged();
+    return response;
+  });
+}
+
 /** Starts the server and takes over the page's fetch; resolves once the sample event is ready. */
 export async function startDemoServer(): Promise<void> {
-  const { db, fresh } = await openDatabase();
   const changed = () => {
     dirty = true;
   };
-  const bucket = demoBucket(db, changed);
-  const env: TournamentEnv = { TOURNAMENT_DB: browserD1(db, changed), EVENTS_DATA: bucket };
+  const current = () => db;
+  // Two tabs opened at once seed one sample event between them, not one each.
+  const { env, bucket } = await alone(async () => {
+    const fresh = await openDatabase();
+    const ready = demoBucket(current, changed);
+    const made: TournamentEnv = { TOURNAMENT_DB: browserD1(current, changed), EVENTS_DATA: ready };
+    if (fresh) {
+      await seed(made, db, answer);
+    }
+    // A new database, or one saved before tabs shared it, gets a version the other tabs can see.
+    dirty = fresh || version === '';
+    await saveIfChanged();
+    return { env: made, bucket: ready };
+  });
 
   window.fetch = async (input, init) => {
     const request = new Request(input, init);
@@ -111,26 +191,22 @@ export async function startDemoServer(): Promise<void> {
       return reading && PUBLIC_DATA.has(url.origin) ? realFetch(request) : refused(url);
     }
     if (url.pathname.startsWith('/api/')) {
-      const response = await answer(request, env, db);
-      await saveIfChanged(db);
-      return response;
+      return apiResponse(request, env);
     }
     if (url.pathname.startsWith(`${DATA_PATH}/`)) {
-      return dataResponse(bucket, url.pathname);
+      return alone(async () => {
+        await catchUp();
+        return dataResponse(bucket, url.pathname);
+      });
     }
     return realFetch(request);
   };
-
-  if (fresh) {
-    await seed(env, db, answer);
-    await saveIfChanged(db);
-  }
 }
 
-/** Throws the demo's data away; the next load starts the sample event over. */
+/** Throws the demo's data away; the next load starts the sample event over, here and in every other tab. */
 export async function resetDemo(): Promise<void> {
   resetting = true;
-  await forget();
+  await alone(forget);
   // What the site remembers of the old demo goes too (its events, lists it was sent), all but the light or dark choice.
   try {
     sessionStorage.clear();

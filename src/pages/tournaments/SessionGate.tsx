@@ -35,6 +35,26 @@ function SessionFallback() {
   );
 }
 
+/** A store page or its settings when the store could not be read: try again, or go home. */
+export function StoreLoadError(props: { line: string; onRetry: () => void }) {
+  return (
+    <ErrorState code={t('Store')} title={t('Couldn’t load this store')} line={props.line}>
+      <button
+        type='button'
+        class='btn btn-primary'
+        onClick={() => {
+          props.onRetry();
+        }}
+      >
+        {t('Try again')}
+      </button>
+      <A href='/' class='btn btn-secondary'>
+        {t('Go home')}
+      </A>
+    </ErrorState>
+  );
+}
+
 export function SessionGate(props: { children: (current: Accessor<Session>) => JSX.Element }) {
   return (
     <Show when={latestValue(session)} fallback={<SessionFallback />}>

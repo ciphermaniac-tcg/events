@@ -40,7 +40,7 @@ test('address churn at capacity cannot reset tracked windows', () => {
   assert.equal(limiter.allows('first'), true);
   assert.equal(limiter.allows('second'), true);
   for (let index = 0; index < 20; index++) {
-    assert.equal(limiter.allows(`new-${index}`), true);
+    assert.equal(limiter.allows(`new-${index}`), false, 'a new key is refused while the store is full');
     assert.equal(limiter.allows('first'), false);
     assert.equal(limiter.allows('second'), false);
   }

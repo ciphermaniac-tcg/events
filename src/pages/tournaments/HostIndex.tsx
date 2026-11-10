@@ -459,7 +459,7 @@ export function HostIndex() {
     <div class='tm-page'>
       <SessionGate>
         {s => (
-          <Show when={s().user} fallback={<HostHome offer={s()} />}>
+          <Show when={s().user} fallback={<HostHome />}>
             {/* Keyed on the account: a kept session can give way to another one. */}
             {user => (
               <Show when={user().id} keyed>

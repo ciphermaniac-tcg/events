@@ -93,6 +93,8 @@ const SHAPES: { [T in Command['type']]: (body: Obj) => boolean } = {
   startTopCut: body =>
     isPod(body.pod) &&
     isInt(body.size) &&
+    body.size >= 0 &&
+    body.size <= 512 &&
     (body.division === undefined || isDivision(body.division)) &&
     (body.playoff3rd4th === undefined || typeof body.playoff3rd4th === 'boolean'),
   updateInfo: body => infoPatch(body.info) !== null

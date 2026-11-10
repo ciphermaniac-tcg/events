@@ -513,6 +513,16 @@ CREATE TABLE IF NOT EXISTS clerk_password_cutoffs (
   changed_at INTEGER NOT NULL
 ) WITHOUT ROWID;
 
+-- Clerk users Clerk has shut out (banned, locked, or deleted): no site
+-- session is made while one stands, and the webhook ends the ones already
+-- made. revoked_at and allowed_at order deliveries; a deletion is terminal.
+CREATE TABLE IF NOT EXISTS clerk_revocations (
+  subject TEXT PRIMARY KEY,
+  revoked_at INTEGER NOT NULL,
+  allowed_at INTEGER NOT NULL DEFAULT 0,
+  terminal INTEGER NOT NULL DEFAULT 0
+) WITHOUT ROWID;
+
 -- Password reset requests (functions/lib/auth/passwordReset.ts), under the
 -- hash of the token in the asker's cookie; `subject` and `code_hash` stay
 -- NULL for a request that named no one.

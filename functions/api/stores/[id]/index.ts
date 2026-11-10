@@ -11,6 +11,7 @@
 
 import { isTimeZone, readPlace, readStoreDetails } from '../../../../shared/accounts/stores.js';
 import { readJsonObject } from '../../../lib/api/body.js';
+import { createRateLimiter, rateLimitAddress } from '../../../lib/api/rateLimiter.js';
 import { jsonError } from '../../../lib/api/responses.js';
 import type { Context } from '../../../lib/auth/env.js';
 import { openStore } from '../../../lib/stores/access.js';
@@ -19,10 +20,15 @@ import { publishStores } from '../../../lib/stores/publish.js';
 import { privateJson } from '../../../lib/tournaments/access.js';
 import { pairedRounds } from '../../../lib/tournaments/store.js';
 
+const rateLimiter = createRateLimiter({ windowMs: 10 * 60 * 1000, maxRequests: 600 });
+
 export async function onRequestGet(context: Context<'id'>): Promise<Response> {
   const access = await openStore(context, 'anyone');
   if (access instanceof Response) {
     return access;
+  }
+  if (!access.user && !rateLimiter.allows(rateLimitAddress(context.request))) {
+    return jsonError('Too many requests from here. Try again shortly.', 429);
   }
   const { db, store, role } = access;
   const [events, past] = await Promise.all([

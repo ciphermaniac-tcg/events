@@ -59,9 +59,9 @@ export function TermsPage() {
 
         <h2 class='tm-subhead'>Ending your use</h2>
         <p>
-          You can stop using the service and delete your account at any time from the <A href='/settings'>My Data</A>{' '}
-          page. Event records stay as described in our Privacy Policy. We may end or change the service, and we will
-          give notice on the site when we reasonably can.
+          You can stop using the service and delete your account at any time from the{' '}
+          <A href='/settings?section=data'>My Data</A> page. Event records stay as described in our Privacy Policy. We
+          may end or change the service, and we will give notice on the site when we reasonably can.
         </p>
 
         <h2 class='tm-subhead'>Changes and questions</h2>

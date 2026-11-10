@@ -67,7 +67,6 @@ body.tm-home-mode main.page {
   font-weight: 700;
   text-wrap: balance;
 }
-.tm-home-door > div > p,
 .tm-home-lede p {
   margin: 0;
   font-size: 19px;
@@ -76,7 +75,7 @@ body.tm-home-mode main.page {
 }
 
 /* ---------- The two ways in ---------- */
-/* Side by side, each door's words in one row and its action in the next, so the actions line up. */
+/* Side by side, each door's heading in one row and its action in the next, so the actions line up. */
 .tm-home-doors {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -97,14 +96,9 @@ body.tm-home-mode main.page {
 }
 .tm-home-door h1,
 .tm-home-door h2 {
-  margin-bottom: var(--space-3);
   font-size: 32px;
   letter-spacing: -0.025em;
 }
-.tm-home-door > div > p {
-  max-width: 34ch;
-}
-.tm-home-door .tm-signin,
 .tm-home-code {
   width: 340px;
   max-width: 100%;
@@ -119,9 +113,23 @@ body.tm-home-mode main.page {
   height: 40px;
   font-size: 16px;
 }
-.tm-home-code .btn {
+.tm-home-code .btn,
+.tm-home-join .btn {
   height: 40px;
   padding-inline: var(--space-4);
+}
+/* A new account first; signing in is the aside beside it. */
+.tm-home-join {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  font-size: 15px;
+}
+.tm-home-join a:not(.btn) {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--muted);
 }
 
 /* ---------- The raised band ---------- */
@@ -161,9 +169,6 @@ body.tm-home-mode main.page {
   grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
   gap: var(--space-6);
   align-items: center;
-}
-.tm-home-demo {
-  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
 }
 .tm-home-demo-open {
   margin-top: var(--space-2);
@@ -213,11 +218,15 @@ body.tm-home-mode main.page {
 }
 
 /* ---------- Recent events ---------- */
+/* The table first and its heading beside it, so the sections around it alternate sides. */
 .tm-home-recent {
   display: grid;
-  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
   gap: var(--space-6);
   align-items: start;
+}
+.tm-home-recent > h2 {
+  order: 1;
 }
 .tm-home-recent-table {
   overflow: hidden;
@@ -814,15 +823,17 @@ body.tm-home-mode main.page {
   .tm-home-door + .tm-home-door {
     border-top: 1px solid var(--rule);
   }
-  .tm-home-door .tm-signin,
   .tm-home-code {
     width: 100%;
+  }
+  .tm-home-join .btn {
+    flex: 1;
+    justify-content: center;
   }
   .tm-home-door h1,
   .tm-home-door h2 {
     font-size: 26px;
   }
-  .tm-home-door > div > p,
   .tm-home-lede p {
     font-size: 17px;
   }
@@ -834,7 +845,6 @@ body.tm-home-mode main.page {
   }
   /* One column, each preview above its words; the phone stands for the room. */
   .tm-home-split,
-  .tm-home-demo,
   .tm-home-recent,
   .tm-home-venue {
     grid-template-columns: minmax(0, 1fr);
@@ -842,6 +852,9 @@ body.tm-home-mode main.page {
   }
   .tm-home-split > .tm-home-box {
     order: -1;
+  }
+  .tm-home-recent > h2 {
+    order: 0;
   }
   .tm-home-tv {
     display: none;

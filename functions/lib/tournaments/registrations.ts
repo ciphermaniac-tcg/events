@@ -8,7 +8,7 @@
 
 import { withMark } from '../../../shared/tournament/checkins.js';
 import type { Command } from '../../../shared/tournament/commands.js';
-import { birthYearFits, decklistPlayer } from '../../../shared/tournament/identify.js';
+import { birthYearFits, decklistPlayer, fullNameKey } from '../../../shared/tournament/identify.js';
 import type { Player } from '../../../shared/tournament/types.js';
 import { type DeckMode, isSanctioned } from '../../../shared/tournament/view.js';
 import { msg } from '../../../shared/i18n.js';
@@ -57,6 +57,16 @@ interface Who {
 export function rosterPlayer(row: TournamentRow, who: Who): Player | undefined {
   const id = decklistPlayer(row.tournament, who, isSanctioned(row));
   return id === undefined ? undefined : row.tournament.players.find(player => player.id === id);
+}
+
+/**
+ * Whether an unsanctioned event's list holds the name more than once, so no
+ * one player is it: a submitter under that name is no newcomer, and adding
+ * them would put another of the name on the event.
+ */
+export function nameIsShared(row: TournamentRow, who: Who): boolean {
+  const key = fullNameKey(who);
+  return row.tournament.players.filter(player => fullNameKey(player) === key).length > 1;
 }
 
 /** The birth year proves the Player ID: the one the event's list has for it, or the one its list was sent with. */

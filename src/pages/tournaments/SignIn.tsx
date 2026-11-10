@@ -1,7 +1,7 @@
 import { createSignal, For, type JSX, Show } from 'solid-js';
 import { type OAuthProvider, type Provider, type SignInOffer, signInUrl } from '../../lib/tournament/api';
 import { msg, t } from '../../lib/i18n';
-import { UsernameForm } from './PasswordForm';
+import { type FormPage, UsernameForm } from './PasswordForm';
 
 /*
  * The providers' own marks, unaltered: Google's standard-colour G (its
@@ -38,9 +38,9 @@ const DiscordMark = () => (
   </svg>
 );
 
-const PROVIDERS: Record<OAuthProvider, { label: string; Mark: () => JSX.Element }> = {
-  google: { label: msg('Sign in with Google'), Mark: GoogleG },
-  discord: { label: msg('Sign in with Discord'), Mark: DiscordMark }
+const PROVIDERS: Record<OAuthProvider, { label: string; making: string; Mark: () => JSX.Element }> = {
+  google: { label: msg('Sign in with Google'), making: msg('Sign up with Google'), Mark: GoogleG },
+  discord: { label: msg('Sign in with Discord'), making: msg('Sign up with Discord'), Mark: DiscordMark }
 };
 
 /** Google first, so it is at least as prominent as any other provider (its branding rules). */
@@ -76,16 +76,23 @@ const oauthOf = (providers: readonly Provider[]) => ORDER.filter(p => providers.
 /**
  * Sign-in buttons for whichever providers the server has configured, drawn to
  * each provider's branding guidelines and the same size. `stacked` puts them
- * one over the other at full width. `dev` adds the local test sign-in.
+ * one over the other at full width; `making` words them for a new account.
+ * `dev` adds the local test sign-in.
  */
-function ProviderButtons(props: { providers: readonly Provider[]; next: string; stacked?: boolean; dev: boolean }) {
+function ProviderButtons(props: {
+  providers: readonly Provider[];
+  next: string;
+  stacked?: boolean;
+  making?: boolean;
+  dev: boolean;
+}) {
   return (
     <div class='tm-signin' classList={{ 'is-stacked': props.stacked }}>
       <For each={oauthOf(props.providers)}>
         {provider => (
           <a class={`tm-sso tm-sso-${provider}`} href={signInUrl(provider, props.next)} rel='external'>
             {PROVIDERS[provider].Mark()}
-            <span>{t(PROVIDERS[provider].label)}</span>
+            <span>{t(PROVIDERS[provider][props.making ? 'making' : 'label'])}</span>
           </a>
         )}
       </For>
@@ -136,9 +143,11 @@ function PasswordOption(props: { publishableKey: string; next: string }) {
 /**
  * Every way in the server offers, one over the other: the providers, then
  * username and password (PasswordOption), open from the start when there is
- * no provider to prefer. The local test sign-in gets a row of its own beneath.
+ * no provider to prefer or the sign-in has a page to itself (`page`), as
+ * signing in or making an account. The local test sign-in gets a row of its
+ * own beneath.
  */
-export function SignIn(props: { offer: SignInOffer; next: string; stacked?: boolean }) {
+export function SignIn(props: { offer: SignInOffer; next: string; page?: FormPage }) {
   const providers = () => props.offer.providers;
   const clerkKey = () => (providers().includes('clerk') ? (props.offer.clerkKey ?? null) : null);
   const dev = () => providers().includes('dev');
@@ -146,14 +155,22 @@ export function SignIn(props: { offer: SignInOffer; next: string; stacked?: bool
   return (
     <Show
       when={clerkKey()}
-      fallback={<ProviderButtons providers={providers()} next={props.next} stacked={props.stacked} dev={dev()} />}
+      fallback={<ProviderButtons providers={providers()} next={props.next} making={props.page?.making} dev={dev()} />}
     >
       {key => (
         <div class='tm-signin-split'>
-          <Show when={buttons()} fallback={<UsernameForm publishableKey={key()} next={props.next} />}>
+          <Show when={buttons()} fallback={<UsernameForm publishableKey={key()} next={props.next} page={props.page} />}>
             <div class='tm-signin-ways'>
-              <ProviderButtons providers={providers()} next={props.next} stacked dev={false} />
-              <PasswordOption publishableKey={key()} next={props.next} />
+              <ProviderButtons
+                providers={providers()}
+                next={props.next}
+                stacked
+                making={props.page?.making}
+                dev={false}
+              />
+              <Show when={props.page} fallback={<PasswordOption publishableKey={key()} next={props.next} />}>
+                {page => <UsernameForm publishableKey={key()} next={props.next} page={page()} />}
+              </Show>
             </div>
           </Show>
           <Show when={dev()}>

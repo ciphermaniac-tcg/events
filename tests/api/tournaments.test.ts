@@ -1100,6 +1100,21 @@ test('only the organizer deletes an event', async () => {
   assert.equal((await hit(event.onRequestGet as Handler, '/', at(code))).status, 404);
 });
 
+test('deleting an event clears its identify failures', async () => {
+  const owner = await signIn('Organizer', 'organizer');
+  const code = await newSwiss(owner);
+  const { raw } = env.TOURNAMENT_DB as ReturnType<typeof sqliteD1>;
+  raw
+    .prepare('INSERT INTO identify_failures (code, pop_id, failures, locked_until) VALUES (?, ?, ?, ?)')
+    .run(code, '4242', 2, 0);
+  assert.equal(raw.prepare('SELECT count(*) AS n FROM identify_failures WHERE code = ?').get(code)?.n, 1);
+  assert.equal(
+    (await hit(event.onRequestDelete as Handler, '/', at(code), { method: 'DELETE', cookie: owner })).status,
+    204
+  );
+  assert.equal(raw.prepare('SELECT count(*) AS n FROM identify_failures WHERE code = ?').get(code)?.n, 0);
+});
+
 afterEach(() => {
   mainSite.restore();
   mock.timers.reset();

@@ -79,7 +79,8 @@ async function send(
 
 /**
  * Keeps the visitor signed in as the demo organizer, before every request: on
- * a new tab, and after Sign out, since there is nobody else to be here.
+ * a new tab, and should the session ever go, since there is nobody else to be
+ * here (signing out is closed: closed.ts).
  */
 export function stayingSignedIn(db: Database): void {
   db.run('CREATE TABLE IF NOT EXISTS demo_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
@@ -89,7 +90,7 @@ export function stayingSignedIn(db: Database): void {
   if (typeof token !== 'string' || typeof hash !== 'string') {
     return;
   }
-  // Sign out deleted the session; the demo's one account takes it back.
+  // A session that went is the demo's one account's to take back.
   const now = Date.now();
   db.run('INSERT OR IGNORE INTO sessions (token_hash, user_id, expires_at, auth_at) VALUES (?, ?, ?, ?)', [
     hash,

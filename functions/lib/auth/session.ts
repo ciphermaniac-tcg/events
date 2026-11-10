@@ -262,7 +262,7 @@ function refreshUser(db: D1Like, profile: Profile, userId: string, birthDate: st
   const email = verifiedEmail(profile);
   return db
     .prepare(
-      'UPDATE users SET avatar = COALESCE(avatar, ?1), birth_date = COALESCE(?2, birth_date), ' +
+      'UPDATE users SET avatar = COALESCE(?1, avatar), birth_date = COALESCE(?2, birth_date), ' +
         'age_checked_at = CASE WHEN ?2 IS NULL THEN age_checked_at ELSE ?3 END, ' +
         'email = COALESCE(email, (SELECT ?4 WHERE NOT EXISTS ' +
         '(SELECT 1 FROM users WHERE email IS NOT NULL AND email = ?4))) WHERE id = ?5'
@@ -405,7 +405,9 @@ export async function createSession(
     db
       .prepare(
         'INSERT INTO sessions (token_hash, user_id, expires_at, auth_at) SELECT ?1, ?2, ?3, ?4 ' +
-          'WHERE NOT EXISTS (SELECT 1 FROM clerk_password_cutoffs WHERE subject = ?5 AND changed_at > ?4)'
+          'WHERE NOT EXISTS (SELECT 1 FROM clerk_password_cutoffs WHERE subject = ?5 AND changed_at > ?4) ' +
+          'AND NOT EXISTS (SELECT 1 FROM clerk_revocations WHERE subject = ?5 ' +
+          'AND (terminal = 1 OR (revoked_at > 0 AND revoked_at >= allowed_at)))'
       )
       .bind(await sha256(token), userId, now + SESSION_SECONDS * 1000, proof.authAt, proof.clerkSubject),
     // Sign-in is the one write a session costs, so it also sweeps this user's expired ones.

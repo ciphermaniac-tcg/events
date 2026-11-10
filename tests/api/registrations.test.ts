@@ -49,16 +49,75 @@ async function casualEvent() {
 }
 
 test('names find the players named like them, a slip away included', async () => {
-  const { code } = await casualEvent();
-  await register(code, { firstName: 'Avery', lastName: 'Chen' });
+  const { owner, code } = await casualEvent();
+  const first = await register(code, { firstName: 'Avery', lastName: 'Chen' });
   await register(code, { firstName: 'Alex', lastName: 'Kim' });
   await register(code, { firstName: 'Alexa', lastName: 'Kim' });
   const slip = await lookUp(code, 'firstName=Avry&lastName=Chen');
-  assert.deepEqual(slip.json.matches, [{ firstName: 'Avery', lastName: 'Chen' }]);
+  assert.deepEqual(
+    slip.json.matches,
+    [{ firstName: 'Avery', lastName: 'C.', sameName: false, sameSurname: true }],
+    'names as the public page shows them, saying how the typed name differs'
+  );
   assert.equal(slip.json.known, false, 'the names typed are nobody’s registration yet');
+  const exact = await lookUp(code, 'firstName=Avery&lastName=Chen');
+  assert.deepEqual(exact.json.matches, [{ firstName: 'Avery', lastName: 'C.', sameName: true, sameSurname: true }]);
+  // A picked near match registers under the surname typed, never the shortened one it showed.
+  const picked = { firstName: slip.json.matches[0].firstName, lastName: 'Chen' };
+  assert.deepEqual(picked, { firstName: 'Avery', lastName: 'Chen' });
+  const sent = await register(code, picked, { was: picked, token: first.json.token });
+  assert.equal(sent.status, 200);
+  const roster = await rosterOf(code, owner);
+  assert.deepEqual(
+    roster.filter(player => player.firstName === 'Avery').map(player => player.lastName),
+    ['Chen'],
+    'no registration under the shortened surname'
+  );
   const two = await lookUp(code, 'firstName=Alex&lastName=Kim');
   assert.equal(two.json.matches.length, 2);
   assert.equal(two.json.known, true);
+});
+
+test('a lookup refuses names longer than any player may have', async () => {
+  const { code } = await casualEvent();
+  const long = 'a'.repeat(201);
+  assert.equal((await lookUp(code, `firstName=${long}&lastName=Chen`)).status, 400);
+  assert.equal((await lookUp(code, `firstName=Avery&lastName=${long}`)).status, 400);
+});
+
+test('a repeated list under a full name the roster holds twice adds no player', async () => {
+  const { owner, code } = await casualEvent();
+  const shared = { firstName: 'Sam', lastName: 'Lee' };
+  for (const id of ['900', '901']) {
+    assert.equal((await send(code, owner, { type: 'addPlayer', player: { ...shared, id } })).status, 200);
+  }
+  const first = await register(code, shared);
+  assert.deepEqual([first.status, first.json.registration], [200, 'not-added']);
+  for (let i = 0; i < 2; i += 1) {
+    const sent = await register(code, shared, { token: first.json.token });
+    assert.deepEqual([sent.status, sent.json.registration], [200, 'not-added']);
+  }
+  assert.equal((await rosterOf(code, owner)).length, 2, 'repeated lists add no player for the shared name');
+});
+
+test('a distinct new name is still added, and an existing unambiguous name updates its list', async () => {
+  const { owner, code } = await casualEvent();
+  const grace = { firstName: 'Grace', lastName: 'Hopper' };
+  assert.equal((await send(code, owner, { type: 'addPlayer', player: { ...grace, id: '900' } })).status, 200);
+  const first = await register(code, grace);
+  assert.deepEqual([first.status, first.json.registration], [200, 'matched']);
+  const changed = await register(code, grace, { token: first.json.token, deck: '60 Basic {G} Energy SVE 1' });
+  assert.deepEqual([changed.status, changed.json.registration], [200, 'matched']);
+  const lists = await hit(decklists.onRequestGet as Handler, '/decklists', at(code), { cookie: owner });
+  assert.equal(lists.json.decklists[0].deck, '60 Basic {G} Energy SVE 1', 'the existing registration’s list changed');
+
+  const added = await register(code, { firstName: 'Ada', lastName: 'Byron' });
+  assert.deepEqual([added.status, added.json.registration], [200, 'added']);
+  assert.deepEqual(
+    (await rosterOf(code, owner)).map(player => player.firstName),
+    ['Grace', 'Ada'],
+    'a name the roster does not hold is still added'
+  );
 });
 
 test('only the device that owns an unsanctioned registration renames or withdraws it', async () => {

@@ -69,8 +69,9 @@ export function PrivacyPage() {
 
         <h2 class='tm-subhead'>Your control over your information</h2>
         <p>
-          You can download everything we hold about you at any time, from the <A href='/settings'>My Data</A> page, as a
-          readable text file. You may also delete any part of your information, or all of it, at any time.
+          You can download everything we hold about you at any time, from the{' '}
+          <A href='/settings?section=data'>My Data</A> page, as a readable text file. You may also delete any part of
+          your information, or all of it, at any time.
         </p>
         <p>
           Tournaments are shared records. If you delete your account, the pairings and standings of events you played in

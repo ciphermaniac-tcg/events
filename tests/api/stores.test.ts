@@ -38,6 +38,7 @@ import { type MainSiteData, serveMainSiteData } from '../__utils__/mainSiteData.
 import { STORES_INDEX_KEY } from '../../shared/events/stores.ts';
 import { parseTdf } from '../../shared/tournament/tdf.ts';
 import { apiCalls, type Handler } from '../__utils__/apiCalls.ts';
+import { resetRateLimiters } from '../../functions/lib/api/rateLimiter.ts';
 import { at, eventCalls } from '../__utils__/eventCalls.ts';
 import { racing, sqliteD1 } from '../__utils__/sqliteD1.ts';
 import { publishStores } from '../../functions/lib/stores/publish.ts';
@@ -656,6 +657,29 @@ test('a store says what it is to anyone, its contact details to its people, and 
   const inside = await hit(storeRoute.onRequestGet as Handler, `/api/stores/${store}`, at, { cookie: helper });
   assert.deepEqual([inside.json.role, inside.json.contact.phone], ['staff', '210-555-0100']);
   assert.equal((await hit(storeRoute.onRequestGet as Handler, '/api/stores/nope', { id: 'nope' })).status, 404);
+});
+
+test('anonymous store reads are limited per address, while signed-in readers are not', async () => {
+  resetRateLimiters();
+  const { manager, store } = await staffedStore();
+  const path = `/api/stores/${store}`;
+  const address = '192.0.2.60';
+  for (let i = 0; i < 600; i += 1) {
+    const read = await hit(storeRoute.onRequestGet as Handler, path, { id: store }, { address });
+    assert.equal(read.status, 200, `read ${i + 1}`);
+  }
+  const limited = await hit(storeRoute.onRequestGet as Handler, path, { id: store }, { address });
+  assert.equal(limited.status, 429);
+  assert.equal(
+    (await hit(storeRoute.onRequestGet as Handler, path, { id: store }, { address: '192.0.2.61' })).status,
+    200,
+    'another address has its own room'
+  );
+  assert.equal(
+    (await hit(storeRoute.onRequestGet as Handler, path, { id: store }, { cookie: manager })).status,
+    200,
+    'a signed-in reader keeps the route'
+  );
 });
 
 test('a store lists its ended events latest first, with players and winners named as their public pages name them', async () => {

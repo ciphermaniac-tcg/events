@@ -19,7 +19,6 @@
 import { createEffect, createMemo, createSignal, For, type JSX, Match, on, Show, Switch } from 'solid-js';
 import { mayBeUnder13 } from '../../../shared/accounts/age';
 import { type DeckSection, parseDecklist } from '../../../shared/tournament/decklist';
-import { fullNameKey } from '../../../shared/tournament/identify';
 import { isPopId, type PlayerProfile, profileErrors } from '../../../shared/tournament/profile';
 import type { Decklist, DeckMode, NamedPlayer } from '../../../shared/tournament/view';
 import {
@@ -148,11 +147,11 @@ function createRegistration(props: RegistrationProps) {
     }
     const near = found.matches ?? [];
     // Only the name exactly as typed opens straight away: a slip from it may be someone else's registration.
-    const same = near.length === 1 && near.find(player => fullNameKey(player) === fullNameKey(profile()));
+    const same = near.length === 1 ? near.find(player => player.sameName) : undefined;
     if (found.mine) {
       open(found.mine, found.mine);
     } else if (same) {
-      open(same, null);
+      open({ firstName: same.firstName, lastName: profile().lastName }, null);
     } else if (near.length > 0) {
       setMatches(near);
       setStep('pick');
@@ -283,7 +282,20 @@ function createRegistration(props: RegistrationProps) {
     full: () => step() === 'new' && (props.full || refusedFull()),
     look,
     prove,
-    pick: (player: NamedPlayer | null) => (player ? open(player, null) : startNew(profile())),
+    pick: (player: NamedPlayer | null) => {
+      if (!player) {
+        startNew(profile());
+        return;
+      }
+      // The looked-up surname is shortened, so only a match whose surname is the one typed may open it.
+      if (player.sameSurname) {
+        open({ firstName: player.firstName, lastName: profile().lastName }, null);
+        return;
+      }
+      // Back to the name fields with the typed names kept, so the surname can be corrected.
+      setStep('lookup');
+      setError(t('That last name isn’t this player’s'));
+    },
     save,
     withdraw,
     notYou,

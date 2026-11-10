@@ -48,6 +48,7 @@ test('reads every well-formed command', () => {
     { type: 'reportResult', pod: 'mixed', round: 1, table: 2, p1: '1', p2: '2', outcome: 'tie' },
     { type: 'swapPlayers', pod: 'mixed', a: '1', b: '2' },
     { type: 'startTopCut', pod: 'masters', size: 8 },
+    { type: 'startTopCut', pod: 'masters', size: 512 },
     { type: 'startTopCut', pod: 'mixed', size: 4, division: 'junior' },
     { type: 'updateInfo', info: { name: 'Cup', roundTime: 50 } }
   ];
@@ -68,6 +69,8 @@ test('refuses malformed commands', () => {
     { type: 'reportResult', pod: 'mixed', round: 1, table: 1, p1: '1', p2: null, outcome: 'bye' },
     { type: 'reportResult', pod: 'mixed', round: 1, table: 1, p1: '1', outcome: 'p1' },
     { type: 'startTopCut', pod: 'mixed', size: 4, division: 'toddler' },
+    { type: 'startTopCut', pod: 'masters', size: 513 },
+    { type: 'startTopCut', pod: 'masters', size: -1 },
     { type: 'adjustClock', pod: 'mixed', seconds: 1.5 },
     { type: 'updateInfo', info: { organizerPopId: '1' } },
     { type: 'updateInfo', info: { roundTime: '50' } },

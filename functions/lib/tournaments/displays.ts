@@ -7,10 +7,12 @@
  */
 
 import type { DisplayPreset, DisplaySelection } from '../../../shared/tournament/display.js';
+import { msg } from '../../../shared/i18n.js';
 import type { Context } from '../auth/env.js';
+import { type Guard } from '../d1.js';
 import type { D1Like } from '../types.js';
 import { publishAfter } from './publish.js';
-import { type Change, changesNothing, fromRaw, mutate, type RawRow } from './store.js';
+import { type Change, changesNothing, fromRaw, mutateHeld, type RawRow } from './store.js';
 
 const holding = (storeId: string, preset: DisplayPreset): Change => {
   const display: DisplaySelection = { ...preset, storeId };
@@ -25,11 +27,16 @@ const holding = (storeId: string, preset: DisplayPreset): Change => {
   };
 };
 
+export interface Followed {
+  db: D1Like;
+  storeId: string;
+  preset: DisplayPreset;
+  stand: Guard;
+}
+
 export async function followPreset(
   context: Pick<Context, 'env' | 'waitUntil'>,
-  db: D1Like,
-  storeId: string,
-  preset: DisplayPreset
+  { db, storeId, preset, stand }: Followed
 ): Promise<void> {
   const { results } = await db
     .prepare(
@@ -39,9 +46,10 @@ export async function followPreset(
     .bind(storeId, preset.id)
     .all<RawRow>();
   const change = holding(storeId, preset);
+  const held = { standing: stand, refusal: { error: msg('Only this store’s managers can do that'), status: 403 } };
   await Promise.all(
     results.map(fromRaw).map(async row => {
-      const outcome = await mutate(db, row, change);
+      const outcome = await mutateHeld(db, row, change, held);
       if ('row' in outcome && outcome.row.version !== row.version) {
         await publishAfter(context, outcome.row);
       }

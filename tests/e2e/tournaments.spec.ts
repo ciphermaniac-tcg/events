@@ -390,6 +390,28 @@ test('a result coming in redraws its own table, and leaves the search and the ot
   await expect(page.locator('.tm-matches tbody tr:not(.tm-group-row)[data-kept]')).toHaveCount(3);
 });
 
+test('a result at another table leaves an open Report result and what was typed in it', async ({ page }) => {
+  const settings = { ...VIEW.settings, playerReporting: true };
+  let view: TournamentView = { ...VIEW, settings };
+  await mockApi(page, view);
+  await publish(page, () => view);
+  await page.goto(`/t/${CODE}`);
+  // Radia Perlman is at table 3; the result comes in at table 1.
+  await page.getByLabel('Last name', { exact: true }).fill('Perlman');
+  await page.getByRole('button', { name: 'Find my match' }).click();
+  await page.getByRole('button', { name: 'Show table' }).click();
+  await page.getByRole('button', { name: 'Report result' }).click();
+  const id = page.getByLabel('Player ID', { exact: true });
+  await id.fill('12345');
+  view = { ...afterOneResult(), settings };
+  await announce(page, view.version);
+  await expect(page.locator('.tm-matches tbody tr:not(.tm-group-row)').filter({ hasText: 'In progress' })).toHaveCount(
+    1
+  );
+  await expect(page.getByRole('button', { name: 'Confirm reporting player' })).toBeVisible();
+  await expect(id).toHaveValue('12345');
+});
+
 test('a result coming in re-ranks the standings in place', async ({ page }) => {
   let view = VIEW;
   await mockApi(page);
@@ -439,7 +461,7 @@ test('signing in from an event page comes back to that event', async ({ page }) 
   await mockApi(page);
   await page.goto(`/t/${CODE}?tab=standings`);
   await page.locator('.site-head').getByRole('link', { name: 'Sign in' }).click();
-  await expect(page).toHaveURL(new RegExp(`/settings\\?next=%2Ft%2F${CODE}%3Ftab%3Dstandings$`));
+  await expect(page).toHaveURL(new RegExp(`/sign-in\\?next=%2Ft%2F${CODE}%3Ftab%3Dstandings$`));
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Sign in');
   await expect(page).toHaveTitle('Sign in — Ciphermaniac Events');
   await expect(page.getByRole('link', { name: 'Sign in with Google' })).toHaveAttribute(
@@ -465,9 +487,9 @@ test('a signed-out organizer is offered sign-in, not a console @mobile', async (
   const screen = page.locator('.tm-hs');
   await expect(screen.locator('.tm-hs-tables li')).toHaveCount(6);
   await expect(screen.locator('.tm-hs-status')).toContainText('Round 1 of 5');
-  // The head's Sign in jumps to the hero's sign-in, every time it is pressed.
-  await page.getByRole('link', { name: 'Sign in', exact: true }).click();
-  await expect(page).toHaveURL(/#sign-in$/);
+  // The head's Sign in opens the sign-in page, which comes back home.
+  await page.locator('.site-head-signin').click();
+  await expect(page).toHaveURL(/\/sign-in\?next=%2F$/);
   const google = page.getByRole('link', { name: 'Sign in with Google' }).first();
   await expect(google).toHaveAttribute('href', '/api/auth/login/google?next=%2F');
   await expect(page.getByRole('link', { name: 'Sign in with Discord' }).first()).toBeVisible();
@@ -513,6 +535,14 @@ async function mockOrganizer(page: Page) {
   });
   return submissions;
 }
+
+test('the sign-in page sends someone already signed in on to where they came from', async ({ page }) => {
+  await mockOrganizer(page);
+  await page.goto('/sign-in?next=%2Fsettings');
+  await expect(page).toHaveURL(/\/settings$/);
+  await page.goto('/sign-in?next=%2Fsign-in');
+  await expect(page).toHaveURL(/:\d+\/$/);
+});
 
 test('sanctioned setup requires Play! Tools confirmation; local setup skips it @mobile', async ({ page }) => {
   const submissions = await mockOrganizer(page);
@@ -2445,6 +2475,57 @@ test('an open list leads the player sheet as cards, as rows, and one card large 
   await expect(peek).toBeHidden();
   await expect(sheet).toBeVisible();
   await expect(sheet.locator('.tm-open-row').first()).toBeFocused();
+});
+
+test('a sheet whose open list is still loading puts focus on Close once it shows', async ({ page }) => {
+  await mockApi(page, { ...VIEW, settings: { ...VIEW.settings, decklists: 'open' } });
+  await page.route(`**/api/tournaments/${CODE}/lists?*`, route =>
+    route.fulfill({ json: { list: { mode: 'paper', deck: '' } } })
+  );
+  const held = deferred<void>();
+  await page.route(`**/${chunkOf('src/pages/tournaments/OpenList.tsx')}`, async route => {
+    await held.promise;
+    await route.continue();
+  });
+  await page.goto(`/t/${CODE}`);
+  await page
+    .locator('.tm-matches')
+    .getByRole('button', { name: /Hedy Lamarr/ })
+    .first()
+    .click();
+  held.resolve();
+  const sheet = page.getByRole('dialog');
+  await expect(sheet).toContainText('Handed in on paper.');
+  await expect(sheet.getByRole('button', { name: 'Close' })).toBeFocused();
+});
+
+test('a result at another table leaves an open list as it is, asked for once', async ({ page }) => {
+  let view: TournamentView = { ...VIEW, settings: { ...VIEW.settings, decklists: 'open' } };
+  await mockApi(page, view);
+  await publish(page, () => view);
+  let asked = 0;
+  await page.route(`**/api/tournaments/${CODE}/lists?*`, route => {
+    asked += 1;
+    return route.fulfill({ json: { list: { mode: 'paper', deck: '' } } });
+  });
+  await page.goto(`/t/${CODE}`);
+  await page
+    .locator('.tm-matches')
+    .getByRole('button', { name: /Hedy Lamarr/ })
+    .first()
+    .click();
+  const sheet = page.getByRole('dialog');
+  await expect(sheet).toContainText('Handed in on paper.');
+  view = { ...afterOneResult(), settings: view.settings };
+  await announce(page, view.version);
+  await expect(page.locator('.tm-matches tbody tr:not(.tm-group-row)').filter({ hasText: 'In progress' })).toHaveCount(
+    1
+  );
+  view = { ...view, version: view.version + 1, settings: { ...view.settings, details: 'Doors at noon' } };
+  await announce(page, view.version);
+  await expect(page.locator('.tm-details')).toHaveText('Doors at noon');
+  await expect(sheet).toContainText('Handed in on paper.');
+  expect(asked).toBe(1);
 });
 
 test('on a phone held sideways one card large shows whole, with its name and Close', async ({ page }) => {

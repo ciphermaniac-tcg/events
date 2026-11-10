@@ -129,7 +129,7 @@ const QUERIED: Queried[] = [
     heading: eventName,
     sql:
       `SELECT ${EVENT}, x.code, x.pop_id, x.first_name, x.last_name, x.birth_date, x.archetype, x.submitted_at, ` +
-      "x.deck FROM decklists x WHERE x.account = ?1 OR x.user_id = 'pop:' || (SELECT pop_id FROM users WHERE id = ?1) " +
+      'x.deck FROM decklists x WHERE x.account = ?1 ' +
       'ORDER BY x.submitted_at'
   },
   {
@@ -173,7 +173,7 @@ const QUERIED: Queried[] = [
       "json_extract(x.state, '$.info.startDate') AS start_date, " +
       "CASE WHEN x.code IN (SELECT code FROM staff WHERE user_id = ?1) THEN 'staff' ELSE 'organizer' END AS role, " +
       'x.created_at FROM tournaments x WHERE x.owner_id = ?1 OR x.code IN (SELECT code FROM staff WHERE user_id = ?1) ' +
-      "OR json_extract(x.state, '$.info.organizerPopId') = (SELECT pop_id FROM users WHERE id = ?1) ORDER BY x.created_at"
+      'ORDER BY x.created_at'
   },
   {
     title: 'Badges granted to you',

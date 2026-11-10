@@ -19,6 +19,12 @@ export interface XmlElement {
 
 const ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" };
 
+/** A numeric reference as text, or the reference itself when it names no character. */
+function numericReference(whole: string, value: number): string {
+  const scalar = Number.isInteger(value) && value >= 0 && value <= 0x10ffff && !(value >= 0xd800 && value <= 0xdfff);
+  return scalar ? String.fromCodePoint(value) : whole;
+}
+
 /** `&amp;` and friends, and numeric references, back to the characters they stand for. */
 export function decodeEntities(value: string): string {
   if (!value.includes('&')) {
@@ -26,10 +32,10 @@ export function decodeEntities(value: string): string {
   }
   return value.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (whole, ref: string) => {
     if (ref.startsWith('#x') || ref.startsWith('#X')) {
-      return String.fromCodePoint(Number.parseInt(ref.slice(2), 16));
+      return numericReference(whole, Number.parseInt(ref.slice(2), 16));
     }
     if (ref.startsWith('#')) {
-      return String.fromCodePoint(Number.parseInt(ref.slice(1), 10));
+      return numericReference(whole, Number.parseInt(ref.slice(1), 10));
     }
     return ENTITIES[ref.toLowerCase()] ?? whole;
   });

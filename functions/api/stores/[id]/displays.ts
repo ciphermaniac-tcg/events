@@ -32,7 +32,12 @@ export async function onRequestPut(context: Context<'id'>): Promise<Response> {
   }
   // An edit reaches the screens of the store's events still running it; a new preset is on none yet.
   if (id !== undefined) {
-    await followPreset(context, access.db, access.store.id, preset);
+    await followPreset(context, {
+      db: access.db,
+      storeId: access.store.id,
+      preset,
+      stand: access.guard('manager')
+    });
   }
   return privateJson({ preset });
 }

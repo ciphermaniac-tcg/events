@@ -23,6 +23,7 @@ SELECT id, player_id, round, judge_id, penalty, recorded_by, removed FROM penalt
 SELECT code, id, version, pod, round, table_no, approved_by, role, alone, during FROM result_corrections WHERE 0;
 SELECT session_id, used_at FROM clerk_sessions_used WHERE 0;
 SELECT subject, changed_at FROM clerk_password_cutoffs WHERE 0;
+SELECT subject, revoked_at, allowed_at, terminal FROM clerk_revocations WHERE 0;
 SELECT auth_at FROM sessions WHERE 0;
 SELECT token_hash, subject, code_hash, attempts, expires_at, claimed_at FROM password_resets WHERE 0;
 SELECT at FROM reset_reservations INDEXED BY reset_reservations_by_key WHERE scope = '' AND key = '' LIMIT 0;

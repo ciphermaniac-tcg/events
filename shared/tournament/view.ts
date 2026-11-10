@@ -626,6 +626,9 @@ export interface Decklist extends PlayerProfile {
 export interface NamedPlayer {
   firstName: string;
   lastName: string;
+  /** Whether the typed full name is this player's, and whether the typed surname is this player's. */
+  sameName?: boolean;
+  sameSurname?: boolean;
 }
 
 /**

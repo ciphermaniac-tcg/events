@@ -7,7 +7,8 @@ import {
   onCleanup,
   onMount,
   Show,
-  Switch
+  Switch,
+  untrack
 } from 'solid-js';
 import { PASSWORD_MIN } from '../../../shared/accounts/clerk';
 import { t, tx } from '../../lib/i18n';
@@ -20,12 +21,22 @@ type ClerkClient = Awaited<ReturnType<typeof clerkClient>>;
 
 /** What the form asks for before Clerk has answered: sign in, make an account, or reset a password. */
 type Mode = 'in' | 'up' | 'forgot';
+
+type Draft = Record<'username' | 'email' | 'password' | 'code', string>;
+/**
+ * The form on a page of its own, signing in or making an account (`making`):
+ * the way to the other leaves for the other's page (`swap`), taking the
+ * username and email along, and the form there starts with them (`kept`).
+ */
+export interface FormPage {
+  making: boolean;
+  kept?: Draft;
+  swap: (mode: 'in' | 'up', kept: Draft) => void;
+}
 /** What Clerk answered that still needs the person: a code, an email to add, or a reset. */
 type Pending = Exclude<Step, { kind: 'done' }>;
 type PendingOf<K extends Pending['kind']> = Extract<Pending, { kind: K }>;
 type Action<T> = (clerk: ClerkClient, publishableKey: string) => Promise<T>;
-
-type Draft = Record<'username' | 'email' | 'password' | 'code', string>;
 
 /** How each part of the form reaches the flow: what was typed, the problem to show, and the way to act. */
 interface Flow {
@@ -40,6 +51,8 @@ interface Flow {
   resend: (send: () => Promise<void>) => Promise<boolean>;
   /** Back to the username and password, or to `mode`. */
   restart: (mode?: Mode) => void;
+  /** Between signing in and making an account: in place, or to the other's page if it has one. */
+  swap: (mode: 'in' | 'up') => void;
   /** Starts loading Clerk, when the form first takes focus. */
   warm: () => void;
   /** Whether the first field takes focus when it shows. */
@@ -183,7 +196,7 @@ function Credentials(props: { flow: Flow; mode: 'in' | 'up' }) {
       onSubmit={submit}
       acts={
         <>
-          <Swap flow={props.flow} onClick={() => props.flow.restart(making() ? 'in' : 'up')}>
+          <Swap flow={props.flow} onClick={() => props.flow.swap(making() ? 'in' : 'up')}>
             {making() ? t('I have an account') : t('Create an account')}
           </Swap>
           <Show when={!making() || props.flow.problem()?.emailTaken}>
@@ -241,7 +254,7 @@ function Forgot(props: { flow: Flow }) {
         props.flow.run((clerk, key) => clerk.passwordReset(key, identifier));
       }}
       acts={
-        <Swap flow={props.flow} onClick={() => props.flow.restart('in')}>
+        <Swap flow={props.flow} onClick={() => props.flow.swap('in')}>
           {t('Back to sign in')}
         </Swap>
       }
@@ -391,13 +404,16 @@ function StepParts(props: { flow: Flow; step: Pending }) {
  * Clerk emails, ending at the page that asked (`next`). Clerk starts loading
  * when the form first takes focus.
  */
-export function UsernameForm(props: { publishableKey: string; next: string; focus?: boolean }) {
-  const [mode, setMode] = createSignal<Mode>('in');
+export function UsernameForm(props: { publishableKey: string; next: string; focus?: boolean; page?: FormPage }) {
+  // The page the form starts on; its owner remakes it for the other page.
+  const [mode, setMode] = createSignal<Mode>(untrack(() => props.page?.making) ? 'up' : 'in');
   const [step, setStep] = createSignal<Pending | null>(null);
   const [problem, setProblem] = createSignal<Refusal | null>(null);
   const [busy, setBusy] = createSignal(false);
   const [moved, setMoved] = createSignal(false);
-  const [draft, setDraft] = createSignal<Draft>({ username: '', email: '', password: '', code: '' });
+  const [draft, setDraft] = createSignal<Draft>(
+    untrack(() => props.page?.kept) ?? { username: '', email: '', password: '', code: '' }
+  );
   const setField = (name: keyof Draft, value: string) => setDraft(typed => ({ ...typed, [name]: value }));
   let warmed = false;
   function warm() {
@@ -474,6 +490,11 @@ export function UsernameForm(props: { publishableKey: string; next: string; focu
     run: action => void run(action),
     resend,
     restart,
+    // To the other's page with what was typed but the password and code; on the page already, as back from a reset, in place.
+    swap: next =>
+      props.page?.making === (next === 'in')
+        ? props.page.swap(next, { ...draft(), code: '', password: '' })
+        : restart(next),
     warm,
     get focus() {
       return moved() || Boolean(props.focus);

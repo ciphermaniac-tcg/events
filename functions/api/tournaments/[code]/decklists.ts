@@ -43,7 +43,7 @@ import { isAdmin } from '../../../../shared/accounts/roles.js';
 import { archetypeOfList } from '../../../../shared/tournament/archetypes.js';
 import { decklistOpenFor, enteredLate } from '../../../../shared/tournament/lateLists.js';
 import { MAX_DECKLIST_CHARS, parseDecklist } from '../../../../shared/tournament/decklist.js';
-import { decklistMatcher, fullNameKey, similarlyNamed } from '../../../../shared/tournament/identify.js';
+import { decklistMatcher, fullNameKey, nameKey, similarlyNamed } from '../../../../shared/tournament/identify.js';
 import { mayBeMinor, mayBeUnder13 } from '../../../../shared/accounts/age.js';
 import { birthYear, yearOnlyBirthDate } from '../../../../shared/tournament/divisions.js';
 import { isPopId, type PlayerProfile, readProfile } from '../../../../shared/tournament/profile.js';
@@ -63,7 +63,15 @@ import { jsonError, noContent } from '../../../lib/api/responses.js';
 import { type Context, sameOrigin } from '../../../lib/auth/env.js';
 import { sha256 } from '../../../lib/auth/session.js';
 import { rowsChanged } from '../../../lib/d1.js';
-import { type Access, codeOf, open, openForStaff, privateJson, staffWrites } from '../../../lib/tournaments/access.js';
+import {
+  type Access,
+  codeOf,
+  open,
+  openForStaff,
+  privateJson,
+  publicViewOf,
+  staffWrites
+} from '../../../lib/tournaments/access.js';
 import { archetypeRules } from '../../../lib/tournaments/archetypeRules.js';
 import { admitTry, clearFailures, forgive, LOCKED_OUT } from '../../../lib/tournaments/attempts.js';
 import { publishAfter } from '../../../lib/tournaments/publish.js';
@@ -73,6 +81,7 @@ import {
   isFull,
   type Kept,
   keptChanges,
+  nameIsShared,
   provesId,
   rosterFull,
   rosterPlayer,
@@ -151,14 +160,23 @@ export function identityKey(profile: Pick<PlayerProfile, 'popId' | 'firstName' |
 
 type Details = Pick<PlayerProfile, 'popId' | 'firstName' | 'lastName'>;
 
-/** The details a player gave in a query string, when they say whose registration it is. */
-function detailsFrom(request: Request, sanctioned: boolean): Details | null {
+/** The longest name a lookup takes, matching what a stored roster may hold (shared/tournament/validate.ts). */
+const MAX_LOOKUP_NAME = 200;
+
+/**
+ * The details a player gave in a query string, when they say whose
+ * registration it is, or the refusal for names too long to be any player's.
+ */
+function detailsFrom(request: Request, sanctioned: boolean): Details | Response | null {
   const query = new URL(request.url).searchParams;
   const details = {
     popId: query.get('popId') ?? '',
     firstName: query.get('firstName') ?? '',
     lastName: query.get('lastName') ?? ''
   };
+  if (details.firstName.length > MAX_LOOKUP_NAME || details.lastName.length > MAX_LOOKUP_NAME) {
+    return jsonError(msg('Check the player’s name'), 400);
+  }
   const complete = sanctioned ? isPopId(details.popId) : Boolean(details.firstName && details.lastName);
   return complete ? details : null;
 }
@@ -319,10 +337,21 @@ async function byPlayerId(access: Access, request: Request, details: Details): P
 
 /** What names find at an unsanctioned event: the players named like them, and the asker's own list. */
 async function byName(access: Access, request: Request, details: Details): Promise<MyRegistration> {
-  const matches = similarlyNamed(access.row.tournament.players, details).map(({ firstName, lastName }) => ({
-    firstName,
-    lastName
-  }));
+  // Names as the event publishes them: a near miss must not show a surname the public page shortens.
+  const shown = new Map(publicViewOf(access.row).tournament.players.map(player => [player.id, player]));
+  const matches = similarlyNamed(access.row.tournament.players, details).flatMap(player => {
+    const visible = shown.get(access.row.keys[player.id] ?? player.id);
+    return visible
+      ? [
+          {
+            firstName: visible.firstName,
+            lastName: visible.lastName,
+            sameName: fullNameKey(player) === fullNameKey(details),
+            sameSurname: nameKey(player.lastName) === nameKey(details.lastName)
+          }
+        ]
+      : [];
+  });
   const listed = await listUnder(access, identityKey(details, false));
   const mine = await ownList(access, request, details, listed);
   return {
@@ -334,12 +363,18 @@ async function byName(access: Access, request: Request, details: Details): Promi
 
 async function playerAnswer(access: Access, request: Request): Promise<MyRegistration | Response> {
   const details = detailsFrom(request, isSanctioned(access.row));
+  if (details instanceof Response) {
+    return details;
+  }
   if (!details) {
     const mine = await tokenList(access, request);
     return { known: mine !== null, mine: mine && presenter(access.row)(fromRow(mine)) };
   }
   return isSanctioned(access.row) ? byPlayerId(access, request, details) : byName(access, request, details);
 }
+
+/** Anonymous sanctioned Player ID lookups share a room-sized allowance per event and address. */
+const profileLookupLimiter = createRateLimiter({ windowMs: 10 * 60 * 1000, maxRequests: 300 });
 
 export async function onRequestGet(context: Context<'code'>): Promise<Response> {
   const access = await open(context, { claim: true });
@@ -353,6 +388,14 @@ export async function onRequestGet(context: Context<'code'>): Promise<Response> 
       .all<DecklistRow>();
     const present = presenter(access.row);
     return privateJson({ decklists: results.map(row => present(fromRow(row))), mine: null });
+  }
+  if (
+    !access.user &&
+    isSanctioned(access.row) &&
+    isPopId(new URL(context.request.url).searchParams.get('popId') ?? '') &&
+    !profileLookupLimiter.allows(`${access.row.code}:${rateLimitAddress(context.request)}`)
+  ) {
+    return jsonError(msg('Too many requests from here. Try again shortly.'), 429);
   }
   const answer = await playerAnswer(access, context.request);
   return answer instanceof Response ? answer : privateJson({ decklists: [], ...answer });
@@ -619,6 +662,10 @@ function addition(
   if (rosterPlayer(row, was ?? profile) !== undefined || rosterPlayer(row, profile) !== undefined) {
     return { registration: 'matched' };
   }
+  // At an unsanctioned event a shared full name is no one player's, so the submitter is not new.
+  if (!isSanctioned(row) && nameIsShared(row, profile)) {
+    return { registration: 'not-added' };
+  }
   if (row.mode !== 'swiss' || row.settings.finished) {
     return { registration: 'not-added' };
   }
@@ -864,6 +911,9 @@ export async function onRequestDelete(context: Context<'code'>): Promise<Respons
     return notTaking(access.row);
   }
   const details = detailsFrom(context.request, isSanctioned(access.row));
+  if (details instanceof Response) {
+    return details;
+  }
   if (!details) {
     return jsonError('Say whose registration to withdraw', 400);
   }
@@ -899,6 +949,9 @@ export async function onRequestPatch(context: Context<'code'>): Promise<Response
     return access;
   }
   const details = detailsFrom(context.request, isSanctioned(access.row));
+  if (details instanceof Response) {
+    return details;
+  }
   if (!details) {
     return jsonError('Say whose list to unlock', 400);
   }

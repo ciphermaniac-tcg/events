@@ -98,7 +98,7 @@ test('a signed-out cold load shows the home page only after the session is confi
   await expectLoading(page);
   session.resolve();
   await expect(page.locator('.tm-home')).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Sign in', exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Sign in', exact: true }).first()).toBeVisible();
   // The page's own primary leads; the head bar's way in stays bordered.
   await expect(page.locator('.site-head-signin')).toHaveClass(/btn-secondary/);
   await expect(page.locator('main .skeleton')).toHaveCount(0);

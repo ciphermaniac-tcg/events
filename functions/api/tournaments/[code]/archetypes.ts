@@ -12,10 +12,11 @@ import { archetypeOfList } from '../../../../shared/tournament/archetypes.js';
 import { decksEnabled } from '../../../../shared/tournament/view.js';
 import { jsonError } from '../../../lib/api/responses.js';
 import type { Context } from '../../../lib/auth/env.js';
-import { changeEvent, openForStaff } from '../../../lib/tournaments/access.js';
+import { askerOf, changeEvent, openForStaff } from '../../../lib/tournaments/access.js';
 import { answerStaff } from '../../../lib/tournaments/answers.js';
 import { archetypeRules } from '../../../lib/tournaments/archetypeRules.js';
 import { inferredFrom } from '../../../lib/tournaments/registrations.js';
+import { askerStands } from '../../../lib/tournaments/roles.js';
 import { changesNothing } from '../../../lib/tournaments/store.js';
 import { msg } from '../../../../shared/i18n.js';
 
@@ -64,12 +65,14 @@ export async function onRequestPost(context: Context<'code'>): Promise<Response>
     return changesNothing(row, row.inferredDecks, inferredDecks) ? {} : { inferredDecks };
   });
   if (!('error' in outcome) && renamed.length) {
-    // Each only while its list is still the one read, so a list replaced meanwhile keeps the name it came in with.
+    // Each only while its list is still the one read and the asker is still staff,
+    // so a list replaced meanwhile keeps its name and a removed staffer writes nothing.
+    const guard = askerStands(access.row.code, askerOf(access));
     await access.db.batch(
       renamed.map(({ list, archetype }) =>
         access.db
-          .prepare('UPDATE decklists SET archetype = ? WHERE code = ? AND user_id = ? AND deck = ?')
-          .bind(archetype, access.row.code, list.user_id, list.deck)
+          .prepare(`UPDATE decklists SET archetype = ? WHERE code = ? AND user_id = ? AND deck = ? AND ${guard.sql}`)
+          .bind(archetype, access.row.code, list.user_id, list.deck, ...guard.values)
       )
     );
   }

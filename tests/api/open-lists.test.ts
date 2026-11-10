@@ -10,6 +10,7 @@ import * as checkins from '../../functions/api/tournaments/[code]/checkins.ts';
 import * as decklists from '../../functions/api/tournaments/[code]/decklists.ts';
 import * as event from '../../functions/api/tournaments/[code]/index.ts';
 import * as lists from '../../functions/api/tournaments/[code]/lists.ts';
+import { resetRateLimiters } from '../../functions/lib/api/rateLimiter.ts';
 import { apiSuite, type Handler } from '../__utils__/apiCalls.ts';
 import { at, eventCalls } from '../__utils__/eventCalls.ts';
 import { sqliteD1 } from '../__utils__/sqliteD1.ts';
@@ -77,7 +78,7 @@ test('open lists are read by public key once round 1 is paired', async () => {
   const pasted = await read(code, nia);
   assert.equal(pasted.status, 200);
   assert.deepEqual(pasted.json.list, { mode: 'digital', deck: DECK });
-  assert.equal(pasted.headers.get('Cache-Control'), 'public, max-age=60');
+  assert.equal(pasted.headers.get('Cache-Control'), 'no-store');
   assert.deepEqual((await read(code, await keyOf(code, 'Omar'))).json.list, { mode: 'paper', deck: '' });
 });
 
@@ -96,6 +97,29 @@ test('a player with no list reads as none, and a key the event lacks as no playe
   }
 });
 
+test('anonymous list reads are limited per address, while signed-in readers are not', async () => {
+  resetRateLimiters();
+  const { owner, code } = await eventWithLists(true);
+  await pair(code, owner);
+  const address = '192.0.2.70';
+  for (let i = 0; i < 1200; i += 1) {
+    const read = await hit(lists.onRequestGet as Handler, '/lists', at(code), { address });
+    assert.equal(read.status, 200, `read ${i + 1}`);
+  }
+  const limited = await hit(lists.onRequestGet as Handler, '/lists', at(code), { address });
+  assert.equal(limited.status, 429);
+  assert.equal(
+    (await hit(lists.onRequestGet as Handler, '/lists', at(code), { address: '192.0.2.71' })).status,
+    200,
+    'another address has its own room'
+  );
+  assert.equal(
+    (await hit(lists.onRequestGet as Handler, '/lists', at(code), { cookie: owner })).status,
+    200,
+    'a signed-in reader keeps the route'
+  );
+});
+
 test('closed lists stay private after round 1', async () => {
   const { owner, code } = await eventWithLists(false);
   await pair(code, owner);
@@ -111,7 +135,7 @@ test('the event names whose pasted list can be read, once round 1 is paired, and
   const answer = await readers(code);
   assert.equal(answer.status, 200);
   assert.deepEqual(answer.json, { players: [await keyOf(code, 'Nia')] }, 'Omar’s is on paper');
-  assert.equal(answer.headers.get('Cache-Control'), 'public, max-age=60');
+  assert.equal(answer.headers.get('Cache-Control'), 'no-store');
   (env.TOURNAMENT_DB as ReturnType<typeof sqliteD1>).raw
     .prepare("UPDATE decklists SET deck = '' WHERE code = ? AND pop_id = ?")
     .run(code, NIA.popId);

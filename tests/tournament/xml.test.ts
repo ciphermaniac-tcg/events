@@ -9,3 +9,10 @@ test('TOM escapes apostrophes along with the other XML delimiters in fictional n
   assert.equal(encodeEntities(name), escaped);
   assert.equal(decodeEntities(escaped), name);
 });
+
+test('a numeric reference outside Unicode is left as text rather than thrown', () => {
+  for (const reference of ['&#x110000;', '&#999999999;', '&#xD800;']) {
+    assert.equal(decodeEntities(reference), reference);
+  }
+  assert.equal(decodeEntities('&#x1F600;'), '😀');
+});

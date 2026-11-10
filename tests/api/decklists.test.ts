@@ -8,7 +8,7 @@
  */
 
 import assert from 'node:assert/strict';
-import { beforeEach, test } from 'node:test';
+import { afterEach, beforeEach, mock, test } from 'node:test';
 
 import * as me from '../../functions/api/me.ts';
 import * as deckChecks from '../../functions/api/tournaments/[code]/deck-checks.ts';
@@ -30,6 +30,10 @@ beforeEach(() => {
   db = sqliteD1('tournaments.sql');
   env = { TOURNAMENT_DB: db, DEV_LOGIN: 'true' };
   resetRateLimiters();
+});
+
+afterEach(() => {
+  mock.timers.reset();
 });
 
 const PROFILE = { popId: '4242', firstName: 'Nia', lastName: 'Okafor', birthDate: '02/27/2001' };
@@ -303,4 +307,127 @@ test('site admins can read submitted lists without joining event staff', async (
   const outsider = await signIn('Spectator');
   const hidden = await hit(decklists.onRequestGet as Handler, '/decklists', at(code), { cookie: outsider });
   assert.deepEqual(hidden.json.decklists, []);
+});
+
+const lookup = (code: string, query = 'popId=4242', address?: string, cookie?: string) =>
+  hit(decklists.onRequestGet as Handler, `/decklists?${query}`, at(code), { address, cookie });
+
+/** The client always sends all three identity fields, including an empty Player ID for name lookups. */
+const clientQuery = (popId = '', proof: Record<string, string> = {}) =>
+  new URLSearchParams({ popId, firstName: PROFILE.firstName, lastName: PROFILE.lastName, ...proof }).toString();
+
+async function fillLookupAllowance(code: string, address?: string) {
+  for (let index = 0; index < 300; index++) {
+    const read = await lookup(code, clientQuery(String(4242 + index)), address);
+    assert.equal(read.status, 200, `lookup ${index + 1}`);
+    assert.equal(read.headers.get('cache-control'), 'no-store');
+    assert.equal(read.headers.get('access-control-allow-origin'), null);
+    assert.equal(read.json.mine, null, 'a lookup alone reveals no private list');
+  }
+}
+
+test('anonymous sanctioned lookups allow 300 per event/address, then refuse until expiry', async () => {
+  const { code, owner } = await eventWithList();
+  const other = await newSwiss(owner);
+  mock.timers.enable({ apis: ['Date'], now: Date.now() });
+  await fillLookupAllowance(code, '192.0.2.1');
+  const refused = await lookup(code, clientQuery('9998', { birthYear: '1990' }), '192.0.2.1');
+  assert.equal(refused.status, 429);
+  assert.deepEqual(refused.json, {
+    error: 'Too many requests from here. Try again shortly.',
+    status: 429
+  });
+  assert.equal(refused.headers.get('cache-control'), 'no-store');
+  assert.equal(refused.headers.get('access-control-allow-origin'), null);
+  assert.equal(refused.headers.get('content-type'), 'application/json');
+  await fillLookupAllowance(other, '192.0.2.1');
+  await fillLookupAllowance(code, '192.0.2.2');
+  mock.timers.tick(10 * 60 * 1000 - 1);
+  assert.equal((await lookup(code, 'popId=4242', '192.0.2.1')).status, 429);
+  mock.timers.tick(2);
+  assert.equal((await lookup(code, 'popId=4242', '192.0.2.1')).status, 200);
+});
+
+test('anonymous lookup limits group IPv6 interfaces by network', async () => {
+  const { code } = await eventWithList();
+  for (let index = 1; index <= 300; index++) {
+    assert.equal((await lookup(code, 'popId=4242', `2001:db8:abcd:1234::${index}`)).status, 200);
+  }
+  assert.equal((await lookup(code, 'popId=4242', '2001:0db8:abcd:1234:0:0:0:301')).status, 429);
+  assert.equal((await lookup(code, 'popId=4242', '2001:db8:abcd:1235::1')).status, 200);
+});
+
+test('birth-year failures still lock the Player ID across addresses independently of lookup limits', async () => {
+  const { code } = await eventWithList();
+  for (let year = 1980; year < 1985; year++) {
+    assert.equal((await lookup(code, clientQuery('4242', { birthYear: String(year) }), '192.0.2.1')).status, 403);
+  }
+  for (const address of ['192.0.2.1', '192.0.2.2']) {
+    const locked = await lookup(code, clientQuery('4242', { birthYear: '2001' }), address);
+    assert.deepEqual([locked.status, locked.json.error], [429, 'Too many tries. Ask staff for help.']);
+    assert.equal((await lookup(code, clientQuery('900', { birthYear: '1990' }), address)).status, 200);
+    assert.equal((await lookup(code, clientQuery('4242'), address)).status, 200);
+  }
+});
+
+test('empty and absent Player IDs in real client queries do not consume sanctioned lookups', async () => {
+  const { code, token } = await eventWithList();
+  const queries = [
+    clientQuery(),
+    clientQuery('', { birthYear: '2001' }),
+    clientQuery('', { token }),
+    '',
+    'firstName=Nia&lastName=Okafor',
+    'popId=invalid'
+  ];
+  for (let index = 0; index < 30; index++) {
+    for (const query of queries) {
+      const read = await lookup(code, query);
+      assert.equal(read.status, 200);
+      assert.equal(read.headers.get('cache-control'), 'no-store');
+      if (query.includes('token=')) {
+        assert.equal(read.json.mine.deck, LIST.deck);
+      }
+    }
+  }
+  await fillLookupAllowance(code);
+  assert.equal((await lookup(code)).status, 429);
+  for (const query of queries) {
+    assert.equal((await lookup(code, query)).status, 200, 'excluded reads work even at the limit');
+  }
+});
+
+test('unsanctioned name lookups do not consume a sanctioned allowance even with a Player ID', async () => {
+  const { code, owner } = await eventWithList();
+  assert.equal((await settle(code, owner, { sanctioned: false })).status, 200);
+  for (let index = 0; index < 301; index++) {
+    for (const query of [clientQuery(), clientQuery('4242')]) {
+      assert.equal((await lookup(code, query)).status, 200);
+    }
+  }
+  assert.equal((await settle(code, owner, { sanctioned: true })).status, 200);
+  await fillLookupAllowance(code);
+  assert.equal((await lookup(code)).status, 429);
+});
+
+test('staff, admins and signed-in players do not consume anonymous lookup attempts', async () => {
+  const { code, owner } = await eventWithList();
+  const helper = await signIn('Helper');
+  await joinStaff(code, owner, helper);
+  const admin = await signIn('Admin', 'admin');
+  const player = await signIn('Player');
+  for (let index = 0; index < 6; index++) {
+    for (const cookie of [owner, helper, admin]) {
+      const read = await lookup(code, clientQuery('4242'), undefined, cookie);
+      assert.equal(read.status, 200);
+      assert.equal(read.json.decklists[0].deck, LIST.deck);
+    }
+    assert.equal((await lookup(code, clientQuery('4242'), undefined, player)).status, 200);
+  }
+  await fillLookupAllowance(code);
+  assert.equal((await lookup(code)).status, 429);
+  assert.equal((await lookup(code, clientQuery('4242'), undefined, player)).status, 200);
+  for (const cookie of [owner, helper, admin]) {
+    assert.equal((await lookup(code, clientQuery('4242'), undefined, cookie)).json.decklists.length, 1);
+  }
 });

@@ -4,7 +4,7 @@
  * lately, and the way to the demo.
  */
 
-import { expect, type Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
 import { test } from './network-guard';
 
 const RECENT = [
@@ -43,12 +43,71 @@ async function signedOutPaused(page: Page) {
 test('the home page plays a sample event on the big screen, a phone and a profile @mobile', async ({ page }) => {
   await signedOut(page);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Run an event');
-  await expect(page.locator('#sign-in').getByRole('link', { name: 'Sign in with Google' })).toBeVisible();
+  const door = page.locator('.tm-home-door').first();
+  await expect(door.getByRole('link', { name: 'Create an account' })).toHaveAttribute('href', '/create-account');
+  await expect(door.getByRole('link', { name: 'or sign in' })).toHaveAttribute('href', '/sign-in');
   const screen = page.locator('.tm-hs');
   await expect(screen.locator('.tm-hs-code')).toHaveText('K7RW2P');
   await expect(screen.locator('.tm-hs-tables li')).toHaveCount(6);
   await expect(page.locator('.tm-hp-you')).toContainText('Reese Lundquist');
   await expect(page.locator('.tm-hpr-name')).toContainText('@rosematcha');
+});
+
+/** Every way in the server can offer, on a page of its own. */
+async function signInOffered(page: Page) {
+  await page.route('**/api/me', route =>
+    route.fulfill({ json: { user: null, providers: ['google', 'discord', 'clerk'], clerkKey: 'pk_test_x' } })
+  );
+  await page.route('**/api/recent-events', route => route.fulfill({ json: { events: [] } }));
+  await page.goto('/');
+}
+
+/** The ways in from the top of the page down, as `ways` lists them. */
+async function inOrder(ways: Locator[]) {
+  const tops = await Promise.all(ways.map(async way => (await way.boundingBox())!.y));
+  expect(tops).toEqual([...tops].sort((a, b) => a - b));
+}
+
+test('the organizer’s door makes an account: the providers first, then username, email and password @mobile', async ({
+  page
+}) => {
+  await signInOffered(page);
+  await page.locator('.tm-home-door').first().getByRole('link', { name: 'Create an account' }).click();
+  await expect(page).toHaveURL(/\/create-account$/);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Create an account');
+  await expect(page).toHaveTitle('Create an account — Ciphermaniac Events');
+  const google = page.getByRole('link', { name: 'Sign up with Google' });
+  await expect(google).toHaveAttribute('href', '/api/auth/login/google?next=%2F');
+  const discord = page.getByRole('link', { name: 'Sign up with Discord' });
+  await inOrder([google, discord, page.getByLabel('Username'), page.getByLabel('Email'), page.getByLabel('Password')]);
+  await expect(page.getByRole('button', { name: 'Create account' })).toBeVisible();
+  // One column centred in the page, its controls at full size.
+  const column = (await page.locator('.tm-auth').boundingBox())!;
+  const main = (await page.locator('main').boundingBox())!;
+  expect(Math.abs(column.x + column.width / 2 - (main.x + main.width / 2))).toBeLessThan(1);
+  for (const control of [google, page.getByLabel('Username'), page.getByRole('button', { name: 'Create account' })]) {
+    expect(Math.round((await control.boundingBox())!.height)).toBe(48);
+  }
+  // Signing in instead is the sign-in page, still headed home.
+  await page.getByRole('button', { name: 'I have an account' }).click();
+  await expect(page).toHaveURL(/\/sign-in\?next=%2F$/);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Sign in');
+  await expect(page.getByLabel('Email')).toHaveCount(0);
+});
+
+test('the organizer’s door signs in: the providers first, then username and password @mobile', async ({ page }) => {
+  await signInOffered(page);
+  await page.locator('.tm-home-door').first().getByRole('link', { name: 'or sign in' }).click();
+  await expect(page).toHaveURL(/\/sign-in$/);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Sign in');
+  const google = page.getByRole('link', { name: 'Sign in with Google' });
+  await expect(google).toHaveAttribute('href', '/api/auth/login/google?next=%2F');
+  await inOrder([google, page.getByRole('link', { name: 'Sign in with Discord' }), page.getByLabel('Username')]);
+  // Its own page: the head's way in would only lead back to it.
+  await expect(page.locator('.site-head-signin')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Create an account' }).click();
+  await expect(page).toHaveURL(/\/create-account\?next=%2F$/);
+  await expect(page.getByLabel('Email')).toBeVisible();
 });
 
 test('the sample phone’s Sign in keeps to one line inside its button, in Spanish too @mobile', async ({ page }) => {
@@ -156,6 +215,9 @@ test('on a phone the doors stack, the big screen steps aside and nothing scrolls
   const first = (await doors.first().boundingBox())!;
   const second = (await doors.nth(1).boundingBox())!;
   expect(second.y).toBeGreaterThanOrEqual(first.y + first.height - 1);
+  const signIn = await doors.first().getByRole('link', { name: 'or sign in' }).boundingBox();
+  // To the hundredth of a pixel: layout can land a hair under a whole one, as 43.99997.
+  expect(Math.round((signIn?.height ?? 0) * 100) / 100).toBeGreaterThanOrEqual(44);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 

@@ -1,6 +1,6 @@
 /**
  * Player accounts end to end, against the real schema in SQLite. What must
- * hold: migrations 0006 to 0038 bring a live database in line with the schema, with
+ * hold: migrations 0006 to 0039 bring a live database in line with the schema, with
  * each POP ID left on one account, Reese the only admin and each store's
  * first Manager its Owner; an account's
  * role and public profile come with who is signed in; one account holds a
@@ -85,7 +85,7 @@ function seedStoresBefore0014(db: DatabaseSync) {
   member.run('one', 'tie-b', 'manager', 9);
 }
 
-test('migrations 0006 to 0038 bring a database made before accounts in line with the schema', () => {
+test('migrations 0006 to 0039 bring a database made before accounts in line with the schema', () => {
   const db = new DatabaseSync(':memory:');
   db.exec(sql('../fixtures/d1/tournaments-before-0006.sql'));
   seedBefore0006(db);
@@ -103,7 +103,7 @@ test('migrations 0006 to 0038 bring a database made before accounts in line with
       "('plain', 'owner', 'rejected', '1', 'A', 'B', NULL, 1);" +
       "INSERT INTO proof_uploads VALUES ('owner', 'proofs/owner/held', 'image/png', 1);"
   );
-  migrate(db, 20, 38);
+  migrate(db, 20, 39);
   assert.deepEqual(
     db
       .prepare('SELECT key FROM proof_deletions ORDER BY key')
@@ -539,6 +539,25 @@ test('reauthentication keeps identity ownership even when its verified email bel
   assert.equal(raw().prepare('SELECT avatar FROM users WHERE id = ?').get(second)?.avatar, 'avatar');
   assert.equal(await upsertUser(db, { ...secondProfile, email: 'new@example.com' }), second);
   assert.equal(raw().prepare('SELECT email FROM users WHERE id = ?').get(second)?.email, 'new@example.com');
+});
+
+test('a provider’s non-null avatar replaces the old one, while a null avatar keeps it', async () => {
+  const db = env.TOURNAMENT_DB!;
+  const profile = authProfile({ avatar: 'https://cdn.test/old.png' });
+  const id = await upsertUser(db, profile);
+  assert.equal(raw().prepare('SELECT avatar FROM users WHERE id = ?').get(id)?.avatar, 'https://cdn.test/old.png');
+  assert.equal(await upsertUser(db, { ...profile, avatar: null }), id);
+  assert.equal(
+    raw().prepare('SELECT avatar FROM users WHERE id = ?').get(id)?.avatar,
+    'https://cdn.test/old.png',
+    'no new picture leaves the old one'
+  );
+  assert.equal(await upsertUser(db, { ...profile, avatar: 'https://cdn.test/new.png' }), id);
+  assert.equal(
+    raw().prepare('SELECT avatar FROM users WHERE id = ?').get(id)?.avatar,
+    'https://cdn.test/new.png',
+    'a new picture takes over'
+  );
 });
 
 test('explicit linking refuses an owned identity and is idempotent for its owner', async () => {

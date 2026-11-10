@@ -207,7 +207,7 @@ for (const path of ['/history', '/settings']) {
     await page.getByRole('button', { name: 'Sign out', exact: true }).click();
     await expect(page.locator('.tm-home')).toBeVisible();
     await expect(account).toHaveCount(0);
-    await expect(page.getByRole('link', { name: 'Sign in', exact: true })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Sign in', exact: true }).first()).toBeVisible();
   });
 }
 

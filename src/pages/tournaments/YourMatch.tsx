@@ -16,7 +16,7 @@
 
 import { ordinal } from '../../lib/format';
 import { msg, t, tn } from '../../lib/i18n';
-import { createEffect, createSignal, For, Match, on, Show, Suspense, Switch } from 'solid-js';
+import { createEffect, createMemo, createSignal, For, Match, on, Show, Suspense, Switch } from 'solid-js';
 import { lazyPanel } from './lazyPanel';
 import type { PlayerClaim } from '../../../shared/tournament/identify';
 import type { PlayerResult } from '../../../shared/tournament/reports';
@@ -359,13 +359,14 @@ function placeOf(view: TournamentView, me: string) {
 function MatchBox(props: Props & { me: string; askAs: PlayerClaim | null }) {
   const [open, setOpen] = createSignal(false);
   const found = () => (props.view.settings.finished ? null : currentMatchOf(props.view.tournament, props.me));
-  // A new round starts on Report result again, not on the last round's open answers.
+  // A new round starts on Report result again, not on the last round's open answers. Keyed by a memo, so a
+  // result at another table, which redraws the view but not this round, leaves the panel as it is.
   createEffect(
     on(
-      () => {
+      createMemo(() => {
         const f = found();
         return f ? `${f.pod.category}:${f.round.number}` : null;
-      },
+      }),
       () => setOpen(false),
       { defer: true }
     )

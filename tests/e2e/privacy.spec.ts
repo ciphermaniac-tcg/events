@@ -31,6 +31,37 @@ test('the policy reads signed out, with its contact address', async ({ page }) =
   await expect(page).toHaveTitle('Privacy Policy — Ciphermaniac Events');
 });
 
+test('the policy’s My Data link opens Your data and Export', async ({ page }) => {
+  await page.route('**/api/me', route =>
+    route.fulfill({
+      json: {
+        user: {
+          id: 'acct-1',
+          name: 'Mary Jackson',
+          handle: 'mary',
+          avatar: null,
+          popId: '7200001',
+          firstName: 'Mary',
+          lastName: 'Jackson',
+          birthDate: '02/27/1995',
+          role: null,
+          publicProfile: false,
+          profileName: 'real',
+          providers: ['google'],
+          stores: []
+        },
+        providers: ['google']
+      }
+    })
+  );
+  await page.goto('/privacy');
+  await page.getByRole('link', { name: 'My Data' }).click();
+  await expect(page).toHaveURL(/\/settings\?section=data$/);
+  await expect(page.getByRole('button', { name: 'Your data' })).toHaveAttribute('aria-current', 'page');
+  await expect(page.getByRole('heading', { level: 1, name: 'Your data' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Export data' })).toBeVisible();
+});
+
 test('the terms read signed out, with their contact address', async ({ page }) => {
   await page.goto('/terms');
   await expect(page.getByRole('heading', { level: 1, name: 'Terms of Service' })).toBeVisible();

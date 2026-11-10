@@ -12,7 +12,7 @@ import { beforeEach, test } from 'node:test';
 
 import * as webhook from '../../functions/api/auth/clerk-webhook.ts';
 import type { TournamentEnv } from '../../functions/lib/auth/env.ts';
-import { createSession, SESSION_SECONDS } from '../../functions/lib/auth/session.ts';
+import { createSession, SESSION_SECONDS, StaleSignIn } from '../../functions/lib/auth/session.ts';
 import { signedByClerk } from '../../functions/lib/auth/clerkWebhook.ts';
 import { ORIGIN } from '../__utils__/apiCalls.ts';
 import { sqliteD1 } from '../__utils__/sqliteD1.ts';
@@ -92,6 +92,87 @@ test('a password changed with no sign-in after it still ends the sessions made b
   sessionMadeAgo('pat', -5_000, 'since');
   assert.equal((await deliver({ body: passwordChanged('user_pat', changedAt), id: 'msg_1' })).status, 204);
   assert.equal(sessionsOf('pat'), 1, 'sent again, it ends nothing made since');
+});
+
+const clerkProof = { clerkSubject: 'user_pat', authAt: Date.now() };
+
+/* eslint-disable camelcase -- Clerk's field names */
+test('a Clerk ban, lock, or deletion ends every session and refuses one made after it', async () => {
+  for (const event of [
+    { type: 'user.updated', data: { id: 'user_pat', banned: true } },
+    { type: 'user.updated', data: { id: 'user_pat', locked: true } },
+    { type: 'user.deleted', data: { id: 'user_pat' } }
+  ]) {
+    raw().exec('DELETE FROM sessions');
+    raw().exec('DELETE FROM clerk_revocations');
+    await createSession(env.TOURNAMENT_DB!, 'pat', clerkProof);
+    await createSession(env.TOURNAMENT_DB!, 'sam');
+    assert.equal((await deliver({ body: event })).status, 204, event.type);
+    assert.equal(sessionsOf('pat'), 0, `${event.type} ends the shut-out account`);
+    assert.equal(sessionsOf('sam'), 1, 'another account is untouched');
+    // A sign-in Clerk had already validated, or a pending age check, reaches createSession after the webhook.
+    await assert.rejects(createSession(env.TOURNAMENT_DB!, 'pat', clerkProof), StaleSignIn, event.type);
+    assert.equal(sessionsOf('pat'), 0, 'no session is made after the shut-out is recorded');
+  }
+  raw().exec('DELETE FROM clerk_revocations');
+  const bannedAt = Date.now();
+  await deliver({ body: { type: 'user.updated', data: { id: 'user_pat', banned: true, updated_at: bannedAt } } });
+  await deliver({
+    body: { type: 'user.updated', data: { id: 'user_pat', banned: false, locked: false, updated_at: bannedAt + 1_000 } }
+  });
+  await createSession(env.TOURNAMENT_DB!, 'pat', clerkProof);
+  assert.equal(sessionsOf('pat'), 1, 'a user Clerk allows again may sign in');
+});
+/* eslint-enable camelcase -- Clerk's field names */
+
+test('an older allow cannot clear a newer shut-out, and a deletion stays terminal', async () => {
+  const bannedAt = Date.now();
+  await deliver({ body: { type: 'user.updated', data: { id: 'user_pat', banned: true }, timestamp: bannedAt } });
+  await deliver({
+    body: { type: 'user.updated', data: { id: 'user_pat', banned: false, locked: false }, timestamp: bannedAt - 1_000 }
+  });
+  await assert.rejects(createSession(env.TOURNAMENT_DB!, 'pat', clerkProof), StaleSignIn, 'an older allow');
+  await deliver({
+    body: { type: 'user.updated', data: { id: 'user_pat', banned: false, locked: false }, timestamp: bannedAt + 1_000 }
+  });
+  await createSession(env.TOURNAMENT_DB!, 'pat', clerkProof);
+  assert.equal(sessionsOf('pat'), 1, 'a newer allow lets the account sign in again');
+
+  // Retried older deliveries must not undo the newer allow, nor sign anyone out.
+  await deliver({ body: { type: 'user.updated', data: { id: 'user_pat', banned: true }, timestamp: bannedAt } });
+  await deliver({ body: { type: 'user.deleted', data: { id: 'user_pat' }, timestamp: bannedAt - 1_000 } });
+  assert.equal(sessionsOf('pat'), 1, 'an older ban or deletion leaves the session alone');
+  await createSession(env.TOURNAMENT_DB!, 'pat', clerkProof);
+  assert.equal(sessionsOf('pat'), 2, 'and the account can still sign in');
+
+  // A revocation and an allow at the same millisecond: the revocation wins, as it fails closed.
+  raw().exec('DELETE FROM sessions');
+  raw().exec('DELETE FROM clerk_revocations');
+  const tieAt = Date.now() + 2_000;
+  await deliver({ body: { type: 'user.updated', data: { id: 'user_pat', banned: true }, timestamp: tieAt } });
+  await deliver({
+    body: { type: 'user.updated', data: { id: 'user_pat', banned: false, locked: false }, timestamp: tieAt }
+  });
+  await assert.rejects(createSession(env.TOURNAMENT_DB!, 'pat', clerkProof), StaleSignIn, 'a tie stays revoked');
+  await deliver({
+    body: { type: 'user.updated', data: { id: 'user_pat', banned: false, locked: false }, timestamp: tieAt + 1 }
+  });
+  await createSession(env.TOURNAMENT_DB!, 'pat', clerkProof);
+  assert.equal(sessionsOf('pat'), 1, 'a later allow clears it');
+
+  raw().exec('DELETE FROM sessions');
+  const deletedAt = Date.now() + 5_000;
+  await deliver({ body: { type: 'user.deleted', data: { id: 'user_pat' }, timestamp: deletedAt } });
+  await deliver({
+    body: {
+      type: 'user.updated',
+      data: { id: 'user_pat', banned: false, locked: false },
+      timestamp: deletedAt + 1_000
+    }
+  });
+  await deliver({ body: { type: 'user.created', data: { id: 'user_pat' }, timestamp: deletedAt + 2_000 } });
+  await assert.rejects(createSession(env.TOURNAMENT_DB!, 'pat', clerkProof), StaleSignIn, 'a deletion is terminal');
+  assert.equal(sessionsOf('pat'), 0);
 });
 
 test('Clerk’s timestamps in seconds read as seconds, and an event with no password change ends nothing', async () => {
