@@ -275,6 +275,16 @@ test('once the event is done nobody is asked which player they are', async ({ pa
   await expect(page.getByRole('region', { name: 'Your match' })).toHaveCount(0);
 });
 
+test('a finished event names its winner under the head, with the record and field @mobile', async ({ page }) => {
+  await mockApi(page, { ...VIEW, settings: { ...VIEW.settings, finished: true } });
+  await page.goto(`/t/${CODE}`);
+  const final = page.getByRole('region', { name: 'Final results' });
+  await expect(final).toBeVisible();
+  await expect(final.locator('.tm-final-row')).not.toHaveCount(0);
+  await expect(final.locator('.tm-final-name').first()).not.toBeEmpty();
+  await expect(final.locator('.tm-final-field').first()).toContainText(/\d+-\d+-\d+ · \d+ pts?\d+ players?/);
+});
+
 test('retrying a lost identify response restores reporting and remembers the recovered token', async ({ page }) => {
   const view = { ...VIEW, settings: { ...VIEW.settings, playerReporting: true } };
   await mockApi(page, view);

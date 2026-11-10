@@ -461,6 +461,35 @@ export function podStandings(
   return groups.length === 1 ? groups.map(group => ({ ...group, division: null })) : groups;
 }
 
+/** One division's finish line: its winner, as they stand in its final standings, and the field it beat. */
+interface FinalResult {
+  /** The division or pod named, or empty for an event with only one. */
+  label: string;
+  winner: Standing;
+  players: number;
+  /** The top cut played, or 0 where none was. */
+  cut: number;
+}
+
+/**
+ * A finished event's winners, one per division that played a round: first
+ * place in its final standings, which is the cut's champion where a cut was
+ * played and the standings leader where none was.
+ */
+export function finalResults(tournament: Tournament, divisionOf: (id: string) => Division): FinalResult[] {
+  const pods = tournament.pods.filter(pod => !pod.cutOf && pod.rounds.length > 0);
+  return pods.flatMap(pod =>
+    podStandings(tournament, pod, divisionOf).flatMap(group => {
+      const winner = group.rows.find(row => row.place === 1);
+      if (!winner) {
+        return [];
+      }
+      const label = group.division ? divisionHeading(group.division) : pods.length > 1 ? podLabel(pod) : '';
+      return [{ label, winner, players: group.rows.length, cut: group.cutStarted ? group.cut : 0 }];
+    })
+  );
+}
+
 export function divisionHeading(division: Division | null): string {
   return division ? t(DIVISION_LABELS[division]) : '';
 }

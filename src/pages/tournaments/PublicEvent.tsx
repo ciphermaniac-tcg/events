@@ -84,6 +84,7 @@ import { createClockNow, StaleSince } from './Clock';
 import { leadDivision } from './clockOrder';
 import { formatFee } from '../../lib/events/format';
 import { EventLogistics } from './EventLogistics';
+import { FinalResults } from './FinalResults';
 import { PlayerSheet } from './PlayerSheet';
 import { PublicPairings } from './PublicPairings';
 import type { Identified } from './Identify';
@@ -677,6 +678,9 @@ function EventBody(props: {
   return (
     <>
       <Hero view={props.view} prefer={[podChoice(), myPod()]} mine={me() !== null && started() && asks()} />
+      <Show when={props.view.settings.finished}>
+        <FinalResults view={props.view} divisionOf={divisionOf} />
+      </Show>
       {props.notice}
       <Show when={started() && asks()}>
         <YourMatch

@@ -29,6 +29,7 @@ import {
   divisionHeading,
   eventStatus,
   filterMatches,
+  finalResults,
   foundElsewhere,
   matchHistory,
   namesById,
@@ -336,6 +337,23 @@ test('divisions that played together each take their places from their own cut',
   assert.equal(groups[0]?.rows[0]?.playerId, final?.p1, 'the Juniors’ champion first');
   assert.deepEqual(podStandings(t, juniorCut, divisionLookup(t)), [groups[0]], 'the cut reads as its division');
   assert.equal(podLabel(juniorCut), 'Juniors top cut');
+});
+
+test('names each division’s winner: the cut’s champion, or the standings leader with no cut', () => {
+  const t = juniorsCutApart();
+  const mixed = t.pods.find(p => p.category === 'mixed') as Pod;
+  const final = (cutPodOf(t, mixed, 'junior') as Pod).rounds.at(-1)?.matches[0];
+  const results = finalResults(t, divisionLookup(t));
+  assert.deepEqual(
+    results.map(r => [r.label, r.players, r.cut]),
+    [
+      ['Juniors', 4, 4],
+      ['Masters', 4, 0]
+    ]
+  );
+  assert.equal(results[0]?.winner.playerId, final?.p1);
+  assert.equal(results[1]?.winner.place, 1);
+  assert.deepEqual(finalResults({ ...t, pods: t.pods.map(p => ({ ...p, rounds: [] })) }, divisionLookup(t)), []);
 });
 
 test('deck sprites are drawn only while the event tracks archetypes', () => {

@@ -767,3 +767,46 @@
   display: flex;
   gap: var(--space-4);
 }
+
+/* A finished event's winners: open under the head, one row a division, no rules. The division
+   follows the name, beside the deck, rather than sitting over it. */
+.tm-final {
+  display: grid;
+  gap: var(--space-4);
+  margin-block: var(--space-2) var(--space-4);
+}
+.tm-final > .tm-subhead {
+  margin: 0;
+}
+.tm-final-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px var(--space-3);
+  align-items: baseline;
+}
+.tm-final-who {
+  display: grid;
+  min-width: 0;
+}
+.tm-final-name {
+  font-size: var(--text-xl);
+  font-weight: 700;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+.tm-final-sub {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 var(--space-1);
+}
+.tm-final-deck {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.tm-final-field {
+  display: grid;
+  justify-items: end;
+  text-align: right;
+}
