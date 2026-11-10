@@ -35,15 +35,16 @@ test('legacy PII moves to the session while recovery credentials remain persiste
   migrateEventMemory(persistent, session);
   assert.equal(session.getItem('cm-decklist:first'), JSON.stringify(profile));
   assert.equal(persistent.getItem('cm-decklist:first'), JSON.stringify({ token: 'deck token' }));
-  for (const key of ['cm-tournament-player:second', 'cm-tournament-me:second']) {
-    assert.notEqual(session.getItem(key), null);
-    assert.equal(persistent.getItem(key), null);
-  }
+  assert.notEqual(session.getItem('cm-tournament-player:second'), null);
+  assert.equal(persistent.getItem('cm-tournament-player:second'), null);
+  // Which player the device follows is a public key, no detail: it stays, so a new tab knows them.
+  assert.equal(persistent.getItem('cm-tournament-me:second'), 'player key');
+  assert.equal(session.getItem('cm-tournament-me:second'), null);
   assert.equal(persistent.getItem('cm-device'), 'device ID');
   assert.equal(persistent.getItem('cm-tournament-report:third'), 'report token');
   assert.equal(persistent.getItem('cm:mode'), 'dark');
   migrateEventMemory(persistent, session);
-  assert.equal(session.length, 3, 'migration is idempotent');
+  assert.equal(session.length, 2, 'migration is idempotent');
   const newTab = storage();
   migrateEventMemory(persistent, newTab);
   assert.equal(newTab.getItem('cm-decklist:first'), null, 'PII is not restored in a new tab');

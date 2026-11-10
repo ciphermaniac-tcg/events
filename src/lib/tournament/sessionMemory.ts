@@ -1,5 +1,8 @@
-/** Remove persistent player details while keeping the credentials that recover their lists and seats. */
-const PROFILE_KEYS = ['cm-tournament-player:', 'cm-tournament-me:'];
+/**
+ * Remove persistent player details while keeping the credentials that recover their lists and seats.
+ * Which player a device follows as its own (`cm-tournament-me:`) is a public key, no detail, and is kept.
+ */
+const PROFILE_KEYS = ['cm-tournament-player:'];
 
 /** Where a device keeps the token for the decklist it sent to an event, by the event's code. */
 export const DECKLIST_KEY = 'cm-decklist:';

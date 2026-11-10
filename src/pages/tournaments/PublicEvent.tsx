@@ -99,6 +99,7 @@ import { LiveDataStatus } from './LiveDataStatus';
 import { MAIN_SITE } from '../../lib/constants';
 import { msg, t, timeOfDay, tn, tx } from '../../lib/i18n';
 import { keepEventCopy, readEventCopy } from '../../lib/tournament/eventCopies';
+import { DAY_MS } from '../../../shared/tournament/limits';
 
 const BigScreen = lazyOnAir(() => import('./BigScreen').then(m => ({ default: m.BigScreen })));
 const StreamOverlay = lazyOnAir(() => import('./StreamOverlay').then(m => ({ default: m.StreamOverlay })));
@@ -288,6 +289,9 @@ function createView(code: () => string, signedIn: () => boolean, options: { ever
 }
 
 const meKey = (code: string) => `cm-tournament-me:${code}`;
+
+/** An event that finished more than a day ago: its page no longer needs to know who the viewer is. */
+const pastEvent = (view: TournamentView, now: number) => view.settings.finished && now - view.updatedAt > DAY_MS;
 const claimKey = (code: string) => `cm-tournament-player:${code}`;
 const tokenKey = (code: string) => `cm-tournament-report:${code}`;
 
@@ -299,9 +303,12 @@ function storedClaim(code: string): PlayerClaim | null {
   }
 }
 
-/** Sets or clears a remembered value. */
+/**
+ * Sets or clears a remembered value. The report token and which player this
+ * is (a public key) outlast the tab; the Player ID or name proving it does not.
+ */
 function keep(key: string, value: string | null) {
-  keepBrowserMemory(key, value, key.startsWith('cm-tournament-report:'));
+  keepBrowserMemory(key, value, key.startsWith('cm-tournament-report:') || key.startsWith('cm-tournament-me:'));
 }
 
 /**
@@ -343,7 +350,7 @@ function createMe(view: () => TournamentView, events: { onView: (view: Published
   const code = () => view().code;
   const stored = storedClaim(code());
   const [claim, setClaim] = createSignal(stored);
-  const [chosen, setChosen] = createSignal(readBrowserMemory(meKey(code())));
+  const [chosen, setChosen] = createSignal(readBrowserMemory(meKey(code()), true));
   const [reportToken, setReportToken] = createSignal(stored ? readBrowserMemory(tokenKey(code()), true) : null);
   /** The player whose seat the account holds, as the server last answered; no token goes with that. */
   const [accountSeat, setAccountSeat] = createSignal<string | null>(null);
@@ -388,6 +395,13 @@ function createMe(view: () => TournamentView, events: { onView: (view: Published
     const said = claim();
     if (said && !reportToken()) {
       void claimNow(said);
+    }
+  });
+  // Which player this is, kept across tabs, is let go a day after the event finishes.
+  createEffect(() => {
+    if (chosen() !== null && pastEvent(view(), Date.now())) {
+      keep(meKey(code()), null);
+      setChosen(null);
     }
   });
   // A confirmed selection stays the displayed target even when another account player signs in.

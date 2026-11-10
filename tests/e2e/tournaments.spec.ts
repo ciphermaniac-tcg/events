@@ -234,6 +234,28 @@ test('a player’s strip shows their own record, and their name opens their shee
   );
 });
 
+test('a new tab knows which player this device is, and a finished event lets that go a day later', async ({ page }) => {
+  await mockApi(page, suggestedView(false));
+  await page.goto(`/t/${CODE}`);
+  await page.getByRole('button', { name: 'That’s me' }).click();
+  await expect(page.locator('.tm-you-big')).toHaveText(/Table\s*2/);
+  const tab = await page.context().newPage();
+  await mockApi(tab, { ...VIEW, viewer: { role: null, me: null, via: null, signedIn: false } });
+  await tab.goto(`/t/${CODE}`);
+  await expect(tab.locator('.tm-you-big')).toHaveText(/Table\s*2/);
+  const kept = () => tab.evaluate(code => localStorage.getItem(`cm-tournament-me:${code}`), CODE);
+  expect(await kept()).not.toBeNull();
+  const old = {
+    ...VIEW,
+    updatedAt: Date.now() - 2 * 24 * 60 * 60 * 1000,
+    settings: { ...VIEW.settings, finished: true }
+  };
+  await mockApi(tab, { ...old, viewer: { role: null, me: null, via: null, signedIn: false } });
+  await tab.reload();
+  await expect(tab.getByRole('region', { name: 'Final results' })).toBeVisible();
+  await expect.poll(kept).toBeNull();
+});
+
 test('yes to a player another device holds shows their table, and reporting stays theirs', async ({ page }) => {
   await mockApi(page, suggestedView(true));
   await page.route(`**/api/tournaments/${CODE}/report`, route =>
