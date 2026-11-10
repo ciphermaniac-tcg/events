@@ -741,7 +741,6 @@
   "Player ID": "ID joueur",
   "Player ID and birth year are needed at a sanctioned event": "Un tournoi officiel demande l’ID joueur et l’année de naissance",
   "Player profile": "Profil de joueur",
-  "Player profiles": "Profils de joueurs",
   "Player requests": "Demandes des joueurs",
   "Player suggestions unavailable": "Suggestions de joueurs indisponibles",
   "Player, penalty or judge": "Joueur, sanction ou juge",
@@ -1478,7 +1477,6 @@
   "No changes to send": "Aucune modification à envoyer",
   "Too many tries. Ask staff for help.": "Trop de tentatives. Demande de l’aide au staff.",
   "{n} players are already registered. Nobody is removed, but no one new can register.": "{n} joueurs sont déjà inscrits. Personne n’est retiré, mais plus personne ne peut s’inscrire.",
-  "A player profile": "Un profil de joueur",
   "A player reporting from their phone": "Un joueur qui saisit ses résultats depuis son téléphone",
   "A sample admin console": "Une console d’administration de démonstration",
   "A sample event on the big screen": "Un tournoi d’exemple sur grand écran",
@@ -1493,13 +1491,10 @@
     "other": "{n} minutes"
   },
   "{n} of {total} tables reported": "{n} sur {total} tables ont saisi leur résultat",
-  "Organizing · {n}": "Organisés · {n}",
   "Paper list, to check": "Liste papier à vérifier",
-  "Playing · {n}": "En jeu · {n}",
   "Prize penalty": "Sanction sur les prix",
   "QR code to the event": "QR code vers le tournoi",
   "Round time": "Durée de la ronde",
-  "Standard": "Standard",
   "Tables": "Tables",
   "Tardiness": "Retards",
   "Top cut": "Top Cut",
@@ -1627,6 +1622,5 @@
   "Play in an event": "Participe à un événement",
   "At the venue": "Sur place",
   "Try the console": "Essaie la console d’administration",
-  "Open the demo": "Ouvrir la démo",
-  "Recent events": "Événements récents"
+  "Open the demo": "Ouvrir la démo"
 }

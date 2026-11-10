@@ -3,10 +3,8 @@
  * First the two ways in, side by side (stacked on a phone): run an event
  * (a new account, or sign in) or play in an event (an event's code). Then, on a
  * raised band, one sample event (sampleRun) on the surfaces it uses: the
- * room's big screen beside a player's phone, a player's profile, the events
- * really run here lately (RecentEvents), and the way to the demo beside
- * the console. Every preview is the sample; only the recent events are real,
- * and finished.
+ * room's big screen beside a player's phone, and the way to the demo beside
+ * the console. Every preview is the sample.
  */
 
 import { onCleanup, onMount } from 'solid-js';
@@ -14,9 +12,7 @@ import { t } from '../../lib/i18n';
 import { EventCodeForm } from './EventCodeForm';
 import { HomeConsole } from './HomeConsole';
 import { HomePhone } from './HomePhone';
-import { HomeProfile } from './HomeProfile';
 import { HomeScreen } from './HomeScreen';
-import { RecentEvents } from './RecentEvents';
 import { createSampleRun } from './sampleRun';
 import '../../styles/pages/tournament-home.css';
 
@@ -84,15 +80,6 @@ export function HostHome() {
             </div>
           </div>
         </section>
-        <div class='tm-home-sec tm-home-pair'>
-          <section class='tm-home-lede' aria-label={t('Player profiles')}>
-            <p>{t('Players can create a profile to share their event standings publicly.')}</p>
-            <div class='tm-home-box tm-home-profile'>
-              <HomeProfile run={run} />
-            </div>
-          </section>
-          <RecentEvents />
-        </div>
         <section class='tm-home-sec tm-home-split' aria-labelledby='tm-home-demo-title'>
           <div class='tm-home-lede'>
             <h2 id='tm-home-demo-title'>{t('Try the console')}</h2>

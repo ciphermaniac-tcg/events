@@ -190,12 +190,10 @@ body.tm-home-mode main.page {
   overflow: hidden;
 }
 
-/* The profile and the console end on a whole row. */
-.tm-home-profile,
+/* The console ends on a whole row. */
 .tm-home-console {
   padding: var(--space-4);
 }
-.tm-home-profile .tm-hpr-table tbody tr:nth-child(n + 3),
 .tm-home-console .tm-hc-table tbody tr:nth-child(n + 5) {
   display: none;
 }
@@ -203,79 +201,6 @@ body.tm-home-mode main.page {
 .tm-home-console .btn-primary {
   border-color: var(--border);
   background: transparent;
-  color: var(--fg);
-}
-
-/* ---------- Profiles and recent events ---------- */
-/* Side by side, the profile the wider, each its words over its box. */
-.tm-home-pair {
-  display: grid;
-  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
-  column-gap: var(--space-6);
-}
-/* Each half's words and box sit on rows the halves share, so the boxes start level. */
-.tm-home-pair > .tm-home-lede {
-  grid-row: span 2;
-  grid-template-rows: subgrid;
-  justify-items: stretch;
-  align-items: end;
-}
-.tm-home-pair > .tm-home-lede > :last-child {
-  align-self: start;
-}
-/* Below this the profile's table has no room beside the list: one above the other. */
-@media (max-width: 1024px) {
-  .tm-home-pair {
-    grid-template-columns: minmax(0, 1fr);
-    row-gap: var(--space-6);
-  }
-  .tm-home-pair > .tm-home-lede {
-    grid-row: auto;
-    grid-template-rows: none;
-  }
-}
-.tm-home-recent-table {
-  overflow: hidden;
-  border: 1px solid var(--home-edge);
-  border-radius: var(--radius-md);
-}
-.tm-home-recent .data th {
-  position: static;
-}
-.tm-home-recent .data td {
-  height: 60px;
-  font-size: 15px;
-}
-.tm-home-recent .data a {
-  display: block;
-  font-weight: 600;
-  color: var(--fg);
-}
-.tm-home-recent-row {
-  cursor: pointer;
-}
-.tm-home-recent-row:hover td {
-  background: var(--row-hover);
-}
-.tm-home-recent-place {
-  display: block;
-  margin-top: 2px;
-  font-size: 13px;
-  color: var(--muted);
-}
-.tm-home-recent-day {
-  color: var(--muted);
-  white-space: nowrap;
-}
-.tm-home-recent .num {
-  text-align: right;
-}
-.tm-home-recent-go {
-  width: 40px;
-  text-align: right;
-  color: var(--muted);
-}
-.tm-home-recent-row:hover .tm-home-recent-go {
   color: var(--fg);
 }
 
@@ -448,8 +373,7 @@ body.tm-home-mode main.page {
   border-collapse: collapse;
   font-variant-numeric: tabular-nums;
 }
-.tm-hc-table th,
-.tm-hpr-table th {
+.tm-hc-table th {
   padding: var(--space-2) 14px;
   background: var(--surface-2);
   font-size: var(--text-xs);
@@ -673,8 +597,7 @@ body.tm-home-mode main.page {
   padding: 6px 0 10px;
   border-bottom: 2px solid transparent;
 }
-.tm-hp-tabs .is-on,
-.tm-hpr-tabs .is-on {
+.tm-hp-tabs .is-on {
   border-color: var(--fg);
   color: var(--fg);
   font-weight: 600;
@@ -717,99 +640,6 @@ body.tm-home-mode main.page {
 .tm-hp-seat em {
   font-size: var(--text-xs);
   font-style: normal;
-  color: var(--muted);
-}
-
-/* ---------- The profile ---------- */
-.tm-hpr {
-  padding: var(--space-5);
-  font-size: var(--text-base);
-}
-.tm-hpr-top {
-  display: grid;
-  grid-template-columns: 72px minmax(0, 1fr);
-  gap: var(--space-4);
-  align-items: center;
-  margin-bottom: var(--space-5);
-}
-.tm-hpr-avatar {
-  display: grid;
-  place-items: center;
-  width: 72px;
-  height: 72px;
-  border: 1px solid var(--border);
-  border-radius: 50%;
-  background: var(--surface-2);
-  object-fit: cover;
-  font-size: 26px;
-  font-weight: 600;
-}
-/* The handle wraps under the name flush, as on the profile itself. */
-.tm-hpr-name {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  column-gap: var(--space-2);
-  margin: 0;
-  font-size: 26px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  line-height: 1.15;
-}
-.tm-hpr .tm-badges {
-  margin-left: -5px;
-}
-.tm-hpr-name small {
-  font-size: 15px;
-  font-weight: 400;
-  letter-spacing: 0;
-  color: var(--muted);
-}
-.tm-hpr-tabs {
-  display: flex;
-  gap: var(--space-4);
-  margin-bottom: var(--space-4);
-  border-bottom: 1px solid var(--rule);
-  color: var(--muted);
-}
-.tm-hpr-tabs span {
-  margin-bottom: -1px;
-  padding-bottom: 10px;
-  border-bottom: 2px solid transparent;
-}
-.tm-hpr-table {
-  width: 100%;
-  overflow: hidden;
-  border: 1px solid var(--border);
-  border-collapse: separate;
-  border-spacing: 0;
-  border-radius: var(--radius-md);
-  background: var(--surface);
-  font-variant-numeric: tabular-nums;
-}
-.tm-hpr-table th.num,
-.tm-hpr-table td.num {
-  white-space: nowrap;
-  text-align: right;
-}
-.tm-hpr-table td {
-  height: 62px;
-  padding: var(--space-2) 14px;
-  border-top: 1px solid var(--rule);
-}
-.tm-hpr-table b {
-  font-weight: 600;
-}
-.tm-hpr-tag {
-  margin-left: var(--space-2);
-  white-space: nowrap;
-  padding: 0 6px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  font-size: var(--text-xs);
-}
-.tm-hpr-day {
-  display: block;
   color: var(--muted);
 }
 
@@ -885,17 +715,12 @@ body.tm-home-mode main.page {
   .tm-hs-table {
     font-size: 20px;
   }
-  .tm-hc-wide,
-  .tm-hpr-wide,
-  .tm-home-recent-day {
+  .tm-hc-wide {
     display: none;
   }
   .tm-hc-head {
     flex-direction: column;
     align-items: flex-start;
-  }
-  .tm-hpr {
-    padding: 0;
   }
 }
 /* On a phone the console keeps both seats of a table and drops what a glance can spare. */
