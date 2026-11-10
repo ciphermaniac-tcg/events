@@ -307,6 +307,10 @@ export function roundStatus(progress: PodProgress, finished: boolean, rounds: nu
   return open === 0 ? t('{round} complete', { round: name }) : t('{round} in progress', { round: name });
 }
 
+/** The clock a status line reads, or null where it shows none. */
+const shownClock = (round: Round | null | undefined, shown: boolean, now: number) =>
+  round && shown ? clockState({ round, now }) : null;
+
 /** The division a status describes: the first of `prefer` playing a round, else the first playing one. */
 function statusPod(playing: Pod[], prefer: readonly (PodCategory | null | undefined)[]): Pod | undefined {
   const preferred = prefer.map(category => playing.find(pod => pod.category === category)).find(Boolean);
@@ -329,6 +333,8 @@ export function eventStatus(
     /** The event's round cap (see TournamentSettings), or null where TOM decides the rounds. */
     roundCap: number | null;
     prefer?: readonly (PodCategory | null | undefined)[];
+    /** False where the viewer's strip already shows the round's clock. */
+    clock?: boolean;
   },
   now: number
 ): string[] {
@@ -351,7 +357,7 @@ export function eventStatus(
   const parts = statusParts(
     progress,
     false,
-    round ? clockState({ round, now }) : null,
+    shownClock(round, event.clock !== false, now),
     event.roundCap === null ? null : plannedRounds(pod, event.roundCap, eventTypeOf(tournament), tournament)
   );
   return playing.length > 1 ? [podLabel(pod), ...parts] : parts;

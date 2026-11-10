@@ -676,7 +676,7 @@ function EventBody(props: {
 
   return (
     <>
-      <Hero view={props.view} prefer={[podChoice(), myPod()]} />
+      <Hero view={props.view} prefer={[podChoice(), myPod()]} mine={me() !== null && started() && asks()} />
       {props.notice}
       <Show when={started() && asks()}>
         <YourMatch
@@ -877,7 +877,19 @@ function dashboardTab(viewer: TournamentView['viewer']): DashboardTab | undefine
 }
 
 /** `prefer`: the divisions the status should describe, in order (see eventStatus); the leading clock's follows. */
-function Hero(props: { view: TournamentView; prefer: (PodCategory | null)[] }) {
+/** A maps search for the venue, so a phone opens its maps app on the place. */
+const mapsLink = (settings: Pick<TournamentSettings, 'venue' | 'address'>) =>
+  `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+    [settings.venue, settings.address].filter(Boolean).join(', ')
+  )}`;
+
+/**
+ * The event's head. Once round 1 has started and until the event ends, the
+ * player's table matters more than the venue: the venue folds into the meta
+ * line as a maps link, the details go, and a viewer whose strip shows the
+ * round's clock is not shown it twice.
+ */
+function Hero(props: { view: TournamentView; prefer: (PodCategory | null)[]; mine: boolean }) {
   const now = createClockNow();
   const lead = () => leadDivision(livePods(props.view.tournament), props.view.pending, now());
   const info = () => props.view.tournament.info;
@@ -890,19 +902,28 @@ function Hero(props: { view: TournamentView; prefer: (PodCategory | null)[] }) {
         finished: settings().finished,
         firstRound: firstRoundTime(settings().startsAt),
         roundCap: roundCapOf(props.view),
-        prefer: [...props.prefer, lead()]
+        prefer: [...props.prefer, lead()],
+        clock: !(props.mine && underway())
       },
       now()
     ).join(' · ');
   const place = () => [info().city, info().state].filter(Boolean).join(', ');
   const playing = () => livePods(props.view.tournament).some(pod => podProgress(pod, props.view.pending).open > 0);
   const started = () => livePods(props.view.tournament).some(pod => pod.rounds.length > 0);
+  const underway = () => started() && !settings().finished;
+  const venue = () =>
+    underway() &&
+    (settings().venue || settings().address) && (
+      <a class='tm-link-inline' href={mapsLink(settings())} target='_blank' rel='noopener'>
+        {settings().venue || settings().address}
+      </a>
+    );
   const parts = createMemo(() =>
     [
       eventDate(settings(), info().startDate),
       settings().format,
       settings().entryFee > 0 && t('{amount} entry', { amount: formatFee(settings().entryFee, info().country) }),
-      place(),
+      venue() || place(),
       // Before round 1 the status line already counts them.
       started() && tn(props.view.tournament.players.length, '{n} player', '{n} players'),
       // A finished event's date already says when; an unknown time says nothing; mid-round, the clock says the page is live.
@@ -934,9 +955,11 @@ function Hero(props: { view: TournamentView; prefer: (PodCategory | null)[] }) {
           </For>
         }
       />
-      <EventLogistics settings={settings()} />
-      <Show when={settings().details}>
-        <p class='tm-details'>{settings().details}</p>
+      <Show when={!underway()}>
+        <EventLogistics settings={settings()} />
+        <Show when={settings().details}>
+          <p class='tm-details'>{settings().details}</p>
+        </Show>
       </Show>
     </>
   );

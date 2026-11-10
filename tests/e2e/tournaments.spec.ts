@@ -97,7 +97,8 @@ test('the public page shows the round, finds a player and opens their history @m
   const errors = await mockApi(page);
   await page.goto(`/t/${CODE}`);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Fixture Challenge & Friends');
-  await expect(page.locator('.tm-details')).toHaveText('Doors at 11');
+  // Once round 1 has started, the table comes first: the details go and the venue folds into the meta line.
+  await expect(page.locator('.tm-details')).toHaveCount(0);
   const rows = page.locator('.tm-matches tbody tr:not(.tm-group-row)');
   await expect(rows).toHaveCount(4);
   await page.getByRole('searchbox', { name: 'Find a player' }).fill('lamarr');
@@ -2223,6 +2224,12 @@ test('setup asks when, starting in the store’s zone, and keeps the answers; th
   ]);
 });
 
+/** The fixture event before round 1 pairs, when the venue and times still lead the page. */
+const unpairedTournament = () => ({
+  ...VIEW.tournament,
+  pods: VIEW.tournament.pods.map(pod => ({ ...pod, rounds: [] }))
+});
+
 test.describe('a viewer in another time zone', () => {
   test.use({ timezoneId: 'America/Los_Angeles' });
 
@@ -2235,7 +2242,7 @@ test.describe('a viewer in another time zone', () => {
       venue: 'Test Games',
       address: '100 Main Street'
     };
-    await mockApi(page, { ...VIEW, settings });
+    await mockApi(page, { ...VIEW, tournament: unpairedTournament(), settings });
     await page.goto(`/t/${CODE}`);
     const logistics = page.locator('.tm-logistics');
     await expect(logistics.getByRole('row', { name: /Venue/ })).toContainText('Test Games100 Main Street');
@@ -2248,6 +2255,7 @@ test.describe('a viewer in another time zone', () => {
   test('sees an event without a zone as it was written, with no second time', async ({ page }) => {
     await mockApi(page, {
       ...VIEW,
+      tournament: unpairedTournament(),
       settings: { ...VIEW.settings, startsAt: '2026-10-18T12:00', checkInAt: '2026-10-18T11:30' }
     });
     await page.goto(`/t/${CODE}`);
@@ -2544,9 +2552,12 @@ test('a result at another table leaves an open list as it is, asked for once', a
   await expect(page.locator('.tm-matches tbody tr:not(.tm-group-row)').filter({ hasText: 'In progress' })).toHaveCount(
     1
   );
-  view = { ...view, version: view.version + 1, settings: { ...view.settings, details: 'Doors at noon' } };
+  view = { ...view, version: view.version + 1, settings: { ...view.settings, venue: 'Hall B' } };
   await announce(page, view.version);
-  await expect(page.locator('.tm-details')).toHaveText('Doors at noon');
+  await expect(page.locator('.hero-meta').getByRole('link', { name: 'Hall B' })).toHaveAttribute(
+    'href',
+    /google\.com\/maps\/search\/.*Hall%20B/
+  );
   await expect(sheet).toContainText('Handed in on paper.');
   expect(asked).toBe(1);
 });
