@@ -397,7 +397,7 @@ function ForPlayers(props: { state: ManageState; manage: Manage }) {
   );
 }
 
-/** End or reopen, and the .tdf: what an organizer does at the end of the day. */
+/** End or reopen, and a sanctioned event's .tdf: what an organizer does at the end of the day. */
 function Finish(props: { state: ManageState; manage: Manage }) {
   const download = () => {
     const { manage } = props;
@@ -431,14 +431,17 @@ function Finish(props: { state: ManageState; manage: Manage }) {
             </Show>
           </span>
         </SettingRow>
-        <SettingRow label={isSanctioned(props.manage) ? t('Play! Pokémon file') : t('Event file')}>
-          <span class='tm-set-inline'>
-            <button type='button' class='btn btn-secondary' onClick={download}>
-              {t('Download .tdf')}
-            </button>
-            <span class='muted tm-num'>{t('Version {version}', { version: props.manage.version })}</span>
-          </span>
-        </SettingRow>
+        {/* Only a Play! Pokémon event has a file to report. */}
+        <Show when={isSanctioned(props.manage)}>
+          <SettingRow label={t('Play! Pokémon file')}>
+            <span class='tm-set-inline'>
+              <button type='button' class='btn btn-secondary' onClick={download}>
+                {t('Download .tdf')}
+              </button>
+              <span class='muted tm-num'>{t('Version {version}', { version: props.manage.version })}</span>
+            </span>
+          </SettingRow>
+        </Show>
       </div>
     </section>
   );

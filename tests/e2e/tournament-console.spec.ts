@@ -1178,14 +1178,21 @@ test('a colleague’s change shows in an untouched setting, and saving sends onl
   await expect.poll(() => sent.saved).toEqual([{ details: 'Doors at nine' }]);
 });
 
-test('a standalone event downloads its .tdf, named for the version it copies', async ({ page }) => {
-  await mockConsole(page, event(4, 1, false), settingsOf({ sanctioned: false }));
+test('a sanctioned event downloads its .tdf, named for the version it copies', async ({ page }) => {
+  await mockConsole(page, event(4, 1, false), settingsOf({ sanctioned: true }));
   await page.getByRole('tab', { name: 'Settings' }).click();
-  const row = page.locator('.tm-set-row', { hasText: 'Event file' });
+  const row = page.locator('.tm-set-row', { hasText: 'Play! Pokémon file' });
   await expect(row.getByText('Version 3')).toBeVisible();
   const download = page.waitForEvent('download');
   await row.getByRole('button', { name: 'Download .tdf' }).click();
   expect((await download).suggestedFilename()).toBe('Friday League v3.tdf');
+});
+
+test('an unsanctioned event offers no .tdf', async ({ page }) => {
+  await mockConsole(page, event(4, 1, false), settingsOf({ sanctioned: false }));
+  await page.getByRole('tab', { name: 'Settings' }).click();
+  await expect(page.getByRole('heading', { name: 'Finish' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Download .tdf' })).toHaveCount(0);
 });
 
 test('decks are named from Players, and a name the list lacks is taken as typed', async ({ page }) => {
