@@ -17,6 +17,7 @@ import { ErrorLine, Field } from './Field';
 import { t } from '../../lib/i18n';
 import { TournamentHero } from './Hero';
 import { session } from './session';
+import '../../styles/pages/tournament-welcome.css';
 
 type Stage = 'asking' | 'sending' | 'refused' | 'expired';
 

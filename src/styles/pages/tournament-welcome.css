@@ -1,0 +1,54 @@
+/* /welcome: the age check, and an older account's one offer of a username and name. */
+/* Labels beside the fields, each field as wide as its answer; above them on a phone. */
+.tm-box-bar.tm-welcome-form {
+  display: grid;
+  gap: var(--space-3);
+}
+.tm-welcome-form .tm-field {
+  grid-template-columns: 120px minmax(0, 1fr);
+  align-items: center;
+  column-gap: var(--space-4);
+}
+.tm-welcome-form .tm-field > :not(.tm-label) {
+  grid-column: 2;
+}
+.tm-welcome-handle {
+  max-width: 280px;
+}
+.tm-welcome-name {
+  max-width: 240px;
+}
+.tm-welcome-date {
+  max-width: 180px;
+}
+.tm-welcome-actions {
+  display: flex;
+  gap: var(--space-3);
+  padding-left: calc(120px + var(--space-4));
+}
+@media (max-width: 640px) {
+  .tm-welcome-form .tm-field {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .tm-welcome-form .tm-field > :not(.tm-label) {
+    grid-column: 1;
+  }
+  .tm-welcome-handle,
+  .tm-welcome-name,
+  .tm-welcome-date {
+    max-width: none;
+  }
+  .tm-welcome-actions {
+    padding-left: 0;
+  }
+  .tm-welcome-actions .btn-primary {
+    flex: 1;
+    justify-content: center;
+  }
+}
+.tm-welcome-legal {
+  display: flex;
+  gap: var(--space-4);
+  margin-top: var(--space-3);
+  font-size: var(--text-sm);
+}
