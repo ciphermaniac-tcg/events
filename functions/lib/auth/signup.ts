@@ -15,6 +15,9 @@ import { randomToken, sha256, verifiedEmail } from './session.js';
 
 export const SIGNUP_SECONDS = 15 * 60;
 
+/** Providers whose name is a username the person typed, not a display name. */
+const TYPED_NAMES = new Set<Profile['provider']>(['clerk', 'dev']);
+
 /** A sign-up taken back out of its wait: the provider's answer, and where to go once in. */
 interface HeldSignup {
   profile: Profile;
@@ -45,11 +48,12 @@ export async function needsAgeCheck(db: D1Like, profile: Profile): Promise<boole
 /**
  * Keeps the provider's answer for the age check and returns the cookie's
  * token. A provider's display name is never kept (accounts start with a
- * random username), so it is dropped here too, except a dev sign-in's.
+ * random username), so it is dropped here too, except the username typed
+ * at a Clerk or dev sign-up, which the account starts with when it is free.
  */
 export async function holdSignup(db: D1Like, profile: Profile, next: string, now = Date.now()): Promise<string> {
   const token = randomToken();
-  const kept: Profile = { ...profile, name: profile.provider === 'dev' ? profile.name : '' };
+  const kept: Profile = { ...profile, name: TYPED_NAMES.has(profile.provider) ? profile.name : '' };
   await db.batch([
     sweepSignups(db, now),
     db

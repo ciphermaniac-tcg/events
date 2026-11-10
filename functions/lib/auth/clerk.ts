@@ -264,7 +264,8 @@ function answerFor(subject: string, user: Json, authAt: number): ClerkAnswer {
   const profile: Profile = {
     provider: 'clerk',
     subject,
-    name: '',
+    // The username typed at sign-up, which the account starts with when it is free (lib/auth/session.ts).
+    name: typeof user.username === 'string' ? user.username : '',
     email: verified ? email : null,
     emailVerified: verified,
     avatar: null,

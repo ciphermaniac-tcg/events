@@ -107,6 +107,8 @@ interface ClerkUser {
   duringRevoke?: () => Promise<void>;
   /** When the password last changed, in milliseconds. */
   passwordChangedAt?: number;
+  /** The username typed at sign-up. */
+  username?: string;
 }
 
 /* eslint-disable camelcase -- Clerk's field names */
@@ -154,6 +156,7 @@ async function asClerk<T>(user: ClerkUser, body: () => Promise<T>): Promise<{ re
     return Response.json(
       {
         id: 'user_x',
+        username: user.username ?? null,
         email_addresses: addresses,
         primary_email_address_id: user.email ? 'idn_1' : null,
         banned: user.banned ?? false,
@@ -391,8 +394,8 @@ test('a user Clerk has banned or locked since the token was made signs no one in
   assert.deepEqual([count('users'), count('pending_signups')], [0, 0]);
 });
 
-test('a new username sign-up waits for the age check, then is an account with a random username', async () => {
-  const { result: waiting, asked } = await asClerk(proven('user_new'), async () =>
+test('a new username sign-up waits for the age check, then is an account with the username typed', async () => {
+  const { result: waiting, asked } = await asClerk({ ...proven('user_new'), username: 'Keysmash_Q' }, async () =>
     post({ token: await sign(claimsFor('user_new')) })
   );
   assert.deepEqual(plainly(asked).sort(), [
@@ -404,14 +407,26 @@ test('a new username sign-up waits for the age check, then is an account with a 
   assert.equal(cookieOf(waiting, 'cm_session'), '');
   const passed = await checkAge(cookieOf(waiting, 'cm_signup'));
   assert.deepEqual(passed.json, { next: '/host' });
-  const account = raw()
-    .prepare(
-      "SELECT u.handle, u.email FROM users u JOIN identities i ON i.user_id = u.id WHERE i.provider = 'clerk' AND i.subject = 'user_new'"
-    )
-    .get() as { handle: string; email: string | null };
-  assert.equal(account.email, 'user_new@example.com');
-  assert.ok(account.handle, 'a username of its own, not the one it signs in with');
+  assert.deepEqual({ ...clerkAccount('user_new') }, { handle: 'keysmash_q', email: 'user_new@example.com' });
 });
+
+test('a typed username someone holds, or a reserved one, leaves the new account a random one', async () => {
+  raw().exec(
+    "INSERT INTO users (id, handle, email, birth_date, age_checked_at, created_at) VALUES ('held', 'key.smash', NULL, NULL, 1, 1)"
+  );
+  await signUp('user_taken', { ...proven('user_taken'), username: 'keysmash' });
+  await signUp('user_reserved', { ...proven('user_reserved'), username: 'admin' });
+  assert.match(clerkAccount('user_taken').handle, /^player-[a-z0-9]{8}$/u);
+  assert.match(clerkAccount('user_reserved').handle, /^player-[a-z0-9]{8}$/u);
+});
+
+function clerkAccount(sub: string) {
+  return raw()
+    .prepare(
+      "SELECT u.handle, u.email FROM users u JOIN identities i ON i.user_id = u.id WHERE i.provider = 'clerk' AND i.subject = ?"
+    )
+    .get(sub) as { handle: string; email: string | null };
+}
 
 /** A username account made before email was asked for: no email, here or at Clerk. */
 function oldAccount(sub: string) {

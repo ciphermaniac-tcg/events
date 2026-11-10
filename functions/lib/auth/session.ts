@@ -8,7 +8,7 @@
  */
 
 import { EARLY_LIMIT, launchBadge } from '../../../shared/accounts/achievements.js';
-import { displayName, isHandle, randomHandle } from '../../../shared/accounts/handle.js';
+import { DAY_MS, displayName, isHandle, randomHandle } from '../../../shared/accounts/handle.js';
 import { type AccountRole, readAccountRole } from '../../../shared/accounts/roles.js';
 import { storeRoleOf } from '../../../shared/accounts/stores.js';
 import type { MyStore } from '../../../shared/accounts/types.js';
@@ -271,15 +271,30 @@ function refreshUser(db: D1Like, profile: Profile, userId: string, birthDate: st
 }
 
 /**
- * A new account's username. A provider's account names are not kept, so a
- * new account has a random one until it picks its own. A dev sign-in takes
- * the name typed, when that makes a username, so local test accounts read
- * as who they are.
+ * The username a new account asks to start with: the one typed at a Clerk
+ * sign-up, or the name a dev sign-in typed, when either makes a username.
+ * A provider's display name is never kept, so anyone else asks for none.
+ * Dev sign-ins may take reserved names so local test accounts read as who
+ * they are.
  */
-function firstHandle(profile: Profile): string {
+function typedHandle(profile: Profile): string | null {
   const typed = profile.name.trim().toLowerCase().replace(/\s+/g, '-');
-  return profile.provider === 'dev' && isHandle(typed, { reserved: false }) ? typed : randomHandle();
+  const asked = profile.provider === 'clerk' || profile.provider === 'dev';
+  return asked && isHandle(typed, { reserved: profile.provider === 'clerk' }) ? typed : null;
 }
+
+/** `handleKey` in SQL, as the users_by_handle_key index is written. */
+const HANDLE_KEY_SQL = (column: string) => `replace(replace(replace(${column}, '.', ''), '-', ''), '_', '')`;
+
+/**
+ * A new account's username, in SQL: the one it asked for (`typedHandle`)
+ * when no account holds it or let it go within the day, as a rename checks
+ * (lib/accounts/handles.ts), else a random one until it picks its own.
+ */
+const FIRST_HANDLE_SQL =
+  `COALESCE((SELECT ?7 WHERE ?7 IS NOT NULL ` +
+  `AND NOT EXISTS (SELECT 1 FROM users WHERE ${HANDLE_KEY_SQL('handle')} = ${HANDLE_KEY_SQL('?7')}) ` +
+  `AND NOT EXISTS (SELECT 1 FROM handle_changes WHERE old_key = ${HANDLE_KEY_SQL('?7')} AND at > ?6 - ${DAY_MS})), ?2)`;
 
 /**
  * A new account's Beta tester or Early adopter badge. Early adopter stops
@@ -307,9 +322,17 @@ async function insertAccount(
       : db
           .prepare(
             'INSERT INTO users (id, handle, email, avatar, birth_date, age_checked_at, created_at) ' +
-              'VALUES (?1, ?2, ?3, ?4, ?5, CASE WHEN ?5 IS NULL THEN NULL ELSE ?6 END, ?6)'
+              `VALUES (?1, ${FIRST_HANDLE_SQL}, ?3, ?4, ?5, CASE WHEN ?5 IS NULL THEN NULL ELSE ?6 END, ?6)`
           )
-          .bind(userId, firstHandle(profile), verifiedEmail(profile), profile.avatar, birthDate, Date.now()),
+          .bind(
+            userId,
+            randomHandle(),
+            verifiedEmail(profile),
+            profile.avatar,
+            birthDate,
+            Date.now(),
+            typedHandle(profile)
+          ),
     identityInsert(db, profile, userId),
     ...(existing ? [] : [launchGrant(db, userId)])
   ]);
