@@ -13,6 +13,7 @@ import { A, useLocation } from '@solidjs/router';
 import { createSignal, type JSX, Match, Show, Switch } from 'solid-js';
 import { type AccountSetup, ApiError, call, errorText, json, type Me, setUpAccount } from '../../lib/tournament/api';
 import { latestValue } from '../../lib/resource';
+import { ownPath } from '../../lib/ownPath';
 import { ErrorLine, Field } from './Field';
 import { t } from '../../lib/i18n';
 import { TournamentHero } from './Hero';
@@ -31,7 +32,7 @@ function offerNext(next: unknown): string | null {
   if (typeof next !== 'string') {
     return null;
   }
-  return next.startsWith('/') && !next.startsWith('//') ? next : '/';
+  return ownPath(next) ?? '/';
 }
 
 /** The username and name fields, each optional. */

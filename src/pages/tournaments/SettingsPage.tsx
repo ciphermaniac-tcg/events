@@ -33,6 +33,7 @@ import {
 import { applicantStage, fetchApplication } from '../../lib/tournament/applications';
 import { createCopied } from './copied';
 import { latestValue } from '../../lib/resource';
+import { ownPath } from '../../lib/ownPath';
 import { ApplicantStatus } from './ApplicantStatus';
 import { OrganizerRoles } from './OrganizerRoles';
 import { Avatar } from './Avatar';
@@ -451,8 +452,8 @@ const AUTH_PAGES = { in: '/sign-in', up: '/create-account' } as const;
  * sign-in pages themselves; anything else, `fallback`.
  */
 export function returnTo(next: string | undefined, fallback = '/settings'): string {
-  const own = (path: string) => path.startsWith('/') && !path.startsWith('//');
-  return next && own(next) && !Object.values(AUTH_PAGES).some(page => next.startsWith(page)) ? next : fallback;
+  const path = next ? ownPath(next) : null;
+  return path && !Object.values(AUTH_PAGES).some(page => path.startsWith(page)) ? path : fallback;
 }
 
 /**
