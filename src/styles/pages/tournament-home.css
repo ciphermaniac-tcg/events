@@ -78,7 +78,7 @@ body.tm-home-mode main.page {
 /* Side by side, each door's heading in one row and its action in the next, so the actions line up. */
 .tm-home-doors {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
   grid-template-rows: auto auto;
   padding: var(--space-2) 0 48px;
 }
@@ -163,6 +163,10 @@ body.tm-home-mode main.page {
 .tm-home-lede p {
   max-width: 46ch;
 }
+.tm-home-centered {
+  justify-items: center;
+  text-align: center;
+}
 /* Words beside a preview, on one five-to-seven grid. */
 .tm-home-split {
   display: grid;
@@ -218,15 +222,32 @@ body.tm-home-mode main.page {
 }
 
 /* ---------- Profiles and recent events ---------- */
-/* Two halves side by side, each its words over its box. */
+/* Side by side, the profile the wider, each its words over its box. */
 .tm-home-pair {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-6);
-  align-items: start;
+  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  column-gap: var(--space-6);
 }
+/* Each half's words and box sit on rows the halves share, so the boxes start level. */
 .tm-home-pair > .tm-home-lede {
+  grid-row: span 2;
+  grid-template-rows: subgrid;
   justify-items: stretch;
+  align-items: end;
+}
+.tm-home-pair > .tm-home-lede > :last-child {
+  align-self: start;
+}
+/* Below this the profile's table has no room beside the list: one above the other. */
+@media (max-width: 1024px) {
+  .tm-home-pair {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: var(--space-6);
+  }
+  .tm-home-pair > .tm-home-lede {
+    grid-row: auto;
+    grid-template-rows: none;
+  }
 }
 .tm-home-recent-table {
   overflow: hidden;
@@ -845,7 +866,6 @@ body.tm-home-mode main.page {
   }
   /* One column, each preview above its words; the phone stands for the room. */
   .tm-home-split,
-  .tm-home-pair,
   .tm-home-venue {
     grid-template-columns: minmax(0, 1fr);
     gap: var(--space-4);

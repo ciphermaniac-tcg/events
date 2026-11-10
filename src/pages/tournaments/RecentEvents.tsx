@@ -64,7 +64,7 @@ export function RecentEvents() {
   return (
     <Show when={(events()?.length ?? 0) > 0}>
       <section class='tm-home-lede tm-home-recent' aria-label={t('Recent events')}>
-        <p>{t('See recent events run with Ciphermaniac Events.')}</p>
+        <p>{t('See recent completed events run with Ciphermaniac Events.')}</p>
         <div class='tm-home-recent-table'>
           <table class='data'>
             <thead>

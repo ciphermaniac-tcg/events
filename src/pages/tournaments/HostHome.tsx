@@ -101,7 +101,7 @@ export function HostHome() {
       <Doors />
       <div class='tm-home-band'>
         <section class='tm-home-sec' aria-label={t('At the venue')}>
-          <div class='tm-home-lede'>
+          <div class='tm-home-lede tm-home-centered'>
             <p>
               {t(
                 'Show your event’s pairings and timers on a big screen, accessible to anyone in the venue, and allow your players to virtually report their match results from their phone.'
