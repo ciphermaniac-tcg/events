@@ -20,6 +20,14 @@ export function learnDeckIcons(decks: readonly { label: string; icons?: string[]
   setLearned(next);
 }
 
+const slugs = (label: string) => learned().get(normalizeArchetypeKey(label)) ?? deckIcons({ label });
+
+/** The sprites DeckIcons draws for a deck, the Substitute doll's slug standing in once the lookups find none. */
+export function deckSprites(label: string): string[] {
+  const found = slugs(label).slice(0, 2);
+  return found.length > 0 || !deckIconsSettled() ? found : ['substitute'];
+}
+
 /**
  * A player's archetype the way the site writes one: its sprites, the name kept
  * for assistive tech. A deck with no sprite of its own (a rogue deck, a new
@@ -27,7 +35,6 @@ export function learnDeckIcons(decks: readonly { label: string; icons?: string[]
  * so a reported deck never looks like no deck where only the icon is drawn.
  */
 export function DeckIcons(props: { label: string | undefined; size?: number }) {
-  const slugs = (label: string) => learned().get(normalizeArchetypeKey(label)) ?? deckIcons({ label });
   return (
     <Show when={props.label}>
       {label => (

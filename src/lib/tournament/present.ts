@@ -94,7 +94,8 @@ export function roundLabel(round: Round, pod: Pod): string {
   return cutStageLabel(bracketSize(pod, round) * 2);
 }
 
-function bracketSize(pod: Pod, round: Round): number {
+/** The most matches a top cut round has in any one division's bracket. */
+export function bracketSize(pod: Pod, round: Round): number {
   const cuts = divisionBrackets(pod);
   return cuts.length
     ? Math.max(

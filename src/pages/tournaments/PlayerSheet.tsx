@@ -5,7 +5,8 @@
  * sheet on a phone. It is also where a player marks themselves, proving it
  * with their Player ID or last name, so the page can lead with their table
  * from then on, and where a spectator follows them. A viewer the page
- * already knows as a player is not offered to be another.
+ * already knows as a player is not offered to be another. Once they have a
+ * standing, the sheet copies as an image to paste or send.
  */
 
 import { createEffect, createSignal, on, Show } from 'solid-js';
@@ -14,7 +15,11 @@ import type { Pod } from '../../../shared/tournament/types';
 import { decklistOpenFor } from '../../../shared/tournament/lateLists';
 import { decklistsLocked, type TournamentView } from '../../../shared/tournament/view';
 import { t } from '../../lib/i18n';
-import { DeckIcons } from './DeckIcons';
+import { imageToClipboard } from '../../lib/shareImage/clipboard';
+import type { SheetData } from '../../lib/shareImage/playerShare';
+import { mode } from '../../lib/theme';
+import { createCopied } from './copied';
+import { DeckIcons, deckSprites } from './DeckIcons';
 import { HistoryTable } from './HistoryTable';
 import { type Identified, IdentifyForm } from './Identify';
 import { lazyPanel } from './lazyPanel';
@@ -22,6 +27,41 @@ import { Sheet } from './Sheet';
 import { Tiebreaker } from './Tiebreaker';
 
 const OpenList = lazyPanel(() => import('./OpenList').then(m => ({ default: m.OpenList })));
+
+/**
+ * Copies the sheet as an image. The clipboard write starts inside the click,
+ * as Safari asks, with the image to follow: the renderer and its fonts load
+ * on the first press, not with the page. Where the clipboard will not take an
+ * image, the share sheet or a download has it instead.
+ */
+function CopyImage(props: { data: () => SheetData }) {
+  const { copied, flash } = createCopied();
+  let busy = false;
+  const press = () => {
+    if (busy) {
+      return;
+    }
+    busy = true;
+    const data = props.data();
+    const renderer = import('../../lib/shareImage/render');
+    const png = renderer.then(m => m.playerImage(data, mode()));
+    imageToClipboard(png)
+      .then(async done => {
+        if (done) {
+          flash();
+        } else {
+          await (await renderer).saveImage(png, data);
+        }
+      })
+      .catch(() => undefined)
+      .finally(() => (busy = false));
+  };
+  return (
+    <button type='button' class='btn btn-secondary' onClick={press}>
+      {copied() ? t('Copied') : t('Copy image')}
+    </button>
+  );
+}
 
 export function PlayerSheet(props: {
   view: TournamentView;
@@ -78,6 +118,23 @@ export function PlayerSheet(props: {
           >
             {props.following ? t('Following') : t('Follow')}
           </button>
+          <Show when={props.standing}>
+            {standing => (
+              <CopyImage
+                data={() => ({
+                  view: props.view,
+                  pod: props.pod,
+                  playerId: props.playerId,
+                  standing: standing(),
+                  place: props.place,
+                  names: props.names,
+                  records: props.records,
+                  decks: props.decks,
+                  sprites: deckSprites
+                })}
+              />
+            )}
+          </Show>
           <Show when={props.me === props.playerId}>
             <button type='button' class='btn btn-ghost' onClick={() => props.onForget()}>
               {t('This isn’t me')}
