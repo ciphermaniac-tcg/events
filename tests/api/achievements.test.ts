@@ -152,7 +152,7 @@ test('granted badges show before counted ones, and go when the account is delete
   grant.run(id, 'bug', 6);
   assert.deepEqual(await badgesAt('pat', true), [
     { key: 'creator' },
-    { key: 'beta' },
+    { key: 'early' },
     { key: 'bug', count: 6, tier: 2 }
   ]);
   const gone = await hit(
@@ -169,10 +169,10 @@ test('granted badges show before counted ones, and go when the account is delete
   assert.deepEqual(db().raw.prepare('SELECT badge FROM account_badges WHERE user_id = ?').all(id), []);
 });
 
-test('a new account tests the beta before launch, and signing in again grants nothing more', async () => {
+test('a new account adopts early after launch, and signing in again grants nothing more', async () => {
   await publicAccount('Pat Player', 'pat');
   await signIn('Pat Player');
-  assert.deepEqual(await badgesAt('pat', true), [{ key: 'beta' }]);
+  assert.deepEqual(await badgesAt('pat', true), [{ key: 'early' }]);
   assert.equal(db().raw.prepare('SELECT COUNT(*) AS n FROM account_badges').get()?.n, 1);
 });
 

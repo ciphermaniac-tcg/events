@@ -18,7 +18,7 @@ export const SPECIAL = ['creator', 'beta', 'early'] as const;
  * the beta; after it, the first EARLY_LIMIT new accounts adopted early. An
  * account holds one of the two at most.
  */
-export const LAUNCHED = false;
+export const LAUNCHED = true;
 
 /** How many accounts made after launch are Early adopters. */
 export const EARLY_LIMIT = 100;
