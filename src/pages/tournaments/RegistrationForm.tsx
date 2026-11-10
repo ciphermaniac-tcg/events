@@ -38,6 +38,7 @@ import { OptionsMenu } from './OptionsMenu';
 import { birthDateFor, BirthYearInput, birthYearOf, emptyProfile, PlayerIdInput } from './ProfileFields';
 import { session, setSession } from './session';
 import { recall, remember } from './decklistMemory';
+import { PlayerIdTip } from './PlayerIdTip';
 
 export interface RegistrationProps {
   code: string;
@@ -407,7 +408,7 @@ function Lookup(props: { form: Registration; sanctioned: boolean }) {
     <section class='tm-box tm-reg'>
       <div class='tm-box-bar tm-reg-stack'>
         <Show when={props.sanctioned} fallback={<NameFields form={f()} onEnter={go} />}>
-          <Field id='reg-pop' label={t('Player ID')}>
+          <Field id='reg-pop' label={t('Player ID')} tip={<PlayerIdTip />}>
             <PlayerIdInput
               id='reg-pop'
               class='tm-input tm-reg-input'

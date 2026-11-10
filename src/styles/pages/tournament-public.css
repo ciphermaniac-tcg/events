@@ -767,20 +767,3 @@
   display: flex;
   gap: var(--space-4);
 }
-
-/* A tip in a table head or a stat strip opens below its label and toward the start,
-   inside the table's clipped edge rather than above it. */
-.info-tip.tm-tip-below .info-tip-bubble {
-  top: calc(100% + 7px);
-  right: 0;
-  bottom: auto;
-  left: auto;
-  transform: translateY(-2px);
-}
-.info-tip.tm-tip-below:is(:hover, :focus-visible, .open) .info-tip-bubble {
-  transform: translateX(var(--tip-shift, 0px));
-}
-.info-tip.tm-tip-below .info-tip-bubble::after {
-  top: auto;
-  bottom: 100%;
-}

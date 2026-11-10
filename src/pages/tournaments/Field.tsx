@@ -21,6 +21,8 @@ export function Field(props: {
   label: string;
   error?: string | undefined;
   errorAction?: JSX.Element;
+  /** An info marker after the label, for help the field's label can't hold. */
+  tip?: JSX.Element;
   children: JSX.Element | ((control: FieldControl) => JSX.Element);
 }) {
   const errorId = () => `${props.id}-error`;
@@ -41,9 +43,21 @@ export function Field(props: {
   };
   return (
     <div class='tm-field'>
-      <label class='tm-label' for={props.id}>
-        {props.label}
-      </label>
+      <Show
+        when={props.tip}
+        fallback={
+          <label class='tm-label' for={props.id}>
+            {props.label}
+          </label>
+        }
+      >
+        <span class='tm-label-row'>
+          <label class='tm-label' for={props.id}>
+            {props.label}
+          </label>
+          {props.tip}
+        </span>
+      </Show>
       {drawn()}
       <Show when={props.error}>
         <span class='tm-error' id={errorId()}>

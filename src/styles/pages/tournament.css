@@ -534,6 +534,32 @@ body[data-mode='dark'] .tm-sso-google:hover {
   font-size: var(--text-base);
   font-weight: 600;
 }
+/* A tip beside a label, a table head or a stat opens below it and toward the start,
+   inside the table's clipped edge rather than above it. */
+.info-tip.tm-tip-below .info-tip-bubble {
+  top: calc(100% + 7px);
+  right: 0;
+  bottom: auto;
+  left: auto;
+  transform: translateY(-2px);
+}
+.info-tip.tm-tip-below:is(:hover, :focus-visible, .open) .info-tip-bubble {
+  transform: translateX(var(--tip-shift, 0px));
+}
+.info-tip.tm-tip-below .info-tip-bubble::after {
+  top: auto;
+  bottom: 100%;
+}
+/* Beside a label at a form's start, it opens toward the end instead. */
+.info-tip.tm-tip-below.tm-tip-start .info-tip-bubble {
+  right: auto;
+  left: 0;
+}
+.tm-label-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
 .tm-input,
 .tm-select {
   width: 100%;

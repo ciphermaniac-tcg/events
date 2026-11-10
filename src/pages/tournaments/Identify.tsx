@@ -14,6 +14,7 @@ import { currentMatchOf, divisionHeading } from '../../lib/tournament/present';
 import { ErrorLine, Field } from './Field';
 import { BirthYearInput, PlayerIdInput } from './ProfileFields';
 import { t, tn } from '../../lib/i18n';
+import { PlayerIdTip } from './PlayerIdTip';
 
 export interface Identified {
   claim: PlayerClaim;
@@ -100,7 +101,11 @@ function ClaimForm(props: IdentifyProps) {
 
   return (
     <form class='tm-identify' onSubmit={event => void find(event)}>
-      <Field id={`${props.idPrefix}-id`} label={sanctioned() ? t('Player ID') : t('Last name')}>
+      <Field
+        id={`${props.idPrefix}-id`}
+        label={sanctioned() ? t('Player ID') : t('Last name')}
+        tip={sanctioned() ? <PlayerIdTip /> : undefined}
+      >
         <Show
           when={sanctioned()}
           fallback={

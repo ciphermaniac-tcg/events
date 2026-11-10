@@ -2,6 +2,7 @@ import type { PlayerProfile } from '../../../shared/tournament/profile';
 import { type JSX, Show, splitProps } from 'solid-js';
 import { t } from '../../lib/i18n';
 import { Field } from './Field';
+import { PlayerIdTip } from './PlayerIdTip';
 
 /**
  * TOM keeps only a birth year and writes every birth date as 02/27 of it, so
@@ -121,7 +122,13 @@ export function ProfileFields(props: {
         )}
       </Field>
       <Show when={props.sanctioned !== false}>
-        <Field id={id('pop')} label={t('Player ID')} error={error('popId')} errorAction={props.popIdAction}>
+        <Field
+          id={id('pop')}
+          label={t('Player ID')}
+          tip={<PlayerIdTip />}
+          error={error('popId')}
+          errorAction={props.popIdAction}
+        >
           {control => <PlayerIdInput {...control} value={props.value.popId} onValue={value => set('popId', value)} />}
         </Field>
         <Field id={id('year')} label={t('Birth year')} error={error('birthDate')}>

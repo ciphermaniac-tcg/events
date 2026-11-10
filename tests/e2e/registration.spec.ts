@@ -183,6 +183,21 @@ test('before round 1 the page is the registration tab alone, and asks nobody who
   await expect(page.getByText('Which player are you?')).toHaveCount(0);
 });
 
+test('the Player ID field says where to get one, with a way to sign up @mobile', async ({ page }) => {
+  await mockEvent(page, {});
+  await page.goto(`/t/${CODE}?tab=decklist`);
+  const tip = page.getByRole('button', { name: 'Where to find it' });
+  await expect(tip).toHaveAccessibleDescription(/^Your PLAY! Pokémon ID\. Create an account or ask your organizer/);
+  await tip.click();
+  await expect(page.getByRole('link', { name: 'Create an account' })).toHaveAttribute(
+    'href',
+    'https://club.pokemon.com/us/pokemon-trainer-club/sign-up/'
+  );
+  const box = await page.getByRole('tooltip').filter({ visible: true }).boundingBox();
+  expect(box!.x).toBeGreaterThanOrEqual(0);
+  expect(box!.x + box!.width).toBeLessThanOrEqual(page.viewportSize()!.width);
+});
+
 test('a registered Player ID asks its birth year, then opens the registration to change and withdraw @mobile', async ({
   page
 }) => {
