@@ -43,6 +43,8 @@ interface TableProps {
   bar?: JSX.Element;
   /** A muted line at the foot of each box. */
   note?: string | undefined;
+  /** What an empty search says instead, when it finds the name in another division. */
+  miss?: JSX.Element | null;
 }
 
 export function StandingsTable(props: TableProps) {
@@ -114,7 +116,7 @@ export function StandingsTable(props: TableProps) {
                       <Show when={index === 0 && nobody()}>
                         <tr class='tm-empty-row'>
                           <td class='muted-cell' colSpan={4}>
-                            {t('No players match.')}
+                            {props.miss ?? t('No players match.')}
                           </td>
                           <Show when={props.tiebreakers}>
                             <td class='tm-wide-col' colSpan={2} />

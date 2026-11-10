@@ -603,6 +603,30 @@ export function filterMatches(matches: readonly Match[], names: Map<string, stri
   return matches.filter(match => hit(match.p1) || hit(match.p2));
 }
 
+/**
+ * Who a name search finds in another division when the one shown has nobody:
+ * the first other pod with a hit, and the names it holds. Null for no query,
+ * a table number, or a hit in the pod shown.
+ */
+export function foundElsewhere(
+  pods: readonly Pod[],
+  shown: Pod | undefined,
+  names: Map<string, string>,
+  query: string
+): { pod: Pod; names: string[] } | null {
+  const q = query.trim().toLowerCase();
+  if (!q || tableQuery(q) !== null) {
+    return null;
+  }
+  const hits = (pod: Pod) =>
+    pod.playerIds.map(id => names.get(id) ?? '').filter(name => name.toLowerCase().includes(q));
+  if (shown && hits(shown).length > 0) {
+    return null;
+  }
+  const pod = pods.find(other => other !== shown && hits(other).length > 0);
+  return pod ? { pod, names: hits(pod) } : null;
+}
+
 const SIDE_KEY = { win: 'wins', loss: 'losses', tie: 'ties' } as const;
 
 /**

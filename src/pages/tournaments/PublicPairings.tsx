@@ -43,6 +43,8 @@ export function PublicPairings(props: {
   onPlayer: (id: string) => void;
   /** The players whose name opens a pasted list. */
   listed: ReadonlySet<string>;
+  /** What an empty search says instead, when it finds the name in another division. */
+  miss?: JSX.Element | null;
 }) {
   const [params, setParams] = useSearchParams<{ view?: string }>();
   const cut = createMemo(() => hasCut(props.pod));
@@ -93,7 +95,7 @@ export function PublicPairings(props: {
       listed={props.listed}
       status
       inProgress={match => stillPlaying(match, { pod: props.pod!, round: props.round!, pending: props.view.pending })}
-      empty={empty()}
+      empty={props.miss ?? empty()}
     />
   );
   const choose = (value: MatchView) => setParams({ view: value === 'bracket' ? value : undefined }, { replace: true });

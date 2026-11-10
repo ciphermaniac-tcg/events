@@ -71,6 +71,7 @@ import {
   divisionHeading,
   eventStatus,
   firstRoundTime,
+  foundElsewhere,
   namesById,
   podLabel,
   podProgress,
@@ -95,7 +96,7 @@ import { ErrorState } from '@ciphermaniac/design/components/ErrorState';
 import { EMPTY_LIVE_DATA, type LiveData, liveFailure, staleSince } from '../../lib/tournament/liveData';
 import { LiveDataStatus } from './LiveDataStatus';
 import { MAIN_SITE } from '../../lib/constants';
-import { t, timeOfDay, tn } from '../../lib/i18n';
+import { msg, t, timeOfDay, tn, tx } from '../../lib/i18n';
 
 const BigScreen = lazyOnAir(() => import('./BigScreen').then(m => ({ default: m.BigScreen })));
 const StreamOverlay = lazyOnAir(() => import('./StreamOverlay').then(m => ({ default: m.StreamOverlay })));
@@ -659,6 +660,16 @@ function EventBody(props: {
     </>
   );
 
+  /** A search that finds nobody here but somebody in another division says where, and goes there on a press. */
+  const miss = (none: string) => {
+    const found = foundElsewhere(pods(), pod(), names(), query());
+    return found ? <SearchMiss none={t(none, { division: podLabel(pod()!) })} found={found} onGo={goTo} /> : null;
+  };
+  const goTo = (to: Pod) => {
+    setPodChoice(to.category);
+    setRoundChoice(null);
+  };
+
   const now = createNow();
   // Who a viewer is only matters near the start: until then the page is for registering.
   const asks = createMemo(() => me() !== null || asksWhoYouAre(started(), props.view.settings, now()));
@@ -710,6 +721,7 @@ function EventBody(props: {
               registered={<RegisteredList view={props.view} me={me()} query={query()} onPlayer={setOpen} />}
               onPlayer={setOpen}
               listed={listed() ?? NO_LISTS}
+              miss={miss(msg('No tables match in {division}.'))}
             />
             <Show when={started() && deckNote(props.view)}>
               {note => <p class='tm-box-bar tm-box-note muted'>{note()}</p>}
@@ -733,6 +745,7 @@ function EventBody(props: {
               listed={listed() ?? NO_LISTS}
               bar={bar(false)}
               note={deckNote(props.view)}
+              miss={miss(msg('No players match in {division}.'))}
             />
           </Show>
         </Show>
@@ -772,6 +785,31 @@ function EventBody(props: {
           />
         )}
       </Show>
+    </>
+  );
+}
+
+/** "No tables match in Masters. Leo Ruiz is in Juniors.", with the division a way there. */
+function SearchMiss(props: { none: string; found: { pod: Pod; names: string[] }; onGo: (pod: Pod) => void }) {
+  const who = () => {
+    const [a = '', b = ''] = props.found.names;
+    const more = props.found.names.length - 2;
+    if (props.found.names.length === 1) {
+      return a;
+    }
+    return more > 0 ? t('{a}, {b} and {n} more', { a, b, n: more }) : t('{a} and {b}', { a, b });
+  };
+  const division = (
+    <button type='button' class='tm-link-inline' onClick={() => props.onGo(props.found.pod)}>
+      {podLabel(props.found.pod)}
+    </button>
+  );
+  return (
+    <>
+      {props.none}{' '}
+      {props.found.names.length === 1
+        ? tx('{names} is in {division}.', { names: who(), division })
+        : tx('{names} are in {division}.', { names: who(), division })}
     </>
   );
 }

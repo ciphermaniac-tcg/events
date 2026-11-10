@@ -64,7 +64,7 @@ export interface MatchTableProps {
    */
   inProgress?: (match: Match) => boolean;
   /** The one row a filter or search that leaves no tables shows, rather than a bare head. */
-  empty?: string;
+  empty?: JSX.Element;
   /** Staff only, where rows are too narrow for their controls: the whole row opens the table's result sheet. */
   onRow?: (match: Match) => void;
 }

@@ -29,6 +29,7 @@ import {
   divisionHeading,
   eventStatus,
   filterMatches,
+  foundElsewhere,
   matchHistory,
   namesById,
   plannedRounds,
@@ -805,4 +806,25 @@ describe('endGaps', () => {
     assert.deepEqual(endGaps(ending(played, 1)), []);
     assert.deepEqual(endGaps(ending(played, 3, 'tom')), [], 'TOM decides its own rounds');
   });
+});
+
+test('says which other division a name search finds, and not when the shown one has it', () => {
+  const pod = (category: 'masters' | 'juniors' | 'seniors', playerIds: string[]) =>
+    ({ category, playerIds }) as unknown as Pod;
+  const masters = pod('masters', ['1']);
+  const juniors = pod('juniors', ['2', '3']);
+  const seniors = pod('seniors', ['4']);
+  const names = new Map([
+    ['1', 'Ana Ruiz'],
+    ['2', 'Leo Ruiz'],
+    ['3', 'Lea Ortega'],
+    ['4', 'Leon Pike']
+  ]);
+  const pods = [masters, juniors, seniors];
+  assert.deepEqual(foundElsewhere(pods, masters, names, 'leo'), { pod: juniors, names: ['Leo Ruiz'] });
+  assert.deepEqual(foundElsewhere(pods, juniors, names, 'leon'), { pod: seniors, names: ['Leon Pike'] });
+  assert.equal(foundElsewhere(pods, masters, names, 'ruiz'), null);
+  assert.equal(foundElsewhere(pods, masters, names, 'nobody'), null);
+  assert.equal(foundElsewhere(pods, masters, names, ' '), null);
+  assert.equal(foundElsewhere(pods, masters, names, '12'), null);
 });
