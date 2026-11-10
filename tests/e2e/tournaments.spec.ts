@@ -2417,7 +2417,7 @@ test('an open list leads the player sheet as cards, as rows, and one card large 
       json: {
         list: {
           mode: 'digital',
-          deck: 'Pokémon: 4\n4 Dreepy TWM 128\n\nTrainer: 4\n2 Arven SVI 166\n1 Mystery Card TG05\n1 Lost Print ZZZ 1\n\nEnergy: 3\n3 Basic {P} Energy'
+          deck: 'Pokémon: 4\n4 Dreepy TWM 128\n\nTrainer: 4\n2 Arven SVI 166\n1 Mystery Card\n1 Lost Print ZZZ 1\n\nEnergy: 3\n3 Basic {P} Energy'
         }
       }
     });
@@ -2459,7 +2459,7 @@ test('an open list leads the player sheet as cards, as rows, and one card large 
   ).toBe(true);
   await expect(sheet.locator('.tm-open-meta')).toHaveText('Pokémon 4 · Trainer 4 · Energy 311 cards');
   await expect(grid.locator('img')).toHaveCount(3);
-  await expect(grid.locator('.tm-art-missing')).toHaveText(['Mystery Card TG05', 'Lost Print']);
+  await expect(grid.locator('.tm-art-missing')).toHaveText(['Mystery Card', 'Lost Print']);
   await expect(grid.locator('img').first()).toHaveAttribute('src', /TWM_128_R_EN_SM\.png$/);
   // Basic Energy draws from its Scarlet & Violet print whatever the line names.
   await expect(grid.locator('img').last()).toHaveAttribute('src', /\/SVE\/SVE_005_R_EN_SM\.webp$/);

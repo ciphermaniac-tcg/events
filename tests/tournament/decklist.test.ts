@@ -97,3 +97,21 @@ test('reads a Pokémon header written with a combining accent', () => {
   assert.deepEqual(deck.unread, []);
   assert.deepEqual(deck.problems, []);
 });
+
+test('reads a set code with no number, one that starts with a digit, and a note after the print', () => {
+  const deck = parseDecklist(
+    '4 Snover MEG\n3 Ultra Ball 30C 128\n1 Mew ex PAF 216 (PROXY)\n2 Arceus VSTAR\n2 Mewtwo & Mew GX\n4 Grass Energy'
+  );
+  assert.deepEqual(
+    deck.cards.map(card => [card.name, card.set, card.number]),
+    [
+      ['Snover', 'MEG', ''],
+      ['Ultra Ball', '30C', '128'],
+      ['Mew ex', 'PAF', '216'],
+      ['Arceus VSTAR', '', ''],
+      ['Mewtwo & Mew GX', '', ''],
+      ['Grass Energy', '', '']
+    ]
+  );
+  assert.deepEqual(deck.unread, []);
+});

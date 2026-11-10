@@ -36,8 +36,13 @@ export const MAX_DECKLIST_CHARS = 6000;
 
 const HEADER_RE = /^(pok[eé]mon|trainers?|energy)\s*(?:[:-]\s*\d*)?$/i;
 const FOOTER_RE = /^total\s+cards\s*:?\s*\d*$/i;
-// Older PTCGL exports give basic energy the set code "Energy": "10 Basic {L} Energy Energy 4".
-const LINE_RE = /^(?:\*\s*)?(\d{1,2})x?\s+(.+?)(?:\s+([A-Z][A-Z0-9-]{1,5}|Energy)\s+([A-Z]{0,4}\d{1,4}[a-z]?))?$/;
+// Older PTCGL exports give basic energy the set code "Energy": "10 Basic {L} Energy Energy 4". A set
+// code may start with a digit ("30C") and may come without its number ("Snover MEG"); a note in
+// brackets after the print ("(PROXY)") is not part of the card.
+const LINE_RE =
+  /^(?:\*\s*)?(\d{1,2})x?\s+(.+?)(?:\s+((?=[A-Z0-9-]*[A-Z])[A-Z0-9][A-Z0-9-]{1,7}|Energy)(?:\s+([A-Z]{0,4}\d{1,4}[a-z]?))?(?:\s+\([^)]*\))?)?$/;
+/** Words that end a card's name and read like a set code when no number follows. */
+const NAME_SUFFIXES = new Set(['EX', 'GX', 'VMAX', 'VSTAR', 'V-UNION', 'BREAK', 'LEGEND', 'GL', 'FB', 'E4', 'Energy']);
 
 const BASIC_ENERGY_NAMES = new Set(
   ['grass', 'fire', 'water', 'lightning', 'psychic', 'fighting', 'darkness', 'metal', 'fairy'].flatMap(type => [
@@ -66,13 +71,20 @@ function readCard(line: string, section: DeckSection): DeckCard | null {
     return null;
   }
   const count = Number(match[1]);
-  const name = (match[2] ?? '').trim();
+  let name = (match[2] ?? '').trim();
+  let set = match[3] ?? '';
+  const number = match[4] ?? '';
+  // "Arceus VSTAR" or "Grass Energy" with no print: the last word is the name's.
+  if (!number && NAME_SUFFIXES.has(set)) {
+    name = `${name} ${set}`;
+    set = '';
+  }
   if (count < 1 || !name) {
     return null;
   }
   // A line with no header above it that names an energy is still energy.
   const inferred = section === 'pokemon' && isBasicEnergy(name) ? 'energy' : section;
-  return { count, name, set: match[3] ?? '', number: match[4] ?? '', section: inferred };
+  return { count, name, set, number, section: inferred };
 }
 
 function copyProblems(cards: readonly DeckCard[]): string[] {
