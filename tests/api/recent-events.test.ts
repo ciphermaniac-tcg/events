@@ -93,10 +93,16 @@ test('holds six at most and is cached publicly', async () => {
   assert.equal(answer.headers.get('Access-Control-Allow-Origin'), null);
 });
 
-test('leaves out events run under an organizer’s own name', async () => {
+test('lists the newest finished event run under an organizer’s own name', async () => {
   const admin = await signIn('Admin', 'admin');
-  await event(admin, 'House event', '2026-11-06T19:00');
-  assert.deepEqual(await list(), []);
+  await event(admin, 'House event', '2026-10-06T19:00');
+  const latest = await event(admin, 'House event', '2026-11-06T19:00');
+  const events = await list();
+  assert.deepEqual(
+    events.map(e => e.code),
+    [latest]
+  );
+  assert.equal(events[0]?.place, '');
 });
 
 test('an event with no start time sorts by its TOM date', async () => {

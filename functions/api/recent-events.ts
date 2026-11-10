@@ -1,10 +1,9 @@
 /**
  * GET /api/recent-events — the home page's proof that events run here: the
- * newest finished event of each active store, newest first, at most six. Only
- * finished events, so nothing listed can still be joined or reported to, and
- * one per store, so one busy store does not fill the list. Only stores' events:
- * a store's page already lists its past events, while an event run under an
- * organizer's own name is reached only by its code. Each is { code, name,
+ * newest finished event of each active store, and of each organizer running
+ * events under their own name, newest first, at most six. Only finished events,
+ * so nothing listed can still be joined or reported to, and one per store or
+ * organizer, so one busy host does not fill the list. Each is { code, name,
  * place, startsAt, startDate, players }.
  */
 
@@ -43,14 +42,15 @@ interface Row {
 }
 
 /**
- * One row per active store, its newest finished event that paired a round.
+ * One row per active store or storeless organizer, its newest finished event
+ * that paired a round.
  * An event with no start time sorts by TOM's start date, as YYYY-MM-DD, and
  * failing that by when it last changed.
  */
 const RECENT_SQL = `
   SELECT code, name, starts_at, start_date, players, store, city, region FROM (
-    SELECT *, row_number() OVER (PARTITION BY store_id ORDER BY sort_key DESC, updated_at DESC) AS nth FROM (
-    SELECT t.code, t.store_id, t.updated_at,
+    SELECT *, row_number() OVER (PARTITION BY host ORDER BY sort_key DESC, updated_at DESC) AS nth FROM (
+    SELECT t.code, coalesce(t.store_id, 'owner:' || t.owner_id) AS host, t.updated_at,
       json_extract(t.state, '$.info.name') AS name,
       json_extract(t.settings, '$.startsAt') AS starts_at,
       json_extract(t.state, '$.info.startDate') AS start_date,
@@ -65,9 +65,9 @@ const RECENT_SQL = `
       s.name AS store,
       coalesce(nullif(s.city, ''), json_extract(t.state, '$.info.city')) AS city,
       coalesce(nullif(s.region, ''), json_extract(t.state, '$.info.state')) AS region
-    FROM tournaments t JOIN stores s ON s.id = t.store_id
+    FROM tournaments t LEFT JOIN stores s ON s.id = t.store_id
     WHERE coalesce(json_extract(t.settings, '$.finished'), 0) = 1
-      AND s.status = 'active'
+      AND (t.store_id IS NULL OR s.status = 'active')
       AND (${pairedRounds('t.state')}) > 0
     )
   )
