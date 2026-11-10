@@ -1635,10 +1635,6 @@ test('a phone’s tab bar keeps one height and every tab on screen, however long
   page
 }) => {
   await page.setViewportSize({ width: 320, height: 640 });
-  await page.addInitScript(() => {
-    Object.defineProperty(navigator, 'languages', { get: () => ['es'] });
-    Object.defineProperty(navigator, 'language', { get: () => 'es' });
-  });
   const t = event(8, 1, true);
   const requests: PlayerRequest[] = t.players.slice(0, 4).map((player, i) => ({
     id: `request-${String(i)}`,
@@ -1648,6 +1644,7 @@ test('a phone’s tab bar keeps one height and every tab on screen, however long
     status: 'open'
   }));
   await mockConsole(page, t, settingsOf({ decklists: 'open' }), [], false, requests);
+  await page.goto(`/host/${CODE}?lang=es`);
   const bar = page.locator('.tm-tabbar');
   await expect(bar.getByRole('tab')).toHaveCount(6);
   // Six tabs in Spanish with requests waiting: the bar is as tall as the room the page leaves it.
@@ -1671,11 +1668,8 @@ test('a phone’s tab bar keeps one height and every tab on screen, however long
 
 test('a phone’s pairings name each table and a bye in the page’s language @mobileOnly', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 700 });
-  await page.addInitScript(() => {
-    Object.defineProperty(navigator, 'languages', { get: () => ['de'] });
-    Object.defineProperty(navigator, 'language', { get: () => 'de' });
-  });
   await mockConsole(page, event(7, 0, true), settingsOf({}), [], false);
+  await page.goto(`/host/${CODE}?lang=de`);
   const tables = page.locator('.tm-matches td.tm-table-col');
   await expect(tables).toHaveCount(4);
   const labels = await tables.evaluateAll(cells =>
@@ -1713,11 +1707,8 @@ test('a round clock too wide for a phone puts its actions under the time, every 
 }) => {
   await page.setViewportSize({ width: 320, height: 640 });
   // Spanish's "Iniciar cronómetro" cannot sit beside the time on a 320px screen.
-  await page.addInitScript(() => {
-    Object.defineProperty(navigator, 'languages', { get: () => ['es'] });
-    Object.defineProperty(navigator, 'language', { get: () => 'es' });
-  });
   await mockConsole(page, partlyPlayed(8, 0, 2), settingsOf({}));
+  await page.goto(`/host/${CODE}?lang=es`);
   const pin = await clockLayout(page.locator('.tm-round-pin [role="group"]'));
   expect(pin.cut).toEqual([]);
   expect(pin.stacked).toBe(true);
@@ -2675,11 +2666,8 @@ test.describe('on a phone held sideways', () => {
 
   test('six tabs in Spanish keep one line each and scroll rather than squeeze', async ({ page }) => {
     await page.setViewportSize({ width: 667, height: 375 });
-    await page.addInitScript(() => {
-      Object.defineProperty(navigator, 'languages', { get: () => ['es'] });
-      Object.defineProperty(navigator, 'language', { get: () => 'es' });
-    });
     await mockConsole(page, event(8, 1, true), settingsOf({ decklists: 'open' }));
+    await page.goto(`/host/${CODE}?lang=es`);
     const tabs = page.locator('.tm-console > .tabs');
     await expect(tabs.getByRole('tab')).toHaveCount(6);
     const squeezed = await tabs

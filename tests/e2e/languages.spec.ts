@@ -37,51 +37,28 @@ async function signedOut(page: Page): Promise<void> {
 
 test.beforeEach(async ({ page }) => signedOut(page));
 
-test('a browser that puts Spanish first reads the site in Spanish', async ({ page }) => {
-  await speak(page, ['es-MX', 'en']);
-  await page.goto('/welcome');
-  await expect(page.locator('html')).toHaveAttribute('lang', 'es');
-  await expect(page.getByRole('button', { name: es.Continue })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'English' })).toBeVisible();
-});
+// Spanish, French and German are paused: reachable by ?lang=, offered to no one.
+for (const languages of [['es-MX', 'en'], ['fr-CA', 'en'], ['de-AT'], ['en-US', 'es-US']]) {
+  test(`a browser that asks for ${languages.join(', ')} reads English with no switch`, async ({ page }) => {
+    await speak(page, languages);
+    await page.goto('/welcome');
+    await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+    await expect(page.getByRole('button', { name: 'Continue' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Español' })).toHaveCount(0);
+  });
+}
 
-test('an English browser sees no language switch at all', async ({ page }) => {
-  await speak(page, ['en-US', 'ja']);
-  await page.goto('/welcome');
-  await expect(page.locator('html')).toHaveAttribute('lang', 'en');
-  await expect(page.getByRole('button', { name: 'Continue' })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Español' })).toHaveCount(0);
-});
-
-test('a bilingual browser stays in English, finds Spanish in the footer, and keeps it', async ({ page }) => {
-  await speak(page, ['en-US', 'es-US']);
-  await page.goto('/welcome');
-  await expect(page.getByRole('button', { name: 'Continue' })).toBeVisible();
-  await page.getByRole('link', { name: 'Español' }).click();
-  await expect(page.getByRole('button', { name: es.Continue })).toBeVisible();
-  await page.reload();
-  await expect(page.locator('html')).toHaveAttribute('lang', 'es');
-  await page.getByRole('link', { name: 'English' }).click();
-  await expect(page.getByRole('button', { name: 'Continue' })).toBeVisible();
-});
-
-test('?lang= names a language outright, whatever the browser asks for', async ({ page }) => {
+test('?lang= names a language outright, offers English back, and is not remembered past the pause', async ({
+  page
+}) => {
   await speak(page, ['en-US']);
   await page.goto('/welcome?lang=es');
   await expect(page.getByRole('button', { name: es.Continue })).toBeVisible();
+  await page.getByRole('link', { name: 'English' }).click();
+  await expect(page.getByRole('button', { name: 'Continue' })).toBeVisible();
+  await page.goto('/welcome');
+  await expect(page.locator('html')).toHaveAttribute('lang', 'en');
 });
-
-for (const [languages, lang] of [
-  [['fr-CA', 'en'], 'fr'],
-  [['de-AT'], 'de']
-] as const) {
-  test(`a browser that asks for ${lang} reads the site in it`, async ({ page }) => {
-    await speak(page, [...languages]);
-    await page.goto('/welcome');
-    await expect(page.locator('html')).toHaveAttribute('lang', lang);
-    await expect(page.getByRole('button', { name: catalog(lang).Continue })).toBeVisible();
-  });
-}
 
 test('on a 320px phone the head keeps the site’s name and a long Sign in to one line each @mobileOnly', async ({
   page

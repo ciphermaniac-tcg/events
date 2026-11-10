@@ -14,9 +14,9 @@
 
 export const LOCALES = {
   en: { name: 'English', ready: true },
-  es: { name: 'Español', ready: true },
-  fr: { name: 'Français', ready: true },
-  de: { name: 'Deutsch', ready: true }
+  es: { name: 'Español', ready: false },
+  fr: { name: 'Français', ready: false },
+  de: { name: 'Deutsch', ready: false }
 } as const satisfies Record<string, { name: string; ready: boolean }>;
 
 export type Locale = keyof typeof LOCALES;
@@ -48,13 +48,13 @@ export interface LocaleSignals {
 }
 
 /**
- * The language to show. A named one wins, then a remembered one; otherwise
+ * The language to show. A named one wins, then a remembered ready one; otherwise
  * the first of the browser's languages the site speaks, in the browser's own
  * order — so a visitor whose browser puts Spanish first reads Spanish, and one
  * who lists English before it reads English.
  */
 export function pickLocale(signals: LocaleSignals): Locale {
-  for (const named of [signals.query, signals.stored]) {
+  for (const named of [signals.query, readyLocale(signals.stored ?? '')]) {
     if (isLocale(named)) {
       return named;
     }

@@ -9,40 +9,24 @@ const signals = (languages: string[], extra: { query?: string; stored?: string }
   languages
 });
 
-test('a browser that puts Spanish first reads Spanish, whatever the region', () => {
-  assert.equal(pickLocale(signals(['es-MX', 'en'])), 'es');
-  assert.equal(pickLocale(signals(['es-419'])), 'es');
-  assert.equal(pickLocale(signals(['ES_es'])), 'es');
-});
-
-test('English stays first for a browser that lists it before another language, or lists none the site speaks', () => {
-  assert.equal(pickLocale(signals(['en-US', 'es'])), 'en');
-  assert.equal(pickLocale(signals(['pt-BR', 'ja'])), 'en');
+// Spanish, French and German are paused: built and reachable by ?lang=, offered to no one.
+test('a browser that asks for a paused language reads English', () => {
+  assert.equal(pickLocale(signals(['es-MX', 'en'])), 'en');
+  assert.equal(pickLocale(signals(['fr-CA'])), 'en');
+  assert.equal(pickLocale(signals(['pt-BR', 'de', 'en'])), 'en');
   assert.equal(pickLocale(signals([])), 'en');
 });
 
-test('an unsupported first language passes to the next one the site speaks', () => {
-  assert.equal(pickLocale(signals(['pt-BR', 'es', 'en'])), 'es');
-});
-
-test('French and German browsers read their own language, wherever they are', () => {
-  assert.equal(pickLocale(signals(['fr-CA', 'en'])), 'fr');
-  assert.equal(pickLocale(signals(['de-AT'])), 'de');
-  assert.equal(pickLocale(signals(['de-CH', 'fr-CH'])), 'de');
-  assert.equal(pickLocale(signals(['pt-BR', 'fr', 'en'])), 'fr');
-});
-
-test('a named language beats a remembered one, which beats the browser', () => {
+test('a named language beats a remembered one, and a paused one is remembered only by name', () => {
   assert.equal(pickLocale(signals(['es'], { stored: 'en' })), 'en');
-  assert.equal(pickLocale(signals(['en'], { stored: 'es' })), 'es');
+  assert.equal(pickLocale(signals(['en'], { stored: 'es' })), 'en');
   assert.equal(pickLocale(signals(['en'], { query: 'es', stored: 'en' })), 'es');
-  assert.equal(pickLocale(signals(['es'], { stored: 'klingon' })), 'es');
+  assert.equal(pickLocale(signals(['es'], { stored: 'klingon' })), 'en');
 });
 
-test('the footer offers another language only to someone whose browser lists it, and English back to anyone reading another', () => {
-  assert.equal(offeredLocale('en', ['en-US', 'es-MX']), 'es');
-  assert.equal(offeredLocale('en', ['en-US', 'fr']), 'fr');
-  assert.equal(offeredLocale('en', ['en-US', 'ja']), null);
+test('the footer offers no paused language, and English back to anyone reading another', () => {
+  assert.equal(offeredLocale('en', ['en-US', 'es-MX']), null);
+  assert.equal(offeredLocale('en', ['en-US', 'fr']), null);
   assert.equal(offeredLocale('en', ['en-US']), null);
   assert.equal(offeredLocale('es', ['es-MX']), 'en');
 });

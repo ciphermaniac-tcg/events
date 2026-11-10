@@ -65,8 +65,8 @@ test('an English browser settles at once, with no request and no switch offered'
   assert.equal(intlLocale(), 'en-US');
 });
 
-test('a Spanish browser loads the Spanish catalog before render and is offered English back', async () => {
-  const page = browser('https://events.test/', ['es-MX', 'en']);
+test('?lang=es loads the Spanish catalog before render and offers English back', async () => {
+  const page = browser('https://events.test/?lang=es', ['es-MX', 'en']);
   await initLocale(CATALOGS);
   assert.deepEqual(page.fetched, ['/assets/es-abc.json']);
   assert.equal(locale(), 'es');
@@ -76,11 +76,12 @@ test('a Spanish browser loads the Spanish catalog before render and is offered E
   assert.equal(intlLocale(), 'es-MX');
 });
 
-test('a bilingual English browser is offered Spanish', async () => {
-  browser('https://events.test/', ['en-US', 'es-US']);
+test('while Spanish is paused, a Spanish browser reads English and is offered nothing', async () => {
+  const page = browser('https://events.test/', ['es-MX', 'en-US']);
   await initLocale(CATALOGS);
   assert.equal(locale(), 'en');
-  assert.deepEqual(offeredLanguage(), { locale: 'es', name: 'Español' });
+  assert.deepEqual(page.fetched, []);
+  assert.equal(offeredLanguage(), null);
 });
 
 test('?lang= names a language and remembers it', async () => {
@@ -95,12 +96,12 @@ test('a catalog that fails, errors or is missing leaves the page in English', as
     async () => new Response('nope', { status: 503 }),
     async () => Promise.reject(new Error('offline'))
   ]) {
-    const page = browser('https://events.test/', ['es'], answer);
+    const page = browser('https://events.test/?lang=es', ['es'], answer);
     await initLocale(CATALOGS);
     assert.equal(locale(), 'en');
     assert.equal(page.html.lang, 'en');
   }
-  const page = browser('https://events.test/', ['es']);
+  const page = browser('https://events.test/?lang=es', ['es']);
   await initLocale({});
   assert.deepEqual(page.fetched, []);
   assert.equal(locale(), 'en');

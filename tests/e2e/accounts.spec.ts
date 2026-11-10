@@ -337,13 +337,9 @@ test('the Place head fits its column on a 320px phone, at History’s type and t
 }) => {
   await page.setViewportSize({ width: 320, height: 640 });
   // Spanish's "Puesto" is the longest of the heads.
-  await page.addInitScript(() => {
-    Object.defineProperty(navigator, 'languages', { get: () => ['es'] });
-    Object.defineProperty(navigator, 'language', { get: () => 'es' });
-  });
   await mockAccount(page);
   await publishCopies(page);
-  for (const path of ['/history', '/?tab=playing']) {
+  for (const path of ['/history?lang=es', '/?tab=playing&lang=es']) {
     await page.goto(path);
     const head = page.locator('.tm-hist th.tm-hist-place').first();
     await expect(head).toHaveText('Puesto');
