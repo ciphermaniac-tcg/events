@@ -376,6 +376,23 @@ async function playerAnswer(access: Access, request: Request): Promise<MyRegistr
 /** Anonymous sanctioned Player ID lookups share a room-sized allowance per event and address. */
 const profileLookupLimiter = createRateLimiter({ windowMs: 10 * 60 * 1000, maxRequests: 300 });
 
+/**
+ * Name lookups at an unsanctioned event say who is named like the asker, so
+ * every asker spends from them, signed in or not. A venue's players share
+ * one address and look themselves up as they register, so the allowance per
+ * event and address matches the report and event pages' own.
+ */
+const nameLookupLimiter = createRateLimiter({ windowMs: 10 * 60 * 1000, maxRequests: 1200 });
+
+/** The allowance a player's lookup spends from, if any. */
+function lookupAllowance(access: Access, request: Request) {
+  const query = new URL(request.url).searchParams;
+  if (!isSanctioned(access.row)) {
+    return query.get('firstName') && query.get('lastName') ? nameLookupLimiter : null;
+  }
+  return !access.user && isPopId(query.get('popId') ?? '') ? profileLookupLimiter : null;
+}
+
 export async function onRequestGet(context: Context<'code'>): Promise<Response> {
   const access = await open(context, { claim: true });
   if (access instanceof Response) {
@@ -389,12 +406,8 @@ export async function onRequestGet(context: Context<'code'>): Promise<Response> 
     const present = presenter(access.row);
     return privateJson({ decklists: results.map(row => present(fromRow(row))), mine: null });
   }
-  if (
-    !access.user &&
-    isSanctioned(access.row) &&
-    isPopId(new URL(context.request.url).searchParams.get('popId') ?? '') &&
-    !profileLookupLimiter.allows(`${access.row.code}:${rateLimitAddress(context.request)}`)
-  ) {
+  const allowance = lookupAllowance(access, context.request);
+  if (allowance && !allowance.allows(`${access.row.code}:${rateLimitAddress(context.request)}`)) {
     return jsonError(msg('Too many requests from here. Try again shortly.'), 429);
   }
   const answer = await playerAnswer(access, context.request);

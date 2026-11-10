@@ -408,6 +408,28 @@ test('unsanctioned name lookups do not consume a sanctioned allowance even with 
   assert.equal((await lookup(code)).status, 429);
 });
 
+test('unsanctioned name lookups allow 1200 per event/address, signed in or not, then refuse until expiry', async () => {
+  const { code, owner } = await eventWithList();
+  const other = await newSwiss(owner);
+  for (const event of [code, other]) {
+    assert.equal((await settle(event, owner, { sanctioned: false })).status, 200);
+  }
+  const player = await signIn('Player');
+  mock.timers.enable({ apis: ['Date'], now: Date.now() });
+  for (let index = 0; index < 1200; index++) {
+    const read = await lookup(code, clientQuery(), '192.0.2.1', index % 2 ? player : undefined);
+    assert.equal(read.status, 200, `lookup ${index + 1}`);
+  }
+  for (const cookie of [undefined, player]) {
+    const refused = await lookup(code, clientQuery(), '192.0.2.1', cookie);
+    assert.deepEqual(refused.json, { error: 'Too many requests from here. Try again shortly.', status: 429 });
+  }
+  assert.equal((await lookup(code, clientQuery(), '192.0.2.2')).status, 200);
+  assert.equal((await lookup(other, clientQuery(), '192.0.2.1')).status, 200);
+  mock.timers.tick(10 * 60 * 1000 + 1);
+  assert.equal((await lookup(code, clientQuery(), '192.0.2.1')).status, 200);
+});
+
 test('staff, admins and signed-in players do not consume anonymous lookup attempts', async () => {
   const { code, owner } = await eventWithList();
   const helper = await signIn('Helper');
