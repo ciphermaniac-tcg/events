@@ -103,7 +103,7 @@ for (const prefix of ['/t/', '/host/']) {
     await page.goto(`${prefix}FIRST`);
     await expect(page.getByRole('heading', { name: 'Event FIRST', exact: true })).toBeVisible();
     await navigate(page, `${prefix}SECOND`);
-    await expect(page.locator('main .skeleton')).toBeVisible();
+    await expect(page.locator('main .skeleton').first()).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Event FIRST', exact: true })).toHaveCount(0);
     await expect(page.locator('main .error-state')).toHaveCount(0);
     next.resolve();
@@ -150,7 +150,7 @@ for (const suffix of ['', '/settings']) {
     await page.goto(`/stores/first${suffix}`);
     await expect(page.getByRole('heading', { name: 'Store first', exact: true })).toBeVisible();
     await navigate(page, `/stores/second${suffix}`);
-    await expect(page.locator('main .skeleton')).toBeVisible();
+    await expect(page.locator('main .skeleton').first()).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Store first', exact: true })).toHaveCount(0);
     next.resolve();
     await expect(page.getByRole('heading', { name: 'Store second', exact: true })).toBeVisible();
@@ -289,7 +289,7 @@ for (const { path, endpoint, answer } of RETRY_PAGES) {
       await route.fulfill({ json: answer });
     });
     await page.getByRole('button', { name: 'Try again' }).click();
-    await expect(page.locator('main .skeleton')).toBeVisible();
+    await expect(page.locator('main .skeleton').first()).toBeVisible();
     await expect(page.getByRole('alert')).toHaveCount(0);
     retry.resolve();
     await expect(page.locator('main .skeleton')).toHaveCount(0);

@@ -776,6 +776,31 @@ function EventBody(props: {
   );
 }
 
+/** The loading page's shape: title, status and meta, the logistics, the strip, the tabs and a table. Still, no shimmer. */
+function EventSkeleton() {
+  const line = (width: string, height = '13px') => <Skeleton width={width} height={height} />;
+  return (
+    <div class='tm-event-skeleton' aria-busy='true'>
+      <div class='tm-event-skeleton-hero'>
+        {line('60%', '30px')}
+        {line('40%')}
+        {line('55%')}
+      </div>
+      <div class='tm-event-skeleton-hero'>
+        {line('70%')}
+        {line('45%')}
+      </div>
+      {line('100%', '56px')}
+      <div class='tm-event-skeleton-tabs'>
+        {line('64px')}
+        {line('64px')}
+        {line('64px')}
+      </div>
+      <Skeleton height='190px' rounded='var(--radius-md)' />
+    </div>
+  );
+}
+
 /** A time the organizer set (the start, which is when registration changes close, or check-in) as players read it; null when none is set. */
 const timeShown = (local: string, zone: string): string | null =>
   isWallClock(local) ? eventTimes(local, zone).event : null;
@@ -943,7 +968,7 @@ export function PublicEvent(props: { code: string; session: Session | undefined 
       when={current()}
       fallback={
         // A stream overlay stays clear over the game while it loads, or retries a load that failed.
-        <Show when={!stream && view.error} fallback={stream ? null : <Skeleton width='280px' height='28px' />}>
+        <Show when={!stream && view.error} fallback={stream ? null : <EventSkeleton />}>
           <Show
             when={!missing(view.error)}
             fallback={
