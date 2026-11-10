@@ -6,12 +6,13 @@
  * nothing.
  */
 
-import { createEffect, createMemo, createSignal, For, Show } from 'solid-js';
+import { type Accessor, createEffect, createMemo, createSignal, For, Show } from 'solid-js';
 import { Segmented } from '@ciphermaniac/design/components/Segmented';
 import { Skeleton } from '@ciphermaniac/design/components/Skeleton';
 import { type DeckCard, parseDecklist } from '../../../shared/tournament/decklist';
 import type { OpenList as List } from '../../../shared/tournament/view';
-import { artCrop, cardArt } from '../../lib/cardArt';
+import { artCrop, type CardArt, cardArt } from '../../lib/cardArt';
+import { canonicalArt } from '../../lib/cardPrints';
 import { msg, t, tn } from '../../lib/i18n';
 import { fetchOpenList } from '../../lib/tournament/api';
 import { createCopied } from './copied';
@@ -115,7 +116,7 @@ function Deck(props: { deck: string }) {
                           <Art card={card} crop />
                           <span class='num tm-open-count'>{card.count}</span>
                           <span class='tm-open-name'>{card.name}</span>
-                          <span class='tm-open-print num'>{[card.set, card.number].join(' ')}</span>
+                          <span class='tm-open-print num'>{print(card)}</span>
                         </button>
                       </li>
                     )}
@@ -157,18 +158,38 @@ function Deck(props: { deck: string }) {
 }
 
 const count = (cards: readonly DeckCard[]) => cards.reduce((sum, card) => sum + card.count, 0);
+const print = (card: DeckCard) => [card.set, card.number].filter(Boolean).join(' ');
+
+/**
+ * The art to show for a card, trying in turn its print on the mirror, the original, and the print the
+ * main site counts it as: undefined while that last is looked up, null once nothing is left to try.
+ */
+function createArt(card: Accessor<DeckCard>) {
+  const own = createMemo(() => [cardArt(card()), cardArt(card(), true)].filter((art): art is CardArt => art !== null));
+  const [tried, setTried] = createSignal(0);
+  const [stand, setStand] = createSignal<CardArt | null>();
+  createEffect(() => {
+    if (tried() === own().length) {
+      void canonicalArt(card()).then(setStand);
+    }
+  });
+  const art = () => (tried() < own().length ? own()[tried()] : tried() === own().length ? stand() : null);
+  return { art, failed: () => setTried(n => n + 1) };
+}
 
 /** A card's art, whole or cropped to its art window; its name where there is no art to show. */
 function Art(props: { card: DeckCard; crop?: boolean; sizes?: string }) {
-  const [original, setOriginal] = createSignal(false);
-  const art = () => cardArt(props.card, original());
-  const [missing, setMissing] = createSignal(false);
+  const { art, failed } = createArt(() => props.card);
   return (
     <Show
-      when={!missing() && art()}
+      when={art()}
       fallback={
-        <span class={props.crop ? 'tm-crop tm-art-missing' : 'tm-art tm-art-missing'} aria-hidden='true'>
-          <Show when={!props.crop}>{props.card.name}</Show>
+        <span
+          class={props.crop ? 'tm-crop' : 'tm-art'}
+          classList={{ 'tm-art-missing': art() === null }}
+          aria-hidden='true'
+        >
+          <Show when={!props.crop && art() === null}>{props.card.name}</Show>
         </span>
       }
     >
@@ -181,7 +202,7 @@ function Art(props: { card: DeckCard; crop?: boolean; sizes?: string }) {
             alt=''
             loading='lazy'
             decoding='async'
-            onError={() => (original() ? setMissing(true) : setOriginal(true))}
+            onError={failed}
           />
         </span>
       )}
@@ -191,8 +212,7 @@ function Art(props: { card: DeckCard; crop?: boolean; sizes?: string }) {
 
 /** One card large, over the sheet: any press or Escape puts it away. */
 function Peek(props: { card: DeckCard; onClose: () => void }) {
-  const [original, setOriginal] = createSignal(false);
-  const art = () => cardArt(props.card, original());
+  const { art, failed } = createArt(() => props.card);
   const close = () => props.onClose();
   return (
     <div
@@ -211,12 +231,9 @@ function Peek(props: { card: DeckCard; onClose: () => void }) {
         }
       }}
     >
-      <Show when={art()}>
-        {shown => <img class='tm-peek-art' src={shown().large} alt='' onError={() => setOriginal(true)} />}
-      </Show>
+      <Show when={art()}>{shown => <img class='tm-peek-art' src={shown().large} alt='' onError={failed} />}</Show>
       <p>
-        {props.card.count} × {props.card.name}{' '}
-        <span class='tm-peek-print'>{[props.card.set, props.card.number].join(' ')}</span>
+        {props.card.count} × {props.card.name} <span class='tm-peek-print'>{print(props.card)}</span>
       </p>
       {/* Its press reaches the dialog's, which closes it. */}
       <button type='button' class='btn btn-secondary'>

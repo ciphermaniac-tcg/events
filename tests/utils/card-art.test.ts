@@ -31,9 +31,21 @@ test('basic Energy draws from its Scarlet & Violet print whatever set the list n
   }
 });
 
+test('PTCGL promo and gallery codes are read as Limitless files them', () => {
+  assert.equal(cardArt({ name: 'Chien-Pao ex', set: 'PR-SV', number: '30' })?.src, `${ART}/SVP/SVP_030_R_EN_SM.webp`);
+  assert.equal(cardArt({ name: "Boss's Orders", set: 'PR-SW', number: '251' })?.src, `${ART}/SP/SP_251_R_EN_SM.webp`);
+  assert.equal(
+    cardArt({ name: "Boss's Orders", set: 'LOR-TG', number: '24' })?.src,
+    `${ART}/LOR/LOR_TG24_R_EN_SM.webp`
+  );
+  assert.equal(cardArt({ name: 'Arven', set: 'SVI', number: 'tg5' })?.src, `${ART}/SVI/SVI_TG05_R_EN_SM.webp`);
+  assert.equal(cardArt({ name: 'Ultra Ball', set: '30C', number: '128' })?.src, `${ART}/30C/30C_128_R_EN_SM.webp`);
+  assert.equal(cardArt({ name: 'Basic Grass Energy', set: '', number: '' })?.src, `${ART}/SVE/SVE_001_R_EN_SM.webp`);
+});
+
 test('a card whose print the list does not give has no art', () => {
   assert.equal(cardArt({ name: 'Mystery Card TG05', set: '', number: '' }), null);
-  assert.equal(cardArt({ name: 'Arven', set: 'SVI', number: 'TG05' }), null);
+  assert.equal(cardArt({ name: 'Snover', set: 'MEG', number: '' }), null);
   assert.equal(cardArt({ name: 'Arven', set: 'S/VI', number: '166' }), null);
   assert.equal(cardArt({ name: 'Basic {X} Energy', set: '', number: '' }), null);
 });

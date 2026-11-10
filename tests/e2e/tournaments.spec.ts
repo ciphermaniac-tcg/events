@@ -2422,7 +2422,7 @@ test('an open list leads the player sheet as cards, as rows, and one card large 
       }
     });
   });
-  // A missing mirror image tries the original; a print absent from both draws its name.
+  // A missing mirror image tries the original; a print absent from both looks to the index, then draws its name.
   await page.route('**/card-images/**', route =>
     ['/ZZZ/', '/TWM/'].some(set => route.request().url().includes(set))
       ? route.fulfill({ status: 404 })
@@ -2438,6 +2438,10 @@ test('an open list leads the player sheet as cards, as rows, and one card large 
           contentType: 'image/png',
           body: readFileSync(new URL('../../static/img/substitute.png', import.meta.url))
         })
+  );
+  // A Trainer neither has a print of draws as the one the main site's index gives its name.
+  await page.route('**/assets/card-synonyms.json', route =>
+    route.fulfill({ json: { synonyms: {}, canonicals: { 'Lost Print': 'Lost Print::PAL::185' }, prints: {} } })
   );
   await page.goto(`/t/${CODE}`);
   await page
@@ -2458,8 +2462,9 @@ test('an open list leads the player sheet as cards, as rows, and one card large 
     })
   ).toBe(true);
   await expect(sheet.locator('.tm-open-meta')).toHaveText('Pokémon 4 · Trainer 4 · Energy 311 cards');
-  await expect(grid.locator('img')).toHaveCount(3);
-  await expect(grid.locator('.tm-art-missing')).toHaveText(['Mystery Card', 'Lost Print']);
+  await expect(grid.locator('img')).toHaveCount(4);
+  await expect(grid.locator('.tm-art-missing')).toHaveText(['Mystery Card']);
+  await expect(grid.locator('img').nth(2)).toHaveAttribute('src', /\/PAL\/PAL_185_R_EN_SM\.webp$/);
   await expect(grid.locator('img').first()).toHaveAttribute('src', /TWM_128_R_EN_SM\.png$/);
   // Basic Energy draws from its Scarlet & Violet print whatever the line names.
   await expect(grid.locator('img').last()).toHaveAttribute('src', /\/SVE\/SVE_005_R_EN_SM\.webp$/);
