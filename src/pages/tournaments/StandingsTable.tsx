@@ -14,7 +14,7 @@
 import { createMemo, Index, type JSX, Show } from 'solid-js';
 import { percentLabel, recordLabel, type Standing } from '../../../shared/tournament/standings';
 import type { Division, Pod, Tournament } from '../../../shared/tournament/types';
-import { divisionHeading, podStandings } from '../../lib/tournament/present';
+import { divisionHeading, podLabel, podStandings } from '../../lib/tournament/present';
 import { cutSplit } from '../../lib/tournament/staff';
 import { DeckIcons } from './DeckIcons';
 import { Icon } from '@ciphermaniac/design/components/Icon';
@@ -83,15 +83,30 @@ export function StandingsTable(props: TableProps) {
                 </Show>
                 <div class='table-wrap'>
                   <table class='data'>
+                    <caption class='sr-only'>
+                      {t('{division} standings', {
+                        division: group().division ? divisionHeading(group().division) : podLabel(props.pod)
+                      })}
+                    </caption>
                     <thead>
                       <tr>
-                        <th class='num tm-table-col'>#</th>
-                        <th>{t('Player')}</th>
-                        <th class='num'>{t('Record')}</th>
-                        <th class='num'>{t('Pts')}</th>
+                        <th scope='col' class='num tm-table-col'>
+                          #
+                        </th>
+                        <th scope='col'>{t('Player')}</th>
+                        <th scope='col' class='num'>
+                          {t('Record')}
+                        </th>
+                        <th scope='col' class='num'>
+                          {t('Pts')}
+                        </th>
                         <Show when={props.tiebreakers}>
-                          <th class='num tm-wide-col'>OWP</th>
-                          <th class='num tm-wide-col'>OOWP</th>
+                          <th scope='col' class='num tm-wide-col'>
+                            OWP
+                          </th>
+                          <th scope='col' class='num tm-wide-col'>
+                            OOWP
+                          </th>
                         </Show>
                       </tr>
                     </thead>

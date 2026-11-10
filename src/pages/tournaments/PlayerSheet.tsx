@@ -141,6 +141,9 @@ export function PlayerSheet(props: {
           </Show>
           <div class='tm-box'>
             <table class='data tm-history'>
+              <caption class='sr-only'>
+                {t('Rounds played by {name}', { name: props.names.get(props.playerId) ?? '' })}
+              </caption>
               <thead>
                 <tr>
                   <th class='num tm-table-col'>{t('Round')}</th>

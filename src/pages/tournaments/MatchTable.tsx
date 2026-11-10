@@ -16,7 +16,15 @@ import { isBye } from '../../../shared/tournament/standings';
 import type { Match, Outcome, Pod, Round } from '../../../shared/tournament/types';
 import type { PendingResult } from '../../../shared/tournament/view';
 import { t } from '../../lib/i18n';
-import { markText, recordsSoFar, seatMark, type SeatTag, shownOutcome } from '../../lib/tournament/present';
+import {
+  markText,
+  podLabel,
+  recordsSoFar,
+  roundLabel,
+  seatMark,
+  type SeatTag,
+  shownOutcome
+} from '../../lib/tournament/present';
 import { PendingSeatMark } from './PendingSeatMark';
 import { DeckIcons } from './DeckIcons';
 import { Icon } from '@ciphermaniac/design/components/Icon';
@@ -230,16 +238,28 @@ export function MatchTable(props: MatchTableProps) {
       onPointerLeave={() => groups.release()}
     >
       <table class='data'>
+        <caption class='sr-only'>
+          {t('{round} pairings, {division}', {
+            round: roundLabel(props.round, props.pod),
+            division: podLabel(props.pod)
+          })}
+        </caption>
         <thead>
           <tr>
-            <th class='num tm-table-col'>{t('Table')}</th>
-            <th>{t('Player')}</th>
-            <th>{t('Opponent')}</th>
+            <th scope='col' class='num tm-table-col'>
+              {t('Table')}
+            </th>
+            <th scope='col'>{t('Player')}</th>
+            <th scope='col'>{t('Opponent')}</th>
             <Show when={props.extra}>
-              <th class='tm-extra-col'>{t('Result')}</th>
+              <th scope='col' class='tm-extra-col'>
+                {t('Result')}
+              </th>
             </Show>
             <Show when={props.status && !props.extra}>
-              <th class='tm-status-col'>{t('Status')}</th>
+              <th scope='col' class='tm-status-col'>
+                {t('Status')}
+              </th>
             </Show>
           </tr>
         </thead>

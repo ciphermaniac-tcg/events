@@ -31,6 +31,7 @@ export function DeckStats(props: { tournament: Tournament; decks: Record<string,
     <Show when={rows().length} fallback={<p class='muted tm-empty'>{t('No decks to show yet.')}</p>}>
       <div class='table-wrap tm-deck-stats'>
         <table class='data'>
+          <caption class='sr-only'>{t('Decks played')}</caption>
           <thead>
             <tr>
               <th>{t('Deck')}</th>

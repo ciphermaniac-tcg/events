@@ -356,6 +356,7 @@ function Log(props: { lines: Line[]; onEdit: (note: PenaltyNote) => void; onRemo
   return (
     <div class='table-wrap'>
       <table class='data tm-penalty-log'>
+        <caption class='sr-only'>{t('Penalties recorded')}</caption>
         <thead>
           <tr>
             <th class='num tm-table-col'>{t('Rd')}</th>

@@ -85,6 +85,14 @@ async function mockApi(page: Page, view: TournamentView = VIEW) {
   return errors;
 }
 
+test('the public page names its tables for a screen reader by round and division', async ({ page }) => {
+  await mockApi(page);
+  await page.goto(`/t/${CODE}`);
+  await expect(page.getByRole('table', { name: /^Round \d+ pairings, / })).toBeVisible();
+  await page.getByRole('tab', { name: 'Standings' }).click();
+  await expect(page.getByRole('table', { name: / standings$/ }).first()).toBeVisible();
+});
+
 test('the public page shows the round, finds a player and opens their history @mobile', async ({ page }) => {
   const errors = await mockApi(page);
   await page.goto(`/t/${CODE}`);

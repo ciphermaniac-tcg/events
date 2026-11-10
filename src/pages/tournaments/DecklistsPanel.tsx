@@ -371,6 +371,7 @@ export function DecklistsPanel(props: { state: ManageState; manage: Manage }) {
         >
           <div class='table-wrap'>
             <table class='data tm-lists'>
+              <caption class='sr-only'>{t('Decklists')}</caption>
               <thead>
                 <tr>
                   <th class='tm-list-sprite'>

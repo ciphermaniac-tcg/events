@@ -503,6 +503,7 @@ export function PlayersPanel(props: { state: ManageState; manage: Manage }) {
         </div>
         <div class='table-wrap'>
           <table class='data tm-roster'>
+            <caption class='sr-only'>{t('Roster')}</caption>
             <thead>
               <tr>
                 <th>{t('Player')}</th>
