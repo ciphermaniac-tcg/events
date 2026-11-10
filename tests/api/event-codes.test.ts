@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { mock, test } from 'node:test';
 
-import { isCode, newCode } from '../../functions/lib/tournaments/store.ts';
+import { newCode } from '../../functions/lib/tournaments/store.ts';
+import { isCode } from '../../shared/tournament/eventCode.ts';
 
 const ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 

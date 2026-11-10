@@ -31,9 +31,9 @@ import { type Guard, rowsChanged } from '../d1.js';
 import type { D1Like, D1Statement } from '../types.js';
 import { type Asker, askerStands } from './roles.js';
 import { shownDecks } from './decks.js';
+import { isCode } from '../../../shared/tournament/eventCode.js';
 import {
   type Change,
-  isCode,
   mutate,
   type Mutation,
   NOT_STAFF,

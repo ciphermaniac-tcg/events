@@ -13,6 +13,7 @@ import { managesStore, storeRoleOf } from '../../../shared/accounts/stores.js';
 import { DAY_MS, eventDay } from '../../../shared/tournament/limits.js';
 import { hasStarted, type MatchKey, normalizeCutPods } from '../../../shared/tournament/rounds.js';
 import { POD_CATEGORIES, type Tournament } from '../../../shared/tournament/types.js';
+import { CODE_ALPHABET, CODE_LENGTH } from '../../../shared/tournament/eventCode.js';
 import {
   applyPending,
   assignKeys,
@@ -129,25 +130,16 @@ export function fromRaw(raw: RawRow): TournamentRow {
   };
 }
 
-/** Codes are short enough to read aloud and type from a table sign: no 0/O or 1/I/L. */
-const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
-const CODE_LENGTH = 6;
-
 /** A number in [0, 1) from the platform's cryptographic generator, so a code cannot be predicted from the last. */
 const secureRandom = (): number => crypto.getRandomValues(new Uint32Array(1))[0]! / 0x1_0000_0000;
 
-/** A random code in that alphabet; a public profile's address is a longer one (functions/lib/accounts/publicProfile.ts). */
+/** A random code in the event code alphabet; a public profile's address is a longer one (functions/lib/accounts/publicProfile.ts). */
 export function newCode(length = CODE_LENGTH, random: () => number = secureRandom): string {
   let code = '';
   for (let i = 0; i < length; i += 1) {
     code += CODE_ALPHABET[Math.floor(random() * CODE_ALPHABET.length)];
   }
   return code;
-}
-
-/** Whether `value` could be a code `length` long: an event's, or a public profile's address. */
-export function isCode(value: string, length = CODE_LENGTH): boolean {
-  return value.length === length && [...value].every(char => CODE_ALPHABET.includes(char));
 }
 
 const tournamentQuery = (db: D1Like, code: string) => db.prepare('SELECT * FROM tournaments WHERE code = ?').bind(code);

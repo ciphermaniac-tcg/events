@@ -329,6 +329,7 @@
 /* ---------- Event code form (EventCodeForm): the home page and the Playing tab ---------- */
 .tm-code-form {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--space-2);
   width: 340px;
   max-width: 100%;
@@ -342,4 +343,7 @@
 .tm-code-form .btn {
   height: 40px;
   padding-inline: var(--space-4);
+}
+.tm-code-form .tm-error {
+  flex-basis: 100%;
 }
