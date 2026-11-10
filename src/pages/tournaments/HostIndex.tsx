@@ -27,18 +27,26 @@ import {
   createFromTdf,
   createSwiss,
   errorText,
+  fetchManage,
   fetchView,
   type Me,
   type TournamentSummary
 } from '../../lib/tournament/api';
 import { canLinkFiles, pickTdf, rememberHandle, type TdfHandle } from '../../lib/tournament/tomLink';
-import { clearSetupDraft, setupDraftKey, tdfDraftId } from '../../lib/tournament/setupDraft';
+import {
+  clearSetupDraft,
+  runAgainFields,
+  seedSetupDraft,
+  setupDraftKey,
+  tdfDraftId
+} from '../../lib/tournament/setupDraft';
 import { latestValue } from '../../lib/resource';
 import { eventStatus, roundCapOf } from '../../lib/tournament/present';
 import type { MyApplication, MyStore } from '../../../shared/accounts/types';
 import { ApplicantLine } from './ApplicantStatus';
 import { EventSetup, type RunAs, type Setup } from './EventSetup';
 import { ErrorLine } from './Field';
+import { OptionsMenu } from './OptionsMenu';
 import { TournamentHero } from './Hero';
 import { refreshSession, session } from './session';
 import { pageTitle } from '../../lib/title';
@@ -84,8 +92,16 @@ const PHASE_COUNTS: Record<Phase, (n: number) => string> = {
   finished: n => tn(n, '{n} finished', '{n} finished')
 };
 
-function EventRow(props: { event: TournamentSummary }) {
+/**
+ * One event: its name, where it stands, its date and players, and its links.
+ * On a wide screen the console (or results) and public page show in the row
+ * and Run again waits in its menu; on a phone all of them do.
+ */
+function EventRow(props: { event: TournamentSummary; onRunAgain?: (event: TournamentSummary) => Promise<void> }) {
   const finished = () => props.event.finished;
+  const name = () => props.event.name || props.event.code;
+  const consoleHref = () => `/host/${props.event.code}${finished() ? '?tab=standings' : ''}`;
+  const consoleLabel = () => (finished() ? t('Results') : t('Console'));
   return (
     <tr>
       <td class='tm-host-name'>
@@ -105,19 +121,40 @@ function EventRow(props: { event: TournamentSummary }) {
       </td>
       <td class='tm-extra-col'>
         <span class='tm-row-actions'>
-          <A class='btn btn-ghost tm-small' href={`/host/${props.event.code}${finished() ? '?tab=standings' : ''}`}>
-            {finished() ? t('Results') : t('Console')}
+          <A class='btn btn-ghost tm-small tm-host-inline' href={consoleHref()}>
+            {consoleLabel()}
           </A>
-          <A class='btn btn-ghost tm-small' href={`/t/${props.event.code}`}>
+          <A class='btn btn-ghost tm-small tm-host-inline' href={`/t/${props.event.code}`}>
             {t('Public page')}
           </A>
+          <span class='tm-host-more' classList={{ 'has-run-again': Boolean(props.onRunAgain) }}>
+            <OptionsMenu name={name()} closeOnSelect>
+              <A class='tm-menu-item tm-host-menu-link' href={consoleHref()}>
+                {consoleLabel()}
+              </A>
+              <A class='tm-menu-item tm-host-menu-link' href={`/t/${props.event.code}`}>
+                {t('Public page')}
+              </A>
+              <Show when={props.onRunAgain}>
+                {run => (
+                  <button type='button' class='tm-menu-item' onClick={() => void run()(props.event)}>
+                    {t('Run again')}
+                  </button>
+                )}
+              </Show>
+            </OptionsMenu>
+          </span>
         </span>
       </td>
     </tr>
   );
 }
 
-function EventTable(props: { title: string; events: readonly TournamentSummary[] }) {
+function EventTable(props: {
+  title: string;
+  events: readonly TournamentSummary[];
+  onRunAgain?: ((event: TournamentSummary) => Promise<void>) | undefined;
+}) {
   return (
     <section class='tm-host-section'>
       <h2 class='tm-subhead tm-box-head'>{props.title}</h2>
@@ -137,7 +174,14 @@ function EventTable(props: { title: string; events: readonly TournamentSummary[]
               </tr>
             </thead>
             <tbody>
-              <For each={props.events}>{event => <EventRow event={event} />}</For>
+              <For each={props.events}>
+                {event => (
+                  <EventRow
+                    event={event}
+                    onRunAgain={event.finished && event.mode === 'swiss' ? props.onRunAgain : undefined}
+                  />
+                )}
+              </For>
             </tbody>
           </table>
         </div>
@@ -187,7 +231,8 @@ function LiveEvent(props: { event: TournamentSummary; first: boolean }) {
 /** A TOM setup reached from a Swiss one keeps the store picked there (`store`). */
 type Stage =
   | { kind: 'lists' }
-  | { kind: 'swiss' }
+  /** `from`: the event Run again took the answers from, named above the form. */
+  | { kind: 'swiss'; from?: string }
   | { kind: 'tom'; tournament: Tournament; handle: TdfHandle | null; store?: string | null };
 
 /**
@@ -299,6 +344,21 @@ function HeroMeta(props: { user: Me | null | undefined }) {
   );
 }
 
+/**
+ * Run again: seeds the account's Swiss setup draft from that event's answers,
+ * with no date, times or sanction ID, and answers the line that names where
+ * they came from; null, opening nothing, when the event can't be read.
+ */
+async function seedRunAgain(event: TournamentSummary, account: string): Promise<string | null> {
+  const manage = account ? await fetchManage(event.code) : null;
+  if (!manage) {
+    return null;
+  }
+  seedSetupDraft(setupDraftKey(account, 'swiss'), runAgainFields(manage));
+  const name = event.name || event.code;
+  return event.startDate ? `${name} · ${shortDate(event.startDate)}` : name;
+}
+
 /** The dashboard's Organizing tab: the events the account runs or staffs, read by the dashboard, and the ways to start one. */
 function Organizer(props: {
   events: readonly TournamentSummary[];
@@ -361,6 +421,19 @@ function Organizer(props: {
     }
   }
 
+  async function runAgain(event: TournamentSummary) {
+    setError(null);
+    try {
+      const from = await seedRunAgain(event, user()?.id ?? '');
+      if (from) {
+        setStage({ kind: 'swiss', from });
+      }
+    } catch (err) {
+      setError(errorText(err));
+    }
+  }
+  const runAgainOffer = () => (canCreateEvents(role(), user()?.stores ?? []) ? runAgain : undefined);
+
   const tdfRead = (tournament: Tournament, handle: TdfHandle | null, store?: string | null) => {
     setError(null);
     setStage({ kind: 'tom', tournament, handle, store });
@@ -408,7 +481,7 @@ function Organizer(props: {
         <ErrorLine message={error()} />
         <For each={live()}>{(event, i) => <LiveEvent event={event} first={i() === 0} />}</For>
         <Show when={rest().length > 0}>
-          <EventTable title={t('Your events')} events={rest()} />
+          <EventTable title={t('Your events')} events={rest()} onRunAgain={runAgainOffer()} />
         </Show>
       </Match>
       {/* Keyed, so moving between a Swiss and a TOM setup starts the other's form, with its own draft. */}
@@ -433,6 +506,7 @@ function Organizer(props: {
           runAs={runAs(stage().kind === 'tom')}
           initialRunAs={(stage() as Extract<Stage, { kind: 'tom' }>).store ?? asked}
           draftKey={draftKey()}
+          from={(stage() as Extract<Stage, { kind: 'swiss' }>).from}
           community={role() === 'community'}
           communityDays={all().flatMap(event => (event.communityDay ? [event.communityDay] : []))}
           busy={busy()}

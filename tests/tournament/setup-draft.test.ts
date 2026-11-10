@@ -1,7 +1,15 @@
 import assert from 'node:assert/strict';
 import { afterEach, beforeEach, test } from 'node:test';
 import { emptyTournament } from '../../shared/tournament/create.ts';
-import { clearSetupDraft, setupDraft, setupDraftKey, tdfDraftId } from '../../src/lib/tournament/setupDraft.ts';
+import { DEFAULT_SETTINGS } from '../../shared/tournament/view.ts';
+import {
+  clearSetupDraft,
+  runAgainFields,
+  seedSetupDraft,
+  setupDraft,
+  setupDraftKey,
+  tdfDraftId
+} from '../../src/lib/tournament/setupDraft.ts';
 
 let values: Map<string, string>;
 const original = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
@@ -104,4 +112,44 @@ test('TOM drafts follow the event, not its name: same-named files keep their own
   );
   assert.notEqual(tdfDraftId(named('', 0)), tdfDraftId(named('', 1)), 'two unsanctioned files with one name');
   assert.equal(tdfDraftId(named('', 2)), tdfDraftId(named('', 2)), 'the same file reads the same');
+});
+
+test('Run again takes an event’s answers but never its date, times or sanction ID', () => {
+  const base = emptyTournament({ name: 'Friday League' });
+  const tournament = {
+    ...base,
+    info: { ...base.info, roundTime: 35, sanctionId: '12-34-567890', eventType: 'local' as const }
+  };
+  const settings = {
+    ...DEFAULT_SETTINGS,
+    sanctioned: true,
+    format: 'Expanded',
+    startsAt: '2026-11-07T19:00',
+    checkInAt: '2026-11-07T18:30'
+  };
+  const fields = runAgainFields({ tournament, settings, store: 'store-1' });
+  assert.deepEqual(
+    [fields.name, fields.runAs, fields.sanctioned, fields.format, fields.roundTime, fields.eventType],
+    ['Friday League', 'store-1', true, 'Expanded', '35', 'local']
+  );
+  for (const key of ['startsAt', 'checkInAt', 'sanctionId', 'listing']) {
+    assert.equal(key in fields, false, key);
+  }
+  const key = setupDraftKey('account', 'swiss');
+  seedSetupDraft(key, fields);
+  const [name] = setupDraft(key)('name', '', isString);
+  assert.equal(name(), 'Friday League');
+});
+
+test('a Run again seed with storage off leaves the form at its defaults', () => {
+  Object.defineProperty(globalThis, 'localStorage', {
+    configurable: true,
+    value: {
+      getItem: () => null,
+      setItem: () => {
+        throw new Error('blocked');
+      }
+    }
+  });
+  assert.doesNotThrow(() => seedSetupDraft('key', { name: 'x' }));
 });

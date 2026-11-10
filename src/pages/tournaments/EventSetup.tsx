@@ -106,6 +106,8 @@ export function EventSetup(props: {
   runAs: readonly RunAs[];
   initialRunAs?: string | null;
   draftKey: string;
+  /** The event Run again took these answers from, named under the heading so a one-off setting is seen. */
+  from?: string | undefined;
   community: boolean;
   communityDays: readonly string[];
   busy: boolean;
@@ -256,6 +258,7 @@ export function EventSetup(props: {
     <form class='tm-setup' onSubmit={submit}>
       <div class='tm-setup-head'>
         <h2>{t('New event')}</h2>
+        <Show when={props.from}>{from => <p class='muted'>{t('From {event}', { event: from() })}</p>}</Show>
       </div>
       <SetupName swiss={swiss() && !tomPairs()} name={name()} tdfName={props.tdfName} onInput={setName} />
       <Show when={props.runAs.length > 1}>

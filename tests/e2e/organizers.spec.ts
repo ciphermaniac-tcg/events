@@ -9,6 +9,8 @@ import { expect, type Page } from '@playwright/test';
 import { test } from './network-guard';
 
 import type { AccountRole } from '../../shared/accounts/roles';
+import { emptyTournament } from '../../shared/tournament/create';
+import { DEFAULT_SETTINGS } from '../../shared/tournament/view';
 import type { ApplicationState, MyApplication, MyStore } from '../../shared/accounts/types';
 
 const ME = {
@@ -486,14 +488,44 @@ test('/host: on a phone, an event row keeps its links on screen without scrollin
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
   const row = page.locator('.tm-host-table tbody tr').first();
+  // On a phone the row's links wait in its menu, Run again among them.
+  await row.getByRole('button', { name: 'More for Thursday Locals' }).click();
+  await expect(page.getByRole('button', { name: 'Run again' })).toBeVisible();
   for (const name of ['Results', 'Public page']) {
-    const box = await row.getByRole('link', { name }).boundingBox();
+    const box = await page
+      .getByRole('group', { name: 'More for Thursday Locals' })
+      .getByRole('link', { name })
+      .boundingBox();
     expect(box?.x ?? -1).toBeGreaterThanOrEqual(0);
     expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(390);
   }
   const wrap = page.locator('.tm-host-section .table-wrap').first();
   expect(await wrap.evaluate(el => el.scrollWidth - el.clientWidth)).toBe(0);
   await expect(row.locator('.tm-host-players')).toHaveAttribute('data-unit', 'players');
+});
+
+test('/host: Run again opens the setup on a finished event’s answers, named, with no date', async ({ page }) => {
+  await mockHost(page, { ...ME, role: 'community' });
+  const tournament = {
+    ...emptyTournament({ name: 'Thursday Locals' }),
+    info: { ...emptyTournament({ name: 'Thursday Locals' }).info, roundTime: 35, startDate: '09/24/2026' }
+  };
+  const settings = { ...DEFAULT_SETTINGS, format: 'Expanded', startsAt: '2026-09-24T18:00', venue: 'Back room' };
+  await page.route('**/api/tournaments/OWNED1/manage', route =>
+    route.fulfill({ json: { code: 'OWNED1', tournament, settings, store: null } })
+  );
+  await page.goto('/');
+  const row = page.locator('.tm-host-table tbody tr').first();
+  await expect(row.getByRole('link', { name: 'Results' })).toBeVisible();
+  await row.getByRole('button', { name: 'More for Thursday Locals' }).click();
+  await page.getByRole('button', { name: 'Run again' }).click();
+  await expect(page.getByText('From Thursday Locals · Sep 24')).toBeVisible();
+  await expect(page.getByRole('textbox', { name: 'Event name' })).toHaveValue('Thursday Locals');
+  const draft = await page.evaluate(() =>
+    Object.entries(localStorage).find(([key]) => key.startsWith('cm-event-setup:') && key.includes(':swiss:'))
+  );
+  expect(JSON.parse(draft?.[1] ?? '{}')).toMatchObject({ format: 'Expanded', venue: 'Back room', roundTime: '35' });
+  expect(JSON.parse(draft?.[1] ?? '{}')).not.toHaveProperty('startsAt');
 });
 
 test('/host: on a phone, a long event name wraps clear of its player count @mobile', async ({ page }) => {

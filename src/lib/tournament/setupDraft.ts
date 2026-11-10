@@ -1,5 +1,7 @@
 import { type Accessor, createSignal } from 'solid-js';
+import { eventTypeOf } from '../../../shared/tournament/structure';
 import type { Tournament } from '../../../shared/tournament/types';
+import type { Manage } from '../../../shared/tournament/view';
 
 const PREFIX = 'cm-event-setup:';
 
@@ -65,4 +67,39 @@ export function setupDraft(key: string) {
     }
     return [read, update];
   };
+}
+
+/**
+ * A new event's setup answers taken from one already run (Run again): the
+ * name, who runs it and where, the round length and the setup's settings, but never
+ * its date, its times or its sanction ID. A sanctioned store event comes back
+ * to its store's listings, which give it a new one.
+ */
+export function runAgainFields(event: Pick<Manage, 'tournament' | 'settings' | 'store'>): Record<string, unknown> {
+  const { info } = event.tournament;
+  const { settings } = event;
+  return {
+    name: info.name,
+    runAs: event.store,
+    sanctioned: settings.sanctioned,
+    format: settings.format,
+    timeZone: settings.timeZone,
+    venue: settings.venue,
+    address: settings.address,
+    roundTime: String(info.roundTime),
+    reporting: settings.playerReporting,
+    archetypes: settings.deckVisibility,
+    decklists: settings.decklists,
+    roundCap: settings.roundCap,
+    eventType: eventTypeOf(event.tournament)
+  };
+}
+
+/** Starts a setup draft over with `fields`, as Run again does; storage being off leaves the form at its defaults. */
+export function seedSetupDraft(key: string, fields: Record<string, unknown>): void {
+  try {
+    localStorage.setItem(key, JSON.stringify(fields));
+  } catch {
+    // The form still opens, at its defaults.
+  }
 }

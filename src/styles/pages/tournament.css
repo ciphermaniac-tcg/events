@@ -1807,6 +1807,21 @@ tr.is-in .tm-place {
 .tm-live-event .tm-status {
   margin: 2px 0 0;
 }
+/* On a wide screen the row shows its links and its menu holds only Run again. */
+.tm-host-more {
+  display: none;
+}
+.tm-host-more.has-run-again {
+  display: inline-flex;
+}
+.tm-host-more .tm-host-menu-link {
+  display: none;
+}
+@media (max-width: 640px) {
+  .tm-host-more .tm-host-menu-link {
+    display: block;
+  }
+}
 .tm-host-section + .tm-host-section {
   margin-top: var(--space-5);
 }
@@ -1876,6 +1891,13 @@ tr.is-in .tm-place {
   }
   .tm-host-table .tm-row-actions {
     margin-right: calc(-1 * var(--space-2));
+  }
+  /* On a phone every link waits in the row's menu. */
+  .tm-host-table .tm-host-inline {
+    display: none;
+  }
+  .tm-host-table .tm-host-more {
+    display: inline-flex;
   }
 }
 
