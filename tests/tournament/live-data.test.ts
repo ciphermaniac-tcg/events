@@ -65,3 +65,9 @@ test('a page back in view stops its clocks once it falls behind after the return
     checkedAt
   });
 });
+
+test('a kept copy is behind from the moment it shows, until a look answers', () => {
+  const now = 1_000_000;
+  assert.equal(liveDataStale({ checkedAt: now, failure: 'network', kept: true }, now), true);
+  assert.equal(liveDataStale({ checkedAt: now, failure: null }, now), false);
+});

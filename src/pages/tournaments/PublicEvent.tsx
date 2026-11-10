@@ -98,6 +98,7 @@ import { EMPTY_LIVE_DATA, type LiveData, liveFailure, staleSince } from '../../l
 import { LiveDataStatus } from './LiveDataStatus';
 import { MAIN_SITE } from '../../lib/constants';
 import { msg, t, timeOfDay, tn, tx } from '../../lib/i18n';
+import { keepEventCopy, readEventCopy } from '../../lib/tournament/eventCopies';
 
 const BigScreen = lazyOnAir(() => import('./BigScreen').then(m => ({ default: m.BigScreen })));
 const StreamOverlay = lazyOnAir(() => import('./StreamOverlay').then(m => ({ default: m.StreamOverlay })));
@@ -149,10 +150,28 @@ function createView(code: () => string, signedIn: () => boolean, options: { ever
         return next;
       })
       .catch((error: unknown) => {
+        // With no signal (or no answer the page can use), the copy this device last saw, shown as behind
+        // (its clocks stop) until a look finds the event.
+        const kept = missing(error) ? null : readEventCopy(c, Date.now());
+        if (kept) {
+          setFreshness({ checkedAt: kept.savedAt, failure: liveFailure(error), kept: true });
+          return kept.view;
+        }
         failed(error);
         throw error;
       })
   );
+  // Each copy taken is kept for the next load without a signal; an older one never goes back over a newer.
+  // Written once a version, not on every look that finds nothing new.
+  let keptVersion = '';
+  createEffect(() => {
+    const shown = latestValue(view);
+    const version = shown ? `${shown.code}:${shown.version}:${shown.viewer.role}` : '';
+    if (shown && freshness().failure === null && version !== keptVersion) {
+      keptVersion = version;
+      keepEventCopy(shown, Date.now());
+    }
+  });
   /**
    * Takes a copy no older than the one shown, of the same event: answers can
    * land out of order. An older one still says who the viewer is, which the
@@ -664,7 +683,10 @@ function EventBody(props: {
   /** A search that finds nobody here but somebody in another division says where, and goes there on a press. */
   const miss = (none: string) => {
     const found = foundElsewhere(pods(), pod(), names(), query());
-    return found ? <SearchMiss none={t(none, { division: podLabel(pod()!) })} found={found} onGo={goTo} /> : null;
+    const shown = pod();
+    return found && shown ? (
+      <SearchMiss none={t(none, { division: podLabel(shown) })} found={found} onGo={goTo} />
+    ) : null;
   };
   const goTo = (to: Pod) => {
     setPodChoice(to.category);
@@ -880,7 +902,6 @@ function dashboardTab(viewer: TournamentView['viewer']): DashboardTab | undefine
   return viewer.me ? 'playing' : undefined;
 }
 
-/** `prefer`: the divisions the status should describe, in order (see eventStatus); the leading clock's follows. */
 /** A maps search for the venue, so a phone opens its maps app on the place. */
 const mapsLink = (settings: Pick<TournamentSettings, 'venue' | 'address'>) =>
   `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
@@ -891,7 +912,8 @@ const mapsLink = (settings: Pick<TournamentSettings, 'venue' | 'address'>) =>
  * The event's head. Once round 1 has started and until the event ends, the
  * player's table matters more than the venue: the venue folds into the meta
  * line as a maps link, the details go, and a viewer whose strip shows the
- * round's clock is not shown it twice.
+ * round's clock is not shown it twice. `prefer`: the divisions the status
+ * should describe, in order (see eventStatus); the leading clock's follows.
  */
 function Hero(props: { view: TournamentView; prefer: (PodCategory | null)[]; mine: boolean }) {
   const now = createClockNow();

@@ -8,6 +8,8 @@ export interface LiveData {
   failure: LiveFailure | null;
   /** When the page last came back into view: a hidden page does not check, so it is not behind for that. */
   shownAt?: number | null;
+  /** The page shows the copy this device kept, not one it heard from the event: behind until a look answers. */
+  kept?: boolean;
 }
 
 export const EMPTY_LIVE_DATA: LiveData = { checkedAt: null, failure: null };
@@ -25,7 +27,7 @@ export function liveFailure(error: unknown): LiveFailure {
 export function liveDataStale(data: LiveData, now: number): boolean {
   const since = Math.max(data.checkedAt ?? 0, data.shownAt ?? 0);
   const waited = data.checkedAt === null ? data.failure !== null : now - since >= STALE_AFTER_MS;
-  return waited || data.failure === 'authorization';
+  return waited || data.failure === 'authorization' || data.kept === true;
 }
 
 /** A stale page: `since` is when it fell behind, where its clocks stop, and `checkedAt` when it last heard from the event. */

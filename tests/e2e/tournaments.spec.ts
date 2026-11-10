@@ -7,7 +7,7 @@
  */
 
 import { readFileSync, utimesSync, writeFileSync } from 'node:fs';
-import { expect, type Page } from '@playwright/test';
+import { expect, type Page, type Route } from '@playwright/test';
 import { test } from './network-guard';
 import { deferred } from '../__utils__/deferred';
 import { chunkOf } from './build-manifest';
@@ -1503,6 +1503,25 @@ for (const suffix of ['', '?screen=1']) {
     await expect(page.locator('.tm-live-data')).toHaveCount(0);
   });
 }
+
+test('a reload with no signal shows the last copy this device saw, marked as behind, until the event answers @mobile', async ({
+  page
+}) => {
+  await mockApi(page);
+  await page.goto(`/t/${CODE}`);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Fixture Challenge & Friends');
+  const offline = (route: Route) => route.abort('internetdisconnected');
+  await page.route(`**/api/tournaments/${CODE}*`, offline);
+  await page.route(`**/${CODE}.json*`, offline);
+  await page.reload();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Fixture Challenge & Friends');
+  await expect(page.locator('.tm-matches tbody tr:not(.tm-group-row)')).toHaveCount(4);
+  await expect(page.getByText('Connection unavailable', { exact: true })).toBeVisible();
+  await page.unroute(`**/api/tournaments/${CODE}*`, offline);
+  await page.unroute(`**/${CODE}.json*`, offline);
+  await page.getByRole('button', { name: 'Retry', exact: true }).click();
+  await expect(page.locator('.tm-live-data')).toHaveCount(0);
+});
 
 test('a stream overlay never tells the audience its connection dropped: its clock stops and goes quiet', async ({
   page
