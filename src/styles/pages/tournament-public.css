@@ -32,10 +32,32 @@
   flex: 1 1 200px;
   min-width: 0;
 }
-.tm-you-mid .tm-seat-link {
+.tm-you-mid .tm-seat-link,
+.tm-you-who .tm-seat-link {
   display: inline;
   width: auto;
   font: inherit;
+}
+/* Its padding is a hit area, not space: the dot after the name sits where the words end. */
+.tm-you-who .tm-seat-link {
+  margin-right: calc(-1 * var(--space-2));
+}
+.tm-you-record {
+  color: var(--fg);
+  font-weight: 600;
+}
+/* Under a finger the opponent is a whole row's height to hit, their deck beside the name. */
+@media (pointer: coarse) {
+  .tm-you-who .tm-seat-link {
+    min-height: 44px;
+  }
+  .tm-you-mid .tm-seat-link {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    min-height: 44px;
+    vertical-align: middle;
+  }
 }
 .tm-you-end {
   display: inline-flex;

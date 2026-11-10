@@ -216,6 +216,16 @@ test('yes to a player whose name is only near the account’s shows their table'
   expect(asked).toEqual([]);
 });
 
+test('a player’s strip shows their own record, and their name opens their sheet @mobile', async ({ page }) => {
+  await mockApi(page, suggestedView(false));
+  await page.goto(`/t/${CODE}`);
+  await page.getByRole('button', { name: 'That’s me' }).click();
+  const who = page.locator('.tm-you-who');
+  await expect(who).toContainText(/Hedy Lamarr · .*\d+-\d+-\d+ · \d+ pts?/);
+  await who.getByRole('button', { name: 'Hedy Lamarr' }).click();
+  await expect(page.getByRole('dialog', { name: /Hedy Lamarr/ })).toBeVisible();
+});
+
 test('yes to a player another device holds shows their table, and reporting stays theirs', async ({ page }) => {
   await mockApi(page, suggestedView(true));
   await page.route(`**/api/tournaments/${CODE}/report`, route =>

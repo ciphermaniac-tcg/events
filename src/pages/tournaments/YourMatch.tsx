@@ -20,7 +20,7 @@ import { createEffect, createMemo, createSignal, For, Match, on, Show, Suspense,
 import { lazyPanel } from './lazyPanel';
 import type { PlayerClaim } from '../../../shared/tournament/identify';
 import type { PlayerResult } from '../../../shared/tournament/reports';
-import { isBye, recordLabel, sideResult } from '../../../shared/tournament/standings';
+import { isBye, matchPoints, recordLabel, sideResult } from '../../../shared/tournament/standings';
 import { hasStarted, podOf, withSwiss } from '../../../shared/tournament/rounds';
 import type { Pod, Round, Match as TableMatch } from '../../../shared/tournament/types';
 import { type PublishedView, type TournamentView } from '../../../shared/tournament/view';
@@ -32,13 +32,15 @@ import {
   podStandings,
   recordsSoFar,
   reportState,
-  shownOutcome
+  shownOutcome,
+  talliesSoFar
 } from '../../lib/tournament/present';
 import { Clock } from './Clock';
 import { ConfirmAction } from './ConfirmAction';
 import { ErrorLine } from './Field';
 import { type Identified, IdentifyForm } from './Identify';
 import { createNow } from './now';
+import { DeckIcons } from './DeckIcons';
 import { PlayerRequests } from './PlayerRequests';
 import { pendingSuggestion, SuggestedPlayer } from './SuggestedPlayer';
 
@@ -315,6 +317,7 @@ function MatchLine(props: Props & { me: string; found: Found; report: Report; op
           <span class='tm-you-mid'>
             <span class='muted'>{t('vs')}</span>{' '}
             <button type='button' class='tm-seat-link' onClick={() => props.onPlayer?.(id())}>
+              <DeckIcons label={props.view.decks[id()]} />
               <span class='tm-name'>{names().get(id())}</span>
             </button>{' '}
             <span class='muted num'>
@@ -395,6 +398,10 @@ function MatchBox(props: Props & { me: string; askAs: PlayerClaim | null }) {
   /** A looked-up player asked to report: the exact claim comes first. */
   const confirming = () => open() && !props.claim && found() !== null;
   const division = () => divisionHeading(props.view.divisions[props.me] ?? null);
+  const record = () => {
+    const f = found();
+    return f ? ownRecord(props.view, f, props.me) : null;
+  };
   return (
     <section class='tm-box tm-you' aria-label={t('Your match')}>
       <div class='tm-you-top'>
@@ -468,9 +475,16 @@ function MatchBox(props: Props & { me: string; askAs: PlayerClaim | null }) {
           />
         )}
       </Show>
-      <WhoLine {...props} division={division()} />
+      <WhoLine {...props} division={division()} record={record()} />
     </section>
   );
+}
+
+/** The player's own record and points as they stand, results already in at this round's tables counted; the place waits for the end. */
+function ownRecord(view: TournamentView, f: { pod: Pod; round: Round }, me: string): string | null {
+  const outcomeOf = (match: TableMatch) => shownOutcome(match, f.pod, f.round, view.pending).outcome;
+  const tally = talliesSoFar(withSwiss(view.tournament, f.pod), f.round, outcomeOf).get(me);
+  return tally ? `${recordLabel(tally)} · ${tn(matchPoints(tally), '{n} pt', '{n} pts')}` : null;
 }
 
 /**
@@ -478,7 +492,7 @@ function MatchBox(props: Props & { me: string; askAs: PlayerClaim | null }) {
  * them on this device, or for an account's Claim, undoing it. An account
  * that is the player by its POP ID is that player wherever it signs in.
  */
-function WhoLine(props: Props & { me: string; division: string }) {
+function WhoLine(props: Props & { me: string; division: string; record: string | null }) {
   const [error, setError] = createSignal<string | null>(null);
   // How the signed-in account is this player, if it is: by its POP ID, or by its Claim.
   const via = () => (props.view.viewer.me === props.me ? props.view.viewer.via : null);
@@ -494,8 +508,18 @@ function WhoLine(props: Props & { me: string; division: string }) {
     <>
       <div class='tm-you-who'>
         <span class='muted'>
-          {namesById(props.view.tournament).get(props.me)}
+          <Show when={props.onPlayer} fallback={namesById(props.view.tournament).get(props.me)}>
+            {open => (
+              <button type='button' class='tm-seat-link' onClick={() => open()(props.me)}>
+                <span class='tm-name'>{namesById(props.view.tournament).get(props.me)}</span>
+              </button>
+            )}
+          </Show>
           {props.division ? ` · ${props.division}` : ''}
+          <Show when={props.record}>
+            {' · '}
+            <span class='num tm-you-record'>{props.record}</span>
+          </Show>
           {via() === 'claim' ? ` · ${t('Linked to your account')}` : ''}
         </span>
         <Switch

@@ -16,6 +16,7 @@ import {
 import {
   bracketMatches,
   eliminationResult,
+  type MatchRecord,
   placeFinals,
   recordLabel,
   sideResult,
@@ -636,6 +637,11 @@ const SIDE_KEY = { win: 'wins', loss: 'losses', tie: 'ties' } as const;
  * cut keeps the Swiss records it started from.
  */
 export function recordsSoFar(pod: Pod, round: Round, outcomeOf: (match: Match) => Outcome): Map<string, string> {
+  return new Map([...talliesSoFar(pod, round, outcomeOf)].map(([id, record]) => [id, recordLabel(record)]));
+}
+
+/** The records recordsSoFar labels, as counts, for points and the like. */
+export function talliesSoFar(pod: Pod, round: Round, outcomeOf: (match: Match) => Outcome): Map<string, MatchRecord> {
   const tallies = tallySwiss(pod, round.number - 1);
   const matches = round.kind === 'swiss' ? round.matches : [];
   for (const match of matches) {
@@ -651,7 +657,7 @@ export function recordsSoFar(pod: Pod, round: Round, outcomeOf: (match: Match) =
       }
     }
   }
-  return new Map([...tallies].map(([id, tally]) => [id, recordLabel(tally.record)]));
+  return new Map([...tallies].map(([id, tally]) => [id, tally.record]));
 }
 
 /**
