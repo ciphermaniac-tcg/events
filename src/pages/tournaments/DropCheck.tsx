@@ -22,21 +22,12 @@ export function Answers(props: { state: ManageState; manage: Manage; request: Pl
   }
   return (
     <span class='tm-row-actions'>
-      <Show
-        when={props.request.kind === 'drop'}
-        fallback={
-          <button type='button' class='btn btn-secondary tm-small' onClick={() => answer('done')}>
-            {t('Mark contacted')}
-          </button>
-        }
-      >
-        <button type='button' class='btn btn-secondary tm-small' onClick={() => answer('accepted')}>
-          {t('Confirm drop')}
-        </button>
-        <button type='button' class='btn btn-ghost tm-small' onClick={() => answer('declined')}>
-          {t('Decline')}
-        </button>
-      </Show>
+      <button type='button' class='btn btn-secondary tm-small' onClick={() => answer('accepted')}>
+        {t('Confirm drop')}
+      </button>
+      <button type='button' class='btn btn-ghost tm-small' onClick={() => answer('declined')}>
+        {t('Decline')}
+      </button>
     </span>
   );
 }

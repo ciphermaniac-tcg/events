@@ -5,6 +5,7 @@ import {
   cancelRequest,
   fileRequest,
   isAnswerFor,
+  isRequestKind,
   openDrops,
   publicRequests,
   REQUEST_COOLDOWN_MS,
@@ -24,7 +25,7 @@ function filed(...args: Parameters<typeof fileRequest>) {
 
 test('a player holds one request of each kind, and asking again while it is open changes nothing', () => {
   let requests = filed([], { id: 'r1', player: 'p1', kind: 'drop', at: 10 });
-  requests = filed(requests, { id: 'r2', player: 'p1', kind: 'staff', at: 11 });
+  requests = filed(requests, { id: 'r2', player: 'p2', kind: 'drop', at: 11 });
   assert.equal(fileRequest(requests, { id: 'r3', player: 'p1', kind: 'drop', at: 12 }), null);
   const declined = answerRequest(requests, { id: 'r1', status: 'declined', ...staff });
   assert.ok(Array.isArray(declined));
@@ -37,12 +38,11 @@ test('staff answer only the open request they name, with answers that fit its ki
   const requests = filed(filed([], { id: 'r1', player: 'p1', kind: 'drop', at: 10 }), {
     id: 'r2',
     player: 'p2',
-    kind: 'staff',
+    kind: 'drop',
     at: 11
   });
   assert.equal(isAnswerFor('drop', 'done'), false);
-  assert.equal(isAnswerFor('staff', 'accepted'), false);
-  assert.equal(typeof answerRequest(requests, { id: 'r1', status: 'done', ...staff }), 'string');
+  assert.equal(isRequestKind('staff'), false, 'players call staff over in the room');
   assert.equal(typeof answerRequest(requests, { id: 'nope', status: 'accepted', ...staff }), 'string');
   const accepted = answerRequest(requests, { id: 'r1', status: 'accepted', ...staff });
   assert.ok(Array.isArray(accepted));
@@ -76,7 +76,7 @@ test('a player cancels only an unanswered request, and asks again only after the
   assert.ok(Array.isArray(cancelled));
   assert.equal(requestOf(cancelled, 'p1', 'drop')?.status, 'cancelled');
   assert.equal(typeof cancelRequest(cancelled, { player: 'p1', kind: 'drop', at: 21 }), 'string');
-  assert.equal(typeof cancelRequest(requests, { player: 'p1', kind: 'staff', at: 21 }), 'string');
+  assert.equal(typeof cancelRequest(requests, { player: 'p2', kind: 'drop', at: 21 }), 'string');
   const ask = (at: number) => fileRequest(cancelled, { id: 'r2', player: 'p1', kind: 'drop', at });
   assert.equal(ask(20 + REQUEST_COOLDOWN_MS - 1), TOO_SOON);
   assert.ok(Array.isArray(ask(20 + REQUEST_COOLDOWN_MS)));
@@ -94,7 +94,7 @@ test('the public copy keys requests by public key and leaves staff out', () => {
     filed(filed([], { id: 'r1', player: 'p1', kind: 'drop', at: 10 }), {
       id: 'r2',
       player: 'gone',
-      kind: 'staff',
+      kind: 'drop',
       at: 11
     }),
     { id: 'r1', status: 'accepted', ...staff }
@@ -114,12 +114,12 @@ test('requests stored without IDs read with one built from what they hold, and I
   assert.ok(
     Array.isArray(answerRequest(withRequestIds([legacy]), { id: 'legacy:p1:drop:10', status: 'accepted', ...staff }))
   );
+  assert.deepEqual(withRequestIds([{ ...legacy, kind: 'staff' }]), [], 'a stored call for staff goes');
 });
 
 test('the drops waiting on staff are the open ones from the pod’s players, oldest first', () => {
   let requests = filed([], { id: 'r1', player: 'p2', kind: 'drop', at: 20 });
   requests = filed(requests, { id: 'r2', player: 'p1', kind: 'drop', at: 10 });
-  requests = filed(requests, { id: 'r3', player: 'p1', kind: 'staff', at: 5 });
   requests = filed(requests, { id: 'r4', player: 'p9', kind: 'drop', at: 1 });
   const answered = answerRequest(requests, { id: 'r1', status: 'declined', ...staff });
   assert.ok(Array.isArray(answered));

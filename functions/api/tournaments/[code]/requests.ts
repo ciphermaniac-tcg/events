@@ -1,7 +1,7 @@
 /**
  * PUT /api/tournaments/:code/requests — staff answer a player's request by
  * its ID ({ id, status, localTime }; see shared/tournament/requests.ts):
- * confirm or decline a drop, or mark a contact done. The answer records who
+ * confirm or decline a drop. The answer records who
  * on staff gave it and when, and lands only on the request staff saw: one
  * cancelled or answered since is refused. Confirming a drop at a Swiss event
  * drops the player in the same write; at a TOM event staff drop them in

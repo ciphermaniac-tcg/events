@@ -59,7 +59,7 @@ test('the reporting device asks to drop, publicly by key, and staff confirm it b
   assert.deepEqual([open?.player, open?.status], [key, 'open']);
   const stranger = await playerSays(code, { popId, device: 'someone-else', request: 'drop' });
   assert.equal(stranger.status, 403, 'another device cannot ask for the player');
-  assert.equal((await answer({ id: open?.id, status: 'done' })).status, 400, 'a contact answer does not fit a drop');
+  assert.equal((await answer({ id: open?.id, status: 'done' })).status, 400, 'done answers nothing now');
   assert.equal((await answer({ id: 'unknown', status: 'accepted' })).status, 400);
   const before = await versionOf(code);
   const confirmed = await answer({ id: open?.id, status: 'accepted' });
@@ -100,33 +100,34 @@ test('a confirmation from a stale console does not drop a player who cancelled a
 test('asking again for an open request writes nothing, and cancelling then asking waits for the cooldown', async () => {
   mock.timers.enable({ apis: ['Date'], now: Date.parse('2026-10-18T17:00:00Z') });
   const { code, ask } = await eventWithPhone();
-  await ask({ request: 'staff' });
+  await ask({ request: 'drop' });
   const version = await versionOf(code);
   for (let i = 0; i < 3; i += 1) {
-    assert.equal((await ask({ request: 'staff' })).status, 200);
+    assert.equal((await ask({ request: 'drop' })).status, 200);
   }
   assert.equal(await versionOf(code), version, 'repeats change nothing');
-  const cancelled = await ask({ request: 'staff', cancel: true });
+  const cancelled = await ask({ request: 'drop', cancel: true });
   assert.equal(cancelled.status, 200);
   assert.equal(cancelled.json.view.requests[0].status, 'cancelled');
-  const soon = await ask({ request: 'staff' });
+  const soon = await ask({ request: 'drop' });
   assert.equal(soon.status, 429);
   assert.equal(soon.json.error, TOO_SOON);
   mock.timers.tick(REQUEST_COOLDOWN_MS - 1);
-  assert.equal((await ask({ request: 'staff' })).status, 429);
+  assert.equal((await ask({ request: 'drop' })).status, 429);
   mock.timers.tick(1);
-  assert.equal((await ask({ request: 'staff' })).status, 200);
+  assert.equal((await ask({ request: 'drop' })).status, 200);
 });
 
 test('a player cancels only an unanswered request, and asks again at once after an answer', async () => {
   const { ask, answer, shown } = await eventWithPhone();
-  await ask({ request: 'staff' });
-  assert.equal((await answer({ id: (await shown('staff'))?.id, status: 'done' })).status, 200);
-  assert.equal((await ask({ request: 'staff', cancel: true })).status, 400);
-  const again = await ask({ request: 'staff' });
+  await ask({ request: 'drop' });
+  assert.equal((await answer({ id: (await shown('drop'))?.id, status: 'declined' })).status, 200);
+  assert.equal((await ask({ request: 'drop', cancel: true })).status, 400);
+  const again = await ask({ request: 'drop' });
   assert.equal(again.status, 200);
   assert.equal(again.json.view.requests[0].status, 'open');
   assert.equal((await ask({ request: 'judge' })).status, 400);
+  assert.equal((await ask({ request: 'staff' })).status, 400, 'players call staff over in the room');
 });
 
 test('a dropped player or an ended event takes no drop request', async () => {
@@ -136,7 +137,7 @@ test('a dropped player or an ended event takes no drop request', async () => {
   assert.equal(out.status, 400);
   assert.match(out.json.error, /already out/);
   await settle(code, owner, { finished: true });
-  assert.equal((await ask({ request: 'staff' })).status, 400);
+  assert.equal((await ask({ request: 'drop' })).status, 400);
 });
 
 test('only staff answer requests', async () => {

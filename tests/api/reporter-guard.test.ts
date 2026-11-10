@@ -122,17 +122,17 @@ test('a report beaten to the event by another write lands on the retry while its
   assert.deepEqual(await filed(code), { reports: 1, evidence: 1, requests: 0 });
 });
 
-test('a request to staff from a seat staff released meanwhile asks nothing', async () => {
+test('a drop request from a seat staff released meanwhile asks nothing', async () => {
   const { code, player, reportAs } = await reporting();
   meanwhile(() => release(code, player));
-  const asked = await reportAs({ request: 'staff' });
+  const asked = await reportAs({ request: 'drop' });
   assert.deepEqual([asked.status, asked.json.error], [403, NOT_REPORTER]);
   assert.deepEqual(await filed(code), { reports: 0, evidence: 0, requests: 0 });
 });
 
-test('a request to staff from a seat that stands still asks', async () => {
+test('a drop request from a seat that stands still asks', async () => {
   const { code, reportAs } = await reporting();
-  const asked = await reportAs({ request: 'staff' });
+  const asked = await reportAs({ request: 'drop' });
   assert.equal(asked.status, 200, JSON.stringify(asked.json));
   assert.equal((await filed(code)).requests, 1);
 });

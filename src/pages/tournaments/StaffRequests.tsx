@@ -15,15 +15,10 @@ import { msg, t, tc, timeOfDay } from '../../lib/i18n';
 import type { ManageState } from './manageState';
 import { Answers } from './DropCheck';
 
-/** What a request asks, as a noun: the staff table names the request, not the button the player pressed. */
-const kindLabel = (kind: PlayerRequest['kind']) =>
-  kind === 'drop' ? tc('request', 'Drop') : tc('request', 'Contact staff');
-
 const STATUS_LABELS: Record<PlayerRequest['status'], string> = {
   open: msg('Waiting'),
   accepted: msg('Confirmed'),
   declined: msg('Declined'),
-  done: msg('Contacted'),
   cancelled: msg('Cancelled')
 };
 
@@ -95,7 +90,7 @@ export function StaffRequests(props: { state: ManageState; manage: Manage }) {
                     <td class='tm-num' data-label={seatLabel(props.manage, request.player)}>
                       {seatText(props.manage, request.player)}
                     </td>
-                    <td>{kindLabel(request.kind)}</td>
+                    <td>{tc('request', 'Drop')}</td>
                     <td class='tm-num'>{timeOfDay(request.at)}</td>
                     <td>
                       <Show

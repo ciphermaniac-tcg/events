@@ -1,10 +1,10 @@
 /**
  * What a player asks staff for from the event's page: to drop (leave at
- * the end of the round) or for someone to come over. Nothing happens until
- * staff answer: a drop is confirmed or declined, a contact marked done.
- * Each player holds at most one request of each kind; asking again after an
- * answer starts a new one, with a new ID, so an answer meant for an earlier
- * request never lands on a later one.
+ * the end of the round). Nothing happens until staff answer: a drop is
+ * confirmed or declined. Players who need someone call staff over in the
+ * room. Each player holds at most one request of each kind; asking again
+ * after an answer starts a new one, with a new ID, so an answer meant for an
+ * earlier request never lands on a later one.
  *
  * A cancelled request stays, marked, so a player cannot cancel and ask
  * again faster than REQUEST_COOLDOWN_MS.
@@ -14,10 +14,10 @@
  */
 
 import { msg } from '../i18n.js';
-export const REQUEST_KINDS = ['drop', 'staff'] as const;
+export const REQUEST_KINDS = ['drop'] as const;
 export type RequestKind = (typeof REQUEST_KINDS)[number];
 
-export type RequestStatus = 'open' | 'accepted' | 'declined' | 'done' | 'cancelled';
+export type RequestStatus = 'open' | 'accepted' | 'declined' | 'cancelled';
 export type RequestAnswer = Exclude<RequestStatus, 'open' | 'cancelled'>;
 
 /** How soon a player may ask again after cancelling a request of the same kind. */
@@ -44,18 +44,19 @@ export interface PlayerRequest {
  * Requests as stored, each with its ID. One stored before requests had IDs
  * takes one from what it already holds, which a player holds one of per
  * kind: the same on every read, so staff can answer it, and kept by the
- * next write of the event.
+ * next write of the event. A kind the site no longer takes (a call for staff,
+ * from before players called them over in the room) is dropped.
  */
-export const withRequestIds = (stored: readonly (Omit<PlayerRequest, 'id'> & { id?: string })[]): PlayerRequest[] =>
-  stored.map(({ id, ...request }) => ({
-    ...request,
-    id: id || `legacy:${request.player}:${request.kind}:${request.at}`
-  }));
+export const withRequestIds = (
+  stored: readonly (Omit<PlayerRequest, 'id' | 'kind'> & { id?: string; kind: string })[]
+): PlayerRequest[] =>
+  stored.flatMap(({ id, kind, ...request }) =>
+    isRequestKind(kind) ? [{ ...request, kind, id: id || `legacy:${request.player}:${kind}:${request.at}` }] : []
+  );
 
-/** The answers each kind takes: a drop is confirmed or declined, a contact is done. */
+/** The answers each kind takes: a drop is confirmed or declined. */
 const ANSWERS: Record<RequestKind, readonly RequestAnswer[]> = {
-  drop: ['accepted', 'declined'],
-  staff: ['done']
+  drop: ['accepted', 'declined']
 };
 
 export const isRequestKind = (value: unknown): value is RequestKind => REQUEST_KINDS.includes(value as RequestKind);

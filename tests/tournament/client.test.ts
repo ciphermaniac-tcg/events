@@ -276,7 +276,7 @@ test('a player asks staff from the reporting endpoint, and staff answer at the r
   answer(200, { key: '4' });
   await askStaff('ABC', { popId: '12' }, { request: 'drop' }, 'seat-token');
   await askStaff('ABC', { popId: '12' }, { request: 'drop', cancel: true }, 'seat-token');
-  await answerRequest('ABC', { id: 'r1', status: 'done' });
+  await answerRequest('ABC', { id: 'r1', status: 'declined' });
   assert.deepEqual(
     sent.map(s => `${s.method} ${s.url}`),
     ['POST /api/tournaments/ABC/report', 'POST /api/tournaments/ABC/report', 'PUT /api/tournaments/ABC/requests']
@@ -292,7 +292,7 @@ test('a player asks staff from the reporting endpoint, and staff answer at the r
     ]
   );
   const answered = sent[2]?.body as { id: string; status: string; localTime: string };
-  assert.deepEqual([answered.id, answered.status], ['r1', 'done']);
+  assert.deepEqual([answered.id, answered.status], ['r1', 'declined']);
   assert.match(answered.localTime, /^\d{2}\/\d{2}\/\d{4} /, 'a confirmed drop is stamped with the venue clock');
 });
 

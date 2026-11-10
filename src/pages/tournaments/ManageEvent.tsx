@@ -374,17 +374,14 @@ function ConsoleError(props: { message: string | null; follow: boolean }) {
 const hasStarted = (manage: Manage) => manage.tournament.pods.some(p => latestRound(p) !== undefined);
 
 /**
- * The Players tab counts the requests waiting on staff, so one is seen from
- * any tab: drops apart from the rest, since a drop holds back the next round.
+ * The Players tab counts the drop requests waiting on staff, so one is seen
+ * from any tab: a drop holds back the next round.
  */
 function withRequests(option: TabOption, manage: Manage): TabOption {
-  const open = (manage.requests ?? []).filter(request => request.status === 'open');
-  const drops = open.filter(request => request.kind === 'drop').length;
-  const others = open.length - drops;
-  const counts = [others ? String(others) : '', drops ? tn(drops, '{n} drop', '{n} drops') : ''].filter(Boolean);
-  // A phone's bar has room for one number by the tab's icon; the tab's name still says them all.
-  return option.value === 'players' && counts.length
-    ? { ...option, count: open.length, name: [option.label, ...counts].join(' · ') }
+  const drops = (manage.requests ?? []).filter(request => request.status === 'open').length;
+  // A phone's bar has room for one number by the tab's icon; the tab's name still says what it counts.
+  return option.value === 'players' && drops
+    ? { ...option, count: drops, name: [option.label, tn(drops, '{n} drop', '{n} drops')].join(' · ') }
     : option;
 }
 

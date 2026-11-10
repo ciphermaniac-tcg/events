@@ -1,6 +1,6 @@
 /**
- * The player's requests to staff, under their match: to drop, or for
- * someone to come over, each with where it stands. Nothing changes until
+ * The player's request to staff, under their match: to drop, with where
+ * it stands. Nothing changes until
  * staff answer (see shared/tournament/requests.ts); an open request can be
  * taken back. Only the device that reports for the player asks.
  */
@@ -25,14 +25,8 @@ const KINDS: { kind: RequestKind; ask: string; status: (request: PlayerRequest) 
         open: msg('Drop requested'),
         accepted: msg('Drop confirmed'),
         declined: msg('Drop declined'),
-        done: '',
         cancelled: ''
       })[request.status]
-  },
-  {
-    kind: 'staff',
-    ask: msg('Contact staff'),
-    status: request => (request.status === 'open' ? msg('Staff contact requested') : msg('Staff responded'))
   }
 ];
 
@@ -101,27 +95,13 @@ export function PlayerRequests(props: {
                 )}
               </Show>
               <Show when={askable(entry.kind, request())}>
-                <Show
-                  when={entry.kind === 'drop'}
-                  fallback={
-                    <button
-                      type='button'
-                      class='btn btn-secondary tm-small'
-                      disabled={action.busy()}
-                      onClick={() => void send(entry.kind)}
-                    >
-                      {t(entry.ask)}
-                    </button>
-                  }
-                >
-                  <ConfirmAction
-                    label={t(entry.ask)}
-                    class='btn btn-secondary tm-small'
-                    question={t('Ask staff to drop you?')}
-                    confirmLabel={t('Ask staff')}
-                    onConfirm={() => void send(entry.kind)}
-                  />
-                </Show>
+                <ConfirmAction
+                  label={t(entry.ask)}
+                  class='btn btn-secondary tm-small'
+                  question={t('Ask staff to drop you?')}
+                  confirmLabel={t('Ask staff')}
+                  onConfirm={() => void send(entry.kind)}
+                />
               </Show>
             </>
           );

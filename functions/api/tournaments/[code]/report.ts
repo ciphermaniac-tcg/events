@@ -5,7 +5,7 @@
  * the same result from two devices at a Swiss event that lets agreeing reports settle (agreedOutcome).
  * { expect } names the public key the page chose: a claim that resolves to anyone else is refused before
  * any seat or account write, so a fuzzy lookup's pick cannot become another player's seat.
- * With { request }, the reporting device asks staff to drop the player or come over (requests.ts).
+ * With { request: 'drop' }, the reporting device asks staff to drop the player (requests.ts).
  * A claim another device holds is refused, so one device is the player at a time.
  * GET returns retained filing evidence to staff; DELETE releases a reporting seat.
  */
@@ -252,7 +252,7 @@ async function report(context: Context<'code'>, access: Access, body: Body, who:
 }
 
 /**
- * The player asks staff for something ({ request: 'drop' or 'staff' }) or
+ * The player asks staff to drop them ({ request: 'drop' }) or
  * cancels an open request ({ cancel: true }), from the device that
  * reports for them, so nobody else can ask on their behalf.
  */

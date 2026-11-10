@@ -1659,7 +1659,7 @@ test('a phone’s tab bar keeps one height and every tab on screen, however long
   const requests: PlayerRequest[] = t.players.slice(0, 4).map((player, i) => ({
     id: `request-${String(i)}`,
     player: player.id,
-    kind: i % 2 ? 'drop' : 'staff',
+    kind: 'drop',
     at: i,
     status: 'open'
   }));
@@ -1679,7 +1679,7 @@ test('a phone’s tab bar keeps one height and every tab on screen, however long
   // The Players tab shows how many requests wait by its icon, and its name says which.
   const players = page.locator('#console-bar-players');
   await expect(players.locator('.tm-dash-count')).toHaveText('4');
-  await expect(players).toHaveAttribute('aria-label', /^\S+ · 2 · 2 \S+$/);
+  await expect(players).toHaveAttribute('aria-label', /^\S+ · 4 \S+$/);
   // Scrolled to the end, the site's foot clears the bar.
   await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
   const foot = await boxOf(page.locator('.site-footer'));
@@ -2247,9 +2247,8 @@ test('an open drop request holds the next pairing until it is answered, or paire
   const t = event(8, 1, false);
   const player = t.players[0]!;
   const asked: PlayerRequest = { id: 'drop-1', player: player.id, kind: 'drop', at: 1, status: 'open' };
-  const contact: PlayerRequest = { id: 'staff-1', player: t.players[1]!.id, kind: 'staff', at: 2, status: 'open' };
-  const sent = await mockConsole(page, t, settingsOf({}), [], false, [asked, contact]);
-  await expect(page.getByRole('tab', { name: 'Players · 1 · 1 drop' })).toBeVisible();
+  const sent = await mockConsole(page, t, settingsOf({}), [], false, [asked]);
+  await expect(page.getByRole('tab', { name: 'Players · 1 drop' })).toBeVisible();
   await expect(page.locator('.tm-next-reason')).toHaveText('1 drop request waiting');
   await page.getByRole('button', { name: 'Pair round 2' }).click();
   const check = page.getByRole('dialog', { name: 'Drop requests' });
