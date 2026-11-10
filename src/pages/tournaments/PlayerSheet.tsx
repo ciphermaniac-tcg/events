@@ -20,6 +20,7 @@ import { DeckIcons } from './DeckIcons';
 import { type Identified, IdentifyForm } from './Identify';
 import { lazyPanel } from './lazyPanel';
 import { Squares } from './Squares';
+import { Tiebreaker } from './Tiebreaker';
 
 const OpenList = lazyPanel(() => import('./OpenList').then(m => ({ default: m.OpenList })));
 
@@ -130,11 +131,15 @@ export function PlayerSheet(props: {
                 </div>
                 <div>
                   <dd class='num'>{percentLabel(row().owp)}</dd>
-                  <dt>OWP</dt>
+                  <dt>
+                    <Tiebreaker name='OWP' />
+                  </dt>
                 </div>
                 <div>
                   <dd class='num'>{percentLabel(row().oowp)}</dd>
-                  <dt>OOWP</dt>
+                  <dt>
+                    <Tiebreaker name='OOWP' />
+                  </dt>
                 </div>
               </dl>
             )}

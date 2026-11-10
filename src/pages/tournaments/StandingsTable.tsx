@@ -17,6 +17,7 @@ import type { Division, Pod, Tournament } from '../../../shared/tournament/types
 import { divisionHeading, podLabel, podStandings } from '../../lib/tournament/present';
 import { cutSplit } from '../../lib/tournament/staff';
 import { DeckIcons } from './DeckIcons';
+import { Tiebreaker } from './Tiebreaker';
 import { Icon } from '@ciphermaniac/design/components/Icon';
 import { t } from '../../lib/i18n';
 
@@ -104,10 +105,10 @@ export function StandingsTable(props: TableProps) {
                         </th>
                         <Show when={props.tiebreakers}>
                           <th scope='col' class='num tm-wide-col'>
-                            OWP
+                            <Tiebreaker name='OWP' />
                           </th>
                           <th scope='col' class='num tm-wide-col'>
-                            OOWP
+                            <Tiebreaker name='OOWP' />
                           </th>
                         </Show>
                       </tr>
