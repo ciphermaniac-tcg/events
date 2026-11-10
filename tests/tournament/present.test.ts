@@ -46,6 +46,7 @@ import {
   shownDecks,
   shownOutcome,
   statusParts,
+  tableQuery,
   unseated
 } from '../../src/lib/tournament/present.ts';
 import {
@@ -224,6 +225,19 @@ test('finds matches by either player’s name', () => {
   const names = namesById(CHALLENGE);
   assert.equal(filterMatches(round2.matches, names, 'lamarr').length, 1);
   assert.equal(filterMatches(round2.matches, names, '  ').length, round2.matches.length);
+});
+
+test('finds a table by its number first, then falls back to names', () => {
+  const names = namesById(CHALLENGE);
+  const table = round2.matches[1]?.table ?? 0;
+  assert.deepEqual(
+    filterMatches(round2.matches, names, ` ${table} `).map(match => match.table),
+    [table]
+  );
+  assert.equal(filterMatches(round2.matches, names, '999').length, 0);
+  const digits = new Map([[round2.matches[0]?.p1 ?? '', 'Player 999']]);
+  assert.equal(filterMatches(round2.matches, digits, '999').length, 1);
+  assert.equal(tableQuery('14a'), null);
 });
 
 test('lists who a re-pair would seat', () => {

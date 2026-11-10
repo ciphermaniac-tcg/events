@@ -14,7 +14,7 @@ import type { Pod, Round } from '../../../shared/tournament/types';
 import type { TournamentView } from '../../../shared/tournament/view';
 import { Segmented } from '@ciphermaniac/design/components/Segmented';
 import { t } from '../../lib/i18n';
-import { filterMatches, hasCut, type MatchView, matchViews } from '../../lib/tournament/present';
+import { filterMatches, hasCut, type MatchView, matchViews, tableQuery } from '../../lib/tournament/present';
 import {
   NO_FILTER,
   roundDecks,
@@ -73,6 +73,13 @@ export function PublicPairings(props: {
     });
   // In progress lists every open table, so with nothing else narrowing it an empty list means none are left.
   const everyResult = () => applied().showing === 'playing' && !props.query.trim() && applied().deck === null;
+  const empty = () => {
+    const table = tableQuery(props.query);
+    if (everyResult()) {
+      return t('Every table has a result.');
+    }
+    return table === null ? t('No tables match.') : t('No table {table} this round.', { table });
+  };
   const table = () => (
     <MatchTable
       pod={withSwiss(props.view.tournament, props.pod!)}
@@ -86,7 +93,7 @@ export function PublicPairings(props: {
       listed={props.listed}
       status
       inProgress={match => stillPlaying(match, { pod: props.pod!, round: props.round!, pending: props.view.pending })}
-      empty={everyResult() ? t('Every table has a result.') : t('No tables match.')}
+      empty={empty()}
     />
   );
   const choose = (value: MatchView) => setParams({ view: value === 'bracket' ? value : undefined }, { replace: true });

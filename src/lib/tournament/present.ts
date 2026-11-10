@@ -581,11 +581,23 @@ export function deckBreakdown(tournament: Tournament, decks: Record<string, stri
     .sort((a, b) => b.players - a.players || a.label.localeCompare(b.label));
 }
 
-/** Matches whose players' names contain the query, in either seat. */
+/** The table a search asks for: a query of digits only, or null for a name search. */
+export const tableQuery = (query: string): number | null => (/^\d+$/.test(query.trim()) ? Number(query.trim()) : null);
+
+/**
+ * Matches a search finds: a query of digits is a table number first, and when
+ * no table has that number, it falls back to names. A name search keeps the
+ * matches whose players' names contain the query, in either seat.
+ */
 export function filterMatches(matches: readonly Match[], names: Map<string, string>, query: string): Match[] {
   const q = query.trim().toLowerCase();
   if (!q) {
     return [...matches];
+  }
+  const table = tableQuery(q);
+  const atTable = table === null ? [] : matches.filter(match => match.table === table);
+  if (atTable.length > 0) {
+    return atTable;
   }
   const hit = (id: string | null) => (id ? (names.get(id) ?? '').toLowerCase().includes(q) : false);
   return matches.filter(match => hit(match.p1) || hit(match.p2));

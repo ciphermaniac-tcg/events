@@ -642,8 +642,8 @@ function EventBody(props: {
         <input
           class='search tm-grow'
           type='search'
-          placeholder={t('Find a player')}
-          aria-label={t('Find a player')}
+          placeholder={tab() === 'pairings' ? t('Player or table') : t('Find a player')}
+          aria-label={tab() === 'pairings' ? t('Find a player or table') : t('Find a player')}
           value={query()}
           onInput={e => setQuery(e.currentTarget.value)}
         />

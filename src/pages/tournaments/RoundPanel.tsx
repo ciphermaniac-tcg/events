@@ -345,13 +345,6 @@ function LiveResult(props: ResultProps) {
   );
 }
 
-function matchesQuery(match: Match, query: string, names: Map<string, string>): boolean {
-  const table = Number(query.trim());
-  return query.trim() && Number.isInteger(table)
-    ? match.table === table
-    : filterMatches([match], names, query).length > 0;
-}
-
 /** The bar that finds a table: its number or a player's name, and what a press on a player does. */
 function RoomFilter(props: { query: string; onQuery: (value: string) => void; ref: (el: HTMLInputElement) => void }) {
   return (
@@ -768,7 +761,7 @@ export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod
     if (!r) {
       return [];
     }
-    return r.matches.filter(m => (!query().trim() || matchesQuery(m, query(), names())) && (!openOnly() || isOpen(m)));
+    return filterMatches(r.matches, names(), query()).filter(m => !openOnly() || isOpen(m));
   });
 
   function report(match: Match, outcome: Outcome) {
