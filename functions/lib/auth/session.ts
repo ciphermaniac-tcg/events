@@ -448,11 +448,19 @@ export class StaleSignIn extends Error {
 }
 
 /**
+ * The Clerk users a session answers to, in SQL: the one the proof names, and
+ * every one linked to the account (?2), so a ban or lock reaches a Google or
+ * Discord sign-in that finds the same account by its email.
+ */
+const CLERK_SUBJECTS_SQL = "(SELECT ?5 UNION SELECT subject FROM identities WHERE user_id = ?2 AND provider = 'clerk')";
+
+/**
  * Starts a session and returns the token for the cookie. The session is made
- * only if its proof is no older than the Clerk user's password cutoff
- * (lib/auth/clerk.ts), checked in the same statement that makes it, so a
- * password change landing at any moment either refuses it here or ends it
- * after (its `auth_at` is older). Throws `StaleSignIn` when refused.
+ * only if its proof is no older than the password cutoff of any Clerk user
+ * the account holds (lib/auth/clerk.ts), and none of them is shut out,
+ * checked in the same statement that makes it, so a password change landing
+ * at any moment either refuses it here or ends it after (its `auth_at` is
+ * older). Throws `StaleSignIn` when refused.
  */
 export async function createSession(
   db: D1Like,
@@ -465,8 +473,9 @@ export async function createSession(
     db
       .prepare(
         'INSERT INTO sessions (token_hash, user_id, expires_at, auth_at) SELECT ?1, ?2, ?3, ?4 ' +
-          'WHERE NOT EXISTS (SELECT 1 FROM clerk_password_cutoffs WHERE subject = ?5 AND changed_at > ?4) ' +
-          'AND NOT EXISTS (SELECT 1 FROM clerk_revocations WHERE subject = ?5 ' +
+          `WHERE NOT EXISTS (SELECT 1 FROM clerk_password_cutoffs WHERE subject IN ${CLERK_SUBJECTS_SQL} ` +
+          'AND changed_at > ?4) ' +
+          `AND NOT EXISTS (SELECT 1 FROM clerk_revocations WHERE subject IN ${CLERK_SUBJECTS_SQL} ` +
           'AND (terminal = 1 OR (revoked_at > 0 AND revoked_at >= allowed_at)))'
       )
       .bind(await sha256(token), userId, now + SESSION_SECONDS * 1000, proof.authAt, proof.clerkSubject),

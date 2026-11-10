@@ -12,7 +12,8 @@ import { beforeEach, test } from 'node:test';
 
 import * as webhook from '../../functions/api/auth/clerk-webhook.ts';
 import type { TournamentEnv } from '../../functions/lib/auth/env.ts';
-import { createSession, SESSION_SECONDS, StaleSignIn } from '../../functions/lib/auth/session.ts';
+import type { Profile } from '../../functions/lib/auth/oauth.ts';
+import { createSession, proofOf, SESSION_SECONDS, StaleSignIn, upsertUser } from '../../functions/lib/auth/session.ts';
 import { signedByClerk } from '../../functions/lib/auth/clerkWebhook.ts';
 import { ORIGIN } from '../__utils__/apiCalls.ts';
 import { sqliteD1 } from '../__utils__/sqliteD1.ts';
@@ -124,6 +125,39 @@ test('a Clerk ban, lock, or deletion ends every session and refuses one made aft
   assert.equal(sessionsOf('pat'), 1, 'a user Clerk allows again may sign in');
 });
 /* eslint-enable camelcase -- Clerk's field names */
+
+/** A Google sign-in with `email` verified, which reaches the account holding that email. */
+async function googleSignIn(email: string): Promise<string> {
+  const profile: Profile = {
+    provider: 'google',
+    subject: `g-${email}`,
+    name: 'Someone',
+    email,
+    emailVerified: true,
+    avatar: null
+  };
+  const id = await upsertUser(env.TOURNAMENT_DB!, profile);
+  return createSession(env.TOURNAMENT_DB!, id, proofOf(profile));
+}
+
+test('a Clerk shut-out refuses a Google sign-in that reaches the same account by email', async () => {
+  raw().exec("UPDATE users SET email = id || '@example.com'");
+  assert.equal((await deliver({ body: { type: 'user.updated', data: { id: 'user_pat', banned: true } } })).status, 204);
+  await assert.rejects(googleSignIn('pat@example.com'), StaleSignIn);
+  assert.equal(sessionsOf('pat'), 0, 'no session for the shut-out account');
+  await googleSignIn('sam@example.com');
+  assert.equal(sessionsOf('sam'), 1, 'another account signs in with Google as before');
+  await googleSignIn('sam@example.com');
+  assert.equal(sessionsOf('sam'), 2, 'and again, once its Google identity is linked');
+
+  // A password changed after the proof refuses it, whichever provider proved it.
+  raw().exec('DELETE FROM clerk_revocations');
+  await deliver({ body: passwordChanged('user_pat', Date.now()) });
+  const before = { clerkSubject: null, authAt: Date.now() - 60_000 };
+  await assert.rejects(createSession(env.TOURNAMENT_DB!, 'pat', before), StaleSignIn);
+  await googleSignIn('pat@example.com');
+  assert.equal(sessionsOf('pat'), 1, 'a sign-in proven after the change is let in');
+});
 
 test('an older allow cannot clear a newer shut-out, and a deletion stays terminal', async () => {
   const bannedAt = Date.now();
