@@ -204,7 +204,8 @@ test('decklists are off, open or closed, and rounds are capped at up to fifteen'
   }
   const tournament = emptyTournament({ name: 'x' });
   assert.equal(decklistsOpen({ settings: { decklists: 'open' }, tournament }), true);
-  assert.equal(decklistsOpen({ settings: { decklists: 'closed' }, tournament }), false);
+  assert.equal(decklistsOpen({ settings: { decklists: 'closed' }, tournament }), true, 'closed lists are taken too');
+  assert.equal(decklistsOpen({ settings: { decklists: 'off' }, tournament }), false);
   const started = { ...tournament, startedAt: 1 };
   assert.equal(
     decklistsOpen({ settings: { decklists: 'open' }, tournament: started }),

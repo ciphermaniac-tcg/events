@@ -51,7 +51,6 @@ test('before round 1 anyone may send a list, someone not yet on the event too', 
 test('a starter’s list locks when round 1 pairs', () => {
   const t = lateInRound2();
   assert.equal(decklistOpenFor(event(t), '1'), false);
-  assert.equal(decklistOpenFor(event(t), '1', 'staff'), false);
   assert.equal(decklistOpenFor(event(t), null), false, 'nobody new registers by list after round 1');
 });
 
@@ -79,14 +78,12 @@ test('a late entrant in the final round keeps their window until the top cut pai
   assert.equal(decklistOpenFor(event(cut), 'max'), false, 'the top cut pairing locks it');
 });
 
-test('staff manage a late entrant’s list while submission is closed; players do not, and nobody while lists are off', () => {
+test('a late entrant’s list is taken while lists are closed too, and not while they are off', () => {
   const t = lateInRound2();
-  const closed = event(t, { decklists: 'closed' });
-  assert.equal(decklistOpenFor(closed, 'lena'), false);
-  assert.equal(decklistOpenFor(closed, 'lena', 'staff'), true);
-  assert.equal(decklistOpenFor(event(t, { decklists: 'off' }), 'lena', 'staff'), false);
-  assert.equal(decklistOpenFor(event(finishRound(t)), 'lena', 'staff'), true);
-  assert.equal(decklistOpenFor(event(run(finishRound(t), pair)), 'lena', 'staff'), false);
+  assert.equal(decklistOpenFor(event(t, { decklists: 'closed' }), 'lena'), true);
+  assert.equal(decklistOpenFor(event(t, { decklists: 'off' }), 'lena'), false);
+  assert.equal(decklistOpenFor(event(finishRound(t)), 'lena'), true);
+  assert.equal(decklistOpenFor(event(run(finishRound(t), pair)), 'lena'), false);
 });
 
 test('a late entrant who dropped, or a starter, is locked like everyone else', () => {

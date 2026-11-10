@@ -48,9 +48,9 @@ export type DeckVisibility = 'always' | 'after' | 'off';
 
 /**
  * Whether the event takes decklists: 'off' leaves them out altogether (no
- * form for players, no tab for staff). 'open' takes them until round 1 is
- * paired and then shows them to anyone on the event's page (see
- * listsPublic); 'closed' takes none and keeps them to staff and their owners.
+ * form for players, no tab for staff). 'open' and 'closed' both take them
+ * until round 1 is paired: 'open' then shows them to anyone on the event's
+ * page (see listsPublic), and 'closed' keeps them to staff and their owners.
  */
 export type DecklistMode = 'off' | 'open' | 'closed';
 
@@ -250,20 +250,20 @@ export function storedSettings(stored: Record<string, unknown>, started: boolean
 
 /**
  * Whether the event's lists are locked: once any division's round 1 is
- * paired, nobody sends, replaces or withdraws one, whatever the open or
- * closed switch says. The lists then stand as what deck checks are held to.
- * Their owners still read them, and staff read them all.
+ * paired, nobody sends, replaces or withdraws one. The lists then stand as
+ * what deck checks are held to. Their owners still read them, and staff read
+ * them all.
  */
 export function decklistsLocked(event: { tournament: Tournament }): boolean {
   return hasStarted(event.tournament);
 }
 
-/** Whether players can send a decklist now: submission is open, and round 1 is not yet paired. */
+/** Whether players can send a decklist now: the event takes lists, and round 1 is not yet paired. */
 export function decklistsOpen(event: {
   settings: Pick<TournamentSettings, 'decklists'>;
   tournament: Tournament;
 }): boolean {
-  return event.settings.decklists === 'open' && !decklistsLocked(event);
+  return event.settings.decklists !== 'off' && !decklistsLocked(event);
 }
 
 /**

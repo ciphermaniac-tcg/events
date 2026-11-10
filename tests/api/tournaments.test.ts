@@ -853,7 +853,7 @@ test('a Swiss event cannot be synced from a file', async () => {
   assert.equal(refused.status, 400);
 });
 
-test('decklists come in only while open, and decks show as the visibility setting allows', async () => {
+test('decklists come in only once turned on, and decks show as the visibility setting allows', async () => {
   mock.method(globalThis, 'fetch', async () =>
     Response.json({
       rules: [{ identifier: 'gardevoir-ex', name: 'Gardevoir ex', cards: [{ name: 'Gardevoir ex', count: 1 }] }]
@@ -874,17 +874,6 @@ test('decklists come in only while open, and decks show as the visibility settin
     body: submission
   });
   assert.deepEqual([off.status, off.json.error], [403, 'This event does not take decklists'], 'off by default');
-  await hit(settings.onRequestPut as Handler, '/settings', at(code), {
-    method: 'PUT',
-    cookie: owner,
-    body: { decklists: 'closed' }
-  });
-  const closed = await hit(decklists.onRequestPut as Handler, '/decklists', at(code), {
-    method: 'PUT',
-    cookie: player,
-    body: submission
-  });
-  assert.deepEqual([closed.status, closed.json.error], [403, 'Decklist submission is closed']);
   await hit(settings.onRequestPut as Handler, '/settings', at(code), {
     method: 'PUT',
     cookie: owner,
@@ -1797,6 +1786,14 @@ test('a submitter is checked again as the event stands when written: added meanw
   assert.equal((await submitAs(later, ada)).json.registration, 'not-added', 'the event closed while the list was sent');
 });
 
+test('closed decklists still register a submitter', async () => {
+  const owner = await signIn('Organizer', 'organizer');
+  const code = await newSwiss(owner);
+  await settle(code, owner, { decklists: 'closed' });
+  const sent = await submitAs(code, { popId: '5151', firstName: 'Ada', lastName: 'Byron', birthDate: '02/27/1990' });
+  assert.deepEqual([sent.status, sent.json.registration], [200, 'added']);
+});
+
 test('a submitter is only added to an open Swiss event, and an unsanctioned one by name', async () => {
   const owner = await signIn('Organizer', 'organizer');
   const code = await newSwiss(owner);
@@ -2224,12 +2221,12 @@ test('a join that read the old invite link cannot land after the organizer repla
   );
 });
 
-test('a list cannot be withdrawn once submission closes, even with its token', async () => {
+test('a list cannot be withdrawn once lists are turned off, even with its token', async () => {
   const owner = await signIn('Organizer', 'organizer');
   const code = await newSwiss(owner);
   await settle(code, owner, { decklists: 'open' });
   const sent = await submitAs(code, { popId: '4343', firstName: 'Ola', lastName: 'Nordmann', birthDate: '02/27/2001' });
-  await settle(code, owner, { decklists: 'closed' });
+  await settle(code, owner, { decklists: 'off' });
   const withdrawn = await hit(
     decklists.onRequestDelete as Handler,
     `/decklists?popId=4343&token=${sent.json.token}`,

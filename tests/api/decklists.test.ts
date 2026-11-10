@@ -81,10 +81,10 @@ test('pairing round 1 locks every list, and its player still reads theirs back',
   assert.equal(all.json.decklists.length, 1, 'staff still read every list');
 });
 
-test('closing submission before round 1 still lets its player read their list back', async () => {
+test('turning lists off before round 1 still lets its player read their list back', async () => {
   const { owner, code, token } = await eventWithList();
-  await settle(code, owner, { decklists: 'closed' });
-  assert.equal((await submit(code, { token })).json.error, 'Decklist submission is closed');
+  await settle(code, owner, { decklists: 'off' });
+  assert.equal((await submit(code, { token })).json.error, 'This event does not take decklists');
   const mine = await hit(decklists.onRequestGet as Handler, `/decklists?popId=4242&token=${token}`, at(code));
   assert.equal(mine.json.mine.popId, '4242');
 });
@@ -102,20 +102,18 @@ test('a list sent as round 1 is paired is refused, though the event read had no 
   assert.equal((await withdraw(code)).status, 403);
 });
 
-/** Closes submission for the event straight in the database, as a close landing mid-request would. */
+/** Turns the event's lists off straight in the database, as a change landing mid-request would. */
 const closeNow = (code: string) => () =>
-  db.raw
-    .prepare("UPDATE tournaments SET settings = json_set(settings, '$.decklists', 'closed') WHERE code = ?")
-    .run(code);
+  db.raw.prepare("UPDATE tournaments SET settings = json_set(settings, '$.decklists', 'off') WHERE code = ?").run(code);
 
 const readMine = (code: string, token: string) =>
   hit(decklists.onRequestGet as Handler, `/decklists?popId=4242&token=${token}`, at(code));
 
-test('a list sent or withdrawn as submission closes is refused, though the event read had it open', async () => {
+test('a list sent or withdrawn as lists turn off is refused, though the event read had them on', async () => {
   const { code, token } = await eventWithList();
   env.TOURNAMENT_DB = racing(db, 'INSERT INTO decklists', closeNow(code));
   const replaced = await submit(code, { token, deck: '60 Basic {G} Energy SVE 1' });
-  assert.deepEqual([replaced.status, replaced.json.error], [403, 'Decklist submission is closed']);
+  assert.deepEqual([replaced.status, replaced.json.error], [403, 'This event does not take decklists']);
   assert.equal((await readMine(code, token)).json.mine.deck, LIST.deck, 'the list stands as it was');
 
   db.raw
@@ -123,7 +121,7 @@ test('a list sent or withdrawn as submission closes is refused, though the event
     .run(code);
   env.TOURNAMENT_DB = racing(db, 'DELETE FROM decklists', closeNow(code));
   const gone = await withdraw(code);
-  assert.deepEqual([gone.status, gone.json.error], [403, 'Decklist submission is closed']);
+  assert.deepEqual([gone.status, gone.json.error], [403, 'This event does not take decklists']);
   assert.equal((await readMine(code, token)).json.mine.deck, LIST.deck, 'and is not withdrawn');
 });
 

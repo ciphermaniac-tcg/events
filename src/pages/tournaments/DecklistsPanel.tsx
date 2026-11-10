@@ -32,15 +32,7 @@ import { latestRoundOf } from '../../../shared/tournament/staffRecords';
 import { decklistMatcher } from '../../../shared/tournament/identify';
 import { decklistOpenFor, lateListsOpen } from '../../../shared/tournament/lateLists';
 import { decklistsLocked, decklistsOpen, decksEnabled, isSanctioned } from '../../../shared/tournament/view';
-import {
-  call,
-  type Decklist,
-  fetchDecklists,
-  type Manage,
-  saveSettings,
-  setDeck,
-  unlockDecklist
-} from '../../lib/tournament/api';
+import { call, type Decklist, fetchDecklists, type Manage, setDeck, unlockDecklist } from '../../lib/tournament/api';
 import { latestValue } from '../../lib/resource';
 import { intlLocale, t, tn } from '../../lib/i18n';
 import { shared } from '../../lib/tournament/share';
@@ -181,7 +173,7 @@ function DecklistRow(props: RowProps) {
                 {t('Use their deck')}
               </button>
             </Show>
-            <Show when={props.list.locked && decklistOpenFor(props.manage, playerId() ?? null, 'staff')}>
+            <Show when={props.list.locked && decklistOpenFor(props.manage, playerId() ?? null)}>
               <ConfirmAction
                 label={t('Unlock')}
                 question={t('Let another device send this list?')}
@@ -241,14 +233,6 @@ function ordered(lists: readonly Decklist[], playerOf: PlayerOf): Decklist[] {
 
 /** How often the tab looks for new lists while it is open. */
 const LISTS_REFRESH_MS = 30_000;
-
-/** Whether players can send lists: open, closed by staff, or locked since round 1 was paired (see decklistsLocked). */
-function submissionWord(accepting: boolean, locked: boolean): string {
-  if (locked) {
-    return t('Locked after round 1');
-  }
-  return accepting ? t('Submission open') : t('Submission closed');
-}
 
 /** What stands in for the table with no lists to show: loading, a failed load, or none sent yet. */
 function NoLists(props: { loading: boolean; failed: boolean; onRetry: () => void }) {
@@ -357,26 +341,16 @@ export function DecklistsPanel(props: { state: ManageState; manage: Manage }) {
     ].join(' · ');
   };
   const key = (list: Decklist) => `${list.popId}|${list.firstName}|${list.lastName}`;
-  function toggle() {
-    const { code } = props.manage;
-    const decklists = accepting() ? 'closed' : 'open';
-    void props.state.run(() => saveSettings(code, { decklists }));
-  }
   return (
     <div class='tm-panel'>
       <section class='tm-box'>
         <div class='tm-box-bar'>
-          <strong>{submissionWord(accepting(), locked())}</strong>
+          <strong>{locked() ? t('Locked after round 1') : t('Submission open')}</strong>
           <span class='muted tm-num'>{counts()}</span>
           <A class='tm-bar-link' href={`/t/${props.manage.code}?tab=decklist`}>
             {t('Submit decklist page')}
           </A>
           <span class='tm-grow' />
-          <Show when={!locked()}>
-            <button type='button' class='btn btn-secondary tm-small' disabled={props.state.busy()} onClick={toggle}>
-              {accepting() ? t('Close submission') : t('Open submission')}
-            </button>
-          </Show>
           <Show when={decksEnabled(props.manage.settings) && all().some(list => list.mode === 'digital')}>
             <RereadArchetypes state={props.state} manage={props.manage} onDone={() => void refetch()} />
           </Show>

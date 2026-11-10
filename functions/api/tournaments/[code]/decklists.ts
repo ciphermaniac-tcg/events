@@ -236,16 +236,16 @@ function windowFor(row: TournamentRow): ListWindow {
 
 /**
  * A write's guard that the event still takes lists as the write lands:
- * submission open (an event stored before decklists could be turned off keeps
- * its open switch, see storedSettings) and no round paired since the request
+ * decklists open or closed (an event stored before decklists could be turned
+ * off keeps its switch, see storedSettings) and no round paired since the request
  * read the event (none at all outside a late entrant's window, which also
- * closes as the event ends). A close or a round paired meanwhile refuses the
- * write all the same.
+ * closes as the event ends). Lists turned off or a round paired meanwhile
+ * refuses the write all the same.
  */
 const STILL_TAKING =
   'EXISTS (SELECT 1 FROM tournaments WHERE code = ? AND ' +
   "coalesce(json_extract(settings, '$.decklists'), " +
-  "CASE WHEN json_extract(settings, '$.decklistsOpen') THEN 'open' END) = 'open' " +
+  "CASE WHEN json_type(settings, '$.decklistsOpen') IS NOT NULL THEN 'closed' END) IN ('open', 'closed') " +
   "AND (? = 0 OR coalesce(json_extract(settings, '$.finished'), 0) = 0) " +
   `AND (? = 1 OR json_extract(state, '$.startedAt') IS NULL) AND (${pairedRounds('state')}) = ?)`;
 
@@ -729,15 +729,12 @@ const eventLimiter = createRateLimiter({ windowMs: 10 * 60 * 1000, maxRequests: 
 const addressLimiter = createRateLimiter({ windowMs: 10 * 60 * 1000, maxRequests: 400 });
 
 /**
- * Why a list cannot be sent or withdrawn now: the event takes none, the
+ * Why a list cannot be sent or withdrawn now: the event takes none, or the
  * player's list locked (as round 1 paired, or for a late entrant the round
- * after they joined), or submission is closed.
+ * after they joined).
  */
 function notTakingText(row: TournamentRow, playerId: string | null = null): string {
-  if (row.settings.decklists === 'off') {
-    return msg('This event does not take decklists');
-  }
-  return decklistsLocked(row) ? lockedText(row, playerId) : msg('Decklist submission is closed');
+  return row.settings.decklists === 'off' ? msg('This event does not take decklists') : lockedText(row, playerId);
 }
 
 const lockedText = (row: TournamentRow, playerId: string | null): string =>
@@ -956,7 +953,7 @@ export async function onRequestPatch(context: Context<'code'>): Promise<Response
     return jsonError('Say whose list to unlock', 400);
   }
   const { db, row } = access;
-  if (!decklistOpenFor(row, rosterPlayer(row, details)?.id ?? null, 'staff')) {
+  if (!decklistOpenFor(row, rosterPlayer(row, details)?.id ?? null)) {
     return notTaking(row);
   }
   return staffWrites(access, guard => [

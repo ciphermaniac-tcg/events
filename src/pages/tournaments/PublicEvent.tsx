@@ -29,7 +29,6 @@ import { type Pod, POD_CATEGORIES, type PodCategory, type Round } from '../../..
 import type { PlayerClaim } from '../../../shared/tournament/identify';
 import { lateListsOpen } from '../../../shared/tournament/lateLists';
 import {
-  decklistsLocked,
   decklistsOpen,
   isSanctioned,
   listsPublic,
@@ -746,7 +745,6 @@ function EventBody(props: {
             sanctioned={isSanctioned(props.view)}
             owner={listOwner()}
             open={takingLists(props.view)}
-            locked={decklistsLocked(props.view)}
             withdrawable={decklistsOpen(props.view)}
             closes={
               decklistsOpen(props.view) ? timeShown(props.view.settings.startsAt, props.view.settings.timeZone) : null

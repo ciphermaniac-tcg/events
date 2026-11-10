@@ -1522,10 +1522,11 @@ test('a list whose owner changes while the form is being edited shows the new ow
 async function mockKeptList(
   page: Page,
   settings: Partial<PublishedView['settings']>,
-  answer: (read: number, list: unknown) => { status: number; json: unknown }
+  answer: (read: number, list: unknown) => { status: number; json: unknown },
+  started = false
 ) {
   const code = 'DECKS3';
-  const t = run(emptyTournament({ name: 'Cup' }));
+  const t = { ...run(emptyTournament({ name: 'Cup' })), ...(started ? { startedAt: 1 } : {}) };
   const published: PublishedView = {
     code,
     mode: 'swiss',
@@ -1572,18 +1573,20 @@ async function mockKeptList(
   return { code };
 }
 
-test('once submission closes, the device that sent a list reads it back, read-only', async ({ page }) => {
-  const { code } = await mockKeptList(page, { decklists: 'closed' }, (_, list) => ({
-    status: 200,
-    json: { known: true, mine: list }
-  }));
+test('once round 1 is paired, the device that sent a list reads it back, read-only', async ({ page }) => {
+  const { code } = await mockKeptList(
+    page,
+    { decklists: 'closed' },
+    (_, list) => ({ status: 200, json: { known: true, mine: list } }),
+    true
+  );
   await page.goto(`/t/${code}`);
   await page.getByRole('tab', { name: 'Registration' }).click();
   await expect(page.locator('.tm-reg-who')).toContainText('Mary Jackson');
   await expect(page.locator('.tm-decklist-sent')).toHaveText('4 Iono PAL 185\n56 Basic {G} Energy SVE 1');
   await expect(page.getByRole('textbox', { name: 'Decklist' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'More' })).toHaveCount(0);
-  await expect(page.getByText('Registration is closed.')).toBeVisible();
+  await expect(page.getByText('Registration closed when round 1 was paired.')).toBeVisible();
 });
 
 test('a list that cannot be read says so, and opens nothing over it until a retry reads it', async ({ page }) => {

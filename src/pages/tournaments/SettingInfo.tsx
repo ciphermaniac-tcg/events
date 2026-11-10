@@ -14,7 +14,7 @@ export const SETTING_INFO = {
     'Allows organizer entry of player deck archetypes. “Shown once the event ends” shows archetypes at the time of final standings and “Shown during the event” shows archetypes once round 1 is paired.'
   ),
   decklists: msg(
-    'Allows players to submit their decklists in TCGL format. “Open” takes lists now and shows them to anyone on the event’s page once round 1 is paired. “Closed” stops taking lists and keeps them private.'
+    'Allows players to submit their decklists in TCGL format. “Open” shows them to anyone on the event’s page once round 1 is paired. “Closed” keeps them private.'
   ),
   pairing: msg(
     'Where rounds are paired and results are kept. With TOM, you pair and enter results in TOM as usual, and Ciphermaniac shows them to players. With Ciphermaniac, you pair and enter results here, then download the .tdf when the event ends.'

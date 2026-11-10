@@ -27,15 +27,14 @@ function inJoiningRound(tournament: Tournament, player: Player): boolean {
 /**
  * Whether the player's list may be sent or replaced now: by anyone before
  * round 1 is paired, and for a late entrant until the next round pairs after
- * they entered. Players need submission open; staff, only lists taken at all.
- * A null player is someone not on the event, who registers before round 1 only.
+ * they entered. A null player is someone not on the event, who registers
+ * before round 1 only.
  */
 export function decklistOpenFor(
   event: { settings: Pick<TournamentSettings, 'decklists' | 'finished'>; tournament: Tournament },
-  playerId: string | null,
-  actor: 'player' | 'staff' = 'player'
+  playerId: string | null
 ): boolean {
-  const taking = actor === 'staff' ? event.settings.decklists !== 'off' : event.settings.decklists === 'open';
+  const taking = event.settings.decklists !== 'off';
   if (!taking || !decklistsLocked(event)) {
     return taking;
   }
