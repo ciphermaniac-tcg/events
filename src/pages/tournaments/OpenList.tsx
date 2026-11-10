@@ -167,13 +167,16 @@ const print = (card: DeckCard) => [card.set, card.number].filter(Boolean).join('
 function createArt(card: Accessor<DeckCard>) {
   const own = createMemo(() => [cardArt(card()), cardArt(card(), true)].filter((art): art is CardArt => art !== null));
   const [tried, setTried] = createSignal(0);
-  const [stand, setStand] = createSignal<CardArt | null>();
+  const [stand, setStand] = createSignal<CardArt[]>();
   createEffect(() => {
     if (tried() === own().length) {
       void canonicalArt(card()).then(setStand);
     }
   });
-  const art = () => (tried() < own().length ? own()[tried()] : tried() === own().length ? stand() : null);
+  const art = () => {
+    const more = stand();
+    return tried() < own().length ? own()[tried()] : more && (more[tried() - own().length] ?? null);
+  };
   return { art, failed: () => setTried(n => n + 1) };
 }
 

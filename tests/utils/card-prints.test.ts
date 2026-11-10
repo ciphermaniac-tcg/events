@@ -27,7 +27,8 @@ const FILE = {
     'Charmander::PAF::109': 1
   }
 };
-const index = printIndex(FILE);
+const PRICES = { cardPrices: { 'Kyogre::MEG::034': {}, 'Charcadet::PAL::038': {}, 'Charcadet::PAL::039': {} } };
+const index = printIndex(FILE, PRICES);
 
 test('an alternate art draws as the print it counts as', () => {
   assert.equal(
@@ -55,20 +56,34 @@ test('a Pokémon draws by name only when its set leaves one card to be', () => {
   assert.equal(canonicalId(index, { name: 'Snover', set: '', number: '', section: 'pokemon' }), undefined);
 });
 
-test('the index is fetched once, and a failed fetch is asked again', async () => {
+test('a set is read from the price list too, which names prints no event has played', () => {
+  assert.equal(canonicalId(index, { name: 'Kyogre', set: 'MEG', number: '', section: 'pokemon' }), 'Kyogre::MEG::034');
+  assert.equal(canonicalId(index, { name: 'Charcadet', set: 'PAL', number: '', section: 'pokemon' }), undefined);
+  assert.equal(
+    canonicalId(printIndex(FILE), { name: 'Kyogre', set: 'MEG', number: '', section: 'pokemon' }),
+    undefined
+  );
+});
+
+test('the index is fetched once, a failed fetch is asked again, and the price list is optional', async () => {
   const real = globalThis.fetch;
-  let asked = 0;
-  const answers = [new Response('', { status: 503 }), Response.json(FILE)];
-  globalThis.fetch = () => {
-    asked += 1;
-    return Promise.resolve(answers.shift()!);
+  const asked: string[] = [];
+  let synonymsUp = false;
+  globalThis.fetch = (url: string | URL | Request) => {
+    const path = String(url);
+    asked.push(path.slice(path.lastIndexOf('/') + 1));
+    const up = path.endsWith('card-synonyms.json') && synonymsUp;
+    return Promise.resolve(up ? Response.json(FILE) : new Response('', { status: 503 }));
   };
   try {
     const boss = { name: "Boss's Orders", set: '', number: '', section: 'trainer' } as const;
-    assert.equal(await canonicalArt(boss), null);
-    assert.match((await canonicalArt(boss))?.src ?? '', /\/MEG\/MEG_114_R_EN_SM\.webp$/);
-    assert.equal(await canonicalArt({ name: 'Nobody', set: '', number: '', section: 'trainer' }), null);
-    assert.equal(asked, 2);
+    assert.deepEqual(await canonicalArt(boss), []);
+    synonymsUp = true;
+    const [mirror, original] = await canonicalArt(boss);
+    assert.match(mirror?.src ?? '', /\/MEG\/MEG_114_R_EN_SM\.webp$/);
+    assert.match(original?.src ?? '', /\/MEG\/MEG_114_R_EN_SM\.png$/);
+    assert.deepEqual(await canonicalArt({ name: 'Nobody', set: '', number: '', section: 'trainer' }), []);
+    assert.deepEqual(asked, ['card-synonyms.json', 'prices.json', 'card-synonyms.json', 'prices.json']);
   } finally {
     globalThis.fetch = real;
   }

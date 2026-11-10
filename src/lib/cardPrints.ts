@@ -1,22 +1,28 @@
 /**
- * The main site's print index (its card synonyms on R2), for a card whose own
- * art is nowhere: an alternate art or reprint draws as the print it counts as,
- * and a Trainer or Energy named without its print draws as the one that
- * stands for its name. A Pokémon needs its set, since one name can be several
- * cards; with it, a name that is a single card in that set draws as that card.
- * The index loads only when a card first needs it.
+ * The main site's print index (its card synonyms and price list on R2), for a
+ * card whose own art is nowhere: an alternate art or reprint draws as the
+ * print it counts as, and a Trainer or Energy named without its print draws
+ * as the one that stands for its name. A Pokémon needs its set, since one
+ * name can be several cards; with it, a name that is a single card in that
+ * set draws as that card. The price list names every print, not only those
+ * played at an event, so a set's cards are read from both. The index loads
+ * only when a card first needs it.
  */
 
 import type { DeckCard } from '../../shared/tournament/decklist';
 import { type CardArt, cardArt, cardPrint } from './cardArt';
 import { R2_ORIGIN } from './constants';
 
-/** The file as the main site publishes it: card ids are "Name::SET::NUM". */
+/** The files as the main site publishes them: card ids are "Name::SET::NUM". */
 interface SynonymFile {
   synonyms: Record<string, string>;
   canonicals: Record<string, string>;
   /** Every print the main site knows, to its price. */
   prints: Record<string, unknown>;
+}
+
+interface PriceFile {
+  cardPrices: Record<string, unknown>;
 }
 
 export interface PrintIndex {
@@ -38,11 +44,11 @@ function idKey(id: string): string {
   return [nameKey(name), ...rest].join('::');
 }
 
-export function printIndex(file: SynonymFile): PrintIndex {
+export function printIndex(file: SynonymFile, prices: PriceFile = { cardPrices: {} }): PrintIndex {
   const canonical = new Map(Object.entries(file.synonyms).map(([id, to]) => [idKey(id), to]));
   const byName = new Map(Object.entries(file.canonicals).map(([name, id]) => [nameKey(name), id]));
   const bySet = new Map<string, Set<string>>();
-  for (const id of Object.keys(file.prints)) {
+  for (const id of [...Object.keys(file.prints), ...Object.keys(prices.cardPrices)]) {
     const [name = '', set = ''] = id.split('::');
     const key = `${nameKey(name)}::${set}`;
     bySet.set(key, (bySet.get(key) ?? new Set()).add(file.synonyms[id] ?? id));
@@ -62,13 +68,23 @@ export function canonicalId(index: PrintIndex, card: Pick<DeckCard, 'name' | 'se
   );
 }
 
+const read = <T>(path: string) =>
+  fetch(`${R2_ORIGIN}${path}`).then(response =>
+    response.ok ? (response.json() as Promise<T>) : Promise.reject(new Error(path))
+  );
+
 let loading: Promise<PrintIndex | null> | null = null;
 
-/** The index, fetched once; a failed fetch is forgotten so the next card asks again. */
+/**
+ * The index, fetched once; without the synonyms a failed fetch is forgotten so the next card asks
+ * again, and without the price list a set's cards are those the synonyms know.
+ */
 function loadIndex(): Promise<PrintIndex | null> {
-  loading ??= fetch(`${R2_ORIGIN}/assets/card-synonyms.json`)
-    .then(response => (response.ok ? (response.json() as Promise<SynonymFile>) : Promise.reject(new Error())))
-    .then(printIndex)
+  loading ??= Promise.all([
+    read<SynonymFile>('/assets/card-synonyms.json'),
+    read<PriceFile>('/reports/prices.json').catch(() => undefined)
+  ])
+    .then(([file, prices]) => printIndex(file, prices))
     .catch(() => {
       loading = null;
       return null;
@@ -76,12 +92,10 @@ function loadIndex(): Promise<PrintIndex | null> {
   return loading;
 }
 
-/** The art of the print a card counts as, or null when there is none to find. */
-export async function canonicalArt(
-  card: Pick<DeckCard, 'name' | 'set' | 'number' | 'section'>
-): Promise<CardArt | null> {
+/** The art of the print a card counts as, from the mirror and then the original; none when there is none to find. */
+export async function canonicalArt(card: Pick<DeckCard, 'name' | 'set' | 'number' | 'section'>): Promise<CardArt[]> {
   const index = await loadIndex();
   const id = index ? canonicalId(index, card) : undefined;
   const [name = '', set = '', number = ''] = id?.split('::') ?? [];
-  return id ? cardArt({ name, set, number }) : null;
+  return id ? [cardArt({ name, set, number }), cardArt({ name, set, number }, true)].filter(art => art !== null) : [];
 }
