@@ -8,7 +8,8 @@
  * search and status filter (see rosterFilter) in the bar, then a row per player: the name over their Player ID
  * and division, their rounds as squares, the deck picker, the fixed table
  * and the actions. With archetypes off for the event the deck column stays
- * in place, greyed, with the way to turn it on.
+ * in place, greyed, with the way to turn it on. A name, or Details in the
+ * row's menu, opens the player's sheet (see StaffSheet).
  */
 
 import { useSearchParams } from '@solidjs/router';
@@ -160,6 +161,8 @@ interface RowProps {
   season: number;
   showRounds: boolean;
   decks: readonly ReportedDeck[];
+  /** Opens the player's sheet. */
+  onPlayer: (id: string) => void;
 }
 
 const droppedLine = (disqualified: boolean | undefined, round: number) =>
@@ -178,11 +181,14 @@ function PlayerRow(props: RowProps) {
       .join(' · ');
   const pod = createMemo(() => playerPod(props.manage.tournament, props.player.id));
   const history = createMemo(() => marksOf(pod(), props.player));
+  let name: HTMLButtonElement | undefined;
   return (
     <tr classList={{ 'is-dropped': props.player.droppedAfter !== null }}>
       <td class='tm-who'>
         <span class='tm-who-name'>
-          <span class='tm-name'>{sortName(props.player)}</span>
+          <button ref={name} type='button' class='tm-seat-link' onClick={() => props.onPlayer(props.player.id)}>
+            <span class='tm-name'>{sortName(props.player)}</span>
+          </button>
           <Show when={props.player.late || joinedLate(pod(), props.player.id)}>
             <span class='tm-flag'>{t('Late')}</span>
           </Show>
@@ -210,7 +216,16 @@ function PlayerRow(props: RowProps) {
       </Show>
       <Show when={swiss()} fallback={<td class='tm-extra-col' />}>
         <td class='tm-extra-col'>
-          <PlayerActions state={props.state} manage={props.manage} player={props.player} />
+          <PlayerActions
+            state={props.state}
+            manage={props.manage}
+            player={props.player}
+            onDetails={() => {
+              // The sheet hands focus back to the name, since the menu that opened it is gone by then.
+              name?.focus();
+              props.onPlayer(props.player.id);
+            }}
+          />
         </td>
       </Show>
     </tr>
@@ -264,7 +279,7 @@ function RosterShow(props: {
   );
 }
 
-export function PlayersPanel(props: { state: ManageState; manage: Manage }) {
+export function PlayersPanel(props: { state: ManageState; manage: Manage; onPlayer: (id: string) => void }) {
   // In the URL beside the tab, so a reload keeps the list it showed.
   const [params, setParams] = useSearchParams<{ tab?: string; show?: string }>();
   const [query, setQuery] = createSignal('');
@@ -363,6 +378,7 @@ export function PlayersPanel(props: { state: ManageState; manage: Manage }) {
                     season={season()}
                     showRounds={started()}
                     decks={decks()}
+                    onPlayer={props.onPlayer}
                   />
                 )}
               </For>

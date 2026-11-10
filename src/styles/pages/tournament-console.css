@@ -1526,3 +1526,70 @@
   padding: 0;
   min-width: 0;
 }
+
+/* ---------- A player's sheet for staff (StaffSheet) ---------- */
+/* Each section a label over its lines, the sections apart by a rule. */
+.tm-sheet-section {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.tm-sheet-section + .tm-sheet-section {
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--rule);
+}
+.tm-sheet-section h3 {
+  margin: 0;
+  font-size: var(--text-base);
+  font-weight: 600;
+}
+.tm-sheet-section p {
+  margin: 0;
+}
+.tm-sheet-now {
+  display: grid;
+  gap: var(--space-1);
+}
+.tm-sheet-seat {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.tm-sheet-seat .tm-seat-link {
+  flex: 1;
+}
+/* The opponent's record as the rounds table under it sets one. */
+.tm-sheet-seat .tm-record {
+  margin-left: auto;
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+.tm-check-marks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+}
+/* On the sheet each box is named, as a phone's roster row names them. */
+.tm-check-marks .tm-check-name {
+  display: inline;
+}
+.tm-sheet-entries {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.tm-sheet-entries li {
+  display: grid;
+  gap: 2px;
+  overflow-wrap: anywhere;
+}
+.tm-sheet-foot .tm-row-actions {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}

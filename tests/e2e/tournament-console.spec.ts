@@ -1010,7 +1010,7 @@ test('on a 320px phone a disqualified player’s name reads whole, its flag unde
   ).toBe(true);
   // Dropped under the name, the flag starts where the name does: both read at once, as the panel may still be settling.
   const offset = await name.evaluate(node => {
-    const flag = node.parentElement?.querySelector('.tm-name ~ .tm-flag');
+    const flag = node.closest('.tm-who-name')?.querySelector('.tm-flag');
     return flag ? flag.getBoundingClientRect().left - node.getBoundingClientRect().left : Number.NaN;
   });
   expect(Math.abs(offset)).toBeLessThan(1);
@@ -2732,4 +2732,88 @@ test('staff add five minutes, or type the time left and see the change before it
   await expect.poll(() => sent.at(-1)).toMatchObject({ type: 'adjustClock', pod: 'masters' });
   expect((sent.at(-1) as { seconds: number }).seconds).toBeGreaterThan(300);
   await expect(field).toBeHidden();
+});
+
+/** The staff records a player's sheet reads, each with one entry about `id`: a list in, a warning and a passed deck check. */
+async function mockRecords(page: Page, id: string) {
+  const about = { playerId: id, playerName: 'Player1 Test', round: 1, recordedBy: 'Organizer', recordedAt: 0 };
+  const entry = { ...about, replaces: null, removed: false };
+  const staff = { id: 'u1', name: 'Organizer' };
+  const list = { popId: '', firstName: 'Player1', lastName: 'Test', birthDate: '', deck: '', mode: 'paper' };
+  await page.route(`**/api/tournaments/${CODE}/decklists`, route =>
+    route.fulfill({
+      json: {
+        decklists: [{ ...list, archetype: null, submittedAt: 0, problems: [], registered: true, fromList: false }],
+        mine: null
+      }
+    })
+  );
+  await page.route(`**/api/tournaments/${CODE}/penalty-notes`, route =>
+    route.fulfill({
+      json: {
+        entries: [{ ...entry, id: 'n1', judge: staff, penalty: 'warning', notes: 'Shuffled after the cut' }],
+        judges: [staff]
+      }
+    })
+  );
+  await page.route(`**/api/tournaments/${CODE}/deck-checks`, route =>
+    route.fulfill({
+      json: { entries: [{ ...entry, id: 'c1', checker: staff, result: 'pass', notes: '' }], checkers: [staff] }
+    })
+  );
+}
+
+test('a player’s sheet opens from standings and the roster, with their table, rounds, list, notes and checks', async ({
+  page
+}) => {
+  const t = event(8, 1, true);
+  const player = t.players.find(p => p.firstName === 'Player1')!;
+  const seat = seatedAt(t, player.id);
+  const opponent = t.players.find(p => p.id === (seat.p1 === player.id ? seat.p2 : seat.p1))!;
+  const sent = await mockConsole(page, t, settingsOf({ decklists: 'closed' }));
+  await mockRecords(page, player.id);
+
+  await page.getByRole('tab', { name: 'Standings', exact: true }).click();
+  const fromStandings = page.getByRole('button', { name: 'Player1 Test', exact: true });
+  await fromStandings.click();
+  const sheet = page.getByRole('dialog', { name: 'Player1 Test' });
+  await expect(sheet.getByRole('heading', { level: 3 })).toHaveText([
+    'Now',
+    'Rounds',
+    'Decklist',
+    'Penalties',
+    'Deck checks'
+  ]);
+  const section = (name: string) => sheet.locator('.tm-sheet-section', { has: page.getByRole('heading', { name }) });
+  await expect(section('Now')).toContainText(`Table ${seat.table} · Round 2`);
+  await expect(section('Now').getByRole('button')).toContainText(`${opponent.firstName} Test`);
+  await expect(section('Rounds').getByRole('row')).toHaveCount(3);
+  await expect(section('Decklist')).toContainText('In person');
+  await expect(section('Penalties')).toContainText('Warning · Round 1 · Organizer');
+  await expect(section('Penalties')).toContainText('Shuffled after the cut');
+  await expect(section('Deck checks')).toContainText('Pass · Round 1 · Organizer');
+  await page.keyboard.press('Escape');
+  await expect(sheet).toHaveCount(0);
+  await expect(fromStandings).toBeFocused();
+
+  await page.getByRole('tab', { name: 'Players', exact: true }).click();
+  await page.getByRole('button', { name: 'Test, Player1', exact: true }).click();
+  await expect(sheet).toBeVisible();
+  // The roster's actions keep their question; Escape backs out of it, and the menu, before it closes the sheet.
+  await sheet.getByRole('button', { name: 'Actions for Player1 Test' }).click();
+  await sheet.getByRole('button', { name: 'Drop', exact: true }).click();
+  await expect(sheet.getByRole('group', { name: /^Drop Player1 Test\?/ })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(sheet.getByRole('group', { name: /^Drop Player1 Test\?/ })).toHaveCount(0);
+  await expect(sheet).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(sheet).toHaveCount(0);
+  expect(sent).toHaveLength(0);
+
+  // A row's menu opens it too, and hands focus back to the name it stands for.
+  await page.getByRole('button', { name: 'More for Player1 Test' }).click();
+  await page.getByRole('button', { name: 'Details', exact: true }).click();
+  await expect(sheet).toBeVisible();
+  await sheet.getByRole('button', { name: 'Close', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Test, Player1', exact: true })).toBeFocused();
 });

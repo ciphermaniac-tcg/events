@@ -88,6 +88,10 @@ function ReleaseAction(props: { state: ManageState; manage: Manage; player: Play
   );
 }
 
+/** Whether staff can do anything to the player here: anything at all until the event ends, then only free them. */
+export const offersActions = (manage: Manage, player: Player) =>
+  !manage.settings.finished || mayRelease(manage, player);
+
 /** What reinstating a player does besides (see returnEffects), or why it can't be done. */
 function returnScope(effects: ReturnEffects): string | undefined {
   if (effects.refusal) {
@@ -110,8 +114,18 @@ function returnScope(effects: ReturnEffects): string | undefined {
  * or be refused. Staff can also free the player for another
  * device or account (see ReleaseAction), which alone stays once the event has
  * ended: the roster stands with its results until the event is reopened.
+ *
+ * The roster's menu also opens the player's sheet (`onDetails`). The sheet
+ * offers these same actions in its foot, under a menu named in words
+ * (`menuLabel`) rather than the row's dots.
  */
-export function PlayerActions(props: { state: ManageState; manage: Manage; player: Player }) {
+export function PlayerActions(props: {
+  state: ManageState;
+  manage: Manage;
+  player: Player;
+  onDetails?: () => void;
+  menuLabel?: string;
+}) {
   const send = (type: 'dropPlayer' | 'disqualifyPlayer' | 'undropPlayer' | 'removePlayer') =>
     void props.state.send({ type, id: props.player.id });
   const pod = () => podOf(props.manage.tournament, props.player.id);
@@ -134,7 +148,7 @@ export function PlayerActions(props: { state: ManageState; manage: Manage; playe
         <Show when={!ended() && returned().offered}>
           <ConfirmAction
             label={t('Reinstate')}
-            class='btn btn-ghost tm-small'
+            class={props.menuLabel ? 'btn btn-secondary' : 'btn btn-ghost tm-small'}
             question={t('Reinstate {name}?', { name: playerName(props.player) })}
             scope={returnScope(returned())}
             refused={returned().refusal !== undefined}
@@ -142,8 +156,20 @@ export function PlayerActions(props: { state: ManageState; manage: Manage; playe
             onConfirm={() => send('undropPlayer')}
           />
         </Show>
-        <Show when={!ended() || mayRelease(props.manage, props.player)}>
-          <OptionsMenu name={playerName(props.player)}>
+        <Show when={props.onDetails || offersActions(props.manage, props.player)}>
+          <OptionsMenu
+            name={playerName(props.player)}
+            buttonClass={props.menuLabel ? 'btn btn-secondary' : undefined}
+            buttonLabel={props.menuLabel ? t('Actions for {name}', { name: playerName(props.player) }) : undefined}
+            buttonContent={props.menuLabel}
+          >
+            <Show when={props.onDetails}>
+              {open => (
+                <button type='button' class='tm-menu-item' data-closes-menu onClick={() => open()()}>
+                  {t('Details')}
+                </button>
+              )}
+            </Show>
             <Show when={!ended()}>
               <FixedTableField state={props.state} player={props.player} />
             </Show>

@@ -66,6 +66,7 @@ const PenaltiesPanel = lazyPanel(() => import('./PenaltiesPanel').then(m => ({ d
 const PlayersPanel = lazyPanel(() => import('./PlayersPanel').then(m => ({ default: m.PlayersPanel })));
 const StandingsTable = lazyPanel(() => import('./StandingsTable').then(m => ({ default: m.StandingsTable })));
 const EventPanel = lazyPanel(() => import('./EventPanel').then(m => ({ default: m.EventPanel })));
+const StaffSheet = lazyPanel(() => import('./StaffSheet').then(m => ({ default: m.StaffSheet })));
 // Asked for now, beside the event, rather than once the event has arrived; a failure is the tab's to show,
 // and trying the tab again asks again.
 const loadRoundPanel = () => import('./RoundPanel');
@@ -415,6 +416,15 @@ function Console(props: { state: ReturnType<typeof createManage>; manage: Manage
   const setTab = (value: Tab) =>
     setParams({ tab: value === defaultTab(props.manage) ? undefined : value }, { replace: true });
   const [podChoice, setPodChoice] = createSignal<PodCategory | null>(null);
+  // The player whose sheet is open, from a name on the roster or standings; never from a pairing, whose names record results.
+  const [sheetId, setSheetId] = createSignal<string | null>(null);
+  const sheetPlayer = () => props.manage.tournament.players.find(player => player.id === sheetId());
+  // A player removed while their sheet is open takes the sheet with them, and it stays shut if the ID comes back.
+  createEffect(() => {
+    if (sheetId() !== null && !sheetPlayer()) {
+      setSheetId(null);
+    }
+  });
   const pods = () => props.manage.tournament.pods;
   // Until one is picked, the first pod still in play: a pod whose divisions have cut has nothing left to pair.
   const pod = createMemo(
@@ -428,7 +438,8 @@ function Console(props: { state: ReturnType<typeof createManage>; manage: Manage
       StandingsTable.preload,
       DecklistsPanel.preload,
       PenaltiesPanel.preload,
-      EventPanel.preload
+      EventPanel.preload,
+      StaffSheet.preload
     ])
   );
   // An Admin watching changes nothing, so their console neither follows the .tdf nor offers the event's controls.
@@ -479,7 +490,7 @@ function Console(props: { state: ReturnType<typeof createManage>; manage: Manage
           </Show>
         </Show>
         <Show when={tab() === 'players'}>
-          <PlayersPanel state={props.state} manage={props.manage} />
+          <PlayersPanel state={props.state} manage={props.manage} onPlayer={setSheetId} />
         </Show>
         <Show when={tab() === 'standings'}>
           <Show when={pod()}>
@@ -495,6 +506,7 @@ function Console(props: { state: ReturnType<typeof createManage>; manage: Manage
                   decks={shownDecks(props.manage)}
                   divisionOf={divisionOf()}
                   tiebreakers
+                  onPlayer={setSheetId}
                   hideCutDecks={props.manage.settings.deckVisibility !== 'always' && !props.manage.settings.finished}
                 />
               );
@@ -513,6 +525,17 @@ function Console(props: { state: ReturnType<typeof createManage>; manage: Manage
           </fieldset>
         </Show>
       </TabPanel>
+      <Show when={sheetPlayer()}>
+        {player => (
+          <StaffSheet
+            state={props.state}
+            manage={props.manage}
+            player={player()}
+            onClose={() => setSheetId(null)}
+            onPlayer={setSheetId}
+          />
+        )}
+      </Show>
     </div>
   );
 }

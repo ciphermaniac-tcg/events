@@ -121,37 +121,58 @@ export function CheckInHeads(props: { manage: Manage; players: readonly Player[]
   );
 }
 
-export function CheckInCells(props: { state: ManageState; manage: Manage; id: string; name: string }) {
+/** One check's box for a player, saved on its own as it is ticked (see ticked). */
+function CheckBox(props: { state: ManageState; manage: Manage; id: string; name: string; mark: CheckMark }) {
   const held = () => checkins(props.manage)[props.id];
-  const asks = (mark: CheckMark) => marksFor(props.manage, held()).includes(mark);
+  return (
+    <label class='tm-check-cell'>
+      <input
+        type='checkbox'
+        class='tm-check-box'
+        checked={held()?.[props.mark] === true}
+        disabled={isSaving(props.id, props.mark)}
+        aria-label={`${t(MARK_LABELS[props.mark])}: ${props.name}`}
+        onChange={e => {
+          const box = e.currentTarget;
+          const check = { playerId: props.id, mark: props.mark, on: box.checked };
+          void ticked(props.state, props.manage, check).then(on => {
+            box.checked = on;
+          });
+        }}
+      />
+      {/* The column's name, where a phone lays the row out without its head. */}
+      <span class='tm-check-name' aria-hidden='true'>
+        {t(MARK_LABELS[props.mark])}
+      </span>
+    </label>
+  );
+}
+
+/** Whether the event asks `mark` of the player, as their own check-in stands. */
+const asks = (manage: Manage, id: string, mark: CheckMark) => marksFor(manage, checkins(manage)[id]).includes(mark);
+
+export function CheckInCells(props: { state: ManageState; manage: Manage; id: string; name: string }) {
   return (
     <For each={checkColumns(props.manage)}>
       {mark => (
         <td class='tm-check-col'>
-          <Show when={asks(mark)}>
-            <label class='tm-check-cell'>
-              <input
-                type='checkbox'
-                class='tm-check-box'
-                checked={held()?.[mark] === true}
-                disabled={isSaving(props.id, mark)}
-                aria-label={`${t(MARK_LABELS[mark])}: ${props.name}`}
-                onChange={e => {
-                  const box = e.currentTarget;
-                  void ticked(props.state, props.manage, { playerId: props.id, mark, on: box.checked }).then(on => {
-                    box.checked = on;
-                  });
-                }}
-              />
-              {/* The column's name, where a phone lays the row out without its head. */}
-              <span class='tm-check-name' aria-hidden='true'>
-                {t(MARK_LABELS[mark])}
-              </span>
-            </label>
+          <Show when={asks(props.manage, props.id, mark)}>
+            <CheckBox {...props} mark={mark} />
           </Show>
         </td>
       )}
     </For>
+  );
+}
+
+/** A player's checks in a line of their own, each named, as their sheet shows them. */
+export function CheckInMarks(props: { state: ManageState; manage: Manage; id: string; name: string }) {
+  return (
+    <span class='tm-check-marks'>
+      <For each={checkColumns(props.manage).filter(mark => asks(props.manage, props.id, mark))}>
+        {mark => <CheckBox {...props} mark={mark} />}
+      </For>
+    </span>
   );
 }
 
