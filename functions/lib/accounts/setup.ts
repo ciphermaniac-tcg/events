@@ -11,8 +11,8 @@ import type { AccountSetup } from '../auth/session.js';
 import type { D1Like } from '../types.js';
 import { handleFreeSql } from './handleSql.js';
 
-/** A random first username (`randomHandle`), in SQL GLOB. */
-export const RANDOM_HANDLE_GLOB = `player-${'[a-z0-9]'.repeat(8)}`;
+/** A random first username (`randomHandle`). Checked here, not in SQL: D1 refuses a GLOB this long. */
+const RANDOM_HANDLE = /^player-[a-z0-9]{8}$/;
 
 /** The text in `value`, trimmed; null when it is none. */
 function text(value: unknown): string | null {
@@ -48,8 +48,8 @@ export async function handleFree(db: D1Like, handle: string, self: string | null
 /** Whether to offer the account its username and name: it still has the random one, and was never offered. */
 export async function offerSetup(db: D1Like, userId: string): Promise<boolean> {
   const row = await db
-    .prepare('SELECT 1 AS offer FROM users WHERE id = ? AND setup_offered_at IS NULL AND handle GLOB ?')
-    .bind(userId, RANDOM_HANDLE_GLOB)
-    .first<{ offer: number }>();
-  return Boolean(row);
+    .prepare('SELECT handle FROM users WHERE id = ? AND setup_offered_at IS NULL')
+    .bind(userId)
+    .first<{ handle: string }>();
+  return RANDOM_HANDLE.test(row?.handle ?? '');
 }

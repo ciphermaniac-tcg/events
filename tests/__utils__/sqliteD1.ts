@@ -24,7 +24,25 @@ function prepare(db: DatabaseSync, sql: string) {
   return db.prepare(sql);
 }
 
+/**
+ * D1 also caps a LIKE or GLOB pattern at 50 bytes, where Node's cap is
+ * 50000 and cannot be lowered either. Checks each pattern written as a
+ * literal or bound as `?N`, which is how the functions write them.
+ */
+const MAX_PATTERN_BYTES = 50;
+const PATTERN_RE = /\b(?:LIKE|GLOB)\s+(?:'((?:[^']|'')*)'|\?(\d+))/gi;
+
+function checkPatterns(sql: string, args: unknown[]) {
+  for (const [, literal, index] of sql.matchAll(PATTERN_RE)) {
+    const pattern = literal ?? args[Number(index) - 1];
+    if (typeof pattern === 'string' && Buffer.byteLength(pattern) > MAX_PATTERN_BYTES) {
+      throw new Error('D1_ERROR: LIKE or GLOB pattern too complex: SQLITE_ERROR');
+    }
+  }
+}
+
 function statement(db: DatabaseSync, sql: string, args: unknown[] = []): D1Statement {
+  checkPatterns(sql, args);
   const values = () => args.map(value => (value === undefined ? null : value)) as SQLInputValue[];
   return {
     bind: (...next: unknown[]) => statement(db, sql, next),
