@@ -8,18 +8,17 @@
  * already knows as a player is not offered to be another.
  */
 
-import { createEffect, createSignal, For, on, onCleanup, onMount, Show } from 'solid-js';
-import { isBye, percentLabel, recordLabel, type Standing } from '../../../shared/tournament/standings';
+import { createEffect, createSignal, on, Show } from 'solid-js';
+import { percentLabel, recordLabel, type Standing } from '../../../shared/tournament/standings';
 import type { Pod } from '../../../shared/tournament/types';
 import { decklistOpenFor } from '../../../shared/tournament/lateLists';
 import { decklistsLocked, type TournamentView } from '../../../shared/tournament/view';
-import { inertOutside, keepTabIn } from '../../lib/focusTrap';
-import { matchHistory } from '../../lib/tournament/present';
 import { t } from '../../lib/i18n';
 import { DeckIcons } from './DeckIcons';
+import { HistoryTable } from './HistoryTable';
 import { type Identified, IdentifyForm } from './Identify';
 import { lazyPanel } from './lazyPanel';
-import { Squares } from './Squares';
+import { Sheet } from './Sheet';
 import { Tiebreaker } from './Tiebreaker';
 
 const OpenList = lazyPanel(() => import('./OpenList').then(m => ({ default: m.OpenList })));
@@ -45,7 +44,6 @@ export function PlayerSheet(props: {
   onClose: () => void;
   onPlayer: (id: string) => void;
 }) {
-  const history = () => matchHistory(props.pod, props.playerId);
   const [proving, setProving] = createSignal(false);
   // Opening another player's sheet starts over rather than asking for them.
   createEffect(
@@ -55,155 +53,23 @@ export function PlayerSheet(props: {
       { defer: true }
     )
   );
-  // Focus goes into the sheet, stays there, and goes back to what opened it; Escape closes it.
-  const opener = document.activeElement as HTMLElement | null;
-  let sheet: HTMLDivElement | undefined;
-  let scrim: HTMLDivElement | undefined;
-  // Only the sheet, and the scrim that closes it, can be reached while it is open.
-  let live: () => void = () => undefined;
-  const onKey = (event: KeyboardEvent) => {
-    if (event.key === 'Escape') {
-      props.onClose();
-    } else if (sheet) {
-      keepTabIn(sheet, event);
-    }
-  };
-  // The page behind holds still while the sheet is open.
-  const { overflow } = document.documentElement.style;
-  onMount(() => {
-    document.addEventListener('keydown', onKey);
-    document.documentElement.style.overflow = 'hidden';
-    if (sheet) {
-      live = inertOutside(sheet, scrim ? [scrim] : []);
-    }
-  });
-  onCleanup(() => {
-    document.removeEventListener('keydown', onKey);
-    document.documentElement.style.overflow = overflow;
-    live();
-    opener?.focus();
-  });
   return (
-    <>
-      <div ref={scrim} class='tm-scrim' aria-hidden='true' onClick={() => props.onClose()} />
-      <div ref={sheet} class='tm-sheet' role='dialog' aria-modal='true' aria-labelledby='tm-sheet-title'>
-        <div class='tm-sheet-head'>
-          <div>
-            <h2 id='tm-sheet-title'>
-              <DeckIcons label={props.decks[props.playerId]} size={22} />
-              {props.names.get(props.playerId)}
-            </h2>
-            <p class='muted'>
-              {props.place}
-              <Show when={props.decks[props.playerId]}>{label => <> · {label()}</>}</Show>
-            </p>
-          </div>
-          <button
-            type='button'
-            class='btn btn-ghost'
-            // Once mounted: an open list still loading holds the sheet out of the page until it arrives.
-            ref={el => onMount(() => el.focus())}
-            onClick={() => props.onClose()}
-          >
-            {t('Close')}
-          </button>
-        </div>
-        <div class='tm-sheet-body'>
-          {/* Their list leads, above the record, at an event whose decklists are open, once it locks. */}
-          <Show
-            when={
-              props.view.settings.decklists === 'open' &&
-              !(decklistsLocked(props.view) && decklistOpenFor(props.view, props.playerId))
-            }
-          >
-            <OpenList code={props.view.code} player={props.playerId} locked={decklistsLocked(props.view)} />
-          </Show>
-          <Show when={props.standing}>
-            {row => (
-              <dl class='tm-sheet-stats'>
-                <div>
-                  <dd class='num'>{recordLabel(row().record)}</dd>
-                  <dt>{t('Record')}</dt>
-                </div>
-                <div>
-                  <dd class='num'>{row().points}</dd>
-                  <dt>{t('Points')}</dt>
-                </div>
-                <div>
-                  <dd class='num'>{percentLabel(row().owp)}</dd>
-                  <dt>
-                    <Tiebreaker name='OWP' />
-                  </dt>
-                </div>
-                <div>
-                  <dd class='num'>{percentLabel(row().oowp)}</dd>
-                  <dt>
-                    <Tiebreaker name='OOWP' />
-                  </dt>
-                </div>
-              </dl>
-            )}
-          </Show>
-          <div class='tm-box'>
-            <table class='data tm-history'>
-              <caption class='sr-only'>
-                {t('Rounds played by {name}', { name: props.names.get(props.playerId) ?? '' })}
-              </caption>
-              <thead>
-                <tr>
-                  <th class='num tm-table-col'>{t('Round')}</th>
-                  <th>{t('Opponent')}</th>
-                  <th class='num'>{t('Result')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                <For each={history()}>
-                  {row => (
-                    <tr>
-                      <td class='num muted-cell tm-table-col'>{row.round}</td>
-                      <td>
-                        <Show
-                          when={row.opponent}
-                          fallback={<span class='muted'>{isBye(row.outcome) ? t('Bye') : t('Missed round')}</span>}
-                        >
-                          {opponent => (
-                            <button type='button' class='tm-seat-link' onClick={() => props.onPlayer(opponent())}>
-                              <DeckIcons label={props.decks[opponent()]} />
-                              <span class='tm-name'>{props.names.get(opponent())}</span>
-                              <span class='muted-cell tm-record'>{props.records.get(opponent()) ?? ''}</span>
-                            </button>
-                          )}
-                        </Show>
-                      </td>
-                      <td class='num'>
-                        <Show
-                          when={row.mark}
-                          fallback={<span class='muted-cell'>{t('Table {table}', { table: row.table })}</span>}
-                        >
-                          <Squares marks={[row.mark]} />
-                        </Show>
-                      </td>
-                    </tr>
-                  )}
-                </For>
-              </tbody>
-            </table>
-          </div>
-          <Show when={proving()}>
-            <IdentifyForm
-              view={props.view}
-              idPrefix='sheet'
-              submitLabel={t('Confirm')}
-              expect={props.playerId}
-              autofocus
-              onFound={found => {
-                setProving(false);
-                props.onIdentified(found);
-              }}
-            />
-          </Show>
-        </div>
-        <div class='tm-sheet-foot'>
+    <Sheet
+      title={
+        <>
+          <DeckIcons label={props.decks[props.playerId]} size={22} />
+          {props.names.get(props.playerId)}
+        </>
+      }
+      sub={
+        <>
+          {props.place}
+          <Show when={props.decks[props.playerId]}>{label => <> · {label()}</>}</Show>
+        </>
+      }
+      onClose={props.onClose}
+      foot={
+        <>
           <button
             type='button'
             class='btn btn-secondary tm-follow'
@@ -231,8 +97,65 @@ export function PlayerSheet(props: {
               </button>
             </Show>
           </Show>
-        </div>
-      </div>
-    </>
+        </>
+      }
+    >
+      {/* Their list leads, above the record, at an event whose decklists are open, once it locks. */}
+      <Show
+        when={
+          props.view.settings.decklists === 'open' &&
+          !(decklistsLocked(props.view) && decklistOpenFor(props.view, props.playerId))
+        }
+      >
+        <OpenList code={props.view.code} player={props.playerId} locked={decklistsLocked(props.view)} />
+      </Show>
+      <Show when={props.standing}>
+        {row => (
+          <dl class='tm-sheet-stats'>
+            <div>
+              <dd class='num'>{recordLabel(row().record)}</dd>
+              <dt>{t('Record')}</dt>
+            </div>
+            <div>
+              <dd class='num'>{row().points}</dd>
+              <dt>{t('Points')}</dt>
+            </div>
+            <div>
+              <dd class='num'>{percentLabel(row().owp)}</dd>
+              <dt>
+                <Tiebreaker name='OWP' />
+              </dt>
+            </div>
+            <div>
+              <dd class='num'>{percentLabel(row().oowp)}</dd>
+              <dt>
+                <Tiebreaker name='OOWP' />
+              </dt>
+            </div>
+          </dl>
+        )}
+      </Show>
+      <HistoryTable
+        pod={props.pod}
+        playerId={props.playerId}
+        names={props.names}
+        records={props.records}
+        decks={props.decks}
+        onPlayer={props.onPlayer}
+      />
+      <Show when={proving()}>
+        <IdentifyForm
+          view={props.view}
+          idPrefix='sheet'
+          submitLabel={t('Confirm')}
+          expect={props.playerId}
+          autofocus
+          onFound={found => {
+            setProving(false);
+            props.onIdentified(found);
+          }}
+        />
+      </Show>
+    </Sheet>
   );
 }
