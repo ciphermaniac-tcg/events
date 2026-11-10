@@ -11,13 +11,12 @@
  * the account is not a Community organizer.
  */
 
-import { HOSTS_ONLY, mayBeMinor } from '../../shared/accounts/age.js';
+import { accountMayBeMinor, HOSTS_ONLY } from '../../shared/accounts/age.js';
 import { type AccountRole, canJoinCommunity, readAccountRole } from '../../shared/accounts/roles.js';
 import { jsonError, jsonResponse } from '../lib/api/responses.js';
 import type { Context } from '../lib/auth/env.js';
 import { currentAccount, signedIn, type User } from '../lib/auth/session.js';
 import { rowsChanged } from '../lib/d1.js';
-import { birthYear } from '../../shared/tournament/divisions.js';
 import { msg } from '../../shared/i18n.js';
 
 const answer = (user: User, role: AccountRole | null) =>
@@ -29,7 +28,12 @@ export async function onRequestPost(context: Context): Promise<Response> {
     return found;
   }
   const { db, user } = found;
-  if (mayBeMinor(birthYear(user.birthDate ?? ''), new Date())) {
+  // The age check's year, not the profile's: an account edits its profile (see shared/accounts/age.ts).
+  const checked = await db
+    .prepare('SELECT age_birth_year FROM users WHERE id = ?')
+    .bind(user.id)
+    .first<{ age_birth_year: number | null }>();
+  if (accountMayBeMinor(checked?.age_birth_year ?? null, new Date())) {
     return jsonError(HOSTS_ONLY, 403);
   }
   const refusal = user.role === 'revoked' ? msg('An admin removed your access') : msg('You already run events');

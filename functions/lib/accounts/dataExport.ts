@@ -102,7 +102,7 @@ const QUERIED: Queried[] = [
     sql:
       'SELECT id, email, avatar, role, role_at AS role_changed_at, ' +
       "CASE public_profile WHEN 1 THEN 'yes' ELSE 'no' END AS public_profile, profile_name AS name_on_profile, " +
-      'created_at, age_checked_at FROM users WHERE id = ?1'
+      'created_at, age_checked_at, age_birth_year AS birth_year_at_age_check FROM users WHERE id = ?1'
   },
   {
     title: 'Player profile',

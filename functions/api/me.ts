@@ -2,7 +2,9 @@
  * GET /api/me — who is signed in, which sign-in buttons to show, and Clerk's
  * publishable key when username and password sign-in is one of them.
  * PUT /api/me — saves the player profile (POP ID, name, birth year) that
- * decklist submission and "find my pairing" read. One account holds a POP ID,
+ * decklist submission and "find my pairing" read. The 18+ rules read the
+ * year given at the age check instead, which this leaves as it is (see
+ * shared/accounts/age.ts). One account holds a POP ID,
  * the first to save it: another account saving it gets a 409 and none of its
  * profile is saved. An account that changes its POP ID lets go of the players
  * it was at events as the old one.

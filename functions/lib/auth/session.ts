@@ -58,6 +58,8 @@ export interface UserRow {
   role: string | null;
   public_profile: number;
   profile_name: string;
+  /** The birth year given at the age check, which the 18+ rules read; not part of `User`. */
+  age_birth_year: number | null;
 }
 
 export function userFromRow(row: UserRow): User {
@@ -101,7 +103,8 @@ export function sameDigest(a: string, b: string): boolean {
 }
 
 const USER_COLUMNS =
-  'users.id, handle, email, avatar, pop_id, first_name, last_name, birth_date, role, public_profile, profile_name';
+  'users.id, handle, email, avatar, pop_id, first_name, last_name, birth_date, role, public_profile, profile_name, ' +
+  'age_birth_year';
 
 const hashes = new WeakMap<Request, Promise<string | null>>();
 
@@ -255,9 +258,16 @@ export async function linkIdentity(db: D1Like, profile: Profile, userId: string)
 }
 
 /**
+ * The year of an age check's birth date (02/27/YYYY), in SQL, as the age
+ * check year the 18+ rules read; NULL without one. The player profile's
+ * birth date starts as the same year but is the account's to edit.
+ */
+const AGE_YEAR_SQL = (birthDate: string) => `CAST(substr(${birthDate}, -4) AS INTEGER)`;
+
+/**
  * Refreshes an account from its provider. With `birthDate` (year only, see
  * shared/accounts/age.ts) the account has just passed the age check, which
- * stands over any year it held before.
+ * stands over any year it held before, its age check year included.
  */
 function refreshUser(db: D1Like, profile: Profile, userId: string, birthDate: string | null = null): D1Statement {
   const email = verifiedEmail(profile);
@@ -265,6 +275,7 @@ function refreshUser(db: D1Like, profile: Profile, userId: string, birthDate: st
     .prepare(
       'UPDATE users SET avatar = COALESCE(?1, avatar), birth_date = COALESCE(?2, birth_date), ' +
         'age_checked_at = CASE WHEN ?2 IS NULL THEN age_checked_at ELSE ?3 END, ' +
+        `age_birth_year = COALESCE(${AGE_YEAR_SQL('?2')}, age_birth_year), ` +
         'email = COALESCE(email, (SELECT ?4 WHERE NOT EXISTS ' +
         '(SELECT 1 FROM users WHERE email IS NOT NULL AND email = ?4))) WHERE id = ?5'
     )
@@ -323,8 +334,9 @@ function newUser(db: D1Like, profile: Profile, userId: string, { birthDate, setu
   return db
     .prepare(
       'INSERT INTO users (id, handle, email, avatar, birth_date, age_checked_at, created_at, ' +
-        'first_name, last_name, setup_offered_at) ' +
-        `VALUES (?1, ${FIRST_HANDLE_SQL}, ?3, ?4, ?5, CASE WHEN ?5 IS NULL THEN NULL ELSE ?6 END, ?6, ?8, ?9, ?6)`
+        'first_name, last_name, setup_offered_at, age_birth_year) ' +
+        `VALUES (?1, ${FIRST_HANDLE_SQL}, ?3, ?4, ?5, CASE WHEN ?5 IS NULL THEN NULL ELSE ?6 END, ?6, ?8, ?9, ?6, ` +
+        `${AGE_YEAR_SQL('?5')})`
     )
     .bind(
       userId,

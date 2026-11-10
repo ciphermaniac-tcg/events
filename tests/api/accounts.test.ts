@@ -1,6 +1,6 @@
 /**
  * Player accounts end to end, against the real schema in SQLite. What must
- * hold: migrations 0006 to 0040 bring a live database in line with the schema, with
+ * hold: migrations 0006 to 0041 bring a live database in line with the schema, with
  * each POP ID left on one account, Reese the only admin and each store's
  * first Manager its Owner; an account's
  * role and public profile come with who is signed in; one account holds a
@@ -85,7 +85,7 @@ function seedStoresBefore0014(db: DatabaseSync) {
   member.run('one', 'tie-b', 'manager', 9);
 }
 
-test('migrations 0006 to 0040 bring a database made before accounts in line with the schema', () => {
+test('migrations 0006 to 0041 bring a database made before accounts in line with the schema', () => {
   const db = new DatabaseSync(':memory:');
   db.exec(sql('../fixtures/d1/tournaments-before-0006.sql'));
   seedBefore0006(db);
@@ -104,6 +104,24 @@ test('migrations 0006 to 0040 bring a database made before accounts in line with
       "INSERT INTO proof_uploads VALUES ('owner', 'proofs/owner/held', 'image/png', 1);"
   );
   migrate(db, 20, 40);
+  // Age-checked accounts keep their profile's year as their age check year; the rest have none.
+  db.exec(
+    "UPDATE users SET birth_date = '02/27/2010', age_checked_at = 1 WHERE id = 'first';" +
+      "UPDATE users SET birth_date = '02/27/1990' WHERE id = 'second';" +
+      "UPDATE users SET birth_date = NULL, age_checked_at = 1 WHERE id = 'owner'"
+  );
+  migrate(db, 41, 41);
+  assert.deepEqual(
+    db
+      .prepare("SELECT id, age_birth_year AS year FROM users WHERE id IN ('first', 'second', 'owner') ORDER BY id")
+      .all()
+      .map(row => ({ ...row })),
+    [
+      { id: 'first', year: 2010 },
+      { id: 'owner', year: null },
+      { id: 'second', year: null }
+    ]
+  );
   assert.deepEqual(
     db
       .prepare('SELECT key FROM proof_deletions ORDER BY key')

@@ -431,8 +431,8 @@ function clerkAccount(sub: string) {
 /** A username account made before email was asked for: no email, here or at Clerk. */
 function oldAccount(sub: string) {
   raw().exec(
-    'INSERT INTO users (id, handle, email, birth_date, age_checked_at, created_at) ' +
-      "VALUES ('old', 'old', NULL, '02/27/1980', 1, 1)"
+    'INSERT INTO users (id, handle, email, birth_date, age_checked_at, age_birth_year, created_at) ' +
+      "VALUES ('old', 'old', NULL, '02/27/1980', 1, 1980, 1)"
   );
   raw().exec(`INSERT INTO identities (provider, subject, user_id) VALUES ('clerk', '${sub}', 'old')`);
 }

@@ -7,12 +7,11 @@
  * makes the store, with the applicant its Manager.
  */
 
-import { HOSTS_ONLY, mayBeMinor } from '../../../shared/accounts/age.js';
+import { accountMayBeMinor, HOSTS_ONLY } from '../../../shared/accounts/age.js';
 import { profileComplete } from '../../../shared/accounts/applications.js';
 import { readAccountRole } from '../../../shared/accounts/roles.js';
 import type { StoreApplication } from '../../../shared/accounts/stores.js';
 import type { AdminApplication, ApplicationStatus, MyApplication } from '../../../shared/accounts/types.js';
-import { birthYear } from '../../../shared/tournament/divisions.js';
 import { jsonError } from '../api/responses.js';
 import { type Context, sameOrigin } from '../auth/env.js';
 import { sessionHash, sessionUserQuery, type User, userFromRow, type UserRow } from '../auth/session.js';
@@ -91,10 +90,11 @@ export const adminApplication = (row: AdminApplicationRow): AdminApplication => 
   leagueTaken: row.taken_id ? { id: row.taken_id, name: row.taken_name ?? '' } : null
 });
 
-/** The signed-in account and its latest Application. */
+/** The signed-in account, the birth year it gave at its age check, and its latest Application. */
 export interface Applicant {
   db: D1Like;
   user: User;
+  ageBirthYear: number | null;
   latest: ApplicationRow | null;
 }
 
@@ -111,7 +111,9 @@ async function readApplicant(db: D1Like, hash: string): Promise<Omit<Applicant, 
       .bind(hash, now)
   ]);
   const row = firstRow<UserRow>(account);
-  return row ? { user: userFromRow(row), latest: firstRow<ApplicationRow>(latest) } : null;
+  return row
+    ? { user: userFromRow(row), ageBirthYear: row.age_birth_year, latest: firstRow<ApplicationRow>(latest) }
+    : null;
 }
 
 /** The applicant asking, or the answer that turns the request away. */
@@ -136,12 +138,13 @@ const pendingRefusal = () => jsonError('Your application is pending', 409);
 
 /** Why the account may not apply; null when it may. */
 export function applyRefusal(applicant: Applicant): Response | null {
-  const { user } = applicant;
+  const { user, ageBirthYear } = applicant;
   if (!profileComplete(user)) {
     // `profile` tells the page to send the account to its profile, not show the message alone.
     return privateJson({ error: msg('Complete your profile first'), profile: true }, 400);
   }
-  if (mayBeMinor(birthYear(user.birthDate ?? ''), new Date())) {
+  // The age check's year, not the profile's: an account edits its profile (see shared/accounts/age.ts).
+  if (accountMayBeMinor(ageBirthYear, new Date())) {
     return privateJson({ error: HOSTS_ONLY }, 403);
   }
   if (!user.email) {

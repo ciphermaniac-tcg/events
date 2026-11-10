@@ -156,28 +156,56 @@ test('a 16-year-old’s sign-up makes an account', async () => {
   assert.equal(count('users'), 1);
 });
 
-test('an account that may be under 18 neither organizes for the community nor applies for a store', async () => {
-  const cookie = await signIn('Teen');
-  const saved = await hit(
+/** Saves the player profile of the account under `cookie`, born in `year`. */
+const saveProfileBorn = (cookie: string, popId: string, year: number) =>
+  hit(
     me.onRequestPut as Handler,
     '/api/me',
     {},
-    { method: 'PUT', cookie, body: { popId: '4243', firstName: 'Tea', lastName: 'Lee', birthDate: `06/15/${SIXTEEN}` } }
+    { method: 'PUT', cookie, body: { popId, firstName: 'Tea', lastName: 'Lee', birthDate: `06/15/${year}` } }
   );
-  assert.equal(saved.status, 200);
-  const joined = await hit(community.onRequestPost as Handler, '/api/community', {}, { method: 'POST', cookie });
-  assert.deepEqual([joined.status, joined.json.error], [403, HOSTS_ONLY]);
-  const applied = await hit(
+
+const joinCommunity = (cookie: string) =>
+  hit(community.onRequestPost as Handler, '/api/community', {}, { method: 'POST', cookie });
+
+const applyForStore = (cookie: string) =>
+  hit(
     applications.onRequestPost as Handler,
     '/api/applications',
     {},
-    {
-      method: 'POST',
-      cookie,
-      body: { store: storeApplication(), explanation: 'I run our league.' }
-    }
+    { method: 'POST', cookie, body: { store: storeApplication(), explanation: 'I run our league.' } }
   );
+
+const profileYear = (popId: string) =>
+  raw().prepare('SELECT birth_date AS birthDate, age_birth_year AS checked FROM users WHERE pop_id = ?').get(popId);
+
+test('an account whose age check says it may be under 18 neither organizes nor applies, whatever its profile says', async () => {
+  const cookie = await signIn('Teen', null, `${SIXTEEN}-01-01`);
+  const saved = await saveProfileBorn(cookie, '4243', ADULT);
+  assert.deepEqual([saved.status, saved.json.user.birthDate], [200, `02/27/${ADULT}`]);
+  assert.deepEqual({ ...profileYear('4243') }, { birthDate: `02/27/${ADULT}`, checked: SIXTEEN });
+  const joined = await joinCommunity(cookie);
+  assert.deepEqual([joined.status, joined.json.error], [403, HOSTS_ONLY]);
+  const applied = await applyForStore(cookie);
   assert.deepEqual([applied.status, applied.json.error], [403, HOSTS_ONLY]);
+});
+
+test('a grown-up’s age check lets it organize and apply, whatever year its profile gives', async () => {
+  const organizer = await signIn('Grown');
+  const saved = await saveProfileBorn(organizer, '4244', SIXTEEN);
+  assert.deepEqual([saved.status, saved.json.user.birthDate], [200, `02/27/${SIXTEEN}`]);
+  assert.deepEqual({ ...profileYear('4244') }, { birthDate: `02/27/${SIXTEEN}`, checked: 1990 });
+  assert.equal((await joinCommunity(organizer)).status, 200);
+  const applicant = await signIn('Also grown');
+  assert.equal((await saveProfileBorn(applicant, '4245', SIXTEEN)).status, 200);
+  assert.equal((await applyForStore(applicant)).status, 201);
+});
+
+test('an account with no age check year neither organizes nor applies', async () => {
+  const cookie = await signIn('Unknown');
+  assert.equal((await saveProfileBorn(cookie, '4246', ADULT)).status, 200);
+  raw().exec("UPDATE users SET age_birth_year = NULL WHERE pop_id = '4246'");
+  assert.deepEqual([(await joinCommunity(cookie)).status, (await applyForStore(cookie)).status], [403, 403]);
 });
 
 test('a date that is no date is asked again; a wait used up or run out asks for sign-in again', async () => {

@@ -64,10 +64,12 @@ export function apiCalls(envOf: () => TournamentEnv) {
    * The session cookie of the account named `name`. With an account role it
    * holds that role; as 'organizer' it is the Manager of a store of its own
    * (league 9 followed by its row number), as an approved application leaves it.
+   * `birth` (YYYY-MM-DD) is the date it gives at its age check; a grown-up's by default.
    */
-  async function signIn(name: string, role: AccountRole | 'organizer' | null = null): Promise<string> {
+  async function signIn(name: string, role: AccountRole | 'organizer' | null = null, birth = ''): Promise<string> {
+    const born = birth ? `&birth=${birth}` : '';
     const response = await login.onRequestGet({
-      request: request(`/api/auth/login/dev?name=${encodeURIComponent(name)}&next=/host`),
+      request: request(`/api/auth/login/dev?name=${encodeURIComponent(name)}&next=/host${born}`),
       env: envOf(),
       params: { provider: 'dev' }
     } as never);

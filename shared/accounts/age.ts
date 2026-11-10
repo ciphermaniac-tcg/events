@@ -60,6 +60,14 @@ export function mayBeMinor(year: number | null, now: Date): boolean {
   return year !== null && youngestAge(year, now) < ADULT_AGE;
 }
 
+/**
+ * Whether an account may still be under 18, by the birth year it gave at its
+ * age check. The player profile's year is the account's to edit, so it says
+ * nothing here; an account with no age check year may be anyone.
+ */
+export const accountMayBeMinor = (ageBirthYear: number | null, now: Date): boolean =>
+  ageBirthYear === null || mayBeMinor(ageBirthYear, now);
+
 /** Whether someone born in `year` may still be under 13; an unknown year says nothing. */
 export function mayBeUnder13(year: number | null, now: Date): boolean {
   return year !== null && youngestAge(year, now) < CHILD_AGE;

@@ -43,7 +43,11 @@ CREATE TABLE IF NOT EXISTS users (
   age_checked_at INTEGER,
   -- When the account was offered its username and name (functions/api/me/setup.ts):
   -- at the age check for a new one, once at a later visit for one made before.
-  setup_offered_at INTEGER
+  setup_offered_at INTEGER,
+  -- The birth year the account gave at its age check, which the 18+ rules
+  -- read (shared/accounts/age.ts); only another age check changes it, never
+  -- the player profile's `birth_date`. NULL without one.
+  age_birth_year INTEGER
 );
 -- Provider writes normalize verified emails before storing or looking them up.
 CREATE UNIQUE INDEX IF NOT EXISTS users_by_verified_email ON users (email) WHERE email IS NOT NULL;

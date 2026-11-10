@@ -24,8 +24,8 @@ const FIRST_ID = 1000000;
 
 function account(db: Database, tokenHash: string, now: number): void {
   db.run(
-    'INSERT INTO users (id, email, pop_id, first_name, last_name, birth_date, created_at, handle, age_checked_at) ' +
-      "VALUES (?, 'demo@example.com', '9000001', 'Demo', 'Organizer', '01/01/1990', ?, 'demo', ?)",
+    'INSERT INTO users (id, email, pop_id, first_name, last_name, birth_date, created_at, handle, age_checked_at, ' +
+      "age_birth_year) VALUES (?, 'demo@example.com', '9000001', 'Demo', 'Organizer', '01/01/1990', ?, 'demo', ?, 1990)",
     [ORGANIZER, now, now]
   );
   db.run(
