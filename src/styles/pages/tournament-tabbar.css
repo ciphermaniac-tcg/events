@@ -63,9 +63,12 @@
     bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + var(--space-2));
     max-width: calc(100vw - 2 * var(--space-4));
   }
-  /* The open tab in colour alone: a heavier weight would widen its label past its share. */
+  /* The open tab in colour and weight. Set a touch tighter, so at 600 it is no wider than at 500
+     and "Standings" still fits a sixth of a 320px screen. */
   .tm-tabbar [aria-selected='true'] {
     color: var(--accent-ink);
+    font-weight: 600;
+    letter-spacing: -0.02em;
   }
   /* A count sits by the tab's icon, where it costs the label no room. */
   .tm-tabbar .tm-dash-count {
