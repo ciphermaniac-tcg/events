@@ -188,7 +188,7 @@ test('recent events list finished events, each row opening its event', async ({ 
 
 test('with no recent events the section is left out', async ({ page }) => {
   await signedOut(page, []);
-  await expect(page.getByRole('heading', { name: 'At the venue' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'At the venue' })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Recent events' })).toHaveCount(0);
 });
 

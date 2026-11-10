@@ -217,16 +217,16 @@ body.tm-home-mode main.page {
   color: var(--fg);
 }
 
-/* ---------- Recent events ---------- */
-/* The table first and its heading beside it, so the sections around it alternate sides. */
-.tm-home-recent {
+/* ---------- Profiles and recent events ---------- */
+/* Two halves side by side, each its words over its box. */
+.tm-home-pair {
   display: grid;
-  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-6);
   align-items: start;
 }
-.tm-home-recent > h2 {
-  order: 1;
+.tm-home-pair > .tm-home-lede {
+  justify-items: stretch;
 }
 .tm-home-recent-table {
   overflow: hidden;
@@ -845,16 +845,13 @@ body.tm-home-mode main.page {
   }
   /* One column, each preview above its words; the phone stands for the room. */
   .tm-home-split,
-  .tm-home-recent,
+  .tm-home-pair,
   .tm-home-venue {
     grid-template-columns: minmax(0, 1fr);
     gap: var(--space-4);
   }
   .tm-home-split > .tm-home-box {
     order: -1;
-  }
-  .tm-home-recent > h2 {
-    order: 0;
   }
   .tm-home-tv {
     display: none;

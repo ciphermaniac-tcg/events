@@ -100,12 +100,11 @@ export function HostHome() {
     <div class='tm-home'>
       <Doors />
       <div class='tm-home-band'>
-        <section class='tm-home-sec' aria-labelledby='tm-home-venue-title'>
+        <section class='tm-home-sec' aria-label={t('At the venue')}>
           <div class='tm-home-lede'>
-            <h2 id='tm-home-venue-title'>{t('At the venue')}</h2>
             <p>
               {t(
-                'The big screen shows the round’s pairings with a QR code to the event. Players find their table by last name on their phones and report from the table.'
+                'Show your event’s pairings and timers on a big screen, accessible to anyone in the venue, and allow your players to virtually report their match results from their phone.'
               )}
             </p>
           </div>
@@ -118,28 +117,19 @@ export function HostHome() {
             </div>
           </div>
         </section>
-        <section class='tm-home-sec tm-home-split' aria-labelledby='tm-home-profiles-title'>
-          <div class='tm-home-lede'>
-            <h2 id='tm-home-profiles-title'>{t('Player profiles')}</h2>
-            <p>
-              {t(
-                'Every event lands on the player’s profile with the deck, the place, and the record. Badges and event history stay with them from event to event.'
-              )}
-            </p>
-          </div>
-          <div class='tm-home-box tm-home-profile'>
-            <HomeProfile run={run} />
-          </div>
-        </section>
-        <RecentEvents />
+        <div class='tm-home-sec tm-home-pair'>
+          <section class='tm-home-lede' aria-label={t('Player profiles')}>
+            <p>{t('Players can create a profile to share their event standings publicly.')}</p>
+            <div class='tm-home-box tm-home-profile'>
+              <HomeProfile run={run} />
+            </div>
+          </section>
+          <RecentEvents />
+        </div>
         <section class='tm-home-sec tm-home-split' aria-labelledby='tm-home-demo-title'>
           <div class='tm-home-lede'>
             <h2 id='tm-home-demo-title'>{t('Try the console')}</h2>
-            <p>
-              {t(
-                'Open a sample event and run it yourself: pair rounds, enter results, and watch the standings move. It runs in your browser, and nothing you do leaves it.'
-              )}
-            </p>
+            <p>{t('Before you commit, try running an event in an offline, risk-free demo.')}</p>
             <a class='btn btn-primary tm-home-demo-open' href={DEMO_SITE} rel='external'>
               {t('Open the demo')}
             </a>

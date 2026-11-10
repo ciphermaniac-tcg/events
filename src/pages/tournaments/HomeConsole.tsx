@@ -156,17 +156,17 @@ function FixedTable(props: { heads: [head: string, wide?: boolean][]; rows: JSX.
 
 /** Each list's state; a problem reads as the deck check reports it (shared/tournament/decklist). */
 const CHECKS: [player: string, status: string, problem?: boolean][] = [
-  ['Andrew Hedrick', msg('Checked')],
   ['Annie Haberstroh', msg('Checked')],
   ['Cynthia Rodriguez', '5 copies of Grand Tree (the limit is 4)', true],
-  ['Jane Ester', msg('Paper list, to check')],
+  ['Kaycee Adams', msg('Paper list, to check')],
   ['Lake Lubrano', msg('Checked')],
+  ['Olivia Battaglia', msg('Checked')],
   ['Reese Lundquist', msg('Checked')]
 ];
 
 const PENALTIES: [round: number, player: string, infraction: string, penalty: string][] = [
   [1, 'Colby Rose', msg('Tardiness'), msg('Warning')],
-  [2, 'Iris Morgan', msg('Drawing extra cards'), msg('Prize penalty')]
+  [2, 'Macey Marlowe', msg('Drawing extra cards'), msg('Prize penalty')]
 ];
 
 const lead = (name: string) => <span class='tm-hc-lead'>{name}</span>;

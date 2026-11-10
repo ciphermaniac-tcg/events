@@ -1627,10 +1627,7 @@
   "or sign in": "ou connecte-toi",
   "Play in an event": "Participe à un événement",
   "At the venue": "Sur place",
-  "The big screen shows the round’s pairings with a QR code to the event. Players find their table by last name on their phones and report from the table.": "Le grand écran affiche les appariements de la ronde avec un QR code vers l’événement. Les joueurs trouvent leur table par leur nom de famille sur leur téléphone et saisissent le résultat depuis la table.",
-  "Every event lands on the player’s profile with the deck, the place, and the record. Badges and event history stay with them from event to event.": "Chaque événement s’ajoute au profil du joueur avec le deck, le classement et le bilan. Badges et historique le suivent d’un événement à l’autre.",
   "Try the console": "Essaie la console d’administration",
-  "Open a sample event and run it yourself: pair rounds, enter results, and watch the standings move. It runs in your browser, and nothing you do leaves it.": "Ouvre un événement de démonstration et gère-le toi-même : apparie les rondes, saisis les résultats et regarde le classement évoluer. Tout se passe dans ton navigateur, et rien de ce que tu fais n’en sort.",
   "Open the demo": "Ouvrir la démo",
   "Recent events": "Événements récents"
 }

@@ -63,8 +63,8 @@ export function RecentEvents() {
   const [events] = createResource(() => fetchRecentEvents().catch(() => [] as RecentEvent[]));
   return (
     <Show when={(events()?.length ?? 0) > 0}>
-      <section class='tm-home-sec tm-home-recent' aria-labelledby='tm-home-recent-title'>
-        <h2 id='tm-home-recent-title'>{t('Recent events')}</h2>
+      <section class='tm-home-lede tm-home-recent' aria-label={t('Recent events')}>
+        <p>{t('See recent events run with Ciphermaniac Events.')}</p>
         <div class='tm-home-recent-table'>
           <table class='data'>
             <thead>

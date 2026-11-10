@@ -12,24 +12,19 @@ import { type Random, shuffled } from '../../../shared/tournament/random';
 export const SAMPLE_CODE = 'K7RW2P';
 export const SAMPLE_QR = 'https://youtu.be/dQw4w9WgXcQ';
 
-/** The sample's sixteen players, friends of the site who lent their names. */
+/** The sample's eleven players, friends of the site who lent their names. */
 export const SAMPLE_PLAYERS: readonly string[] = [
   'Annie Haberstroh',
   'Olivia Battaglia',
   'Lake Lubrano',
-  'Andrew Hedrick',
-  'Iris Morgan',
-  'Sky Delsol',
   'Colby Rose',
   'James Musser',
-  'Emma Hagen',
   'Jasmine Dickinson',
   'Reese Lundquist',
   'Macey Marlowe',
   'Cynthia Rodriguez',
   'Jessie Espinoza',
-  'Kaycee Adams',
-  'Jane Ester'
+  'Kaycee Adams'
 ];
 
 export interface SampleDeck {
@@ -45,19 +40,14 @@ export const SAMPLE_DECKS: Readonly<Record<string, SampleDeck>> = {
   'Annie Haberstroh': deck('Dragapult Dusknoir', 'dragapult', 'dusknoir'),
   'Olivia Battaglia': deck('Slowking', 'slowking'),
   'Lake Lubrano': deck("N's Zoroark", 'zoroark'),
-  'Andrew Hedrick': deck('Dragapult Hammers', 'dragapult', 'crushing-hammer'),
-  'Iris Morgan': deck('Alakazam Dudunsparce', 'alakazam', 'dudunsparce'),
-  'Sky Delsol': deck('Mega Excadrill', 'excadrill-mega'),
   'Colby Rose': deck('Lucario Hariyama', 'lucario-mega', 'hariyama'),
   'James Musser': deck('Dhelmise', 'dhelmise', 'banette'),
-  'Emma Hagen': deck('Basic Box', 'ogerpon', 'clefairy'),
   'Jasmine Dickinson': deck('Ogerpon Meganium Hydrapple', 'ogerpon', 'hydrapple'),
   'Reese Lundquist': deck('Basic Box', 'ogerpon', 'clefairy'),
   'Macey Marlowe': deck('Lopunny Dudunsparce', 'lopunny-mega', 'dudunsparce'),
   'Cynthia Rodriguez': deck('Festival Lead', 'dipplin', 'thwackey'),
   'Jessie Espinoza': deck('Sharpedo Toxtricity', 'sharpedo-mega', 'toxtricity'),
-  'Kaycee Adams': deck("Cynthia's Garchomp", 'garchomp'),
-  'Jane Ester': deck('Dragapult', 'dragapult')
+  'Kaycee Adams': deck("Cynthia's Garchomp", 'garchomp')
 };
 
 export interface SampleTable {

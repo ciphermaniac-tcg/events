@@ -16,9 +16,9 @@ import {
   type SampleTable
 } from '../../src/lib/tournament/sampleEvent.ts';
 
-test('the sample seats sixteen different players', () => {
-  assert.equal(SAMPLE_PLAYERS.length, 16);
-  assert.equal(new Set(SAMPLE_PLAYERS).size, 16);
+test('the sample seats eleven different players', () => {
+  assert.equal(SAMPLE_PLAYERS.length, 11);
+  assert.equal(new Set(SAMPLE_PLAYERS).size, 11);
 });
 
 test('every round seats everyone once, and nobody meets an opponent twice', () => {
@@ -26,8 +26,8 @@ test('every round seats everyone once, and nobody meets an opponent twice', () =
   assert.equal(rounds.length, 5);
   const met = new Set<string>();
   for (const tables of rounds) {
-    assert.equal(tables.length, 8);
-    const seated = tables.flatMap(t => [t.p1, t.p2]);
+    assert.equal(tables.length, 6);
+    const seated = tables.flatMap(t => [t.p1, t.p2]).filter(name => name !== null);
     assert.deepEqual([...seated].sort(), [...SAMPLE_PLAYERS].sort());
     for (const { p1, p2, winner } of tables) {
       const key = [p1, p2].sort().join('|');
