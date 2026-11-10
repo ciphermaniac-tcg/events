@@ -373,7 +373,10 @@ async function playerAnswer(access: Access, request: Request): Promise<MyRegistr
   return isSanctioned(access.row) ? byPlayerId(access, request, details) : byName(access, request, details);
 }
 
-/** Anonymous sanctioned Player ID lookups share a room-sized allowance per event and address. */
+/**
+ * Sanctioned Player ID lookups share a room-sized allowance per event and
+ * address, signed in or not: an account costs nothing to make.
+ */
 const profileLookupLimiter = createRateLimiter({ windowMs: 10 * 60 * 1000, maxRequests: 300 });
 
 /**
@@ -390,7 +393,7 @@ function lookupAllowance(access: Access, request: Request) {
   if (!isSanctioned(access.row)) {
     return query.get('firstName') && query.get('lastName') ? nameLookupLimiter : null;
   }
-  return !access.user && isPopId(query.get('popId') ?? '') ? profileLookupLimiter : null;
+  return isPopId(query.get('popId') ?? '') ? profileLookupLimiter : null;
 }
 
 export async function onRequestGet(context: Context<'code'>): Promise<Response> {

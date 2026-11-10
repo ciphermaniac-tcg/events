@@ -430,23 +430,34 @@ test('unsanctioned name lookups allow 1200 per event/address, signed in or not, 
   assert.equal((await lookup(code, clientQuery(), '192.0.2.1')).status, 200);
 });
 
-test('staff, admins and signed-in players do not consume anonymous lookup attempts', async () => {
+test('signed-in sanctioned lookups spend from the same allowance per event and address', async () => {
+  const { code } = await eventWithList();
+  const player = await signIn('Player');
+  for (let index = 0; index < 300; index++) {
+    const read = await lookup(code, clientQuery(String(4242 + index)), '192.0.2.1', index % 2 ? player : undefined);
+    assert.equal(read.status, 200, `lookup ${index + 1}`);
+  }
+  for (const cookie of [undefined, player]) {
+    const refused = await lookup(code, clientQuery('4242'), '192.0.2.1', cookie);
+    assert.deepEqual(refused.json, { error: 'Too many requests from here. Try again shortly.', status: 429 });
+  }
+  assert.equal((await lookup(code, clientQuery('4242'), '192.0.2.2', player)).status, 200, 'another address');
+});
+
+test('staff and admins do not consume lookup attempts', async () => {
   const { code, owner } = await eventWithList();
   const helper = await signIn('Helper');
   await joinStaff(code, owner, helper);
   const admin = await signIn('Admin', 'admin');
-  const player = await signIn('Player');
   for (let index = 0; index < 6; index++) {
     for (const cookie of [owner, helper, admin]) {
       const read = await lookup(code, clientQuery('4242'), undefined, cookie);
       assert.equal(read.status, 200);
       assert.equal(read.json.decklists[0].deck, LIST.deck);
     }
-    assert.equal((await lookup(code, clientQuery('4242'), undefined, player)).status, 200);
   }
   await fillLookupAllowance(code);
   assert.equal((await lookup(code)).status, 429);
-  assert.equal((await lookup(code, clientQuery('4242'), undefined, player)).status, 200);
   for (const cookie of [owner, helper, admin]) {
     assert.equal((await lookup(code, clientQuery('4242'), undefined, cookie)).json.decklists.length, 1);
   }
