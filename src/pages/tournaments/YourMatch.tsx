@@ -62,6 +62,10 @@ const NOTES = {
   reported: msg('Staff will accept it shortly. You can change it until then.'),
   /** Past the window to change it, the report only waits for staff. */
   locked: msg('Your report is locked in. Staff will accept it shortly.'),
+  /** Where agreeing reports settle the match, the opponent's report is what it waits on. */
+  agrees: msg('It counts once your opponent reports the same. You can change it until then.'),
+  agreesLocked: msg('Your report is locked in. It counts once your opponent reports the same.'),
+  agreesOpen: msg('If you and your opponent report the same result, it counts at once.'),
   disputed: msg('Your reports don’t match. If you pressed the wrong one, change it. Otherwise, find a judge.'),
   /** Once the report is locked there is nothing to change: only the judge is left. */
   disputedLocked: msg('Your reports don’t match. Find a judge.')
@@ -210,8 +214,11 @@ function createReport(props: Props & { me: string }, found: () => Found | null) 
 
 type Report = ReturnType<typeof createReport>;
 
+/** Whether two agreeing reports settle a match here, without staff. */
+const settles = (view: TournamentView) => view.mode === 'swiss' && view.settings.agreedReportsSettle;
+
 /** The answers, what the report is waiting on, and the line that explains it. */
-function ReportPanel(props: { report: Report; found: Found }) {
+function ReportPanel(props: { report: Report; found: Found; settles: boolean }) {
   const s = () => props.report.state();
   const choices = () => (props.found.round.kind === 'elimination' ? CHOICES.filter(c => c.result !== 'tie') : CHOICES);
   const status = () => {
@@ -227,10 +234,13 @@ function ReportPanel(props: { report: Report; found: Found }) {
   const note = () => {
     const state = s();
     if (!state?.chosen) {
-      return t(NOTES.open);
+      return t(props.settles ? NOTES.agreesOpen : NOTES.open);
     }
     if (state.disputed) {
       return t(state.locked ? NOTES.disputedLocked : NOTES.disputed);
+    }
+    if (props.settles) {
+      return t(state.locked ? NOTES.agreesLocked : NOTES.agrees);
     }
     return t(state.locked ? NOTES.locked : NOTES.reported);
   };
@@ -462,7 +472,9 @@ function MatchBox(props: Props & { me: string; askAs: PlayerClaim | null }) {
           </button>
         </div>
       </Show>
-      <Show when={panel() && found()}>{f => <ReportPanel report={report} found={f()} />}</Show>
+      <Show when={panel() && found()}>
+        {f => <ReportPanel report={report} found={f()} settles={settles(props.view)} />}
+      </Show>
       <Show when={!props.view.settings.finished && props.askAs}>
         {claim => (
           <PlayerRequests

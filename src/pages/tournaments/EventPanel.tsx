@@ -227,6 +227,7 @@ type PlayerSettings = Logistics &
     | 'deckVisibility'
     | 'sanctioned'
     | 'playerReporting'
+    | 'agreedReportsSettle'
     | 'decklists'
     | 'entryFee'
     | 'playerCap'
@@ -234,6 +235,7 @@ type PlayerSettings = Logistics &
 
 const pickPlayerSettings = (settings: TournamentSettings): PlayerSettings => {
   const { details, format, startsAt, deckVisibility, sanctioned, playerReporting, decklists } = settings;
+  const { agreedReportsSettle } = settings;
   const { timeZone, checkInAt, venue, address, entryFee, playerCap } = settings;
   return {
     details,
@@ -246,6 +248,7 @@ const pickPlayerSettings = (settings: TournamentSettings): PlayerSettings => {
     deckVisibility,
     sanctioned,
     playerReporting,
+    agreedReportsSettle,
     decklists,
     entryFee,
     playerCap
@@ -377,6 +380,15 @@ function ForPlayers(props: { state: ManageState; manage: Manage }) {
           onChange={v => set('playerReporting', v)}
         />
       </SettingRow>
+      <Show when={draft().playerReporting && props.manage.mode === 'swiss'}>
+        <SettingRow label={t('Agreeing reports count')} info={<SettingInfo text={SETTING_INFO.agreedReportsSettle} />}>
+          <Toggle
+            label={t('Agreeing reports count')}
+            value={draft().agreedReportsSettle}
+            onChange={v => set('agreedReportsSettle', v)}
+          />
+        </SettingRow>
+      </Show>
       <SettingRow
         label={t('Decklists')}
         info={<SettingInfo text={SETTING_INFO.decklists} />}

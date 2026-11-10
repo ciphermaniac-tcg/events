@@ -10,6 +10,9 @@ import { msg, t } from '../../lib/i18n';
 
 export const SETTING_INFO = {
   playerReporting: msg('When enabled, allows players to report the results of their match via their personal devices.'),
+  agreedReportsSettle: msg(
+    'When both players report the same result from two devices, it counts without staff. A device doesn’t prove who is reporting, so anyone who knows both names could settle a match. A lone report, a dispute, or two reports from one device still wait for staff.'
+  ),
   archetypes: msg(
     'Allows organizer entry of player deck archetypes. “Shown once the event ends” shows archetypes at the time of final standings and “Shown during the event” shows archetypes once round 1 is paired.'
   ),

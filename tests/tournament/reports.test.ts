@@ -12,6 +12,7 @@ import { applyCommand, type Command } from '../../shared/tournament/commands.ts'
 import { emptyTournament } from '../../shared/tournament/create.ts';
 import { seededRandom } from '../../shared/tournament/random.ts';
 import {
+  agreedOutcome,
   fileReport,
   isDisputed,
   isLocked,
@@ -84,6 +85,20 @@ test('agreement preserves both reports for staff instead of settling a match', (
   assert.equal(isLocked(both[1]!, 10_000 + REPORT_WINDOW_MS), true);
   const wins = [report(t, match.p1, 'win', 0), report(t, match.p2, 'win', 0)];
   assert.ok(isDisputed(reportsFor(wins, 'masters', 1, match)));
+});
+
+test('two agreeing reports from two devices give the result that settles the match', () => {
+  const t = paired();
+  const [match] = matchesOf(t);
+  assert.ok(match?.p2);
+  const win = { ...report(t, match.p1, 'win', 0), device: 'a' };
+  const loss = { ...report(t, match.p2, 'loss', 0), device: 'b' };
+  assert.equal(agreedOutcome([win, loss]), 'p1');
+  assert.equal(agreedOutcome([win]), null, 'one report waits');
+  assert.equal(agreedOutcome([win, { ...loss, device: 'a' }]), null, 'one device for both seats waits');
+  assert.equal(agreedOutcome([win, { ...loss, outcome: 'p2' }]), null, 'a dispute waits');
+  const { device: _device, ...unmarked } = loss;
+  assert.equal(agreedOutcome([win, unmarked]), null, 'a report with no device waits');
 });
 
 test('a player can change their report inside the window, and not after', () => {

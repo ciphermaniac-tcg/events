@@ -76,12 +76,14 @@ afterEach(() => mock.timers.reset());
 });
 
 [false, true].forEach(signedIn => {
-  test(`two attacker-controlled device strings never settle results (signedIn=${signedIn})`, async () => {
+  // Agreeing reports settle a match by default (the owner's call, accepting this risk); an organizer who
+  // turns that off is held to it: two forged devices then wait for staff like any other report.
+  test(`with agreeing reports left to staff, two attacker-controlled device strings never settle results (signedIn=${signedIn})`, async () => {
     mock.timers.enable({ apis: ['Date'], now: Date.now() });
     const owner = await signIn('Organizer', 'organizer');
     const code = await newSwiss(owner);
     await addPlayers(code, owner, 2);
-    await settle(code, owner, { sanctioned: false, playerReporting: true });
+    await settle(code, owner, { sanctioned: false, playerReporting: true, agreedReportsSettle: false });
     const paired = await send(code, owner, { type: 'pairRound', pod: 'masters' });
     const match = paired.json.tournament.pods[0].rounds[0].matches[0];
     const claims = [match.p1, match.p2].map((id: string) => ({

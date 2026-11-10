@@ -2,10 +2,13 @@
  * Results players report themselves, from the event's page.
  *
  * Each player in a match says how it went, and can change their mind for a
- * short window before their report locks. Every report needs staff acceptance, even when both reports agree. When they
+ * short window before their report locks. When both report the same result
+ * from two devices, that result stands at once unless the organizer has
+ * turned that off (see agreedOutcome); otherwise staff accept it. When they
  * disagree, neither counts: the match stays open and shows as disputed until
  * staff enter the result, which settles it either way. One report alone
- * waits for the opponent, and staff can take it as it is. Device IDs and account sign-in do not independently verify a reporting seat.
+ * waits for the opponent, and staff can take it as it is. Device IDs and account sign-in do not independently verify a reporting seat,
+ * so two reports from one device never settle a match.
  */
 
 import { divisionsOf } from './podding.js';
@@ -132,6 +135,19 @@ export function reportsFor(reports: readonly PlayerReport[], pod: PodCategory, r
   return match.p2 === null
     ? []
     : reports.filter(r => sameMatch(r, { pod, round, table: match.table, p1: match.p1, p2: match.p2 as string }));
+}
+
+/**
+ * The result both players reported, when they agree and reported from two
+ * devices: what settles the match without staff. Null for one report, a
+ * dispute, or one device speaking for both seats.
+ */
+export function agreedOutcome(forMatch: readonly PlayerReport[]): ReportedOutcome | null {
+  const [first, second] = forMatch;
+  if (!first || !second || first.outcome !== second.outcome || oneDevice(first, second)) {
+    return null;
+  }
+  return first.device !== undefined && second.device !== undefined ? first.outcome : null;
 }
 
 /** Whether both players have reported a match and said different things. */

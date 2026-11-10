@@ -1250,7 +1250,7 @@ test('a decklist never gives an account a Player ID or birth year, and refreshes
   assert.deepEqual([refreshed.popId, refreshed.firstName, refreshed.birthDate], ['6161', 'Linda', '02/27/2001']);
 });
 
-test('players report their own results: agreement and disagreement both wait for staff', async () => {
+test('with agreeing reports left to staff, agreement and disagreement both wait for staff', async () => {
   const owner = await signIn('Organizer', 'organizer');
   mock.timers.enable({ apis: ['Date'], now: Date.now() });
   const code = await newSwiss(owner);
@@ -1259,7 +1259,7 @@ test('players report their own results: agreement and disagreement both wait for
   assert.equal((await send(code, owner, { type: 'startClock', pod: 'masters' })).status, 200);
   const [first, second] = paired.json.tournament.pods[0].rounds[0].matches;
   assert.equal((await playerSays(code, { popId: first.p1, result: 'win' })).status, 403, 'off until staff turn it on');
-  await settle(code, owner, { playerReporting: true });
+  await settle(code, owner, { playerReporting: true, agreedReportsSettle: false });
 
   const p1 = await phoneOf(code, first.p1);
   const p2 = await phoneOf(code, first.p2);
@@ -1359,6 +1359,28 @@ test('players report their own results: agreement and disagreement both wait for
   assert.equal((await playerSays(code, { popId: '0000000' })).status, 404, 'a Player ID not in the event finds nobody');
 });
 
+test('two agreeing reports from two devices settle the match by default, and evidence stays', async () => {
+  const owner = await signIn('Organizer', 'organizer');
+  const code = await newSwiss(owner);
+  await addPlayers(code, owner, 4);
+  const paired = await send(code, owner, { type: 'pairRound', pod: 'masters' });
+  const [match] = paired.json.tournament.pods[0].rounds[0].matches;
+  await settle(code, owner, { playerReporting: true });
+  const one = await (await phoneOf(code, match.p1)).report('win');
+  assert.equal(one.json.view.tournament.pods[0].rounds[0].matches[0].outcome, 'pending', 'one report waits');
+  const both = await (await phoneOf(code, match.p2)).report('loss');
+  assert.equal(both.status, 200);
+  assert.equal(
+    both.json.view.tournament.pods[0].rounds[0].matches[0].outcome,
+    'p1',
+    'the second, agreeing, settles it'
+  );
+  assert.deepEqual(both.json.view.reports, [], 'a settled match has no reports waiting');
+  const evidence = await hit(report.onRequestGet as Handler, '/report', at(code), { cookie: owner });
+  assert.equal(evidence.status, 200);
+  assert.equal(evidence.json.history.length, 2, 'what each player filed is kept');
+});
+
 test('a console poll never settles agreeing unverified reports; staff acceptance stamps the venue clock', async () => {
   const owner = await signIn('Organizer', 'organizer');
   mock.timers.enable({ apis: ['Date'], now: Date.now() });
@@ -1366,7 +1388,7 @@ test('a console poll never settles agreeing unverified reports; staff acceptance
   await addPlayers(code, owner, 4);
   const paired = await send(code, owner, { type: 'pairRound', pod: 'masters' });
   const [match] = paired.json.tournament.pods[0].rounds[0].matches;
-  await settle(code, owner, { playerReporting: true });
+  await settle(code, owner, { playerReporting: true, agreedReportsSettle: false });
   await (await phoneOf(code, match.p1)).report('win');
   await (await phoneOf(code, match.p2)).report('loss');
   mock.timers.tick(REPORT_WINDOW_MS * 100);

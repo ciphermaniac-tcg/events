@@ -1,7 +1,8 @@
 /**
  * POST /api/tournaments/:code/report — lookup:true returns surname candidates without claiming a seat.
  * Reporting identity still takes exact normalized names, or a Player ID and birth year at sanctioned events.
- * Current identity claims are unverified: all filed results need staff acceptance.
+ * Current identity claims are unverified: a filed result needs staff acceptance, unless both players report
+ * the same result from two devices at a Swiss event that lets agreeing reports settle (agreedOutcome).
  * { expect } names the public key the page chose: a claim that resolves to anyone else is refused before
  * any seat or account write, so a fuzzy lookup's pick cannot become another player's seat.
  * With { request }, the reporting device asks staff to drop the player or come over (requests.ts).
@@ -14,8 +15,10 @@ import { birthYear } from '../../../../shared/tournament/divisions.js';
 import { lookupPlayers } from '../../../../shared/tournament/lookup.js';
 import { findPlayer, type PlayerClaim } from '../../../../shared/tournament/identify.js';
 import {
+  agreedOutcome,
   fileReport,
   PLAYER_RESULTS,
+  type PlayerReport,
   playerReport,
   type PlayerResult,
   reportableMatch,
@@ -38,6 +41,8 @@ import {
   staffWrites
 } from '../../../lib/tournaments/access.js';
 import { publishAfter } from '../../../lib/tournaments/publish.js';
+import { commandChanges } from '../../../lib/tournaments/results.js';
+import { sameMatch } from '../../../../shared/tournament/rounds.js';
 import {
   type Asker,
   type Claim,
@@ -108,7 +113,29 @@ function closedToReports(settings: TournamentSettings): string | null {
   return settings.finished ? msg('This event is over') : null;
 }
 
-/** A report waiting for staff, rechecked against the event on each mutation attempt. */
+/**
+ * The result two agreeing reports enter, as staff entering it would, where
+ * the event lets them settle a match; nothing where it does not, or where the
+ * entry is refused (a locked round), so the reports wait for staff as before.
+ */
+function agreedResult(row: TournamentRow, report: PlayerReport, reports: readonly PlayerReport[]): Changes {
+  if (row.mode !== 'swiss' || !row.settings.agreedReportsSettle) {
+    return {};
+  }
+  const { pod, round, table, p1, p2 } = report;
+  const outcome = agreedOutcome(reports.filter(other => sameMatch(other, report)));
+  if (!outcome) {
+    return {};
+  }
+  const entered = commandChanges(
+    row,
+    { type: 'reportResult', pod, round, table, p1, p2, outcome, expected: 'pending' },
+    null
+  );
+  return typeof entered === 'string' || entered.refusal ? {} : { tournament: entered.tournament };
+}
+
+/** A report, rechecked against the event on each mutation attempt: waiting for staff, or settling an agreed match. */
 function reportChanges(row: TournamentRow, filing: Filing): Changes | string {
   const closed = closedToReports(row.settings);
   if (closed) {
@@ -120,7 +147,8 @@ function reportChanges(row: TournamentRow, filing: Filing): Changes | string {
     ? String(reports)
     : {
         reports,
-        reportEvidence: { report, account: filing.account, claimedAt: filing.claimedAt }
+        reportEvidence: { report, account: filing.account, claimedAt: filing.claimedAt },
+        ...agreedResult(row, report, reports)
       };
 }
 

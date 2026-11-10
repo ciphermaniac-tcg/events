@@ -86,6 +86,11 @@ export interface TournamentSettings {
   /** Players report their own results from the event's page (see shared/tournament/reports.ts). */
   playerReporting: boolean;
   /**
+   * Two reports that agree, from two devices, settle a Swiss match without
+   * staff (see agreedOutcome). Lone, disputed and one-device reports still wait.
+   */
+  agreedReportsSettle: boolean;
+  /**
    * The most Swiss rounds the event plans to play; 0 plays the number Play!
    * Pokémon recommends for the attendance. Past it the console offers the top
    * cut and ending the event ahead of another round.
@@ -116,6 +121,8 @@ export const DEFAULT_SETTINGS: TournamentSettings = {
   // Events made before the choice existed asked for Player IDs, so they stay sanctioned.
   sanctioned: true,
   playerReporting: false,
+  // On unless the organizer turns it off, the owner's call; a device does not prove a seat (see reports.ts).
+  agreedReportsSettle: true,
   roundCap: 0,
   entryFee: 0,
   playerCap: 0
@@ -161,6 +168,7 @@ const SETTING_CHECKS: { [K in keyof TournamentSettings]: SettingCheck } = {
   idle: value => typeof value === 'boolean',
   sanctioned: value => typeof value === 'boolean',
   playerReporting: value => typeof value === 'boolean',
+  agreedReportsSettle: value => typeof value === 'boolean',
   deckVisibility: value => VISIBILITIES.includes(value as DeckVisibility),
   details: value => typeof value === 'string' && value.length <= SETTINGS_LIMITS.details,
   format: value => typeof value === 'string' && value.length <= SETTINGS_LIMITS.format,
