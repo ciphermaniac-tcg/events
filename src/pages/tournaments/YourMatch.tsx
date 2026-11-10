@@ -332,7 +332,7 @@ function MatchLine(props: Props & { me: string; found: Found; report: Report; op
                 <>
                   <Clock round={props.found.round} extraSeconds={props.found.match.timeExtension?.seconds} />
                   <Show when={canReport()}>
-                    <button type='button' class='btn btn-secondary tm-small' onClick={() => props.onOpen()}>
+                    <button type='button' class='btn btn-primary tm-small' onClick={() => props.onOpen()}>
                       {t('Report result')}
                     </button>
                   </Show>
