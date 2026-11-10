@@ -133,8 +133,11 @@ export function fromRaw(raw: RawRow): TournamentRow {
 const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 const CODE_LENGTH = 6;
 
+/** A number in [0, 1) from the platform's cryptographic generator, so a code cannot be predicted from the last. */
+const secureRandom = (): number => crypto.getRandomValues(new Uint32Array(1))[0]! / 0x1_0000_0000;
+
 /** A random code in that alphabet; a public profile's address is a longer one (functions/lib/accounts/publicProfile.ts). */
-function newCode(length = CODE_LENGTH, random: () => number = Math.random): string {
+export function newCode(length = CODE_LENGTH, random: () => number = secureRandom): string {
   let code = '';
   for (let i = 0; i < length; i += 1) {
     code += CODE_ALPHABET[Math.floor(random() * CODE_ALPHABET.length)];
