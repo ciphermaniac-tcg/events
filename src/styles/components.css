@@ -325,3 +325,21 @@
 .prose a {
   font-weight: 500;
 }
+
+/* ---------- Event code form (EventCodeForm): the home page and the Playing tab ---------- */
+.tm-code-form {
+  display: flex;
+  gap: var(--space-2);
+  width: 340px;
+  max-width: 100%;
+}
+.tm-code-form input {
+  flex: 1;
+  min-width: 0;
+  height: 40px;
+  font-size: 16px;
+}
+.tm-code-form .btn {
+  height: 40px;
+  padding-inline: var(--space-4);
+}

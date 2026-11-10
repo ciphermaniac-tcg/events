@@ -9,9 +9,9 @@
  * and finished.
  */
 
-import { createSignal, onCleanup, onMount } from 'solid-js';
-import { useNavigate } from '@solidjs/router';
+import { onCleanup, onMount } from 'solid-js';
 import { t } from '../../lib/i18n';
+import { EventCodeForm } from './EventCodeForm';
 import { HomeConsole } from './HomeConsole';
 import { HomePhone } from './HomePhone';
 import { HomeProfile } from './HomeProfile';
@@ -40,39 +40,6 @@ function useNight() {
   });
 }
 
-/** A player's way to their event: its code, to its page. */
-function CodeForm() {
-  const navigate = useNavigate();
-  const [code, setCode] = createSignal('');
-  return (
-    <form
-      class='tm-home-code'
-      onSubmit={event => {
-        event.preventDefault();
-        const typed = code().replace(/\s+/g, '');
-        if (typed) {
-          navigate(`/t/${encodeURIComponent(typed.toUpperCase())}`);
-        }
-      }}
-    >
-      <input
-        class='tm-input'
-        placeholder={t('Event code')}
-        aria-label={t('Event code')}
-        autocomplete='off'
-        autocapitalize='characters'
-        spellcheck={false}
-        required
-        value={code()}
-        onInput={event => setCode(event.currentTarget.value)}
-      />
-      <button type='submit' class='btn btn-secondary'>
-        {t('Go')}
-      </button>
-    </form>
-  );
-}
-
 function Doors() {
   return (
     <section class='tm-home-doors'>
@@ -87,7 +54,7 @@ function Doors() {
       </div>
       <div class='tm-home-door'>
         <h2>{t('Play in an event')}</h2>
-        <CodeForm />
+        <EventCodeForm />
       </div>
     </section>
   );

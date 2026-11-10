@@ -99,21 +99,6 @@ body.tm-home-mode main.page {
   font-size: 32px;
   letter-spacing: -0.025em;
 }
-.tm-home-code {
-  width: 340px;
-  max-width: 100%;
-}
-.tm-home-code {
-  display: flex;
-  gap: var(--space-2);
-}
-.tm-home-code input {
-  flex: 1;
-  min-width: 0;
-  height: 40px;
-  font-size: 16px;
-}
-.tm-home-code .btn,
 .tm-home-join .btn {
   height: 40px;
   padding-inline: var(--space-4);
@@ -844,7 +829,7 @@ body.tm-home-mode main.page {
   .tm-home-door + .tm-home-door {
     border-top: 1px solid var(--rule);
   }
-  .tm-home-code {
+  .tm-home-door .tm-code-form {
     width: 100%;
   }
   .tm-home-join .btn {

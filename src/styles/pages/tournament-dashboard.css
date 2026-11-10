@@ -108,6 +108,13 @@
     display: block;
     text-align: center;
   }
+  .tm-dash .tm-code-form {
+    width: 100%;
+  }
+  .tm-dash .tm-code-form input,
+  .tm-dash .tm-code-form .btn {
+    height: 44px;
+  }
 }
 
 /* ---------- Welcome: the Playing tab before a first event ---------- */

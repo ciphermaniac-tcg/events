@@ -1652,6 +1652,20 @@ test('the dashboard of a player who runs nothing is its Playing tab alone, the l
   expect(errors).toEqual([]);
 });
 
+test('the Playing tab always takes an event code, even when History fails to load @mobile', async ({ page }) => {
+  await mockDashboard(page, ME);
+  await page.route('**/api/history', route => route.fulfill({ status: 500, json: { error: 'Down' } }));
+  await page.route('**/api/tournaments/K7RW2P*', route =>
+    route.fulfill({ status: 404, json: { error: 'No such event' } })
+  );
+  await page.goto('/');
+  const panel = page.getByRole('tabpanel', { name: 'Playing' });
+  await expect(panel.getByRole('heading', { level: 2, name: 'Join an event' })).toBeVisible();
+  await panel.getByRole('textbox', { name: 'Event code' }).fill(' k7rw2p ');
+  await panel.getByRole('button', { name: 'Go' }).click();
+  await expect(page).toHaveURL(/\/t\/K7RW2P$/);
+});
+
 test('a player with no events yet is welcomed with the way to play, then the way to run events @mobile', async ({
   page
 }) => {

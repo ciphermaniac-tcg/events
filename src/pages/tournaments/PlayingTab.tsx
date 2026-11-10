@@ -1,9 +1,9 @@
 /**
  * The dashboard's Playing tab: the account's events from its History (see
  * HistoryPage), split by where they stand. An event in progress leads, with
- * the round being played and the way to its page; then the events to come;
- * then the latest results, decks as sprites alone, with the way to the rest
- * on /history.
+ * the round being played and the way to its page; then, always, the way into
+ * an event by its code; then the events to come; then the latest results,
+ * decks as sprites alone, with the way to the rest on /history.
  */
 
 import { A } from '@solidjs/router';
@@ -14,6 +14,7 @@ import { type HistoryEntry, type OwnHistory } from '../../lib/tournament/api';
 import { loadEntry } from '../../lib/tournament/historyCopies';
 import { latestValue, resolved } from '../../lib/resource';
 import { DeckIcons } from './DeckIcons';
+import { EventCodeForm } from './EventCodeForm';
 import { ResourceFallback } from './Field';
 import { HistoryList } from './HistoryList';
 
@@ -113,17 +114,26 @@ export function PlayingTab(props: { history: Resource<OwnHistory>; onRetry: () =
   const byStatus = (status: HistoryEntry['status']) => (entries() ?? []).filter(entry => entry.status === status);
   const finished = () => byStatus('finished');
   return (
-    <Show
-      when={entries()}
-      fallback={<ResourceFallback resource={props.history} onRetry={() => props.onRetry()} small />}
-    >
-      {list => (
-        <Show when={list().length > 0} fallback={<Welcome />}>
-          <For each={byStatus('live')}>{entry => <LiveEntry entry={entry} />}</For>
-          <Group title={t('Coming up')} entries={byStatus('upcoming')} />
-          <Group title={t('Results')} entries={finished().slice(0, RECENT)} more={finished().length > RECENT} />
-        </Show>
-      )}
-    </Show>
+    <>
+      <For each={byStatus('live')}>{entry => <LiveEntry entry={entry} />}</For>
+      {/* Shown whatever History holds, or while it loads or fails: a code needs none of it. */}
+      <section class='tm-dash-section'>
+        <div class='tm-dash-section-head'>
+          <h2 class='tm-subhead'>{t('Join an event')}</h2>
+        </div>
+        <EventCodeForm />
+      </section>
+      <Show
+        when={entries()}
+        fallback={<ResourceFallback resource={props.history} onRetry={() => props.onRetry()} small />}
+      >
+        {list => (
+          <Show when={list().length > 0} fallback={<Welcome />}>
+            <Group title={t('Coming up')} entries={byStatus('upcoming')} />
+            <Group title={t('Results')} entries={finished().slice(0, RECENT)} more={finished().length > RECENT} />
+          </Show>
+        )}
+      </Show>
+    </>
   );
 }
