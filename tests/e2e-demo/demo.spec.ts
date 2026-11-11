@@ -26,7 +26,7 @@ async function watched(page: Page): Promise<string[]> {
 
 async function openConsole(page: Page) {
   await page.goto('/');
-  await page.getByRole('link', { name: 'Console' }).click();
+  await page.getByRole('link', { name: 'Demo Games League Challenge' }).click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Demo Games League Challenge');
 }
 
@@ -34,8 +34,8 @@ test('opens signed in on the sample event, and pairs a round for real @mobile', 
   const out = await watched(page);
   await page.goto('/');
   await expect(page.getByRole('region', { name: 'Demo' })).toContainText('This is a demo.');
-  await expect(page.getByRole('cell', { name: 'Demo Games League Challenge' })).toBeVisible();
-  await page.getByRole('link', { name: 'Console' }).click();
+  await expect(page.getByRole('cell', { name: 'Demo Games League Challenge', exact: true })).toBeVisible();
+  await page.getByRole('link', { name: 'Demo Games League Challenge' }).click();
   await page.getByRole('button', { name: 'Pair round 1' }).click();
   await expect(page.getByText('Round 1 of 5 in progress')).toBeVisible();
   await expect(page.locator('tbody tr')).toHaveCount(8);
@@ -66,7 +66,7 @@ test('what you do stays across a reload, and Reset starts over', async ({ page }
   await expect(bar).toContainText('Start the demo over?');
   await bar.getByRole('button', { name: 'Reset', exact: true }).click();
   await expect(page).toHaveURL(/\/$/);
-  await page.getByRole('link', { name: 'Console' }).click();
+  await page.getByRole('link', { name: 'Demo Games League Challenge' }).click();
   await expect(page.getByRole('button', { name: 'Pair round 1' })).toBeVisible();
 });
 
@@ -93,7 +93,7 @@ test('the big screen in another tab follows what the console does', async ({ con
 test('signing out and deleting the account are not part of the demo', async ({ page }) => {
   await watched(page);
   await page.goto('/');
-  await expect(page.getByRole('cell', { name: 'Demo Games League Challenge' })).toBeVisible();
+  await expect(page.getByRole('cell', { name: 'Demo Games League Challenge', exact: true })).toBeVisible();
   const answers = await page.evaluate(async () => {
     const out = await fetch('/api/auth/logout', { method: 'POST' });
     const gone = await fetch('/api/me', { method: 'DELETE', body: JSON.stringify({ confirm: 'demo' }) });
@@ -110,7 +110,7 @@ test('signing out and deleting the account are not part of the demo', async ({ p
 test('a request for anywhere else is refused before it leaves', async ({ page }) => {
   const out = await watched(page);
   await page.goto('/');
-  await expect(page.getByRole('cell', { name: 'Demo Games League Challenge' })).toBeVisible();
+  await expect(page.getByRole('cell', { name: 'Demo Games League Challenge', exact: true })).toBeVisible();
   const refused = await page.evaluate(() =>
     fetch('https://events.ciphermaniac.com/api/me').then(
       () => 'sent',
