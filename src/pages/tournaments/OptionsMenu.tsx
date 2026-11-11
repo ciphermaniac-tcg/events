@@ -67,9 +67,15 @@ export function OptionsMenu(props: {
     });
   });
   createPopover({ open, close, root: () => root, trigger: () => button, panel: () => menu });
+  // The top layer, so no scroller it sits in (the roster's table) can clip it, paint over it or take its taps, as iOS Safari does.
   const mountMenu = (element: HTMLSpanElement) => {
     menu = element;
-    queueMicrotask(place);
+    queueMicrotask(() => {
+      if (element.isConnected) {
+        element.showPopover();
+      }
+      place();
+    });
   };
   return (
     <span
@@ -110,6 +116,7 @@ export function OptionsMenu(props: {
             class='tm-menu tm-menu-fixed'
             classList={{ 'tm-staff-options': props.staff, 'tm-result-options': !props.staff }}
             role='group'
+            popover='manual'
             aria-label={t('More for {name}', { name: props.name })}
             style={{ top: `${String(position().top)}px`, left: `${String(position().left)}px` }}
           >

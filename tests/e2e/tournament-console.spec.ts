@@ -904,6 +904,19 @@ test('a player row keeps its rarer actions and fixed table under its menu', asyn
   await expect(menu).toHaveCount(0);
 });
 
+// iOS Safari paints and hit-tests a fixed menu inside the roster's scroller as part of it: a tap on its items went nowhere.
+test('a roster row’s menu opens above the page, clear of the table’s scroller, and its items answer @mobile', async ({
+  page
+}) => {
+  const sent = await mockConsole(page, event(2, 0, false), settingsOf({ entryFee: 10 }));
+  await page.locator('.table-wrap').getByRole('button', { name: 'More for Player1 Test' }).click();
+  const menu = page.getByRole('group', { name: 'More for Player1 Test' });
+  expect(await menu.evaluate(el => el.matches(':popover-open'))).toBe(true);
+  await menu.getByRole('button', { name: 'Remove' }).click();
+  await menu.getByRole('group', { name: 'Remove Player1 Test?' }).getByRole('button', { name: 'Remove' }).click();
+  await expect.poll(() => sent.at(-1)).toMatchObject({ type: 'removePlayer' });
+});
+
 test('a fixed table the server refuses goes back to the one saved', async ({ page }) => {
   await mockConsole(page, event(4, 0, false), settingsOf({}));
   await page.route(`**/api/tournaments/${CODE}/commands`, route =>
