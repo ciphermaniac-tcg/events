@@ -32,7 +32,7 @@ import { takeSignup } from '../../lib/auth/signup.js';
 import { msg } from '../../../shared/i18n.js';
 
 /** What someone too young is told; nothing about them was kept. */
-export const TOO_YOUNG = msg('Ciphermaniac accounts are for people 16 and older.');
+export const TOO_YOUNG = msg('Ciphermaniac accounts are for people 16 and older. You can still register for events without one.');
 
 function answer(status: number, body: unknown, cookies: readonly string[]): Response {
   const headers = new Headers({ 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
