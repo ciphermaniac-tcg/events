@@ -147,17 +147,13 @@ export function StandingsTable(props: TableProps) {
                                           <Icon name='list' label={t('Decklist')} />
                                         </span>
                                       </Show>
+                                      {/* Beside the name while it fits, and under it when it does not. */}
+                                      <Show when={row().dropped}>
+                                        <span class='tm-flag'>{t('Dropped')}</span>
+                                      </Show>
                                     </span>
-                                    {/* On the second line, so a dropped player's name keeps its room. */}
-                                    <Show when={(hasDecks() && !hidden(row())) || row().dropped}>
-                                      <span class='tm-who-sub'>
-                                        <Show when={hasDecks() && !hidden(row())}>
-                                          {props.decks[row().playerId] ?? t('No deck')}
-                                        </Show>
-                                        <Show when={row().dropped}>
-                                          <span class='tm-flag'>{t('Dropped')}</span>
-                                        </Show>
-                                      </span>
+                                    <Show when={hasDecks() && !hidden(row())}>
+                                      <span class='tm-who-sub'>{props.decks[row().playerId] ?? t('No deck')}</span>
                                     </Show>
                                   </span>
                                 </button>

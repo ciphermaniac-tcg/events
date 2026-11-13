@@ -1305,6 +1305,10 @@ body:has(.tm-sheet) {
   display: grid;
   min-width: 0;
 }
+.tm-standings .tm-who-name {
+  flex-wrap: wrap;
+  column-gap: var(--space-2);
+}
 .tm-standings .tm-who-sub {
   overflow: hidden;
   text-overflow: ellipsis;

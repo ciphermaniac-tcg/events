@@ -482,7 +482,9 @@ test('the standings mark the viewer’s own row, and say so when a search finds 
   await expect(page.locator('.tm-standings .tm-empty-row')).toHaveText('No players match.');
 });
 
-test('a phone’s standings wrap a long deck so a Dropped after it shows @mobile', async ({ page }) => {
+test('a phone’s standings show a Dropped beside the name, inside the cell, under a long deck @mobile', async ({
+  page
+}) => {
   await page.setViewportSize({ width: 390, height: 760 });
   const [player] = tdf.players;
   const dropped = { ...tdf, players: tdf.players.map(p => (p === player ? { ...p, droppedAfter: 1 } : p)) };
@@ -490,17 +492,18 @@ test('a phone’s standings wrap a long deck so a Dropped after it shows @mobile
   const decks = publicDecks({ [player!.id]: 'Raging Bolt ex Ogerpon ex Teal Mask' }, keys);
   await mockApi(page, { ...VIEW, tournament, decks });
   await page.goto(`/t/${CODE}?tab=standings`);
-  const sub = page.locator('.tm-standings tr').filter({ hasText: player!.lastName }).locator('.tm-who-sub');
-  await expect(sub.locator('.tm-flag')).toHaveText('Dropped');
-  // The deck and its flag run onto a line of their own rather than past the cell's end.
-  const fits = await sub.evaluate(line => {
-    const flag = line.querySelector('.tm-flag')!.getBoundingClientRect();
-    return line.scrollWidth <= line.clientWidth && flag.right <= line.getBoundingClientRect().right;
+  const who = page.locator('.tm-standings tr').filter({ hasText: player!.lastName }).locator('.tm-who');
+  await expect(who.locator('.tm-who-name .tm-flag')).toHaveText('Dropped');
+  // The flag and the deck under it end inside the cell rather than past it.
+  const fits = await who.evaluate(cell => {
+    const flag = cell.querySelector('.tm-flag')!.getBoundingClientRect();
+    const sub = cell.querySelector('.tm-who-sub')!;
+    return sub.scrollWidth <= sub.clientWidth && flag.right <= cell.getBoundingClientRect().right;
   });
   expect(fits).toBe(true);
 });
 
-test('a 320px phone’s standings show a long language’s Dropped whole under a wrapped deck @mobileOnly', async ({
+test('a 320px phone’s standings show a long language’s Dropped whole beside or under the name @mobileOnly', async ({
   page
 }) => {
   await page.setViewportSize({ width: 320, height: 640 });
@@ -510,16 +513,14 @@ test('a 320px phone’s standings show a long language’s Dropped whole under a
   const decks = publicDecks({ [player!.id]: 'Raging Bolt ex Ogerpon ex' }, keys);
   await mockApi(page, { ...VIEW, tournament, decks });
   await page.goto(`/t/${CODE}?tab=standings&lang=de`);
-  const sub = page.locator('.tm-standings tr').filter({ hasText: player!.lastName }).locator('.tm-who-sub');
-  await expect(sub.locator('.tm-flag')).toHaveText('Ausgestiegen');
-  // The flag starts where the deck does and ends inside the line, not cut off by it.
-  const box = await sub.evaluate(line => {
-    const outer = line.getBoundingClientRect();
-    const flag = line.querySelector('.tm-flag')!.getBoundingClientRect();
-    return { left: flag.left - outer.left, over: flag.right - outer.right };
+  const line = page.locator('.tm-standings tr').filter({ hasText: player!.lastName }).locator('.tm-who-name');
+  await expect(line.locator('.tm-flag')).toHaveText('Ausgestiegen');
+  // The flag ends inside the line, not cut off by it.
+  const over = await line.evaluate(node => {
+    const flag = node.querySelector('.tm-flag')!.getBoundingClientRect();
+    return flag.right - node.getBoundingClientRect().right;
   });
-  expect(box.left).toBeLessThan(1);
-  expect(box.over).toBeLessThanOrEqual(0);
+  expect(over).toBeLessThanOrEqual(0);
 });
 
 test('a phone’s deck stats keep the win rate in the box beside a long deck name @mobile', async ({ page }) => {
