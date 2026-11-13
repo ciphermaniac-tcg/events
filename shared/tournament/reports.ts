@@ -126,6 +126,23 @@ export function fileReport(reports: readonly PlayerReport[], report: PlayerRepor
   return [...reports.filter(r => r !== own), report];
 }
 
+/**
+ * Takes back a player's report of a match before it locks, as when they
+ * press their answer again: the match waits on them as if they had not
+ * reported, and their next report starts a window of its own.
+ */
+export function withdrawReport(
+  reports: readonly PlayerReport[],
+  report: MatchKey & { by: string },
+  now: number
+): PlayerReport[] | string {
+  const own = reports.find(r => sameMatch(r, report) && r.by === report.by);
+  if (own && isLocked(own, now)) {
+    return msg('Your report has locked; ask staff to change it');
+  }
+  return reports.filter(r => r !== own);
+}
+
 /** Whether both of a match's reports came from one device: one person speaking for both seats. */
 export const oneDevice = (a: Pick<PlayerReport, 'device'>, b: Pick<PlayerReport, 'device'>): boolean =>
   a.device !== undefined && a.device === b.device;

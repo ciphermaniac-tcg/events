@@ -4,7 +4,8 @@
  * Report result opens it into the panel of answers. The button they pressed
  * is the state: accented once reported, marked when the opponent says
  * otherwise, and fixed once the result stands. A report can change until it
- * locks (see shared/tournament/reports.ts). Before round 1 the strip says
+ * locks, and pressing its answer again takes it back (see
+ * shared/tournament/reports.ts). Before round 1 the strip says
  * they are registered; once the event ends, where they placed.
  *
  * The viewer says who they are once (see Identify), and the device
@@ -65,7 +66,6 @@ const NOTES = {
   /** Where agreeing reports settle the match, the opponent's report is what it waits on. */
   agrees: msg('It counts once your opponent reports the same. You can change it until then.'),
   agreesLocked: msg('Your report is locked in. It counts once your opponent reports the same.'),
-  agreesOpen: msg('If you and your opponent report the same result, it counts at once.'),
   disputed: msg('Your reports don’t match. If you pressed the wrong one, change it. Otherwise, find a judge.'),
   /** Once the report is locked there is nothing to change: only the judge is left. */
   disputedLocked: msg('Your reports don’t match. Find a judge.')
@@ -176,8 +176,12 @@ const CHOICES: { result: PlayerResult; label: string }[] = [
 /** The viewer's report of their match: where it stands and sending it; staff accept it. */
 function createReport(props: Props & { me: string }, found: () => Found | null) {
   const now = createNow();
-  /** The answer on its way to the server: its button reads as pressed from the press, not from the reply. */
-  const [sending, setSending] = createSignal<PlayerResult | null>(null);
+  /**
+   * The answer on its way to the server: its button reads as pressed from the
+   * press, not from the reply. 'none' is a report being taken back, which
+   * reads as no answer pressed.
+   */
+  const [sending, setSending] = createSignal<PlayerResult | 'none' | null>(null);
   const busy = () => sending() !== null;
   const [error, setError] = createSignal<string | null>(null);
   const state = () => {
@@ -187,17 +191,19 @@ function createReport(props: Props & { me: string }, found: () => Found | null) 
       : null;
   };
 
-  async function send(result: PlayerResult) {
+  /** Sends the answer, or with null takes the report back, which starts its window to change again. */
+  async function send(result: PlayerResult | null) {
     const { claim } = props;
     const shown = found();
     if (!claim || !shown) {
       return;
     }
     const match = { pod: shown.pod.category, round: shown.round.number, table: shown.match.table };
-    setSending(result);
+    setSending(result ?? 'none');
     setError(null);
     try {
-      props.onView((await reportAsPlayer(props.view.code, claim, { result, match }, props.reportToken)).view);
+      const body = result ? { result, match } : { withdraw: true as const, match };
+      props.onView((await reportAsPlayer(props.view.code, claim, body, props.reportToken)).view);
     } catch (err) {
       setError(errorText(err));
       // Not theirs to report (released, or linked elsewhere since), or the event moved on.
@@ -234,7 +240,7 @@ function ReportPanel(props: { report: Report; found: Found; settles: boolean }) 
   const note = () => {
     const state = s();
     if (!state?.chosen) {
-      return t(props.settles ? NOTES.agreesOpen : NOTES.open);
+      return props.settles ? null : t(NOTES.open);
     }
     if (state.disputed) {
       return t(state.locked ? NOTES.disputedLocked : NOTES.disputed);
@@ -265,9 +271,9 @@ function ReportPanel(props: { report: Report; found: Found; settles: boolean }) 
                   disabled={props.report.busy() || (fixed() && !on())}
                   aria-disabled={fixed() ? 'true' : undefined}
                   onClick={() => {
-                    // The answer already filed: sending it again would only restart its window to change.
-                    if (!fixed() && !on()) {
-                      void props.report.send(choice.result);
+                    // The answer already filed, pressed again, is taken back: nothing is reported until they answer anew.
+                    if (!fixed()) {
+                      void props.report.send(on() ? null : choice.result);
                     }
                   }}
                 >
@@ -284,7 +290,7 @@ function ReportPanel(props: { report: Report; found: Found; settles: boolean }) 
           {status()}
         </strong>
       </div>
-      <p class='tm-you-note muted'>{note()}</p>
+      <Show when={note()}>{text => <p class='tm-you-note muted'>{text()}</p>}</Show>
       <ErrorLine message={props.report.error()} />
     </div>
   );

@@ -3812,3 +3812,28 @@ test('a player who drops mid-round concedes an unreported Swiss match, and a rep
   const reported = await send(code, owner, { type: 'disqualifyPlayer', id: second!.p1 });
   assert.equal(reported.json.tournament.pods[0].rounds[0].matches[1].outcome, 'pending', 'a report waits for staff');
 });
+
+test('a player takes back their report by pressing it again, until it locks', async () => {
+  const owner = await signIn('Organizer', 'organizer');
+  mock.timers.enable({ apis: ['Date'], now: Date.now() });
+  const code = await newSwiss(owner);
+  await addPlayers(code, owner, 4);
+  const paired = await send(code, owner, { type: 'pairRound', pod: 'masters' });
+  await send(code, owner, { type: 'startClock', pod: 'masters' });
+  await settle(code, owner, { playerReporting: true });
+  const [match] = paired.json.tournament.pods[0].rounds[0].matches as Match[];
+  const phone = await phoneOf(code, match!.p1);
+  const withdraw = () =>
+    playerSays(code, {
+      popId: match!.p1,
+      withdraw: true,
+      device: `phone-${match!.p1}`,
+      reportToken: phone.said.json.reportToken
+    });
+  assert.equal((await phone.report('win')).json.view.reports.length, 1);
+  const taken = await withdraw();
+  assert.deepEqual([taken.status, taken.json.view.reports], [200, []]);
+  await phone.report('win');
+  mock.timers.tick(REPORT_WINDOW_MS);
+  assert.match((await withdraw()).json.error, /locked/);
+});

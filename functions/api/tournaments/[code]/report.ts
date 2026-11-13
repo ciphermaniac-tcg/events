@@ -5,6 +5,7 @@
  * the same result from two devices at a Swiss event that lets agreeing reports settle (agreedOutcome).
  * { expect } names the public key the page chose: a claim that resolves to anyone else is refused before
  * any seat or account write, so a fuzzy lookup's pick cannot become another player's seat.
+ * With { withdraw: true }, the reporting device takes back its report before it locks (withdrawReport).
  * With { request: 'drop' }, the reporting device asks staff to drop the player (requests.ts).
  * A claim another device holds is refused, so one device is the player at a time.
  * GET returns retained filing evidence to staff; DELETE releases a reporting seat.
@@ -23,7 +24,8 @@ import {
   type PlayerResult,
   reportableMatch,
   type ShownMatch,
-  stillShown
+  stillShown,
+  withdrawReport
 } from '../../../../shared/tournament/reports.js';
 import { isRequestKind, TOO_SOON } from '../../../../shared/tournament/requests.js';
 import type { PodCategory } from '../../../../shared/tournament/types.js';
@@ -83,15 +85,16 @@ function shownOf(value: unknown): ShownMatch | undefined {
 
 interface Filing {
   claim: PlayerClaim;
-  result: PlayerResult;
+  /** Null takes back the player's report (see withdrawReport). */
+  result: PlayerResult | null;
   shown: ShownMatch | undefined;
   device: string;
   account: string | null;
   claimedAt: number;
 }
 
-/** The player's report of their open match, or why they cannot report. */
-function readReport(row: TournamentRow, filing: Filing) {
+/** The player's open match, as their page showed it, or why they cannot report it. */
+function filedMatch(row: TournamentRow, filing: Filing) {
   const found = findPlayer(row.tournament, isSanctioned(row), filing.claim);
   if (!found.ok) {
     return found.error;
@@ -100,9 +103,27 @@ function readReport(row: TournamentRow, filing: Filing) {
   if (typeof open === 'string') {
     return open;
   }
-  return stillShown(open, filing.shown)
-    ? playerReport(open, found.id, filing.result, { at: Date.now(), device: filing.device })
-    : msg('Your pairing has changed; check your table');
+  return stillShown(open, filing.shown) ? { open, id: found.id } : msg('Your pairing has changed; check your table');
+}
+
+/** The player's report of their open match, or why they cannot report. */
+function readReport(row: TournamentRow, filing: Filing, result: PlayerResult) {
+  const filed = filedMatch(row, filing);
+  return typeof filed === 'string'
+    ? filed
+    : playerReport(filed.open, filed.id, result, { at: Date.now(), device: filing.device });
+}
+
+/** The player's report taken back, while it can still change. */
+function withdrawnChanges(row: TournamentRow, filing: Filing): Changes | string {
+  const filed = filedMatch(row, filing);
+  if (typeof filed === 'string') {
+    return filed;
+  }
+  const { pod, round, match } = filed.open;
+  const key = { pod: pod.category, round: round.number, table: match.table, p1: match.p1, p2: match.p2 };
+  const reports = withdrawReport(row.reports, { ...key, by: filed.id }, Date.now());
+  return typeof reports === 'string' ? reports : { reports };
 }
 
 /** Why players cannot report here, or null when they can. */
@@ -141,7 +162,10 @@ function reportChanges(row: TournamentRow, filing: Filing): Changes | string {
   if (closed) {
     return closed;
   }
-  const report = readReport(row, filing);
+  if (filing.result === null) {
+    return withdrawnChanges(row, filing);
+  }
+  const report = readReport(row, filing, filing.result);
   const reports = typeof report === 'string' ? report : fileReport(row.reports, report);
   return typeof reports === 'string' || typeof report === 'string'
     ? String(reports)
@@ -226,8 +250,9 @@ const answer = (row: TournamentRow, id: string, claim: Claim) =>
 
 /** Files the report, from the device that reports for the player, and publishes what it changed. */
 async function report(context: Context<'code'>, access: Access, body: Body, who: { claim: PlayerClaim; id: string }) {
-  const result = body.result as PlayerResult;
-  if (!PLAYER_RESULTS.includes(result)) {
+  // { withdraw: true } takes the report back, as pressing its answer again does.
+  const result = body.withdraw === true ? null : (body.result as PlayerResult);
+  if (result !== null && !PLAYER_RESULTS.includes(result)) {
     return jsonError('Not a result', 400);
   }
   const { db, row } = access;
@@ -358,7 +383,8 @@ export async function onRequestPost(context: Context<'code'>): Promise<Response>
     return access;
   }
   const body: Body = (await readJsonObject(context.request, 1024)) ?? {};
-  const refusal = body.result === undefined ? null : closedToReports(access.row.settings);
+  const files = body.result !== undefined || body.withdraw === true;
+  const refusal = files ? closedToReports(access.row.settings) : null;
   if (refusal) {
     return jsonError(refusal, 403);
   }
@@ -373,9 +399,7 @@ export async function onRequestPost(context: Context<'code'>): Promise<Response>
   if (body.request !== undefined) {
     return ask(context, access, body, found.id);
   }
-  return body.result === undefined
-    ? identify(access, body, found.id)
-    : report(context, access, body, { claim, id: found.id });
+  return files ? report(context, access, body, { claim, id: found.id }) : identify(access, body, found.id);
 }
 
 /** Staff retain the original claims and filed reports for later review, even after a result is accepted. */

@@ -439,11 +439,14 @@ const asPlayer = (code: string, claim: PlayerClaim, body: object, reportToken?: 
 export const identifyPlayer = (code: string, claim: PlayerClaim, reportToken?: string | null, expect?: string) =>
   asPlayer(code, claim, expect === undefined ? {} : { expect }, reportToken);
 
-/** A player reports the match their page shows, with the token of the device that reports for them. */
+/**
+ * A player reports the match their page shows, or takes their report back
+ * ({ withdraw: true }), with the token of the device that reports for them.
+ */
 export const reportAsPlayer = (
   code: string,
   claim: PlayerClaim,
-  report: { result: PlayerResult; match: ShownMatch },
+  report: { result: PlayerResult; match: ShownMatch } | { withdraw: true; match: ShownMatch },
   reportToken: string | null
 ) => asPlayer(code, claim, report, reportToken);
 

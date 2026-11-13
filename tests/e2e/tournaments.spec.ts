@@ -2715,3 +2715,68 @@ test('a list that fails to load can be asked for again', async ({ page }) => {
   await expect(sheet).toContainText('Handed in on paper.');
   expect(asked).toBe(2);
 });
+
+/** The fixture's first open table of the latest round. */
+const openTable = (view: TournamentView = VIEW) => {
+  const match = view.tournament.pods[0]?.rounds.at(-1)?.matches.find(m => m.p2 !== null && m.outcome === 'pending');
+  if (!match) {
+    throw new Error('the fixture has no open table');
+  }
+  return match;
+};
+
+/** This device already knows the viewer as `key`, as a lookup leaves it. */
+const knownAs = (page: Page, key: string) =>
+  page.addInitScript(([code, me]) => localStorage.setItem(`cm-tournament-me:${code}`, me ?? ''), [CODE, key]);
+
+test('a player presses their answer again to take the report back, and no line promises agreeing reports count', async ({
+  page
+}) => {
+  const open = openTable();
+  const view: TournamentView = {
+    ...VIEW,
+    mode: 'swiss',
+    settings: { ...VIEW.settings, playerReporting: true, agreedReportsSettle: true }
+  };
+  const round = view.tournament.pods[0]!.rounds.at(-1)!;
+  const filed = (): TournamentView => ({
+    ...view,
+    reports: [
+      {
+        pod: view.tournament.pods[0]!.category,
+        round: round.number,
+        table: open.table,
+        p1: open.p1,
+        p2: open.p2!,
+        by: open.p1,
+        outcome: 'p1',
+        at: Date.now()
+      }
+    ]
+  });
+  await page.addInitScript(
+    ([code, me]) => {
+      localStorage.setItem(`cm-tournament-me:${code}`, me ?? '');
+      localStorage.setItem(`cm-tournament-report:${code}`, 'device-token-0000001');
+      sessionStorage.setItem(`cm-tournament-player:${code}`, JSON.stringify({ lastName: 'Test' }));
+    },
+    [CODE, open.p1]
+  );
+  await mockApi(page, view);
+  const bodies: { result?: string; withdraw?: boolean }[] = [];
+  await page.route(`**/api/tournaments/${CODE}/report`, route => {
+    const body = route.request().postDataJSON() as (typeof bodies)[number];
+    bodies.push(body);
+    return route.fulfill({ json: { key: open.p1, view: body.result ? filed() : view, reporter: true } });
+  });
+  await page.goto(`/t/${CODE}`);
+  await page.getByRole('button', { name: 'Report result' }).click();
+  await expect(page.locator('.tm-you-note')).toHaveCount(0);
+  const won = page.getByRole('button', { name: 'I won', exact: true });
+  await won.click();
+  await expect(won).toHaveAttribute('aria-pressed', 'true');
+  await won.click();
+  await expect.poll(() => bodies.at(-1)).toMatchObject({ withdraw: true });
+  await expect(won).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.locator('.tm-you-status')).toHaveText('Not reported');
+});
