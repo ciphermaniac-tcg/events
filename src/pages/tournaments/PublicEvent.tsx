@@ -447,6 +447,9 @@ function createMe(view: () => TournamentView, events: { onView: (view: Published
   };
 }
 
+/** The tabs a phone keeps the player's table pinned on, once their strip scrolls away. */
+const PINS_MATCH: ReadonlySet<string> = new Set(['pairings', 'standings']);
+
 /** Every round paired so far, across the event's pods: one more each time any of them pairs. */
 const pairedRounds = (view: TournamentView) => view.tournament.pods.reduce((n, pod) => n + pod.rounds.length, 0);
 
@@ -748,6 +751,7 @@ function EventBody(props: {
           onIdentified={identified}
           onForget={forget}
           onWatch={watch}
+          pins={PINS_MATCH.has(tab())}
           onView={props.onView}
           onPlayer={setOpen}
           firstRound={firstRoundTime(props.view.settings.startsAt)}

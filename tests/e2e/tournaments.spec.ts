@@ -2766,6 +2766,23 @@ test('a spectator puts Which player are you away for the event, and This is me g
   await expect(page.getByRole('dialog').getByRole('button', { name: 'This is me' })).toHaveClass(/btn-ghost/);
 });
 
+test('on a phone the player’s table stays under the head once their strip scrolls away @mobileOnly', async ({
+  page
+}) => {
+  const open = openTable();
+  await knownAs(page, open.p1);
+  await mockApi(page);
+  await page.goto(`/t/${CODE}`);
+  await page.addStyleTag({ content: 'body { padding-bottom: 3000px; }' });
+  const pin = page.locator('.tm-you-pin');
+  await expect(pin).toHaveCount(0);
+  await page.evaluate(() => window.scrollTo(0, 1500));
+  await expect(pin).toContainText(`Table ${open.table}`);
+  await pin.click();
+  await expect(pin).toHaveCount(0);
+  await expect(page.locator('.tm-you')).toBeInViewport();
+});
+
 test('a player presses their answer again to take the report back, and no line promises agreeing reports count', async ({
   page
 }) => {

@@ -69,6 +69,37 @@
   font-size: var(--text-xl);
   font-weight: 800;
 }
+/* The strip's table, pinned under the head on a phone once the strip has scrolled away. */
+.tm-you-pin {
+  position: fixed;
+  top: var(--topnav-h);
+  right: 0;
+  left: 0;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 44px;
+  padding: 0 14px;
+  border: 0;
+  border-bottom: 1px solid var(--rule);
+  background: var(--surface);
+  color: var(--fg);
+  font: inherit;
+  font-size: var(--text-base);
+  text-align: left;
+}
+.tm-you-pin-vs {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tm-you-pin .tm-clock {
+  font-size: inherit;
+  font-weight: 600;
+}
 /* Extra time staff gave the table, named beside the clock it is already counted into. */
 .tm-you-clock {
   display: inline-flex;

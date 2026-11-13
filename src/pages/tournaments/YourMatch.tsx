@@ -17,7 +17,20 @@
 
 import { ordinal } from '../../lib/format';
 import { msg, t, tn } from '../../lib/i18n';
-import { createEffect, createMemo, createSignal, For, Match, on, Show, Suspense, Switch } from 'solid-js';
+import {
+  createEffect,
+  createMemo,
+  createSignal,
+  For,
+  Match,
+  on,
+  onCleanup,
+  onMount,
+  Show,
+  Suspense,
+  Switch
+} from 'solid-js';
+import { createMedia } from '../../lib/media';
 import { lazyPanel } from './lazyPanel';
 import type { PlayerClaim } from '../../../shared/tournament/identify';
 import type { PlayerResult } from '../../../shared/tournament/reports';
@@ -86,6 +99,8 @@ interface Props {
   onForget: () => void;
   /** A spectator puts the question away for the event (see PublicEvent's createMe). */
   onWatch?: () => void;
+  /** Whether a phone keeps the table in view once the strip scrolls under the head: on Pairings and Standings. */
+  pins?: boolean;
   onView: (view: PublishedView) => void;
   onPlayer?: (id: string) => void;
   /** The start of round 1, formatted, or null when unset. */
@@ -396,6 +411,56 @@ function MatchLine(props: Props & { me: string; found: Found; report: Report; op
   );
 }
 
+/** Whether `el` has scrolled up under the page's head, read as the page scrolls. */
+function createScrolledPast(el: () => HTMLElement | undefined) {
+  const [past, setPast] = createSignal(false);
+  onMount(() => {
+    const node = el();
+    if (!node) {
+      return;
+    }
+    const head = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--topnav-h')) || 0;
+    const observer = new IntersectionObserver(
+      ([entry]) => setPast(entry !== undefined && !entry.isIntersecting && entry.boundingClientRect.top < head),
+      { rootMargin: `-${head}px 0px 0px 0px` }
+    );
+    observer.observe(node);
+    onCleanup(() => observer.disconnect());
+  });
+  return past;
+}
+
+/**
+ * The strip's table in one line under the head, on a phone once the strip has
+ * scrolled away: the table and opponent, then the clock or how it went. A
+ * press goes back up to the strip; it never opens the answers.
+ */
+function PinnedMatch(props: Props & { me: string; found: Found; report: Report; onBack: () => void }) {
+  const opponent = () => (props.found.match.p1 === props.me ? props.found.match.p2 : props.found.match.p1);
+  const result = () => decided(props.report, props.found, props.me, props.view);
+  const where = () => {
+    const id = opponent();
+    if (!id) {
+      return isBye(props.found.match.outcome) ? t('Bye') : t('Missed round');
+    }
+    return t('Table {table}', { table: props.found.match.table });
+  };
+  return (
+    <button type='button' class='tm-you-pin' onClick={() => props.onBack()}>
+      <strong class='num'>{where()}</strong>
+      <span class='muted tm-you-pin-vs'>
+        <Show when={opponent()}>{id => ` · ${t('vs')} ${namesById(props.view.tournament).get(id()) ?? ''}`}</Show>
+      </span>
+      <Show
+        when={result()}
+        fallback={<Clock round={props.found.round} extraSeconds={props.found.match.timeExtension?.seconds} />}
+      >
+        {r => <strong>{t(SAID[r()])}</strong>}
+      </Show>
+    </button>
+  );
+}
+
 /** Where the viewer finished: their place in their division, record and points. */
 function placeOf(view: TournamentView, me: string) {
   const pod = podOf(view.tournament, me);
@@ -442,8 +507,17 @@ function MatchBox(props: Props & { me: string; askAs: PlayerClaim | null }) {
     const f = found();
     return f ? ownRecord(props.view, f, props.me) : null;
   };
+  let box: HTMLElement | undefined;
+  const phone = createMedia('(max-width: 640px)');
+  const past = createScrolledPast(() => box);
+  const pinned = () => (props.pins && phone() && past() ? found() : null);
   return (
-    <section class='tm-box tm-you' aria-label={t('Your match')}>
+    <section ref={box} class='tm-box tm-you' aria-label={t('Your match')}>
+      <Show when={pinned()}>
+        {f => (
+          <PinnedMatch {...props} found={f()} report={report} onBack={() => box?.scrollIntoView({ block: 'start' })} />
+        )}
+      </Show>
       <div class='tm-you-top'>
         <Switch
           fallback={
