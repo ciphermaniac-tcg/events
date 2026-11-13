@@ -59,7 +59,7 @@ import { eventTypeOf } from '../../../shared/tournament/structure';
 import type { LiveData } from '../../lib/tournament/liveData';
 import { LiveDataStatus } from './LiveDataStatus';
 import { DivisionClocks } from './DivisionClocks';
-import { leadDivision } from './clockOrder';
+import { extraTimeCaption, leadDivision } from './clockOrder';
 import { createClockNow, StaleSince } from './Clock';
 import { DeckIcons } from './DeckIcons';
 import { QrCode } from './QrCode';
@@ -181,15 +181,15 @@ const MARK_WORDS: Record<string, string> = { W: msg('Won'), L: msg('Lost'), T: m
  * The middle of a table: its number, with any extra time it has while it
  * plays, and once it has a result, each seat's mark facing its player.
  */
-function TableMiddle(props: { table: number; marks: [string, string]; extra?: number }) {
+function TableMiddle(props: { table: number; marks: [string, string]; extra?: { text: string; over: boolean } }) {
   return (
     <span class='tm-screen-mid'>
       <span class='tm-screen-table num'>{props.table || '—'}</span>
       <Show
         when={props.marks[0]}
         fallback={
-          <small classList={{ 'tm-screen-extra': Boolean(props.extra) }}>
-            {props.extra ? t('+{minutes} min', { minutes: props.extra / 60 }) : t('Table')}
+          <small classList={{ 'tm-screen-extra': Boolean(props.extra), 'is-over': props.extra?.over }}>
+            {props.extra?.text ?? t('Table')}
           </small>
         }
       >
@@ -217,6 +217,9 @@ function TableRows(props: { view: TournamentView; pod: Pod; round: Round; headin
   const seeds = createMemo(() =>
     props.round.kind === 'elimination' ? cutSeeds(props.view.tournament, props.pod) : new Map<string, number>()
   );
+  const now = createClockNow();
+  const extraOf = (match: Match) =>
+    match.timeExtension ? extraTimeCaption(props.round, match.timeExtension.seconds, now()) : undefined;
   /** W, L or T by each seat once its table has a result; a bye or a missed round is not a table. */
   const marks = (match: Match): [string, string] => {
     if (match.p2 === null) {
@@ -245,7 +248,7 @@ function TableRows(props: { view: TournamentView; pod: Pod; round: Round; headin
             return (
               <li classList={{ 'is-done': shown()[0] !== '' }}>
                 {seat(match.p1, shown()[0], '')}
-                <TableMiddle table={match.table} marks={shown()} extra={match.timeExtension?.seconds} />
+                <TableMiddle table={match.table} marks={shown()} extra={extraOf(match)} />
                 {seat(match.p2, shown()[1], isBye(match.outcome) ? t('Bye') : t('Missed round'))}
               </li>
             );

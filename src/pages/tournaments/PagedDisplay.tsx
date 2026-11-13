@@ -6,6 +6,8 @@ import type { TournamentView } from '../../../shared/tournament/view';
 import { displayCapacity, type DisplayRow, displayRows, type DisplaySize } from './displayLayout';
 import { markText, namesById, podLabel, seatMark, shownOutcome } from '../../lib/tournament/present';
 import { t } from '../../lib/i18n';
+import { createClockNow } from './Clock';
+import { extraTimeCaption } from './clockOrder';
 
 /**
  * Whole pages replace a crawl at large events. Each seat is listed separately
@@ -45,6 +47,7 @@ export function PagedDisplay(props: {
   const current = () => Math.min(Math.floor(first() / capacity().total), pages() - 1);
   const shown = () => rows().slice(current() * capacity().total, (current() + 1) * capacity().total);
   const names = createMemo(() => namesById(props.view.tournament));
+  const now = createClockNow();
   const result = (row: DisplayRow) => {
     const { outcome } = shownOutcome(row.match, row.pod, row.round, props.view.pending);
     if (props.options.layout === 'alphabetical') {
@@ -125,9 +128,14 @@ export function PagedDisplay(props: {
                   when={result(row)}
                   fallback={
                     <Show when={row.match.timeExtension?.seconds}>
-                      {seconds => (
-                        <small class='tm-screen-extra'>{t('+{minutes} min', { minutes: seconds() / 60 })}</small>
-                      )}
+                      {seconds => {
+                        const extra = () => extraTimeCaption(row.round, seconds(), now());
+                        return (
+                          <small class='tm-screen-extra' classList={{ 'is-over': extra().over }}>
+                            {extra().text}
+                          </small>
+                        );
+                      }}
                     </Show>
                   }
                 >

@@ -196,18 +196,21 @@ test('the stream counts its table’s extra time, and its clock stops once the t
   await expect(clock).toHaveCount(0);
 });
 
-test('the big screen marks the tables on extra time once the round’s time is out', async ({ page }) => {
+test('the big screen counts down the tables on extra time once the round’s time is out', async ({ page }) => {
   await page.setViewportSize({ width: 1920, height: 1080 });
   await page.clock.install({ time: NOW });
   await mockApi(page, extendedView());
   await page.goto(`/t/${CODE}?screen=1`);
   await expect(page.locator('.tm-screen-mid .tm-screen-extra')).toHaveCount(playing.length);
-  await expect(page.locator('.tm-screen-mid .tm-screen-extra').first()).toHaveText('+5 min');
+  // A minute over the round, with five more: about four left at each table, then that it is over.
+  await expect(page.locator('.tm-screen-mid .tm-screen-extra').first()).toHaveText(/^\+[34]:\d\d$/);
   // Time is called in words, not by a minus sign: the face says so, the caption says when.
   await expect(page.locator('.tm-screen-big-clock').getByRole('timer')).toHaveText('Time');
   await expect(page.locator('.tm-screen-big-clock p')).toHaveText(
     new RegExp(`^Called 1:\\d\\d ago · ${playing.length} tables on extra time$`)
   );
+  await page.clock.fastForward(5 * 60_000);
+  await expect(page.locator('.tm-screen-mid .tm-screen-extra').first()).toHaveText('Extra time over');
 });
 
 test('a paused stream clock says so in words', async ({ page }) => {

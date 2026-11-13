@@ -10,6 +10,8 @@ import { latestRound, secondsLeft } from '../../../shared/tournament/rounds';
 import type { Pod, Round } from '../../../shared/tournament/types';
 import { podLabel, podProgress, roundLabel } from '../../lib/tournament/present';
 import { stillPlaying } from '../../lib/tournament/spectate';
+import { clockTime } from '../../lib/tournament/clockState';
+import { t } from '../../lib/i18n';
 
 /** Where a division's latest round stands, for ordering its clock; not a clock's phase (see clockState). */
 export type DivisionState = 'running' | 'paused' | 'waiting' | 'done';
@@ -77,4 +79,18 @@ export function onExtraTime(clock: DivisionClock, pending: readonly PendingResul
   return clock.round.matches.filter(
     match => left + (match.timeExtension?.seconds ?? 0) > 0 && stillPlaying(match, context)
   ).length;
+}
+
+/**
+ * A table's extra time under its number on a room screen: "+3 min" while the
+ * round's clock still runs, then what is left of it once the round's is out,
+ * and then that it is over (`over`), by the arithmetic onExtraTime counts with.
+ */
+export function extraTimeCaption(round: Round, seconds: number, now: number): { text: string; over: boolean } {
+  const roundLeft = secondsLeft(round, now);
+  if (roundLeft > 0) {
+    return { text: t('+{minutes} min', { minutes: seconds / 60 }), over: false };
+  }
+  const left = roundLeft + seconds;
+  return left > 0 ? { text: `+${clockTime(left)}`, over: false } : { text: t('Extra time over'), over: true };
 }

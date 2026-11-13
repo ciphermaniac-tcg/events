@@ -6,7 +6,7 @@ import test from 'node:test';
 import { parseTdf } from '../../shared/tournament/tdf.ts';
 import type { Pod, PodCategory, Round } from '../../shared/tournament/types.ts';
 import type { PendingResult } from '../../shared/tournament/view.ts';
-import { divisionClocks, leadDivision, onExtraTime } from '../../src/pages/tournaments/clockOrder.ts';
+import { divisionClocks, extraTimeCaption, leadDivision, onExtraTime } from '../../src/pages/tournaments/clockOrder.ts';
 
 const fixture = parseTdf(readFileSync(new URL('../fixtures/tdf/challenge-midevent.tdf', import.meta.url), 'utf8'));
 const base = fixture.pods[0]!;
@@ -84,4 +84,16 @@ test('once the round clock is out, only tables still playing with extra time lef
 test('the lead division is the leading clock’s, and none without a round', () => {
   assert.equal(leadDivision([pod('masters', waiting), pod('senior', running(2322))], [], NOW), 'senior');
   assert.equal(leadDivision([{ ...base, rounds: [] }], [], NOW), undefined);
+});
+
+test('a table’s extra time reads as minutes while the round runs, then counts down, then says it is over', () => {
+  const round = { ...base.rounds.at(-1)!, ...running(60) };
+  assert.deepEqual(
+    [0, 120_000, 300_000].map(after => extraTimeCaption(round, 180, NOW + after)),
+    [
+      { text: '+3 min', over: false },
+      { text: '+2:00', over: false },
+      { text: 'Extra time over', over: true }
+    ]
+  );
 });

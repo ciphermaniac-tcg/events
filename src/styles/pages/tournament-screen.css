@@ -261,6 +261,13 @@
 .tm-screen-mid small.tm-screen-extra,
 .tm-screen-dense-table small.tm-screen-extra {
   color: var(--accent-ink);
+  font-variant-numeric: tabular-nums;
+}
+/* Once a table's extra time is spent, it says so in ink: not the accent of time still to play. */
+.tm-screen-mid small.tm-screen-extra.is-over,
+.tm-screen-dense-table small.tm-screen-extra.is-over {
+  color: var(--fg);
+  font-weight: 600;
 }
 .tm-screen-tables li.is-done .tm-screen-table {
   color: var(--muted);
