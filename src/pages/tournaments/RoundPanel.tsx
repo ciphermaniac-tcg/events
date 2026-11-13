@@ -221,9 +221,8 @@ function reportsByTable(reports: readonly PlayerReport[], pod: Pod, round: Round
 
 /**
  * What stands for a match, on one line: Open, or what the players reported,
- * then the controls in fixed slots so Tie, Double loss and the last slot line
- * up down the column. The last slot is Clear once a result stands, or Accept
- * while one report waits: the two never meet.
+ * with Clear once a result stands or Accept while one report waits right
+ * after it (the two never meet), and the table's menu last, at the row's end.
  */
 function StandingResult(props: ResultProps) {
   // A result on its way shows as sent, so the row does not read Open for as long as the answer takes.
@@ -265,6 +264,9 @@ function StandingResult(props: ResultProps) {
           <Icon name='chevron-right' />
         </button>
       </Show>
+      <Show when={props.takesResults}>
+        <ResultSlot {...props} open={open()} />
+      </Show>
       <span class='tm-result-acts' classList={{ 'is-locked': props.locked || Boolean(props.onOpen) }}>
         <Show when={even() || props.onTimeExtension}>
           <OptionsMenu name={t('table {table}', { table: props.match.table })} busy={props.locked} closeOnSelect>
@@ -283,9 +285,6 @@ function StandingResult(props: ResultProps) {
             </Show>
           </OptionsMenu>
         </Show>
-        <Show when={props.takesResults}>
-          <ResultSlot {...props} open={open()} />
-        </Show>
       </span>
     </div>
   );
@@ -294,7 +293,7 @@ function StandingResult(props: ResultProps) {
 /** The row's last control: Clear once a result stands, or Accept while one report waits. */
 function ResultSlot(props: ResultProps & { open: boolean }) {
   return (
-    <span class='tm-result-slot'>
+    <span class='tm-result-slot' classList={{ 'is-locked': props.locked || Boolean(props.onOpen) }}>
       <Show
         when={props.open}
         fallback={

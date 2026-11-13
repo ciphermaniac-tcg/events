@@ -604,9 +604,15 @@
   justify-content: flex-end;
   gap: 2px;
 }
+/* The table's menu keeps the row's last column, so it lines up down the round whatever stands before it. */
+.tm-console .tm-result:not(.is-asking, .is-unsaved) > .tm-result-acts {
+  grid-column: 4;
+}
 .tm-console .tm-result-slot {
   display: inline-flex;
-  min-width: 68px;
+}
+.tm-console .tm-result-slot:empty {
+  display: none;
 }
 .tm-console .tm-add-row {
   align-items: end;
@@ -1049,7 +1055,7 @@
     padding-left: 0;
   }
 }
-.tm-console .tm-result-acts.is-locked {
+.tm-console :is(.tm-result-acts, .tm-result-slot).is-locked {
   display: none;
 }
 .tm-console {
@@ -1170,7 +1176,7 @@
 }
 .tm-console .tm-result {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, max-content) auto minmax(0, 1fr) auto;
   align-items: center;
   white-space: normal;
   gap: 2px 8px;
@@ -1309,8 +1315,7 @@
 }
 @media (min-width: 901px) {
   .tm-console .tm-matches .tm-result {
-    grid-template-columns: max-content max-content;
-    justify-content: space-between;
+    grid-template-columns: max-content auto minmax(0, 1fr) auto;
   }
   .tm-console .tm-matches .tm-result-acts {
     margin-left: 0;
