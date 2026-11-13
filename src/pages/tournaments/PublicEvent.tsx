@@ -447,6 +447,9 @@ function createMe(view: () => TournamentView, events: { onView: (view: Published
   };
 }
 
+/** Every round paired so far, across the event's pods: one more each time any of them pairs. */
+const pairedRounds = (view: TournamentView) => view.tournament.pods.reduce((n, pod) => n + pod.rounds.length, 0);
+
 /** Whether the form takes lists: before round 1, or from a late entrant in their round (see lateListsOpen). */
 const takingLists = (view: TournamentView) => decklistsOpen(view) || lateListsOpen(view);
 
@@ -647,11 +650,12 @@ function EventBody(props: {
   );
   const round = createMemo(() => pod()?.rounds.find(r => r.number === roundChoice()) ?? latestRound(pod()));
   const names = createMemo(() => namesById(props.view.tournament));
-  // Locked once round 1 pairs, so one read serves the page; a failed one leaves the names unmarked.
+  // Read again as each round pairs, in any pod, which is when a late entrant's list goes public (see lateLists.ts);
+  // a failed read leaves the names unmarked.
   const [listed] = createResource(
-    () => listsPublic(props.view) && props.view.code,
-    code =>
-      fetchListReaders(code).then(
+    () => listsPublic(props.view) && [props.view.code, pairedRounds(props.view)].join(' '),
+    key =>
+      fetchListReaders(key.split(' ')[0] ?? '').then(
         answer => new Set(answer.players),
         () => NO_LISTS
       )
