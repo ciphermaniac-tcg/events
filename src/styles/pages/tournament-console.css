@@ -480,6 +480,12 @@
   .tm-console .tm-round-pin .tm-clock-group {
     flex: auto;
   }
+  .tm-console .tm-round-pin .tm-pin-search {
+    flex: 1 0 100%;
+    min-width: 0;
+    height: 44px;
+    font-size: 16px;
+  }
   .tm-console .tm-grow {
     display: none;
   }

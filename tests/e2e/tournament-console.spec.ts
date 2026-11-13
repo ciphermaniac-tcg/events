@@ -2816,3 +2816,11 @@ test('a player’s sheet opens from standings and the roster, with their table, 
   await sheet.getByRole('button', { name: 'Close', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Test, Player1', exact: true })).toBeFocused();
 });
+
+test('on a phone the pinned round bar keeps the room search, a table number finding its table @mobileOnly', async ({
+  page
+}) => {
+  await mockConsole(page, event(16, 0, true), settingsOf({}));
+  await page.locator('.tm-round-pin').getByRole('searchbox', { name: 'Find a table or player' }).fill('3');
+  await expect(page.locator('.tm-matches tbody tr:not(.tm-group-row) td.tm-table-col')).toHaveText(['3']);
+});

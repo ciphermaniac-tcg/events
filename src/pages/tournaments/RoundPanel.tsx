@@ -453,12 +453,14 @@ function RoundBar(props: RoundBarProps) {
   );
 }
 
-/** A phone's pinned bar: the round, and its clock while it runs, kept in reach as the tables scroll. */
+/** A phone's pinned bar: the round, its clock while it runs, and the room's search, kept in reach as the tables scroll. */
 function RoundPin(props: {
   state: ManageState;
   pod: Pod;
   round: Round;
   clocked: boolean;
+  query: string;
+  onQuery: (value: string) => void;
   onPick: (n: number) => void;
 }) {
   // Mounted on a phone only, so a wider screen does not run a second clock.
@@ -470,6 +472,16 @@ function RoundPin(props: {
         <Show when={props.clocked}>
           <ClockControls state={props.state} pod={props.pod} round={props.round} />
         </Show>
+        {/* Selected on focus, so the next table's number replaces the last one's. */}
+        <input
+          class='search tm-pin-search'
+          type='search'
+          placeholder={t('Table or player')}
+          aria-label={t('Find a table or player')}
+          value={props.query}
+          onInput={e => props.onQuery(e.currentTarget.value)}
+          onFocus={e => e.currentTarget.select()}
+        />
       </div>
     </Show>
   );
@@ -875,6 +887,8 @@ export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod
                 pod={props.pod}
                 round={r()}
                 clocked={timed() && r().status !== 'finished' && !props.manage.settings.finished}
+                query={query()}
+                onQuery={setQuery}
                 onPick={setPicked}
               />
               <RoundBar
