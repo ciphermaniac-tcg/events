@@ -586,10 +586,14 @@ test('after the planned rounds the step is the top cut, set in a dialog, with an
     dialog.getByRole('radiogroup', { name: 'Top cut size' }).getByRole('radio', { checked: true })
   ).toHaveText('Top 4');
   await dialog.getByRole('radio', { name: 'Top 8' }).click();
-  await dialog.getByLabel('Third place match').check();
+  // Who that takes, and the first left out, before anything starts; no match for third is offered.
+  await expect(dialog.locator('.tm-cut-seeds li')).toHaveCount(8);
+  await expect(dialog.locator('.tm-cut-preview-head')).toContainText('The 8 in this cut');
+  await expect(dialog.locator('.tm-cut-preview-head')).toContainText(/9th .+ \d+-\d+-\d+ is out/);
+  await expect(dialog.getByRole('checkbox')).toHaveCount(0);
   await dialog.getByRole('button', { name: 'Start top 8 cut' }).click();
   await expect(dialog).toBeHidden();
-  await expect.poll(() => sent.at(-1)).toMatchObject({ type: 'startTopCut', size: 8, playoff3rd4th: true });
+  await expect.poll(() => sent.at(-1)).toEqual({ type: 'startTopCut', pod: 'masters', size: 8 });
 });
 
 function prerelease(rounds: number): Tournament {

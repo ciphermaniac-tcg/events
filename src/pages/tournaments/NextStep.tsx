@@ -3,18 +3,21 @@
  * step the plan suggests (pair the next round, start the top cut, end the
  * event) with a caret beside it that offers the others. Pairing happens at
  * once, since a round nobody has played can still be deleted, unless a drop
- * request is open (see dropGate); the top cut asks its size and third-place
- * match in a dialog, and ending, or concluding a Prerelease pod, asks first.
+ * request is open (see dropGate); the top cut asks its size in a dialog that
+ * names who it takes, and ending, or concluding a Prerelease pod, asks first.
  */
 
 import { createMemo, createSignal, For, Show } from 'solid-js';
 import { finalPodRound, prereleaseChoiceAvailable } from '../../../shared/tournament/lifecycleWorkflow';
-import { latestRound } from '../../../shared/tournament/rounds';
+import { divisionLookup } from '../../../shared/tournament/divisions';
+import { latestRound, regularRounds } from '../../../shared/tournament/rounds';
+import { recordLabel, swissStandings } from '../../../shared/tournament/standings';
 import { eventTypeOf, TOP_CUT_SIZES } from '../../../shared/tournament/structure';
 import { type Division, DIVISION_LABELS, type Pod } from '../../../shared/tournament/types';
 import { type Manage, saveSettings } from '../../lib/tournament/api';
-import { type DivisionCut, podLabel } from '../../lib/tournament/present';
-import { endGaps } from '../../lib/tournament/staff';
+import { type DivisionCut, namesById, podLabel } from '../../lib/tournament/present';
+import { cutSplit, endGaps } from '../../lib/tournament/staff';
+import { ordinal } from '../../lib/format';
 import { Segmented } from '@ciphermaniac/design/components/Segmented';
 import { Icon } from '@ciphermaniac/design/components/Icon';
 import { ConfirmDialog } from './ConfirmAction';
@@ -37,13 +40,81 @@ const largestCut = (active: number) => TOP_CUT_SIZES.filter(n => n <= Math.min(8
 const suggestedCut = (entry: DivisionCut | undefined) => (entry ? entry.cut || largestCut(entry.active) : 2);
 
 /**
- * The top cut's dialog: the division (when more than one is left to cut), the
- * size and the third-place match, then the button that starts it. `cuts` are
- * the divisions the pod plays that have yet to cut; in a pod of several
+ * Who a cut of `size` takes from a division, as the cut seeds it: the players
+ * still in, by Swiss place in each flight, the flights taking turns. In a pod
+ * of one flight, `out` is the first left out and `why` what put the last one
+ * in above them; `all` says nobody still in is left out.
+ */
+function cutPreview(manage: Manage, pod: Pod, division: Division, size: number) {
+  const of = divisionLookup(manage.tournament);
+  const flights = pod.flights ?? [{ number: 1, playerIds: pod.playerIds }];
+  const per = size / flights.length;
+  const ranked = flights.map(flight =>
+    swissStandings(pod, manage.tournament.players, {
+      only: new Set(flight.playerIds.filter(id => of(id) === division)),
+      regularRounds: regularRounds(manage.tournament, pod),
+      noRecord: new Set(pod.lostRecords)
+    }).filter(row => !row.dropped)
+  );
+  const seeds = Array.from({ length: per }, (_, index) => ranked.flatMap(rows => rows.slice(index, index + 1)));
+  const single = ranked.length === 1 ? ranked[0]! : null;
+  return {
+    seeds: seeds.flat(),
+    out: single?.[size] ?? null,
+    why: single && cutSplit(single, size),
+    all: ranked.every(rows => rows.length <= per)
+  };
+}
+
+/** The seeds the size picked takes, and the bubble, before anything is committed. */
+function CutPreview(props: { manage: Manage; pod: Pod; division: Division; size: number }) {
+  const preview = createMemo(() => cutPreview(props.manage, props.pod, props.division, props.size));
+  const names = createMemo(() => namesById(props.manage.tournament));
+  const bubble = () => {
+    const { out, why, all } = preview();
+    if (all) {
+      return t('Everyone still in makes this cut.');
+    }
+    if (!out) {
+      return '';
+    }
+    const line = t('{place} {name} {record} is out', {
+      place: ordinal(props.size + 1),
+      name: names().get(out.playerId) ?? out.playerId,
+      record: recordLabel(out.record)
+    });
+    return why ? `${line} · ${why}` : line;
+  };
+  return (
+    <div class='tm-cut-preview'>
+      <p class='tm-cut-preview-head'>
+        <span>{t('The {n} in this cut', { n: preview().seeds.length })}</span>
+        <span class='num'>{bubble()}</span>
+      </p>
+      <ol class='tm-cut-seeds'>
+        <For each={preview().seeds}>
+          {(row, index) => (
+            <li>
+              <span class='muted num'>{index() + 1}</span>
+              <span class='tm-name'>{names().get(row.playerId) ?? row.playerId}</span>
+              <span class='muted num'>{recordLabel(row.record)}</span>
+            </li>
+          )}
+        </For>
+      </ol>
+    </div>
+  );
+}
+
+/**
+ * The top cut's dialog: the division (when more than one is left to cut) and
+ * the size, who that takes, then the button that starts it. `cuts` are the
+ * divisions the pod plays that have yet to cut; in a pod of several
  * (`divided`) each cuts on its own.
  */
 function CutDialog(props: {
   state: ManageState;
+  manage: Manage;
   pod: Pod;
   cuts: readonly DivisionCut[];
   divided: boolean;
@@ -61,16 +132,8 @@ function CutDialog(props: {
   };
   const sizes = () =>
     TOP_CUT_SIZES.filter(n => n <= (entry()?.active ?? 0)).map(n => ({ value: String(n), label: t('Top {n}', { n }) }));
-  // Optional, and announced before the cut starts; it needs two semifinal losers.
-  const [thirdPlace, setThirdPlace] = createSignal(false);
-  const playsThird = () => thirdPlace() && size() >= 4;
   function start() {
-    const cut = {
-      type: 'startTopCut' as const,
-      pod: props.pod.category,
-      size: size(),
-      ...(playsThird() ? { playoff3rd4th: true } : {})
-    };
+    const cut = { type: 'startTopCut' as const, pod: props.pod.category, size: size() };
     const which = entry()?.division;
     props.onClose();
     void props.state.send(props.divided && which ? { ...cut, division: which } : cut);
@@ -102,11 +165,8 @@ function CutDialog(props: {
             ariaLabel={t('Top cut size')}
           />
         </div>
-        <Show when={size() >= 4}>
-          <label class='tm-check'>
-            <input type='checkbox' checked={thirdPlace()} onChange={e => setThirdPlace(e.currentTarget.checked)} />
-            {t('Third place match')}
-          </label>
+        <Show when={entry()}>
+          {cut => <CutPreview manage={props.manage} pod={props.pod} division={cut().division} size={size()} />}
         </Show>
       </div>
       <div class='tm-box-bar tm-modal-foot'>
@@ -276,6 +336,7 @@ export function RoundEndSplit(props: {
       <Show when={canCut()}>
         <CutDialog
           state={props.state}
+          manage={props.manage}
           pod={props.pod}
           cuts={open()}
           divided={props.cuts.length > 1}

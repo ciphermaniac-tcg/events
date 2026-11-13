@@ -1115,7 +1115,6 @@
   "There’s no event with the code {code}. Check the code with your organizer, or look for the event by name.": "Aucun tournoi n’a le code {code}. Vérifie le code auprès de ton organisateur, ou cherche le tournoi par son nom.",
   "They dropped before round {round} was paired, so they can’t come back now": "Ce joueur a abandonné avant l’appariement de la ronde {round} : il ne peut plus revenir",
   "Third place": "Troisième place",
-  "Third place match": "Match pour la 3e place",
   "This address doesn’t match anything on Ciphermaniac Events. It may have moved, or the link may be mistyped.": "Cette adresse ne correspond à rien sur Ciphermaniac Events. La page a peut-être été déplacée, ou le lien contient une faute de frappe.",
   "This application asks for no store; reject it so they can apply again": "Cette demande ne précise aucune boutique ; refuse-la pour que la personne puisse refaire une demande",
   "This browser cannot follow files": "Ce navigateur ne peut pas surveiller les modifications d’un fichier",
