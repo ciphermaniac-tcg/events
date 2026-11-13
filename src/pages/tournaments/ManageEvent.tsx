@@ -470,6 +470,7 @@ function Console(props: { state: ReturnType<typeof createManage>; manage: Manage
       <Show when={tom}>{link => <ErrorLine message={link().error()} />}</Show>
       <Show when={pods().length > 1 && (tab() === 'round' || tab() === 'standings')}>
         <Segmented
+          class='tm-pod-switch'
           options={pods().map(p => ({ value: p.category, label: podLabel(p) }))}
           selected={pod()?.category ?? 'masters'}
           onSelect={setPodChoice}

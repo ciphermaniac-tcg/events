@@ -257,6 +257,11 @@
   font-size: var(--text-base);
 }
 
+/* The division switch above Pairings and Standings, set off from the box under it. */
+.tm-console .tm-pod-switch {
+  margin-bottom: var(--space-3);
+}
+
 /* ---------- The round's box ---------- */
 /* Previous round, the picker, next round: one control, drawn as one. */
 .tm-console .tm-filter-bar .search {
