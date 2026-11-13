@@ -457,7 +457,9 @@ const takingLists = (view: TournamentView) => decklistsOpen(view) || lateListsOp
  */
 function decklistTab(view: TournamentView, mayHaveList: boolean): { value: Tab; label: string }[] {
   if (takingLists(view)) {
-    return [{ value: 'decklist', label: mayHaveList ? t('Registration') : t('Register') }];
+    // After round 1, only a late entrant can still send a list: a newcomer is not offered to register.
+    const fresh = decklistsOpen(view) ? t('Register') : t('Late decklist');
+    return [{ value: 'decklist', label: mayHaveList ? t('Registration') : fresh }];
   }
   return view.settings.decklists !== 'off' && mayHaveList ? [{ value: 'decklist', label: t('Registration') }] : [];
 }

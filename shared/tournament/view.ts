@@ -628,6 +628,8 @@ export interface Decklist extends PlayerProfile {
   late: boolean;
   /** Only the device that sent it can replace it, until staff unlock it. */
   locked: boolean;
+  /** Whether its player may still send or replace it now (see decklistOpenFor). */
+  editable: boolean;
 }
 
 /** A name as a lookup answers with it. */

@@ -53,6 +53,8 @@ export interface RegistrationProps {
   mine: Decklist | null;
   /** Whether a registration may be withdrawn now: only before round 1 is paired (see decklistsOpen). */
   withdrawable: boolean;
+  /** A line over the first step, saying who the form is still open to. */
+  note?: string;
 }
 
 type Step = 'lookup' | 'prove' | 'pick' | 'new' | 'edit' | 'withdrawn';
@@ -393,7 +395,7 @@ function YearField(props: { form: Registration; onEnter?: () => void; opens?: bo
 }
 
 /** Step one: the Player ID, or at an unsanctioned event the name, and Continue. */
-function Lookup(props: { form: Registration; sanctioned: boolean }) {
+function Lookup(props: { form: Registration; sanctioned: boolean; note?: string }) {
   const f = () => props.form;
   const ready = () =>
     props.sanctioned
@@ -407,6 +409,7 @@ function Lookup(props: { form: Registration; sanctioned: boolean }) {
   return (
     <section class='tm-box tm-reg'>
       <div class='tm-box-bar tm-reg-stack'>
+        <Show when={props.note}>{note => <p class='tm-reg-note'>{note()}</p>}</Show>
         <Show when={props.sanctioned} fallback={<NameFields form={f()} onEnter={go} />}>
           <Field id='reg-pop' label={t('Player ID')} tip={<PlayerIdTip />}>
             <PlayerIdInput
@@ -823,7 +826,7 @@ export function RegistrationForm(props: RegistrationProps) {
       </p>
       <Switch>
         <Match when={form.step() === 'lookup'}>
-          <Lookup form={form} sanctioned={props.sanctioned} />
+          <Lookup form={form} sanctioned={props.sanctioned} note={props.note} />
         </Match>
         <Match when={form.step() === 'prove'}>
           <Prove form={form} />

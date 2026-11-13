@@ -114,7 +114,7 @@ interface DecklistRow {
 }
 
 /** A list as stored, before it is checked against the roster (see presenter). */
-type Stored = Omit<Decklist, 'problems' | 'registered' | 'fromList' | 'late'>;
+type Stored = Omit<Decklist, 'problems' | 'registered' | 'fromList' | 'late' | 'editable'>;
 
 const deckMode = (value: unknown): DeckMode | null => (value === 'paper' || value === 'digital' ? value : null);
 
@@ -148,7 +148,8 @@ function presenter(row: TournamentRow) {
       problems: list.deck ? parseDecklist(list.deck).problems : [],
       registered: player !== undefined,
       fromList: player?.fromList === true,
-      late: enteredLate(row.tournament, player?.id ?? null)
+      late: enteredLate(row.tournament, player?.id ?? null),
+      editable: decklistOpenFor(row, player?.id ?? null)
     };
   };
 }

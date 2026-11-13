@@ -143,3 +143,49 @@ test('a list sent without an answer stays this device’s to change', async ({ p
   await expect(page.getByText('Couldn’t reach the site. Check your connection.')).toBeVisible();
   expect(await page.evaluate(code => localStorage.getItem(`cm-decklist:${code}`), CODE)).toContain('"token"');
 });
+
+test('during a late entrant’s window a locked list stays a receipt, and a newcomer is told who can still send', async ({
+  page
+}) => {
+  await mockEvent(page, () => publish(rounds().round2));
+  await page.goto(`/t/${CODE}?tab=decklist`);
+  await expect(page.getByRole('tab', { name: 'Late decklist' })).toBeVisible();
+  await expect(
+    page.getByText('Round 1 has started. Only a player already in the event can send a late list.')
+  ).toBeVisible();
+  // Ana's device sent her list before round 1: it locked then, whoever else may still send one.
+  await page.addInitScript(code => {
+    localStorage.setItem(`cm-decklist:${code}`, JSON.stringify({ token: 'ana-device-token-000001' }));
+    sessionStorage.setItem(
+      `cm-decklist:${code}`,
+      JSON.stringify({ popId: '1', firstName: 'Ana', lastName: 'Player', birthDate: '02/27/1998' })
+    );
+  }, CODE);
+  await page.route(`**/api/tournaments/${CODE}/decklists**`, route =>
+    route.fulfill({
+      json: {
+        known: true,
+        player: { firstName: 'Ana', lastName: 'Player' },
+        mine: {
+          popId: '1',
+          firstName: 'Ana',
+          lastName: 'Player',
+          birthDate: '02/27/1998',
+          deck: DECK,
+          mode: 'digital',
+          archetype: null,
+          submittedAt: 0,
+          problems: [],
+          registered: true,
+          fromList: false,
+          late: false,
+          locked: true,
+          editable: false
+        }
+      }
+    })
+  );
+  await page.reload();
+  await expect(page.getByText('Registration closed when round 1 was paired.')).toBeVisible();
+  await expect(page.getByRole('textbox', { name: 'Decklist' })).toHaveCount(0);
+});

@@ -135,11 +135,16 @@ function Receipt(props: FormProps & { list: MyList }) {
   );
 }
 
+/** Said over the form after round 1, to a viewer with no list: only a late entrant can still send one. */
+const LATE_NOTE = msg('Round 1 has started. Only a player already in the event can send a late list.');
+
 export function DecklistForm(props: FormProps) {
   const list = createMyList(props);
+  // After round 1 a list held stays a receipt unless its own player may still send it; one not held may be theirs.
+  const editable = () => props.withdrawable || (list.current()?.editable ?? true);
   return (
     <Show when={list.state() === 'known'} fallback={<ListStatus list={list} />}>
-      <Show when={props.open} fallback={<Receipt {...props} list={list} />}>
+      <Show when={props.open && editable()} fallback={<Receipt {...props} list={list} />}>
         {/* Made again for each list read: another owner's list is another player's registration. */}
         <Show when={[list.current()] as const} keyed>
           {([mine]) => (
@@ -151,6 +156,7 @@ export function DecklistForm(props: FormProps) {
               full={props.full}
               mine={mine}
               withdrawable={props.withdrawable}
+              note={props.withdrawable || mine ? undefined : t(LATE_NOTE)}
             />
           )}
         </Show>
