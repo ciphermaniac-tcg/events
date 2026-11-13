@@ -10,12 +10,21 @@
  * names twice. A TOM event pairs in TOM, so it gets the count, and a warning
  * if TOM's round 1 came in with anyone still open.
  *
+ * Anyone TOM's file lists stands ticked In TOM, and that box is locked.
+ *
  * Each tick and drop is saved on its own: only the box or button on its way
  * waits, so a desk working through a line never loses a click to another.
  */
 
 import { createResource, createSignal, For, Show } from 'solid-js';
-import { type CheckMark, marksFor, notCheckedIn, openMarks } from '../../../shared/tournament/checkins';
+import {
+  type CheckMark,
+  inTomFile,
+  marksFor,
+  notCheckedIn,
+  openMarks,
+  standing
+} from '../../../shared/tournament/checkins';
 import { hasStarted } from '../../../shared/tournament/rounds';
 import { type Player, playerName } from '../../../shared/tournament/types';
 import { fetchDecklists, type Manage, saveCheckIn } from '../../lib/tournament/api';
@@ -37,6 +46,9 @@ const MARK_ACTIONS: Partial<Record<CheckMark, string>> = {
 };
 
 const checkins = (manage: Manage) => manage.checkins ?? {};
+
+/** A player's check-in as it stands, In TOM included for anyone TOM's file lists. */
+const heldBy = (manage: Manage, id: string) => standing(manage, checkins(manage), id);
 
 /** Above this many players still open, the list above the roster is only counted. */
 const LISTED_MAX = 10;
@@ -106,7 +118,7 @@ export const showsCheckIn = (manage: Manage) => !hasStarted(manage.tournament) &
 
 export function CheckInHeads(props: { manage: Manage; players: readonly Player[] }) {
   const active = () => props.players.filter(player => player.droppedAfter === null);
-  const ticked = (mark: CheckMark) => active().filter(player => checkins(props.manage)[player.id]?.[mark]).length;
+  const ticked = (mark: CheckMark) => active().filter(player => heldBy(props.manage, player.id)?.[mark]).length;
   return (
     <For each={checkColumns(props.manage)}>
       {mark => (
@@ -121,16 +133,17 @@ export function CheckInHeads(props: { manage: Manage; players: readonly Player[]
   );
 }
 
-/** One check's box for a player, saved on its own as it is ticked (see ticked). */
+/** One check's box for a player, saved on its own as it is ticked (see ticked); In TOM is locked for anyone TOM's file lists. */
 function CheckBox(props: { state: ManageState; manage: Manage; id: string; name: string; mark: CheckMark }) {
-  const held = () => checkins(props.manage)[props.id];
+  const held = () => heldBy(props.manage, props.id);
+  const locked = () => props.mark === 'tom' && inTomFile(props.manage, props.id);
   return (
     <label class='tm-check-cell'>
       <input
         type='checkbox'
         class='tm-check-box'
         checked={held()?.[props.mark] === true}
-        disabled={isSaving(props.id, props.mark)}
+        disabled={locked() || isSaving(props.id, props.mark)}
         aria-label={`${t(MARK_LABELS[props.mark])}: ${props.name}`}
         onChange={e => {
           const box = e.currentTarget;
@@ -183,7 +196,7 @@ function Blocker(props: { state: ManageState; manage: Manage; player: Player }) 
     <li>
       <span>{name()}</span>
       <OptionsMenu name={name()}>
-        <For each={openMarks(props.manage, checkins(props.manage)[props.player.id])}>
+        <For each={openMarks(props.manage, heldBy(props.manage, props.player.id))}>
           {mark => (
             <Show when={MARK_ACTIONS[mark]}>
               {label => (

@@ -6,6 +6,8 @@
  *
  * At an event the site pairs, round 1 waits on every player still in. A TOM
  * event pairs in TOM, so the console can only count who is left and warn.
+ * Anyone TOM's file lists is in TOM, so their In TOM check stands ticked
+ * whatever staff stored (see standing).
  */
 
 import type { Player } from './types.js';
@@ -31,6 +33,20 @@ export const CHECK_MARKS: readonly CheckMark[] = ['paid', 'tom', 'list'];
 /** What of an event says which checks it asks: who pairs it (TOM or the site), and its fee. */
 type Event = { mode: 'swiss' | 'tom'; settings: { entryFee: number } };
 
+/** An event with its list of players: at a TOM event, the players in TOM's file. */
+type ListedEvent = Event & { tournament: { players: readonly Pick<Player, 'id'>[] } };
+
+/** Whether the In TOM check is TOM's file's to answer for the player, not staff's: they are in the file. */
+export function inTomFile(event: ListedEvent, id: string): boolean {
+  return event.mode === 'tom' && event.tournament.players.some(player => player.id === id);
+}
+
+/** A player's check-in as it stands: what staff checked, and In TOM for anyone TOM's file lists. */
+export function standing(event: ListedEvent, checkins: CheckIns, id: string): CheckIn | undefined {
+  const held = checkins[id];
+  return inTomFile(event, id) ? { ...held, tom: true } : held;
+}
+
 /** The checks the event asks of a player whose own check-in reads `held`. */
 export function marksFor(event: Event, held: CheckIn | undefined): CheckMark[] {
   return CHECK_MARKS.filter(mark => {
@@ -47,8 +63,10 @@ export function openMarks(event: Event, held: CheckIn | undefined): CheckMark[] 
 }
 
 /** The players still in whom some check is open for, in roster order. */
-export function notCheckedIn(event: Event, players: readonly Player[], checkins: CheckIns): Player[] {
-  return players.filter(player => player.droppedAfter === null && openMarks(event, checkins[player.id]).length > 0);
+export function notCheckedIn(event: ListedEvent, players: readonly Player[], checkins: CheckIns): Player[] {
+  return players.filter(
+    player => player.droppedAfter === null && openMarks(event, standing(event, checkins, player.id)).length > 0
+  );
 }
 
 /** A player's check-in with one mark set or cleared; an empty one goes from the map. */
@@ -60,7 +78,7 @@ export function withMark(checkins: CheckIns, id: string, mark: keyof CheckIn, on
 }
 
 /** Why round 1 cannot be paired yet at an event the site pairs, or null when everyone still in is checked in. */
-export function checkInError(event: Event, players: readonly Player[], checkins: CheckIns): string | null {
+export function checkInError(event: ListedEvent, players: readonly Player[], checkins: CheckIns): string | null {
   const open = notCheckedIn(event, players, checkins).length;
   if (open === 0) {
     return null;

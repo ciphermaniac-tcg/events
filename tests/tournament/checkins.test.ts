@@ -1,10 +1,19 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { marksFor, notCheckedIn, openMarks, withMark } from '../../shared/tournament/checkins';
+import { marksFor, notCheckedIn, openMarks, standing, withMark } from '../../shared/tournament/checkins';
 import type { Player } from '../../shared/tournament/types';
 
-const swiss = (entryFee: number) => ({ mode: 'swiss' as const, settings: { entryFee } });
-const tom = (entryFee: number) => ({ mode: 'tom' as const, settings: { entryFee } });
+const listed = (...ids: string[]) => ({ players: ids.map(id => ({ id })) });
+const swiss = (entryFee: number, ...ids: string[]) => ({
+  mode: 'swiss' as const,
+  settings: { entryFee },
+  tournament: listed(...ids)
+});
+const tom = (entryFee: number, ...ids: string[]) => ({
+  mode: 'tom' as const,
+  settings: { entryFee },
+  tournament: listed(...ids)
+});
 
 test('an event asks only the checks that apply to it and to the player', () => {
   assert.deepEqual(marksFor(swiss(0), undefined), []);
@@ -37,4 +46,19 @@ test('a mark sets and clears, and an empty check-in leaves the map', () => {
   assert.deepEqual(set, { '1': { paid: true } });
   assert.deepEqual(withMark(set, '1', 'list', true), { '1': { paid: true, list: true } });
   assert.deepEqual(withMark(set, '1', 'paid', false), {});
+});
+
+test('anyone TOM’s file lists is in TOM, whatever staff stored', () => {
+  const event = tom(0, '1');
+  assert.deepEqual(standing(event, {}, '1'), { tom: true });
+  assert.deepEqual(
+    standing(event, {}, '2'),
+    undefined,
+    'a site registrant not in the file yet is still staff’s to tick'
+  );
+  assert.deepEqual(standing(swiss(0, '1'), {}, '1'), undefined);
+  assert.deepEqual(
+    notCheckedIn(event, [player('1'), player('2')], {}).map(p => p.id),
+    ['2']
+  );
 });

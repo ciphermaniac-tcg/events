@@ -3,7 +3,8 @@
  * What must hold: at an unsanctioned event names find the players named like
  * them, and only the device that owns a registration renames or withdraws it,
  * the event's list following; at a TOM event registrations TOM has not taken
- * in yet count toward the cap, and staff can check them in.
+ * in yet count toward the cap, and staff can check them in; anyone TOM's
+ * file lists stays in TOM.
  */
 
 import assert from 'node:assert/strict';
@@ -222,6 +223,12 @@ test('at a TOM event a registration TOM has not taken in counts toward the cap, 
     body: { playerId: '4242', mark: 'tom', on: true }
   });
   assert.equal(ticked.status, 200);
+  const cleared = await hit(checkins.onRequestPut as Handler, '/checkins', at(code), {
+    method: 'PUT',
+    cookie: owner,
+    body: { playerId: '7200001', mark: 'tom', on: false }
+  });
+  assert.equal(cleared.status, 409, 'whoever TOM’s file lists stays in TOM');
   const held = await hit(manage.onRequestGet as Handler, '/manage', at(code), { cookie: owner });
   assert.deepEqual(held.json.checkins, { '4242': { tom: true } });
 });

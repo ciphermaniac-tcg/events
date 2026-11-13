@@ -3,10 +3,11 @@
  * player before round 1 ({ playerId, mark, on }; see
  * shared/tournament/checkins.ts). A player is anyone on the event's list, or
  * at a TOM event someone who registered on the site and is not in TOM's file
- * yet, so the ID is any Player ID the event knows of.
+ * yet, so the ID is any Player ID the event knows of. In TOM is not staff's
+ * to clear for a player TOM's file lists.
  */
 
-import { CHECK_MARKS, type CheckMark, withMark } from '../../../../shared/tournament/checkins.js';
+import { CHECK_MARKS, type CheckMark, inTomFile, withMark } from '../../../../shared/tournament/checkins.js';
 import { readJsonObject } from '../../../lib/api/body.js';
 import { jsonError } from '../../../lib/api/responses.js';
 import type { Context } from '../../../lib/auth/env.js';
@@ -45,6 +46,9 @@ export function onRequestPut(context: Context<'code'>): Promise<Response> {
     const check = readCheck((await readJsonObject(context.request, 1024)) ?? {});
     if (!check || !(await knows(access, check.playerId))) {
       return jsonError('Not a check-in', 400);
+    }
+    if (check.mark === 'tom' && inTomFile(access.row, check.playerId)) {
+      return jsonError('TOM lists this player', 409);
     }
     return row => {
       const next = withMark(row.checkins, check.playerId, check.mark, check.on);
