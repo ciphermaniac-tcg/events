@@ -29,7 +29,7 @@ import { latestRound, repairable, withSwiss } from '../../../shared/tournament/r
 import { DIVISION_LABELS, type Match, type Outcome, type Pod, type Round } from '../../../shared/tournament/types';
 import { Segmented } from '@ciphermaniac/design/components/Segmented';
 import { Icon } from '@ciphermaniac/design/components/Icon';
-import { t, tc, tx } from '../../lib/i18n';
+import { t, tc, tn, tx } from '../../lib/i18n';
 import { createMedia } from '../../lib/media';
 import type { Manage } from '../../lib/tournament/api';
 import {
@@ -48,6 +48,7 @@ import {
   unseated
 } from '../../lib/tournament/present';
 import { changeQuestion, outcomeLabel, outcomeNoun, recordsBefore, staffReport } from '../../lib/tournament/staff';
+import { ConfirmDialog } from './ConfirmAction';
 import type { ManageState } from './manageState';
 import { OptionsMenu } from './OptionsMenu';
 import { ExtensionClock } from './ExtensionClock';
@@ -402,6 +403,10 @@ interface RoundBarProps {
   openOnly: boolean;
   /** The Table / Bracket switch, once the pod has a top cut to draw. */
   views?: JSX.Element;
+  /** The open tables whose report staff can take as it is, accepted at once (see AcceptReports). */
+  plain: readonly PlainReport[];
+  names: Map<string, string>;
+  onAccept: (plain: readonly PlainReport[]) => void;
   onPick: (round: number) => void;
   onOpenOnly: (value: boolean) => void;
 }
@@ -427,6 +432,7 @@ function RoundBar(props: RoundBarProps) {
         <span class='muted'>{t('Paired in TOM')}</span>
       </Show>
       <span class='tm-round-acts'>
+        <AcceptReports plain={props.plain} names={props.names} busy={props.state.busy()} onAccept={props.onAccept} />
         <Show when={props.live && repairable(props.round) && props.open > 0 && !props.waiting}>
           <RepairControl state={props.state} pod={props.pod} label={t('Re-pair round')} />
         </Show>
@@ -570,6 +576,81 @@ function EndedNote() {
       </button>
     </div>
   );
+}
+
+interface PlainReport {
+  match: Match;
+  outcome: Outcome;
+}
+
+/**
+ * Every plain report accepted in one go: two or more open tables whose report
+ * staff can take as it is, with no dispute, no one-device pair and nothing on
+ * its way in the row. The dialog lists each table, and confirming accepts
+ * those it listed, in table order: a report that came in while it was open
+ * waits for its own row.
+ */
+function AcceptReports(props: {
+  plain: readonly PlainReport[];
+  names: Map<string, string>;
+  busy: boolean;
+  onAccept: (plain: readonly PlainReport[]) => void;
+}) {
+  const [asked, setAsked] = createSignal<readonly PlainReport[] | null>(null);
+  const count = () => asked()?.length ?? 0;
+  return (
+    <Show when={props.plain.length > 1}>
+      <button
+        type='button'
+        class='btn tm-small tm-accept'
+        disabled={props.busy}
+        onClick={() => setAsked([...props.plain])}
+      >
+        {tn(props.plain.length, 'Accept {n} report', 'Accept {n} reports')}
+      </button>
+      <ConfirmDialog
+        open={asked() !== null}
+        question={tn(count(), 'Accept {n} reported result?', 'Accept {n} reported results?')}
+        scope={
+          <For each={asked() ?? []}>
+            {plain => (
+              <span class='tm-accept-line'>
+                <span class='muted num'>{t('Table {table}', { table: plain.match.table })} · </span>
+                {outcomeLabel(plain.outcome, plain.match, props.names)}
+              </span>
+            )}
+          </For>
+        }
+        confirmLabel={t('Accept {count}', { count: count() })}
+        onConfirm={() => props.onAccept(asked() ?? [])}
+        onClose={() => setAsked(null)}
+      />
+    </Show>
+  );
+}
+
+/** The round's open tables whose report staff can take as it is, in table order, less any `held` in its row. */
+function plainReports(round: Round, tableOf: (match: Match) => TableState, held: (match: Match) => boolean) {
+  return round.matches
+    .filter(m => m.p2 !== null && tableOf(m).shown.outcome === 'pending' && !tableOf(m).staff?.problem && !held(m))
+    .flatMap(match => {
+      const outcome = loneReport(tableOf(match).reports);
+      return outcome ? [{ match, outcome }] : [];
+    })
+    .sort((a, b) => a.match.table - b.match.table);
+}
+
+/** The plain reports of the round shown, while it is live and none is `held` in its row (see AcceptReports). */
+function createPlain(
+  round: () => Round | undefined,
+  live: () => boolean,
+  tableOf: (match: Match) => TableState,
+  held: (round: Round, match: Match) => boolean
+) {
+  return createMemo(() => {
+    const r = round();
+    return r && live() ? plainReports(r, tableOf, match => held(r, match)) : [];
+  });
 }
 
 /** A round's tables with two players, how many of those are open, and whether any result is in. */
@@ -716,6 +797,12 @@ export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod
   const tableOf = createTables(props, round, names);
   const isOpen = (match: Match) => tableOf(match).shown.outcome === 'pending';
   const counts = createMemo(() => roundCounts(round(), isOpen));
+  const plain = createPlain(
+    round,
+    live,
+    tableOf,
+    (r, m) => Boolean(entry.sentFor(r, m) ?? entry.failedFor(r, m)) || isAsking(m)
+  );
   const canExtend = (match: Match) => !locked() && match.p2 !== null && isOpen(match);
   function editExtension(match: Match, r: Round) {
     closeSheet();
@@ -756,6 +843,14 @@ export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod
     }
     if (r) {
       entry.send(r, match, outcome);
+    }
+  }
+
+  function acceptAll(list: readonly PlainReport[]) {
+    const r = round();
+    setAsking(null);
+    if (r) {
+      void entry.sendAll(r, list);
     }
   }
 
@@ -859,6 +954,9 @@ export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod
                 nothingReported={counts().nothingReported}
                 openOnly={openOnly()}
                 onOpenOnly={setOpenOnly}
+                plain={plain()}
+                names={names()}
+                onAccept={acceptAll}
                 views={
                   <Show when={cut()}>
                     <Segmented

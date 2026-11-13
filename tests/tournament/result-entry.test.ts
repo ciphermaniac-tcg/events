@@ -99,6 +99,32 @@ test('results for one match reach the server in the order entered, the later onl
   assert.equal(entry.sentFor(round, table), undefined);
 });
 
+test('results accepted together go one at a time, each for the pod they were accepted in', async () => {
+  const fake = fakeConsole(() => ({ tournament: paired, pending: [] }));
+  let shown = pod;
+  const entry = createResultEntry(
+    () => fake.state,
+    () => shown
+  );
+  const second = round.matches[1]!;
+  const done = entry.sendAll(round, [
+    { match: table, outcome: 'p1' },
+    { match: second, outcome: 'p2' }
+  ]);
+  shown = { ...pod, category: 'junior' };
+  await settle();
+  assert.deepEqual(outcomes(fake), ['p1'], 'the second waits on the first');
+  fake.sends[0]!.answer(true);
+  await settle();
+  assert.deepEqual(outcomes(fake), ['p1', 'p2']);
+  fake.sends[1]!.answer(true);
+  await done;
+  assert.deepEqual(
+    fake.sends.map(s => (s.command as { pod: string }).pod),
+    ['masters', 'masters']
+  );
+});
+
 test('a result overtaken before its turn is not sent, and an older failure leaves a newer result alone', async () => {
   const fake = fakeConsole(() => ({ tournament: paired, pending: [] }));
   const entry = createResultEntry(

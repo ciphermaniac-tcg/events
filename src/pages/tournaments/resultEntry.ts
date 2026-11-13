@@ -79,6 +79,8 @@ export interface ResultEntry {
   /** For a result not taken: the result now standing, when another device changed it from the one this one saw. */
   conflictFor: (round: Round, match: Match) => Outcome | undefined;
   send: (round: Round, match: Match, outcome: Outcome) => void;
+  /** Several results, each sent once the one before is answered, all for the pod they were entered in. */
+  sendAll: (round: Round, results: readonly { match: Match; outcome: Outcome }[]) => Promise<void>;
   retry: (round: Round, match: Match) => Promise<void>;
   discard: (round: Round, match: Match) => void;
 }
@@ -90,6 +92,24 @@ const without = <T>(results: Results<T>, key: string): Results<T> =>
 
 const keyOf = (entered: Omit<EnteredResult, 'outcome'>) =>
   `${entered.pod}|${entered.round}|${entered.table}|${entered.p1}|${entered.p2 ?? ''}`;
+
+/**
+ * The latest send or retry for each match. An answer to an earlier one, as a
+ * result entered and then cleared before the first answer came back, is
+ * left alone: it no longer says what the row should show.
+ */
+function createTickets() {
+  const tickets = new Map<string, number>();
+  let issued = 0;
+  return {
+    ticket: (key: string) => {
+      issued += 1;
+      tickets.set(key, issued);
+      return issued;
+    },
+    latest: (key: string, mine: number) => tickets.get(key) === mine
+  };
+}
 
 export function createResultEntry(state: () => ManageState, pod: () => Pod): ResultEntry {
   const [sent, setSent] = createSignal<Results<Outcome>>(new Map());
@@ -111,19 +131,7 @@ export function createResultEntry(state: () => ManageState, pod: () => Pod): Res
   const matchKey = (round: Round, match: Match) => keyOf(at(round, match));
   const hold = (key: string, outcome: Outcome) => setSent(results => new Map(results).set(key, outcome));
   const fail = (result: EnteredResult) => setFailed(results => new Map(results).set(keyOf(result), result));
-  /**
-   * The latest send or retry for each match. An answer to an earlier one, as a
-   * result entered and then cleared before the first answer came back, is
-   * left alone: it no longer says what the row should show.
-   */
-  const tickets = new Map<string, number>();
-  let issued = 0;
-  const ticket = (key: string) => {
-    issued += 1;
-    tickets.set(key, issued);
-    return issued;
-  };
-  const latest = (key: string, mine: number) => tickets.get(key) === mine;
+  const { ticket, latest } = createTickets();
   /**
    * Each match's sends, one after another: the last one queued, for the next
    * to wait on, answering with the result it landed, if it landed one. A
@@ -134,7 +142,7 @@ export function createResultEntry(state: () => ManageState, pod: () => Pod): Res
   const queues = new Map<string, Promise<Outcome | undefined>>();
 
   /** Sends the result once every earlier send for its match has been answered, unless a newer one came first. */
-  function sendEntered(result: EnteredResult) {
+  function sendEntered(result: EnteredResult): Promise<unknown> {
     const key = keyOf(result);
     const mine = ticket(key);
     const { pod: category, ...command } = result;
@@ -158,6 +166,7 @@ export function createResultEntry(state: () => ManageState, pod: () => Pod): Res
         queues.delete(key);
       }
     });
+    return turn;
   }
 
   /** A result not taken stays in its row, with what it expected, and the event is read again to show what stands now. */
@@ -172,7 +181,7 @@ export function createResultEntry(state: () => ManageState, pod: () => Pod): Res
   function afterRead(result: EnteredResult, found: Reconciled | null) {
     if (found === 'send') {
       // Sent against what stands now: a retry after another device's change is meant to replace it.
-      sendEntered({ ...result, expected: standingNow(result) });
+      void sendEntered({ ...result, expected: standingNow(result) });
     } else if (found === 'changed') {
       state().fail(t('Table {table} has changed since; enter its result again.', { table: result.table }));
     } else if (found === 'saved') {
@@ -210,7 +219,13 @@ export function createResultEntry(state: () => ManageState, pod: () => Pod): Res
       const standing = result && standingNow(result);
       return standing && standing !== result.expected && standing !== result.outcome ? standing : undefined;
     },
-    send: (round, match, outcome) => sendEntered(entered(round, match, outcome)),
+    send: (round, match, outcome) => void sendEntered(entered(round, match, outcome)),
+    // Sent at once, many results race for the event's one version and can run out of tries.
+    sendAll: async (round, results) => {
+      for (const result of results.map(each => entered(round, each.match, each.outcome))) {
+        await sendEntered(result);
+      }
+    },
     retry,
     discard: (round, match) => setFailed(results => without(results, matchKey(round, match)))
   };

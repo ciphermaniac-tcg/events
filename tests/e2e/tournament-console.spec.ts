@@ -2862,3 +2862,32 @@ test('a narrow console’s table sheet says what each seat reported', async ({ p
   await expect(sheet.locator('.tm-sheet-report')).toHaveText(['Reported: won', 'Reported: won']);
   await expect(sheet.locator('.tm-sheet-report.is-problem')).toHaveCount(2);
 });
+
+test('the plain reports are accepted in one go, each table named first, a dispute left in its row', async ({
+  page
+}) => {
+  const t = event(8, 0, true);
+  const [a, b, c] = tables(t, 3);
+  const sent = await mockConsole(page, t, settingsOf({ playerReporting: true }), [
+    reportOf(b!, b!.p2, 'p2'),
+    reportOf(a!, a!.p1, 'p1'),
+    reportOf(c!, c!.p1, 'p1'),
+    reportOf(c!, c!.p2, 'p2')
+  ]);
+  await page.getByRole('button', { name: 'Accept 2 reports' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Accept 2 reported results?' });
+  await expect(dialog.locator('.tm-accept-line')).toHaveText([
+    new RegExp(`^Table ${a!.table} · .+ wins$`),
+    new RegExp(`^Table ${b!.table} · .+ wins$`)
+  ]);
+  await expect(dialog.getByRole('button')).toHaveText(['Keep', 'Accept 2']);
+  await dialog.getByRole('button', { name: 'Accept 2' }).click();
+  await expect
+    .poll(() =>
+      sent.filter(command => command.type === 'reportResult').map(command => [command.table, command.outcome])
+    )
+    .toEqual([
+      [a!.table, 'p1'],
+      [b!.table, 'p2']
+    ]);
+});
