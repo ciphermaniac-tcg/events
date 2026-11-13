@@ -2388,13 +2388,17 @@ test('with divisions on their own clocks, the running one leads and the one wait
   };
   await mockApi(page, view);
   await page.goto(`/t/${CODE}?screen=1`);
-  const lead = page.locator('.tm-screen-big-clock.is-divisions > div');
-  await expect(lead.locator('p')).toHaveText('Seniors · Round 2');
-  await expect(lead.getByRole('timer')).toHaveText(/^3[0-8]:\d\d$/);
-  const side = page.locator('.tm-screen-side-clocks li');
-  await expect(side).toHaveCount(1);
-  await expect(side.first()).toContainText('Not started');
-  await expect(side.first().locator('p')).toHaveText('Masters · Round 2');
+  const [lead, side] = [0, 1].map(i => page.locator('.tm-screen-big-clock.is-divisions > li').nth(i));
+  await expect(lead!.locator('p')).toHaveText('Seniors · Round 2');
+  await expect(lead!.getByRole('timer')).toHaveText(/^3[0-8]:\d\d$/);
+  await expect(page.locator('.tm-screen-big-clock.is-divisions > li')).toHaveCount(2);
+  await expect(side!).toContainText('Not started');
+  await expect(side!.locator('p')).toHaveText('Masters · Round 2');
+  // Side by side at one size: neither division's clock outranks the other.
+  const widths = await page
+    .locator('.tm-screen-big-clock.is-divisions > li')
+    .evaluateAll(clocks => clocks.map(clock => Math.round(clock.getBoundingClientRect().width)));
+  expect(widths[0]).toBe(widths[1]);
   // Each clock names its division, so the header does not speak for one of them.
   await expect(page.locator('.tm-screen-status')).toHaveCount(0);
   // The public page describes the division running, then the one a visitor picks.

@@ -66,8 +66,8 @@ function Caption(props: {
 
 /**
  * The clock across the top of the screen. One division keeps the one large
- * clock over the round's status; more lead with the clock nearest its end,
- * each of the others smaller beside it, every one named for its division.
+ * clock over the round's status; more stand side by side at one size, the
+ * clock nearest its end first, every one named for its division.
  */
 export function DivisionClocks(props: { pods: Pod[]; pending: readonly PendingResult[]; label: string }) {
   const now = createClockNow();
@@ -99,22 +99,16 @@ export function DivisionClocks(props: { pods: Pod[]; pending: readonly PendingRe
         </div>
       }
     >
-      <div class='tm-screen-big-clock is-divisions'>
-        <div>
-          <Time clock={clocks()[0] as DivisionClock} class='tm-screen-clock' />
-          <Caption clock={clocks()[0] as DivisionClock} pending={props.pending} now={now()} lead />
-        </div>
-        <ul class='tm-screen-side-clocks'>
-          <For each={clocks().slice(1)}>
-            {clock => (
-              <li>
-                <Time clock={clock} class='tm-screen-side-clock' />
-                <Caption clock={clock} pending={props.pending} now={now()} />
-              </li>
-            )}
-          </For>
-        </ul>
-      </div>
+      <ul class='tm-screen-big-clock is-divisions' style={{ '--tm-clocks': clocks().length }}>
+        <For each={clocks()}>
+          {(clock, index) => (
+            <li>
+              <Time clock={clock} class='tm-screen-clock' />
+              <Caption clock={clock} pending={props.pending} now={now()} lead={index() === 0} />
+            </li>
+          )}
+        </For>
+      </ul>
     </Show>
   );
 }

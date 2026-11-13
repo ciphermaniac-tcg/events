@@ -162,45 +162,28 @@
   font-weight: 600;
   color: var(--muted);
 }
-/* Divisions on their own clocks: the one nearest its end leads, the others
-   stack beside it, each named; one waiting or done says so in words. */
+/* Divisions on their own clocks stand side by side at one size, each named;
+   one waiting or done says so in words. */
 .tm-screen-big-clock.is-divisions {
   display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
-  align-items: center;
+  grid-template-columns: repeat(var(--tm-clocks, 2), minmax(0, 1fr));
+  align-items: start;
   gap: var(--space-6);
+  margin: 0;
+  padding-inline: 0;
+  list-style: none;
 }
 .is-divisions .tm-screen-clock {
-  font-size: min(calc(15vw * var(--tm-display-scale, 1)), 28vh);
+  font-size: min(calc(30vw / var(--tm-clocks, 2) * var(--tm-display-scale, 1)), 28vh);
 }
-.tm-screen-side-clocks {
-  display: grid;
-  gap: var(--space-4);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  text-align: left;
-}
-.tm-screen-side-clocks p {
-  margin: var(--space-1) 0 0;
-  font-size: clamp(var(--text-base), 1.4vw, var(--text-2xl));
-}
-.tm-screen-side-clock {
-  display: block;
-  font-size: min(calc(6vw * var(--tm-display-scale, 1)), 12vh);
-  font-weight: 800;
-  line-height: 0.9;
-  letter-spacing: -0.03em;
-}
-.tm-screen-clock.is-words,
-.tm-screen-side-clock.is-words {
+.tm-screen-clock.is-words {
   font-size: min(calc(3vw * var(--tm-display-scale, 1)), 8vh);
   font-weight: 700;
   letter-spacing: -0.01em;
   color: var(--muted);
 }
 .is-divisions .tm-screen-clock.is-words {
-  font-size: min(calc(6vw * var(--tm-display-scale, 1)), 14vh);
+  font-size: min(calc(12vw / var(--tm-clocks, 2) * var(--tm-display-scale, 1)), 14vh);
 }
 
 /* Tables in order: the players face each other across the table number,
