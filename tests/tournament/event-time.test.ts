@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { ASK_BEFORE_MS, asksWhoYouAre, eventTimes, zonedInstant } from '../../shared/tournament/eventTime.ts';
+import { checkInAfterStart, wallClockBefore } from '../../src/pages/tournaments/checkInTime.ts';
 import { isTimeZone, isWallClock } from '../../shared/tournament/timeZone.ts';
 
 test('only zones the runtime knows are time zones', () => {
@@ -81,5 +82,17 @@ test('the page asks who you are from three hours before the start, or once round
     asksWhoYouAre(false, local, new Date('2026-10-24T08:00').getTime()),
     true,
     'as the viewer’s clock reads'
+  );
+});
+
+test('check-in half an hour before a start crosses midnight as the clock does, and one after the start is caught', () => {
+  assert.equal(wallClockBefore('2026-11-15T00:15', 30), '2026-11-14T23:45');
+  assert.deepEqual(
+    [
+      checkInAfterStart('2026-11-14T19:30', '2026-11-14T18:00'),
+      checkInAfterStart('2026-11-14T17:30', '2026-11-14T18:00'),
+      checkInAfterStart('', '2026-11-14T18:00')
+    ],
+    [true, false, false]
   );
 });

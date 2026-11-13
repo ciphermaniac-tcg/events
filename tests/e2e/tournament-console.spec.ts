@@ -2910,3 +2910,17 @@ test('the head names whose clock it runs only where the event pairs more than on
   const name = await caption.textContent();
   await expect(page.locator('.tm-console-steps').getByRole('group', { name: `${name} round clock` })).toBeVisible();
 });
+
+test('check-in fills half an hour before the start, moves with it, and is refused once after it', async ({ page }) => {
+  await mockConsole(page, event(4, 0, false), settingsOf({ startsAt: '2026-11-14T18:00' }));
+  await page.getByRole('tab', { name: 'Settings' }).click();
+  await page.getByRole('button', { name: '30 minutes before · 5:30 PM' }).click();
+  const checkIn = page.locator('#set-check-in');
+  await expect(checkIn).toHaveValue('2026-11-14T17:30');
+  await page.locator('#set-start').fill('2026-11-14T19:00');
+  await expect(checkIn).toHaveValue('2026-11-14T18:30');
+  await checkIn.fill('2026-11-14T19:30');
+  await expect(page.getByText('Check-in is after the start.')).toBeVisible();
+  await expect(checkIn).toHaveAttribute('aria-invalid', 'true');
+  await expect(page.locator('form', { has: checkIn }).getByRole('button', { name: 'Save' })).toBeDisabled();
+});

@@ -47,6 +47,7 @@ import type { ManageState } from './manageState';
 import '../../styles/pages/tournament-store-forms.css';
 import { DecklistsSwitch, EventTypeSwitch, RoundsSelect } from './SettingChoices';
 import { ArchetypesSelect, SettingRow, Toggle } from './SettingControls';
+import { checkInAfterStart } from './checkInTime';
 import { type Logistics, LogisticsRows } from './LogisticsRows';
 import { reportingInfo, SETTING_INFO, SettingInfo } from './SettingInfo';
 import { TomFileRow, type TomLink } from './TomSyncPanel';
@@ -312,7 +313,7 @@ function ForPlayers(props: { state: ManageState; manage: Manage }) {
     <SettingsBox
       title={t('For players')}
       dirty={Object.keys(store.changes(saved())).length > 0}
-      busy={props.state.busy()}
+      busy={props.state.busy() || checkInAfterStart(draft().checkInAt, draft().startsAt)}
       onSave={() => void save()}
     >
       <SettingRow label={t('Starts')} for='set-start'>
@@ -324,7 +325,7 @@ function ForPlayers(props: { state: ManageState; manage: Manage }) {
           onInput={e => set('startsAt', e.currentTarget.value)}
         />
       </SettingRow>
-      <LogisticsRows id='set' value={draft()} onChange={set} />
+      <LogisticsRows id='set' value={draft()} startsAt={draft().startsAt} onChange={set} />
       <SettingRow label={t('Entry fee')} for='set-fee' note={t('Leave blank for a free event.')}>
         <FeeField
           id='set-fee'

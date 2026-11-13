@@ -27,6 +27,7 @@ import { LISTING_KINDS, listingFill } from '../../lib/tournament/stores';
 import { ErrorLine } from './Field';
 import { FormatSelect } from './FormatSelect';
 import { ListingPicker } from './ListingPicker';
+import { checkInAfterStart } from './checkInTime';
 import { browserZone, type Logistics, LogisticsRows } from './LogisticsRows';
 import { DecklistsSwitch, EventTypeSwitch, RoundsSelect } from './SettingChoices';
 import { ArchetypesSelect, SettingRow, Toggle } from './SettingControls';
@@ -200,6 +201,7 @@ export function EventSetup(props: {
       invalidMinutes(),
       shortRounds(),
       dayTaken(),
+      checkInAfterStart(checkInAt(), startsAt()),
       needsPlayTools() && !playToolsConfirmed()
     ].some(Boolean);
   /** A sanctioned event plays at least three rounds, so a lower cap goes back to the recommendation. */
@@ -314,6 +316,7 @@ export function EventSetup(props: {
             id='setup'
             value={logistics()}
             place={!atStore()}
+            startsAt={startsAt()}
             onChange={(key, value) => setLogistics[key](value)}
           />
           <Show when={swiss()}>
