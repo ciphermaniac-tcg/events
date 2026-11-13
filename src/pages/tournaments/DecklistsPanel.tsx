@@ -187,10 +187,10 @@ function DecklistRow(props: RowProps) {
       <Show when={props.open}>
         <tr class='tm-expansion'>
           <td colSpan={props.checks ? 6 : 5}>
-            <Show when={props.checks && playerId()} keyed fallback={<DecklistColumns deck={props.list.deck} />}>
+            <Show when={props.checks && playerId()} keyed fallback={<ListCards list={props.list} />}>
               {id => (
                 <div class='tm-check-split'>
-                  <DecklistColumns deck={props.list.deck} />
+                  <ListCards list={props.list} />
                   <DeckCheckSide
                     checks={props.checks as DeckChecks}
                     playerId={id}
@@ -204,6 +204,24 @@ function DecklistRow(props: RowProps) {
         </tr>
       </Show>
     </>
+  );
+}
+
+/** An opened list's cards, or why it has none: handed in on paper, or deleted once the event was over. */
+function ListCards(props: { list: Decklist }) {
+  return (
+    <Show
+      when={props.list.deck}
+      fallback={
+        <div class='tm-list-columns'>
+          <p class='muted tm-list-none'>
+            {props.list.mode === 'paper' ? t('Handed in on paper.') : t('Cards deleted after the event')}
+          </p>
+        </div>
+      }
+    >
+      <DecklistColumns deck={props.list.deck} />
+    </Show>
   );
 }
 

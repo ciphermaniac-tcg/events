@@ -785,6 +785,10 @@
 .tm-console .tm-list-columns {
   padding: var(--space-2) 0 var(--space-2) 52px;
 }
+.tm-console .tm-list-none {
+  margin: 0;
+  font-size: var(--text-base);
+}
 /* An opened list with deck checks: the list on the left, the player's checks and the form on the right. */
 .tm-console .tm-check-split {
   display: grid;
