@@ -3837,3 +3837,11 @@ test('a player takes back their report by pressing it again, until it locks', as
   mock.timers.tick(REPORT_WINDOW_MS);
   assert.match((await withdraw()).json.error, /locked/);
 });
+
+test('the event list carries each event’s start as set', async () => {
+  const owner = await signIn('Organizer', 'organizer');
+  const code = await newEvent(owner, { settings: { startsAt: '2026-11-14T18:00' } });
+  const list = await hit(tournaments.onRequestGet as Handler, '/api/tournaments', {}, { cookie: owner });
+  const summary = list.json.tournaments.find((t: { code: string }) => t.code === code);
+  assert.equal(summary?.startsAt, '2026-11-14T18:00');
+});

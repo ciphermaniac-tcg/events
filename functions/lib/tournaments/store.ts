@@ -858,6 +858,7 @@ interface SummaryRow {
   name: string | null;
   players: number | null;
   start_date: string | null;
+  starts_at: string | null;
   finished: number | null;
   rounds: number | null;
   owner_id: string;
@@ -872,7 +873,7 @@ export async function listTournaments(db: D1Like, userId: string): Promise<Tourn
     .prepare(
       "SELECT code, mode, json_extract(state, '$.info.name') AS name, " +
         "json_array_length(state, '$.players') AS players, json_extract(state, '$.info.startDate') AS start_date, " +
-        "json_extract(settings, '$.finished') AS finished, " +
+        "json_extract(settings, '$.finished') AS finished, json_extract(settings, '$.startsAt') AS starts_at, " +
         `community_day, ${pairedRounds('state')} AS rounds, owner_id, updated_at, store_id, ` +
         '(SELECT m.role FROM store_members m WHERE m.store_id = tournaments.store_id AND m.user_id = ?1) AS store_role ' +
         'FROM tournaments WHERE (owner_id = ?1 AND store_id IS NULL) OR code IN (SELECT code FROM staff WHERE user_id = ?1) ' +
@@ -889,6 +890,7 @@ export async function listTournaments(db: D1Like, userId: string): Promise<Tourn
       : 'staff',
     players: row.players ?? 0,
     startDate: row.start_date ?? '',
+    startsAt: row.starts_at ?? '',
     finished: row.finished === 1,
     rounds: row.rounds ?? 0,
     updatedAt: row.updated_at,

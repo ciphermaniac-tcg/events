@@ -21,6 +21,7 @@ import { createResource, createSignal, For, Match, onMount, type Resource, Show,
 import { canRunCommunityEvents } from '../../../shared/accounts/roles';
 import { canCreateEvents, managesStore } from '../../../shared/accounts/stores';
 import { parseTomDate } from '../../../shared/tournament/divisions';
+import { isWallClock } from '../../../shared/tournament/timeZone';
 import type { Tournament } from '../../../shared/tournament/types';
 import {
   ApiError,
@@ -69,6 +70,25 @@ if (window.location.pathname === '/') {
 const shortDate = (startDate: string) =>
   parseTomDate(startDate)?.toLocaleDateString(intlLocale(), { month: 'short', day: 'numeric', timeZone: 'UTC' }) ?? '';
 
+/**
+ * When an event starts, "Fri, Nov 14 · 6:00 PM", read off the wall clock the
+ * organizer set, which is the event's own zone's; without one, the stored day.
+ */
+function startShown(event: Pick<TournamentSummary, 'startDate' | 'startsAt'>): string {
+  if (!isWallClock(event.startsAt)) {
+    return shortDate(event.startDate);
+  }
+  const at = new Date(`${event.startsAt}:00Z`);
+  const day = at.toLocaleDateString(intlLocale(), {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    timeZone: 'UTC'
+  });
+  const time = at.toLocaleTimeString(intlLocale(), { hour: 'numeric', minute: '2-digit', timeZone: 'UTC' });
+  return `${day} · ${time}`;
+}
+
 type Phase = 'live' | 'upcoming' | 'finished';
 
 /** Running (a round paired, not closed), still to start, or closed. */
@@ -113,7 +133,7 @@ function EventRow(props: { event: TournamentSummary; onRunAgain?: (event: Tourna
         </Show>
       </td>
       <td class='muted-cell tm-host-status'>{t(PHASE_WORDS[phaseOf(props.event)])}</td>
-      <td class='muted-cell tm-num tm-nowrap tm-wide-col'>{shortDate(props.event.startDate)}</td>
+      <td class='muted-cell tm-num tm-nowrap tm-host-when'>{startShown(props.event)}</td>
       <td class='muted-cell tm-wide-col'>{props.event.mode === 'tom' ? 'TOM' : t('Swiss')}</td>
       {/* The unit shows on a phone, where the column heads do not. */}
       <td class='num tm-host-players' data-unit={tn(props.event.players, 'player', 'players')}>

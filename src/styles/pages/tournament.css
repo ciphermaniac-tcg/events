@@ -1853,10 +1853,15 @@ tr.is-in .tm-place {
     grid-template-columns: minmax(0, 1fr) max-content;
     grid-template-areas:
       'name players'
+      'when when'
       'status actions';
     align-items: center;
     gap: 0 10px;
     padding: var(--space-1) 14px;
+  }
+  .tm-host-table td.tm-host-when {
+    grid-area: when;
+    font-size: var(--text-base);
   }
   .tm-host-table td {
     padding: 0;

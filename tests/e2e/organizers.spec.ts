@@ -647,3 +647,13 @@ test('the new event setup explains player reporting, archetypes and decklists, e
     'Disabled'
   );
 });
+
+test('/host: an event’s row says when it starts, on a phone under its name @mobile', async ({ page }) => {
+  await mockHost(page, { ...ME, role: 'community' });
+  await page.route('**/api/tournaments', route =>
+    route.fulfill({ json: { tournaments: [{ ...SUMMARY, finished: false, rounds: 0, startsAt: '2026-11-14T18:00' }] } })
+  );
+  await page.goto('/');
+  await expect(page.locator('.tm-host-table .tm-host-when').first()).toHaveText('Sat, Nov 14 · 6:00 PM');
+  await expect(page.locator('.tm-host-table .tm-host-when').first()).toBeVisible();
+});

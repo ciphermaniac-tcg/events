@@ -559,6 +559,8 @@ export interface TournamentSummary {
   players: number;
   /** MM/DD/YYYY, as TOM writes it; '' when unset. */
   startDate: string;
+  /** The start the organizer set, as a wall clock in the event's own zone (see eventTime.ts); '' when unset. */
+  startsAt: string;
   finished: boolean;
   /** Rounds the event has paired across its pods: 0 before round 1. */
   rounds: number;
