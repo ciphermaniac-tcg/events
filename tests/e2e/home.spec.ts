@@ -141,6 +141,21 @@ test('an event code from the player’s door opens that event’s page @mobile',
   await expect(page).toHaveURL(/\/t\/K7RW2P$/);
 });
 
+test('the event code form stands at the control height the home page’s buttons share, 44px @mobile', async ({
+  page
+}) => {
+  await signedOut(page);
+  const form = page.locator('.tm-code-form');
+  const heights = await Promise.all(
+    [form.getByRole('textbox'), form.getByRole('button', { name: 'Go' })].map(async control => {
+      const box = await control.boundingBox();
+      return box?.height;
+    })
+  );
+  // The home page is an organizer page, whose controls stand 44px tall with a pointer as under a finger.
+  expect(heights).toEqual([44, 44]);
+});
+
 test('the big screen and the phone stand the same height, and the console is only a picture', async ({ page }) => {
   await signedOut(page);
   const tv = (await page.locator('.tm-home-tv').boundingBox())!;

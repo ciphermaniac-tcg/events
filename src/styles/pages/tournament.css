@@ -216,14 +216,16 @@ body.tm-stream-mode {
     background: var(--row-hover);
   }
 }
-/* A row is read for its names and results, so its text-only actions take the
-   secondary label and come up to full ink on the row in hand. A bar's actions
-   stay in ink at a lighter weight: faded, they read as unavailable. */
-.tm-page td .btn-ghost {
+/* A row is read for its names and results, so its text-only actions, a
+   table's, a round's or a league night's, are set at the row's size in the
+   secondary label and come up to full ink on the row in hand. Other bars'
+   actions stay in ink at a lighter weight: faded, they read as unavailable. */
+.tm-page :is(td, .tm-round-acts, .tm-night) .btn-ghost {
   color: var(--muted);
   font-size: var(--text-base);
   font-weight: 500;
 }
+.tm-page :is(td, .tm-round-acts, .tm-night) .btn-ghost:hover:not(:disabled),
 .tm-page .data tbody tr:is(:hover, :has(:focus-visible)) .btn-ghost {
   color: var(--fg);
 }
@@ -289,6 +291,16 @@ body.tm-stream-mode {
 .tm-flag.is-you {
   border-color: var(--accent);
   color: var(--accent-ink);
+}
+/* An event's state, as words: the flag's box is for kinds of event, as
+   Sanctioned. Ink while it runs, muted while it waits or once it is done. */
+.tm-state {
+  color: var(--muted);
+  white-space: nowrap;
+}
+.tm-state.is-live {
+  color: var(--fg);
+  font-weight: 600;
 }
 /* A name that opens a pasted list, at an event whose lists are open. Centred on its line, the
    glyph's ink sat 0.06em under the middle of the name's capitals. */
@@ -1707,6 +1719,18 @@ tr.is-in .tm-place {
 .tm-settings-body .tm-settings-title {
   margin: 0 0 var(--space-4);
 }
+/* On a phone the open tab above already names the section: the heading stays
+   for assistive tech, out of sight. */
+@media (max-width: 640px) {
+  .tm-settings-body .tm-settings-title {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
 /* A section sits on the page, not in a box: its rows keep their rules, its
    fields their own fill. */
 .tm-settings-body .tm-box {
@@ -1762,6 +1786,19 @@ tr.is-in .tm-place {
 }
 .tm-profile-bar .tm-grid-fields {
   grid-template-columns: repeat(auto-fit, minmax(max(150px, 40%), 1fr));
+}
+/* Wider, each field is as wide as its answer: a name, a seven-digit ID, a year.
+   The columns stay a name wide, so an error under a short field wraps there. */
+@media (min-width: 641px) {
+  .tm-profile-bar .tm-grid-fields {
+    grid-template-columns: repeat(2, minmax(0, 18em));
+  }
+  .tm-profile-fields .tm-answer-id {
+    width: calc(8ch + 22px);
+  }
+  .tm-profile-fields .tm-answer-year {
+    width: calc(4ch + 22px);
+  }
 }
 
 /* ---------- Your events ---------- */
@@ -1873,10 +1910,16 @@ tr.is-in .tm-place {
   }
   .tm-host-table .tm-extra-col {
     grid-area: actions;
+    justify-self: end;
     width: auto;
   }
+  /* The menu's dots end on the players' edge: the button's padding hangs past
+     it, and its 44px target grows leftward. */
   .tm-host-table .tm-row-actions {
     margin-right: calc(-1 * var(--space-2));
+  }
+  .tm-host-table .tm-host-more .btn {
+    justify-content: flex-end;
   }
   /* On a phone every link waits in the row's menu. */
   .tm-host-table .tm-host-inline {

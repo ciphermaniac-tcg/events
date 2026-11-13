@@ -129,12 +129,20 @@ export function ProfileFields(props: {
           error={error('popId')}
           errorAction={props.popIdAction}
         >
-          {control => <PlayerIdInput {...control} value={props.value.popId} onValue={value => set('popId', value)} />}
+          {control => (
+            <PlayerIdInput
+              {...control}
+              class='tm-input tm-answer-id'
+              value={props.value.popId}
+              onValue={value => set('popId', value)}
+            />
+          )}
         </Field>
         <Field id={id('year')} label={t('Birth year')} error={error('birthDate')}>
           {control => (
             <BirthYearInput
               {...control}
+              class='tm-input tm-answer-year'
               value={birthYearOf(props.value.birthDate)}
               onValue={value => set('birthDate', birthDateFor(value))}
             />

@@ -127,7 +127,9 @@ function Events(props: { events: readonly StoreEvent[] }) {
               <li>
                 <span class='tm-num'>{storeEventWhen(event.startDate, event.startsAt)}</span>
                 <EventName code={event.code} name={event.name} sanctioned={event.sanctioned} />
-                <span class='muted'>{t(STATUS_WORDS[event.status])}</span>
+                <span class='tm-state' classList={{ 'is-live': event.status === 'live' }}>
+                  {t(STATUS_WORDS[event.status])}
+                </span>
               </li>
             )}
           </For>

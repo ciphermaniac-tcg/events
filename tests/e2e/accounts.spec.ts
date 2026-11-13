@@ -165,7 +165,15 @@ test('History lists the account’s events with place and record from each copy,
   // The copy with no player under the entry's key leaves no row.
   await expect(rows).toHaveCount(2);
   const live = rows.filter({ hasText: 'Fixture Challenge & Friends' });
-  await expect(live.locator('.tm-flag')).toHaveText('In progress');
+  // A state is words on the line under the name, not a box: boxes are for kinds of event.
+  await expect(live.locator('.tm-hist-sub .tm-state')).toHaveText('In progress');
+  await expect(live.locator('.tm-flag')).toHaveCount(0);
+  // It stays inside the event's own column, clear of Place, on a phone too.
+  const [state, cell] = await Promise.all([
+    live.locator('.tm-state').boundingBox(),
+    live.locator('.tm-hist-event').boundingBox()
+  ]);
+  expect((state?.x ?? 0) + (state?.width ?? 0)).toBeLessThanOrEqual((cell?.x ?? 0) + (cell?.width ?? 0));
   await expect(live.locator('.tm-hist-place')).toHaveText('1st');
   await expect(live.locator('.tm-hist-record')).toHaveText('1-0-0');
   await expect(live.locator('.tm-hist-sub')).toContainText('Standard · Masters');
@@ -222,10 +230,11 @@ test('on a phone held sideways a long event name gives way before its In progres
   const long = ENTRIES.map(e => (e.code === 'LIVE01' ? { ...e, name: `${e.name} — November Championship Series` } : e));
   await page.route('**/api/history', route => route.fulfill({ json: { entries: long } }));
   await page.goto('/history');
-  const name = page.locator('.tm-hist tbody tr.is-link .tm-hist-name').filter({ hasText: 'November' });
-  const flag = name.locator('.tm-flag');
+  const row = page.locator('.tm-hist tbody tr.is-link').filter({ hasText: 'November' });
+  const sub = row.locator('.tm-hist-sub');
+  const flag = sub.locator('.tm-state');
   await expect(flag).toHaveText('In progress');
-  const [shown, edge] = await Promise.all([flag.boundingBox(), name.boundingBox()]);
+  const [shown, edge] = await Promise.all([flag.boundingBox(), sub.boundingBox()]);
   expect((shown?.x ?? 0) + (shown?.width ?? 0)).toBeLessThanOrEqual((edge?.x ?? 0) + (edge?.width ?? 0) + 1);
 });
 
@@ -241,8 +250,9 @@ test('on a laptop History wraps a long event name rather than losing its end', a
   expect(await name.evaluate(el => [...el.querySelectorAll('*'), el].every(n => n.scrollWidth <= n.clientWidth))).toBe(
     true
   );
-  const flag = name.locator('.tm-flag');
-  const [shown, edge] = await Promise.all([flag.boundingBox(), name.boundingBox()]);
+  const sub = page.locator('.tm-hist tbody tr.is-link').filter({ hasText: 'November' }).locator('.tm-hist-sub');
+  const flag = sub.locator('.tm-state');
+  const [shown, edge] = await Promise.all([flag.boundingBox(), sub.boundingBox()]);
   expect((shown?.x ?? 0) + (shown?.width ?? 0)).toBeLessThanOrEqual((edge?.x ?? 0) + (edge?.width ?? 0) + 1);
 });
 
@@ -671,6 +681,28 @@ test('Settings opens on the player profile, keeps its section in the address, an
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Username');
   await nav.getByRole('button', { name: 'Player profile' }).click();
   await expect(page.getByLabel('First name')).toHaveValue('Marianne');
+});
+
+test('on a phone the open tab names the Settings section, and its heading is kept for assistive tech alone @mobileOnly', async ({
+  page
+}) => {
+  await mockSettings(page, ME);
+  await page.goto('/settings');
+  const heading = page.getByRole('heading', { level: 1, name: 'Player profile' });
+  await expect(heading).toBeAttached();
+  const box = await heading.boundingBox();
+  expect([box?.width, box?.height]).toEqual([1, 1]);
+});
+
+test('on a laptop each player profile field is as wide as its answer, not one width for all', async ({ page }) => {
+  await page.setViewportSize({ width: 1024, height: 768 });
+  await mockSettings(page, ME);
+  await page.goto('/settings');
+  const width = async (label: string) => (await page.getByLabel(label).boundingBox())?.width ?? 0;
+  const [first, last, id, year] = await Promise.all(['First name', 'Last name', 'Player ID', 'Birth year'].map(width));
+  expect(first).toBe(last);
+  expect(year).toBeLessThan(id);
+  expect(id).toBeLessThan(first / 2);
 });
 
 test('the player profile draws one rule above Save, not two', async ({ page }) => {

@@ -23,7 +23,7 @@ import { DeckIcons } from './DeckIcons';
 import { Squares } from './Squares';
 import '../../styles/pages/tournament-history.css';
 
-const STATUS_FLAGS: Record<HistoryEntry['status'], string | null> = {
+const STATUS_WORDS: Record<HistoryEntry['status'], string | null> = {
   live: msg('In progress'),
   upcoming: msg('Upcoming'),
   finished: null
@@ -167,9 +167,7 @@ function EntryRow(props: { entry: HistoryEntry; watch: Watch }) {
         </td>
         <td class='tm-hist-event'>
           <span class='tm-hist-name'>
-            {/* Its own box, so a long name gives way before its flag does. */}
             <span>{props.entry.name || props.entry.code}</span>
-            <Show when={STATUS_FLAGS[props.entry.status]}>{flag => <span class='tm-flag'>{t(flag())}</span>}</Show>
           </span>
           <span class='tm-hist-sub'>
             {/* On a phone the deck's own column gives way, and its sprites lead this line. */}
@@ -177,6 +175,13 @@ function EntryRow(props: { entry: HistoryEntry; watch: Watch }) {
               <DeckIcons label={finish()?.deck ?? undefined} />
             </span>
             {sub()}
+            <Show when={STATUS_WORDS[props.entry.status]}>
+              {word => (
+                <span class='tm-state tm-hist-state' classList={{ 'is-live': props.entry.status === 'live' }}>
+                  {t(word())}
+                </span>
+              )}
+            </Show>
             <Show when={finish()?.dropped}>
               <span class='tm-flag'>{t('Dropped')}</span>
             </Show>

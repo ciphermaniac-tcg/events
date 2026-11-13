@@ -504,6 +504,23 @@ test('/host: on a phone, an event row keeps its links on screen without scrollin
   await expect(row.locator('.tm-host-players')).toHaveAttribute('data-unit', 'players');
 });
 
+test('/host: on a phone, an event row’s menu dots end on its player count’s edge, on a 44px target @mobileOnly', async ({
+  page
+}) => {
+  await mockHost(page, { ...ME, role: 'community' });
+  await page.goto('/');
+  const row = page.locator('.tm-host-table tbody tr').first();
+  const menu = row.getByRole('button', { name: 'More for Thursday Locals' });
+  const [dots, button, players] = await Promise.all([
+    menu.locator('svg').boundingBox(),
+    menu.boundingBox(),
+    row.locator('.tm-host-players').boundingBox()
+  ]);
+  const right = (box: typeof dots) => (box?.x ?? 0) + (box?.width ?? 0);
+  expect(Math.abs(right(dots) - right(players))).toBeLessThanOrEqual(2);
+  expect([button?.width, button?.height]).toEqual([44, 44]);
+});
+
 test('/host: Run again opens the setup on a finished event’s answers, named, with no date', async ({ page }) => {
   await mockHost(page, { ...ME, role: 'community' });
   const tournament = {

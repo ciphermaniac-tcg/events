@@ -132,7 +132,9 @@ function EventRow(props: { event: TournamentSummary; onRunAgain?: (event: Tourna
           <span class='tm-flag'>{t('Staff')}</span>
         </Show>
       </td>
-      <td class='muted-cell tm-host-status'>{t(PHASE_WORDS[phaseOf(props.event)])}</td>
+      <td class='muted-cell tm-host-status tm-state' classList={{ 'is-live': phaseOf(props.event) === 'live' }}>
+        {t(PHASE_WORDS[phaseOf(props.event)])}
+      </td>
       <td class='muted-cell tm-num tm-nowrap tm-host-when'>{startShown(props.event)}</td>
       <td class='muted-cell tm-wide-col'>{props.event.mode === 'tom' ? 'TOM' : t('Swiss')}</td>
       {/* The unit shows on a phone, where the column heads do not. */}

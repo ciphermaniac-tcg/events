@@ -79,6 +79,12 @@
   font-size: var(--text-base);
   color: var(--muted);
 }
+/* The state ends the line under the name, after the house dot. */
+.tm-hist-state::before {
+  content: ' · ';
+  color: var(--muted);
+  font-weight: 400;
+}
 .tm-hist-deck-in {
   display: flex;
   align-items: center;
@@ -192,12 +198,16 @@
   .tm-hist-phone-deck {
     display: inline;
   }
+  /* The line under the name is full on a phone: the state takes a line of its own. */
+  .tm-hist-state {
+    display: block;
+  }
+  .tm-hist-state::before {
+    content: none;
+  }
   .tm-hist-phone-deck .arche-icons {
     margin-right: var(--space-2);
     vertical-align: -5px;
-  }
-  .tm-hist-name .tm-flag {
-    margin-left: var(--space-1);
   }
   .tm-hist .data tr.row-expansion > td {
     padding: var(--space-1) var(--space-3) var(--space-3);

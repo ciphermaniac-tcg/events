@@ -286,10 +286,6 @@
      whole page slid up under it. Reserve the line height up front. */
   min-height: 1.5em;
 }
-.hero-meta .dot {
-  margin: 0 8px;
-  opacity: 0.4;
-}
 
 /* ---------- Archetype Pokémon icons ----------
    Compact Limitless sprite(s) shown beside an archetype name (list view,
@@ -337,11 +333,14 @@
 .tm-code-form input {
   flex: 1;
   min-width: 0;
-  height: 40px;
   font-size: 16px;
 }
+/* The house height: the token's, which organizer pages raise to 44px. */
+.tm-code-form input,
 .tm-code-form .btn {
-  height: 40px;
+  height: var(--control-h);
+}
+.tm-code-form .btn {
   padding-inline: var(--space-4);
 }
 .tm-code-form .tm-error {

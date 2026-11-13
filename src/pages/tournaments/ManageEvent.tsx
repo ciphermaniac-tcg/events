@@ -287,24 +287,20 @@ function Hero(props: { state: ManageState; manage: Manage; pod: Pod | undefined;
             {/* Each part keeps the dot after it, so the line wraps between parts and never starts on a dot. */}
             <p class='hero-meta'>
               <span class='tm-meta-part tm-meta-lead'>
-                {lead()}
-                <span class='dot'>·</span>
+                {/* The lead may wrap within itself; its dot stays with its last word. A flex line drops plain spaces, so they are fixed. */}
+                {lead()}&nbsp;·&nbsp;
               </span>
               <span class='tm-meta-part'>
-                <span class='num'>{props.manage.code}</span>
-                <span class='dot'>·</span>
+                <span class='num'>{props.manage.code}</span> ·&nbsp;
               </span>
               <span class='tm-meta-part'>
-                {props.manage.mode === 'tom' ? t('Run in TOM') : t('Swiss on this site')}
-                <span class='dot'>·</span>
+                {props.manage.mode === 'tom' ? t('Run in TOM') : t('Swiss on this site')} ·&nbsp;
               </span>
               <span class='tm-meta-part'>
-                {tn(props.manage.tournament.players.length, '{n} player', '{n} players')}
-                <span class='dot'>·</span>
+                {tn(props.manage.tournament.players.length, '{n} player', '{n} players')} ·&nbsp;
               </span>
               <span class='tm-meta-part'>
-                <A href={`/t/${props.manage.code}`}>{t('Public page')}</A>
-                <span class='dot'>·</span>
+                <A href={`/t/${props.manage.code}`}>{t('Public page')}</A> ·&nbsp;
               </span>
               {/* Its own tab, since it goes on the projector while the console keeps running. */}
               <a href={`/t/${props.manage.code}?screen=1`} target='_blank' rel='noopener'>

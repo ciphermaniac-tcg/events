@@ -174,12 +174,19 @@ async function mockEvent(page: Page, settings: Partial<TournamentSettings> = {})
   return { calls };
 }
 
-test('before round 1 the page is the registration tab alone, and asks nobody who they are', async ({ page }) => {
+test('before round 1 the page is the registration form alone, with no tab row, and asks nobody who they are @mobile', async ({
+  page
+}) => {
   await mockEvent(page);
   await page.goto(`/t/${CODE}`);
-  await expect(page.getByRole('tab', { name: 'Register' })).toBeVisible();
-  await expect(page.getByRole('tab', { name: 'Pairings' })).toHaveCount(0);
-  await expect(page.getByRole('tab', { name: 'Standings' })).toHaveCount(0);
+  await expect(page.getByRole('textbox', { name: 'Player ID' })).toBeVisible();
+  // A choice of one is no choice: the lone section draws no tab row.
+  await expect(page.getByRole('tablist')).toHaveCount(0);
+  // An address that names the section keeps it.
+  await page.goto(`/t/${CODE}?tab=decklist`);
+  await expect(page.getByRole('textbox', { name: 'Player ID' })).toBeVisible();
+  await expect(page.getByRole('tab')).toHaveCount(0);
+  await expect(page).toHaveURL(/\?tab=decklist$/);
   await expect(page.getByText('Which player are you?')).toHaveCount(0);
 });
 

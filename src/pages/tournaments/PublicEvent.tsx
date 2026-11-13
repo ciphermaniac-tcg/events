@@ -12,6 +12,7 @@
 import { keepBrowserMemory, readBrowserMemory } from '../../lib/tournament/browserMemory';
 import { A, useSearchParams } from '@solidjs/router';
 import {
+  children,
   createEffect,
   createMemo,
   createResource,
@@ -734,6 +735,75 @@ function EventBody(props: {
     setRoundChoice(null);
   };
 
+  // A choice of one is no choice: a lone section draws no tab row, and its content stands alone.
+  const panel = children(() => (
+    <>
+      <Show when={tab() === 'pairings'}>
+        <section class='tm-box tm-public-pairings'>
+          <PublicPairings
+            view={props.view}
+            pod={pod()}
+            round={round()}
+            names={names()}
+            me={me()}
+            query={query()}
+            bar={bar}
+            following={following()}
+            registered={<RegisteredList view={props.view} me={me()} query={query()} onPlayer={setOpen} />}
+            onPlayer={setOpen}
+            listed={listed() ?? NO_LISTS}
+            miss={miss(msg('No tables match in {division}.'))}
+          />
+          <Show when={started() && deckNote(props.view)}>
+            {note => <p class='tm-box-bar tm-box-note muted'>{note()}</p>}
+          </Show>
+        </section>
+      </Show>
+      <Show when={tab() === 'standings' && pod()}>
+        <Show
+          when={started()}
+          fallback={<p class='muted tm-empty'>{t('Standings will show here once round 1 is played.')}</p>}
+        >
+          <StandingsTable
+            tournament={props.view.tournament}
+            pod={pod()!}
+            names={names()}
+            decks={props.view.decks}
+            divisionOf={divisionOf}
+            me={me()}
+            query={query()}
+            onPlayer={setOpen}
+            listed={listed() ?? NO_LISTS}
+            bar={bar(false)}
+            note={deckNote(props.view)}
+            miss={miss(msg('No players match in {division}.'))}
+          />
+        </Show>
+      </Show>
+      <Show when={tab() === 'decks'}>
+        <DeckStats tournament={props.view.tournament} decks={props.view.decks} />
+      </Show>
+      <Show when={tab() === 'decklist'}>
+        <DecklistForm
+          code={props.view.code}
+          sanctioned={isSanctioned(props.view)}
+          owner={listOwner()}
+          open={takingLists(props.view)}
+          withdrawable={decklistsOpen(props.view)}
+          closes={
+            decklistsOpen(props.view) ? timeShown(props.view.settings.startsAt, props.view.settings.timeZone) : null
+          }
+          checkIn={
+            decklistsOpen(props.view) ? timeShown(props.view.settings.checkInAt, props.view.settings.timeZone) : null
+          }
+          full={rosterFull(props.view)}
+          season={eventSeason(props.view.tournament)}
+          years={yearsCorrectable(props.view)}
+        />
+      </Show>
+    </>
+  ));
+
   const now = createNow();
   // Who a viewer is only matters near the start: until then the page is for registering.
   const asks = createMemo(() => me() !== null || (!watching() && asksWhoYouAre(started(), props.view.settings, now())));
@@ -768,78 +838,18 @@ function EventBody(props: {
           }}
         />
       </Show>
-      <Tabs
-        id='event'
-        options={tabs()}
-        selected={tab()}
-        onSelect={value => setParams({ tab: value }, { replace: true })}
-        ariaLabel={t('Event sections')}
-      />
-      <TabPanel tabs='event' selected={tab()}>
-        <Show when={tab() === 'pairings'}>
-          <section class='tm-box tm-public-pairings'>
-            <PublicPairings
-              view={props.view}
-              pod={pod()}
-              round={round()}
-              names={names()}
-              me={me()}
-              query={query()}
-              bar={bar}
-              following={following()}
-              registered={<RegisteredList view={props.view} me={me()} query={query()} onPlayer={setOpen} />}
-              onPlayer={setOpen}
-              listed={listed() ?? NO_LISTS}
-              miss={miss(msg('No tables match in {division}.'))}
-            />
-            <Show when={started() && deckNote(props.view)}>
-              {note => <p class='tm-box-bar tm-box-note muted'>{note()}</p>}
-            </Show>
-          </section>
-        </Show>
-        <Show when={tab() === 'standings' && pod()}>
-          <Show
-            when={started()}
-            fallback={<p class='muted tm-empty'>{t('Standings will show here once round 1 is played.')}</p>}
-          >
-            <StandingsTable
-              tournament={props.view.tournament}
-              pod={pod()!}
-              names={names()}
-              decks={props.view.decks}
-              divisionOf={divisionOf}
-              me={me()}
-              query={query()}
-              onPlayer={setOpen}
-              listed={listed() ?? NO_LISTS}
-              bar={bar(false)}
-              note={deckNote(props.view)}
-              miss={miss(msg('No players match in {division}.'))}
-            />
-          </Show>
-        </Show>
-        <Show when={tab() === 'decks'}>
-          <DeckStats tournament={props.view.tournament} decks={props.view.decks} />
-        </Show>
-        <Show when={tab() === 'decklist'}>
-          <DecklistForm
-            code={props.view.code}
-            sanctioned={isSanctioned(props.view)}
-            owner={listOwner()}
-            open={takingLists(props.view)}
-            withdrawable={decklistsOpen(props.view)}
-            closes={
-              decklistsOpen(props.view) ? timeShown(props.view.settings.startsAt, props.view.settings.timeZone) : null
-            }
-            checkIn={
-              decklistsOpen(props.view) ? timeShown(props.view.settings.checkInAt, props.view.settings.timeZone) : null
-            }
-            full={rosterFull(props.view)}
-            season={eventSeason(props.view.tournament)}
-            years={yearsCorrectable(props.view)}
-          />
-        </Show>
-      </TabPanel>
+      <Show when={tabs().length > 1} fallback={panel()}>
+        <Tabs
+          id='event'
+          options={tabs()}
+          selected={tab()}
+          onSelect={value => setParams({ tab: value }, { replace: true })}
+          ariaLabel={t('Event sections')}
+        />
+        <TabPanel tabs='event' selected={tab()}>
+          {panel()}
+        </TabPanel>
+      </Show>
       <Show when={open()}>
         {id => (
           <OpenPlayer
@@ -1018,9 +1028,7 @@ function Hero(props: { view: TournamentView; prefer: (PodCategory | null)[]; min
                 {/* The dot trails the part before it, so a wrapped line never starts on one. */}
                 <span class='tm-meta-part'>
                   {part}
-                  <Show when={i() < parts().length - 1}>
-                    <span class='dot'>·</span>
-                  </Show>
+                  <Show when={i() < parts().length - 1}> ·&nbsp;</Show>
                 </span>{' '}
               </>
             )}
