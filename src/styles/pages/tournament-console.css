@@ -692,6 +692,11 @@
 .tm-console .tm-roster .tm-flag {
   margin: 0;
 }
+/* The name keeps its 44px target, but the target overlaps the cell's padding
+   rather than standing the line under it 11px off the name. */
+.tm-console .tm-roster .tm-who-name .tm-seat-link {
+  margin-block: calc((1lh - 44px) / 2);
+}
 .tm-console .tm-roster td.tm-extra-col > .tm-row-actions {
   justify-content: flex-end;
 }
