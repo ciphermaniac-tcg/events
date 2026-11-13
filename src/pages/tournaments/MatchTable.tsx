@@ -27,6 +27,7 @@ import {
 } from '../../lib/tournament/present';
 import { PendingSeatMark } from './PendingSeatMark';
 import { DeckIcons } from './DeckIcons';
+import { ExtensionClock } from './ExtensionClock';
 import { Icon } from '@ciphermaniac/design/components/Icon';
 
 export interface MatchTableProps {
@@ -167,9 +168,20 @@ function StatusCell(props: CellProps) {
       <Show when={props.match.p2 !== null}>
         <Show when={outcome() === 'pending'} fallback={<span class='muted-cell'>{t('Done')}</span>}>
           <strong>{t('In progress')}</strong>
+          <ExtensionClock match={props.match} round={props.round} playing />
         </Show>
       </Show>
     </td>
+  );
+}
+
+/** A table's extra time under its number, where a phone hides the Status column. */
+function PhoneExtension(props: { minutes: number }) {
+  return (
+    <span class='tm-table-extra'>
+      <span aria-hidden='true'>+{props.minutes}</span>
+      <span class='sr-only'>{t('{minutes} extra minutes', { minutes: props.minutes })}</span>
+    </span>
   );
 }
 
@@ -303,6 +315,9 @@ export function MatchTable(props: MatchTableProps) {
                         data-label={match.table ? t('Table') : t('Bye')}
                       >
                         <span class='tm-table-num'>{match.table || '—'}</span>
+                        <Show when={props.status && shownOf(match).outcome === 'pending' && match.timeExtension}>
+                          {extension => <PhoneExtension minutes={extension().seconds / 60} />}
+                        </Show>
                       </td>
                       <SeatCell {...props} match={match} shownOf={shownOf} seat={1} records={records()} />
                       <SeatCell {...props} match={match} shownOf={shownOf} seat={2} records={records()} />

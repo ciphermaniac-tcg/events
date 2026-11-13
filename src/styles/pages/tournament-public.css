@@ -69,6 +69,17 @@
   font-size: var(--text-xl);
   font-weight: 800;
 }
+/* Extra time staff gave the table, named beside the clock it is already counted into. */
+.tm-you-clock {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+.tm-you-extra {
+  color: var(--accent-ink);
+  font-size: var(--text-base);
+  font-weight: 500;
+}
 .tm-you-panel {
   display: grid;
   gap: 10px;
@@ -222,8 +233,12 @@
 /* The desktop table is fixed-layout, so the status column needs its own width. */
 @media (min-width: 641px) {
   .tm-public-pairings th.tm-status-col {
-    width: 96px;
+    width: 112px;
   }
+}
+/* A table's extra time under its number: only on a phone, where the Status column is hidden. */
+.tm-table-extra {
+  display: none;
 }
 
 /* Before round 1: who is in, by last name, in columns. */
@@ -373,6 +388,12 @@
   }
   .tm-public-pairings .data td.tm-status-col {
     display: none;
+  }
+  .tm-public-pairings .tm-table-extra {
+    display: block;
+    color: var(--accent-ink);
+    font-size: var(--text-xs);
+    font-weight: 600;
   }
   /* Each name keeps its 44px target and nothing more, so a table's two names sit as one pairing. */
   .tm-public-pairings .data tr {

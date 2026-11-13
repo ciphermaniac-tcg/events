@@ -2729,6 +2729,26 @@ const openTable = (view: TournamentView = VIEW) => {
 const knownAs = (page: Page, key: string) =>
   page.addInitScript(([code, me]) => localStorage.setItem(`cm-tournament-me:${code}`, me ?? ''), [CODE, key]);
 
+test('a table given extra time says so on its player’s strip and in the pairings @mobile', async ({
+  page,
+  isMobile
+}) => {
+  const view = structuredClone(VIEW);
+  const open = openTable(view);
+  open.timeExtension = { seconds: 180, reason: '' };
+  await knownAs(page, open.p1);
+  await mockApi(page, view);
+  await page.goto(`/t/${CODE}`);
+  await expect(page.locator('.tm-you-extra')).toHaveText('+3 min');
+  const row = page.locator('.tm-matches tbody tr.is-me');
+  if (isMobile) {
+    await expect(row.locator('.tm-table-extra')).toBeVisible();
+    await expect(row.locator('.tm-table-extra')).toContainText('3 extra minutes');
+  } else {
+    await expect(row.locator('.tm-status-col .tm-extension')).toContainText('+3 min');
+  }
+});
+
 test('a player presses their answer again to take the report back, and no line promises agreeing reports count', async ({
   page
 }) => {
