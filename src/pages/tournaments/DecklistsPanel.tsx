@@ -103,6 +103,10 @@ function DecklistRow(props: RowProps) {
       props.onChanged();
     }
   }
+  async function print() {
+    const { printList } = await import('./PrintList');
+    printList(props.manage, props.list, sanctioned());
+  }
   /** Lets the player send the list again from another device; the next list sent under these details takes it over. */
   async function unlock() {
     if (await props.state.act(unlockDecklist(props.manage.code, props.list))) {
@@ -162,6 +166,11 @@ function DecklistRow(props: RowProps) {
             >
               {props.open ? t('Hide') : t('View')}
             </button>
+            <Show when={props.list.mode === 'digital' && props.list.deck}>
+              <button type='button' class='btn btn-ghost tm-small' onClick={() => void print()}>
+                {t('Print')}
+              </button>
+            </Show>
             {/* An ended event's roster stands until it is reopened. */}
             <Show when={props.manage.mode === 'swiss' && !props.manage.settings.finished && !playerId()}>
               <button type='button' class='btn btn-ghost tm-small' onClick={() => void add()}>

@@ -125,6 +125,20 @@ test('a late entrant sends their list in the round they joined in, and it locks 
   await expect(page.getByText('Registration closed when the round after you joined was paired.')).toBeVisible();
   await expect(page.getByRole('textbox', { name: 'Decklist' })).toHaveCount(0);
   await expect(page.locator('pre.tm-decklist-sent')).toHaveText(DECK);
+
+  // The receipt prints: the sheet is drawn for the print, then taken away.
+  await page.evaluate(() => {
+    window.print = () => document.documentElement.setAttribute('data-printed', '');
+  });
+  await page.getByRole('button', { name: 'Print' }).click();
+  await expect(page.locator('html[data-printed]')).toHaveCount(1);
+  const sheet = page.locator('.tm-print');
+  await expect(sheet.locator('h1')).toHaveText('Late Cup');
+  await expect(sheet.locator('.tm-print-who')).toContainText('Lena Player');
+  await expect(sheet.locator('.tm-print-section')).toHaveText([/Pokémon\s*4/, /Energy\s*56/]);
+  await expect(sheet.locator('svg.tm-qr')).toHaveCount(1);
+  await page.evaluate(() => window.dispatchEvent(new Event('afterprint')));
+  await expect(sheet).toHaveCount(0);
 });
 
 test('a list sent without an answer stays this device’s to change', async ({ page }) => {

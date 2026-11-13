@@ -760,6 +760,8 @@
   "Preset unavailable or store preset limit reached": "Préréglage indisponible, ou limite de préréglages de la boutique atteinte",
   "Previous page": "Page précédente",
   "Previous round": "Ronde précédente",
+  "Print": "Imprimer",
+  "Printed from Ciphermaniac Events": "Imprimée depuis Ciphermaniac Events",
   "Privacy": "Confidentialité",
   "Privacy policy": "Politique de confidentialité",
   "Profile": "Profil",
@@ -1015,6 +1017,7 @@
     "other": "Envoyer malgré {n} problèmes ?"
   },
   "Submitted": "Envoi",
+  "Submitted {time}": "Envoyée le {time}",
   "Sundays": "Le dimanche",
   "Swap players": "Échanger des joueurs",
   "Swiss": "Rondes suisses",

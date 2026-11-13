@@ -760,6 +760,8 @@
   "Preset unavailable or store preset limit reached": "Vorlage nicht verfügbar oder Vorlagenlimit des Ladens erreicht",
   "Previous page": "Vorherige Seite",
   "Previous round": "Vorherige Runde",
+  "Print": "Drucken",
+  "Printed from Ciphermaniac Events": "Gedruckt aus Ciphermaniac Events",
   "Privacy": "Datenschutz",
   "Privacy policy": "Datenschutzerklärung",
   "Profile": "Profil",
@@ -1015,6 +1017,7 @@
     "other": "Mit {n} Problemen einreichen?"
   },
   "Submitted": "Eingereicht",
+  "Submitted {time}": "Eingereicht am {time}",
   "Sundays": "Sonntags",
   "Swap players": "Spieler tauschen",
   "Swiss": "Schweizer System",

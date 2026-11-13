@@ -15,6 +15,7 @@ import { msg, t } from '../../lib/i18n';
 import { emptyProfile } from './ProfileFields';
 import { recall } from './decklistMemory';
 import { RegistrationForm } from './RegistrationForm';
+import type { SheetEvent } from './printSheet';
 
 interface FormProps {
   code: string;
@@ -36,6 +37,8 @@ interface FormProps {
   checkIn: string | null;
   /** The event's own list is at its cap. */
   full: boolean;
+  /** The event, for the printed list's head. */
+  event: SheetEvent;
 }
 
 type ListOwner = Pick<PlayerProfile, 'popId' | 'firstName' | 'lastName'>;
@@ -105,6 +108,10 @@ const closedNote = (late: boolean): string =>
 
 /** The list as it was sent, read-only, once players can no longer change it. */
 function Receipt(props: FormProps & { list: MyList }) {
+  async function print(mine: Decklist) {
+    const { printList } = await import('./PrintList');
+    printList(props.event, mine, props.sanctioned);
+  }
   return (
     <section class='tm-box tm-reg'>
       <Show when={props.list.current()}>
@@ -116,6 +123,11 @@ function Receipt(props: FormProps & { list: MyList }) {
                   {mine().firstName} {mine().lastName}
                 </strong>
               </span>
+              <Show when={mine().mode === 'digital' && mine().deck}>
+                <button type='button' class='btn btn-secondary tm-small' onClick={() => void print(mine())}>
+                  {t('Print')}
+                </button>
+              </Show>
             </div>
             <div class='tm-box-bar'>
               <Show

@@ -806,6 +806,7 @@ function EventBody(props: {
               decklistsOpen(props.view) ? timeShown(props.view.settings.checkInAt, props.view.settings.timeZone) : null
             }
             full={rosterFull(props.view)}
+            event={props.view}
           />
         </Show>
       </TabPanel>

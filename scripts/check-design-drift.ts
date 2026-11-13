@@ -33,10 +33,10 @@ const LIST = process.argv.includes('--list');
 /**
  * Sheets that draw something other than UI. The social graphics canvas exports
  * at a fixed scale and must look identical in both modes, so it cannot read
- * live tokens; the label maker draws physical thermal ink on physical stock.
- * Both are documented exceptions on /style.
+ * live tokens; the label maker draws physical thermal ink on physical stock; a
+ * printed decklist is ink on paper, sized in points, in either mode.
  */
-const EXEMPT_SHEETS = ['pages/social-graphics.css', 'pages/label-maker.css'];
+const EXEMPT_SHEETS = ['pages/social-graphics.css', 'pages/label-maker.css', 'pages/tournament-print.css'];
 
 interface Finding {
   /** Stable identity across line moves: sheet + rule id + selector. */

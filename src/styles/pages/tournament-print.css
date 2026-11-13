@@ -1,0 +1,144 @@
+/* A decklist on paper (PrintList). Ink on paper in either mode, so it sets
+   its own colours rather than reading the theme's tokens. */
+
+.tm-print {
+  display: none;
+}
+
+@page {
+  margin: 0.45in 0.5in;
+}
+
+@media print {
+  html.is-printing body > :not(.tm-print) {
+    display: none !important;
+  }
+  html.is-printing,
+  html.is-printing body {
+    background: #fff;
+  }
+  .tm-print {
+    display: block;
+  }
+}
+
+.tm-print-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 9.9in;
+  color: #20221f;
+  font-size: 9.5pt;
+  line-height: 1.3;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+.tm-print-event {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1.5px solid #20221f;
+}
+.tm-print-event h1 {
+  margin: 0;
+  font-size: 15pt;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.tm-print-event p {
+  margin: 2px 0 0;
+  font-size: 8.5pt;
+  color: #50544f;
+}
+.tm-print-event .tm-print-format {
+  text-align: right;
+}
+.tm-print-who {
+  display: grid;
+  grid-template-columns: 2.2fr 1.2fr 1fr 1fr;
+  gap: 0 14px;
+  margin: 10px 0 12px;
+}
+.tm-print-who.is-named {
+  grid-template-columns: 1fr;
+}
+.tm-print-who > div {
+  padding: 2px 0 3px;
+  border-bottom: 1px solid #7b8079;
+}
+.tm-print-who dt {
+  font-size: 7pt;
+  color: #50544f;
+}
+.tm-print-who dd {
+  margin: 0;
+  font-size: 11pt;
+  font-weight: 600;
+}
+.tm-print-section {
+  margin-top: 10px;
+  break-inside: avoid;
+}
+.tm-print-section h2 {
+  display: flex;
+  justify-content: space-between;
+  margin: 0 0 2px;
+  padding-bottom: 2px;
+  border-bottom: 1px solid #20221f;
+  font-size: 10pt;
+  font-weight: 700;
+}
+.tm-print-section table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.tm-print-section td {
+  padding: 2.2px 0;
+  border-bottom: 1px solid #e4e5e2;
+  text-align: left;
+  vertical-align: baseline;
+}
+.tm-print-section ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.tm-print-section li {
+  padding: 2.2px 0;
+  border-bottom: 1px solid #e4e5e2;
+}
+.tm-print-section tr {
+  break-inside: avoid;
+}
+.tm-print-count {
+  width: 0.32in;
+  font-weight: 600;
+}
+.tm-print-set {
+  width: 0.5in;
+  color: #50544f;
+}
+.tm-print-section .tm-print-number {
+  width: 0.42in;
+  color: #50544f;
+  text-align: right;
+}
+.tm-print-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+  margin-top: auto;
+  padding-top: 8px;
+  font-size: 7pt;
+  color: #50544f;
+}
+.tm-print-foot p {
+  margin: 0;
+}
+.tm-print-foot .tm-qr {
+  display: block;
+  width: 19mm;
+  height: 19mm;
+}
