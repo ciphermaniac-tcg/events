@@ -673,9 +673,6 @@
 .tm-console .tm-add-row .tm-field:nth-child(n + 3) {
   flex: 0 1 140px;
 }
-.tm-console .tm-deck-cell.is-off {
-  min-width: 200px;
-}
 .tm-console .tm-roster td {
   padding-block: var(--space-2);
 }

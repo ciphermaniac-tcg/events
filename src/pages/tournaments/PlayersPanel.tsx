@@ -134,16 +134,6 @@ function DeckCell(props: RowProps) {
 }
 
 /** Archetypes off for the event: the column keeps its place, greyed, with nothing to pick. */
-function DeckOffCell() {
-  return (
-    <td class='tm-deck-cell is-off'>
-      <span class='tm-deck-off' aria-hidden='true'>
-        {t('Deck')}
-      </span>
-    </td>
-  );
-}
-
 /** A player's results so far, one mark per round they could play: their pod's, and their division's top cut's. */
 function marksOf(pod: Pod | undefined, player: Player): { marks: string[]; rounds: number } {
   if (!pod) {
@@ -208,7 +198,7 @@ function PlayerRow(props: RowProps) {
           <Squares marks={history().marks} rounds={history().rounds} />
         </td>
       </Show>
-      <Show when={decksEnabled(props.manage.settings)} fallback={<DeckOffCell />}>
+      <Show when={decksEnabled(props.manage.settings)}>
         <DeckCell {...props} />
       </Show>
       <Show when={showsCheckIn(props.manage)}>
@@ -348,18 +338,9 @@ export function PlayersPanel(props: { state: ManageState; manage: Manage; onPlay
                 <Show when={started()}>
                   <th>{t('Rounds')}</th>
                 </Show>
-                <th>
-                  {t('Deck')}
-                  <Show when={!archetypes()}>
-                    <span class='tm-th-note'>
-                      {' '}
-                      · {t('off')}{' '}
-                      <button type='button' class='tm-th-link' onClick={() => setParams({ tab: 'event' })}>
-                        {t('Turn on in Settings')}
-                      </button>
-                    </span>
-                  </Show>
-                </th>
+                <Show when={archetypes()}>
+                  <th>{t('Deck')}</th>
+                </Show>
                 <Show when={showsCheckIn(props.manage)}>
                   <CheckInHeads manage={props.manage} players={everyone()} />
                 </Show>

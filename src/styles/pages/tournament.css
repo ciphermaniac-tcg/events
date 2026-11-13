@@ -1296,29 +1296,6 @@ body:has(.tm-sheet) {
   width: 1%;
   white-space: nowrap;
 }
-.tm-deck-off {
-  display: flex;
-  align-items: center;
-  height: 32px;
-  padding: 0 10px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--surface-2);
-  font-size: var(--text-base);
-  color: var(--muted);
-}
-.tm-th-note {
-  letter-spacing: 0;
-  text-transform: none;
-  font-weight: 500;
-}
-.tm-th-link {
-  padding: 0;
-  font: inherit;
-  color: var(--accent-ink);
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
 
 /* ---------- Standings ---------- */
 .tm-standings .tm-seat-link {
