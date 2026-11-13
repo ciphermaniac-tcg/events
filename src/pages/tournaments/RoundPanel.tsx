@@ -1,6 +1,6 @@
 /**
  * The console's round view: the round's tables with result entry, in one
- * box: a bar for the round (picker, progress, swap, re-pair, delete, clock),
+ * box: a bar for the round (picker, progress, re-pair, delete, clock),
  * a bar to narrow the room, then the tables. Pairing the next round is the
  * console head's step (ManageEvent); what Slowpoke could not do lives here:
  * when a player is added after pairing, a note says who is not seated and
@@ -399,22 +399,18 @@ interface RoundBarProps {
   open: number;
   waiting: boolean;
   nothingReported: boolean;
-  swapMode: boolean;
   openOnly: boolean;
   /** The Table / Bracket switch, once the pod has a top cut to draw. */
   views?: JSX.Element;
   onPick: (round: number) => void;
-  onSwap: () => void;
   onOpenOnly: (value: boolean) => void;
 }
 
 /**
  * The round's bar: the picker and progress, then what can be done to it
- * (swap, re-pair, delete), then which tables show.
+ * (re-pair, delete), then which tables show.
  */
 function RoundBar(props: RoundBarProps) {
-  const swiss = () => props.round.kind === 'swiss';
-  const running = () => props.live && props.round.status !== 'finished';
   return (
     <div class='tm-box-bar'>
       <RoundStepper pod={props.pod} selected={props.round.number} onSelect={props.onPick} />
@@ -431,16 +427,6 @@ function RoundBar(props: RoundBarProps) {
         <span class='muted'>{t('Paired in TOM')}</span>
       </Show>
       <span class='tm-round-acts'>
-        <Show when={running() && swiss()}>
-          <button
-            type='button'
-            class='btn btn-ghost tm-small'
-            aria-pressed={props.swapMode}
-            onClick={() => props.onSwap()}
-          >
-            {props.swapMode ? t('Cancel swap') : t('Swap players')}
-          </button>
-        </Show>
         <Show when={props.live && repairable(props.round) && props.open > 0 && !props.waiting}>
           <RepairControl state={props.state} pod={props.pod} label={t('Re-pair round')} />
         </Show>
@@ -523,7 +509,7 @@ function TableSheet(props: {
 /**
  * Where a result is entered: in its row on a wide screen, or, 900px and under
  * where a row is too narrow for its controls, in a sheet the row opens. Not
- * while seats are being swapped or the file is locked (`held`).
+ * while the file is locked (`held`).
  */
 function createRowSheet(held: () => boolean) {
   const narrow = createMedia('(max-width: 900px)');
@@ -535,7 +521,7 @@ function createRowSheet(held: () => boolean) {
       warmChunks([ResultSheet.preload]);
     }
   });
-  // A sheet hidden by a wider window or a swap stays closed when they end.
+  // A sheet hidden by a wider window or a lock stays closed when they end.
   createEffect(() => {
     if (!opens()) {
       setOpen(null);
@@ -549,30 +535,6 @@ function createRowSheet(held: () => boolean) {
     sheetMatch: (round: Round) => {
       const want = open();
       return want && opens() ? round.matches.find(m => m.table === want.table && m.p1 === want.p1) : undefined;
-    }
-  };
-}
-
-/** Trading two players' seats: a press on one, then the other, sends the swap. */
-function createSwap(state: () => ManageState, pod: () => Pod) {
-  const [swapMode, setSwapMode] = createSignal(false);
-  const [swapPick, setSwapPick] = createSignal<string | null>(null);
-  return {
-    swapMode,
-    swapPick,
-    toggleSwap: () => {
-      setSwapMode(!swapMode());
-      setSwapPick(null);
-    },
-    pickForSwap: (id: string) => {
-      const first = swapPick();
-      if (first === null) {
-        setSwapPick(id);
-        return;
-      }
-      setSwapPick(null);
-      setSwapMode(false);
-      void state().send({ type: 'swapPlayers', pod: pod().category, a: first, b: id });
     }
   };
 }
@@ -716,10 +678,6 @@ export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod
   const locked = () => props.locked === true || ended() || !isLatest();
   const latest = () => latestRound(props.pod);
   const [picked, setPicked] = createSignal<number | null>(null);
-  const { swapMode, swapPick, toggleSwap, pickForSwap } = createSwap(
-    () => props.state,
-    () => props.pod
-  );
   const [asking, setAsking] = createSignal<Asking | null>(null);
   const [extension, setExtension] = createSignal<ExtensionSelection | null>(null);
   onMount(() => warmChunks([TimeExtensionDialog.preload]));
@@ -753,7 +711,7 @@ export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod
   /** The staff controls that act on the round, offered only where its clock is, never for TOM, and not once it ends. */
   const live = () => !tom() && timed() && !ended();
   // A TOM event's results are entered in TOM, so its rows open no sheet and take no presses.
-  const { opens, inRow, openSheet, sheetMatch, closeSheet } = createRowSheet(() => swapMode() || locked() || tom());
+  const { opens, inRow, openSheet, sheetMatch, closeSheet } = createRowSheet(() => locked() || tom());
   const isAsking = (match: Match) => asking()?.table === match.table && asking()?.p1 === match.p1;
   const tableOf = createTables(props, round, names);
   const isOpen = (match: Match) => tableOf(match).shown.outcome === 'pending';
@@ -836,11 +794,9 @@ export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod
                 names={names()}
                 decks={shownDecks(props.manage)}
                 pending={props.manage.pending}
-                selected={new Set(swapPick() ? [swapPick() as string] : [])}
                 onReport={inRow() && !tom() ? report : undefined}
                 onRecord={inRow() && !tom() ? send : undefined}
                 onRow={opens() ? openSheet : undefined}
-                onPlayer={swapMode() ? pickForSwap : undefined}
                 inProgress={openOnly() ? undefined : isOpen}
                 confirming={asking()}
                 sent={match => entry.sentFor(r(), match) ?? entry.failedFor(r(), match)}
@@ -901,7 +857,6 @@ export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod
                 open={counts().open}
                 waiting={waiting().length > 0}
                 nothingReported={counts().nothingReported}
-                swapMode={swapMode()}
                 openOnly={openOnly()}
                 onOpenOnly={setOpenOnly}
                 views={
@@ -916,13 +871,7 @@ export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod
                   </Show>
                 }
                 onPick={setPicked}
-                onSwap={toggleSwap}
               />
-              <Show when={swapMode()}>
-                <div class='tm-box-bar tm-ask'>
-                  <span>{t('Pick two players to trade seats.')}</span>
-                </div>
-              </Show>
               <Show when={asBracket()} fallback={roomTable()}>
                 <CutBracket
                   tournament={props.manage.tournament}

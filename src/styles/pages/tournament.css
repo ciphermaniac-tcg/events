@@ -193,11 +193,6 @@ body.tm-stream-mode {
 .tm-strip.is-note {
   border-color: var(--accent);
 }
-/* A question asked in place, in the bar it belongs to. */
-.tm-ask {
-  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
-}
-
 /* Rows. The column heads close on the drawn edge; every other row steps
    to --zebra so a long row can be followed across the box (the cut line in
    standings is not counted, so the shared stripe is reset first); hover is
@@ -825,10 +820,6 @@ body[data-mode='dark'] :is(.tm-input, .tm-select) {
 }
 .data tr.is-confirming td {
   background: color-mix(in srgb, var(--accent) 9%, var(--surface));
-}
-.data td.is-selected {
-  outline: 2px solid var(--accent);
-  outline-offset: -2px;
 }
 .data tr.is-dropped .tm-name {
   color: var(--muted);

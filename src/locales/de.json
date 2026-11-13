@@ -135,7 +135,6 @@
   "Can’t be changed after the event is created": "Kann nach dem Erstellen des Turniers nicht mehr geändert werden",
   "Cancel": "Abbrechen",
   "Cancel request": "Anfrage zurückziehen",
-  "Cancel swap": "Tausch abbrechen",
   "Cancelled": "Zurückgezogen",
   "Capped at {n} rounds": {
     "one": "Höchstens {n} Runde",
@@ -715,7 +714,6 @@
   "Pick the division to cut": "Wähle die Altersklasse für den Top-Cut",
   "Pick the store’s time zone": "Wähle die Zeitzone des Ladens",
   "Pick two different players in the current round": "Wähle zwei verschiedene Spieler aus der aktuellen Runde",
-  "Pick two players to trade seats.": "Wähle zwei Spieler, die ihre Plätze tauschen.",
   "Place": "Platz",
   "Play": "Spielen",
   "Play has started, so their birth year cannot change their division": "Das Turnier läuft schon, deshalb ändert das Geburtsjahr die Altersklasse nicht mehr",
@@ -1016,7 +1014,6 @@
   },
   "Submitted": "Eingereicht",
   "Sundays": "Sonntags",
-  "Swap players": "Spieler tauschen",
   "Swiss": "Schweizer System",
   "Swiss on this site": "Schweizer System auf Ciphermaniac",
   "Swiss round minutes": "Minuten pro Schweizer Runde",

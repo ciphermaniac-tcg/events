@@ -52,8 +52,6 @@ export interface MatchTableProps {
   tag?: (match: Match, id: string) => SeatTag | null;
   /** The public page: a Status column saying which tables are still playing, on desktop. */
   status?: boolean;
-  /** Players picked for a swap, drawn as selected. */
-  selected?: ReadonlySet<string>;
   /** The result waiting for staff to confirm it, previewed in its row. */
   confirming?: { table: number; p1: string; outcome: Outcome } | null;
   /** Staff only: the result sent for a match and not answered yet, previewed the same way until it is. */
@@ -109,7 +107,7 @@ function SeatCell(props: CellProps & { seat: 1 | 2; records: Map<string, string>
   // A double click records only on an open table: changing a result that stands always asks first.
   const open = () => (props.sent?.(props.match) ?? props.shownOf(props.match).outcome) === 'pending';
   return (
-    <td class='tm-seat' classList={{ 'is-selected': props.selected?.has(id() ?? '') }}>
+    <td class='tm-seat'>
       <Show
         when={id()}
         fallback={<span class='muted-cell'>{isBye(props.match.outcome) ? t('Bye') : t('Missed round')}</span>}

@@ -141,7 +141,6 @@
   "Can’t be changed after the event is created": "No se puede cambiar después de crear el torneo",
   "Cancel": "Cancelar",
   "Cancel request": "Cancelar solicitud",
-  "Cancel swap": "Cancelar intercambio",
   "Cancelled": "Cancelada",
   "Capped at {n} rounds": {
     "one": "Máximo de {n} ronda",
@@ -749,7 +748,6 @@
   "Pick the division to cut": "Elige la categoría del top cut",
   "Pick the store’s time zone": "Elige la zona horaria de la tienda",
   "Pick two different players in the current round": "Elige dos jugadores distintos de la ronda actual",
-  "Pick two players to trade seats.": "Elige dos jugadores para intercambiar sus asientos.",
   "Place": "Puesto",
   "Play": "Jugar",
   "Play has started, so their birth year cannot change their division": "El torneo ya empezó, así que su año de nacimiento ya no puede cambiar su categoría",
@@ -1054,7 +1052,6 @@
   },
   "Submitted": "Enviada",
   "Sundays": "Los domingos",
-  "Swap players": "Intercambiar jugadores",
   "Swiss": "Suizo",
   "Swiss on this site": "Suizo en este sitio",
   "Swiss round minutes": "Minutos por ronda suiza",
