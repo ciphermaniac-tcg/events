@@ -4,14 +4,16 @@
  * A Swiss event applies the command to the document. A TOM-run event takes
  * the round clock only, which is the site's (see shared/tournament/tomClock.ts):
  * TOM owns its pairings and results, and a result entered here would be one
- * TOM never reads.
+ * TOM never reads. A player who drops mid-round from an unreported Swiss
+ * match concedes it, and their opponent gets the win at once (see conceded).
  */
 
 import { applyCommand as applySiteClock } from '../../../shared/tournament/legacyCommands.js';
-import { applyCommand, type Command } from '../../../shared/tournament/commands.js';
+import { applyCommand, type Command, type CommandContext } from '../../../shared/tournament/commands.js';
+import { reportsFor } from '../../../shared/tournament/reports.js';
 import { lockedRound } from '../../../shared/tournament/corrections.js';
 import { checkInError } from '../../../shared/tournament/checkins.js';
-import { countsComplete, findMatch, hasStarted, latestRound } from '../../../shared/tournament/rounds.js';
+import { countsComplete, findMatch, hasStarted, latestRound, podOf } from '../../../shared/tournament/rounds.js';
 import { withSiteClocks } from '../../../shared/tournament/tomClock.js';
 import type { PodCategory, Tournament } from '../../../shared/tournament/types.js';
 import { applyPending, isSanctioned } from '../../../shared/tournament/view.js';
@@ -88,6 +90,39 @@ function pairingRefusal(row: TournamentRow, pod: PodCategory): string | null {
   return round && !countsComplete(round) ? msg('This round still has results to enter.') : null;
 }
 
+/** The started Swiss match `id` left open by departing, with the opponent still in it; null for any other. */
+function departedMatch(tournament: Tournament, id: string) {
+  const pod = podOf(tournament, id);
+  const round = latestRound(pod);
+  const match = round?.matches.find(m => m.outcome === 'pending' && (m.p1 === id || m.p2 === id));
+  const opponent = match?.p1 === id ? match.p2 : match?.p1;
+  const stillIn = tournament.players.some(player => player.id === opponent && player.droppedAfter === null);
+  return pod && round?.kind === 'swiss' && (round.stage ?? 4) >= 4 && match && stillIn ? { pod, round, match } : null;
+}
+
+/**
+ * A player who drops, or is disqualified, during a Swiss round concedes a
+ * match nobody has reported: the opponent gets the win, entered as staff
+ * would enter it (Tournament Rules Handbook §5.7.1). A match with a result or
+ * any player's report is left for staff, as is one whose opponent has left.
+ * Elimination matches the engine concedes itself (see lifecyclePlayers.ts).
+ */
+function conceded(row: TournamentRow, command: Command, after: Tournament, ctx: CommandContext): Tournament {
+  const id = command.type === 'dropPlayer' || command.type === 'disqualifyPlayer' ? command.id : null;
+  const open = id === null ? null : departedMatch(after, id);
+  if (!open || reportsFor(row.reports, open.pod.category, open.round.number, open.match).length > 0) {
+    return after;
+  }
+  const { table, p1, p2 } = open.match;
+  const outcome = p1 === id ? 'p2' : 'p1';
+  const win = applyCommand(
+    after,
+    { type: 'reportResult', pod: open.pod.category, round: open.round.number, table, p1, p2, outcome },
+    ctx
+  );
+  return win.ok ? win.tournament : after;
+}
+
 export function commandChanges(row: TournamentRow, command: Command, localTime: unknown): Changes | string {
   const refusal = commandRefusal(row, command);
   if (refusal) {
@@ -95,7 +130,8 @@ export function commandChanges(row: TournamentRow, command: Command, localTime: 
   }
   const apply = row.mode === 'tom' ? applySiteClock : applyCommand;
   const source = commandSource(row, command);
-  const result = apply(source, command, commandContext(row.tournament, localTime, isSanctioned(row)));
+  const ctx = commandContext(row.tournament, localTime, isSanctioned(row));
+  const result = apply(source, command, ctx);
   if (!result.ok) {
     return result.tournament ? { tournament: result.tournament, refusal: result.error } : result.error;
   }
@@ -103,7 +139,7 @@ export function commandChanges(row: TournamentRow, command: Command, localTime: 
     // A clock may change only the clock: anything more is a copy the next file sync would be refused against.
     return { tournament: withSiteClocks(row.tournament, result.tournament) };
   }
-  return { tournament: result.tournament };
+  return { tournament: conceded(row, command, result.tournament, ctx) };
 }
 
 function commandSource(row: TournamentRow, command: Command): Tournament {

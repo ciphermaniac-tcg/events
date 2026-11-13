@@ -3797,3 +3797,18 @@ test('a new event keeps its logistics and starts in its store’s zone unless se
   assert.equal((await settle(stored, organizer, { timeZone: 'Asia/Tokyo' })).status, 200);
   assert.equal((await view(stored)).settings.timeZone, 'Asia/Tokyo');
 });
+
+test('a player who drops mid-round concedes an unreported Swiss match, and a reported one waits for staff', async () => {
+  const owner = await signIn('Organizer', 'organizer');
+  const code = await newSwiss(owner);
+  await addPlayers(code, owner, 4);
+  const paired = await send(code, owner, { type: 'pairRound', pod: 'masters' });
+  await send(code, owner, { type: 'startClock', pod: 'masters' });
+  await settle(code, owner, { playerReporting: true });
+  const [first, second] = paired.json.tournament.pods[0].rounds[0].matches as Match[];
+  await (await phoneOf(code, second!.p2!)).report('win');
+  const dropped = await send(code, owner, { type: 'dropPlayer', id: first!.p1 });
+  assert.equal(dropped.json.tournament.pods[0].rounds[0].matches[0].outcome, 'p2', 'the opponent gets the win');
+  const reported = await send(code, owner, { type: 'disqualifyPlayer', id: second!.p1 });
+  assert.equal(reported.json.tournament.pods[0].rounds[0].matches[1].outcome, 'pending', 'a report waits for staff');
+});
