@@ -2721,11 +2721,12 @@ test.describe('on a 640px phone held sideways', () => {
   });
 });
 
-test('staff add five minutes, or type the time left and see the change before it is sent', async ({ page }) => {
+test('staff add a minute, or type the time left and see the change before it is sent', async ({ page }) => {
   const sent = await mockConsole(page, partlyPlayed(8, 0, 2), settingsOf({}));
   const clock = page.locator('.tm-console-hero').getByRole('group', { name: 'Round clock' });
-  await clock.getByRole('button', { name: 'Add five minutes' }).click();
-  await expect.poll(() => sent.at(-1)).toEqual({ type: 'adjustClock', pod: 'masters', seconds: 300 });
+  await expect(clock.getByRole('button', { name: 'Add five minutes' })).toHaveCount(0);
+  await clock.getByRole('button', { name: 'Add a minute' }).click();
+  await expect.poll(() => sent.at(-1)).toEqual({ type: 'adjustClock', pod: 'masters', seconds: 60 });
   await clock.getByRole('button', { name: 'Set the time left' }).click();
   const field = clock.getByRole('textbox', { name: 'Time left' });
   await expect(field).toBeFocused();

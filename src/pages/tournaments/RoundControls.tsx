@@ -84,7 +84,7 @@ function ClockSetter(props: { round: Round; onSet: (seconds: number) => void; on
   );
 }
 
-/** The clock as one control: time left (a press types a new one), then start or pause, then minutes either way. */
+/** The clock as one control: time left (a press types a new one), then start or pause, then a minute either way. */
 export function ClockControls(props: { state: ManageState; pod: Pod; round: Round; class?: string }) {
   const send = (type: 'startClock' | 'stopClock') => void props.state.send({ type, pod: props.pod.category });
   const adjust = (seconds: number) => void props.state.send({ type: 'adjustClock', pod: props.pod.category, seconds });
@@ -114,9 +114,6 @@ export function ClockControls(props: { state: ManageState; pod: Pod; round: Roun
         </button>
         <button type='button' aria-label={t('Add a minute')} onClick={() => adjust(60)}>
           +1
-        </button>
-        <button type='button' aria-label={t('Add five minutes')} onClick={() => adjust(300)}>
-          +5
         </button>
         <button type='button' aria-label={t('Take a minute off')} onClick={() => adjust(-60)}>
           −1
