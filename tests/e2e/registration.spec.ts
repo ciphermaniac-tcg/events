@@ -227,8 +227,11 @@ test('a registered Player ID asks its birth year, then opens the registration to
   const trigger = (await more.boundingBox()) ?? { x: 0, width: 0 };
   expect(menu.width).toBeLessThan(320);
   expect(Math.abs(menu.x + menu.width - (trigger.x + trigger.width))).toBeLessThan(2);
-  await page.getByRole('button', { name: 'Change name' }).click();
+  await page.getByRole('button', { name: 'Change name or year' }).click();
   await page.getByRole('textbox', { name: 'First name' }).fill('Avery J.');
+  // A mistyped year is corrected before round 1, proved by the year the registration was opened with.
+  await page.getByRole('textbox', { name: 'Birth year' }).fill('2000');
+  await expect(page.locator('.tm-reg-division')).toHaveText('Masters Division');
   await page.getByText('In person').click();
   await page.getByRole('button', { name: 'Save changes' }).click();
   await expect(page.getByRole('status')).toHaveText('Changes saved.');
@@ -236,7 +239,8 @@ test('a registered Player ID asks its birth year, then opens the registration to
   expect(put?.body).toMatchObject({
     mode: 'paper',
     deck: '',
-    profile: { popId: '7', firstName: 'Avery J.', lastName: 'Chen', birthDate: '02/27/1998' }
+    wasYear: '1998',
+    profile: { popId: '7', firstName: 'Avery J.', lastName: 'Chen', birthDate: '02/27/2000' }
   });
 
   await page.getByRole('button', { name: 'More' }).click();
@@ -246,7 +250,7 @@ test('a registered Player ID asks its birth year, then opens the registration to
   await page.getByRole('button', { name: 'Withdraw' }).click();
   await page.getByRole('group', { name: 'Withdraw' }).getByRole('button', { name: 'Withdraw' }).click();
   await expect(page.getByRole('status')).toHaveText('You’ve withdrawn.');
-  expect(calls.at(-1)).toMatchObject({ method: 'DELETE', query: { popId: '7', birthYear: '1998' } });
+  expect(calls.at(-1)).toMatchObject({ method: 'DELETE', query: { popId: '7', birthYear: '2000' } });
 });
 
 test('on a 320px phone, the withdraw question keeps both answers inside the box @mobileOnly', async ({ page }) => {

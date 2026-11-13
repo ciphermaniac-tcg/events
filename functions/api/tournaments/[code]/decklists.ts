@@ -426,6 +426,12 @@ interface Submission {
   archetype: string | null;
   /** At an unsanctioned event, the names the registration had, when this renames it. */
   was: Details | null;
+  /**
+   * At a sanctioned event, the birth year the registration had when this save
+   * corrects it: the year that proves the Player ID, while the event's list
+   * takes the new one (see keptChanges). Null when the year is not changed.
+   */
+  wasYear: string | null;
   /** The token the device holds for an earlier list under these details, if any. */
   held: unknown;
   localTime: unknown;
@@ -453,7 +459,11 @@ const NOTHING_COUNTED: Admitted = { stored: async () => undefined };
  * judged by the store, against a list kept under it, so the try counts before
  * the store runs and is forgiven when the list lands.
  */
-async function guardSubmission(access: Access, profile: PlayerProfile): Promise<Admitted | Response> {
+async function guardSubmission(
+  access: Access,
+  profile: PlayerProfile,
+  wasYear: string | null
+): Promise<Admitted | Response> {
   const { db, row } = access;
   if (!isSanctioned(row)) {
     return NOTHING_COUNTED;
@@ -468,7 +478,8 @@ async function guardSubmission(access: Access, profile: PlayerProfile): Promise<
     return jsonError(OVER_FOR_MINORS, 403);
   }
   const listed = row.tournament.players.some(candidate => candidate.id === profile.popId);
-  const right = listed && provesId(row, profile.popId, String(year ?? ''), null);
+  // A correction proves the Player ID with the year it corrects.
+  const right = listed && provesId(row, profile.popId, wasYear ?? String(year ?? ''), null);
   if (!(await admitTry({ db, code: row.code, popId: profile.popId, right, now }))) {
     return jsonError(LOCKED_OUT, 429);
   }
@@ -523,6 +534,7 @@ async function readSubmission(request: Request, sanctioned: boolean): Promise<Su
     ...list,
     archetype: null,
     was: readWas(value.was, sanctioned),
+    wasYear: sanctioned && typeof value.wasYear === 'string' && /^\d{4}$/.test(value.wasYear) ? value.wasYear : null,
     held: value.token,
     localTime: value.localTime
   };
@@ -828,9 +840,10 @@ async function submit(
   if (!(await store(access, submission, { tokenHash: await sha256(token), now, window }))) {
     return refusedWrite(access, submitter(access.row, submission));
   }
-  const { profile, deck, mode, archetype, was, localTime } = submission;
+  const { profile, deck, mode, archetype, was, wasYear, localTime } = submission;
   const kept = await enter(context, access, submission, {
     ...(was ? { was } : {}),
+    ...(wasYear ? { year: true } : {}),
     now: profile,
     mode,
     archetype,
@@ -864,7 +877,7 @@ export async function onRequestPut(context: Context<'code'>): Promise<Response> 
     return notTaking(access.row, sender);
   }
   const window = windowFor(access.row);
-  const guard = await guardSubmission(access, read.profile);
+  const guard = await guardSubmission(access, read.profile, read.wasYear);
   if (guard instanceof Response) {
     return guard;
   }

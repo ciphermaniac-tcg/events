@@ -1429,6 +1429,11 @@ tr.is-in .tm-place {
 .tm-reg-stack > .tm-field {
   margin: 0;
 }
+/* The division a birth year places the player in, close under the field. */
+.tm-reg-stack > .tm-reg-division {
+  margin-top: calc(2px - var(--space-3));
+  font-size: var(--text-xs);
+}
 .tm-reg-two {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);

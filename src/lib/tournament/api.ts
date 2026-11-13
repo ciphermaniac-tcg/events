@@ -505,6 +505,8 @@ export const submitRegistration = (
     deck: string;
     token: string | null;
     was?: Pick<PlayerProfile, 'firstName' | 'lastName'>;
+    /** The birth year the registration had, when this save corrects it: what proves the Player ID. */
+    wasYear?: string;
   }
 ) =>
   call<{ decklist: Decklist; registration: Registration; token: string }>(

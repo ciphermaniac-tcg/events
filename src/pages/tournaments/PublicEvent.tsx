@@ -23,6 +23,7 @@ import {
   Show
 } from 'solid-js';
 import { lazyOnAir, lazyPanel } from './lazyPanel';
+import { eventSeason } from '../../../shared/tournament/divisions';
 import { hasStarted, latestRound, livePods, playerPod, podOf, regularRounds } from '../../../shared/tournament/rounds';
 import { recordLabel, swissStandings } from '../../../shared/tournament/standings';
 import { type Pod, POD_CATEGORIES, type PodCategory, type Round } from '../../../shared/tournament/types';
@@ -450,6 +451,9 @@ function createMe(view: () => TournamentView, events: { onView: (view: Published
 /** The tabs a phone keeps the player's table pinned on, once their strip scrolls away. */
 const PINS_MATCH: ReadonlySet<string> = new Set(['pairings', 'standings']);
 
+/** Whether a registration can still correct its birth year: before round 1, at a sanctioned event paired here. */
+const yearsCorrectable = (view: TournamentView) => isSanctioned(view) && view.mode === 'swiss' && decklistsOpen(view);
+
 /** Every round paired so far, across the event's pods: one more each time any of them pairs. */
 const pairedRounds = (view: TournamentView) => view.tournament.pods.reduce((n, pod) => n + pod.rounds.length, 0);
 
@@ -831,6 +835,8 @@ function EventBody(props: {
               decklistsOpen(props.view) ? timeShown(props.view.settings.checkInAt, props.view.settings.timeZone) : null
             }
             full={rosterFull(props.view)}
+            season={eventSeason(props.view.tournament)}
+            years={yearsCorrectable(props.view)}
           />
         </Show>
       </TabPanel>

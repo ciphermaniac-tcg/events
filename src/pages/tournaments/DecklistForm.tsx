@@ -36,6 +36,10 @@ interface FormProps {
   checkIn: string | null;
   /** The event's own list is at its cap. */
   full: boolean;
+  /** The event's season, which places a birth year in its division. */
+  season: number;
+  /** A registration may still correct its birth year (see RegistrationForm). */
+  years: boolean;
 }
 
 type ListOwner = Pick<PlayerProfile, 'popId' | 'firstName' | 'lastName'>;
@@ -156,6 +160,8 @@ export function DecklistForm(props: FormProps) {
               full={props.full}
               mine={mine}
               withdrawable={props.withdrawable}
+              season={props.season}
+              years={props.years}
               note={props.withdrawable || mine ? undefined : t(LATE_NOTE)}
             />
           )}

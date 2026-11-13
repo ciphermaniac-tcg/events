@@ -3838,6 +3838,20 @@ test('a player takes back their report by pressing it again, until it locks', as
   assert.match((await withdraw()).json.error, /locked/);
 });
 
+test('a registration corrects its birth year before round 1, proved by the year it had', async () => {
+  const owner = await signIn('Organizer', 'organizer');
+  const code = await newSwiss(owner);
+  await settle(code, owner, { decklists: 'open' });
+  const profile = { popId: '4343', firstName: 'Ana', lastName: 'Ruiz', birthDate: '02/27/2001' };
+  const { token } = (await submitAs(code, profile)).json;
+  const corrected = { ...profile, birthDate: '02/27/2011' };
+  assert.equal((await submitAs(code, corrected, { token })).status, 403, 'the new year alone proves nothing');
+  assert.equal((await submitAs(code, corrected, { token, wasYear: '2001' })).status, 200);
+  const roster = await hit(manage.onRequestGet as Handler, '/manage', at(code), { cookie: owner });
+  const player = roster.json.tournament.players.find((p: { id: string }) => p.id === '4343');
+  assert.equal(player?.birthDate, '02/27/2011', 'the event’s list takes the corrected year');
+});
+
 test('the event list carries each event’s start as set', async () => {
   const owner = await signIn('Organizer', 'organizer');
   const code = await newEvent(owner, { settings: { startsAt: '2026-11-14T18:00' } });

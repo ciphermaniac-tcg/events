@@ -21,6 +21,8 @@ import { mayBeUnder13 } from '../../../shared/accounts/age';
 import { type DeckSection, parseDecklist } from '../../../shared/tournament/decklist';
 import { isPopId, type PlayerProfile, profileErrors } from '../../../shared/tournament/profile';
 import type { Decklist, DeckMode, NamedPlayer } from '../../../shared/tournament/view';
+import { divisionFor } from '../../../shared/tournament/divisions';
+import type { Division } from '../../../shared/tournament/types';
 import {
   ApiError,
   errorText,
@@ -55,7 +57,18 @@ export interface RegistrationProps {
   withdrawable: boolean;
   /** A line over the first step, saying who the form is still open to. */
   note?: string;
+  /** The season the event is in, which places a birth year in its division. */
+  season: number;
+  /** Whether a registration may still correct its birth year: before round 1, at a sanctioned event paired here. */
+  years: boolean;
 }
+
+/** The division a birth year places the player in, said under the field as it is typed. */
+const DIVISION_NAMES: Record<Division, string> = {
+  junior: msg('Junior Division'),
+  senior: msg('Seniors Division'),
+  masters: msg('Masters Division')
+};
 
 type Step = 'lookup' | 'prove' | 'pick' | 'new' | 'edit' | 'withdrawn';
 
@@ -71,6 +84,8 @@ function createRegistration(props: RegistrationProps) {
   );
   // The names the registration is kept under, which a rename at an unsanctioned event moves it from.
   const [kept, setKept] = createSignal<NamedPlayer | null>(held);
+  /** The birth year the registration was opened or last saved with, which a correction proves the Player ID by. */
+  let heldYear = birthYearOf(held?.birthDate ?? '');
   const [mode, setMode] = createSignal<DeckMode | null>(held?.mode ?? null);
   const [deck, setDeck] = createSignal(held?.deck ?? '');
   const [matches, setMatches] = createSignal<NamedPlayer[]>([]);
@@ -124,6 +139,7 @@ function createRegistration(props: RegistrationProps) {
 
   /** A registration found: its player's names, and its list when there is one. */
   function open(found: NamedPlayer, list: Decklist | null) {
+    heldYear = birthYearOf(profile().birthDate);
     setProfile(prev => ({ ...prev, firstName: found.firstName, lastName: found.lastName }));
     setKept(found);
     setMode(list?.mode ?? null);
@@ -174,6 +190,12 @@ function createRegistration(props: RegistrationProps) {
   }
   const prove = () => run(proveTask);
 
+  /**
+   * A year changed here goes as a correction, with the year it corrects as
+   * proof; an untouched field sends none, so a year staff corrected since stays.
+   */
+  const yearCorrection = (sent: PlayerProfile) =>
+    props.years && heldYear && birthYearOf(sent.birthDate) !== heldYear ? { wasYear: heldYear } : {};
   async function saveTask() {
     const before = recall(props.code);
     const sent = profile();
@@ -187,9 +209,11 @@ function createRegistration(props: RegistrationProps) {
         mode: mode() ?? 'digital',
         deck: mode() === 'paper' ? '' : deck(),
         token: own,
-        ...(was && !props.sanctioned ? { was } : {})
+        ...(was && !props.sanctioned ? { was } : {}),
+        ...yearCorrection(sent)
       });
       remember(props.code, { profile: sent, token: result.token });
+      heldYear = birthYearOf(sent.birthDate);
       setSaved(step() === 'new' ? 'new' : 'edit');
       setKept({ firstName: sent.firstName, lastName: sent.lastName });
       setNaming(false);
@@ -207,7 +231,8 @@ function createRegistration(props: RegistrationProps) {
   const save = () => run(saveTask);
 
   async function withdrawTask() {
-    const proof = props.sanctioned ? { birthYear: birthYearOf(profile().birthDate) } : { token: token() };
+    // The year it was opened or saved with: one typed into Change name or year and not saved proves nothing yet.
+    const proof = props.sanctioned ? { birthYear: heldYear || birthYearOf(profile().birthDate) } : { token: token() };
     await withdrawRegistration(props.code, { ...profile(), ...(kept() ?? {}) }, proof);
     remember(props.code, null);
     setStep('withdrawn');
@@ -231,6 +256,7 @@ function createRegistration(props: RegistrationProps) {
   /** Someone else on this device: forget whose registration it held, and start again. */
   function notYou() {
     remember(props.code, null);
+    heldYear = '';
     setProfile(emptyProfile());
     setKept(null);
     setMode(null);
@@ -376,21 +402,30 @@ function NameFields(props: { form: Registration; onEnter?: () => void }) {
 }
 
 /** `opens`: for a registration already made, which staff may have made for a player under 13, so age holds nothing back. */
-function YearField(props: { form: Registration; onEnter?: () => void; opens?: boolean }) {
+function YearField(props: { form: Registration; onEnter?: () => void; opens?: boolean; season?: number }) {
   const error = () =>
     !props.opens && props.form.young() ? t('Players under 13 register with staff at the event.') : undefined;
+  const division = () => {
+    const { birthDate } = props.form.profile();
+    return props.season && /^\d{4}$/.test(birthYearOf(birthDate)) && !error()
+      ? t(DIVISION_NAMES[divisionFor(birthDate, props.season)])
+      : null;
+  };
   return (
-    <Field id='reg-year' label={t('Birth year')} error={error()}>
-      {control => (
-        <BirthYearInput
-          {...control}
-          class='tm-input tm-reg-input'
-          value={birthYearOf(props.form.profile().birthDate)}
-          onValue={value => props.form.setField('birthDate', birthDateFor(value))}
-          onKeyDown={onEnter(props.onEnter)}
-        />
-      )}
-    </Field>
+    <>
+      <Field id='reg-year' label={t('Birth year')} error={error()}>
+        {control => (
+          <BirthYearInput
+            {...control}
+            class='tm-input tm-reg-input'
+            value={birthYearOf(props.form.profile().birthDate)}
+            onValue={value => props.form.setField('birthDate', birthDateFor(value))}
+            onKeyDown={onEnter(props.onEnter)}
+          />
+        )}
+      </Field>
+      <Show when={division()}>{name => <p class='tm-reg-note tm-reg-division'>{name()}</p>}</Show>
+    </>
   );
 }
 
@@ -435,7 +470,14 @@ function Lookup(props: { form: Registration; sanctioned: boolean; note?: string 
  * or withdraws; before there is one, the way back to the first step, named
  * for what it changes there (`back`).
  */
-function Head(props: { form: Registration; sanctioned: boolean; title: string; menu: boolean; back?: string }) {
+function Head(props: {
+  form: Registration;
+  sanctioned: boolean;
+  title: string;
+  menu: boolean;
+  back?: string;
+  years?: boolean;
+}) {
   const f = () => props.form;
   return (
     <div class='tm-box-bar tm-reg-head'>
@@ -455,7 +497,7 @@ function Head(props: { form: Registration; sanctioned: boolean; title: string; m
       >
         <OptionsMenu name={props.title} buttonLabel={t('More')} closeOnSelect>
           <button type='button' class='tm-menu-item' onClick={() => f().setNaming(true)}>
-            {t('Change name')}
+            {props.years ? t('Change name or year') : t('Change name')}
           </button>
           <button type='button' class='tm-menu-item' onClick={() => f().someoneElse()}>
             {t('Register someone else')}
@@ -687,7 +729,7 @@ function NewRegistration(props: { form: Registration; reg: RegistrationProps }) 
         <div class='tm-box-bar tm-reg-stack'>
           <NameFields form={f()} />
           <Show when={props.reg.sanctioned}>
-            <YearField form={f()} />
+            <YearField form={f()} season={props.reg.season} />
           </Show>
         </div>
         <Show when={!f().young()}>
@@ -704,7 +746,7 @@ function EditRegistration(props: { form: Registration; reg: RegistrationProps })
   const name = () => `${f().profile().firstName} ${f().profile().lastName}`;
   return (
     <section class='tm-box tm-reg'>
-      <Head form={f()} sanctioned={props.reg.sanctioned} title={name()} menu />
+      <Head form={f()} sanctioned={props.reg.sanctioned} title={name()} menu years={props.reg.years} />
       <Show when={f().withdrawing()}>
         <div class='tm-box-bar tm-row-actions tm-confirm' role='group' aria-label={t('Withdraw')}>
           <span>{t('Withdraw from this event?')}</span>
@@ -735,6 +777,9 @@ function EditRegistration(props: { form: Registration; reg: RegistrationProps })
       <Show when={f().naming()}>
         <div class='tm-box-bar tm-reg-stack'>
           <NameFields form={f()} />
+          <Show when={props.reg.years}>
+            <YearField form={f()} season={props.reg.season} opens />
+          </Show>
         </div>
       </Show>
       {/* Staff may have registered a player under 13, whose list the server refuses (see shared/accounts/age.ts). */}

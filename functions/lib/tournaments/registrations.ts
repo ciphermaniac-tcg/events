@@ -8,6 +8,7 @@
 
 import { withMark } from '../../../shared/tournament/checkins.js';
 import type { Command } from '../../../shared/tournament/commands.js';
+import { birthYear } from '../../../shared/tournament/divisions.js';
 import { birthYearFits, decklistPlayer, fullNameKey } from '../../../shared/tournament/identify.js';
 import type { Player } from '../../../shared/tournament/types.js';
 import { type DeckMode, isSanctioned } from '../../../shared/tournament/view.js';
@@ -51,6 +52,7 @@ interface Who {
   popId: string;
   firstName: string;
   lastName: string;
+  birthDate?: string;
 }
 
 /** The player on the event's list a registration is, by its Player ID or, unsanctioned, its name. */
@@ -83,6 +85,8 @@ export interface Kept {
   /** Their name as the registration had it, when an unsanctioned rename moved it from there. */
   was?: Who;
   now: Who;
+  /** Whether the player corrected their birth year in this save (see renaming). */
+  year?: boolean;
   mode: DeckMode;
   /** What the pasted list reads as; null for a paper one, or one no rule fits. */
   archetype: string | null;
@@ -94,18 +98,19 @@ const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
 const combine = (left: Changes | string, right: Changes): Changes | string =>
   typeof left === 'string' ? left : { ...left, ...right };
 
-function renaming(row: TournamentRow, player: Player, now: Who): Command | null {
-  const same = player.firstName === now.firstName && player.lastName === now.lastName;
+/**
+ * The player list's change for a saved registration: its new name, and a birth
+ * year the player corrected, which editPlayer refuses once play has started.
+ */
+function renaming(row: TournamentRow, player: Player, kept: Pick<Kept, 'now' | 'year'>): Command | null {
+  const { now } = kept;
+  const corrected = kept.year && now.birthDate && birthYear(now.birthDate) !== birthYear(player.birthDate);
+  const birthDate = corrected ? (now.birthDate as string) : player.birthDate;
+  const same = player.firstName === now.firstName && player.lastName === now.lastName && !corrected;
   // TOM keeps its own list, and a finished event's stands as it ended.
   return same || row.mode !== 'swiss' || row.settings.finished
     ? null
-    : {
-        type: 'editPlayer',
-        id: player.id,
-        firstName: now.firstName,
-        lastName: now.lastName,
-        birthDate: player.birthDate
-      };
+    : { type: 'editPlayer', id: player.id, firstName: now.firstName, lastName: now.lastName, birthDate };
 }
 
 /**
@@ -126,7 +131,7 @@ export function keptChanges(row: TournamentRow, kept: Kept, localTime: unknown):
     ...(same(checkins, row.checkins) ? {} : { checkins }),
     ...(same(inferredDecks, row.inferredDecks) ? {} : { inferredDecks })
   };
-  const command = player ? renaming(row, player, kept.now) : null;
+  const command = player ? renaming(row, player, kept) : null;
   return command ? combine(commandChanges(row, command, localTime), changes) : changes;
 }
 
