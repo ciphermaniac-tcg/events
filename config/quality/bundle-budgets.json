@@ -1,8 +1,8 @@
 {
-  "initialJs": 53300,
-  "initialCss": 12900,
-  "routeJs": 100350,
+  "initialJs": 53400,
+  "initialCss": 13000,
+  "routeJs": 100500,
   "routeCss": 25300,
-  "totalJs": 280530,
-  "totalCss": 39130
+  "totalJs": 280900,
+  "totalCss": 39250
 }
