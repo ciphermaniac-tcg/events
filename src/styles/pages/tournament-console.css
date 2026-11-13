@@ -235,6 +235,15 @@
 .tm-console-steps .tm-next {
   margin-left: auto;
 }
+/* Whose clock it is, where the event runs more than one: a caption, not a control, 12px after it. */
+.tm-clock-caption {
+  align-self: center;
+  font-size: var(--text-xs);
+  font-weight: 500;
+}
+.tm-console-steps .tm-clock-caption {
+  margin-left: calc(var(--space-3) - var(--space-4));
+}
 
 /* The head's clock, a size up from a bar's: the first thing looked for between tables. */
 .tm-console .tm-clock-group.is-large {

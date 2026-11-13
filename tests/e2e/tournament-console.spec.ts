@@ -2896,3 +2896,17 @@ test('the plain reports are accepted in one go, each table named first, a disput
       [b!.table, 'p2']
     ]);
 });
+
+test('the head names whose clock it runs only where the event pairs more than one pod', async ({ page }) => {
+  const adds: Command[] = Array.from({ length: 12 }, (_, i) => ({
+    type: 'addPlayer',
+    player: { firstName: `Player${i + 1}`, lastName: 'Test', birthDate: i < 6 ? '02/27/2016' : '02/27/1990' }
+  }));
+  const t = runCommands(emptyTournament({ name: 'Two Pods' }), ...adds, { type: 'pairRound', pod: 'senior-masters' });
+  expect(t.pods).toHaveLength(2);
+  await mockConsole(page, t, settingsOf({}));
+  const caption = page.locator('.tm-console-steps .tm-clock-caption');
+  await expect(caption).not.toBeEmpty();
+  const name = await caption.textContent();
+  await expect(page.locator('.tm-console-steps').getByRole('group', { name: `${name} round clock` })).toBeVisible();
+});

@@ -9,6 +9,7 @@ import { createSignal, createUniqueId, Show } from 'solid-js';
 import type { Pod, Round } from '../../../shared/tournament/types';
 import { t, tn } from '../../lib/i18n';
 import { clockState, parseClock } from '../../lib/tournament/clockState';
+import { podLabel } from '../../lib/tournament/present';
 import { Clock } from './Clock';
 import { createNow } from './now';
 import { ConfirmAction } from './ConfirmAction';
@@ -84,8 +85,17 @@ function ClockSetter(props: { round: Round; onSet: (seconds: number) => void; on
   );
 }
 
-/** The clock as one control: time left (a press types a new one), then start or pause, then a minute either way. */
+/**
+ * The clock as one control: time left (a press types a new one), then start
+ * or pause, then a minute either way. Where the event pairs more than one pod,
+ * each with its own clock, a caption after it names whose it is.
+ */
 export function ClockControls(props: { state: ManageState; pod: Pod; round: Round; class?: string }) {
+  const named = () => ((props.state.data()?.tournament.pods.length ?? 0) > 1 ? podLabel(props.pod) : null);
+  const groupLabel = () => {
+    const name = named();
+    return name ? t('{pod} round clock', { pod: name }) : t('Round clock');
+  };
   const send = (type: 'startClock' | 'stopClock') => void props.state.send({ type, pod: props.pod.category });
   const adjust = (seconds: number) => void props.state.send({ type: 'adjustClock', pod: props.pod.category, seconds });
   const running = () => props.round.clockStartedAt != null;
@@ -96,33 +106,42 @@ export function ClockControls(props: { state: ManageState; pod: Pod; round: Roun
     face?.focus();
   };
   return (
-    <span class={`tm-clock-group ${props.class ?? ''}`} role='group' aria-label={t('Round clock')}>
-      <button
-        ref={face}
-        type='button'
-        class='tm-clock-face'
-        aria-expanded={setting()}
-        aria-label={t('Set the time left')}
-        onClick={() => setSetting(open => !open)}
-      >
-        <Clock round={props.round} set />
-      </button>
-      {/* One unit, so a narrow screen moves the actions under the time together, never one alone. */}
-      <span class='tm-clock-acts'>
-        <button type='button' onClick={() => send(running() ? 'stopClock' : 'startClock')}>
-          {running() ? t('Pause') : props.round.startTime ? t('Resume') : t('Start clock')}
+    <>
+      <span class={`tm-clock-group ${props.class ?? ''}`} role='group' aria-label={groupLabel()}>
+        <button
+          ref={face}
+          type='button'
+          class='tm-clock-face'
+          aria-expanded={setting()}
+          aria-label={t('Set the time left')}
+          onClick={() => setSetting(open => !open)}
+        >
+          <Clock round={props.round} set />
         </button>
-        <button type='button' aria-label={t('Add a minute')} onClick={() => adjust(60)}>
-          +1
-        </button>
-        <button type='button' aria-label={t('Take a minute off')} onClick={() => adjust(-60)}>
-          −1
-        </button>
+        {/* One unit, so a narrow screen moves the actions under the time together, never one alone. */}
+        <span class='tm-clock-acts'>
+          <button type='button' onClick={() => send(running() ? 'stopClock' : 'startClock')}>
+            {running() ? t('Pause') : props.round.startTime ? t('Resume') : t('Start clock')}
+          </button>
+          <button type='button' aria-label={t('Add a minute')} onClick={() => adjust(60)}>
+            +1
+          </button>
+          <button type='button' aria-label={t('Take a minute off')} onClick={() => adjust(-60)}>
+            −1
+          </button>
+        </span>
+        <Show when={setting()}>
+          <ClockSetter round={props.round} onSet={adjust} onClose={close} />
+        </Show>
       </span>
-      <Show when={setting()}>
-        <ClockSetter round={props.round} onSet={adjust} onClose={close} />
+      <Show when={named()}>
+        {name => (
+          <span class='muted tm-clock-caption' aria-hidden='true'>
+            {name()}
+          </span>
+        )}
       </Show>
-    </span>
+    </>
   );
 }
 
