@@ -15,7 +15,15 @@ import { createRateLimiter, rateLimitAddress } from '../../../lib/api/rateLimite
 import { jsonError } from '../../../lib/api/responses.js';
 import type { Context } from '../../../lib/auth/env.js';
 import { openStore } from '../../../lib/stores/access.js';
-import { loadStore, publicStore, saveDetails, storeEvents, storePastEvents } from '../../../lib/stores/db.js';
+import {
+  loadStore,
+  publicStore,
+  saveDetails,
+  storeEvents,
+  storeEventsQuery,
+  storePastEvents,
+  storePastEventsQuery
+} from '../../../lib/stores/db.js';
 import { publishStores } from '../../../lib/stores/publish.js';
 import { privateJson } from '../../../lib/tournaments/access.js';
 import { pairedRounds } from '../../../lib/tournaments/store.js';
@@ -23,20 +31,22 @@ import { pairedRounds } from '../../../lib/tournaments/store.js';
 const rateLimiter = createRateLimiter({ windowMs: 10 * 60 * 1000, maxRequests: 600 });
 
 export async function onRequestGet(context: Context<'id'>): Promise<Response> {
-  const access = await openStore(context, 'anyone');
+  // The store's events are read with the store and its asker: one round trip.
+  const access = await openStore(context, 'anyone', (db, id) => [
+    storeEventsQuery(db, id, pairedRounds('state')),
+    storePastEventsQuery(db, id)
+  ]);
   if (access instanceof Response) {
     return access;
   }
   if (!access.user && !rateLimiter.allows(rateLimitAddress(context.request))) {
     return jsonError('Too many requests from here. Try again shortly.', 429);
   }
-  const { db, store, role } = access;
-  const [events, past] = await Promise.all([
-    storeEvents(db, store.id, pairedRounds('state')),
-    storePastEvents(db, store)
-  ]);
+  const { store, role, along } = access;
+  const [events, past] = along;
+  const shown = publicStore(store, storeEvents(events), storePastEvents(past, store.timeZone));
   const contact = role ? { phone: store.phone, email: store.email } : undefined;
-  return privateJson({ store: publicStore(store, events, past), role, ...(contact ? { contact } : {}) });
+  return privateJson({ store: shown, role, ...(contact ? { contact } : {}) });
 }
 
 export async function onRequestPatch(context: Context<'id'>): Promise<Response> {

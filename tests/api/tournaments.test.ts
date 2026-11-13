@@ -1250,6 +1250,31 @@ test('a decklist never gives an account a Player ID or birth year, and refreshes
   assert.deepEqual([refreshed.popId, refreshed.firstName, refreshed.birthDate], ['6161', 'Linda', '02/27/2001']);
 });
 
+test('a signed-in list lands and names its account in one wait on the database, and a refused one names nobody', async () => {
+  const owner = await signIn('Organizer', 'organizer');
+  const code = await newSwiss(owner);
+  await settle(code, owner, { decklists: 'open' });
+  const lin = { popId: '6161', firstName: 'Lin', lastName: 'Park', birthDate: '02/27/2001' };
+  assert.equal((await submitAs(code, lin)).status, 200, 'sent first from a device signed out');
+  const player = await signIn('Player');
+  await hit(me.onRequestPut as Handler, '/api/me', {}, { method: 'PUT', cookie: player, body: lin });
+  const sendList = (profile: typeof lin) =>
+    hit(decklists.onRequestPut as Handler, '/decklists', at(code), {
+      method: 'PUT',
+      cookie: player,
+      body: { deck: '60 Basic {P} Energy SVE 5', profile }
+    });
+  const firstName = async () =>
+    (await hit(me.onRequestGet as Handler, '/api/me', {}, { cookie: player })).json.user.firstName;
+  const refused = await sendList({ ...lin, firstName: 'Linda', birthDate: '02/27/2002' });
+  assert.notEqual(refused.status, 200, 'another year does not replace the list there');
+  assert.equal(await firstName(), 'Lin', 'so the account keeps its name');
+  const trips = countTrips();
+  assert.equal((await sendList({ ...lin, firstName: 'Linda' })).status, 200);
+  assert.equal(trips(), 4, 'the event and who asks, the try, the list with the account, and the event’s write');
+  assert.equal(await firstName(), 'Linda');
+});
+
 test('with agreeing reports left to staff, agreement and disagreement both wait for staff', async () => {
   const owner = await signIn('Organizer', 'organizer');
   mock.timers.enable({ apis: ['Date'], now: Date.now() });
@@ -2548,6 +2573,33 @@ test('a staff action waits on the database twice, and an idle console poll once'
   const strangers = countTrips();
   assert.equal((await hit(event.onRequestGet as Handler, '/', at(code))).status, 200);
   assert.equal(strangers(), 1, 'a player with no session reads only the event');
+});
+
+test('a sanctioned player says who they are in two waits on the database and reports in three', async () => {
+  const owner = await signIn('Organizer', 'organizer');
+  const code = await newSwiss(owner);
+  await addPlayers(code, owner, 4);
+  assert.equal((await send(code, owner, { type: 'pairRound', pod: 'masters' })).status, 200);
+  await settle(code, owner, { playerReporting: true });
+  const seat = await playerSays(code, { popId: '900', device: 'phone-900' });
+  const asks = { popId: '900', device: 'phone-900', reportToken: seat.json.reportToken };
+  const trips = countTrips();
+  assert.equal((await playerSays(code, asks)).status, 200);
+  assert.equal(trips(), 2, 'the event, then the try let in with the seat read');
+  assert.equal((await playerSays(code, { ...asks, result: 'win' })).status, 200);
+  assert.equal(trips(), 5, 'and one write');
+});
+
+test('the event list waits on the database once', async () => {
+  const owner = await signIn('Organizer', 'organizer');
+  const code = await newSwiss(owner);
+  const trips = countTrips();
+  const list = await hit(tournaments.onRequestGet as Handler, '/api/tournaments', {}, { cookie: owner });
+  assert.deepEqual(
+    list.json.tournaments.map((t: { code: string }) => t.code),
+    [code]
+  );
+  assert.equal(trips(), 1, 'the account and its events come in one round trip');
 });
 
 test('the account page names the providers an account signs in with; an event request does not read them', async () => {

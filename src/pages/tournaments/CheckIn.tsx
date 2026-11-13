@@ -17,14 +17,7 @@
  */
 
 import { createResource, createSignal, For, Show } from 'solid-js';
-import {
-  type CheckMark,
-  inTomFile,
-  marksFor,
-  notCheckedIn,
-  openMarks,
-  standing
-} from '../../../shared/tournament/checkins';
+import { type CheckIn, type CheckMark, marksFor, notCheckedIn, openMarks } from '../../../shared/tournament/checkins';
 import { hasStarted } from '../../../shared/tournament/rounds';
 import { type Player, playerName } from '../../../shared/tournament/types';
 import { fetchDecklists, type Manage, saveCheckIn } from '../../lib/tournament/api';
@@ -47,8 +40,58 @@ const MARK_ACTIONS: Partial<Record<CheckMark, string>> = {
 
 const checkins = (manage: Manage) => manage.checkins ?? {};
 
+/**
+ * One event's check-in as the roster reads it, worked out once per answer: its
+ * columns, and each player's check-in and checks. A tick hands the console a
+ * new event, so a roster of a thousand asks this once and then reads a row at
+ * a time, rather than walking every check-in in each row.
+ */
+interface CheckInView {
+  columns: readonly CheckMark[];
+  held: (id: string) => CheckIn | undefined;
+  inTom: (id: string) => boolean;
+  asks: (id: string, mark: CheckMark) => boolean;
+}
+
+const views = new WeakMap<Manage, CheckInView>();
+
+function viewOf(manage: Manage): CheckInView {
+  const seen = views.get(manage);
+  if (seen) {
+    return seen;
+  }
+  const held = checkins(manage);
+  const anyPaper = Object.values(held).some(entry => entry.paper);
+  const columns = marksFor(manage, anyPaper ? { paper: true } : undefined);
+  // TOM answers In TOM for everyone in its file: one set, not a scan per cell.
+  const inTom = manage.mode === 'tom' ? new Set(manage.tournament.players.map(player => player.id)) : null;
+  const marks = new Map<string, CheckMark[]>();
+  const standings = new Map<string, CheckIn | undefined>();
+  const view: CheckInView = {
+    columns,
+    inTom: id => inTom?.has(id) ?? false,
+    held: id => {
+      if (!standings.has(id)) {
+        const entry = held[id];
+        standings.set(id, inTom?.has(id) ? { ...entry, tom: true } : entry);
+      }
+      return standings.get(id);
+    },
+    asks: (id, mark) => {
+      let asked = marks.get(id);
+      if (!asked) {
+        asked = marksFor(manage, held[id]);
+        marks.set(id, asked);
+      }
+      return asked.includes(mark);
+    }
+  };
+  views.set(manage, view);
+  return view;
+}
+
 /** A player's check-in as it stands, In TOM included for anyone TOM's file lists. */
-const heldBy = (manage: Manage, id: string) => standing(manage, checkins(manage), id);
+const heldBy = (manage: Manage, id: string) => viewOf(manage).held(id);
 
 /** Above this many players still open, the list above the roster is only counted. */
 const LISTED_MAX = 10;
@@ -108,9 +151,8 @@ async function dropAll(state: ManageState, players: readonly Player[]) {
 }
 
 /** The checks the event asks of anyone, in column order: a list only once someone chose paper. */
-export function checkColumns(manage: Manage): CheckMark[] {
-  const anyPaper = Object.values(checkins(manage)).some(held => held.paper);
-  return marksFor(manage, anyPaper ? { paper: true } : undefined);
+export function checkColumns(manage: Manage): readonly CheckMark[] {
+  return viewOf(manage).columns;
 }
 
 /** Whether the console shows check-in: before round 1, at an event that asks for any check. */
@@ -118,7 +160,10 @@ export const showsCheckIn = (manage: Manage) => !hasStarted(manage.tournament) &
 
 export function CheckInHeads(props: { manage: Manage; players: readonly Player[] }) {
   const active = () => props.players.filter(player => player.droppedAfter === null);
-  const ticked = (mark: CheckMark) => active().filter(player => heldBy(props.manage, player.id)?.[mark]).length;
+  const ticked = (mark: CheckMark) => {
+    const view = viewOf(props.manage);
+    return active().filter(player => view.held(player.id)?.[mark]).length;
+  };
   return (
     <For each={checkColumns(props.manage)}>
       {mark => (
@@ -136,7 +181,7 @@ export function CheckInHeads(props: { manage: Manage; players: readonly Player[]
 /** One check's box for a player, saved on its own as it is ticked (see ticked); In TOM is locked for anyone TOM's file lists. */
 function CheckBox(props: { state: ManageState; manage: Manage; id: string; name: string; mark: CheckMark }) {
   const held = () => heldBy(props.manage, props.id);
-  const locked = () => props.mark === 'tom' && inTomFile(props.manage, props.id);
+  const locked = () => props.mark === 'tom' && viewOf(props.manage).inTom(props.id);
   return (
     <label class='tm-check-cell'>
       <input
@@ -162,7 +207,7 @@ function CheckBox(props: { state: ManageState; manage: Manage; id: string; name:
 }
 
 /** Whether the event asks `mark` of the player, as their own check-in stands. */
-const asks = (manage: Manage, id: string, mark: CheckMark) => marksFor(manage, checkins(manage)[id]).includes(mark);
+const asks = (manage: Manage, id: string, mark: CheckMark) => viewOf(manage).asks(id, mark);
 
 export function CheckInCells(props: { state: ManageState; manage: Manage; id: string; name: string }) {
   return (

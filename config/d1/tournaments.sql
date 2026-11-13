@@ -219,6 +219,9 @@ CREATE TABLE IF NOT EXISTS decklists (
   deck_mode TEXT NOT NULL DEFAULT 'digital',
   PRIMARY KEY (code, user_id)
 ) WITHOUT ROWID;
+-- The lists an account holds: its data export and the wipe that unlinks them.
+-- Without this they read every list there is.
+CREATE INDEX IF NOT EXISTS decklists_by_account ON decklists (account) WHERE account IS NOT NULL;
 
 -- Deck checks staff record during an event (shared/tournament/deckChecks.ts).
 -- Append-only: an edit is a new row whose `replaces` names the row it
@@ -575,3 +578,6 @@ CREATE TABLE IF NOT EXISTS report_history (
   claimed_at INTEGER,
   PRIMARY KEY (code, version, player_id)
 ) WITHOUT ROWID;
+-- The reports an account filed: its data export and the wipe that unlinks them.
+-- Without this they read every filing there is.
+CREATE INDEX IF NOT EXISTS report_history_by_account ON report_history (account_id) WHERE account_id IS NOT NULL;

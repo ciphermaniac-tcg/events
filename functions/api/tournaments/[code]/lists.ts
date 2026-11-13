@@ -13,7 +13,7 @@
  * decklistOpenFor), so every list read here is a locked one.
  */
 
-import { decklistMatcher } from '../../../../shared/tournament/identify.js';
+import { decklistMatcher, fullNameKey } from '../../../../shared/tournament/identify.js';
 import { decklistOpenFor } from '../../../../shared/tournament/lateLists.js';
 import { isSanctioned, listsPublic, type OpenList } from '../../../../shared/tournament/view.js';
 import { createRateLimiter, rateLimitAddress } from '../../../lib/api/rateLimiter.js';
@@ -21,6 +21,7 @@ import { jsonError, jsonResponse } from '../../../lib/api/responses.js';
 import type { Context } from '../../../lib/auth/env.js';
 import { open } from '../../../lib/tournaments/access.js';
 import type { TournamentRow } from '../../../lib/tournaments/store.js';
+import type { D1Like } from '../../../lib/types.js';
 import { msg } from '../../../../shared/i18n.js';
 
 interface ListRow {
@@ -47,6 +48,14 @@ function shown(list: ListRow | undefined): OpenList | null {
   return list?.deck.trim() ? { mode: 'digital', deck: list.deck } : null;
 }
 
+/** The event's stored lists, or the one kept under `userId`. */
+async function listsOf(db: D1Like, code: string, userId?: string): Promise<ListRow[]> {
+  const select = 'SELECT pop_id, first_name, last_name, deck, deck_mode FROM decklists WHERE code = ?';
+  const query =
+    userId === undefined ? db.prepare(select).bind(code) : db.prepare(`${select} AND user_id = ?`).bind(code, userId);
+  return (await query.all<ListRow>()).results;
+}
+
 const rateLimiter = createRateLimiter({ windowMs: 10 * 60 * 1000, maxRequests: 1200 });
 
 export async function onRequestGet(context: Context<'code'>): Promise<Response> {
@@ -62,23 +71,30 @@ export async function onRequestGet(context: Context<'code'>): Promise<Response> 
     return jsonError(msg('This event’s lists aren’t open'), 404);
   }
   const key = new URL(context.request.url).searchParams.get('player');
-  const { results } = await db
-    .prepare('SELECT pop_id, first_name, last_name, deck, deck_mode FROM decklists WHERE code = ?')
-    .bind(row.code)
-    .all<ListRow>();
   const owner = decklistMatcher(row.tournament, isSanctioned(row));
-  const ownerOf = (list: ListRow) => {
+  const ownerOf = (list: Pick<ListRow, 'pop_id' | 'first_name' | 'last_name'>) => {
     const id = owner({ popId: list.pop_id, firstName: list.first_name, lastName: list.last_name });
     return id === undefined || decklistOpenFor(row, id) ? undefined : id;
   };
   if (key === null) {
-    return jsonResponse({ players: readable(row, results, ownerOf) }, { cacheControl: CACHE, cors: false });
+    return jsonResponse(
+      { players: readable(row, await listsOf(db, row.code), ownerOf) },
+      { cacheControl: CACHE, cors: false }
+    );
   }
   const id = playerOf(row, key);
   if (id === undefined) {
     return jsonError(msg('No such player'), 404);
   }
-  const list = results.find(candidate => ownerOf(candidate) === id);
+  const player = row.tournament.players.find(candidate => candidate.id === id);
+  if (player === undefined) {
+    return jsonResponse({ list: null }, { cacheControl: CACHE, cors: false });
+  }
+  // The identity the one list is kept under, the same key a submission writes (see decklists.ts).
+  const listKey = isSanctioned(row) ? `pop:${id.trim()}` : `name:${fullNameKey(player)}`;
+  const theirs = (lists: readonly ListRow[]) => lists.find(candidate => ownerOf(candidate) === id);
+  // A list sent before staff changed the event's sanctioning is kept under the other key: only reading them all finds it.
+  const list = theirs(await listsOf(db, row.code, listKey)) ?? theirs(await listsOf(db, row.code));
   return jsonResponse({ list: shown(list) }, { cacheControl: CACHE, cors: false });
 }
 

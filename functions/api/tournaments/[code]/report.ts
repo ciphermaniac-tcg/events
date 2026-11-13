@@ -55,8 +55,9 @@ import {
 } from '../../../lib/tournaments/reporters.js';
 import { reportEvidence } from '../../../lib/tournaments/reportHistory.js';
 import { playerRequestChanges } from '../../../lib/tournaments/requests.js';
-import { admitTry, clearFailures, LOCKED_OUT } from '../../../lib/tournaments/attempts.js';
+import { admission, admitTry, clearFailures, LOCKED_OUT } from '../../../lib/tournaments/attempts.js';
 import { type Changes, type Held, mutateHeld, type TournamentRow } from '../../../lib/tournaments/store.js';
+import type { D1Statement } from '../../../lib/types.js';
 import { msg } from '../../../../shared/i18n.js';
 
 type Body = Record<string, unknown>;
@@ -195,19 +196,31 @@ async function reachable(context: Context<'code'>): Promise<Access | Response> {
   return open(context);
 }
 
+/** The player a claim names, with the admission of its try when that waits for the seat's read (see checkedClaim). */
+interface Found {
+  id: string;
+  admit?: D1Statement;
+}
+
 /** Who the request asks as: its device's token and ID, and who is signed in (see accountFor). */
-const askerOf = (access: Access, body: Body): Asker => ({
+const askerOf = (access: Access, body: Body, found: Found): Asker => ({
   held: body.reportToken,
   device: body.device,
-  user: access.user
+  user: access.user,
+  ...(found.admit ? { admit: found.admit } : {})
 });
 
 /**
  * The asker's standing as player `id`'s reporter, or the answer that refuses them: linked elsewhere, no
  * standing to be had, or another device reporting (`taken`, with its status).
  */
-async function standingIn(access: Access, body: Body, id: string, taken: [string, number]): Promise<Claim | Response> {
-  const standing = await claimReporter(access.db, access.row, id, askerOf(access, body));
+async function standingIn(
+  access: Access,
+  body: Body,
+  found: Found,
+  taken: [string, number]
+): Promise<Claim | Response> {
+  const standing = await claimReporter(access.db, access.row, found.id, askerOf(access, body, found));
   if ('elsewhere' in standing) {
     return linkedElsewhere(access.row, standing);
   }
@@ -249,14 +262,14 @@ const answer = (row: TournamentRow, id: string, claim: Claim) =>
   privateJson({ key: row.keys[id] ?? null, view: publicViewOf(row), ...standingOf(claim) });
 
 /** Files the report, from the device that reports for the player, and publishes what it changed. */
-async function report(context: Context<'code'>, access: Access, body: Body, who: { claim: PlayerClaim; id: string }) {
+async function report(context: Context<'code'>, access: Access, body: Body, who: Found & { claim: PlayerClaim }) {
   // { withdraw: true } takes the report back, as pressing its answer again does.
   const result = body.withdraw === true ? null : (body.result as PlayerResult);
   if (result !== null && !PLAYER_RESULTS.includes(result)) {
     return jsonError('Not a result', 400);
   }
   const { db, row } = access;
-  const standing = await standingIn(access, body, who.id, [NOT_REPORTER, 403]);
+  const standing = await standingIn(access, body, who, [NOT_REPORTER, 403]);
   if (standing instanceof Response) {
     return standing;
   }
@@ -281,12 +294,13 @@ async function report(context: Context<'code'>, access: Access, body: Body, who:
  * cancels an open request ({ cancel: true }), from the device that
  * reports for them, so nobody else can ask on their behalf.
  */
-async function ask(context: Context<'code'>, access: Access, body: Body, id: string) {
+async function ask(context: Context<'code'>, access: Access, body: Body, found: Found) {
   const kind = body.request;
   if (!isRequestKind(kind)) {
     return jsonError('Not a request', 400);
   }
-  const standing = await standingIn(access, body, id, [NOT_REPORTER, 403]);
+  const { id } = found;
+  const standing = await standingIn(access, body, found, [NOT_REPORTER, 403]);
   if (standing instanceof Response) {
     return standing;
   }
@@ -315,9 +329,9 @@ const CLAIMED = msg('Another device already claimed this player. Ask staff if th
  * is refused, short of being the account the player is, until staff release
  * the player. It can still look up their table.
  */
-async function identify(access: Access, body: Body, id: string) {
-  const standing = await standingIn(access, body, id, [CLAIMED, 409]);
-  return standing instanceof Response ? standing : answer(access.row, id, standing);
+async function identify(access: Access, body: Body, found: Found) {
+  const standing = await standingIn(access, body, found, [CLAIMED, 409]);
+  return standing instanceof Response ? standing : answer(access.row, found.id, standing);
 }
 
 /** Staff let another device claim a player ({ player }, their Player ID or the event's own ID for them). */
@@ -351,7 +365,7 @@ const NOT_EXPECTED = msg('That isn’t the player this page chose');
  * refused for too many wrong birth years (see lib/tournaments/attempts.ts),
  * which a wrong year here counts toward.
  */
-async function checkedClaim(access: Access, claim: PlayerClaim, expect: unknown): Promise<{ id: string } | Response> {
+async function checkedClaim(access: Access, claim: PlayerClaim, expect: unknown): Promise<Found | Response> {
   const { db, row } = access;
   const found = findPlayer(row.tournament, isSanctioned(row), claim);
   if (found.ok && under13(row, found.id)) {
@@ -359,16 +373,19 @@ async function checkedClaim(access: Access, claim: PlayerClaim, expect: unknown)
   }
   // Judged first, then let in or refused by one statement, so tries landing at once are taken one at a time.
   const popId = listedPopId(row, claim);
-  if (popId && !(await admitTry({ db, code: row.code, popId, right: found.ok, now: Date.now() }))) {
+  const chosen = found.ok && (expect === undefined || row.keys[found.id] === expect);
+  const attempt = popId && { db, code: row.code, popId, right: found.ok, now: Date.now() };
+  // A try that goes on to the seat is let in with the seat's first read (see claimReporter): one wait, not two.
+  if (chosen && attempt) {
+    return { id: found.id, admit: admission(attempt) };
+  }
+  if (attempt && !(await admitTry(attempt))) {
     return jsonError(LOCKED_OUT, 429);
   }
   if (!found.ok) {
     return privateJson({ error: found.error, ambiguous: found.ambiguous === true }, 404);
   }
-  if (expect !== undefined && row.keys[found.id] !== expect) {
-    return jsonError(NOT_EXPECTED, 404);
-  }
-  return found;
+  return chosen ? found : jsonError(NOT_EXPECTED, 404);
 }
 
 /** Whether the event's list says the player may be under 13, who hands the site nothing (shared/accounts/age.ts). */
@@ -397,9 +414,9 @@ export async function onRequestPost(context: Context<'code'>): Promise<Response>
     return found;
   }
   if (body.request !== undefined) {
-    return ask(context, access, body, found.id);
+    return ask(context, access, body, found);
   }
-  return files ? report(context, access, body, { claim, id: found.id }) : identify(access, body, found.id);
+  return files ? report(context, access, body, { ...found, claim }) : identify(access, body, found);
 }
 
 /** Staff retain the original claims and filed reports for later review, even after a result is accepted. */

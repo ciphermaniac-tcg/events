@@ -23,7 +23,7 @@
  * retry then sends against that one, on purpose.
  */
 
-import { createSignal } from 'solid-js';
+import { createMemo, createSelector, createSignal } from 'solid-js';
 import { latestRound } from '../../../shared/tournament/rounds';
 import type { Match, Outcome, Pod, PodCategory, Round } from '../../../shared/tournament/types';
 import { t } from '../../lib/i18n';
@@ -90,6 +90,16 @@ type Results<T> = ReadonlyMap<string, T>;
 const without = <T>(results: Results<T>, key: string): Results<T> =>
   new Map([...results].filter(([held]) => held !== key));
 
+/**
+ * Reads results by match: a row follows only whether its own match has one,
+ * so a send or answer draws that row again, not every table in the round.
+ * Only a row holding a result reads the whole map.
+ */
+function createByKey<T>(results: () => Results<T>): (key: string) => T | undefined {
+  const has = createSelector(results, (key: string, held: Results<T>) => held.has(key));
+  return key => (has(key) ? results().get(key) : undefined);
+}
+
 const keyOf = (entered: Omit<EnteredResult, 'outcome'>) =>
   `${entered.pod}|${entered.round}|${entered.table}|${entered.p1}|${entered.p2 ?? ''}`;
 
@@ -115,9 +125,12 @@ export function createResultEntry(state: () => ManageState, pod: () => Pod): Res
   const [sent, setSent] = createSignal<Results<Outcome>>(new Map());
   /** Each failed result with the match it was entered for, which a retry sends it for again. */
   const [failed, setFailed] = createSignal<Results<EnteredResult>>(new Map());
+  const [sentAt, failedAt] = [createByKey(sent), createByKey(failed)];
+  // The division alone, which a result leaves as it was, so a row's result does not follow every change to the pod.
+  const category = createMemo(() => pod().category);
   const at = (round: Round, match: Match) => {
     const { table, p1, p2 } = match;
-    return { pod: pod().category, round: round.number, table, p1, p2 };
+    return { pod: category(), round: round.number, table, p1, p2 };
   };
   /** The result with what stands for it in the console's copy now. */
   const entered = (round: Round, match: Match, outcome: Outcome): EnteredResult => {
@@ -212,10 +225,10 @@ export function createResultEntry(state: () => ManageState, pod: () => Pod): Res
   }
 
   return {
-    sentFor: (round, match) => sent().get(matchKey(round, match)),
-    failedFor: (round, match) => failed().get(matchKey(round, match))?.outcome,
+    sentFor: (round, match) => sentAt(matchKey(round, match)),
+    failedFor: (round, match) => failedAt(matchKey(round, match))?.outcome,
     conflictFor: (round, match) => {
-      const result = failed().get(matchKey(round, match));
+      const result = failedAt(matchKey(round, match));
       const standing = result && standingNow(result);
       return standing && standing !== result.expected && standing !== result.outcome ? standing : undefined;
     },

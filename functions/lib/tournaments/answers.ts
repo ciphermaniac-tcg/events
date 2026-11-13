@@ -20,8 +20,9 @@ export async function answerStaff(
   if ('error' in outcome) {
     return jsonError(outcome.error, outcome.status);
   }
-  // A change that wrote nothing has nothing new to publish.
-  if (outcome.row.version !== access.row.version) {
+  // A change that wrote nothing has nothing new to publish, and neither does one that
+  // leaves the published view as it stood, such as a check-in or an import time.
+  if (outcome.row.version !== access.row.version && !outcome.quiet) {
     await publishAfter(context, outcome.row);
   }
   if (outcome.refusal) {

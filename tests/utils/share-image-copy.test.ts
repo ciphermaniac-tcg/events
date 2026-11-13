@@ -161,16 +161,25 @@ test('a font that fails to load fails the image, and is asked for again next tim
   assert.equal(blob.type, 'image/png');
 });
 
-test('sprites load past the HTTP cache, and one that is missing is left out', async () => {
+test('sprites load past the HTTP cache once, and one that is missing is asked for again', async () => {
   requests.length = 0;
-  const blob = await playerImage(DATA, 'light');
-  assert.ok(blob.size > 0);
-  const sprites = requests.filter(request => !request.url.startsWith('/fonts/'));
-  assert.deepEqual(
-    sprites.map(request => request.url),
-    [spriteUrl('gardevoir'), spriteUrl('missing')]
+  const first = await playerImage(DATA, 'light');
+  assert.ok(first.size > 0);
+  const firstFetch = requests.filter(request => !request.url.startsWith('/fonts/'));
+  assert.ok(
+    firstFetch.every(request => request.cache === 'no-store'),
+    'the first read still skips the HTTP cache'
   );
-  assert.ok(sprites.every(request => request.cache === 'no-store'));
+  requests.length = 0;
+  const second = await playerImage(DATA, 'light');
+  assert.equal(second.size, first.size);
+  const secondFetch = requests.filter(request => !request.url.startsWith('/fonts/'));
+  assert.deepEqual(
+    secondFetch.map(request => request.url),
+    [spriteUrl('missing')],
+    'a sprite that loaded is reused; one that did not is asked for again'
+  );
+  assert.ok(secondFetch.every(request => request.cache === 'no-store'));
   assert.equal(spriteUrl('substitute'), '/img/substitute.png');
 });
 

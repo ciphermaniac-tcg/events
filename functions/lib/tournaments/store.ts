@@ -31,7 +31,7 @@ import { type PlayerRequest, withRequestIds } from '../../../shared/tournament/r
 import type { CheckIns } from '../../../shared/tournament/checkins.js';
 import { randomToken, sessionHash, sessionUserQuery, type User, userFromRow, type UserRow } from '../auth/session.js';
 import { displayNameSql } from '../accounts/handles.js';
-import { firstRow, type Guard, rowsChanged } from '../d1.js';
+import { firstRow, type Guard, rows, rowsChanged } from '../d1.js';
 import type { D1Like, D1Statement } from '../types.js';
 import { deleteWrites, firstIndexWrites, rosterWrites } from './rosterWrites.js';
 import { correctionGuard, type CorrectionWrite, correctionWrites } from './corrections.js';
@@ -603,9 +603,30 @@ function minorCardsCut(db: D1Like, next: TournamentRow, version: number, now: nu
 
 /**
  * What a change comes to: the row as written, or why it was refused. A change
- * staff asked for carries the role the asker held as it landed.
+ * staff asked for carries the role the asker held as it landed. `quiet` marks
+ * a change that leaves everything the public view shows as it stood, so the
+ * answer need not publish the view again (see answers.ts).
  */
-export type Mutation = { row: TournamentRow; refusal?: string; role?: Role } | Refused;
+export type Mutation = { row: TournamentRow; refusal?: string; role?: Role; quiet?: true } | Refused;
+
+/** The changes that do show in the public view; a change with none of them alters nothing a page reads. */
+const PUBLISHED_PARTS: ReadonlySet<keyof Changes> = new Set<keyof Changes>([
+  'tournament',
+  'pending',
+  'reports',
+  'requests',
+  'settings',
+  'decks',
+  'inferredDecks'
+]);
+
+/**
+ * Whether the published view stands as it is after `changes`: a check-in, a
+ * report's evidence or an import time never appears in it. An idle event
+ * always publishes because its settings are part of the public view.
+ */
+const leavesViewAlone = (row: TournamentRow, changes: Changes): boolean =>
+  !row.settings.idle && !(Object.keys(changes) as (keyof Changes)[]).some(key => PUBLISHED_PARTS.has(key));
 
 /** Why a change was refused, and the status that says so. */
 export interface Refused {
@@ -771,7 +792,14 @@ async function attempt(db: D1Like, writer: Writer, change: Change): Promise<Muta
   if (saved && 'error' in saved) {
     return saved;
   }
-  return saved && { row: saved, ...role, ...(changes.refusal ? { refusal: changes.refusal } : {}) };
+  return (
+    saved && {
+      row: saved,
+      ...role,
+      ...(changes.refusal ? { refusal: changes.refusal } : {}),
+      ...(leavesViewAlone(row, changes) ? { quiet: true as const } : {})
+    }
+  );
 }
 
 /** What the console's polls check before anything else: whether the copy they hold still stands. */
@@ -867,37 +895,45 @@ interface SummaryRow {
   store_role: string | null;
 }
 
-/** Every event this user owns or staffs, their stores' among them, newest first. */
-export async function listTournaments(db: D1Like, userId: string): Promise<TournamentSummary[]> {
-  const { results } = await db
-    .prepare(
-      "SELECT code, mode, json_extract(state, '$.info.name') AS name, " +
-        "json_array_length(state, '$.players') AS players, json_extract(state, '$.info.startDate') AS start_date, " +
-        "json_extract(settings, '$.finished') AS finished, json_extract(settings, '$.startsAt') AS starts_at, " +
-        `community_day, ${pairedRounds('state')} AS rounds, owner_id, updated_at, store_id, ` +
-        '(SELECT m.role FROM store_members m WHERE m.store_id = tournaments.store_id AND m.user_id = ?1) AS store_role ' +
-        'FROM tournaments WHERE (owner_id = ?1 AND store_id IS NULL) OR code IN (SELECT code FROM staff WHERE user_id = ?1) ' +
-        'OR store_id IN (SELECT store_id FROM store_members WHERE user_id = ?1) ORDER BY updated_at DESC LIMIT 200'
-    )
-    .bind(userId)
-    .all<SummaryRow>();
-  return results.map(row => ({
-    code: row.code,
-    mode: row.mode === 'tom' ? 'tom' : 'swiss',
-    name: row.name ?? '',
-    role: (row.store_id === null ? row.owner_id === userId : managesStore(storeRoleOf(row.store_role)))
-      ? 'owner'
-      : 'staff',
-    players: row.players ?? 0,
-    startDate: row.start_date ?? '',
-    startsAt: row.starts_at ?? '',
-    finished: row.finished === 1,
-    rounds: row.rounds ?? 0,
-    updatedAt: row.updated_at,
-    ...(row.owner_id === userId && row.store_id === null && row.community_day
-      ? { communityDay: row.community_day }
-      : {})
-  }));
+/** The account a session belongs to, as SQL, for a statement bound with its token's hash as ?1 and the time as ?2. */
+const SESSION_ACCOUNT = '(SELECT user_id FROM sessions WHERE token_hash = ?1 AND expires_at > ?2)';
+
+const SUMMARY_SQL =
+  "SELECT code, mode, json_extract(state, '$.info.name') AS name, " +
+  "json_array_length(state, '$.players') AS players, json_extract(state, '$.info.startDate') AS start_date, " +
+  "json_extract(settings, '$.finished') AS finished, json_extract(settings, '$.startsAt') AS starts_at, " +
+  `community_day, ${pairedRounds('state')} AS rounds, owner_id, updated_at, store_id, ` +
+  `(SELECT m.role FROM store_members m WHERE m.store_id = tournaments.store_id AND m.user_id = ${SESSION_ACCOUNT}) AS store_role ` +
+  `FROM tournaments WHERE (owner_id = ${SESSION_ACCOUNT} AND store_id IS NULL) ` +
+  `OR code IN (SELECT code FROM staff WHERE user_id = ${SESSION_ACCOUNT}) ` +
+  `OR store_id IN (SELECT store_id FROM store_members WHERE user_id = ${SESSION_ACCOUNT}) ORDER BY updated_at DESC LIMIT 200`;
+
+const summaryOf = (row: SummaryRow, userId: string): TournamentSummary => ({
+  code: row.code,
+  mode: row.mode === 'tom' ? 'tom' : 'swiss',
+  name: row.name ?? '',
+  role: (row.store_id === null ? row.owner_id === userId : managesStore(storeRoleOf(row.store_role)))
+    ? 'owner'
+    : 'staff',
+  players: row.players ?? 0,
+  startDate: row.start_date ?? '',
+  startsAt: row.starts_at ?? '',
+  finished: row.finished === 1,
+  rounds: row.rounds ?? 0,
+  updatedAt: row.updated_at,
+  ...(row.owner_id === userId && row.store_id === null && row.community_day ? { communityDay: row.community_day } : {})
+});
+
+/**
+ * Every event the account signed in under `hash` owns or staffs, their
+ * stores' among them, newest first; null when the session is no one's. The
+ * account and its events are read in one round trip.
+ */
+export async function listTournaments(db: D1Like, hash: string): Promise<TournamentSummary[] | null> {
+  const now = Date.now();
+  const [account, events] = await db.batch([sessionUserQuery(db, hash, now), db.prepare(SUMMARY_SQL).bind(hash, now)]);
+  const user = firstRow<UserRow>(account);
+  return user && rows<SummaryRow>(events).map(row => summaryOf(row, user.id));
 }
 
 /**

@@ -40,7 +40,7 @@ import { parseTdf } from '../../shared/tournament/tdf.ts';
 import { apiCalls, type Handler } from '../__utils__/apiCalls.ts';
 import { resetRateLimiters } from '../../functions/lib/api/rateLimiter.ts';
 import { at, eventCalls } from '../__utils__/eventCalls.ts';
-import { racing, sqliteD1 } from '../__utils__/sqliteD1.ts';
+import { countingTrips, racing, sqliteD1 } from '../__utils__/sqliteD1.ts';
 import { publishStores } from '../../functions/lib/stores/publish.ts';
 import { storeApplication } from '../__utils__/storeApplication.ts';
 
@@ -657,6 +657,18 @@ test('a store says what it is to anyone, its contact details to its people, and 
   const inside = await hit(storeRoute.onRequestGet as Handler, `/api/stores/${store}`, at, { cookie: helper });
   assert.deepEqual([inside.json.role, inside.json.contact.phone], ['staff', '210-555-0100']);
   assert.equal((await hit(storeRoute.onRequestGet as Handler, '/api/stores/nope', { id: 'nope' })).status, 404);
+});
+
+test('a store page waits on the database once, whoever reads it', async () => {
+  const { manager, store } = await staffedStore();
+  await newEvent(manager);
+  for (const cookie of [undefined, manager]) {
+    const counting = countingTrips(env.TOURNAMENT_DB!);
+    env.TOURNAMENT_DB = counting.db;
+    const read = await hit(storeRoute.onRequestGet as Handler, `/api/stores/${store}`, { id: store }, { cookie });
+    assert.equal(read.json.store.events.length, 1);
+    assert.equal(counting.trips(), 1, 'the store, its asker and its events come in one round trip');
+  }
 });
 
 test('anonymous store reads are limited per address, while signed-in readers are not', async () => {

@@ -45,8 +45,8 @@ interface Try {
   now: number;
 }
 
-/** Lets in a right year by resetting unlocked failures, or a wrong one by counting it. */
-export async function admitTry({ db, code, popId, right, now }: Try): Promise<boolean> {
+/** The statement that lets in a right year by resetting unlocked failures, or a wrong one by counting it: a row when let in. */
+export function admission({ db, code, popId, right, now }: Try): D1Statement {
   const sql = right
     ? 'INSERT INTO identify_failures (code, pop_id, failures, locked_until) VALUES (?1, ?2, 0, 0) ' +
       'ON CONFLICT (code, pop_id) DO UPDATE SET failures = 0, locked_until = 0 ' +
@@ -57,12 +57,12 @@ export async function admitTry({ db, code, popId, right, now }: Try): Promise<bo
       'ELSE locked_until END ' +
       'WHERE identify_failures.locked_until <= ?4 RETURNING failures';
   const values = right ? [code, popId, now] : [code, popId, FREE_TRIES, now, MAX_LOCK_MS, FIRST_LOCK_MS];
-  return (
-    (await db
-      .prepare(sql)
-      .bind(...values)
-      .first<{ failures: number }>()) !== null
-  );
+  return db.prepare(sql).bind(...values);
+}
+
+/** Lets in a right year by resetting unlocked failures, or a wrong one by counting it. */
+export async function admitTry(attempt: Try): Promise<boolean> {
+  return (await admission(attempt).first<{ failures: number }>()) !== null;
 }
 
 /** Forgets a Player ID's wrong tries outright, while `guard` holds: staff vouch for the player. */

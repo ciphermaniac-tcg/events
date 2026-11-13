@@ -67,3 +67,21 @@ test('only staff tick a check, and only a known player’s or a known check', as
   assert.equal((await tick(code, owner, { playerId: '900', mark: 'vip', on: true })).status, 400);
   assert.equal((await tick(code, owner, { playerId: '900', mark: 'paper', on: true })).status, 400);
 });
+
+test('a check-in is staff’s alone, so it publishes nothing the public page reads', async () => {
+  let puts = 0;
+  env.EVENTS_DATA = {
+    head: async () => null,
+    put: async () => {
+      puts += 1;
+      return { etag: 'e' };
+    },
+    delete: async () => undefined
+  };
+  const { owner, code } = await paidEvent();
+  puts = 0;
+  assert.equal((await tick(code, owner, { playerId: '900', mark: 'paid', on: true })).status, 200);
+  assert.equal(puts, 0, 'a check-in shows nowhere in the published view');
+  assert.equal((await settle(code, owner, { details: 'Bring sleeves' })).status, 200);
+  assert.equal(puts, 1, 'a change the public page shows still publishes');
+});

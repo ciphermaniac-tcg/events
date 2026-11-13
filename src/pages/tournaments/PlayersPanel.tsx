@@ -15,11 +15,10 @@
 import { useSearchParams } from '@solidjs/router';
 import { createMemo, createSignal, For, Show } from 'solid-js';
 import { divisionFor, eventSeason } from '../../../shared/tournament/divisions';
-import { hasStarted, joinedLate, playerPod } from '../../../shared/tournament/rounds';
-import { DIVISION_LABELS, isGeneratedId, type Player, playerName, type Pod } from '../../../shared/tournament/types';
+import { hasStarted } from '../../../shared/tournament/rounds';
+import { DIVISION_LABELS, isGeneratedId, type Player, playerName } from '../../../shared/tournament/types';
 import { decksEnabled, isSanctioned } from '../../../shared/tournament/view';
 import type { Manage } from '../../lib/tournament/api';
-import { matchHistory } from '../../lib/tournament/present';
 import { t, tc, tn } from '../../lib/i18n';
 import type { ReportedDeck } from '../live/reportedDeck';
 import { PlayerActions } from './PlayerActions';
@@ -34,6 +33,7 @@ import { ReturningPlayerField } from './ReturningPlayerField';
 import { capCount, CheckInBox, CheckInCells, CheckInHeads, createSiteRegistrants, showsCheckIn } from './CheckIn';
 import { inRoster, isRosterFilter, type RosterFilter } from './rosterFilter';
 import { byLastName, sortName } from './playerSearch';
+import { type RosterFacts, rosterFacts } from './rosterFacts';
 import { notCheckedIn } from '../../../shared/tournament/checkins';
 import { Segmented } from '@ciphermaniac/design/components/Segmented';
 
@@ -134,15 +134,6 @@ function DeckCell(props: RowProps) {
 }
 
 /** Archetypes off for the event: the column keeps its place, greyed, with nothing to pick. */
-/** A player's results so far, one mark per round they could play: their pod's, and their division's top cut's. */
-function marksOf(pod: Pod | undefined, player: Player): { marks: string[]; rounds: number } {
-  if (!pod) {
-    return { marks: [], rounds: 0 };
-  }
-  const history = matchHistory(pod, player.id);
-  const byRound = new Map(history.map(row => [row.round, row.mark]));
-  return { marks: pod.rounds.map(round => byRound.get(round.number) ?? ''), rounds: pod.rounds.length };
-}
 
 interface RowProps {
   state: ManageState;
@@ -151,6 +142,8 @@ interface RowProps {
   season: number;
   showRounds: boolean;
   decks: readonly ReportedDeck[];
+  /** Their pod, round marks and late entry, worked out for the roster as a whole. */
+  facts: RosterFacts | undefined;
   /** Opens the player's sheet. */
   onPlayer: (id: string) => void;
 }
@@ -169,8 +162,6 @@ function PlayerRow(props: RowProps) {
     ]
       .filter(Boolean)
       .join(' · ');
-  const pod = createMemo(() => playerPod(props.manage.tournament, props.player.id));
-  const history = createMemo(() => marksOf(pod(), props.player));
   let name: HTMLButtonElement | undefined;
   return (
     <tr classList={{ 'is-dropped': props.player.droppedAfter !== null }}>
@@ -179,7 +170,7 @@ function PlayerRow(props: RowProps) {
           <button ref={name} type='button' class='tm-seat-link' onClick={() => props.onPlayer(props.player.id)}>
             <span class='tm-name'>{sortName(props.player)}</span>
           </button>
-          <Show when={props.player.late || joinedLate(pod(), props.player.id)}>
+          <Show when={props.player.late || props.facts?.joinedLate}>
             <span class='tm-flag'>{t('Late')}</span>
           </Show>
           <Show when={props.player.fixedTable}>
@@ -195,7 +186,7 @@ function PlayerRow(props: RowProps) {
       </td>
       <Show when={props.showRounds}>
         <td class='tm-rounds-cell'>
-          <Squares marks={history().marks} rounds={history().rounds} />
+          <Squares marks={props.facts?.marks ?? []} rounds={props.facts?.pod.rounds.length ?? 0} />
         </td>
       </Show>
       <Show when={decksEnabled(props.manage.settings)}>
@@ -285,6 +276,8 @@ export function PlayersPanel(props: { state: ManageState; manage: Manage; onPlay
   const players = createMemo(() =>
     inRoster(props.manage, props.manage.tournament.players, filter(), query()).sort(byLastName)
   );
+  // A row's pod, marks and late entry read from one pass over the event, not one pass per row.
+  const facts = createMemo(() => rosterFacts(props.manage.tournament));
   // At a TOM event before round 1, whoever registered on the site and is not in TOM's file yet.
   const siteRegistrants = createSiteRegistrants(() => props.manage);
   const registrants = () => inRoster(props.manage, siteRegistrants(), filter(), query());
@@ -359,6 +352,7 @@ export function PlayersPanel(props: { state: ManageState; manage: Manage; onPlay
                     season={season()}
                     showRounds={started()}
                     decks={decks()}
+                    facts={facts().get(player.id)}
                     onPlayer={props.onPlayer}
                   />
                 )}

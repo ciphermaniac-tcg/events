@@ -547,14 +547,15 @@ async function readSubmission(request: Request, sanctioned: boolean): Promise<Su
  * and a list sent for a friend from your own phone must not give your account
  * theirs. The account page saves a POP ID, where one account holds each. An
  * unsanctioned event asked only for the name, so the Player ID and birth year
- * already there stay.
+ * already there stay. It only runs after the list upsert changes a row, in the
+ * same batch.
  */
 function saveToAccount(access: Access, userId: string, profile: PlayerProfile) {
   const sanctioned = isSanctioned(access.row);
   const guard = sanctioned ? 'pop_id = ?' : "(pop_id IS NULL OR pop_id = '' OR (first_name = ? AND last_name = ?))";
   const values = sanctioned ? [profile.popId] : [profile.firstName, profile.lastName];
   return access.db
-    .prepare(`UPDATE users SET first_name = ?, last_name = ? WHERE id = ? AND ${guard}`)
+    .prepare(`UPDATE users SET first_name = ?, last_name = ? WHERE id = ? AND ${guard} AND changes() > 0`)
     .bind(profile.firstName, profile.lastName, userId, ...values);
 }
 
@@ -629,14 +630,10 @@ async function store(
       sanctioned ? 1 : 0,
       held
     );
+  const named = access.user ? [saveToAccount(access, access.user.id, profile)] : [];
+  const [stored] = await access.db.batch([insert, ...named]);
   // The upsert changes no row when the list there is not the sender's, so its count is the answer.
-  if (rowsChanged(await insert.run()) === 0) {
-    return false;
-  }
-  if (access.user) {
-    await saveToAccount(access, access.user.id, profile).run();
-  }
-  return true;
+  return rowsChanged(stored) > 0;
 }
 
 /**

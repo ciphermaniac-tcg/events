@@ -10,7 +10,7 @@
  * site's live pairings do, so the opponent is never behind a sideways scroll.
  */
 
-import { createMemo, createSignal, For, Index, type JSX, Show } from 'solid-js';
+import { createMemo, createSelector, createSignal, For, Index, type JSX, Show } from 'solid-js';
 import { sortMatches } from '../../../shared/tournament/rounds';
 import { isBye } from '../../../shared/tournament/standings';
 import type { Match, Outcome, Pod, Round } from '../../../shared/tournament/types';
@@ -70,18 +70,19 @@ export interface MatchTableProps {
 
 const winnerOutcome = (seat: 1 | 2): Outcome => (seat === 1 ? 'p1' : 'p2');
 
-const isConfirming = (props: MatchTableProps, match: Match) =>
-  props.confirming?.table === match.table && props.confirming.p1 === match.p1;
-
 type Shown = ReturnType<typeof shownOutcome>;
 
-/** The props a row's cells take: the table's, its match, and what stands for the match (see MatchTable). */
-type CellProps = MatchTableProps & { match: Match; shownOf: (match: Match) => Shown };
+/** The props a row's cells take: the table's, its match, what stands for the match, and whether it is the one confirming (see MatchTable). */
+type CellProps = MatchTableProps & {
+  match: Match;
+  shownOf: (match: Match) => Shown;
+  isConfirming: (match: Match) => boolean;
+};
 
 function SeatCell(props: CellProps & { seat: 1 | 2; records: Map<string, string> }) {
   const id = () => (props.seat === 1 ? props.match.p1 : props.match.p2);
   const shown = () => {
-    const preview = isConfirming(props, props.match) ? props.confirming?.outcome : props.sent?.(props.match);
+    const preview = props.isConfirming(props.match) ? props.confirming?.outcome : props.sent?.(props.match);
     return preview ? { outcome: preview, unconfirmed: true } : props.shownOf(props.match);
   };
   const mark = () => seatMark(shown().outcome, props.seat);
@@ -202,7 +203,7 @@ function grouped(
     : [{ label: null, matches: sorted }];
 }
 
-const matchKey = (match: Match) => `${match.table}|${match.p1}`;
+const matchKey = (match: Pick<Match, 'table' | 'p1'>) => `${match.table}|${match.p1}`;
 
 /**
  * Which group each table is in, held while a mouse is over the tables: a
@@ -231,6 +232,9 @@ function createHeldGroups(props: MatchTableProps) {
 
 export function MatchTable(props: MatchTableProps) {
   const groups = createHeldGroups(props);
+  // Only the row confirming, and the one it moves from, draw again as it changes.
+  const confirmingRow = createSelector(() => (props.confirming ? matchKey(props.confirming) : null));
+  const isConfirming = (match: Match) => confirmingRow(matchKey(match));
   // What stands for each of the round's tables, worked out once a change rather than in every cell.
   const shown = createMemo(
     () => new Map(props.round.matches.map(match => [match, shownOutcome(match, props.pod, props.round, props.pending)]))
@@ -300,7 +304,7 @@ export function MatchTable(props: MatchTableProps) {
                     <tr
                       classList={{
                         'is-me': mine(match),
-                        'is-confirming': isConfirming(props, match),
+                        'is-confirming': isConfirming(match),
                         'is-openable': Boolean(props.onRow) && match.p2 !== null
                       }}
                       onClick={event =>
@@ -317,11 +321,25 @@ export function MatchTable(props: MatchTableProps) {
                           {extension => <PhoneExtension minutes={extension().seconds / 60} />}
                         </Show>
                       </td>
-                      <SeatCell {...props} match={match} shownOf={shownOf} seat={1} records={records()} />
-                      <SeatCell {...props} match={match} shownOf={shownOf} seat={2} records={records()} />
+                      <SeatCell
+                        {...props}
+                        match={match}
+                        shownOf={shownOf}
+                        isConfirming={isConfirming}
+                        seat={1}
+                        records={records()}
+                      />
+                      <SeatCell
+                        {...props}
+                        match={match}
+                        shownOf={shownOf}
+                        isConfirming={isConfirming}
+                        seat={2}
+                        records={records()}
+                      />
                       <Show when={props.extra}>{extra => <td class='tm-extra-col'>{extra()(match)}</td>}</Show>
                       <Show when={props.status && !props.extra}>
-                        <StatusCell {...props} match={match} shownOf={shownOf} />
+                        <StatusCell {...props} match={match} shownOf={shownOf} isConfirming={isConfirming} />
                       </Show>
                     </tr>
                   )}

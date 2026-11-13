@@ -31,3 +31,5 @@ SELECT session_id FROM clerk_sessions_used INDEXED BY clerk_sessions_used_by_tim
 SELECT token_hash FROM password_resets INDEXED BY password_resets_by_expiry WHERE expires_at <= 0 LIMIT 0;
 SELECT key FROM reset_reservations INDEXED BY reset_reservations_by_time WHERE at <= 0 LIMIT 0;
 SELECT deck_mode FROM decklists WHERE 0;
+SELECT code FROM decklists INDEXED BY decklists_by_account WHERE account IS NOT NULL LIMIT 0;
+SELECT code FROM report_history INDEXED BY report_history_by_account WHERE account_id IS NOT NULL LIMIT 0;

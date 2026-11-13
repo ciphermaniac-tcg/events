@@ -21,7 +21,18 @@
  */
 
 import { useSearchParams } from '@solidjs/router';
-import { createEffect, createMemo, createSignal, For, type JSX, on, onMount, Show, Suspense } from 'solid-js';
+import {
+  createEffect,
+  createMemo,
+  createSelector,
+  createSignal,
+  For,
+  type JSX,
+  on,
+  onMount,
+  Show,
+  Suspense
+} from 'solid-js';
 import { lazyPanel } from './lazyPanel';
 import { warmChunks } from '../../lib/preloadRecovery';
 import { isDisputed, type PlayerReport, reportsFor } from '../../../shared/tournament/reports';
@@ -769,7 +780,9 @@ export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod
   const [openOnly, setOpenOnly] = createSignal(false);
   let filterInput: HTMLInputElement | undefined;
   const round = createMemo(() => props.pod.rounds.find(r => r.number === picked()) ?? latest());
-  const names = createMemo(() => namesById(props.manage.tournament));
+  // From the player list, which a result leaves as it was (see share.ts): a result draws no name again.
+  const players = createMemo(() => props.manage.tournament.players);
+  const names = createMemo(() => namesById({ players: players() }));
   const cut = createMemo(() => hasCut(props.pod));
   // Results are entered in the table, so the bracket is only ever a look at the cut.
   const [matchView, setMatchView] = createSignal<MatchView>('table');
@@ -792,7 +805,12 @@ export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod
   const live = () => !tom() && timed() && !ended();
   // A TOM event's results are entered in TOM, so its rows open no sheet and take no presses.
   const { opens, inRow, openSheet, sheetMatch, closeSheet } = createRowSheet(() => locked() || tom());
-  const isAsking = (match: Match) => asking()?.table === match.table && asking()?.p1 === match.p1;
+  // Only the table asked about, and the one asked before it, draw again as the question moves.
+  const askingAt = createSelector(() => {
+    const choice = asking();
+    return choice ? `${choice.table}|${choice.p1}` : null;
+  });
+  const isAsking = (match: Match) => askingAt(`${match.table}|${match.p1}`);
   const tableOf = createTables(props, round, names);
   const isOpen = (match: Match) => tableOf(match).shown.outcome === 'pending';
   const counts = createMemo(() => roundCounts(round(), isOpen));

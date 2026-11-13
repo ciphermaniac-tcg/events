@@ -8,17 +8,39 @@
 
 import { isWallClock } from './timeZone.js';
 
+/**
+ * Formatters built once, by the zone (and naming) they read a time in:
+ * constructing one costs far more than reading a time with it.
+ */
+const FORMATS = new Map<string, Intl.DateTimeFormat>();
+
+function formatter(key: string, make: () => Intl.DateTimeFormat): Intl.DateTimeFormat {
+  let format = FORMATS.get(key);
+  if (!format) {
+    format = make();
+    FORMATS.set(key, format);
+  }
+  return format;
+}
+
+const wallClockFormat = (zone: string): Intl.DateTimeFormat =>
+  formatter(
+    zone,
+    () =>
+      new Intl.DateTimeFormat('en-US', {
+        timeZone: zone,
+        hourCycle: 'h23',
+        year: 'numeric',
+        month: 'numeric',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: 'numeric'
+      })
+  );
+
 /** The wall-clock time `at` reads in `zone`, as the instant that wall clock would be in UTC. */
 function wallClock(at: number, zone: string): number {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: zone,
-    hourCycle: 'h23',
-    year: 'numeric',
-    month: 'numeric',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: 'numeric'
-  }).formatToParts(at);
+  const parts = wallClockFormat(zone).formatToParts(at);
   const part = (type: Intl.DateTimeFormatPartTypes) => Number(parts.find(p => p.type === type)?.value);
   return Date.UTC(part('year'), part('month') - 1, part('day'), part('hour'), part('minute'));
 }

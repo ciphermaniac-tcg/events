@@ -38,34 +38,64 @@ export interface PrintIndex {
 const nameKey = (name: string) =>
   name.normalize('NFKD').replace(/\p{M}/gu, '').replace(/[‘’]/g, "'").replace(/\s+/g, ' ').trim().toLowerCase();
 
-/** "Name::SET::NUM" with its name looked up as nameKey. */
-function idKey(id: string): string {
-  const [name = '', ...rest] = id.split('::');
-  return [nameKey(name), ...rest].join('::');
-}
-
 export function printIndex(file: SynonymFile, prices: PriceFile = { cardPrices: {} }): PrintIndex {
+  // A set's prints repeat their card's name, so normalize each distinct name once.
+  const normalized = new Map<string, string>();
+  const nameOf = (name: string): string => {
+    let key = normalized.get(name);
+    if (key === undefined) {
+      key = nameKey(name);
+      normalized.set(name, key);
+    }
+    return key;
+  };
+  /** "Name::SET::NUM" with its name looked up as nameKey. */
+  const idKey = (id: string): string => {
+    const [name = '', ...rest] = id.split('::');
+    return [nameOf(name), ...rest].join('::');
+  };
   const canonical = new Map(Object.entries(file.synonyms).map(([id, to]) => [idKey(id), to]));
-  const byName = new Map(Object.entries(file.canonicals).map(([name, id]) => [nameKey(name), id]));
-  const bySet = new Map<string, Set<string>>();
-  for (const id of [...Object.keys(file.prints), ...Object.keys(prices.cardPrices)]) {
-    const [name = '', set = ''] = id.split('::');
-    const key = `${nameKey(name)}::${set}`;
-    bySet.set(key, (bySet.get(key) ?? new Set()).add(file.synonyms[id] ?? id));
-  }
-  return { canonical, byName, bySet };
+  const byName = new Map(Object.entries(file.canonicals).map(([name, id]) => [nameOf(name), id]));
+  // Built only for a card whose print and name both miss: most lookups never need it, and it is
+  // the largest part of the index.
+  let bySet: Map<string, Set<string>> | undefined;
+  const sets = (): Map<string, Set<string>> => {
+    if (bySet) {
+      return bySet;
+    }
+    bySet = new Map();
+    for (const id of [...Object.keys(file.prints), ...Object.keys(prices.cardPrices)]) {
+      const [name = '', set = ''] = id.split('::');
+      const key = `${nameOf(name)}::${set}`;
+      bySet.set(key, (bySet.get(key) ?? new Set()).add(file.synonyms[id] ?? id));
+    }
+    return bySet;
+  };
+  return {
+    canonical,
+    byName,
+    get bySet() {
+      return sets();
+    }
+  };
 }
 
 /** The id of the print a card draws as, or undefined when the index cannot tell. */
 export function canonicalId(index: PrintIndex, card: Pick<DeckCard, 'name' | 'set' | 'number' | 'section'>) {
   const name = nameKey(card.name);
   const { set, number } = cardPrint(card);
-  const inSet = [...(index.bySet.get(`${name}::${set}`) ?? [])];
-  return (
-    (number === null ? undefined : index.canonical.get(`${name}::${set}::${number.toUpperCase()}`)) ??
-    (card.section === 'pokemon' ? undefined : index.byName.get(name)) ??
-    (inSet.length === 1 ? inSet[0] : undefined)
-  );
+  const byPrint = number === null ? undefined : index.canonical.get(`${name}::${set}::${number.toUpperCase()}`);
+  if (byPrint !== undefined) {
+    return byPrint;
+  }
+  if (card.section !== 'pokemon') {
+    const byCardName = index.byName.get(name);
+    if (byCardName !== undefined) {
+      return byCardName;
+    }
+  }
+  const inSet = index.bySet.get(`${name}::${set}`);
+  return inSet?.size === 1 ? inSet.values().next().value : undefined;
 }
 
 const read = <T>(path: string) =>

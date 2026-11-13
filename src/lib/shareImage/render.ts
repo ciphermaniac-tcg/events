@@ -47,14 +47,24 @@ export function spriteUrl(slug: string): string {
 
 /**
  * One sprite's pixels. Fetched past the HTTP cache: the page's own `<img>`
- * may have cached the file without the CORS headers this read needs.
+ * may have cached the file without the CORS headers this read needs. The read
+ * is kept for the page, so sharing a second sheet does not download it again;
+ * a failed read is forgotten and asked for next time.
  */
+const sprites = new Map<string, Bitmap>();
+
 async function loadSprite(slug: string): Promise<Bitmap> {
+  const cached = sprites.get(slug);
+  if (cached) {
+    return cached;
+  }
   const response = await fetch(spriteUrl(slug), { cache: 'no-store' });
   if (!response.ok) {
     throw new Error(`${slug}: ${response.status}`);
   }
-  return decodePng(new Uint8Array(await response.arrayBuffer()));
+  const sprite = await decodePng(new Uint8Array(await response.arrayBuffer()));
+  sprites.set(slug, sprite);
+  return sprite;
 }
 
 export function spriteSlugs(share: PlayerShare): string[] {

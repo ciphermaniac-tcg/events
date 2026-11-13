@@ -3,7 +3,7 @@
  * awards it handed out and leaves unsaved matches that count for their players until the file is reopened.
  */
 
-import { FlightFailure, flightField, swissRound, validateSwissRound } from './lifecyclePairing.js';
+import { FlightFailure, flightField, flightPoints, swissRound, validateSwissRound } from './lifecyclePairing.js';
 import type { LifecycleContext } from './lifecycleTypes.js';
 import { podFlights, replacePods, selectedPods } from './lifecycleWorkflow.js';
 import { PairingError } from './pairing.js';
@@ -35,8 +35,10 @@ export function attemptCount(pod: Pod): number {
 
 /** The first flight left with nobody to pair once its holders receive their assigned byes. */
 function emptiedFlight(t: Tournament, pod: Pod, number: number, ctx: LifecycleContext): number | undefined {
+  const points = flightPoints(pod, number, false, ctx);
   const index = podFlights(pod).findIndex(
-    flight => !flightField(t, pod, { number, ids: flight.playerIds, kept: [], repair: false }, ctx).entrants.length
+    flight =>
+      !flightField(t, pod, { number, ids: flight.playerIds, kept: [], repair: false, points }, ctx).entrants.length
   );
   return index < 0 ? undefined : index;
 }

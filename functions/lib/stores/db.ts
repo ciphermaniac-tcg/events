@@ -8,7 +8,6 @@
 
 import { parseTomDate } from '../../../shared/tournament/divisions.js';
 import {
-  dateIn,
   type GivenRole,
   type LeagueNight,
   type NightException,
@@ -26,9 +25,10 @@ import type {
   StoreMember
 } from '../../../shared/accounts/types.js';
 import { shortLastNames } from '../../../shared/tournament/identify.js';
+import { pastEventDate } from './dates.js';
 import { randomToken, sha256 } from '../auth/session.js';
 import { displayNameSql } from '../accounts/handles.js';
-import { type Guard, rowsChanged } from '../d1.js';
+import { type Guard, rows, rowsChanged } from '../d1.js';
 import type { D1Like, D1Statement } from '../types.js';
 
 /** How long a store's invite link lets someone in. */
@@ -433,18 +433,20 @@ interface StoreEventRow {
   mode: string;
 }
 
-/** A store's events on the site that have not ended, as its page lists them. */
-export async function storeEvents(db: D1Like, storeId: string, pairedRounds: string): Promise<StoreEvent[]> {
-  const { results } = await db
+/** The read of a store's events on the site that have not ended; `storeEvents` reads its rows. */
+export const storeEventsQuery = (db: D1Like, storeId: string, pairedRounds: string) =>
+  db
     .prepare(
       "SELECT code, mode, json_extract(state, '$.info.name') AS name, json_extract(state, '$.info.startDate') AS start_date, " +
         "json_extract(settings, '$.startsAt') AS starts_at, json_extract(settings, '$.sanctioned') AS sanctioned, " +
         `${pairedRounds} AS rounds FROM tournaments INDEXED BY tournaments_of_store ` +
         "WHERE store_id = ? AND coalesce(json_extract(settings, '$.finished'), 0) = 0 ORDER BY created_at DESC LIMIT 50"
     )
-    .bind(storeId)
-    .all<StoreEventRow>();
-  return results.map(row => ({
+    .bind(storeId);
+
+/** A store's events on the site that have not ended, as its page lists them, from what `storeEventsQuery` found. */
+export function storeEvents(found: { results?: unknown[] } | undefined): StoreEvent[] {
+  return rows<StoreEventRow>(found).map(row => ({
     code: row.code,
     name: row.name ?? row.code,
     startDate: row.start_date ?? '',
@@ -508,17 +510,21 @@ function pastEvent(row: PastEventRow, timeZone: string): PastEvent {
   return {
     code: row.code,
     name: row.name ?? row.code,
-    date: isoDate(row.start_date) || dateIn(timeZone, row.created_at),
+    date: isoDate(row.start_date) || pastEventDate(timeZone, row.created_at),
     sanctioned,
     players: field.length,
     winners: winnerNames(field, JSON.parse(row.winners) as string[], sanctioned)
   };
 }
 
-/** A store's ended events on the site, latest first, as its page lists them. */
-export async function storePastEvents(db: D1Like, store: Pick<Store, 'id' | 'timeZone'>): Promise<PastEvent[]> {
-  const { results } = await db.prepare(PAST_SQL).bind(store.id).all<PastEventRow>();
-  return results.map(row => pastEvent(row, store.timeZone)).sort((a, b) => b.date.localeCompare(a.date));
+/** The read of a store's ended events on the site; `storePastEvents` reads its rows. */
+export const storePastEventsQuery = (db: D1Like, storeId: string) => db.prepare(PAST_SQL).bind(storeId);
+
+/** A store's ended events on the site, latest first, as its page lists them, from what `storePastEventsQuery` found. */
+export function storePastEvents(found: { results?: unknown[] } | undefined, timeZone: string): PastEvent[] {
+  return rows<PastEventRow>(found)
+    .map(row => pastEvent(row, timeZone))
+    .sort((a, b) => b.date.localeCompare(a.date));
 }
 
 /** What anyone may read about a store. */

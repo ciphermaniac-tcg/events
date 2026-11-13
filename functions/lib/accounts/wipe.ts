@@ -27,6 +27,7 @@ import { randomHandle } from '../../../shared/accounts/handle.js';
 import type { DataHolds, DataRefusal, RunningEvent, WipePart } from '../../../shared/accounts/myData.js';
 import type { User } from '../auth/session.js';
 import type { D1Like, D1Statement } from '../types.js';
+import { rows } from '../d1.js';
 import { msg } from '../../../shared/i18n.js';
 
 /** Only ownership authorizes changing an event; a saved POP ID is unverified. */
@@ -45,32 +46,40 @@ const OWNED_STORES =
 
 const ENDED = `SELECT code FROM tournaments WHERE ${FINISHED}`;
 
-async function runningEvents(db: D1Like, user: User): Promise<RunningEvent[]> {
-  const { results } = await db.prepare(`${RUNNING} ORDER BY created_at LIMIT 50`).bind(user.id).all<RunningEvent>();
-  return results;
-}
+/** The read of the account's running events, for a batch to answer with. */
+const runningQuery = (db: D1Like, user: User): D1Statement =>
+  db.prepare(`${RUNNING} ORDER BY created_at LIMIT 50`).bind(user.id);
 
-async function ownedStores(db: D1Like, userId: string): Promise<string[]> {
-  const { results } = await db.prepare(`${OWNED_STORES} ORDER BY s.name`).bind(userId).all<{ name: string }>();
-  return results.map(row => row.name);
-}
+/** The read of the stores the account owns, for a batch to answer with. */
+const ownedQuery = (db: D1Like, user: User): D1Statement => db.prepare(`${OWNED_STORES} ORDER BY s.name`).bind(user.id);
+
+const runningOf = (result: { results?: unknown[] } | undefined): RunningEvent[] => rows<RunningEvent>(result);
+
+const namesOf = (result: { results?: unknown[] } | undefined): string[] =>
+  rows<{ name: string }>(result).map(row => row.name);
 
 const RUNNING_ERROR = msg('End your running events first');
 const STORE_ERROR = msg('Hand over the stores you own first');
 
 /** Everything that would hold up a deletion, which an organizer wipe waits on the events of. */
 export async function dataHolds(db: D1Like, user: User): Promise<DataHolds> {
-  return { running: await runningEvents(db, user), ownedStores: await ownedStores(db, user.id) };
+  const [running, stores] = await db.batch([runningQuery(db, user), ownedQuery(db, user)]);
+  return { running: runningOf(running), ownedStores: namesOf(stores) };
 }
 
 /** Why the asked change must wait, or null when it may go ahead. */
 async function refusalOf(db: D1Like, user: User, deleting: boolean): Promise<DataRefusal | null> {
-  const running = await runningEvents(db, user);
-  const stores = deleting ? await ownedStores(db, user.id) : [];
-  if (running.length === 0 && stores.length === 0) {
+  const [running, stores] = await db.batch([runningQuery(db, user), ...(deleting ? [ownedQuery(db, user)] : [])]);
+  const runningEvents = runningOf(running);
+  const ownedStores = namesOf(stores);
+  if (runningEvents.length === 0 && ownedStores.length === 0) {
     return null;
   }
-  return { error: running.length > 0 ? RUNNING_ERROR : STORE_ERROR, running, ownedStores: stores };
+  return {
+    error: runningEvents.length > 0 ? RUNNING_ERROR : STORE_ERROR,
+    running: runningEvents,
+    ownedStores
+  };
 }
 
 /**

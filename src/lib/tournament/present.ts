@@ -62,7 +62,7 @@ import {
   type TournamentSettings
 } from '../../../shared/tournament/view';
 
-export function namesById(tournament: Tournament): Map<string, string> {
+export function namesById(tournament: Pick<Tournament, 'players'>): Map<string, string> {
   return new Map(tournament.players.map(player => [player.id, playerName(player)]));
 }
 

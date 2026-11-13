@@ -53,6 +53,37 @@ test('a status keeps only its players: still in, dropped, or late', () => {
   assert.deepEqual(shown('all'), ['101', '303', '404']);
 });
 
+test('a missed-round loss marks a late arrival too', () => {
+  const seated = {
+    ...event,
+    tournament: {
+      ...event.tournament,
+      players: [ada, ben],
+      pods: [
+        {
+          category: 'masters' as const,
+          playerIds: ['101', '202'],
+          rounds: [
+            {
+              number: 1,
+              kind: 'swiss' as const,
+              status: 'started' as const,
+              timeLeft: 1800,
+              pairTime: '',
+              startTime: '10:00',
+              matches: [{ table: 1, p1: '202', p2: null, outcome: 'loss' as const, timestamp: '' }]
+            }
+          ],
+          cut: 0,
+          playoff3rd4th: false,
+          startingTable: 1
+        }
+      ]
+    }
+  };
+  assert.deepEqual(ids(inRoster(seated, [ada, ben], 'late', '')), ['202']);
+});
+
 test('only a known filter is taken from the address', () => {
   assert.equal(isRosterFilter('unchecked'), true);
   assert.equal(isRosterFilter('nobody'), false);

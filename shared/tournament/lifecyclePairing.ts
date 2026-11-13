@@ -108,20 +108,41 @@ export interface FlightBatch {
   ids: readonly string[];
   kept: Match[];
   repair: boolean;
+  /** The pod's points going into the round (see flightPoints), when its flights share one pod. */
+  points?: ReadonlyMap<string, number>;
+}
+
+/** Each player's match points going into the round a flight pairs: the same for every flight of the pod. */
+export function flightPoints(pod: Pod, number: number, repair: boolean, ctx: LifecycleContext): Map<string, number> {
+  return pointsBefore(pod, number + Number(Boolean(repair && ctx.terminalPairing)));
+}
+
+/** The assigned byes each player received in the pod's Swiss rounds before `number`, counted in one pass. */
+function assignedByesBefore(pod: Pod, number: number): Map<string, number> {
+  const awarded = new Map<string, number>();
+  for (const round of pod.rounds) {
+    if (round.kind !== 'swiss' || round.number >= number) {
+      continue;
+    }
+    for (const match of round.matches) {
+      if (match.outcome === 'assigned-bye') {
+        awarded.set(match.p1, (awarded.get(match.p1) ?? 0) + 1);
+      }
+    }
+  }
+  return awarded;
 }
 
 /** Each freshly paired round consumes one award; an absence defers it and a repair never grants it. */
-function holdsAssignedBye(pod: Pod, player: Player, number: number): boolean {
-  const awarded = pod.rounds
-    .filter(r => r.kind === 'swiss' && r.number < number)
-    .reduce((count, r) => count + r.matches.filter(m => m.outcome === 'assigned-bye' && m.p1 === player.id).length, 0);
-  return awarded + (player.forfeitedByes ?? 0) < (player.byes ?? 0);
+function assignedByeHolders(pod: Pod, players: readonly Player[], number: number): string[] {
+  const awarded = assignedByesBefore(pod, number);
+  return players.filter(p => (awarded.get(p.id) ?? 0) + (p.forfeitedByes ?? 0) < (p.byes ?? 0)).map(p => p.id);
 }
 
 export function flightField(
   t: Tournament,
   pod: Pod,
-  { number, ids, kept, repair }: FlightBatch,
+  { number, ids, kept, repair, points: shared }: FlightBatch,
   ctx: LifecycleContext
 ): {
   assigned: string[];
@@ -134,17 +155,18 @@ export function flightField(
   // V18-3: a repair returns every seat of a dissolved match to the pool, a departed player's included.
   const round = repair ? (latestRound(pod)?.matches ?? []) : [];
   const dissolved = new Set(round.flatMap(matchSeats));
+  const flight = new Set(ids);
   const players = t.players.filter(
-    p => ids.includes(p.id) && (active.has(p.id) || dissolved.has(p.id)) && !seated.has(p.id)
+    p => flight.has(p.id) && (active.has(p.id) || dissolved.has(p.id)) && !seated.has(p.id)
   );
-  const assigned = repair ? [] : players.filter(p => holdsAssignedBye(pod, p, number)).map(p => p.id);
+  const assigned = repair ? [] : assignedByeHolders(pod, players, number);
   const forced = repair
     ? []
     : players
         .filter(p => p.lateData?.forcedLoss && !p.lateData.usedForcedLoss && p.lateData.round === number)
         .map(p => p.id);
   const excluded = new Set([...assigned, ...forced]);
-  const points = pointsBefore(pod, number + Number(Boolean(repair && ctx.terminalPairing)));
+  const points = shared ?? flightPoints(pod, number, repair, ctx);
   const of = divisionLookup(t);
   const entrants = players
     .filter(p => !excluded.has(p.id))
@@ -362,10 +384,11 @@ function singlePassRound(t: Tournament, pod: Pod, ctx: LifecycleContext, repair:
   const number = repair ? last!.number : (last?.number ?? 0) + 1;
   const kept = repair ? repairSurvivors(t, pod, ctx) : [];
   const flights = pod.flights ?? [{ number: 1, playerIds: pod.playerIds }];
+  const points = flightPoints(pod, number, repair, ctx);
   const matches = flights.reduce<Match[]>(
     (made, flight) => [
       ...made,
-      ...flightMatches(t, pod, { ids: flight.playerIds, number, kept: [...kept, ...made], repair }, ctx)
+      ...flightMatches(t, pod, { ids: flight.playerIds, number, kept: [...kept, ...made], repair, points }, ctx)
     ],
     []
   );

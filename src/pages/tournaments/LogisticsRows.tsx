@@ -32,10 +32,13 @@ export type Logistics = Pick<TournamentSettings, 'timeZone' | 'checkInAt' | 'ven
 /** The zone this browser is in, which a new event starts in unless its store says otherwise. */
 export const browserZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
 
+/** Every zone this browser knows, read once: the list is fixed for the session and the picker's options are many. */
+let knownZones: string[] | null = null;
+
 /** Every zone this browser knows, with the chosen one even where the list leaves it out. */
 function zones(chosen: string): string[] {
-  const known = Intl.supportedValuesOf('timeZone');
-  return chosen && !known.includes(chosen) ? [chosen, ...known] : known;
+  knownZones ??= Intl.supportedValuesOf('timeZone');
+  return chosen && !knownZones.includes(chosen) ? [chosen, ...knownZones] : knownZones;
 }
 
 export function LogisticsRows(props: {

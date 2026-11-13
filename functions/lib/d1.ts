@@ -5,6 +5,11 @@ export function firstRow<T>(result: { results?: unknown[] } | undefined): T | nu
   return (result?.results?.[0] ?? null) as T | null;
 }
 
+/** Every row from one statement's result in a batch, or an empty array when it found none. */
+export function rows<T>(result: { results?: unknown[] } | undefined): T[] {
+  return (result?.results ?? []) as T[];
+}
+
 /** How many rows a write changed. */
 export function rowsChanged(result: unknown): number {
   return (result as { meta?: { changes?: number } }).meta?.changes ?? 0;

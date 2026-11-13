@@ -35,7 +35,7 @@ import {
 import { readJsonObject } from '../../lib/api/body.js';
 import { jsonError } from '../../lib/api/responses.js';
 import type { Context } from '../../lib/auth/env.js';
-import { currentUser, sessionHash, signedIn, type User } from '../../lib/auth/session.js';
+import { sessionHash, signedIn, type User } from '../../lib/auth/session.js';
 import { MAX_TOURNAMENT_BYTES, privateJson } from '../../lib/tournaments/access.js';
 import { publishAfter } from '../../lib/tournaments/publish.js';
 import {
@@ -61,11 +61,9 @@ import { msg } from '../../../shared/i18n.js';
 
 export async function onRequestGet({ request, env }: Context): Promise<Response> {
   const db = env.TOURNAMENT_DB;
-  const user = db ? await currentUser(db, request) : null;
-  if (!db || !user) {
-    return jsonError('Sign in first', 401);
-  }
-  return privateJson({ tournaments: await listTournaments(db, user.id) });
+  const hash = await sessionHash(request);
+  const tournaments = db && hash ? await listTournaments(db, hash) : null;
+  return tournaments ? privateJson({ tournaments }) : jsonError('Sign in first', 401);
 }
 
 type Body = Record<string, unknown>;

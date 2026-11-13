@@ -20,6 +20,7 @@ import { isSanctioned } from '../../../shared/tournament/view.js';
 import { randomToken, sha256, type User } from '../auth/session.js';
 import { firstRow, type Guard, rowsChanged } from '../d1.js';
 import type { D1Like, D1Statement } from '../types.js';
+import { LOCKED_OUT } from './attempts.js';
 import { loadTournament, type TournamentRow } from './store.js';
 import { msg } from '../../../shared/i18n.js';
 
@@ -51,6 +52,8 @@ export interface Asker {
   held: unknown;
   device: unknown;
   user: User | null;
+  /** The try's admission (see attempts.ts), sent with the first read of the seat; refused, so is the asker. */
+  admit?: D1Statement;
 }
 
 /** Why the asker's standing could not be had: the player left the event, or the event kept changing. */
@@ -155,7 +158,8 @@ export async function claimReporter(
 ): Promise<Claim | Elsewhere | Refusal> {
   let current = row;
   for (let tries = 1; ; tries += 1) {
-    const standing = await standingAt(seatIn(db, current, playerId, asker), asker);
+    const admit = tries === 1 && asker.admit ? [asker.admit] : [];
+    const standing = await standingAt(seatIn(db, current, playerId, asker), asker, admit);
     if (standing !== STALE) {
       return standing;
     }
@@ -170,8 +174,13 @@ export async function claimReporter(
   }
 }
 
-async function standingAt(seat: Seat, asker: Asker): Promise<Standing> {
-  const [claimed, held] = await seat.db.batch([readSeat(seat), ...readHeld(seat)]);
+/** With `admit`, the try is let in or refused in the same wait as the seat is read. */
+async function standingAt(seat: Seat, asker: Asker, admit: D1Statement[]): Promise<Standing | Refusal> {
+  const results = await seat.db.batch([...admit, readSeat(seat), ...readHeld(seat)]);
+  if (admit.length > 0 && !firstRow(results[0])) {
+    return { error: LOCKED_OUT, status: 429 };
+  }
+  const [claimed, held] = results.slice(admit.length);
   const other = elsewhere(seat, held);
   if (other) {
     return other;

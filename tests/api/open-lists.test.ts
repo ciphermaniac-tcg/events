@@ -161,3 +161,10 @@ test('a list whose cards went as the event ended reads as none', async () => {
     .run(code, NIA.popId);
   assert.deepEqual((await read(code, await keyOf(code, 'Nia'))).json, { list: null });
 });
+
+test('a list sent before staff turned sanctioning off still reads', async () => {
+  const { owner, code } = await eventWithLists(true);
+  await pair(code, owner);
+  assert.equal((await settle(code, owner, { sanctioned: false })).status, 200);
+  assert.deepEqual((await read(code, await keyOf(code, 'Nia'))).json.list, { mode: 'digital', deck: DECK });
+});

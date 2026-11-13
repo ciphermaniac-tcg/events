@@ -108,9 +108,9 @@ function statements(db: D1Like, whose: Whose): D1Statement[] {
     // The events it ran or staffed to the end; staffing an event of its own is running it.
     db
       .prepare(
-        `SELECT (SELECT count(*) FROM tournaments t WHERE t.owner_id = u.id AND ${FINISHED}) AS organized, ` +
+        `SELECT (SELECT count(*) FROM tournaments t WHERE t.owner_id = u.id AND +${FINISHED}) AS organized, ` +
           `(SELECT count(*) FROM staff f JOIN tournaments t ON t.code = f.code WHERE f.user_id = u.id ` +
-          `AND t.owner_id <> u.id AND ${FINISHED}) AS staffed FROM ${from} WHERE ${where}`
+          `AND t.owner_id <> u.id AND +${FINISHED}) AS staffed FROM ${from} WHERE ${where}`
       )
       .bind(...values),
     db

@@ -57,7 +57,6 @@ interface Field {
   mostMet: number;
   entrants: readonly (Entrant | undefined)[];
   highestPoints: number;
-  minimumDifference: number;
   pointDifference: number;
   divisionDifference: number;
 }
@@ -81,7 +80,6 @@ function fieldOf(ranked: readonly string[], history: PairingHistory, entrants: r
     mostMet: met.reduce((most, seats) => Math.max(most, seats.length), 0),
     entrants: ranked.map(id => byId.get(id)),
     highestPoints: Math.max(...entrants.map(e => e.points)),
-    minimumDifference: minimumDifference(entrants, history),
     pointDifference: 0,
     divisionDifference: 0
   };
@@ -342,9 +340,6 @@ interface Constraints {
 }
 
 function pairAt(field: Field, constraints: Constraints, walks: number[]): Pairing[] | null {
-  if (constraints.points < field.minimumDifference) {
-    return null;
-  }
   const constrained = { ...field, pointDifference: constraints.points, divisionDifference: constraints.division };
   const state = newSearch(constrained, 0);
   const found = search(state);
@@ -484,6 +479,8 @@ interface Candidate {
 interface PreparedCandidate {
   priorities: string[][];
   entrants: Entrant[];
+  /** No point band narrower than this pairs the candidate's field, whatever its seat priority. */
+  minimumDifference: number;
   fields: Map<readonly string[], Field>;
 }
 interface Inputs {
@@ -495,7 +492,7 @@ interface Inputs {
   walks: number[];
 }
 
-function prepareCandidate(candidate: Candidate, inputs: Inputs): PreparedCandidate {
+function prepareCandidate(candidate: Candidate, history: PairingHistory, inputs: Inputs): PreparedCandidate {
   const saved = inputs.cache.get(candidate);
   if (saved) {
     return saved;
@@ -505,6 +502,7 @@ function prepareCandidate(candidate: Candidate, inputs: Inputs): PreparedCandida
   const prepared = {
     priorities: retryPriorities(ranked, entrants, inputs.random),
     entrants,
+    minimumDifference: minimumDifference(entrants, history),
     fields: new Map<readonly string[], Field>()
   };
   inputs.cache.set(candidate, prepared);
@@ -547,7 +545,10 @@ function searchByes(
   attempt: { constraints: Constraints; inputs: Inputs }
 ): Pairing[] | null {
   for (const candidate of candidates) {
-    const prepared = prepareCandidate(candidate, attempt.inputs);
+    const prepared = prepareCandidate(candidate, history, attempt.inputs);
+    if (attempt.constraints.points < prepared.minimumDifference) {
+      continue;
+    }
     for (const priority of prepared.priorities) {
       const found = pairAt(preparedField(prepared, priority, history), attempt.constraints, attempt.inputs.walks);
       if (found) {

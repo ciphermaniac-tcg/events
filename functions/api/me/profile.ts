@@ -4,13 +4,14 @@ import { readJsonObject } from '../../lib/api/body.js';
 import { jsonError } from '../../lib/api/responses.js';
 import { privateJson } from '../../lib/tournaments/access.js';
 import type { Context } from '../../lib/auth/env.js';
-import { currentUser, signedIn } from '../../lib/auth/session.js';
+import { sessionHash, signedIn } from '../../lib/auth/session.js';
 import type { D1Like } from '../../lib/types.js';
 
 export async function onRequestGet({ request, env }: Context): Promise<Response> {
   const db = env.TOURNAMENT_DB;
-  const user = db ? await currentUser(db, request) : null;
-  return db && user ? privateJson(await profilePreferences(db, user.id)) : jsonError('Sign in first', 401);
+  const hash = db ? await sessionHash(request) : null;
+  const preferences = db && hash ? await profilePreferences(db, hash, Date.now()) : null;
+  return preferences ? privateJson(preferences) : jsonError('Sign in first', 401);
 }
 
 async function save(db: D1Like, userId: string, body: Record<string, unknown>): Promise<Response> {

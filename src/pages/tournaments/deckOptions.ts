@@ -47,6 +47,9 @@ let liveFormats: Promise<void> | null = null;
 
 /** The Tier List Maker's entry for a format label, once the live list has been asked for (once a page). */
 async function tierFormatOf(format: string) {
+  if (format === 'Standard') {
+    return tierFormats().find(entry => entry.id === STANDARD_FORMAT_ID);
+  }
   // The live list names formats the snapshot shipped with the page may not.
   liveFormats ??= loadTierFormats().catch(() => undefined);
   await liveFormats;

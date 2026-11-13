@@ -10,7 +10,7 @@
  */
 
 import { useNavigate } from '@solidjs/router';
-import { createResource, createSignal, For, type JSX, Show, untrack } from 'solid-js';
+import { createMemo, createResource, createSignal, For, type JSX, Show, untrack } from 'solid-js';
 import { eventTimeLimits } from '../../../shared/tournament/create';
 import { eventTypeOf, recommendedStructure, SANCTIONED } from '../../../shared/tournament/structure';
 import type { EventType } from '../../../shared/tournament/types';
@@ -292,14 +292,14 @@ function FeeField(props: { id: string; country: string; value: number; onChange:
 function ForPlayers(props: { state: ManageState; manage: Manage }) {
   // eslint-disable-next-line solid/reactivity -- one draft per event, kept across tabs (see settingsDrafts)
   const store = settingsDraft<PlayerSettings>(props.manage.code, 'players');
-  const saved = () => pickPlayerSettings(props.manage.settings);
-  // The form's values: each edit, or the event's own where there is none.
-  const draft = () => {
+  const saved = createMemo(() => pickPlayerSettings(props.manage.settings));
+  // The form's values: each edit, or the event's own where there is none, built once for every row that reads them.
+  const draft = createMemo(() => {
     const now = saved();
     return Object.fromEntries(
       (Object.keys(now) as (keyof PlayerSettings)[]).map(key => [key, store.value(key, now)])
     ) as unknown as PlayerSettings;
-  };
+  });
   const set = <K extends keyof PlayerSettings>(key: K, value: PlayerSettings[K]) => store.set(key, value, saved());
   const registered = () => props.manage.tournament.players.filter(player => player.droppedAfter === null).length;
   async function save() {

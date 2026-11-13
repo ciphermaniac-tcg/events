@@ -5,7 +5,7 @@
  * can't be taken back asks first (see ConfirmAction).
  */
 
-import { createMemo, createSignal, Show } from 'solid-js';
+import { createSignal, Show } from 'solid-js';
 import { hasPlayed, hasStarted, podOf } from '../../../shared/tournament/rounds';
 import { type Player, playerName } from '../../../shared/tournament/types';
 import { type ReturnEffects, returnEffects } from '../../../shared/tournament/returns';
@@ -131,7 +131,8 @@ export function PlayerActions(props: {
   const pod = () => podOf(props.manage.tournament, props.player.id);
   const dropped = () => props.player.droppedAfter;
   const ended = () => props.manage.settings.finished;
-  const returned = createMemo(() => returnEffects(props.manage.tournament, props.player.id));
+  // Read only for a dropped player: the row asks before offering a return, so a roster of active players pays nothing.
+  const returned = () => returnEffects(props.manage.tournament, props.player.id);
   const [editing, setEditing] = createSignal(false);
   return (
     <>
@@ -145,7 +146,7 @@ export function PlayerActions(props: {
         />
       </Show>
       <span class='tm-row-actions'>
-        <Show when={!ended() && returned().offered}>
+        <Show when={!ended() && dropped() !== null && returned().offered}>
           <ConfirmAction
             label={t('Reinstate')}
             class={props.menuLabel ? 'btn btn-secondary' : 'btn btn-ghost tm-small'}
