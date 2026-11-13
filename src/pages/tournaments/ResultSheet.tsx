@@ -13,7 +13,7 @@
 import { createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import type { Match, Outcome, Round } from '../../../shared/tournament/types';
 import { msg, t } from '../../lib/i18n';
-import { RESULT_WORDS } from '../../lib/tournament/present';
+import { RESULT_WORDS, type SeatTag } from '../../lib/tournament/present';
 import { changeQuestion } from '../../lib/tournament/staff';
 import { DeckIcons } from './DeckIcons';
 import { OptionsMenu } from './OptionsMenu';
@@ -54,8 +54,8 @@ export function ResultSheet(props: {
   records: Map<string, string>;
   /** The result that stands, or 'pending' while the table plays. */
   outcome: Outcome;
-  /** What the players reported, as staff read it, while the table plays. */
-  report: { label: string; detail: string } | null;
+  /** What the players reported, as staff read it, while the table plays: each seat's own report by player ID. */
+  report: { label: string; detail: string; tags: Map<string, SeatTag> } | null;
   /** A lone report staff can take as it is. */
   lone: Outcome | null;
   onPick: (outcome: Outcome) => void;
@@ -137,7 +137,17 @@ export function ResultSheet(props: {
           classList={{ 'is-lost': props.outcome !== 'pending' && props.outcome !== seatOutcome }}
         >
           <DeckIcons label={props.decks[playerId()]} />
-          <span class='tm-name'>{name(playerId())}</span>
+          <span class='tm-sheet-who'>
+            <span class='tm-name'>{name(playerId())}</span>
+            {/* Spelled out: the label's tooltip, which says who claimed what, never shows on a touch screen. */}
+            <Show when={props.report?.tags.get(playerId())}>
+              {tag => (
+                <span class='tm-sheet-report' classList={{ 'is-problem': tag().problem }}>
+                  {tag().title}
+                </span>
+              )}
+            </Show>
+          </span>
           <span class='muted tm-record'>{props.records.get(playerId()) ?? ''}</span>
         </p>
       )}

@@ -2817,10 +2817,48 @@ test('a player’s sheet opens from standings and the roster, with their table, 
   await expect(page.getByRole('button', { name: 'Test, Player1', exact: true })).toBeFocused();
 });
 
+/** A player's report of table `m`, from `by`. */
+const reportOf = (m: Match, by: string, outcome: PlayerReport['outcome']): PlayerReport => ({
+  pod: 'masters',
+  round: 1,
+  table: m.table,
+  p1: m.p1,
+  p2: m.p2 ?? '',
+  by,
+  outcome,
+  at: 0
+});
+
+/** The latest round's first `n` tables. */
+function tables(t: Tournament, n: number): (Match & { p2: string })[] {
+  const found = (t.pods[0]?.rounds.at(-1)?.matches ?? []).filter((m): m is Match & { p2: string } => m.p2 !== null);
+  if (found.length < n) {
+    throw new Error('not enough tables');
+  }
+  return found.slice(0, n);
+}
+
 test('on a phone the pinned round bar keeps the room search, a table number finding its table @mobileOnly', async ({
   page
 }) => {
   await mockConsole(page, event(16, 0, true), settingsOf({}));
   await page.locator('.tm-round-pin').getByRole('searchbox', { name: 'Find a table or player' }).fill('3');
   await expect(page.locator('.tm-matches tbody tr:not(.tm-group-row) td.tm-table-col')).toHaveText(['3']);
+});
+
+test('a narrow console’s table sheet says what each seat reported', async ({ page }) => {
+  await page.setViewportSize({ width: 820, height: 1100 });
+  const t = event(8, 0, true);
+  const [m] = tables(t, 1);
+  await mockConsole(page, t, settingsOf({ playerReporting: true }), [
+    reportOf(m!, m!.p1, 'p1'),
+    reportOf(m!, m!.p2, 'p2')
+  ]);
+  await page
+    .locator('.tm-matches tbody tr')
+    .filter({ has: page.locator('.tm-result-label.is-problem') })
+    .click();
+  const sheet = page.getByRole('dialog', { name: `Result, table ${m!.table}` });
+  await expect(sheet.locator('.tm-sheet-report')).toHaveText(['Reported: won', 'Reported: won']);
+  await expect(sheet.locator('.tm-sheet-report.is-problem')).toHaveCount(2);
 });
