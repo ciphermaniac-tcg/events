@@ -106,3 +106,22 @@ test('where the clipboard refuses an image, Copy image downloads it instead', as
   // A download is not a copy: the label stays as it was.
   await expect(page.getByRole('dialog').getByRole('button', { name: 'Copy image' })).toBeVisible();
 });
+
+test('Copy image says it is making the image, and when it could not, with a way to try again', async ({ page }) => {
+  const fonts: (() => void)[] = [];
+  await page.route('**/fonts/inter-outlines-*', route => {
+    fonts.push(() => void route.abort('failed'));
+  });
+  await openSheet(page);
+  const sheet = page.getByRole('dialog');
+  await sheet.getByRole('button', { name: 'Copy image' }).click();
+  const busy = sheet.getByRole('button', { name: 'Making image…' });
+  await expect(busy).toHaveAttribute('aria-busy', 'true');
+  await expect.poll(() => fonts.length).toBeGreaterThan(0);
+  fonts.forEach(fail => fail());
+  await expect(sheet.getByRole('alert')).toHaveText('Couldn’t make the image. Try again');
+  await expect(sheet.getByRole('button', { name: 'Copy image' })).toBeVisible();
+  await page.unroute('**/fonts/inter-outlines-*');
+  await sheet.getByRole('button', { name: 'Try again' }).click();
+  await expect(sheet.getByRole('alert')).toHaveCount(0);
+});

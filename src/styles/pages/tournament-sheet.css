@@ -82,10 +82,33 @@
 }
 .tm-sheet-foot {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
   gap: var(--space-2);
   padding: var(--space-3) var(--space-4);
   border-top: 1px solid var(--rule);
+}
+/* Why the image could not be made, on its own line above the foot's buttons. */
+.tm-sheet-error {
+  flex: 1 0 100%;
+  margin: 0;
+  color: var(--negative);
+  font-size: var(--text-base);
+}
+.tm-sheet-error .tm-link-inline {
+  color: var(--fg);
+  text-decoration: underline;
+}
+/* Copy image's two labels share one cell, so the wider holds the button's width. */
+.tm-copy-image > span {
+  grid-area: 1 / 1;
+}
+.btn.tm-copy-image {
+  display: inline-grid;
+  justify-items: center;
+}
+.tm-copy-image > .is-hidden {
+  visibility: hidden;
 }
 @media (max-width: 640px) {
   /* Pinned to both edges: 100vw counts the scrollbar gutter a phone never draws. */

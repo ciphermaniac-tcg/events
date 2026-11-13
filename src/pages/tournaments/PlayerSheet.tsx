@@ -31,17 +31,21 @@ const OpenList = lazyPanel(() => import('./OpenList').then(m => ({ default: m.Op
 /**
  * Copies the sheet as an image. The clipboard write starts inside the click,
  * as Safari asks, with the image to follow: the renderer and its fonts load
- * on the first press, not with the page. Where the clipboard will not take an
- * image, the share sheet or a download has it instead.
+ * on the first press, not with the page, so the button says it is working
+ * until the image is made. Where the clipboard will not take an image, the
+ * share sheet or a download has it instead. A failure says so above the
+ * foot's buttons, with a way to try again.
  */
 function CopyImage(props: { data: () => SheetData }) {
   const { copied, flash } = createCopied();
-  let busy = false;
+  const [busy, setBusy] = createSignal(false);
+  const [failed, setFailed] = createSignal(false);
   const press = () => {
-    if (busy) {
+    if (busy()) {
       return;
     }
-    busy = true;
+    setBusy(true);
+    setFailed(false);
     const data = props.data();
     const renderer = import('../../lib/shareImage/render');
     const png = renderer.then(m => m.playerImage(data, mode()));
@@ -53,13 +57,25 @@ function CopyImage(props: { data: () => SheetData }) {
           await (await renderer).saveImage(png, data);
         }
       })
-      .catch(() => undefined)
-      .finally(() => (busy = false));
+      .catch(() => setFailed(true))
+      .finally(() => setBusy(false));
   };
   return (
-    <button type='button' class='btn btn-secondary' onClick={press}>
-      {copied() ? t('Copied') : t('Copy image')}
-    </button>
+    <>
+      <Show when={failed()}>
+        <p class='tm-sheet-error' role='alert'>
+          {t('Couldn’t make the image.')}{' '}
+          <button type='button' class='tm-link-inline' onClick={press}>
+            {t('Try again')}
+          </button>
+        </p>
+      </Show>
+      {/* Both labels hold the button's width, so the foot does not shift while the image is made. */}
+      <button type='button' class='btn btn-secondary tm-copy-image' aria-busy={busy()} onClick={press}>
+        <span classList={{ 'is-hidden': busy() }}>{copied() ? t('Copied') : t('Copy image')}</span>
+        <span classList={{ 'is-hidden': !busy() }}>{t('Making image…')}</span>
+      </button>
+    </>
   );
 }
 
