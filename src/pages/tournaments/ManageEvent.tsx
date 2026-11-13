@@ -43,7 +43,7 @@ import { Skeleton } from '@ciphermaniac/design/components/Skeleton';
 import { SessionGate } from './SessionGate';
 import { ErrorLine } from './Field';
 import { ErrorState } from '@ciphermaniac/design/components/ErrorState';
-import { lookOnReturn, schedulePolls } from '../../lib/tournament/viewPoll';
+import { consoleEvery, lookOnReturn, schedulePolls } from '../../lib/tournament/viewPoll';
 import { LiveDataStatus } from './LiveDataStatus';
 import { createManage, type ManageState } from './manageState';
 import '../../styles/pages/tournament-console.css';
@@ -95,9 +95,6 @@ const TABS: TabOption[] = [
   { value: 'penalties', label: msg('Penalties') },
   { value: 'event', label: msg('Settings') }
 ];
-
-/** Other staff change the event too; the console looks again this often while visible. */
-const REFRESH_MS = 15_000;
 
 /** A division with no pod yet: nothing paired, nothing playing. */
 const NO_PROGRESS: PodProgress = { round: undefined, tables: 0, open: 0, champion: null, label: '', next: '' };
@@ -555,8 +552,15 @@ function Refused(props: { message: string | undefined; name: string | undefined 
   );
 }
 
+/** Whether the console shows Pairings with a table still open in any pod, for how often it looks again (see consoleEvery). */
+function pollEvery(manage: Manage | null, tab: string | undefined): number {
+  const pairings = manage !== null && (tab ?? defaultTab(manage)) === 'round';
+  const open = pairings && livePods(manage.tournament).some(pod => podProgress(pod, manage.pending).open > 0);
+  return consoleEvery(pairings, open);
+}
+
 export function ManageEvent(props: { code: string }) {
-  const [params] = useSearchParams<{ invite?: string }>();
+  const [params] = useSearchParams<{ invite?: string; tab?: string }>();
   const state = createManage(() => props.code);
   const [joinError, setJoinError] = createSignal<string | null>(null);
   const user = () => latestValue(session)?.user;
@@ -585,9 +589,17 @@ export function ManageEvent(props: { code: string }) {
     const polls = schedulePolls(
       () => (state.data() && !state.busy() ? state.load() : Promise.resolve(true)),
       () => document.hidden,
-      REFRESH_MS
+      () => pollEvery(state.data(), params.tab)
     );
     const forget = lookOnReturn(polls);
+    // Another tab waits longer between looks: coming back to Pairings looks at once rather than after that wait.
+    createEffect(
+      on(
+        () => params.tab,
+        () => polls.soon(),
+        { defer: true }
+      )
+    );
     onCleanup(() => {
       polls.stop();
       forget();

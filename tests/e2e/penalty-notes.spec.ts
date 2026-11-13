@@ -258,7 +258,8 @@ test('a new note left on the latest round follows it as the next is paired', asy
   await expect(form.getByLabel('Round')).toHaveValue('1');
   await pickPlayer(form, 'Ada');
   await page.route(`**/api/tournaments/${CODE}/manage*`, route => manageRoute(route, two, 'off', 'swiss', true));
-  await page.clock.fastForward(16_000);
+  // Away from Pairings the console looks every half minute.
+  await page.clock.fastForward(31_000);
   await expect(form.getByLabel('Round')).toHaveValue('2');
 });
 

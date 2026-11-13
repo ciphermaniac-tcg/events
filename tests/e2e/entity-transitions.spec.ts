@@ -314,9 +314,10 @@ test('a console keeps its stale marker throughout failed background polls', asyn
   });
   await page.goto('/host/FIRST');
   await expect(page.getByRole('heading', { name: 'Event FIRST', exact: true })).toBeVisible();
-  await page.clock.fastForward(15_000);
-  await expect(page.getByText(/not updating/)).toBeVisible();
+  // Before round 1 the console opens on Players, which looks every half minute, twice that after a failure.
   await page.clock.fastForward(30_000);
+  await expect(page.getByText(/not updating/)).toBeVisible();
+  await page.clock.fastForward(60_000);
   await started.promise;
   await expect(page.getByText(/not updating/)).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Event FIRST', exact: true })).toBeVisible();
@@ -324,7 +325,7 @@ test('a console keeps its stale marker throughout failed background polls', asyn
   pending.resolve();
   await (await response).finished();
   await expect(page.getByText(/not updating/)).toBeVisible();
-  await page.clock.fastForward(60_000);
+  await page.clock.fastForward(120_000);
   await expect.poll(() => reads).toBe(4);
   await expect(page.getByText(/not updating/)).toHaveCount(0);
 });

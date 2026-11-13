@@ -12,6 +12,7 @@ import test, { mock } from 'node:test';
 import { DEFAULT_SETTINGS, type PublishedView, type TournamentView } from '../../shared/tournament/view.ts';
 import {
   askOnReturn,
+  consoleEvery,
   createViewPoll,
   FALLBACK_MS,
   firstView,
@@ -452,4 +453,35 @@ test('a published copy behind what another tab announced is no good check while 
   assert.deepEqual([checks, s.shown()?.version], [1, 3]);
   assert.equal(await s.poll(), true);
   assert.equal(checks, 2, 'once the page holds the announced version, the file is enough again');
+});
+
+test('the console looks every four seconds on Pairings while tables are open, like the big screen, and less often otherwise', async () => {
+  assert.deepEqual(
+    [consoleEvery(true, true), consoleEvery(true, false), consoleEvery(false, true)],
+    [SCREEN_POLL_MS, 15_000, 30_000]
+  );
+  assert.equal(SCREEN_POLL_MS, 4_000);
+  mock.timers.enable({ apis: ['setTimeout'] });
+  try {
+    let every = 30_000;
+    let looks = 0;
+    const polls = schedulePolls(
+      async () => {
+        looks += 1;
+        return true;
+      },
+      () => false,
+      () => every
+    );
+    every = SCREEN_POLL_MS;
+    mock.timers.tick(30_000);
+    await settle();
+    assert.equal(looks, 1);
+    mock.timers.tick(SCREEN_POLL_MS);
+    await settle();
+    assert.equal(looks, 2, 'each wait reads the interval again');
+    polls.stop();
+  } finally {
+    mock.timers.reset();
+  }
 });

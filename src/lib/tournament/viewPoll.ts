@@ -21,8 +21,19 @@ import {
 } from '../../../shared/tournament/view';
 
 export const POLL_MS = 10_000;
-/** The big screen's poll: it is what the room reads, and one per venue. */
-export const SCREEN_POLL_MS = 5_000;
+/** The big screen's poll: it is what the room reads, and one per venue. The console's Pairings matches it. */
+export const SCREEN_POLL_MS = 4_000;
+/** The console's poll on Pairings with no table open, and on any other tab. */
+const CONSOLE_IDLE_MS = 15_000;
+const CONSOLE_AWAY_MS = 30_000;
+
+/**
+ * How long the console waits between looks. On Pairings while tables are
+ * open a player's report reaches staff as fast as the big screen hears of
+ * it; elsewhere, less often, since other staff's changes are all it waits for.
+ */
+export const consoleEvery = (pairings: boolean, openTables: boolean): number =>
+  pairings ? (openTables ? SCREEN_POLL_MS : CONSOLE_IDLE_MS) : CONSOLE_AWAY_MS;
 /** How often a player's page asks the API while the published file cannot be read. */
 export const FALLBACK_MS = 30_000;
 const MAX_WAIT_MS = 5 * 60_000;
@@ -142,10 +153,16 @@ export interface Polls {
 
 /**
  * Runs `poll` one look at a time, waiting `pollDelay(failures, every)`
- * between looks. A hidden page skips its look but keeps the schedule. Nothing
- * is scheduled once stopped, even by a look that was under way.
+ * between looks, `every` read again before each wait when it is a function.
+ * A hidden page skips its look but keeps the schedule. Nothing is scheduled
+ * once stopped, even by a look that was under way.
  */
-export function schedulePolls(poll: () => Promise<boolean>, hidden: () => boolean, every = POLL_MS): Polls {
+export function schedulePolls(
+  poll: () => Promise<boolean>,
+  hidden: () => boolean,
+  every: number | (() => number) = POLL_MS
+): Polls {
+  const interval = () => (typeof every === 'function' ? every() : every);
   let failures = 0;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let running = false;
@@ -164,12 +181,12 @@ export function schedulePolls(poll: () => Promise<boolean>, hidden: () => boolea
     }
     running = false;
     if (!stopped) {
-      wait(again ? 0 : pollDelay(failures, every));
+      wait(again ? 0 : pollDelay(failures, interval()));
     }
     again = false;
   }
 
-  wait(pollDelay(0, every));
+  wait(pollDelay(0, interval()));
   return {
     soon: () => {
       failures = 0;
