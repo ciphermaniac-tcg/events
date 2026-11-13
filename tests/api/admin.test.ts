@@ -299,7 +299,7 @@ test('approving makes the store with the applicant its Owner, and records who de
   );
 });
 
-test('approving an organizer makes them a Manager, and a judge Staff, of a store with no Owner yet', async () => {
+test('approving makes the applicant the store’s Owner, whatever they are to it', async () => {
   const admin = await signIn('Admin', 'admin');
   const organizer = await applied('Organizer', '110', { relationship: 'organizer' });
   const judge = await applied('Judge', '111', { relationship: 'judge' });
@@ -307,10 +307,28 @@ test('approving an organizer makes them a Manager, and a judge Staff, of a store
   assert.equal((await decision(admin, judge.id, { decision: 'approve' })).status, 200);
   const [managed] = await storesOf(organizer.cookie);
   const [judged] = await storesOf(judge.cookie);
-  assert.deepEqual([managed?.role, managed?.leagueId], ['manager', '77110']);
-  assert.deepEqual([judged?.role, judged?.leagueId], ['staff', '77111']);
-  assert.equal(raw().prepare("SELECT COUNT(*) AS n FROM store_members WHERE role = 'owner'").get()?.n, 0);
-  assert.equal((await createEvent(judge.cookie, { store: judged!.id })).status, 201, 'Staff run the store’s events');
+  assert.deepEqual([managed?.role, managed?.leagueId], ['owner', '77110']);
+  assert.deepEqual([judged?.role, judged?.leagueId], ['owner', '77111']);
+  assert.equal((await createEvent(judge.cookie, { store: judged!.id })).status, 201);
+});
+
+test('a store left with no Owner is open to apply for, and approving joins the applicant to it as its Owner', async () => {
+  const admin = await signIn('Admin', 'admin');
+  const first = await applied('First', '110');
+  await decision(admin, first.id, { decision: 'approve' });
+  const [store] = await storesOf(first.cookie);
+  raw().prepare('DELETE FROM store_members WHERE store_id = ?').run(store!.id);
+  const back = await applied('Back', '111', { leagueId: '77110' });
+  const [pending] = (await list(admin)).json.applications;
+  assert.equal(pending.leagueTaken, null, 'an orphaned store does not hold its league');
+  assert.equal((await decision(admin, back.id, { decision: 'approve' })).status, 200);
+  const [rejoined] = await storesOf(back.cookie);
+  assert.deepEqual([rejoined?.id, rejoined?.role], [store!.id, 'owner'], 'the same store, its events kept');
+  assert.equal(raw().prepare('SELECT COUNT(*) AS n FROM stores').get()?.n, 1);
+  const late = await applied('Late', '112', { leagueId: '77110' });
+  const clash = await decision(admin, late.id, { decision: 'approve' });
+  assert.deepEqual([clash.status, clash.json.error], [409, 'That league already has a store']);
+  assert.equal(raw().prepare('SELECT status FROM applications WHERE id = ?').get(late.id)?.status, 'pending');
 });
 
 test('rejecting makes no store, and leaves the role as it was', async () => {
@@ -534,6 +552,15 @@ test('an Admin revokes and restores a store, adds a Manager, and hands it to a n
     listed.json.stores.map((one: { name: string; status: string }) => [one.name, one.status]),
     [['Manager Games', 'active']]
   );
+});
+
+test('an Admin who makes someone a Manager of a store with no Owner makes them its Owner', async () => {
+  const admin = await signIn('Admin', 'admin');
+  const manager = await signIn('Manager', 'organizer');
+  const [store] = await storesOf(manager);
+  raw().prepare('DELETE FROM store_members WHERE store_id = ?').run(store!.id);
+  const back = await storeAct(admin, store!.id, { manager: await idOf(manager) });
+  assert.deepEqual(back.json.store.owner, { id: await idOf(manager), name: 'manager' });
 });
 
 test('an Admin finds accounts by POP ID, email or ID, exactly', async () => {

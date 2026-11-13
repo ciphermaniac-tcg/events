@@ -461,7 +461,9 @@ CREATE INDEX IF NOT EXISTS stores_by_status ON stores (status, name);
 -- Who belongs to a store: 'owner' (a Manager the store is handed over by),
 -- 'manager' (edits the store, its staff and league nights) or 'staff' (runs
 -- every event the store runs). A store has one Owner, never removed or
--- demoted, so it always keeps someone who manages it.
+-- demoted, so it always keeps someone who manages it. A store left with no
+-- Owner is orphaned: the next applicant approved for its league joins it as
+-- its Owner (functions/api/admin/applications/[id].ts).
 CREATE TABLE IF NOT EXISTS store_members (
   store_id TEXT NOT NULL,
   user_id TEXT NOT NULL,

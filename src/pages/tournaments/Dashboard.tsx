@@ -132,7 +132,11 @@ export function Dashboard(props: {
     () => props.user.role,
     () => latestValue(application)
   );
-  const applied = () => !mayCreate() && applicantStage(props.user.role, latestValue(application) ?? null) !== 'none';
+  // Approved counts while the session catches up, and for one who left its store, which applies again from there.
+  const applied = () => {
+    const latest = latestValue(application) ?? null;
+    return !mayCreate() && (latest?.status === 'approved' || applicantStage(props.user, latest) !== 'none');
+  };
   const organizes = () => mayCreate() || applied() || (latestValue(events) ?? []).length > 0;
 
   const shown = (): Shown[] => [

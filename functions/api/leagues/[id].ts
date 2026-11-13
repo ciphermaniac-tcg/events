@@ -3,7 +3,7 @@
  * league, for a store application to start from: the store's name, address,
  * place and time zone as pokemon.com lists them ({ league }, null when it
  * lists nothing for the ID), and whether a store on the site already holds
- * the league ({ taken }). The ID may be the number or its pokemon.com league
+ * the league ({ taken }); an orphaned store, one with no Owner, does not. The ID may be the number or its pokemon.com league
  * page. Signed in only; it is a convenience for applying, not a directory.
  */
 
@@ -35,5 +35,5 @@ export async function onRequestGet({ request, env, params }: Context<'id'>): Pro
     return jsonError('Not a league ID', 400);
   }
   const [league, store] = await Promise.all([findLeague(mainSiteData(), leagueId), storeOfLeague(db, leagueId)]);
-  return privateJson({ leagueId, league, taken: store !== null });
+  return privateJson({ leagueId, league, taken: store?.owned === true });
 }

@@ -17,6 +17,7 @@ import { type Context, sameOrigin } from '../auth/env.js';
 import { sessionHash, sessionUserQuery, type User, userFromRow, type UserRow } from '../auth/session.js';
 import { firstRow } from '../d1.js';
 import { displayNameSql } from './handles.js';
+import { ownedSql } from '../stores/db.js';
 import { privateJson } from '../tournaments/access.js';
 import type { D1Like } from '../types.js';
 import { msg } from '../../../shared/i18n.js';
@@ -68,13 +69,14 @@ export interface AdminApplicationRow extends ApplicationRow {
 
 /**
  * The read of applications as admins see them, with the store that already
- * holds the league asked for, when one does; the caller adds the WHERE.
+ * holds the league asked for, when one with an Owner does (an orphaned one
+ * is the applicant's to join); the caller adds the WHERE.
  */
 export const ADMIN_APPLICATIONS =
   `SELECT ${APPLICATION_COLUMNS}, ${displayNameSql('u')} AS name, u.email, u.role, u.pop_id AS account_pop_id, ` +
   `${displayNameSql('d')} AS decider_name, t.id AS taken_id, t.name AS taken_name ` +
   'FROM applications a JOIN users u ON u.id = a.user_id LEFT JOIN users d ON d.id = a.decided_by ' +
-  "LEFT JOIN stores t ON t.league_id = json_extract(a.store, '$.leagueId')";
+  `LEFT JOIN stores t ON t.league_id = json_extract(a.store, '$.leagueId') AND ${ownedSql('t')}`;
 
 export const adminApplication = (row: AdminApplicationRow): AdminApplication => ({
   ...myApplication(row),

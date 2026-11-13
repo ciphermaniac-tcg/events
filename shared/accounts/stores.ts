@@ -3,11 +3,12 @@
  * that run sanctioned events on the site. A store is its own record, not a
  * role: accounts join it as a Manager (edits the store, its staff and league
  * nights) or Staff (runs every event the store runs). One Manager is its
- * Owner, the approved applicant when they own the store (an applicant who
- * organizes or judges for it starts as a Manager or Staff, and an Admin gives
- * the store its Owner): the Owner is never removed or demoted, and stops
- * being the Owner only by handing the store to someone else in it. What a store says about itself is checked the same way on the
- * page and in the functions.
+ * Owner, the approved applicant whatever they are to the store: the Owner is
+ * never removed or demoted, and stops being the Owner only by handing the
+ * store to someone else in it. A store with no Owner is orphaned: its league
+ * is open to apply for, and the approved applicant joins it as its Owner.
+ * What a store says about itself is checked the same way on the page and in
+ * the functions.
  */
 
 import { type AccountRole, canRunCommunityEvents } from './roles.js';
@@ -30,16 +31,6 @@ export type StoreStatus = 'active' | 'revoked';
 /** Why an applicant applies for the store: what they are to it. */
 export type Relationship = 'organizer' | 'judge' | 'owner';
 export const RELATIONSHIPS: readonly Relationship[] = ['organizer', 'judge', 'owner'];
-
-const ROLE_OF: Record<Relationship, StoreRole> = { owner: 'owner', organizer: 'manager', judge: 'staff' };
-
-/**
- * The role an approved applicant starts the store with: its owner is its
- * Owner, its organizer a Manager, its judge Staff. Anything else reads as
- * Staff, the least.
- */
-export const roleForRelationship = (relationship: unknown): StoreRole =>
-  ROLE_OF[RELATIONSHIPS.find(item => item === relationship) ?? 'judge'];
 
 export const STORE_LIMITS = {
   name: 80,

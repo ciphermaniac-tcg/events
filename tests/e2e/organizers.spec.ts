@@ -245,6 +245,13 @@ test('an approved account sees its store was approved, with the way to its event
   await expect(page.getByRole('button', { name: 'Send application' })).toHaveCount(0);
 });
 
+test('an approved account that left its store may apply for one again', async ({ page }) => {
+  await mockApplicant(page, { ...NONE, application: application('approved') }, { ...ME, stores: [] });
+  await page.goto('/apply');
+  await expect(page.locator('.tm-applicant')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Apply as store' })).toBeVisible();
+});
+
 test('signed out, the apply page offers sign-in that comes back to it', async ({ page }) => {
   await mockApplicant(page, NONE, null);
   await page.goto('/apply');

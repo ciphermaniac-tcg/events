@@ -417,7 +417,7 @@ function OrganizerSection(props: { user: Me }) {
   const runs = () => props.user.role !== null || props.user.stores.length > 0;
   /** Only an Application still open or turned down is told apart from the rows below; anything else reads as none. */
   const stage = () => {
-    const read = applicantStage(props.user.role, current()?.application ?? null);
+    const read = applicantStage(props.user, current()?.application ?? null);
     return read === 'pending' || read === 'rejected' ? read : 'none';
   };
   const status = () => stage() !== 'none' || !runs();

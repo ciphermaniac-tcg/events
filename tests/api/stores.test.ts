@@ -911,6 +911,9 @@ test('a store’s listings and its league come from the locator’s files', asyn
     [found.json.leagueId, found.json.league.shop, found.json.league.timeZone, found.json.taken],
     ['6238620', 'COMBAT POWER GAMING', 'America/Chicago', true]
   );
+  raw().prepare("UPDATE store_members SET role = 'manager' WHERE store_id = ?").run(store);
+  const orphaned = await hit(leagues.onRequestGet as Handler, `/api/leagues/${url}`, { id: url }, { cookie: helper });
+  assert.equal(orphaned.json.taken, false, 'a store with no Owner is open to apply for');
   const unknown = await hit(
     leagues.onRequestGet as Handler,
     '/api/leagues/1234567',

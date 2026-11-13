@@ -1,8 +1,8 @@
 /**
  * Player accounts end to end, against the real schema in SQLite. What must
- * hold: migrations 0006 to 0041 bring a live database in line with the schema, with
- * each POP ID left on one account, Reese the only admin and each store's
- * first Manager its Owner; an account's
+ * hold: migrations 0006 to 0042 bring a live database in line with the schema, with
+ * each POP ID left on one account, Reese the only admin, each store's
+ * first Manager its Owner and an ownerless store's earliest member; an account's
  * role and public profile come with who is signed in; one account holds a
  * POP ID, and lets go of the players it was as an old one; a username is
  * one account's, kept to the rules, held a day once let go and changed at
@@ -85,7 +85,20 @@ function seedStoresBefore0014(db: DatabaseSync) {
   member.run('one', 'tie-b', 'manager', 9);
 }
 
-test('migrations 0006 to 0041 bring a database made before accounts in line with the schema', () => {
+/** Stores an approval left with no Owner: one with Staff alone, one nobody is left in. */
+function seedOwnerlessStores(db: DatabaseSync) {
+  const store = db.prepare(
+    'INSERT INTO stores (id, league_id, status, name, address, time_zone, created_at, updated_at) ' +
+      "VALUES (?, ?, 'active', ?, '1 Main St', 'America/Chicago', 1, 1)"
+  );
+  store.run('staffed', '1003', 'Staff Only');
+  store.run('empty', '1004', 'Nobody Left');
+  const member = db.prepare('INSERT INTO store_members (store_id, user_id, role, added_at) VALUES (?, ?, ?, ?)');
+  member.run('staffed', 'judge-late', 'manager', 30);
+  member.run('staffed', 'judge', 'staff', 3);
+}
+
+test('migrations 0006 to 0042 bring a database made before accounts in line with the schema', () => {
   const db = new DatabaseSync(':memory:');
   db.exec(sql('../fixtures/d1/tournaments-before-0006.sql'));
   seedBefore0006(db);
@@ -111,6 +124,10 @@ test('migrations 0006 to 0041 bring a database made before accounts in line with
       "UPDATE users SET birth_date = NULL, age_checked_at = 1 WHERE id = 'owner'"
   );
   migrate(db, 41, 41);
+  seedOwnerlessStores(db);
+  // 0042 twice: a store given its Owner keeps it.
+  migrate(db, 42, 42);
+  migrate(db, 42, 42);
   assert.deepEqual(
     db
       .prepare("SELECT id, age_birth_year AS year FROM users WHERE id IN ('first', 'second', 'owner') ORDER BY id")
@@ -148,11 +165,13 @@ test('migrations 0006 to 0041 bring a database made before accounts in line with
     [
       { store: 'one', user: 'tie-a', role: 'staff' },
       { store: 'one', user: 'tie-b', role: 'owner' },
+      { store: 'staffed', user: 'judge', role: 'owner' },
+      { store: 'staffed', user: 'judge-late', role: 'manager' },
       { store: 'two', user: 'blank', role: 'staff' },
       { store: 'two', user: 'first', role: 'owner' },
       { store: 'two', user: 'second', role: 'manager' }
     ],
-    'each store’s earliest Manager is its Owner; Staff and later Managers stay as they were'
+    'each store’s earliest Manager is its Owner, an ownerless store’s earliest member; the rest stay as they were'
   );
   const handles = db
     .prepare('SELECT id, handle, public_profile AS public FROM users ORDER BY id')

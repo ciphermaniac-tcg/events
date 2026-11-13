@@ -2,8 +2,9 @@
  * POST /api/admin/stores/:id — an Admin acts on a store: { status: 'active' |
  * 'revoked' } (a revoked store starts no events, its events run on, and it
  * leaves the event locator), { manager: <account id> }, which makes that
- * account one of the store's Managers, joining it if need be: how a store
- * gets a Manager back when it lost touch with its own, or { owner: <account
+ * account one of the store's Managers, joining it if need be, and its Owner
+ * when it has none: how a store gets a Manager back when it lost touch with
+ * its own, or { owner: <account
  * id> }, which hands the store to that account, joining it if need be: how a
  * store changes hands when its Owner cannot hand it over; or { league: <league
  * ID> }, which certifies an unsanctioned store: the same store, now with its

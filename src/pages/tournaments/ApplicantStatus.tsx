@@ -11,7 +11,13 @@ import { createEffect, Match, type Resource, Show, Switch } from 'solid-js';
 import type { AccountRole } from '../../../shared/accounts/roles';
 import type { MyApplication } from '../../../shared/accounts/types';
 import { msg, t } from '../../lib/i18n';
-import { type ApplicantStage, applicantStage, dayOf, withdrawApplication } from '../../lib/tournament/applications';
+import {
+  type ApplicantAccount,
+  type ApplicantStage,
+  applicantStage,
+  dayOf,
+  withdrawApplication
+} from '../../lib/tournament/applications';
 import { latestValue } from '../../lib/resource';
 import { ConfirmAction } from './ConfirmAction';
 import { ContactLink } from './ContactLink';
@@ -203,14 +209,14 @@ export function createSessionCatchUp(role: () => AccountRole | null, latest: () 
  * one step, with no event of its own running.
  */
 export function ApplicantLine(props: {
-  role: AccountRole | null;
+  account: ApplicantAccount;
   application: Resource<MyApplication | null>;
   primary: boolean;
 }) {
   // Unread for an error, the way to apply still shows: the apply page says where things stand.
   const stage = () => {
     const current = latestValue(props.application);
-    return current !== undefined || props.application.error ? applicantStage(props.role, current ?? null) : null;
+    return current !== undefined || props.application.error ? applicantStage(props.account, current ?? null) : null;
   };
   return (
     <Show when={stage()}>

@@ -3,7 +3,7 @@
 import type { StoreStatus } from '../../../shared/accounts/stores.js';
 import { displayNameSql } from '../accounts/handles.js';
 import { firstRow, type Guard, rowsChanged } from '../d1.js';
-import { handOverWrites } from './db.js';
+import { handOverWrites, ownerFillWrite } from './db.js';
 import type { D1Like, D1Statement } from '../types.js';
 
 interface AdminStore {
@@ -76,11 +76,16 @@ const managerWrite = (db: D1Like, storeId: string, userId: string, guard: Guard)
 
 /**
  * Makes the account a Manager of the store, joining it if it was not in it,
- * while the Admin's `guard` holds; its Owner stays its Owner. False when
- * either is missing, or the guard no longer held.
+ * while the Admin's `guard` holds; its Owner stays its Owner, and an
+ * orphaned store's Manager becomes its Owner, so it keeps someone who
+ * manages it. False when either is missing, or the guard no longer held.
  */
 export async function makeManager(db: D1Like, storeId: string, userId: string, guard: Guard): Promise<boolean> {
-  return rowsChanged(await managerWrite(db, storeId, userId, guard).run()) === 1;
+  const [made] = await db.batch([
+    managerWrite(db, storeId, userId, guard),
+    ownerFillWrite(db, { storeId, userId, now: Date.now(), guard })
+  ]);
+  return rowsChanged(made) === 1;
 }
 
 /**

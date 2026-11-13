@@ -81,6 +81,8 @@ function storeFromRow(row: StoreRow): Store {
   };
 }
 
+const ALWAYS: Guard = { sql: '1 = 1', values: [] };
+
 /** One store's row, to read alone or in a batch; storeOf reads what it found. */
 export const storeQuery = (db: D1Like, id: string) => db.prepare('SELECT * FROM stores WHERE id = ?').bind(id);
 
@@ -90,10 +92,36 @@ export async function loadStore(db: D1Like, id: string): Promise<Store | null> {
   return storeOf(await storeQuery(db, id).first<StoreRow>());
 }
 
-export async function storeOfLeague(db: D1Like, leagueId: string): Promise<Store | null> {
-  const row = await db.prepare('SELECT * FROM stores WHERE league_id = ?').bind(leagueId).first<StoreRow>();
-  return row && storeFromRow(row);
+/** Holds while the store `alias` names has an Owner; one without is orphaned, open to apply for. */
+export const ownedSql = (alias: string) =>
+  `EXISTS (SELECT 1 FROM store_members o WHERE o.store_id = ${alias}.id AND o.role = 'owner')`;
+
+/** The store holding the league, and whether it has an Owner; null when none holds it. */
+export async function storeOfLeague(db: D1Like, leagueId: string): Promise<{ id: string; owned: boolean } | null> {
+  const row = await db
+    .prepare(`SELECT s.id, ${ownedSql('s')} AS owned FROM stores s WHERE s.league_id = ?`)
+    .bind(leagueId)
+    .first<{ id: string; owned: number }>();
+  return row && { id: row.id, owned: row.owned === 1 };
 }
+
+/**
+ * The write that makes the account the Owner of an orphaned store, joining
+ * it if need be, while `guard` holds; nothing when the store has an Owner.
+ */
+export const ownerFillWrite = (
+  db: D1Like,
+  filling: { storeId: string; userId: string; now: number; guard?: Guard }
+) => {
+  const { storeId, userId, now, guard = ALWAYS } = filling;
+  return db
+    .prepare(
+      "INSERT INTO store_members (store_id, user_id, role, added_at) SELECT s.id, ?, 'owner', ? FROM stores s " +
+        `WHERE s.id = ? AND NOT ${ownedSql('s')} AND ${guard.sql} ` +
+        "ON CONFLICT (store_id, user_id) DO UPDATE SET role = 'owner'"
+    )
+    .bind(userId, now, storeId, ...guard.values);
+};
 
 interface NewStore {
   /** Null for an unsanctioned store, which an Admin makes ahead of its certification. */
@@ -104,8 +132,6 @@ interface NewStore {
   timeZone: string;
   nights: LeagueNight[];
 }
-
-const ALWAYS: Guard = { sql: '1 = 1', values: [] };
 
 /** A store to make: under `id`, with its first member in their role, at `now`, each write only while `guard` holds. */
 interface StoreMaking {

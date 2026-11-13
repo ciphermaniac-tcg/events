@@ -22,12 +22,20 @@ export const withdrawApplication = () => call<null>('/api/applications/mine', { 
  */
 export type ApplicantStage = 'none' | 'pending' | 'rejected' | 'store' | 'community' | 'revoked' | 'admin';
 
+/** What the stage reads of the account: its role, and the stores it is in. */
+export interface ApplicantAccount {
+  role: AccountRole | null;
+  stores: readonly unknown[];
+}
+
 /**
- * The stage, from the account's role and its latest store Application. An
- * Admin is one whatever it applied for; then a pending or rejected
- * Application, being the newest news; then an approved one; then the role.
+ * The stage, from the account and its latest store Application. An Admin is
+ * one whatever it applied for; then a pending or rejected Application, being
+ * the newest news; then an approved one, while the account is still in a
+ * store (one that left its store may apply again); then the role.
  */
-export function applicantStage(role: AccountRole | null, latest: MyApplication | null): ApplicantStage {
+export function applicantStage(account: ApplicantAccount, latest: MyApplication | null): ApplicantStage {
+  const { role } = account;
   if (role === 'admin') {
     return role;
   }
@@ -35,7 +43,7 @@ export function applicantStage(role: AccountRole | null, latest: MyApplication |
   if (status === 'pending' || status === 'rejected') {
     return status;
   }
-  return status === 'approved' ? 'store' : (role ?? 'none');
+  return status === 'approved' && account.stores.length > 0 ? 'store' : (role ?? 'none');
 }
 
 /** A day, as "Oct 1, 2026" in the reader's own order. */

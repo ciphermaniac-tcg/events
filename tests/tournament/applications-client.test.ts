@@ -7,6 +7,7 @@
 import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
 
+import type { AccountRole } from '../../shared/accounts/roles.ts';
 import type { MyApplication } from '../../shared/accounts/types.ts';
 import { applicantStage, dayOf, fetchApplication, withdrawApplication } from '../../src/lib/tournament/applications.ts';
 import { sendStoreApplication } from '../../src/lib/tournament/stores.ts';
@@ -61,24 +62,32 @@ const application = (status: MyApplication['status']): MyApplication => ({
   store: null
 });
 
+/** An account in one store unless told otherwise. */
+const account = (role: AccountRole | null, stores: readonly unknown[] = [{}]) => ({ role, stores });
+
 test('an Admin is one whatever it applied for; an approved Application is a store', () => {
-  assert.equal(applicantStage('admin', application('pending')), 'admin');
-  assert.equal(applicantStage(null, application('approved')), 'store');
-  assert.equal(applicantStage('community', application('approved')), 'store');
-  assert.equal(applicantStage('community', null), 'community');
-  assert.equal(applicantStage('revoked', null), 'revoked');
-  assert.equal(applicantStage(null, null), 'none');
+  assert.equal(applicantStage(account('admin'), application('pending')), 'admin');
+  assert.equal(applicantStage(account(null), application('approved')), 'store');
+  assert.equal(applicantStage(account('community'), application('approved')), 'store');
+  assert.equal(applicantStage(account('community'), null), 'community');
+  assert.equal(applicantStage(account('revoked'), null), 'revoked');
+  assert.equal(applicantStage(account(null), null), 'none');
 });
 
 test('a pending or rejected Application is newer than the role it was sent under', () => {
-  assert.equal(applicantStage(null, application('pending')), 'pending');
-  assert.equal(applicantStage('revoked', application('pending')), 'pending');
-  assert.equal(applicantStage(null, application('rejected')), 'rejected');
-  assert.equal(applicantStage('revoked', application('rejected')), 'rejected');
+  assert.equal(applicantStage(account(null), application('pending')), 'pending');
+  assert.equal(applicantStage(account('revoked'), application('pending')), 'pending');
+  assert.equal(applicantStage(account(null), application('rejected')), 'rejected');
+  assert.equal(applicantStage(account('revoked'), application('rejected')), 'rejected');
 });
 
 test('a store approved outranks a Community organizer role taken away', () => {
-  assert.equal(applicantStage('revoked', application('approved')), 'store');
+  assert.equal(applicantStage(account('revoked'), application('approved')), 'store');
+});
+
+test('an approved account that left its store may apply again', () => {
+  assert.equal(applicantStage(account(null, []), application('approved')), 'none');
+  assert.equal(applicantStage(account('community', []), application('approved')), 'community');
 });
 
 test('a day reads with its year', () => {

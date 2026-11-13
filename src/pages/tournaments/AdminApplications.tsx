@@ -11,7 +11,6 @@
 
 import { createResource, createSignal, For, Show } from 'solid-js';
 import { NOTE_MAX } from '../../../shared/accounts/applications';
-import { roleForRelationship } from '../../../shared/accounts/stores';
 import type { AdminApplication, ApplicationStatus } from '../../../shared/accounts/types';
 import { Segmented } from '@ciphermaniac/design/components/Segmented';
 import { Skeleton } from '@ciphermaniac/design/components/Skeleton';
@@ -20,7 +19,7 @@ import { msg, t, tn } from '../../lib/i18n';
 import { decideApplication, fetchApplications } from '../../lib/tournament/admin';
 import { recountApplications } from './pendingApplications';
 import { dayOf } from '../../lib/tournament/applications';
-import { RELATIONSHIP_LABELS, STORE_ROLE_WORDS } from '../../lib/tournament/stores';
+import { RELATIONSHIP_LABELS } from '../../lib/tournament/stores';
 import { resolved } from '../../lib/resource';
 import { ConfirmAction } from './ConfirmAction';
 import { ErrorLine, RetryError } from './Field';
@@ -163,7 +162,6 @@ function ApplicationRow(props: {
                   value={t('{store} · League {id}', { store: store().details.name, id: store().leagueId })}
                 />
                 <Fact label={t('Reason')} value={t(RELATIONSHIP_LABELS[store().relationship])} />
-                <Fact label={t('Joins as')} value={t(STORE_ROLE_WORDS[roleForRelationship(store().relationship)])} />
               </>
             )}
           </Show>

@@ -368,6 +368,7 @@ function Organizer(props: {
   const [params, setParams] = useSearchParams<{ new?: string }>();
   const user = () => latestValue(session)?.user;
   const role = () => user()?.role ?? null;
+  const stores = () => user()?.stores ?? [];
   const [busy, setBusy] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
   const all = () => props.events;
@@ -432,7 +433,7 @@ function Organizer(props: {
       setError(errorText(err));
     }
   }
-  const runAgainOffer = () => (canCreateEvents(role(), user()?.stores ?? []) ? runAgain : undefined);
+  const runAgainOffer = () => (canCreateEvents(role(), stores()) ? runAgain : undefined);
 
   const tdfRead = (tournament: Tournament, handle: TdfHandle | null, store?: string | null) => {
     setError(null);
@@ -440,7 +441,7 @@ function Organizer(props: {
   };
   /** Who may run a new event: the account's active stores, then the account itself when it may. A TOM event is a store's. */
   const runAs = (tom: boolean): RunAs[] => [
-    ...(user()?.stores ?? [])
+    ...stores()
       .filter(store => store.status === 'active' && (!tom || store.leagueId))
       .map(store => ({
         id: store.id,
@@ -464,8 +465,14 @@ function Organizer(props: {
           meta={<HeroMeta user={user()} />}
           action={
             <Show
-              when={canCreateEvents(role(), user()?.stores ?? [])}
-              fallback={<ApplicantLine role={role()} application={props.application} primary={live().length === 0} />}
+              when={canCreateEvents(role(), stores())}
+              fallback={
+                <ApplicantLine
+                  account={{ role: role(), stores: stores() }}
+                  application={props.application}
+                  primary={live().length === 0}
+                />
+              }
             >
               <span class='tm-hero-acts'>
                 <button type='button' class={startClass()} onClick={() => setStage({ kind: 'swiss' })}>

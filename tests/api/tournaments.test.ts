@@ -3258,7 +3258,7 @@ const ACCOUNT_STATEMENTS = [
   'SELECT u.pop_id, u.first_name, u.last_name FROM store_members m',
   "FROM stores s WHERE s.status IN ('active', 'revoked')",
   "SET role = 'manager'",
-  'UPDATE applications SET status = ?2',
+  'UPDATE applications SET status = ?, decided_at',
   'WHERE a.id = ?',
   "WHERE u.role IN ('community', 'revoked', 'admin')",
   'FROM users u WHERE u.id = ?',

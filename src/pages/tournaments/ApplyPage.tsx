@@ -135,7 +135,7 @@ function Applying(props: { user: Me }) {
     () => props.user.role,
     () => current()?.application
   );
-  const stage = () => applicantStage(props.user.role, current()?.application ?? null);
+  const stage = () => applicantStage(props.user, current()?.application ?? null);
   const open = () => stage() !== 'pending' && ((stage() !== 'rejected' && stage() !== 'revoked') || again());
   const sent = (application: MyApplication) => mutate(prev => prev && { ...prev, application });
   return (
