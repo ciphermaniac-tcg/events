@@ -2753,6 +2753,19 @@ test('a table given extra time says so on its player’s strip and in the pairin
   }
 });
 
+test('a spectator puts Which player are you away for the event, and This is me goes quiet', async ({ page }) => {
+  await mockApi(page);
+  await page.goto(`/t/${CODE}`);
+  await page.getByRole('button', { name: 'Just watching' }).click();
+  const question = page.getByRole('heading', { name: 'Which player are you?' });
+  await expect(question).toHaveCount(0);
+  await page.reload();
+  await expect(page.locator('.tm-matches')).toBeVisible();
+  await expect(question).toHaveCount(0);
+  await page.locator('.tm-matches .tm-seat-link').first().click();
+  await expect(page.getByRole('dialog').getByRole('button', { name: 'This is me' })).toHaveClass(/btn-ghost/);
+});
+
 test('a player presses their answer again to take the report back, and no line promises agreeing reports count', async ({
   page
 }) => {

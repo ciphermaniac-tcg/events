@@ -134,6 +134,23 @@
   font-size: var(--text-lg);
   font-weight: 600;
 }
+/* The question and the X that puts it away for a spectator, on one line. */
+.tm-you-q-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.tm-you-close {
+  margin: calc(-1 * var(--space-2)) calc(-1 * var(--space-2)) calc(-1 * var(--space-2)) 0;
+}
+@media (max-width: 640px), (pointer: coarse) {
+  .tm-you-close {
+    min-width: 44px;
+    min-height: 44px;
+    justify-content: center;
+  }
+}
 /* Sign-in, a link set under the question, so the form stays the box's one step. */
 .tm-you-signin {
   justify-self: start;

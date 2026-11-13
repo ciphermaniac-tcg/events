@@ -92,6 +92,8 @@ export function PlayerSheet(props: {
   decks: Record<string, string>;
   /** The viewer's own player, once the page knows them. */
   me: string | null;
+  /** The viewer said they are only watching: This is me stays on offer, but quietly. */
+  watching?: boolean;
   /** Whether this device follows the player, for the pairings' Following filter. */
   following: boolean;
   onFollow: () => void;
@@ -160,7 +162,11 @@ export function PlayerSheet(props: {
             <Show
               when={proving()}
               fallback={
-                <button type='button' class='btn btn-primary' onClick={() => setProving(true)}>
+                <button
+                  type='button'
+                  class={props.watching ? 'btn btn-ghost' : 'btn btn-primary'}
+                  onClick={() => setProving(true)}
+                >
                   {t('This is me')}
                 </button>
               }

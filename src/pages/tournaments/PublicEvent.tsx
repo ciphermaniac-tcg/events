@@ -293,6 +293,8 @@ const meKey = (code: string) => `cm-tournament-me:${code}`;
 /** An event that finished more than a day ago: its page no longer needs to know who the viewer is. */
 const pastEvent = (view: TournamentView, now: number) => view.settings.finished && now - view.updatedAt > DAY_MS;
 const claimKey = (code: string) => `cm-tournament-player:${code}`;
+/** A spectator put away "Which player are you?" for the event, on this device (see createMe). */
+const watchKey = (code: string) => `cm-tournament-watching:${code}`;
 const tokenKey = (code: string) => `cm-tournament-report:${code}`;
 
 function storedClaim(code: string): PlayerClaim | null {
@@ -354,7 +356,14 @@ function createMe(view: () => TournamentView, events: { onView: (view: Published
   const [reportToken, setReportToken] = createSignal(stored ? readBrowserMemory(tokenKey(code()), true) : null);
   /** The player whose seat the account holds, as the server last answered; no token goes with that. */
   const [accountSeat, setAccountSeat] = createSignal<string | null>(null);
+  const [watching, setWatching] = createSignal(readBrowserMemory(watchKey(code()), true) !== null);
+  /** Whether the viewer only watches: set from the question's close, and let go once they say who they are. */
+  function watch(on: boolean) {
+    keepBrowserMemory(watchKey(code()), on ? '1' : null, true);
+    setWatching(on);
+  }
   function identified(found: Identified) {
+    watch(false);
     keep(meKey(code()), found.key);
     keep(claimKey(code()), found.lookup ? null : JSON.stringify(found.claim));
     setChosen(found.key);
@@ -431,6 +440,8 @@ function createMe(view: () => TournamentView, events: { onView: (view: Published
     reports: () => !looking() && (ownToken() !== null || accountReports()),
     identified,
     forget,
+    watching,
+    watch: () => watch(true),
     /** A report was refused: the account's seat may have gone to another device since it last asked. */
     recheck: () => setStepped(null)
   };
@@ -510,6 +521,8 @@ function OpenPlayer(props: {
   fallback: Pod | undefined;
   id: string;
   me: string | null;
+  /** The viewer put away "Which player are you?", so the sheet does not press them to be this player. */
+  watching: boolean;
   names: Map<string, string>;
   following: ReadonlySet<string>;
   onFollow: (id: string) => void;
@@ -547,6 +560,7 @@ function OpenPlayer(props: {
           records={records()}
           decks={props.view.decks}
           me={props.me}
+          watching={props.watching}
           following={props.following.has(props.id)}
           onFollow={() => props.onFollow(props.id)}
           onIdentified={props.onIdentified}
@@ -614,7 +628,7 @@ function EventBody(props: {
   // eslint-disable-next-line solid/reactivity -- the page is one event's for as long as it is open
   const [following, setFollowing] = createSignal(readFollowing(props.view.code));
   const follow = (id: string) => setFollowing(toggleFollowing(props.view.code, id));
-  const { me, claim, reportToken, reports, identified, forget, recheck } = createMe(() => props.view, {
+  const { me, claim, reportToken, reports, identified, forget, watching, watch, recheck } = createMe(() => props.view, {
     onView: view => props.onView(view),
     onLinked: () => props.onWhoAmI()
   });
@@ -709,7 +723,7 @@ function EventBody(props: {
 
   const now = createNow();
   // Who a viewer is only matters near the start: until then the page is for registering.
-  const asks = createMemo(() => me() !== null || asksWhoYouAre(started(), props.view.settings, now()));
+  const asks = createMemo(() => me() !== null || (!watching() && asksWhoYouAre(started(), props.view.settings, now())));
 
   return (
     <>
@@ -727,6 +741,7 @@ function EventBody(props: {
           reports={reports()}
           onIdentified={identified}
           onForget={forget}
+          onWatch={watch}
           onView={props.onView}
           onPlayer={setOpen}
           firstRound={firstRoundTime(props.view.settings.startsAt)}
@@ -816,6 +831,7 @@ function EventBody(props: {
             fallback={pod()}
             id={id()}
             me={me()}
+            watching={watching()}
             onIdentified={identified}
             onForget={forget}
             onOpen={setOpen}

@@ -36,6 +36,7 @@ import {
   shownOutcome,
   talliesSoFar
 } from '../../lib/tournament/present';
+import { Icon } from '@ciphermaniac/design/components/Icon';
 import { Clock } from './Clock';
 import { ConfirmAction } from './ConfirmAction';
 import { ErrorLine } from './Field';
@@ -83,6 +84,8 @@ interface Props {
   reports: boolean;
   onIdentified: (found: Identified) => void;
   onForget: () => void;
+  /** A spectator puts the question away for the event (see PublicEvent's createMe). */
+  onWatch?: () => void;
   onView: (view: PublishedView) => void;
   onPlayer?: (id: string) => void;
   /** The start of round 1, formatted, or null when unset. */
@@ -140,7 +143,19 @@ function WhichPlayer(props: Props) {
         when={suggest()}
         fallback={
           <>
-            <h2 class='tm-you-q'>{t('Which player are you?')}</h2>
+            <div class='tm-you-q-row'>
+              <h2 class='tm-you-q'>{t('Which player are you?')}</h2>
+              <Show when={props.onWatch}>
+                <button
+                  type='button'
+                  class='btn btn-ghost tm-small tm-you-close'
+                  aria-label={t('Just watching')}
+                  onClick={() => props.onWatch?.()}
+                >
+                  <Icon name='close' />
+                </button>
+              </Show>
+            </div>
             <IdentifyForm
               view={props.view}
               idPrefix='lookup'
