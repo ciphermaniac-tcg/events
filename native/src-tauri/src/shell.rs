@@ -244,7 +244,8 @@ fn desktop_window_built<R: Runtime>(window: &tauri::WebviewWindow<R>) {
 
 /// The main window as a desktop app's: hidden until it has something to
 /// show, told it can reach TOM, styled as an app (`app_style.rs`), new
-/// windows kept in it, and no Safari link previews on a firm click.
+/// windows kept in it, no Safari link previews on a firm click, and
+/// overlay scrollbars on Windows.
 #[cfg(desktop)]
 fn desktop_window<'a, R: Runtime>(
     app: &AppHandle<R>,
@@ -261,6 +262,9 @@ fn desktop_window<'a, R: Runtime>(
         });
     #[cfg(target_os = "macos")]
     let builder = builder.allow_link_preview(false);
+    // Windows 11's thin scrollbars that widen on hover (WebView2 125 and later).
+    #[cfg(windows)]
+    let builder = builder.scroll_bar_style(tauri::webview::ScrollBarStyle::FluentOverlay);
     builder
 }
 
