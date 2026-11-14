@@ -6,8 +6,11 @@
 //! always-dark home page, else the system), so scrollbars, menus and pickers
 //! stop drawing light in dark mode. On desktop, controls get the arrow
 //! cursor, as on the Mac. On a phone, taps don't flash the webview's
-//! highlight, and links and images raise no callout. Only the site's own
-//! pages get it, and the site served to browsers is untouched.
+//! highlight, and links and images raise no callout. Text is set in the
+//! system's font (`system_font.rs`). Only the site's own pages get it, and
+//! the site served to browsers is untouched.
+
+mod system_font;
 
 /// Every platform's rules, loose enough to hold across the site's pages.
 const SELECTION: &str = "\
@@ -34,9 +37,14 @@ a, img { -webkit-touch-callout: none; }";
 
 const SITE_HOST: &str = "events.ciphermaniac.com";
 
+/// Every rule the app adds to the site.
+fn rules() -> String {
+    [SELECTION, PLATFORM, &system_font::css()].join(" ")
+}
+
 /// The script each page of the main window runs first.
 pub fn script() -> String {
-    let rules = serde_json::Value::from(format!("{SELECTION} {PLATFORM}"));
+    let rules = serde_json::Value::from(rules());
     format!(
         "(() => {{ if (location.hostname !== '{SITE_HOST}') return; \
          const add = () => {{ const style = document.createElement('style'); \
