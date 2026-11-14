@@ -231,8 +231,9 @@ pub fn create_main_window<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
 
 /// What the desktop window needs once it exists: the page color for the
 /// system's mode behind it (`theme.rs`), Windows' webview hooks
-/// (`webview2.rs`) and title bar (`title_bar.rs`), and showing it anyway if
-/// its first page is slow.
+/// (`webview2.rs`) and title bar (`title_bar.rs`), the app's offline page on
+/// Linux (`offline.rs`; Windows' is among its webview hooks), and showing it
+/// anyway if its first page is slow.
 #[cfg(desktop)]
 fn desktop_window_built<R: Runtime>(window: &tauri::WebviewWindow<R>) {
     crate::theme::paint_for_system(window);
@@ -241,6 +242,8 @@ fn desktop_window_built<R: Runtime>(window: &tauri::WebviewWindow<R>) {
         crate::webview2::setup(window);
         crate::title_bar::keep_through_theme_changes(window);
     }
+    #[cfg(target_os = "linux")]
+    crate::offline::setup(window);
     let app = window.app_handle().clone();
     std::thread::spawn(move || {
         std::thread::sleep(SHOW_WITHIN);

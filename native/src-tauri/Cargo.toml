@@ -37,6 +37,9 @@ tauri-plugin-updater = "2"
 tauri-plugin-window-state = "2"
 tom-link = { path = "../tom-link" }
 
+[target.'cfg(target_os = "linux")'.dependencies]
+webkit2gtk = "2.0"
+
 [target.'cfg(windows)'.dependencies]
 webview2-com = "0.39"
 windows = { version = "0.62", features = ["Win32_Graphics_Dwm", "Win32_UI_Input_KeyboardAndMouse"] }
