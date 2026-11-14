@@ -7,7 +7,8 @@
     "tauri": "tauri",
     "dev:panel": "vite --config panel/vite.config.ts",
     "build:panel": "vite build --config panel/vite.config.ts",
-    "build:bridge": "node tom-bridge/build.mjs"
+    "build:bridge": "node tom-bridge/build.mjs",
+    "build:icons": "node icons-src/build.mjs"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.12.4",
