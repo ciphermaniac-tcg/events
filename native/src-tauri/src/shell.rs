@@ -73,6 +73,12 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
         .build()
 }
 
+/// Tells the site, before any of its scripts run, that this window can reach
+/// TOM (the `tom_*` commands exist only on desktop). Read by `hasTom` in the
+/// site's src/lib/native/detect.ts.
+#[cfg(desktop)]
+const TOM_FLAG_SCRIPT: &str = "window.__CM_TOM__ = true;";
+
 /// Builds the main window from its tauri.conf.json entry (`create: false`)
 /// so it can also catch `target="_blank"` links and `window.open` on desktop.
 pub fn create_main_window<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
@@ -89,10 +95,12 @@ pub fn create_main_window<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
     #[cfg(desktop)]
     let builder = {
         let app = app.clone();
-        builder.on_new_window(move |url, _features| {
-            follow_new_window(&app, &url);
-            tauri::webview::NewWindowResponse::Deny
-        })
+        builder
+            .initialization_script(TOM_FLAG_SCRIPT)
+            .on_new_window(move |url, _features| {
+                follow_new_window(&app, &url);
+                tauri::webview::NewWindowResponse::Deny
+            })
     };
     builder.build()?;
     Ok(())

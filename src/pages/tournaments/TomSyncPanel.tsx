@@ -48,7 +48,7 @@ import {
   writeFile
 } from '../../lib/tournament/tomLink';
 import { fileTicks } from '../../lib/tournament/fileTicks';
-import { inNativeApp } from '../../lib/native/detect';
+import { hasTom } from '../../lib/native/detect';
 import { lazyChunk } from '../../lib/preloadRecovery';
 import { autosaveMinutes, minutesSince, savesLate, withSave } from '../../lib/tournament/tomSaves';
 import { downloadBlob } from '../../lib/download';
@@ -667,7 +667,7 @@ export function TomStatus(props: { link: TomLink }) {
   return (
     <span class='tm-next-acts tm-tom-status'>
       <Show when={link().pending() > 0 && link().state() !== 'reconnect'}>
-        <Show when={inNativeApp()} fallback={<WriteResults link={link()} />}>
+        <Show when={hasTom()} fallback={<WriteResults link={link()} />}>
           <NativeSend tournament={link().tournament()} pending={link().results()} />
         </Show>
       </Show>

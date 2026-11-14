@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
 import { nativeTom, startTomRound } from '../../src/lib/native/bridge';
-import { inNativeApp } from '../../src/lib/native/detect';
+import { hasTom, inNativeApp } from '../../src/lib/native/detect';
 
 const global = globalThis as { window?: unknown };
 
@@ -53,4 +53,15 @@ test('starting a pod’s round in TOM names the pod by TOM’s category code and
   ]);
   global.window = { __TAURI_INTERNALS__: { invoke: () => Promise.reject(new Error('IPC closed')) } };
   assert.equal(await startTomRound('masters'), 'IPC closed');
+});
+
+test('only the desktop app, which marks its window, has TOM; the Android app has the bridge alone', () => {
+  assert.equal(hasTom(), false, 'no window at all');
+  global.window = { __TAURI_INTERNALS__: {} };
+  assert.equal(inNativeApp(), true);
+  assert.equal(hasTom(), false, 'Android');
+  global.window = { __TAURI_INTERNALS__: {}, __CM_TOM__: true };
+  assert.equal(hasTom(), true, 'desktop');
+  global.window = { __CM_TOM__: true };
+  assert.equal(hasTom(), false, 'a flag without the app');
 });
