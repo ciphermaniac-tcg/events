@@ -1,5 +1,5 @@
-//! Drives the real TOM 1.86 GUI under Xvfb through both entry modes and reads
-//! the results back from the `.tdf` TOM saves.
+//! Drives the real TOM 1.86 GUI under Xvfb through the helper and reads the
+//! results back from the `.tdf` TOM saves.
 //!
 //! Ignored by default. Needs Linux with Xvfb, xdotool, node, a JDK 17+ `javac`,
 //! and a tom-tdf checkout (vendor/tom.jar, the harness sources and the jlinked
@@ -15,7 +15,7 @@ use std::process::{Child, Command, Stdio};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use tom_link::{Bridge, Entry, Mode, SaveResult, StartResult, SubmitResult};
+use tom_link::{Bridge, Entry, SaveResult, StartResult, SubmitResult};
 
 const DISPLAY: &str = ":93";
 const LOGIN: &str = "1234567";
@@ -187,7 +187,7 @@ fn xdotool(args: &[&str]) -> bool {
 
 /// Starts TOM through the bridge, signs in, and waits for the helper.
 fn launch(env: &Env) -> Bridge {
-    let mut bridge = Bridge::new(Mode::Inside, None);
+    let mut bridge = Bridge::new(None);
     bridge
         .launch_with(env.tom_command(), &env.jar)
         .expect("TOM launches");
@@ -278,29 +278,24 @@ fn start_round_is_idempotent(bridge: &mut Bridge) {
     assert_eq!(bridge.start_round(None), StartResult::AlreadyStarted);
 }
 
-fn keys_mode(bridge: &mut Bridge, slips: &[(u32, u32, Vec<String>)]) {
-    bridge.set_mode(Mode::Keys);
-    let status = bridge.status();
-    assert!(status.ready, "{status:?}");
-    let entries = [code(slips, 3, 1), code(slips, 4, 3)];
+/// A batch that stops at a rejection, then the next batch still lands.
+fn later_batches(bridge: &mut Bridge, slips: &[(u32, u32, Vec<String>)]) {
+    let entries = [code(slips, 3, 1), late_slip(), code(slips, 4, 3)];
     let results = bridge.submit(&entries);
-    println!("keys: {results:?}");
-    assert_eq!(results, [accepted(&entries[0]), accepted(&entries[1])]);
-    assert!(rejected_with(&bridge.submit(&[late_slip()]), "rejected"));
-    // The code after a rejection still lands.
-    let last = code(slips, 5, 2);
+    println!("stopping batch: {results:?}");
+    assert_eq!(results[0], accepted(&entries[0]));
+    assert!(matches!(&results[1], SubmitResult::Rejected { .. }));
+    assert!(matches!(&results[2], SubmitResult::NotReady { .. }));
+    let entries = [code(slips, 4, 3), code(slips, 5, 2)];
     assert_eq!(
-        bridge.submit(std::slice::from_ref(&last)),
-        [accepted(&last)]
-    );
-    assert!(
-        matches!(bridge.save(), SaveResult::NotReady { reason } if reason.contains("cannot save"))
+        bridge.submit(&entries),
+        [accepted(&entries[0]), accepted(&entries[1])]
     );
 }
 
 #[test]
 #[ignore = "drives the real TOM GUI under Xvfb; see the module docs"]
-fn both_modes_record_results_in_the_saved_tdf() {
+fn results_land_in_the_saved_tdf() {
     let env = Env::new();
     let _cleanup = Cleanup {
         work: env.work.clone(),
@@ -321,9 +316,8 @@ fn both_modes_record_results_in_the_saved_tdf() {
     late_slip_starts_nothing(&mut bridge);
     inside_mode(&mut bridge, &slips);
     start_round_is_idempotent(&mut bridge);
-    keys_mode(&mut bridge, &slips);
+    later_batches(&mut bridge, &slips);
 
-    bridge.set_mode(Mode::Inside);
     assert_eq!(bridge.save(), SaveResult::Saved);
     let outcomes: Vec<(u32, u32)> = env.slips().iter().map(|slip| (slip.0, slip.1)).collect();
     assert_eq!(outcomes, [(1, 1), (2, 2), (3, 1), (4, 3), (5, 2), (6, 0)]);
