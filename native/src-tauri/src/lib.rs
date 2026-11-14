@@ -25,25 +25,13 @@ pub fn run() {
             shell::create_main_window(app.handle())?;
             #[cfg(desktop)]
             {
-                open_tom_window(app)?;
+                tom::setup(app)?;
                 updater::check_on_launch(app.handle());
             }
             Ok(())
         })
         .run(tauri::generate_context!())
         .expect("error while building tauri application");
-}
-
-/// The local TOM panel beside the site, with the bridge's state behind it.
-#[cfg(desktop)]
-fn open_tom_window(app: &mut tauri::App) -> tauri::Result<()> {
-    use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
-    app.manage(tom::Tom::new(app.handle()));
-    WebviewWindowBuilder::new(app, "tom", WebviewUrl::App("index.html".into()))
-        .title("TOM")
-        .inner_size(480.0, 720.0)
-        .build()?;
-    Ok(())
 }
 
 #[cfg(desktop)]
@@ -64,6 +52,7 @@ fn with_desktop(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<tauri::Wr
             tom::tom_submit,
             tom::tom_save,
             tom::tom_start_round,
+            tom::tom_open_panel,
         ])
 }
 

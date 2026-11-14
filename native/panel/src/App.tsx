@@ -18,7 +18,7 @@ export function App() {
   const log = createLog();
   return (
     <main class='tp'>
-      <h1>TOM link</h1>
+      <h1>TOM Link</h1>
       <TomSection state={tom} log={log} />
       <FileSection file={file} />
       <OpenTables tournament={file.tournament()} log={log} />

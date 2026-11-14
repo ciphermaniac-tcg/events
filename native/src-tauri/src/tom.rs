@@ -1,6 +1,11 @@
 //! Tauri commands for TOM, the tournament software these results go into.
 //! Desktop only; the local panel in the "tom" window calls them.
 //!
+//! TOM is optional: events the site runs itself never touch it. The app
+//! opens only the site; the panel opens from the menu ("TOM Link…") or when
+//! a TOM-run event's console asks (`tom_open_panel`), and the bridge state
+//! is built on the first TOM command, not at launch.
+//!
 //! Commands and what they return (JSON as the webview receives it):
 //!
 //! - `tom_detect()` -> `string[]`: TOM programs found in the usual install folders.
@@ -18,6 +23,7 @@
 //!   accepted: every later one comes back `not_ready`, unsent.
 //!   In inside mode, a pod's paired round is started first when needed.
 //! - `tom_save()` -> `SaveResult`.
+//! - `tom_open_panel()` -> `null`: shows the TOM panel, opening it if needed.
 //! - `tom_start_round(pod?: number)` -> `StartResult`. `pod` is TOM's category
 //!   code (0 Juniors, 1 Seniors, 2 Masters, 8 Juniors and Seniors, 9 Seniors
 //!   and Masters, 10 everyone); leave it out when the event has one pod.
@@ -57,15 +63,18 @@
 
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex, PoisonError};
+use std::sync::{Arc, Mutex, OnceLock, PoisonError};
 
 use serde::{Deserialize, Serialize};
+use tauri::menu::{Menu, MenuItem, Submenu};
 use tauri::path::BaseDirectory;
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, Manager, State, WebviewUrl, WebviewWindowBuilder, Wry};
 use tom_link::{Bridge, Entry, Mode, SaveResult, StartResult, Status, SubmitResult};
 
 const CONFIG_FILE: &str = "tom.json";
 const HELPER_JAR: &str = "resources/tom-bridge.jar";
+const PANEL_WINDOW: &str = "tom";
+const OPEN_PANEL: &str = "tom-open-panel";
 
 /// What survives a restart.
 #[derive(Default, Serialize, Deserialize)]
@@ -77,8 +86,12 @@ struct Saved {
     tom_path: Option<PathBuf>,
 }
 
-/// The bridge plus where its settings live; commands share it across threads.
-pub struct Tom(Arc<Shared>);
+/// The bridge plus where its settings live, built on first use; commands
+/// share it across threads.
+pub struct Tom {
+    app: AppHandle,
+    shared: OnceLock<Arc<Shared>>,
+}
 
 struct Shared {
     bridge: Mutex<Bridge>,
@@ -88,21 +101,17 @@ struct Shared {
 
 impl Tom {
     pub fn new(app: &AppHandle) -> Self {
-        let config = app
-            .path()
-            .app_config_dir()
-            .ok()
-            .map(|dir| dir.join(CONFIG_FILE));
-        let saved: Saved = config
-            .as_deref()
-            .and_then(|path| fs::read_to_string(path).ok())
-            .and_then(|text| serde_json::from_str(&text).ok())
-            .unwrap_or_default();
-        Self(Arc::new(Shared {
-            bridge: Mutex::new(Bridge::new(saved.mode, saved.tom_path)),
-            config,
-            helper_jar: helper_jar(app),
-        }))
+        Self {
+            app: app.clone(),
+            shared: OnceLock::new(),
+        }
+    }
+
+    fn shared(&self) -> Arc<Shared> {
+        Arc::clone(
+            self.shared
+                .get_or_init(|| Arc::new(Shared::load(&self.app))),
+        )
     }
 
     /// Runs bridge work off the async runtime and the main thread: TOM can
@@ -111,7 +120,7 @@ impl Tom {
         &self,
         work: impl FnOnce(&Shared, &mut Bridge) -> T + Send + 'static,
     ) -> Result<T, String> {
-        let shared = Arc::clone(&self.0);
+        let shared = self.shared();
         tauri::async_runtime::spawn_blocking(move || {
             let mut bridge = shared.bridge.lock().unwrap_or_else(PoisonError::into_inner);
             work(&shared, &mut bridge)
@@ -122,6 +131,25 @@ impl Tom {
 }
 
 impl Shared {
+    /// The saved settings and a bridge that has not looked for TOM yet.
+    fn load(app: &AppHandle) -> Self {
+        let config = app
+            .path()
+            .app_config_dir()
+            .ok()
+            .map(|dir| dir.join(CONFIG_FILE));
+        let saved: Saved = config
+            .as_deref()
+            .and_then(|path| fs::read_to_string(path).ok())
+            .and_then(|text| serde_json::from_str(&text).ok())
+            .unwrap_or_default();
+        Self {
+            bridge: Mutex::new(Bridge::new(saved.mode, saved.tom_path)),
+            config,
+            helper_jar: helper_jar(app),
+        }
+    }
+
     fn save_config(&self, bridge: &Bridge) -> Result<(), String> {
         let Some(path) = &self.config else {
             return Err("This app has no settings folder.".into());
@@ -215,4 +243,63 @@ pub async fn tom_save(tom: State<'_, Tom>) -> Result<SaveResult, String> {
 #[tauri::command]
 pub async fn tom_start_round(tom: State<'_, Tom>, pod: Option<u8>) -> Result<StartResult, String> {
     tom.run(move |_, bridge| bridge.start_round(pod)).await
+}
+
+#[tauri::command]
+pub async fn tom_open_panel(app: AppHandle) -> Result<(), String> {
+    open_panel(&app).map_err(|error| error.to_string())
+}
+
+/// Readies TOM without touching it: the state the commands use, built on
+/// first use, and the menu item that opens the panel.
+pub fn setup(app: &tauri::App) -> tauri::Result<()> {
+    app.manage(Tom::new(app.handle()));
+    app.set_menu(menu(app.handle())?)?;
+    app.on_menu_event(|app, event| {
+        if event.id() == OPEN_PANEL
+            && let Err(error) = open_panel(app)
+        {
+            log::warn!("the TOM panel could not open: {error}");
+        }
+    });
+    Ok(())
+}
+
+/// Shows the TOM panel, opening it the first time.
+fn open_panel(app: &AppHandle) -> tauri::Result<()> {
+    if let Some(panel) = app.get_webview_window(PANEL_WINDOW) {
+        panel.unminimize()?;
+        panel.show()?;
+        return panel.set_focus();
+    }
+    WebviewWindowBuilder::new(app, PANEL_WINDOW, WebviewUrl::App("index.html".into()))
+        .title("TOM Link")
+        .inner_size(480.0, 720.0)
+        .build()
+        .map(drop)
+}
+
+/// The platform's usual menu with "TOM Link…" in the app menu on macOS and
+/// in the Window menu elsewhere.
+fn menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
+    let menu = Menu::default(app)?;
+    let item = MenuItem::with_id(app, OPEN_PANEL, "TOM Link…", true, None::<&str>)?;
+    let submenus: Vec<Submenu<Wry>> = menu
+        .items()?
+        .iter()
+        .filter_map(|entry| entry.as_submenu().cloned())
+        .collect();
+    if cfg!(target_os = "macos")
+        && let Some(app_menu) = submenus.first()
+    {
+        app_menu.insert(&item, 1)?;
+    } else if let Some(window) = submenus
+        .iter()
+        .find(|submenu| submenu.text().is_ok_and(|text| text == "Window"))
+    {
+        window.append(&item)?;
+    } else {
+        menu.append(&Submenu::with_items(app, "TOM", true, &[&item])?)?;
+    }
+    Ok(menu)
 }
