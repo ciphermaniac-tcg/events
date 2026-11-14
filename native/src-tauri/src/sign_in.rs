@@ -1,6 +1,6 @@
 //! Sign-in with a provider that refuses the app's webview (Google). The app
-//! sends the site's login to the system browser with the SHA-256 of a random
-//! verifier it keeps; the browser signs in and hands back a one-time ticket
+//! sends the site's login to the system browser (a Custom Tab over the app on
+//! Android) with the SHA-256 of a random verifier it keeps; the browser signs in and hands back a one-time ticket
 //! by the app's link (`ciphermaniac-events://auth?ticket=…`); the main window
 //! then posts ticket and verifier from a page of the site, which sets the
 //! session in the app's own cookies (functions/lib/auth/appTicket.ts on the
@@ -203,13 +203,13 @@ fn start_attempt<R: Runtime>(webview: &Webview<R>, url: &Url) {
         return;
     };
     if !is_link(url) {
-        shell::open_outside(app, &login);
+        shell::open_sign_in(webview, &login);
     } else if let Err(err) = webview.eval(bind_script(&challenge, &login)) {
         log::warn!("could not bind the link to this session: {err}");
     }
 }
 
-/// Sends a login that has to leave the webview to the system browser. One
+/// Sends a login that has to leave the webview to the browser. One
 /// naming an attempt that is waiting goes as that attempt (a link coming back
 /// with its binding); any other starts a new one. False when `url` is no
 /// such login.
@@ -221,7 +221,7 @@ pub fn open_in_browser<R: Runtime>(webview: &Webview<R>, url: &Url) -> bool {
     match waiting_attempt(app, url) {
         Some((attempt, verifier)) => {
             if let Some(login) = browser_login(url, &challenge_of(&verifier), &attempt) {
-                shell::open_outside(app, &login);
+                shell::open_sign_in(webview, &login);
             }
         }
         None => start_attempt(webview, url),
