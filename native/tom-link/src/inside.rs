@@ -17,6 +17,7 @@ use serde::Deserialize;
 use serde::de::DeserializeOwned;
 use serde_json::json;
 
+use crate::code::Entry;
 use crate::results::{PodStatus, SaveResult, StartResult, SubmitResult, TomView};
 
 const PROVIDER: &str = "cmevents-tombridge";
@@ -62,7 +63,8 @@ impl Tom {
         }
     }
 
-    pub(crate) fn submit(&mut self, code: &str) -> SubmitResult {
+    pub(crate) fn submit(&mut self, entry: &Entry) -> SubmitResult {
+        let code = entry.code.as_str();
         match self.outcome("submit", Some(("code", code.to_owned()))) {
             Outcome::Accepted => SubmitResult::accepted(code),
             Outcome::Rejected { message } => SubmitResult::rejected(code, message),

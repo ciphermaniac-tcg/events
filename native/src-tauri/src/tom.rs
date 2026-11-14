@@ -12,8 +12,9 @@
 //! - `tom_status()` -> `Status`.
 //! - `tom_get_mode()` -> `"inside" | "keys"`.
 //! - `tom_set_mode(mode)` -> `"inside" | "keys"`, saved for next time.
-//! - `tom_submit(codes: string[])` -> `SubmitResult[]`, one per code, in order.
-//!   Each code is checked first; once TOM is not ready, later codes are not sent.
+//! - `tom_submit(entries: Entry[])` -> `SubmitResult[]`, one per entry, in order.
+//!   Each code must spell exactly its entry's layout (and never table 0) or it
+//!   is rejected unsent; once TOM is not ready, later entries are not sent.
 //!   In inside mode, a pod's paired round is started first when needed.
 //! - `tom_save()` -> `SaveResult`.
 //! - `tom_start_round(pod?: number)` -> `StartResult`. `pod` is TOM's category
@@ -21,6 +22,14 @@
 //!   and Masters, 10 everyone); leave it out when the event has one pod.
 //!
 //! ```text
+//! Entry = {                        // computed from the .tdf TOM saved
+//!   pod: number,                   // category code: 0, 1, 2, 8, 9, 10
+//!   flight?: number,               // only for a flighted pod in a Swiss round
+//!   round: number,                 // as TOM numbers it (top cut keeps counting)
+//!   table: number,                 // never 0
+//!   outcome: number,               // 0 pending, 1 P1 wins, 2 P2 wins, 3 tie, 6 double loss
+//!   code: string                   // the slip code those parts make
+//! }
 //! Status = {
 //!   mode: "inside" | "keys",
 //!   tomPath: string | null,        // the TOM program that tom_launch starts
@@ -51,7 +60,7 @@ use std::sync::{Arc, Mutex, PoisonError};
 use serde::{Deserialize, Serialize};
 use tauri::path::BaseDirectory;
 use tauri::{AppHandle, Manager, State};
-use tom_link::{Bridge, Mode, SaveResult, StartResult, Status, SubmitResult};
+use tom_link::{Bridge, Entry, Mode, SaveResult, StartResult, Status, SubmitResult};
 
 const CONFIG_FILE: &str = "tom.json";
 const HELPER_JAR: &str = "resources/tom-bridge.jar";
@@ -191,9 +200,9 @@ pub async fn tom_set_mode(tom: State<'_, Tom>, mode: Mode) -> Result<Mode, Strin
 #[tauri::command]
 pub async fn tom_submit(
     tom: State<'_, Tom>,
-    codes: Vec<String>,
+    entries: Vec<Entry>,
 ) -> Result<Vec<SubmitResult>, String> {
-    tom.run(move |_, bridge| bridge.submit(&codes)).await
+    tom.run(move |_, bridge| bridge.submit(&entries)).await
 }
 
 #[tauri::command]

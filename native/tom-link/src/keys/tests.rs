@@ -118,8 +118,15 @@ fn fast() -> Timing {
     }
 }
 
-fn codes(list: &[&str]) -> Vec<String> {
-    list.iter().map(|c| (*c).to_owned()).collect()
+/// Masters, round 1 entries for codes of the form `2 1 table outcome check`.
+fn codes(list: &[&str]) -> Vec<Entry> {
+    list.iter()
+        .map(|code| {
+            let table = code[2..code.len() - 2].parse().unwrap();
+            let outcome = code.as_bytes()[code.len() - 2] - b'0';
+            crate::code::entry(2, None, 1, table, outcome, code)
+        })
+        .collect()
 }
 
 #[test]
@@ -129,7 +136,7 @@ fn types_codes_dismisses_errors_and_gives_focus_back() {
     tom.bad = vec!["21212"];
     let sent = codes(&["21113", "21212", "21014", "21220"]);
     let results = submit(&mut tom, fast(), &sent);
-    let table_zero = crate::code::vet("21014").unwrap_err();
+    let table_zero = crate::code::vet(&sent[2]).unwrap_err();
     assert_eq!(
         results,
         [

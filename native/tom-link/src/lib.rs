@@ -20,7 +20,7 @@ mod results;
 #[cfg(test)]
 mod testdir;
 
-pub use code::vet;
+pub use code::{Entry, vet};
 pub use locate::{detect, resolve};
 pub use results::{Mode, PodStatus, SaveResult, StartResult, Status, SubmitResult};
 
@@ -128,22 +128,22 @@ impl Bridge {
         }
     }
 
-    /// Sends codes in order. Each is vetted first; once TOM is not ready, the
-    /// rest are reported not ready without being sent.
-    pub fn submit(&mut self, codes: &[String]) -> Vec<SubmitResult> {
+    /// Sends entries in order. Each is vetted against its own layout first;
+    /// once TOM is not ready, the rest are reported not ready without being sent.
+    pub fn submit(&mut self, entries: &[Entry]) -> Vec<SubmitResult> {
         let timing = self.timing;
         let all_not_ready = |reason: String| {
-            codes
+            entries
                 .iter()
-                .map(|code| SubmitResult::not_ready(code, reason.clone()))
+                .map(|entry| SubmitResult::not_ready(&entry.code, reason.clone()))
                 .collect()
         };
         match (self.mode, self.tom.as_mut()) {
-            (Mode::Inside, Some(tom)) => results::submit_each(codes, |code| tom.submit(code)),
+            (Mode::Inside, Some(tom)) => results::submit_each(entries, |entry| tom.submit(entry)),
             (Mode::Inside, None) => all_not_ready(NOT_LAUNCHED.into()),
             (Mode::Keys, _) => with_desktop(
                 self.tom_path.as_deref(),
-                |desktop| keys::submit(desktop, timing, codes),
+                |desktop| keys::submit(desktop, timing, entries),
                 all_not_ready,
             ),
         }
@@ -211,7 +211,7 @@ mod tests {
         let status = bridge.status();
         assert!(!status.ready && !status.launched);
         assert_eq!(status.reason.as_deref(), Some(NOT_LAUNCHED));
-        let results = bridge.submit(&["21113".to_owned()]);
+        let results = bridge.submit(&[code::entry(2, None, 1, 1, 1, "21113")]);
         assert_eq!(results, [SubmitResult::not_ready("21113", NOT_LAUNCHED)]);
         assert_eq!(bridge.save(), SaveResult::not_ready(NOT_LAUNCHED));
         assert_eq!(
