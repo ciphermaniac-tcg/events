@@ -1,6 +1,7 @@
 /**
- * Light and dark mode: a choice against the OS is kept, and choosing what the
- * OS already gives goes back to following it.
+ * Light and dark mode: a choice against the OS is kept, choosing what the OS
+ * already gives goes back to following it, and the desktop app's choice is
+ * taken up as the page's own.
  */
 
 import assert from 'node:assert/strict';
@@ -22,7 +23,8 @@ Object.assign(globalThis, {
     },
     addEventListener: (_: string, listener: (event: { matches: boolean }) => void) => listeners.push(listener)
   }),
-  document: { body }
+  document: { body },
+  window: new EventTarget()
 });
 
 const { initTheme, mode, setMode } = await import('../../src/lib/theme.ts');
@@ -51,4 +53,14 @@ test('choosing the mode the system gives follows the system again', () => {
   osTurns(true);
   assert.equal(mode(), 'dark');
   assert.equal(body.dataset.mode, 'dark');
+});
+
+test("the desktop app's choice reaches the mode in effect, not just the page", () => {
+  stored.set('cm:mode', 'light');
+  window.dispatchEvent(new Event('cm:app-mode'));
+  assert.equal(mode(), 'light');
+  assert.equal(body.dataset.mode, 'light');
+  stored.delete('cm:mode');
+  window.dispatchEvent(new Event('cm:app-mode'));
+  assert.equal(mode(), 'dark', 'with nothing stored, the system again');
 });
