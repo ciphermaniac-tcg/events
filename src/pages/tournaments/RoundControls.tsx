@@ -64,6 +64,7 @@ function ClockSetter(props: { round: Round; onSet: (seconds: number) => void; on
         ref={el => queueMicrotask(() => el.focus())}
         class='tm-input num'
         inputmode='numeric'
+        enterkeyhint='done'
         autocomplete='off'
         placeholder='25:00'
         aria-describedby={`${id}-change`}
