@@ -9,6 +9,8 @@ mod pending;
 mod shell;
 mod sign_in;
 #[cfg(desktop)]
+mod theme;
+#[cfg(desktop)]
 mod tom;
 #[cfg(desktop)]
 mod updater;
