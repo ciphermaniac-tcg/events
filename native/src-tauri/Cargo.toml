@@ -29,3 +29,7 @@ tauri-plugin-opener = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"
 tauri-plugin-updater = "2"
+tom-link = { path = "../tom-link" }
+
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }

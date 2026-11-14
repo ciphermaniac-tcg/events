@@ -1,0 +1,7 @@
+{
+  "bundle": {
+    "resources": {
+      "resources/tom-bridge.jar": "resources/tom-bridge.jar"
+    }
+  }
+}
