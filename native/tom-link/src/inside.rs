@@ -21,8 +21,8 @@ use crate::code::Entry;
 use crate::results::{PodStatus, SaveResult, StartResult, SubmitResult, TomView};
 
 const PROVIDER: &str = "cmevents-tombridge";
-const TOKEN_PROPERTY: &str = "cmevents.tombridge.token";
-const HANDSHAKE_PROPERTY: &str = "cmevents.tombridge.handshake";
+const DIR_PROPERTY: &str = "cmevents.tombridge.dir";
+const TOKEN_FILE: &str = "token";
 const JAVA_TOOL_OPTIONS: &str = "JAVA_TOOL_OPTIONS";
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(2);
 const WRITE_TIMEOUT: Duration = Duration::from_secs(5);
@@ -154,11 +154,11 @@ struct Helper {
 impl Helper {
     fn create() -> Result<Self, String> {
         let dir = std::env::temp_dir().join(format!("cmevents-tom-{}", crate::random_hex(8)));
-        private_dir(&dir).map_err(|error| format!("Could not prepare TOM's helper: {error}"))?;
-        Ok(Self {
-            token: crate::random_hex(32),
-            dir,
-        })
+        let token = crate::random_hex(32);
+        private_dir(&dir)
+            .and_then(|()| private_file(&dir.join(TOKEN_FILE), &token))
+            .map_err(|error| format!("Could not prepare TOM's helper: {error}"))?;
+        Ok(Self { token, dir })
     }
 
     fn handshake(&self) -> PathBuf {
@@ -166,14 +166,14 @@ impl Helper {
     }
 
     /// The JVM options that load the helper. Quoted so paths may hold spaces.
+    /// They name only the private folder: the JVM prints these options to
+    /// TOM's log, so the token stays in the folder's token file.
     fn tool_options(&self, jar: &Path, existing: Option<OsString>) -> Result<OsString, String> {
         let jar = quotable(jar)?;
-        let handshake_path = self.handshake();
-        let handshake = quotable(&handshake_path)?;
+        let dir = quotable(&self.dir)?;
         let mut options = OsString::from(format!(
             "\"-Xbootclasspath/a:{jar}\" -Djavax.accessibility.assistive_technologies={PROVIDER} \
-             -D{TOKEN_PROPERTY}={} \"-D{HANDSHAKE_PROPERTY}={handshake}\"",
-            self.token
+             \"-D{DIR_PROPERTY}={dir}\""
         ));
         if let Some(existing) = existing.filter(|existing| !existing.is_empty()) {
             options.push(" ");
@@ -245,6 +245,15 @@ fn private_dir(dir: &Path) -> std::io::Result<()> {
 #[cfg(not(unix))]
 fn private_dir(dir: &Path) -> std::io::Result<()> {
     fs::create_dir(dir)
+}
+
+/// A new file only this user can read.
+fn private_file(path: &Path, contents: &str) -> std::io::Result<()> {
+    let mut options = fs::OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    std::os::unix::fs::OpenOptionsExt::mode(&mut options, 0o600);
+    options.open(path)?.write_all(contents.as_bytes())
 }
 
 fn quotable(path: &Path) -> Result<&str, String> {
@@ -526,8 +535,19 @@ mod tests {
         assert!(options.starts_with(
             "\"-Xbootclasspath/a:/Applications/Ciphermaniac Events.app/Contents/Resources/tom-bridge.jar\" "
         ));
-        assert!(options.contains(&format!("-D{TOKEN_PROPERTY}={} ", helper.token)));
-        assert!(options.ends_with("handshake.json\" -Xmx2g"));
+        assert!(
+            !options.contains(&helper.token),
+            "the token would be echoed to TOM's log"
+        );
+        assert!(options.ends_with(&format!("{}\" -Xmx2g", helper.dir.display())));
+        let token_file = helper.dir.join(TOKEN_FILE);
+        assert_eq!(fs::read_to_string(&token_file).unwrap(), helper.token);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mode = fs::metadata(&token_file).unwrap().permissions().mode();
+            assert_eq!(mode & 0o777, 0o600);
+        }
         assert!(helper.tool_options(Path::new("/a\"b.jar"), None).is_err());
     }
 

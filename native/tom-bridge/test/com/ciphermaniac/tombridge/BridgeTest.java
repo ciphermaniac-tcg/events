@@ -10,6 +10,8 @@ import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -205,5 +207,13 @@ public final class BridgeTest {
          check("{\"error\":\"unknown op\"}".equals(in.readLine()), "first request not answered");
          check(in.readLine() == null, "a second request on the same connection was served");
       }
+   }
+
+   static void testTheTokenIsReadOnceFromItsFile() throws Exception {
+      Path dir = Files.createTempDirectory("tom-bridge-test");
+      Files.writeString(dir.resolve("token"), TOKEN + "\n");
+      check(TOKEN.equals(Bridge.takeToken(dir)), "wrong token read");
+      check(!Files.exists(dir.resolve("token")), "the token file was left behind");
+      Files.delete(dir);
    }
 }
