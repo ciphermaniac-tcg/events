@@ -37,5 +37,9 @@ tauri-plugin-updater = "2"
 tauri-plugin-window-state = "2"
 tom-link = { path = "../tom-link" }
 
+[target.'cfg(windows)'.dependencies]
+webview2-com = "0.39"
+windows = "0.62"
+
 [lints.clippy]
 pedantic = { level = "warn", priority = -1 }
