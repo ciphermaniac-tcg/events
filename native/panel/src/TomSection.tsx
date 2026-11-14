@@ -1,20 +1,9 @@
-import { Segmented } from '@ciphermaniac/design/components/Segmented';
 import { Show } from 'solid-js';
-import type { TomMode, TomPod, TomStatus } from '../../../shared/native/tomCommands';
+import type { TomPod, TomStatus } from '../../../shared/native/tomCommands';
 import { categoryCode } from '../../../shared/tournament/tdf';
 import { POD_CATEGORIES, POD_LABELS } from '../../../shared/tournament/types';
 import type { Log } from './log';
 import type { TomState } from './tomState';
-
-const MODE_OPTIONS: { value: TomMode; label: string }[] = [
-  { value: 'inside', label: 'Inside TOM' },
-  { value: 'keys', label: 'Speed Match typing' }
-];
-
-const MODE_NEEDS: Record<TomMode, string> = {
-  inside: 'Needs TOM launched from this app.',
-  keys: 'Needs Speed Match Slip Entry open in TOM. TOM comes to the front while codes are typed.'
-};
 
 function podName(code: number | undefined): string {
   const category = POD_CATEGORIES.find(c => categoryCode(c) === String(code));
@@ -58,15 +47,6 @@ export function TomSection(props: { state: TomState; log: Log }) {
         >
           Save in TOM
         </button>
-      </div>
-      <div class='tp-mode'>
-        <Segmented
-          options={MODE_OPTIONS}
-          selected={props.state.mode()}
-          onSelect={mode => void props.state.choose(mode)}
-          ariaLabel='How codes reach TOM'
-        />
-        <p class='muted'>{MODE_NEEDS[props.state.mode()]}</p>
       </div>
       <Show when={props.state.error()}>
         {error => (

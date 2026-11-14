@@ -5,7 +5,7 @@
  */
 
 import { createSignal, onCleanup, onMount } from 'solid-js';
-import type { TomMode, TomStatus } from '../../../shared/native/tomCommands';
+import type { TomStatus } from '../../../shared/native/tomCommands';
 import { pickFile } from './tdfFile';
 import { errorText, tom } from './tom';
 
@@ -13,7 +13,6 @@ const POLL_MS = 2000;
 
 export function createTomState() {
   const [status, setStatus] = createSignal<TomStatus | null>(null);
-  const [mode, setMode] = createSignal<TomMode>('keys');
   const [error, setError] = createSignal<string | null>(null);
 
   async function refresh() {
@@ -36,7 +35,6 @@ export function createTomState() {
 
   /** Without a known location, takes the first TOM the app finds on its own. */
   async function start() {
-    setMode(await tom.getMode());
     if (!(await tom.status()).tomPath) {
       const [found] = await tom.detect();
       if (found) {
@@ -53,7 +51,6 @@ export function createTomState() {
 
   return {
     status,
-    mode,
     error,
     launch: () => run(async () => setStatus(await tom.launch())),
     locate: () =>
@@ -62,10 +59,6 @@ export function createTomState() {
         if (path) {
           await tom.setPath(path);
         }
-      }),
-    choose: (next: TomMode) =>
-      run(async () => {
-        setMode(await tom.setMode(next));
       })
   };
 }
