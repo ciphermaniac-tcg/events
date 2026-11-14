@@ -47,6 +47,13 @@ pub(crate) struct OsWindow<H> {
     pub pid: Option<u32>,
 }
 
+/// The focused window as the OS reports it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct Foreground {
+    pub title: String,
+    pub pid: Option<u32>,
+}
+
 /// The few OS abilities keys mode needs. One implementation per platform.
 pub(crate) trait Desktop {
     type Handle: Clone;
@@ -60,7 +67,8 @@ pub(crate) trait Desktop {
     fn windows(&mut self) -> Result<Vec<OsWindow<Self::Handle>>, String>;
     /// Whatever has focus now, so it can be given back.
     fn focus(&mut self) -> Result<Self::Focus, String>;
-    fn foreground_title(&mut self) -> Result<Option<String>, String>;
+    /// The window that has keyboard focus, and the process it belongs to.
+    fn foreground(&mut self) -> Result<Option<Foreground>, String>;
     fn activate(&mut self, window: &Self::Handle) -> Result<(), String>;
     fn type_digits(&mut self, digits: &str) -> Result<(), String>;
     fn press_enter(&mut self) -> Result<(), String>;
@@ -115,13 +123,13 @@ fn current<D: Desktop>(desktop: &mut D) -> Result<Vec<OsWindow<D::Handle>>, Stri
 }
 
 /// The slip form, when TOM is ready to take a code there.
-fn ready_slip<D: Desktop>(desktop: &mut D) -> Result<D::Handle, String> {
+fn ready_slip<D: Desktop>(desktop: &mut D) -> Result<OsWindow<D::Handle>, String> {
     let windows = current(desktop)?;
     if find(&windows, ERROR).is_some() {
         return Err(SHOWING_ERROR.into());
     }
     find(&windows, SLIP)
-        .map(|w| w.handle.clone())
+        .cloned()
         .ok_or_else(|| OPEN_SLIP.into())
 }
 
@@ -138,22 +146,27 @@ fn wait_until(timing: Timing, mut done: impl FnMut() -> bool) -> bool {
     }
 }
 
-fn foreground_is<D: Desktop>(desktop: &mut D, title: &str) -> bool {
-    desktop.foreground_title().ok().flatten().as_deref() == Some(title)
+/// The focused window is this one of TOM's: same title and same process, so
+/// a look-alike window in another app never receives a code.
+fn foreground_is<D: Desktop, H>(desktop: &mut D, window: &OsWindow<H>) -> bool {
+    let Ok(Some(focused)) = desktop.foreground() else {
+        return false;
+    };
+    focused.title == window.title && focused.pid.is_some() && focused.pid == window.pid
 }
 
 fn bring_forward<D: Desktop>(
     desktop: &mut D,
     timing: Timing,
-    window: &D::Handle,
-    title: &str,
+    window: &OsWindow<D::Handle>,
 ) -> Result<(), String> {
-    desktop.activate(window)?;
-    if wait_until(timing, || foreground_is(desktop, title)) {
+    desktop.activate(&window.handle)?;
+    if wait_until(timing, || foreground_is(desktop, window)) {
         Ok(())
     } else {
         Err(format!(
-            "TOM's \"{title}\" window could not be brought to the front, so nothing was typed."
+            "TOM's \"{}\" window could not be brought to the front, so nothing was typed.",
+            window.title
         ))
     }
 }
@@ -211,11 +224,15 @@ fn send<D: Desktop>(desktop: &mut D, timing: Timing, code: &str) -> SubmitResult
     }
 }
 
-fn type_code<D: Desktop>(desktop: &mut D, timing: Timing, code: &str) -> Result<D::Handle, String> {
+fn type_code<D: Desktop>(
+    desktop: &mut D,
+    timing: Timing,
+    code: &str,
+) -> Result<OsWindow<D::Handle>, String> {
     let slip = ready_slip(desktop)?;
-    bring_forward(desktop, timing, &slip, SLIP)?;
+    bring_forward(desktop, timing, &slip)?;
     desktop.type_digits(code)?;
-    if !foreground_is(desktop, SLIP) {
+    if !foreground_is(desktop, &slip) {
         return Err(format!(
             "Focus left {SLIP} while typing, so Enter was not pressed. Clear the Result Code field in TOM."
         ));
@@ -228,14 +245,14 @@ fn outcome<D: Desktop>(
     desktop: &mut D,
     timing: Timing,
     code: &str,
-    slip: &D::Handle,
+    slip: &OsWindow<D::Handle>,
 ) -> SubmitResult {
     thread::sleep(timing.settle);
     let windows = match desktop.windows().map(tom_windows) {
         Ok(windows) => windows,
         Err(reason) => return SubmitResult::uncertain(code, unseen(&reason)),
     };
-    let Some(error) = find(&windows, ERROR).map(|w| w.handle.clone()) else {
+    let Some(error) = find(&windows, ERROR).cloned() else {
         return seen_without_error(code, &windows);
     };
     match dismiss(desktop, timing, &error, slip) {
@@ -270,10 +287,10 @@ fn seen_without_error<H>(code: &str, windows: &[OsWindow<H>]) -> SubmitResult {
 fn dismiss<D: Desktop>(
     desktop: &mut D,
     timing: Timing,
-    error: &D::Handle,
-    slip: &D::Handle,
+    error: &OsWindow<D::Handle>,
+    slip: &OsWindow<D::Handle>,
 ) -> Result<(), String> {
-    bring_forward(desktop, timing, error, ERROR)?;
+    bring_forward(desktop, timing, error)?;
     desktop.press_enter()?;
     let closed = wait_until(timing, || {
         desktop
@@ -284,7 +301,7 @@ fn dismiss<D: Desktop>(
     if !closed {
         return Err(SHOWING_ERROR.into());
     }
-    bring_forward(desktop, timing, slip, SLIP)
+    bring_forward(desktop, timing, slip)
 }
 
 pub(crate) fn save<D: Desktop>(desktop: &mut D, timing: Timing) -> SaveResult {
@@ -296,8 +313,7 @@ pub(crate) fn save<D: Desktop>(desktop: &mut D, timing: Timing) -> SaveResult {
         Err(reason) => return SaveResult::not_ready(reason),
     };
     let focus = desktop.focus().ok();
-    let saved = bring_forward(desktop, timing, &main.handle, &main.title)
-        .and_then(|()| desktop.press_save());
+    let saved = bring_forward(desktop, timing, &main).and_then(|()| desktop.press_save());
     thread::sleep(timing.settle);
     if let Some(focus) = focus {
         let _ = desktop.restore(focus);
