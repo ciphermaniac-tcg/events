@@ -70,10 +70,12 @@
   font-size: var(--text-base);
 }
 /* Sign out reads as one of the links, underline and all. */
-.tm-acct-menu a:hover,
-.tm-acct-menu button:hover {
-  background: var(--bg);
-  text-decoration: underline;
+@media (hover: hover) {
+  .tm-acct-menu a:hover,
+  .tm-acct-menu button:hover {
+    background: var(--bg);
+    text-decoration: underline;
+  }
 }
 @media (pointer: coarse) {
   .tm-acct-menu a,
