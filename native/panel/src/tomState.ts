@@ -34,11 +34,11 @@ export function createTomState() {
     await refresh();
   }
 
-  /** Without a known location, takes the one the app finds on its own. */
+  /** Without a known location, takes the first TOM the app finds on its own. */
   async function start() {
     setMode(await tom.getMode());
-    if (!(await tom.status()).path) {
-      const found = await tom.detect();
+    if (!(await tom.status()).tomPath) {
+      const [found] = await tom.detect();
       if (found) {
         await tom.setPath(found);
       }
@@ -55,7 +55,7 @@ export function createTomState() {
     status,
     mode,
     error,
-    launch: () => run(() => tom.launch()),
+    launch: () => run(async () => setStatus(await tom.launch())),
     locate: () =>
       run(async () => {
         const path = await pickFile();
@@ -65,8 +65,7 @@ export function createTomState() {
       }),
     choose: (next: TomMode) =>
       run(async () => {
-        await tom.setMode(next);
-        setMode(next);
+        setMode(await tom.setMode(next));
       })
   };
 }

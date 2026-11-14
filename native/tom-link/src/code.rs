@@ -150,6 +150,25 @@ pub(crate) fn entry(
 mod tests {
     use super::*;
 
+    /// The entries the panel and the site build (shared/tournament/slipCodes.ts)
+    /// send `flight` as null when the code has none.
+    #[test]
+    fn reads_entries_as_the_webview_sends_them() {
+        let sent = r#"[
+            {"pod":2,"flight":null,"round":1,"table":3,"outcome":1,"code":"210319"},
+            {"pod":2,"flight":2,"round":1,"table":30,"outcome":2,"code":"2213023"}
+        ]"#;
+        let entries: Vec<Entry> = serde_json::from_str(sent).expect("the webview's entries");
+        assert_eq!(
+            entries,
+            [
+                entry(2, None, 1, 3, 1, "210319"),
+                entry(2, Some(2), 1, 30, 2, "2213023"),
+            ]
+        );
+        assert!(entries.iter().all(|entry| vet(entry).is_ok()));
+    }
+
     #[test]
     fn accepts_codes_tom_printed_with_their_layout() {
         let printed = [
