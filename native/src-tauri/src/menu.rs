@@ -1,8 +1,10 @@
 //! The menu bar: the standard menus plus the app's own commands, which act
 //! on the main window. Settings, Back, Forward, Reload and the Go menu move
-//! within the site as its own links do; Feedback opens the main site in the
-//! browser. "TOM Link…" (`tom.rs`) sits under Settings in the Mac's app menu
+//! within the site as its own links do; the zoom commands scale the page;
+//! Feedback opens the main site in the browser. "TOM Link…" (`tom.rs`) sits under Settings in the Mac's app menu
 //! and in the Window menu elsewhere, where File holds Settings.
+
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use tauri::{
     AppHandle, Manager, Runtime, Url,
@@ -24,8 +26,32 @@ enum Action {
     Back,
     Forward,
     Reload,
+    Zoom(Zoom),
     /// A page outside the app, in the browser.
     Outside(&'static str),
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Zoom {
+    In,
+    Out,
+    Reset,
+}
+
+/// The page's zoom levels, as a browser steps through them.
+const ZOOM_LEVELS: &[f64] = &[0.5, 0.67, 0.75, 0.8, 0.9, 1.0, 1.1, 1.25, 1.5, 1.75, 2.0];
+const ACTUAL_SIZE: usize = 5;
+
+/// The main window's zoom, as an index into `ZOOM_LEVELS`.
+static ZOOM_LEVEL: AtomicUsize = AtomicUsize::new(ACTUAL_SIZE);
+
+/// The level a zoom command goes to from `level`, staying within the range.
+fn zoomed(level: usize, zoom: Zoom) -> usize {
+    match zoom {
+        Zoom::In => (level + 1).min(ZOOM_LEVELS.len() - 1),
+        Zoom::Out => level.saturating_sub(1),
+        Zoom::Reset => ACTUAL_SIZE,
+    }
 }
 
 const COMMANDS: &[Command] = &[
@@ -44,6 +70,18 @@ const COMMANDS: &[Command] = &[
     Command {
         id: "reload",
         action: Action::Reload,
+    },
+    Command {
+        id: "zoom_in",
+        action: Action::Zoom(Zoom::In),
+    },
+    Command {
+        id: "zoom_out",
+        action: Action::Zoom(Zoom::Out),
+    },
+    Command {
+        id: "actual_size",
+        action: Action::Zoom(Zoom::Reset),
     },
     Command {
         id: "home",
@@ -152,6 +190,15 @@ fn view_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<tauri::menu::Subme
     SubmenuBuilder::new(app, "View")
         .item(&item(app, "reload", "Reload", Some("CmdOrCtrl+R"))?)
         .separator()
+        .item(&item(
+            app,
+            "actual_size",
+            "Actual Size",
+            Some("CmdOrCtrl+0"),
+        )?)
+        .item(&item(app, "zoom_in", "Zoom In", Some("CmdOrCtrl+="))?)
+        .item(&item(app, "zoom_out", "Zoom Out", Some("CmdOrCtrl+-"))?)
+        .separator()
         .fullscreen()
         .build()
 }
@@ -243,6 +290,11 @@ fn run<R: Runtime>(app: &AppHandle<R>, action: Action) {
         Action::Back => window.eval("history.back()"),
         Action::Forward => window.eval("history.forward()"),
         Action::Reload => window.reload(),
+        Action::Zoom(zoom) => {
+            let level = zoomed(ZOOM_LEVEL.load(Ordering::Relaxed), zoom);
+            ZOOM_LEVEL.store(level, Ordering::Relaxed);
+            window.set_zoom(ZOOM_LEVELS[level])
+        }
         Action::Outside(page) => {
             if let Ok(url) = Url::parse(page) {
                 shell::open_outside(app, &url);
@@ -264,7 +316,7 @@ pub fn on_event<R: Runtime>(app: &AppHandle<R>, event: &MenuEvent) {
 
 #[cfg(test)]
 mod tests {
-    use super::{Action, action_of, follow_script};
+    use super::{ACTUAL_SIZE, Action, ZOOM_LEVELS, Zoom, action_of, follow_script, zoomed};
 
     #[test]
     fn maps_each_command_to_what_it_does() {
@@ -283,5 +335,17 @@ mod tests {
         let script = follow_script("/settings");
         assert!(script.contains(r#"link.href = "/settings""#));
         assert!(script.contains("link.click()"));
+    }
+
+    #[test]
+    fn zooms_a_step_at_a_time_within_the_range() {
+        assert!((ZOOM_LEVELS[ACTUAL_SIZE] - 1.0).abs() < f64::EPSILON);
+        assert_eq!(zoomed(ACTUAL_SIZE, Zoom::In), ACTUAL_SIZE + 1);
+        assert_eq!(zoomed(ACTUAL_SIZE, Zoom::Out), ACTUAL_SIZE - 1);
+        let largest = ZOOM_LEVELS.len() - 1;
+        assert_eq!(zoomed(largest, Zoom::In), largest);
+        assert_eq!(zoomed(0, Zoom::Out), 0);
+        assert_eq!(zoomed(largest, Zoom::Reset), ACTUAL_SIZE);
+        assert_eq!(action_of("zoom_in"), Some(Action::Zoom(Zoom::In)));
     }
 }
