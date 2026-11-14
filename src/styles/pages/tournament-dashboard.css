@@ -34,9 +34,11 @@
   cursor: pointer;
   transition: color var(--ms-fast);
 }
-.tm-dash-tabs :is(button, .tm-dash-link):hover {
-  color: var(--fg);
-  text-decoration: none;
+@media (hover: hover) {
+  .tm-dash-tabs :is(button, .tm-dash-link):hover {
+    color: var(--fg);
+    text-decoration: none;
+  }
 }
 /* The site's tab mark (components.css .tabs), at the page's own size. */
 .tm-dash-tabs button[aria-selected='true'] {

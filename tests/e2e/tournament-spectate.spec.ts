@@ -628,6 +628,17 @@ test('a pairing row a touch screen leaves under the finger is not tinted as if c
   await expect(row).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
 });
 
+test('a footer link a touch screen leaves under the finger keeps its color @mobileOnly', async ({ page }) => {
+  await mockApi(page, VIEW);
+  await page.goto(`/t/${CODE}`);
+  await page.addStyleTag({ content: '* { transition: none !important; }' });
+  const link = page.locator('.site-footer-links a').first();
+  const color = await link.evaluate(el => getComputedStyle(el).color);
+  // A phone keeps :hover on what was last tapped; stand in for that with the pointer.
+  await link.hover();
+  await expect(link).toHaveCSS('color', color);
+});
+
 test('a phone’s player sheet shows an opponent’s name longer than its column whole @mobile', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 640 });
   const [player] = tdf.players;
