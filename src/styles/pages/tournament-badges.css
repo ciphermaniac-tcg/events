@@ -57,9 +57,13 @@
   cursor: default;
   transition: background var(--ms-fast) var(--ease-base);
 }
-.info-tip.tm-badge:hover,
 .info-tip.tm-badge.open {
   background: var(--surface-2);
+}
+@media (hover: hover) {
+  .info-tip.tm-badge:hover {
+    background: var(--surface-2);
+  }
 }
 .info-tip.tm-badge:focus-visible {
   outline: var(--focus-width) solid var(--focus-color);
@@ -94,10 +98,15 @@
   font-size: var(--text-sm);
   cursor: pointer;
 }
-.tm-badge-more > button:hover,
 .tm-badge-more > button[aria-expanded='true'] {
   background: var(--surface-2);
   color: var(--fg);
+}
+@media (hover: hover) {
+  .tm-badge-more > button:hover {
+    background: var(--surface-2);
+    color: var(--fg);
+  }
 }
 .tm-badge-more > button:focus-visible {
   outline: var(--focus-width) solid var(--focus-color);

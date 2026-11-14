@@ -52,8 +52,10 @@ body.tm-stream-mode {
   text-decoration-color: color-mix(in srgb, currentColor 40%, transparent);
   text-underline-offset: 3px;
 }
-.tm-page .hero-meta a:hover {
-  text-decoration-color: currentColor;
+@media (hover: hover) {
+  .tm-page .hero-meta a:hover {
+    text-decoration-color: currentColor;
+  }
 }
 .tm-page .tabs {
   margin-bottom: var(--space-3);
@@ -224,8 +226,13 @@ body.tm-stream-mode {
   font-size: var(--text-base);
   font-weight: 500;
 }
-.tm-page .data tbody tr:is(:hover, :has(:focus-visible)) .btn-ghost {
+.tm-page .data tbody tr:has(:focus-visible) .btn-ghost {
   color: var(--fg);
+}
+@media (hover: hover) {
+  .tm-page .data tbody tr:hover .btn-ghost {
+    color: var(--fg);
+  }
 }
 .tm-page .tm-box-bar .btn-ghost {
   font-weight: 500;
@@ -337,8 +344,10 @@ body.tm-stream-mode {
   letter-spacing: 0.25px;
   white-space: nowrap;
 }
-.tm-sso:hover {
-  text-decoration: none;
+@media (hover: hover) {
+  .tm-sso:hover {
+    text-decoration: none;
+  }
 }
 .tm-sso svg {
   flex: none;
@@ -350,16 +359,20 @@ body.tm-stream-mode {
   color: #1f1f1f;
   border: 1px solid #747775;
 }
-.tm-sso-google:hover {
-  background: color-mix(in srgb, #303030 8%, #fff);
+@media (hover: hover) {
+  .tm-sso-google:hover {
+    background: color-mix(in srgb, #303030 8%, #fff);
+  }
 }
 body[data-mode='dark'] .tm-sso-google {
   background: #131314;
   color: #e3e3e3;
   border-color: #8e918f;
 }
-body[data-mode='dark'] .tm-sso-google:hover {
-  background: color-mix(in srgb, #e3e3e3 8%, #131314);
+@media (hover: hover) {
+  body[data-mode='dark'] .tm-sso-google:hover {
+    background: color-mix(in srgb, #e3e3e3 8%, #131314);
+  }
 }
 @media (prefers-color-scheme: dark) {
   body:not([data-mode]) .tm-sso-google {
@@ -373,9 +386,11 @@ body[data-mode='dark'] .tm-sso-google:hover {
   color: #fff;
   border: 1px solid #5865f2;
 }
-.tm-sso-discord:hover {
-  background: #4752c4;
-  border-color: #4752c4;
+@media (hover: hover) {
+  .tm-sso-discord:hover {
+    background: #4752c4;
+    border-color: #4752c4;
+  }
 }
 .tm-sso-discord svg {
   width: 20px;
@@ -421,8 +436,10 @@ body[data-mode='dark'] .tm-sso-google:hover {
   color: var(--fg);
   cursor: pointer;
 }
-.tm-signin-other:hover {
-  background: color-mix(in srgb, var(--fg) 6%, transparent);
+@media (hover: hover) {
+  .tm-signin-other:hover {
+    background: color-mix(in srgb, var(--fg) 6%, transparent);
+  }
 }
 .tm-signin-reveal {
   display: grid;
@@ -538,8 +555,13 @@ body[data-mode='dark'] .tm-sso-google:hover {
   left: auto;
   transform: translateY(-2px);
 }
-.info-tip.tm-tip-below:is(:hover, :focus-visible, .open) .info-tip-bubble {
+.info-tip.tm-tip-below:is(:focus-visible, .open) .info-tip-bubble {
   transform: translateX(var(--tip-shift, 0px));
+}
+@media (hover: hover) {
+  .info-tip.tm-tip-below:hover .info-tip-bubble {
+    transform: translateX(var(--tip-shift, 0px));
+  }
 }
 .info-tip.tm-tip-below .info-tip-bubble::after {
   top: auto;
@@ -577,9 +599,11 @@ body[data-mode='dark'] .tm-sso-google:hover {
 .tm-box .search {
   background: var(--bg);
 }
-.tm-input:hover,
-.tm-select:hover {
-  border-color: var(--fg);
+@media (hover: hover) {
+  .tm-input:hover,
+  .tm-select:hover {
+    border-color: var(--fg);
+  }
 }
 .tm-select {
   width: auto;
@@ -759,8 +783,10 @@ body[data-mode='dark'] :is(.tm-input, .tm-select) {
   text-align: left;
   color: var(--fg);
 }
-button.tm-seat-link:hover {
-  background: var(--surface-2);
+@media (hover: hover) {
+  button.tm-seat-link:hover {
+    background: var(--surface-2);
+  }
 }
 .tm-seat-link.is-winner {
   font-weight: 600;
@@ -917,8 +943,10 @@ button.tm-seat-link:hover {
   color: var(--fg);
   vertical-align: middle;
 }
-.tm-deck-link:hover {
-  color: var(--accent-ink);
+@media (hover: hover) {
+  .tm-deck-link:hover {
+    color: var(--accent-ink);
+  }
 }
 /* The deck stats: every name starts in line, however many sprites its deck has.
    The row, not the link, holds the 44px, so a focused link's ring stays inside the box. */
@@ -1174,18 +1202,14 @@ button.tm-seat-link:hover {
   color: var(--accent-ink);
   font-weight: 600;
 }
-.tm-accept:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+@media (hover: hover) {
+  .tm-accept:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+  }
 }
 /* A picked deck's name starts in one place, whether its deck has one sprite
    or two: the sprites sit centred in a fixed slot (the second selector
    outranks the picker's own two-sprite padding). */
-/* A tap leaves no hover tint behind on a touch screen. */
-@media (hover: none) {
-  .tm-page .tm-seat-link:hover {
-    background: transparent;
-  }
-}
 /* While a player sheet is open, the page behind it does not scroll along. */
 body:has(.tm-sheet) {
   overflow: hidden;
@@ -2044,9 +2068,13 @@ tr.is-in .tm-place {
   text-align: start;
   white-space: normal;
 }
-.tm-menu-item:hover,
 .tm-menu-item:focus-visible {
   background: var(--surface-2);
+}
+@media (hover: hover) {
+  .tm-menu-item:hover {
+    background: var(--surface-2);
+  }
 }
 
 /* ---------- Account ---------- */
@@ -2067,10 +2095,12 @@ tr.is-in .tm-place {
   flex: none;
   color: inherit;
 }
-.tm-trail a:hover {
-  color: var(--fg);
-  text-decoration: underline;
-  text-underline-offset: 3px;
+@media (hover: hover) {
+  .tm-trail a:hover {
+    color: var(--fg);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
 }
 .tm-trail-here {
   overflow: hidden;
@@ -2179,9 +2209,11 @@ tr.is-in .tm-place {
     background var(--ms-fast) var(--ease-base),
     color var(--ms-fast) var(--ease-base);
 }
-.tm-side-nav button:hover {
-  color: var(--fg);
-  background: var(--surface-2);
+@media (hover: hover) {
+  .tm-side-nav button:hover {
+    color: var(--fg);
+    background: var(--surface-2);
+  }
 }
 /* The section shown: raised in the box colour and set in weight, no edge. */
 .tm-side-nav button.is-on {

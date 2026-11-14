@@ -36,8 +36,10 @@
   color: var(--accent-ink);
   border-radius: var(--radius-sm);
 }
-.tm-profile-links a:hover {
-  background: var(--surface-2);
+@media (hover: hover) {
+  .tm-profile-links a:hover {
+    background: var(--surface-2);
+  }
 }
 .tm-social-icon {
   display: inline-block;
