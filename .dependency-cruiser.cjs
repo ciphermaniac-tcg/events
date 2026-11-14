@@ -18,7 +18,7 @@ module.exports = {
       severity: 'error',
       from: { path: '^shared/' },
       to: {
-        path: '^(src|functions|scripts|\\.github)/|node_modules/(solid-js|@solidjs|@aws-sdk)/'
+        path: '^(src|functions|scripts|native|\\.github)/|node_modules/(solid-js|@solidjs|@aws-sdk)/'
       }
     },
     {
@@ -32,6 +32,12 @@ module.exports = {
       severity: 'error',
       from: { path: '^src/' },
       to: { path: '^(functions|scripts|\\.github)/|^shared/data/hash\\.ts$', reachable: true }
+    },
+    {
+      name: 'panel-has-no-site',
+      severity: 'error',
+      from: { path: '^native/panel/' },
+      to: { path: '^(src|functions|scripts|\\.github)/', reachable: true }
     },
     {
       name: 'domain-has-no-ui',
