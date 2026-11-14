@@ -23,7 +23,7 @@ use tauri::{
 };
 use tauri_plugin_deep_link::DeepLinkExt;
 
-use crate::{pending, shell};
+use crate::{data_dir, pending, shell};
 
 /// Providers whose sign-in has to leave the webview. Discord's works inside.
 const BROWSER_PROVIDERS: &[&str] = &["google"];
@@ -140,10 +140,7 @@ fn challenge_of(verifier: &str) -> String {
 }
 
 fn pending_dir<R: Runtime>(app: &AppHandle<R>) -> Option<PathBuf> {
-    app.path()
-        .app_data_dir()
-        .ok()
-        .map(|dir| dir.join(PENDING_DIR))
+    data_dir::get(app).map(|dir| dir.join(PENDING_DIR))
 }
 
 fn keep_verifier<R: Runtime>(
@@ -282,16 +279,24 @@ fn follow_link<R: Runtime>(app: &AppHandle<R>, link: &Url) {
 }
 
 /// The link that launched the app, looked at once the main window has
-/// loaded: a cold start gets no event for it.
-fn hold_launch_link<R: Runtime>(app: &AppHandle<R>) {
+/// loaded: a cold start gets no event for it. Read on a thread of its own,
+/// since Android answers on the UI thread that reports the load, and its
+/// ticket posted from the page that loaded.
+fn hold_launch_link<R: Runtime>(webview: &Webview<R>, url: &Url) {
     if LAUNCH_LINK_SEEN.swap(true, Ordering::SeqCst) {
         return;
     }
-    if let Ok(Some(links)) = app.deep_link().get_current() {
-        for link in &links {
-            hold(app, link);
+    let webview = webview.clone();
+    let url = url.clone();
+    std::thread::spawn(move || {
+        let app = webview.app_handle();
+        if let Ok(Some(links)) = app.deep_link().get_current() {
+            for link in &links {
+                hold(app, link);
+            }
         }
-    }
+        submit_pending(&webview, &url);
+    });
 }
 
 /// Listens for the app's sign-in links, at launch and while it runs.
@@ -310,7 +315,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
         })
         .on_page_load(|webview, payload| {
             if payload.event() == PageLoadEvent::Finished && webview.label() == shell::MAIN_WINDOW {
-                hold_launch_link(webview.app_handle());
+                hold_launch_link(webview, payload.url());
                 submit_pending(webview, payload.url());
             }
         })
