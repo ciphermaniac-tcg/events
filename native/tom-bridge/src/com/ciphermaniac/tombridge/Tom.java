@@ -42,6 +42,7 @@ final class Tom {
    /** We ticked auto-save, so it is ours to untick: TOM keeps it for the whole session. */
    private boolean tickedAutosave;
    private ScheduledFuture<?> pendingFinish;
+   private final Stealth stealth = Stealth.install();
    private final ScheduledExecutorService closer = Executors.newSingleThreadScheduledExecutor(task -> {
       Thread thread = new Thread(task, BridgeProvider.NAME + "-closer");
       thread.setDaemon(true);
@@ -101,6 +102,8 @@ final class Tom {
          return new Json.Obj().str("result", "finished").toString();
       } catch (NotReady e) {
          return notReady(e.getMessage());
+      } finally {
+         stealth.arm(false);
       }
    }
 
@@ -331,7 +334,10 @@ final class Tom {
    }
 
    private void openSlipDialog() throws NotReady {
+      // Armed before the click, so the form is hidden from its first show.
+      stealth.arm(true);
       if (!Swing.onEdt(Tom::startOpening)) {
+         stealth.arm(openedSlip);
          return;
       }
       openedSlip = true;
