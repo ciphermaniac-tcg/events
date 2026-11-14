@@ -8,13 +8,11 @@
 //! site has to send it.
 
 use std::{
-    fs,
     path::PathBuf,
     sync::{
         Mutex,
         atomic::{AtomicBool, Ordering},
     },
-    time::Duration,
 };
 
 use sha2::{Digest, Sha256};
@@ -25,7 +23,7 @@ use tauri::{
 };
 use tauri_plugin_deep_link::DeepLinkExt;
 
-use crate::shell;
+use crate::{pending, shell};
 
 /// Providers whose sign-in has to leave the webview. Discord's works inside.
 const BROWSER_PROVIDERS: &[&str] = &["google"];
@@ -33,11 +31,8 @@ const LOGIN_PATH: &str = "/api/auth/login/";
 const REDEEM_PATH: &str = "/api/auth/redeem";
 const LINK_SCHEME: &str = "ciphermaniac-events";
 const LINK_HOST: &str = "auth";
-/// Where the verifier waits, so it outlives the app being closed while the
-/// browser has the screen (Android may do that).
-const VERIFIER_FILE: &str = "sign-in-verifier";
-/// As long as the site's sign-in state lasts in the browser.
-const VERIFIER_MAX_AGE: Duration = Duration::from_secs(10 * 60);
+/// Where the verifier waits, inside the app's data directory (`pending.rs`).
+const PENDING_DIR: &str = "sign-in";
 
 /// Whether the launch link has been looked at; the app does it once.
 static LAUNCH_LINK_SEEN: AtomicBool = AtomicBool::new(false);
@@ -130,34 +125,20 @@ fn challenge_of(verifier: &str) -> String {
     hex(&Sha256::digest(verifier.as_bytes()))
 }
 
-fn verifier_path<R: Runtime>(app: &AppHandle<R>) -> Option<PathBuf> {
+fn pending_dir<R: Runtime>(app: &AppHandle<R>) -> Option<PathBuf> {
     app.path()
         .app_data_dir()
         .ok()
-        .map(|dir| dir.join(VERIFIER_FILE))
+        .map(|dir| dir.join(PENDING_DIR))
 }
 
 fn keep_verifier<R: Runtime>(app: &AppHandle<R>, verifier: &str) -> std::io::Result<()> {
-    let path = verifier_path(app).ok_or(std::io::ErrorKind::NotFound)?;
-    if let Some(dir) = path.parent() {
-        fs::create_dir_all(dir)?;
-    }
-    fs::write(path, verifier)
+    let dir = pending_dir(app).ok_or(std::io::ErrorKind::NotFound)?;
+    pending::keep(&dir, verifier)
 }
 
-/// Takes the waiting verifier out, once; none when it is too old to use.
 fn take_verifier<R: Runtime>(app: &AppHandle<R>) -> Option<String> {
-    let path = verifier_path(app)?;
-    let fresh = fs::metadata(&path)
-        .and_then(|meta| meta.modified())
-        .ok()
-        .and_then(|at| at.elapsed().ok())
-        .is_some_and(|age| age < VERIFIER_MAX_AGE);
-    let verifier = fs::read_to_string(&path).ok();
-    if let Err(err) = fs::remove_file(&path) {
-        log::debug!("no sign-in verifier to remove: {err}");
-    }
-    verifier.filter(|_| fresh)
+    pending::take(&pending_dir(app)?)
 }
 
 /// Sends a login that has to leave the webview to the system browser, with
