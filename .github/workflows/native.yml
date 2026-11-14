@@ -4,6 +4,8 @@
 # Builds the Tauri app in native/ for macOS (universal DMG, ad-hoc signed),
 # Windows (NSIS installer) and Android (APK). Installers are uploaded as
 # workflow artifacts. A native-v* tag also drafts a GitHub prerelease.
+# `tauri build` builds the TOM panel and the TOM bridge jar first
+# (beforeBuildCommand in tauri.conf.json), so the desktop jobs need Java.
 #
 # Optional repository secrets:
 #   TAURI_SIGNING_PRIVATE_KEY, TAURI_SIGNING_PRIVATE_KEY_PASSWORD
@@ -45,21 +47,10 @@ jobs:
           node-version-file: .node-version
           cache: npm
           cache-dependency-path: native/package-lock.json
-      - if: hashFiles('native/tom-bridge/build.mjs') != ''
-        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880
         with:
           distribution: temurin
           java-version: '17'
-      - name: Build the TOM bridge and panel
-        run: |
-          if [ -f native/tom-bridge/build.mjs ]; then node native/tom-bridge/build.mjs; fi
-          if [ -f native/panel/package.json ]; then
-            npm ci --prefix native/panel
-            npm run build --prefix native/panel
-          else
-            mkdir -p native/panel/dist
-            echo '<!doctype html><title>TOM</title>' > native/panel/dist/index.html
-          fi
       - run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
       - run: npm ci --prefix native
       - name: Build
@@ -97,21 +88,10 @@ jobs:
           node-version-file: .node-version
           cache: npm
           cache-dependency-path: native/package-lock.json
-      - if: hashFiles('native/tom-bridge/build.mjs') != ''
-        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880
         with:
           distribution: temurin
           java-version: '17'
-      - name: Build the TOM bridge and panel
-        run: |
-          if [ -f native/tom-bridge/build.mjs ]; then node native/tom-bridge/build.mjs; fi
-          if [ -f native/panel/package.json ]; then
-            npm ci --prefix native/panel
-            npm run build --prefix native/panel
-          else
-            mkdir -p native/panel/dist
-            echo '<!doctype html><title>TOM</title>' > native/panel/dist/index.html
-          fi
       - run: npm ci --prefix native
       - name: Build
         working-directory: native

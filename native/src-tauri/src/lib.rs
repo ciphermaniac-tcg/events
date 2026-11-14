@@ -51,6 +51,8 @@ fn with_desktop(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<tauri::Wr
     builder
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
+        // Keeps the .tdf picked in the panel readable after a restart.
+        .plugin(tauri_plugin_persisted_scope::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
             tom::tom_detect,
