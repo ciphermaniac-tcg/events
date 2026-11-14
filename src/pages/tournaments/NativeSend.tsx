@@ -9,7 +9,7 @@
 import { Segmented } from '@ciphermaniac/design/components/Segmented';
 import { createSignal, onMount, Show } from 'solid-js';
 import type { SubmitResult, TomMode } from '../../../shared/native/tomCommands';
-import { matchSlips, resultCode } from '../../../shared/tournament/slipCodes';
+import { matchSlips, resultEntry } from '../../../shared/tournament/slipCodes';
 import type { Tournament } from '../../../shared/tournament/types';
 import type { PendingResult } from '../../../shared/tournament/view';
 import { nativeTom } from '../../lib/native/bridge';
@@ -21,14 +21,17 @@ const MODES: { value: TomMode; label: string }[] = [
   { value: 'keys', label: msg('Speed Match typing') }
 ];
 
-const reason = (result: SubmitResult | undefined): string => {
+function reason(result: SubmitResult | undefined): string {
   if (result?.status === 'rejected') {
     return result.message;
   }
+  if (result?.status === 'uncertain') {
+    return t('TOM may have it, check before sending again');
+  }
   return result?.status === 'not_ready' ? result.reason : t('No match slip');
-};
+}
 
-/** How many TOM took, and why the first of the rest was not. */
+/** How many TOM took, and why the first of the rest was not: a batch stops there. */
 function summary(results: readonly SubmitResult[], total: number): string {
   const taken = results.filter(result => result.status === 'accepted').length;
   const sent = tn(taken, '{n} result sent to TOM', '{n} results sent to TOM');
@@ -50,10 +53,10 @@ export function NativeSend(props: { tournament: Tournament; pending: readonly Pe
 
   async function send() {
     const slips = matchSlips(props.tournament);
-    const codes = props.pending.flatMap(result => resultCode(slips, result) ?? []);
+    const entries = props.pending.flatMap(result => resultEntry(slips, result) ?? []);
     setSending(true);
     try {
-      setSaid(summary(await tom.submit(codes), props.pending.length));
+      setSaid(summary(await tom.submit(entries), props.pending.length));
     } catch (err) {
       fail(err);
     } finally {
