@@ -11,6 +11,14 @@
  * A ticket is random and stored hashed, works once, and only with the
  * verifier whose hash it was minted for: another app that catches the link
  * holds the ticket but not the verifier.
+ *
+ * Adding a provider to an account is bound to the session that asked. The
+ * browser holds no session of the app's, so before it opens the browser the
+ * app has a page of the site fetch the link's binding (`linkBinding`, at
+ * /api/auth/link-binding): an HMAC of the challenge keyed by that session's
+ * hash, which never leaves the site. The binding rides through the browser
+ * into the ticket, and the redeem recomputes it from the session posting:
+ * a session other than the one that asked, or none, adds nothing.
  */
 
 import type { D1Like } from '../types.js';
@@ -27,6 +35,8 @@ export interface AppSignIn {
   profile: Profile;
   next: string;
   linking: boolean;
+  /** For a link, the binding of the session that asked for it. */
+  binding?: string | null;
 }
 
 /**
@@ -37,17 +47,34 @@ export interface AppSignIn {
 export interface AppStart {
   challenge: string;
   attempt: string;
+  /** A link's binding to the session that asked for it; null when none came. */
+  binding: string | null;
 }
 
-const isHex = (value: string | null | undefined, length: number): value is string =>
+const isHex = (value: unknown, length: number): value is string =>
   typeof value === 'string' && value.length === length && /^[0-9a-f]+$/.test(value);
 
-/** The app's start as it sends it, or null when either part is missing or malformed. */
+/** A challenge as the app sends it: the hex SHA-256 of its verifier. */
+export const isChallenge = (value: unknown): value is string => isHex(value, 64);
+
+/** The app's start as it sends it, or null when the challenge or attempt is missing or malformed. */
 export function readAppStart(
   challenge: string | null | undefined,
-  attempt: string | null | undefined
+  attempt: string | null | undefined,
+  binding: string | null | undefined
 ): AppStart | null {
-  return isHex(challenge, 64) && isHex(attempt, 32) ? { challenge, attempt } : null;
+  if (!isChallenge(challenge) || !isHex(attempt, 32)) {
+    return null;
+  }
+  return { challenge, attempt, binding: isHex(binding, 64) ? binding : null };
+}
+
+/** Binds a link to the session whose token hashes to `session`: an HMAC of the challenge, in hex. */
+export async function linkBinding(session: string, challenge: string): Promise<string> {
+  const encode = (value: string) => new TextEncoder().encode(value);
+  const key = await crypto.subtle.importKey('raw', encode(session), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const mac = new Uint8Array(await crypto.subtle.sign('HMAC', key, encode(challenge)));
+  return [...mac].map(byte => byte.toString(16).padStart(2, '0')).join('');
 }
 
 /** Deletes every ticket that ran out. Each mint, each redeem and the idle sweep run it. */
@@ -61,8 +88,8 @@ export async function mintTicket(db: D1Like, signIn: AppSignIn, challenge: strin
     sweepTickets(db, now),
     db
       .prepare(
-        'INSERT INTO app_sign_in_tickets (ticket_hash, challenge, profile, next, linking, expires_at) ' +
-          'VALUES (?, ?, ?, ?, ?, ?)'
+        'INSERT INTO app_sign_in_tickets (ticket_hash, challenge, profile, next, linking, binding, expires_at) ' +
+          'VALUES (?, ?, ?, ?, ?, ?, ?)'
       )
       .bind(
         await sha256(ticket),
@@ -70,6 +97,7 @@ export async function mintTicket(db: D1Like, signIn: AppSignIn, challenge: strin
         JSON.stringify(signIn.profile),
         signIn.next,
         signIn.linking ? 1 : 0,
+        signIn.binding ?? null,
         now + TICKET_SECONDS * 1000
       )
   ]);
@@ -81,6 +109,7 @@ interface TicketRow {
   profile: string;
   next: string;
   linking: number;
+  binding: string | null;
 }
 
 function readSignIn(row: TicketRow): AppSignIn | null {
@@ -94,28 +123,44 @@ function readSignIn(row: TicketRow): AppSignIn | null {
   }
 }
 
+/** What the app's webview posts to redeem: the ticket, its verifier, and the hash of the session posting, if any. */
+interface Redemption {
+  ticket: string;
+  verifier: string;
+  session: string | null;
+}
+
+/** Whether a link was asked for by the session redeeming it; a sign-in needs no session. */
+async function boundHere(row: TicketRow, session: string | null): Promise<boolean> {
+  if (row.linking !== 1) {
+    return true;
+  }
+  return session !== null && row.binding !== null && sameDigest(row.binding, await linkBinding(session, row.challenge));
+}
+
 /**
  * Takes the ticket out, once, whatever the verifier: a wrong one uses it up
  * too, so a caught ticket cannot be tried twice. Null when there is none, it
- * ran out, or the verifier is not the one it was minted for.
+ * ran out, the verifier is not the one it was minted for, or it is a link
+ * the redeeming session did not ask for.
  */
 export async function redeemTicket(
   db: D1Like,
-  ticket: string,
-  verifier: string,
+  { ticket, verifier, session }: Redemption,
   now = Date.now()
 ): Promise<AppSignIn | null> {
   const [taken] = await db.batch([
     db
       .prepare(
         'DELETE FROM app_sign_in_tickets WHERE ticket_hash = ? AND expires_at > ? ' +
-          'RETURNING challenge, profile, next, linking'
+          'RETURNING challenge, profile, next, linking, binding'
       )
       .bind(await sha256(ticket), now),
     sweepTickets(db, now)
   ]);
   const row = (taken?.results as TicketRow[] | undefined)?.[0];
-  return row && sameDigest(row.challenge, await sha256(verifier)) ? readSignIn(row) : null;
+  const valid = row && sameDigest(row.challenge, await sha256(verifier)) && (await boundHere(row, session));
+  return valid ? readSignIn(row) : null;
 }
 
 /**

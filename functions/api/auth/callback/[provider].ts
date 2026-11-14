@@ -22,11 +22,11 @@ type StartedHere = Started & { app: AppStart | null };
 
 /** The `next` path the login started with, when the callback's state matches it. */
 function startedHere(request: Request, state: string | null): StartedHere | null {
-  const [expected, next, intent, challenge, attempt] = (readCookie(request, OAUTH_COOKIE) ?? '').split(' ');
+  const [expected, next, intent, challenge, attempt, binding] = (readCookie(request, OAUTH_COOKIE) ?? '').split(' ');
   if (!state || !expected || state !== expected) {
     return null;
   }
-  return { next: safeNext(next ?? null), linking: intent === 'link', app: readAppStart(challenge, attempt) };
+  return { next: safeNext(next ?? null), linking: intent === 'link', app: readAppStart(challenge, attempt, binding) };
 }
 
 /** Ends the sign-in here, or for the app: a ticket the browser hands it. */
@@ -36,7 +36,8 @@ async function finish(db: D1Like, request: Request, profile: Profile, started: S
   if (!app) {
     return finishSignIn(db, request, profile, { ...rest, cookies });
   }
-  return returnToApp(await mintTicket(db, { profile, ...rest }, app.challenge), app.attempt, cookies);
+  const ticket = await mintTicket(db, { profile, ...rest, binding: app.binding }, app.challenge);
+  return returnToApp(ticket, app.attempt, cookies);
 }
 
 export async function onRequestGet({ request, env, params }: Context<'provider'>): Promise<Response> {

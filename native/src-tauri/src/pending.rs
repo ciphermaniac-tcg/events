@@ -116,24 +116,31 @@ pub fn keep(dir: &Path, attempt: &str, verifier: &str) -> io::Result<()> {
     create_private_file(&path)?.write_all(verifier.as_bytes())
 }
 
-/// Takes the verifier of `attempt` out of `dir`, once; none when there is
-/// none, it is too old, or it is a link rather than the file kept.
-pub fn take(dir: &Path, attempt: &str) -> Option<String> {
+/// The verifier of `attempt` in `dir`, left there; none when there is none,
+/// it is too old, or it is a link rather than the file kept.
+pub fn peek(dir: &Path, attempt: &str) -> Option<String> {
     if !is_attempt(attempt) {
         return None;
     }
     let path = dir.join(attempt);
     let meta = fs::symlink_metadata(&path).ok()?;
-    let verifier = (meta.is_file() && is_fresh(&meta))
+    (meta.is_file() && is_fresh(&meta))
         .then(|| fs::read_to_string(&path).ok())
-        .flatten();
-    remove(&path);
+        .flatten()
+}
+
+/// Takes the verifier of `attempt` out of `dir`, once, as `peek` finds it.
+pub fn take(dir: &Path, attempt: &str) -> Option<String> {
+    let verifier = peek(dir, attempt);
+    if is_attempt(attempt) {
+        remove(&dir.join(attempt));
+    }
     verifier
 }
 
 #[cfg(test)]
 pub(crate) mod tests {
-    use super::{is_attempt, keep, take};
+    use super::{is_attempt, keep, peek, take};
     use std::{fs, path::PathBuf};
 
     /// A fresh directory of the test's own under the system's temporary one.
@@ -155,6 +162,16 @@ pub(crate) mod tests {
         keep(&dir, FIRST, "first").unwrap();
         assert_eq!(take(&dir, FIRST).as_deref(), Some("first"));
         assert_eq!(take(&dir, FIRST), None);
+    }
+
+    #[test]
+    fn a_look_leaves_the_attempt_waiting() {
+        let dir = scratch("peek").join("sign-in");
+        keep(&dir, FIRST, "first").unwrap();
+        assert_eq!(peek(&dir, FIRST).as_deref(), Some("first"));
+        assert_eq!(peek(&dir, SECOND), None);
+        assert_eq!(take(&dir, FIRST).as_deref(), Some("first"));
+        assert_eq!(peek(&dir, FIRST), None);
     }
 
     #[test]
