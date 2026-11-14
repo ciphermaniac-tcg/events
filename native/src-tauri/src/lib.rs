@@ -12,6 +12,8 @@ mod downloads;
 mod last_page;
 #[cfg(any(target_os = "macos", test))]
 mod mac_controls;
+#[cfg(target_os = "macos")]
+mod mac_dock;
 #[cfg(any(target_os = "macos", test))]
 mod mac_sheets;
 #[cfg(any(target_os = "macos", test))]
@@ -65,9 +67,20 @@ pub fn run() {
             }
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while building tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app, event| on_run_event(app, &event));
 }
+
+/// The app's events while it runs: on the Mac, the Dock icon clicked
+/// (`mac_dock.rs`).
+#[cfg(target_os = "macos")]
+fn on_run_event(app: &tauri::AppHandle, event: &tauri::RunEvent) {
+    mac_dock::on_run_event(app, event);
+}
+
+#[cfg(not(target_os = "macos"))]
+fn on_run_event(_app: &tauri::AppHandle, _event: &tauri::RunEvent) {}
 
 /// What a desktop app has: one running at a time (opening a sign-in link or
 /// the app again brings the running one forward and hands it the link, so
@@ -89,12 +102,7 @@ fn with_desktop_shell(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<tau
 #[cfg(desktop)]
 fn with_single_instance(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<tauri::Wry> {
     builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
-        use tauri::Manager;
-        if let Some(window) = app.get_webview_window(shell::MAIN_WINDOW)
-            && let Err(err) = window.set_focus()
-        {
-            log::debug!("could not bring the app forward: {err}");
-        }
+        shell::reveal_main_window(app);
     }))
 }
 

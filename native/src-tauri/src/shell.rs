@@ -137,15 +137,38 @@ fn record_load<R: Runtime>(webview: &Webview<R>, payload: &PageLoadPayload<'_>) 
     }
 }
 
+/// Whether the main window has been shown since launch.
+#[cfg(desktop)]
+static SHOWN: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
 /// Shows the main window, which stays hidden until its first page has
-/// loaded rather than flash an empty white window.
+/// loaded rather than flash an empty white window. Only the first time: a
+/// window closed to the Dock on the Mac (`mac_dock.rs`) stays hidden
+/// through the page loads after.
 #[cfg(desktop)]
 fn show_main_window<R: Runtime>(app: &AppHandle<R>) {
+    if SHOWN.swap(true, std::sync::atomic::Ordering::Relaxed) {
+        return;
+    }
     if let Some(window) = app.get_webview_window(MAIN_WINDOW)
-        && !window.is_visible().unwrap_or(true)
         && let Err(err) = window.show()
     {
         log::warn!("could not show the window: {err}");
+    }
+}
+
+/// Brings the main window back and forward when it is hidden or minimized.
+#[cfg(desktop)]
+pub fn reveal_main_window<R: Runtime>(app: &AppHandle<R>) {
+    let Some(window) = app.get_webview_window(MAIN_WINDOW) else {
+        return;
+    };
+    let shown = window
+        .show()
+        .and_then(|()| window.unminimize())
+        .and_then(|()| window.set_focus());
+    if let Err(err) = shown {
+        log::warn!("could not bring the window back: {err}");
     }
 }
 
@@ -256,13 +279,16 @@ pub fn create_main_window<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
 }
 
 /// What the desktop window needs once it exists: the appearance chosen, and
-/// the page color for it behind the page (`appearance.rs`), Windows'
+/// the page color for it behind the page (`appearance.rs`), on the Mac
+/// hiding to the Dock when closed (`mac_dock.rs`), Windows'
 /// webview hooks (`webview2.rs`) and title bar (`title_bar.rs`), the app's
 /// offline page on Linux (`offline.rs`; Windows' is among its webview
 /// hooks), and showing it anyway if its first page is slow.
 #[cfg(desktop)]
 fn desktop_window_built<R: Runtime>(window: &tauri::WebviewWindow<R>) {
     crate::appearance::setup(window);
+    #[cfg(target_os = "macos")]
+    crate::mac_dock::hide_on_close(window);
     #[cfg(windows)]
     {
         crate::webview2::setup(window);

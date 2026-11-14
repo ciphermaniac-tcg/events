@@ -318,6 +318,10 @@ fn run<R: Runtime>(app: &AppHandle<R>, action: Action) {
     let Some(window) = app.get_webview_window(shell::MAIN_WINDOW) else {
         return;
     };
+    // A window closed to the Dock (`mac_dock.rs`) comes back for its commands.
+    if !window.is_visible().unwrap_or(true) {
+        shell::reveal_main_window(app);
+    }
     let done = match action {
         Action::Page(path) => {
             go_to(app, path);
