@@ -10,7 +10,8 @@
 //! that callback opened nothing. A request that still arrives through the
 //! callback (Cmd-click, `window.open`) is opened after it returns.
 //!
-//! The window is named for its event ("Collectibles Corner Locals · Big
+//! It takes the appearance chosen in View > Appearance, as the main window
+//! does (`appearance.rs`). The window is named for its event ("Collectibles Corner Locals · Big
 //! Screen"), from the page's title, so it can be told apart in Mission
 //! Control and the Window menu.
 
@@ -19,7 +20,7 @@ use tauri::{AppHandle, Manager, Runtime, Url, WebviewUrl, WebviewWindowBuilder};
 use crate::shell;
 
 /// The big screen's own window.
-const SCREEN_WINDOW: &str = "screen";
+pub const SCREEN_WINDOW: &str = "screen";
 
 const SCREEN_TITLE: &str = "Big Screen";
 
@@ -90,6 +91,7 @@ fn open<R: Runtime>(app: &AppHandle<R>, url: &Url) -> tauri::Result<()> {
         .inner_size(1280.0, 720.0)
         .min_inner_size(640.0, 360.0)
         .initialization_script(crate::app_style::script())
+        .initialization_script(crate::appearance::page_script(app))
         .on_document_title_changed(|window, title| {
             if let Err(err) = window.set_title(&window_title(&title)) {
                 log::debug!("could not title the big screen: {err}");
@@ -97,7 +99,9 @@ fn open<R: Runtime>(app: &AppHandle<R>, url: &Url) -> tauri::Result<()> {
         });
     #[cfg(target_os = "macos")]
     let builder = builder.allow_link_preview(false);
-    builder.build().map(drop)
+    let window = builder.build()?;
+    crate::appearance::follow(&window);
+    Ok(())
 }
 
 /// Opens the big screen once the webview's new-window callback has
