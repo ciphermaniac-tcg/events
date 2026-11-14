@@ -304,6 +304,9 @@
   font-size: var(--text-xs);
   font-weight: 500;
 }
+.tm-clock-tom {
+  color: var(--negative);
+}
 .tm-console-steps .tm-clock-caption {
   margin-left: calc(var(--space-3) - var(--space-4));
 }
