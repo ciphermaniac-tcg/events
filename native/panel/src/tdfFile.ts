@@ -6,6 +6,7 @@
 
 import { open } from '@tauri-apps/plugin-dialog';
 import { readTextFile, stat } from '@tauri-apps/plugin-fs';
+import { type FileIo, follow } from './follow';
 
 const POLL_MS = 2000;
 const REMEMBERED = 'tom-panel-tdf';
@@ -43,34 +44,20 @@ export function rememberTdf(path: string | null) {
   }
 }
 
-/**
- * Calls `take` with the file's text now and after every save. A save `take`
- * throws on (TOM caught halfway through writing) is read again next time.
- * Returns what stops following it.
- */
+const tauriIo: FileIo = {
+  modified: async path => (await stat(path)).mtime?.getTime() ?? 0,
+  read: readTextFile
+};
+
+/** Follows a file every two seconds (see follow.ts); returns what stops following it. */
 export function followFile(path: string, take: (text: string) => void, fail: (err: unknown) => void): () => void {
-  let seen: number | null = null;
-  let busy = false;
-  const look = async () => {
-    if (busy) {
-      return;
-    }
-    busy = true;
-    try {
-      const modified = (await stat(path)).mtime?.getTime() ?? 0;
-      if (modified !== seen) {
-        take(await readTextFile(path));
-        seen = modified;
-      }
-    } catch (err) {
-      fail(err);
-    } finally {
-      busy = false;
-    }
+  const following = follow(path, tauriIo, take, fail);
+  void following.look();
+  const timer = setInterval(() => void following.look(), POLL_MS);
+  return () => {
+    clearInterval(timer);
+    following.stop();
   };
-  void look();
-  const timer = setInterval(() => void look(), POLL_MS);
-  return () => clearInterval(timer);
 }
 
 /** The file's name, without its folders. */
