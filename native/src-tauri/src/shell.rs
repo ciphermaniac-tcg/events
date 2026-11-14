@@ -1,6 +1,6 @@
 //! Keeps the app on the event site. Links to anywhere else open in the
 //! system browser, and so does Google sign-in, which refuses embedded
-//! webviews (see `sign_in.rs`). A navigation stopped while a page is still
+//! webviews (see `sign_in.rs`); on Android it opens in a Custom Tab. A navigation stopped while a page is still
 //! loading takes the webview back to the last page that loaded, so it is
 //! never left blank.
 
@@ -73,6 +73,15 @@ pub fn open_outside<R: Runtime>(app: &AppHandle<R>, url: &Url) {
     if let Err(err) = app.opener().open_url(url.as_str(), None::<&str>) {
         log::warn!("could not open {url} in the system browser: {err}");
     }
+}
+
+/// Opens a sign-in that has to leave the webview: in a Custom Tab over the
+/// app on Android, which closes back into the app, else in the system browser.
+pub fn open_sign_in<R: Runtime>(webview: &Webview<R>, url: &Url) {
+    #[cfg(target_os = "android")]
+    crate::android::open_sign_in(webview, url);
+    #[cfg(not(target_os = "android"))]
+    open_outside(webview.app_handle(), url);
 }
 
 /// The site's address the main window opens on.

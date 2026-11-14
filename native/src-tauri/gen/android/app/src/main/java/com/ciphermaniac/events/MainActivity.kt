@@ -49,6 +49,12 @@ class MainActivity : TauriActivity() {
     back.refresh()
   }
 
+  /** Called from Rust (shell.rs) with a sign-in that has to leave the webview. */
+  @Keep
+  fun openSignIn(url: String) {
+    SignInTab.open(this, url)
+  }
+
   override fun onWebViewCreate(webView: WebView) {
     this.webView = webView
     bars.attach()
