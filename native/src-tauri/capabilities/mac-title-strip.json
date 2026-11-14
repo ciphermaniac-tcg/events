@@ -1,0 +1,21 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "mac-title-strip",
+  "description": "On the Mac, the live site's head bar is the window's title strip: it may move the window and act on a double click, and nothing else.",
+  "windows": [
+    "main"
+  ],
+  "local": false,
+  "remote": {
+    "urls": [
+      "https://events.ciphermaniac.com/*"
+    ]
+  },
+  "platforms": [
+    "macOS"
+  ],
+  "permissions": [
+    "core:window:allow-start-dragging",
+    "title-strip"
+  ]
+}
