@@ -132,6 +132,25 @@ test('deletes an unreported round, not a reported one', () => {
   assert.match(attempt(reportAll(t), { type: 'deleteRound', pod: 'masters' }), /Clear this round/);
 });
 
+test('deleting round 1 reopens registration: players join on time and pods follow the new field', () => {
+  let t = run(withPlayers(8), { type: 'pairRound', pod: 'masters' }, { type: 'deleteRound', pod: 'masters' });
+  t = run(t, { type: 'addPlayer', player: { firstName: 'On', lastName: 'Time', id: '900', birthDate: '01/01/1990' } });
+  assert.equal(t.players.find(p => p.id === '900')?.late, undefined, 'no round was played, so nobody is late');
+  const kids: Command[] = Array.from({ length: 6 }, (_, i) => ({
+    type: 'addPlayer',
+    player: { firstName: 'Kid', lastName: String(i + 1), id: String(300 + i), birthDate: '01/01/2016' }
+  }));
+  t = run(t, ...kids, { type: 'pairRound', pod: 'masters' });
+  assert.deepEqual(
+    t.pods.map(p => [p.category, p.playerIds.length, p.rounds.length]),
+    [
+      ['junior', 6, 1],
+      ['senior-masters', 9, 1]
+    ]
+  );
+  assert.ok(t.players.every(p => p.starter && !p.late));
+});
+
 test('a player added mid-event is tagged late, and is known by the round they missed', () => {
   let t = run(withPlayers(4), { type: 'pairRound', pod: 'masters' });
   t = run(t, { type: 'addPlayer', player: { firstName: 'Late', lastName: 'Comer', id: '999' } });

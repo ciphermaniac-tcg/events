@@ -249,7 +249,7 @@ function legacyChange(t: Tournament, command: Command, ctx: CommandContext): Com
   if (!result.ok || !result.tournament.settings) {
     return result;
   }
-  const next = result.tournament;
+  const next = command.type === 'deleteRound' ? unstarted(result.tournament) : result.tournament;
   const settings = { ...next.settings! };
   if (command.type === 'setFixedTable' && command.table !== null) {
     settings.autoTables = false;
@@ -274,6 +274,15 @@ function legacyChange(t: Tournament, command: Command, ctx: CommandContext): Com
     };
   });
   return { ok: true, tournament: { ...next, settings, pods } };
+}
+
+/** With its last round deleted, an event is back in registration, as before round 1 was paired. */
+function unstarted(t: Tournament): Tournament {
+  if (t.pods.some(pod => pod.rounds.length)) {
+    return t;
+  }
+  const { startedAt: _startedAt, ...rest } = t;
+  return { ...rest, settings: { ...t.settings!, stage: 3 } };
 }
 
 function registrationPods(t: Tournament, next: Tournament): Tournament['pods'] {
