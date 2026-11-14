@@ -7,10 +7,11 @@
 //! stop drawing light in dark mode. On desktop, controls get the arrow
 //! cursor, as on the Mac. On a phone, taps don't flash the webview's
 //! highlight, and links and images raise no callout. Text is set in the
-//! system's font (`system_font.rs`), and a held control dims rather than
-//! shrinks (`press.rs`). Only the site's own pages get it, and the site
-//! served to browsers is untouched.
+//! system's font (`system_font.rs`), a held control dims rather than
+//! shrinks (`press.rs`), and the footer is hidden (`footer.rs`). Only the
+//! site's own pages get it, and the site served to browsers is untouched.
 
+mod footer;
 mod press;
 mod system_font;
 
@@ -37,11 +38,25 @@ const PLATFORM: &str = "\
 :root { -webkit-tap-highlight-color: transparent; } \
 a, img { -webkit-touch-callout: none; }";
 
+/// What each platform runs besides: on a phone, the footer's links in the
+/// account menu, as there is no menu bar to hold them.
+#[cfg(desktop)]
+const PLATFORM_SCRIPT: &str = "";
+#[cfg(mobile)]
+const PLATFORM_SCRIPT: &str = footer::ACCOUNT_MENU_LINKS;
+
 const SITE_HOST: &str = "events.ciphermaniac.com";
 
 /// Every rule the app adds to the site.
 fn rules() -> String {
-    [SELECTION, PLATFORM, press::CSS, &system_font::css()].join(" ")
+    [
+        SELECTION,
+        PLATFORM,
+        footer::CSS,
+        press::CSS,
+        &system_font::css(),
+    ]
+    .join(" ")
 }
 
 /// The script each page of the main window runs first.
@@ -53,7 +68,8 @@ pub fn script() -> String {
          style.textContent = {rules}; document.head.append(style); \
          document.documentElement.classList.add('in-app'); }}; \
          if (document.readyState === 'loading') {{ \
-         document.addEventListener('DOMContentLoaded', add, {{ once: true }}); }} else {{ add(); }} }})();"
+         document.addEventListener('DOMContentLoaded', add, {{ once: true }}); }} else {{ add(); }} \
+         {PLATFORM_SCRIPT} }})();"
     )
 }
 
