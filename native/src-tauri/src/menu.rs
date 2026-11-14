@@ -1,7 +1,7 @@
 //! The menu bar: the standard menus plus the app's own commands, which act
 //! on the main window. Settings, Back, Forward, Reload and the Go menu move
 //! within the site as its own links do; the zoom commands scale the page;
-//! Feedback opens the main site in the browser. "TOM Link…" (`tom.rs`) sits under Settings in the Mac's app menu
+//! View > Appearance picks light or dark (`appearance.rs`); Feedback opens the main site in the browser. "TOM Link…" (`tom.rs`) sits under Settings in the Mac's app menu
 //! and in the Window menu elsewhere, where File holds Settings.
 
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -11,7 +11,7 @@ use tauri::{
     menu::{Menu, MenuBuilder, MenuEvent, MenuItemBuilder, SubmenuBuilder},
 };
 
-use crate::{shell, tom};
+use crate::{appearance, shell, tom};
 
 /// An app command: its menu id and what it does.
 struct Command {
@@ -199,6 +199,8 @@ fn view_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<tauri::menu::Subme
         .item(&item(app, "zoom_in", "Zoom In", Some("CmdOrCtrl+="))?)
         .item(&item(app, "zoom_out", "Zoom Out", Some("CmdOrCtrl+-"))?)
         .separator()
+        .item(&appearance::submenu(app)?)
+        .separator()
         .fullscreen()
         .build()
 }
@@ -309,7 +311,11 @@ fn run<R: Runtime>(app: &AppHandle<R>, action: Action) {
 
 /// Runs the app's own menu commands; the standard ones run themselves.
 pub fn on_event<R: Runtime>(app: &AppHandle<R>, event: &MenuEvent) {
-    if let Some(action) = action_of(event.id().as_ref()) {
+    let id = event.id().as_ref();
+    if appearance::on_menu_event(app, id) {
+        return;
+    }
+    if let Some(action) = action_of(id) {
         run(app, action);
     }
 }
