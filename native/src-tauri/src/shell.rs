@@ -130,6 +130,10 @@ fn record_load<R: Runtime>(webview: &Webview<R>, payload: &PageLoadPayload<'_>) 
     if webview.label() == MAIN_WINDOW {
         crate::android::page_load(webview, payload.event());
     }
+    #[cfg(desktop)]
+    if payload.event() == PageLoadEvent::Finished {
+        crate::appearance::on_page_loaded(webview, payload.url());
+    }
     if payload.event() == PageLoadEvent::Finished && webview.label() == MAIN_WINDOW {
         last_page::remember(webview.app_handle(), payload.url());
         #[cfg(desktop)]

@@ -11,7 +11,9 @@
 //! The choice is kept in the app's data directory and read when the window
 //! is made, which is when a page script is fixed. A change during the run
 //! is also kept in the page's session storage, which outlasts reloads but
-//! not the run, so pages loaded after it take it.
+//! not the run, so pages loaded after it take it. A site page that finishes
+//! loading is given the current choice again, so one made while the window
+//! was away from the site (a sign-in) reaches the page it comes back to.
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(
@@ -71,14 +73,14 @@ pub fn script(chosen: Appearance) -> String {
 }
 
 #[cfg(desktop)]
-pub use desktop::{on_menu_event, page_script, setup, submenu};
+pub use desktop::{on_menu_event, on_page_loaded, page_script, setup, submenu};
 
 #[cfg(desktop)]
 mod desktop {
     use std::{fs, path::PathBuf};
 
     use tauri::{
-        AppHandle, Manager, Runtime, Theme, WebviewWindow,
+        AppHandle, Manager, Runtime, Theme, Url, Webview, WebviewWindow,
         menu::{CheckMenuItem, CheckMenuItemBuilder, Submenu, SubmenuBuilder},
     };
 
@@ -197,6 +199,14 @@ mod desktop {
         super::script(load(app))
     }
 
+    /// The call that applies `chosen` on a page with the page script.
+    fn apply_call(chosen: Appearance) -> String {
+        format!(
+            "window.__cmAppearance && window.__cmAppearance('{}');",
+            chosen.key()
+        )
+    }
+
     fn apply<R: Runtime>(app: &AppHandle<R>, chosen: Appearance) {
         save(app, chosen);
         check(app, chosen);
@@ -204,11 +214,23 @@ mod desktop {
             return;
         };
         set_window_theme(&window, chosen);
-        let call = format!(
-            "window.__cmAppearance && window.__cmAppearance('{}');",
-            chosen.key()
-        );
-        if let Err(err) = window.eval(call) {
+        if let Err(err) = window.eval(apply_call(chosen)) {
+            log::debug!("could not apply the appearance: {err}");
+        }
+    }
+
+    /// Whether a page that finished loading takes the current choice: a page
+    /// of the site in a window with the page script.
+    pub(super) fn takes_appearance(label: &str, url: &Url) -> bool {
+        label == shell::MAIN_WINDOW && url.host_str().is_some_and(shell::is_site_host)
+    }
+
+    /// Gives a site page that finished loading the current choice.
+    pub fn on_page_loaded<R: Runtime>(webview: &Webview<R>, url: &Url) {
+        if !takes_appearance(webview.label(), url) {
+            return;
+        }
+        if let Err(err) = webview.eval(apply_call(load(webview.app_handle()))) {
             log::debug!("could not apply the appearance: {err}");
         }
     }
@@ -226,6 +248,26 @@ mod desktop {
 #[cfg(test)]
 mod tests {
     use super::{Appearance, script};
+
+    #[cfg(desktop)]
+    #[test]
+    fn gives_the_current_choice_to_a_site_page_coming_back() {
+        use super::desktop::takes_appearance;
+        use tauri::Url;
+        let page = |url: &str| Url::parse(url).unwrap();
+        assert!(takes_appearance(
+            "main",
+            &page("https://events.ciphermaniac.com/host")
+        ));
+        assert!(!takes_appearance(
+            "main",
+            &page("https://discord.com/oauth2/authorize")
+        ));
+        assert!(!takes_appearance(
+            "tom",
+            &page("https://events.ciphermaniac.com/")
+        ));
+    }
 
     #[test]
     fn reads_only_the_three_choices() {
