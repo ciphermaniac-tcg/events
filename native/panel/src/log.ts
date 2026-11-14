@@ -1,11 +1,11 @@
 /**
- * Sending codes to TOM, one batch at a time, and what came of each. TOM
- * overwrites a result without asking, so nothing else is sent while a batch
- * is under way.
+ * What the panel sends TOM, one request at a time, and what came of each.
+ * TOM overwrites a result without asking, so nothing else is sent while a
+ * request is under way.
  */
 
 import { createSignal } from 'solid-js';
-import type { SubmitResult } from '../../../shared/native/tomCommands';
+import { startRoundTrouble, type SubmitResult } from '../../../shared/native/tomCommands';
 import { errorText, tom } from './tom';
 
 const KEPT = 30;
@@ -23,14 +23,17 @@ export interface LogEntry extends Send {
   ok: boolean;
 }
 
-function describe(result: SubmitResult | undefined): string {
+type Outcome = Pick<LogEntry, 'result' | 'ok'>;
+
+function describe(result: SubmitResult | undefined): Outcome {
   if (!result) {
-    return 'No answer';
+    return { result: 'No answer', ok: false };
   }
   if (result.status === 'accepted') {
-    return 'Accepted';
+    return { result: 'Accepted', ok: true };
   }
-  return result.status === 'rejected' ? `Rejected: ${result.message}` : `Not ready: ${result.reason}`;
+  const why = result.status === 'rejected' ? `Rejected: ${result.message}` : `Not ready: ${result.reason}`;
+  return { result: why, ok: false };
 }
 
 export function createLog() {
@@ -38,28 +41,41 @@ export function createLog() {
   const [busy, setBusy] = createSignal(false);
   let next = 0;
 
-  const add = (items: readonly Send[], result: (i: number) => { text: string; ok: boolean }) => {
+  const add = (items: readonly (Send & Outcome)[]) => {
     const at = Date.now();
-    const added = items.map((item, i) => ({ ...item, id: next++, at, result: result(i).text, ok: result(i).ok }));
+    const added = items.map(item => ({ ...item, id: next++, at }));
     setEntries(old => [...added.reverse(), ...old].slice(0, KEPT));
   };
 
-  async function send(items: readonly Send[]) {
+  /** Runs one request unless another is under way; a failure is logged for `items`. */
+  async function one(items: readonly Send[], request: () => Promise<Outcome[]>) {
     if (busy() || items.length === 0) {
       return;
     }
     setBusy(true);
     try {
-      const results = await tom.submit(items.map(item => item.code));
-      add(items, i => ({ text: describe(results[i]), ok: results[i]?.status === 'accepted' }));
+      const outcomes = await request();
+      add(items.map((item, i) => ({ ...item, ...(outcomes[i] ?? describe(undefined)) })));
     } catch (err) {
-      add(items, () => ({ text: errorText(err), ok: false }));
+      add(items.map(item => ({ ...item, result: errorText(err), ok: false })));
     } finally {
       setBusy(false);
     }
   }
 
-  return { entries, busy, send };
+  return {
+    entries,
+    busy,
+    send: (items: readonly Send[]) =>
+      one(items, async () => (await tom.submit(items.map(item => item.code))).map(describe)),
+    /** Starts a pod's round in TOM, named by its category code. */
+    startRound: (category: number, what: string) =>
+      one([{ code: '', what }], async () => {
+        const result = await tom.startRound(category);
+        const trouble = startRoundTrouble(result);
+        return [{ result: trouble ?? (result.status === 'started' ? 'Started' : 'Already started'), ok: !trouble }];
+      })
+  };
 }
 
 export type Log = ReturnType<typeof createLog>;
