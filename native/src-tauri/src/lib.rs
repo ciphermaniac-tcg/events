@@ -1,6 +1,7 @@
 #[cfg(target_os = "android")]
 mod android;
 mod app_style;
+mod appearance;
 #[cfg(any(windows, test))]
 mod context_menu;
 mod data_dir;
