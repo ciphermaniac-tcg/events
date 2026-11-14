@@ -4,19 +4,40 @@
  * code is exchanged and the account found, or a provider added to the
  * signed-in one. A sign-in with no account behind it yet (or one made before
  * accounts asked a birth date) makes none here: it waits for the age check at
- * /welcome (see lib/auth/signup.ts).
+ * /welcome (see lib/auth/signup.ts). A sign-in the native app started in the
+ * system browser ends in neither here: the browser hands the app a ticket
+ * for it instead (lib/auth/appTicket.ts).
  */
 
+import { isChallenge, mintTicket, returnToApp } from '../../../lib/auth/appTicket.js';
 import { clearCookie, OAUTH_COOKIE, readCookie, redirectWithCookies, safeNext } from '../../../lib/auth/cookies.js';
 import { type Context, param } from '../../../lib/auth/env.js';
 import { finishSignIn, type Started } from '../../../lib/auth/finish.js';
-import { exchangeCode, isRedirectProvider } from '../../../lib/auth/oauth.js';
+import { exchangeCode, isRedirectProvider, type Profile } from '../../../lib/auth/oauth.js';
 import { jsonError } from '../../../lib/api/responses.js';
+import type { D1Like } from '../../../lib/types.js';
+
+/** How the login started, when the callback's state matches it; `challenge` when the app started it. */
+type StartedHere = Started & { challenge: string | null };
 
 /** The `next` path the login started with, when the callback's state matches it. */
-function startedHere(request: Request, state: string | null): Started | null {
-  const [expected, next, intent] = (readCookie(request, OAUTH_COOKIE) ?? '').split(' ');
-  return state && expected && state === expected ? { next: safeNext(next ?? null), linking: intent === 'link' } : null;
+function startedHere(request: Request, state: string | null): StartedHere | null {
+  const [expected, next, intent, challenge] = (readCookie(request, OAUTH_COOKIE) ?? '').split(' ');
+  if (!state || !expected || state !== expected) {
+    return null;
+  }
+  const app = challenge ?? null;
+  return { next: safeNext(next ?? null), linking: intent === 'link', challenge: isChallenge(app) ? app : null };
+}
+
+/** Ends the sign-in here, or for the app: a ticket the browser hands it. */
+async function finish(db: D1Like, request: Request, profile: Profile, started: StartedHere): Promise<Response> {
+  const { challenge, ...rest } = started;
+  const cookies = [clearCookie(request, OAUTH_COOKIE)];
+  if (!challenge) {
+    return finishSignIn(db, request, profile, { ...rest, cookies });
+  }
+  return returnToApp(await mintTicket(db, { profile, ...rest }, challenge), cookies);
 }
 
 export async function onRequestGet({ request, env, params }: Context<'provider'>): Promise<Response> {
@@ -32,10 +53,7 @@ export async function onRequestGet({ request, env, params }: Context<'provider'>
   }
   try {
     const profile = await exchangeCode({ env, request, provider, code });
-    return await finishSignIn(env.TOURNAMENT_DB, request, profile, {
-      ...started,
-      cookies: [clearCookie(request, OAUTH_COOKIE)]
-    });
+    return await finish(env.TOURNAMENT_DB, request, profile, started);
   } catch (error) {
     console.error('Sign-in failed', error instanceof Error ? error.message : 'Unknown error');
     return redirectWithCookies('/settings?signin=failed', [clearCookie(request, OAUTH_COOKIE)]);

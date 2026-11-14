@@ -7,6 +7,11 @@
  * `?name=`, born on `?birth=` (YYYY-MM-DD; a grown-up's date when absent, and
  * refused when it is too young for an account), or with `?gate=1` waits at the age check as
  * a provider's new sign-up does.
+ *
+ * With `app=1&challenge=` the native app has opened this in the system
+ * browser (lib/auth/appTicket.ts): the challenge rides along in the state
+ * cookie, and a link waits to check the account until the app redeems, as
+ * the browser holds no session of the app's.
  */
 
 import { birthYearOfDate, oldEnoughForAccount } from '../../../../shared/accounts/age.js';
@@ -20,6 +25,7 @@ import {
   SIGNUP_COOKIE
 } from '../../../lib/auth/cookies.js';
 import { type Context, param } from '../../../lib/auth/env.js';
+import { isChallenge } from '../../../lib/auth/appTicket.js';
 import { authorizeUrl, devLoginEnabled, devProfile, isRedirectProvider } from '../../../lib/auth/oauth.js';
 import { createSession, currentUser, randomToken, SESSION_SECONDS, upsertUser } from '../../../lib/auth/session.js';
 import { holdSignup, SIGNUP_SECONDS } from '../../../lib/auth/signup.js';
@@ -52,17 +58,36 @@ async function devSignIn({ request, env }: Context<'provider'>, next: string): P
   return redirectWithCookies(next, [cookie(request, SESSION_COOKIE, token, SESSION_SECONDS)]);
 }
 
+/** The app's challenge; null for a browser's own sign-in, and undefined when the app sent none to use. */
+function appChallenge(query: URLSearchParams): string | null | undefined {
+  if (query.get('app') !== '1') {
+    return null;
+  }
+  const challenge = query.get('challenge');
+  return isChallenge(challenge) ? challenge : undefined;
+}
+
+/** Whether a link may start here: the browser's own needs its session, the app's is checked as it redeems. */
+async function mayLink({ env, request }: Context<'provider'>, app: boolean): Promise<boolean> {
+  return app || (env.TOURNAMENT_DB !== undefined && (await currentUser(env.TOURNAMENT_DB, request)) !== null);
+}
+
 export async function onRequestGet(context: Context<'provider'>): Promise<Response> {
   const provider = param(context.params.provider);
-  const next = safeNext(new URL(context.request.url).searchParams.get('next'));
+  const query = new URL(context.request.url).searchParams;
+  const next = safeNext(query.get('next'));
   if (!isRedirectProvider(provider)) {
     return jsonError('Unknown sign-in provider', 404);
   }
   if (provider === 'dev') {
     return devSignIn(context, next);
   }
-  const linking = new URL(context.request.url).searchParams.get('link') === '1';
-  if (linking && (!context.env.TOURNAMENT_DB || !(await currentUser(context.env.TOURNAMENT_DB, context.request)))) {
+  const challenge = appChallenge(query);
+  if (challenge === undefined) {
+    return jsonError('The app sent no challenge', 400);
+  }
+  const linking = query.get('link') === '1';
+  if (linking && !(await mayLink(context, challenge !== null))) {
     return jsonError('Sign in first', 401);
   }
   const state = randomToken(16);
@@ -70,7 +95,6 @@ export async function onRequestGet(context: Context<'provider'>): Promise<Respon
   if (!url) {
     return jsonError(`${provider} sign-in is not configured`, 503);
   }
-  return redirectWithCookies(url, [
-    cookie(context.request, OAUTH_COOKIE, `${state} ${next} ${linking ? 'link' : 'login'}`, STATE_SECONDS)
-  ]);
+  const started = [state, next, linking ? 'link' : 'login', ...(challenge ? [challenge] : [])].join(' ');
+  return redirectWithCookies(url, [cookie(context.request, OAUTH_COOKIE, started, STATE_SECONDS)]);
 }
