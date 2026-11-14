@@ -7,7 +7,7 @@
 pub const CSS: &str = ".site-footer { display: none !important; }";
 
 /// Copies the footer's Terms, Privacy and Feedback into the account menu,
-/// above Sign out. A copy closes the menu as the menu's own links do, by
+/// above Sign out. It watches the document, as the page has no root yet. A copy closes the menu as the menu's own links do, by
 /// its button; the site's router follows it as it does every link.
 #[cfg(any(mobile, test))]
 pub const ACCOUNT_MENU_LINKS: &str = "\
@@ -20,7 +20,7 @@ for (const link of document.querySelectorAll('.site-footer-links a')) { if (!isK
 const copy = link.cloneNode(true); copy.dataset.appLink = ''; \
 copy.addEventListener('click', () => document.querySelector('.site-head .tm-acct-button')?.click()); \
 menu.insertBefore(copy, before); } }; \
-new MutationObserver(fill).observe(document.documentElement, { childList: true, subtree: true });";
+new MutationObserver(fill).observe(document, { childList: true, subtree: true });";
 
 #[cfg(test)]
 mod tests {
