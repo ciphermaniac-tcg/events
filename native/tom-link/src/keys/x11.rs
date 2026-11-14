@@ -13,7 +13,7 @@ use x11rb::rust_connection::RustConnection;
 use x11rb::wrapper::ConnectionExt as _;
 use x11rb::{CURRENT_TIME, NONE};
 
-use super::{Desktop, OsWindow};
+use super::{Desktop, Foreground, OsWindow};
 
 const POINTER_ROOT: Window = 1;
 const KEY_PRESS: u8 = 2;
@@ -93,6 +93,11 @@ impl Platform {
             .or_else(|| self.property(window, AtomEnum::WM_NAME.into(), AtomEnum::STRING))
             .map(|bytes| String::from_utf8_lossy(&bytes).into_owned())
             .filter(|title| !title.is_empty())
+    }
+
+    fn pid(&self, window: Window) -> Option<u32> {
+        self.cardinals(window, self.atoms.wm_pid, AtomEnum::CARDINAL)
+            .and_then(|list| list.first().copied())
     }
 
     fn viewable(&self, window: Window) -> bool {
@@ -258,9 +263,7 @@ impl Desktop for Platform {
             .filter(|&window| self.viewable(window))
             .filter_map(|window| {
                 let title = self.title(window)?;
-                let pid = self
-                    .cardinals(window, self.atoms.wm_pid, AtomEnum::CARDINAL)
-                    .and_then(|list| list.first().copied());
+                let pid = self.pid(window);
                 Some(OsWindow {
                     handle: window,
                     title,
@@ -275,8 +278,14 @@ impl Desktop for Platform {
             .ok_or_else(|| x_error("the input focus is unknown"))
     }
 
-    fn foreground_title(&mut self) -> Result<Option<String>, String> {
-        Ok(self.focused().and_then(|window| self.title(window)))
+    fn foreground(&mut self) -> Result<Option<Foreground>, String> {
+        Ok(self.focused().and_then(|window| {
+            let title = self.title(window)?;
+            Some(Foreground {
+                title,
+                pid: self.pid(window),
+            })
+        }))
     }
 
     fn activate(&mut self, window: &Window) -> Result<(), String> {

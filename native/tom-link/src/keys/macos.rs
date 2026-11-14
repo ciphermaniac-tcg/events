@@ -20,7 +20,7 @@ use core_graphics::event::{CGEvent, CGEventFlags, CGEventTapLocation, CGKeyCode}
 use core_graphics::event_source::{CGEventSource, CGEventSourceStateID};
 use libc::pid_t;
 
-use super::{Desktop, OsWindow};
+use super::{Desktop, Foreground, OsWindow};
 
 const FULL_NAME: &str = "Tournament Operations Manager";
 const KEYPAD_DIGITS: [CGKeyCode; 10] = [82, 83, 84, 85, 86, 87, 88, 89, 91, 92];
@@ -249,10 +249,15 @@ impl Desktop for Platform {
             .ok_or_else(|| NO_ACCESS.into())
     }
 
-    fn foreground_title(&mut self) -> Result<Option<String>, String> {
-        Ok(Self::focused_app()
-            .and_then(|app| app.element("AXFocusedWindow"))
-            .and_then(|w| w.title()))
+    fn foreground(&mut self) -> Result<Option<Foreground>, String> {
+        let Some(app) = Self::focused_app() else {
+            return Ok(None);
+        };
+        let pid = app.pid().and_then(|pid| u32::try_from(pid).ok());
+        Ok(app
+            .element("AXFocusedWindow")
+            .and_then(|window| window.title())
+            .map(|title| Foreground { title, pid }))
     }
 
     fn activate(&mut self, window: &Element) -> Result<(), String> {

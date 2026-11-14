@@ -24,6 +24,8 @@ struct FakeTom {
     after_enter: AfterEnter,
     /// The window list can no longer be read.
     blind: bool,
+    /// Another app's window, titled like TOM's, has focus and keeps it.
+    impostor_focused: bool,
 }
 
 #[derive(Default, Clone, Copy)]
@@ -48,6 +50,17 @@ impl FakeTom {
             foreground: "Notes".to_owned(),
             ..Self::default()
         }
+    }
+
+    /// The process of the window with this title; an impostor's when one is focused.
+    fn pid_of(&self, title: &str) -> Option<u32> {
+        if self.impostor_focused {
+            return Some(99);
+        }
+        self.windows
+            .iter()
+            .find(|(t, _)| t == title)
+            .map(|(_, pid)| *pid)
     }
 
     fn remove(&mut self, title: &str) {
@@ -89,8 +102,12 @@ impl Desktop for FakeTom {
         Ok(self.foreground.clone())
     }
 
-    fn foreground_title(&mut self) -> Result<Option<String>, String> {
-        Ok(Some(self.foreground.clone()))
+    fn foreground(&mut self) -> Result<Option<Foreground>, String> {
+        let pid = self.pid_of(&self.foreground);
+        Ok(Some(Foreground {
+            title: self.foreground.clone(),
+            pid,
+        }))
     }
 
     fn activate(&mut self, window: &String) -> Result<(), String> {
@@ -279,4 +296,19 @@ fn reports_uncertain_when_toms_answer_cannot_be_seen() {
         );
         assert_eq!(tom.recorded.len(), 1, "only the first code was sent");
     }
+}
+
+#[test]
+fn types_nothing_into_a_look_alike_window_from_another_app() {
+    let mut tom = FakeTom::with(&[MAIN, SLIP]);
+    tom.stuck = true;
+    tom.foreground = SLIP.to_owned();
+    tom.impostor_focused = true;
+    let results = submit(&mut tom, fast(), &codes(&["21113"]));
+    assert!(
+        results[0]
+            .reason()
+            .is_some_and(|r| r.contains("could not be brought to the front"))
+    );
+    assert_eq!(tom.keys_in, Vec::<String>::new());
 }
