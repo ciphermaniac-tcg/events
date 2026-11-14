@@ -3,8 +3,9 @@
  * ran in the system browser (lib/auth/appTicket.ts). The app posts the
  * ticket and its verifier as a form from a page of this site. The ticket
  * works once, within its minute, and only with the verifier its challenge
- * came from; then the sign-in ends as any other does, into this webview's
- * cookies: a session, the age check, or a link to its account.
+ * came from, and a link only from the session that asked for it; then the
+ * sign-in ends as any other does, into this webview's cookies: a session,
+ * the age check, or a link to its account.
  *
  * The post must carry this site's Origin. A ticket and verifier are both
  * known to whoever started the sign-in, so another site posting its own
@@ -16,6 +17,7 @@ import { redeemTicket } from '../../lib/auth/appTicket.js';
 import { redirectWithCookies } from '../../lib/auth/cookies.js';
 import type { Context } from '../../lib/auth/env.js';
 import { finishSignIn } from '../../lib/auth/finish.js';
+import { sessionHash } from '../../lib/auth/session.js';
 import { jsonError } from '../../lib/api/responses.js';
 
 const failed = () => redirectWithCookies('/settings?signin=failed', []);
@@ -39,6 +41,7 @@ export async function onRequestPost({ request, env }: Context): Promise<Response
     return failed();
   }
   const { ticket, verifier } = await readForm(request);
-  const signIn = ticket && verifier ? await redeemTicket(db, ticket, verifier) : null;
+  const session = await sessionHash(request);
+  const signIn = ticket && verifier ? await redeemTicket(db, { ticket, verifier, session }) : null;
   return signIn ? finishSignIn(db, request, signIn.profile, signIn) : failed();
 }

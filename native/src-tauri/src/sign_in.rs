@@ -29,6 +29,9 @@ use crate::{pending, shell};
 const BROWSER_PROVIDERS: &[&str] = &["google"];
 const LOGIN_PATH: &str = "/api/auth/login/";
 const REDEEM_PATH: &str = "/api/auth/redeem";
+const BINDING_PATH: &str = "/api/auth/link-binding";
+/// Where the site sends any sign-in that failed.
+const FAILED_PATH: &str = "/settings?signin=failed";
 const LINK_SCHEME: &str = "ciphermaniac-events";
 const LINK_HOST: &str = "auth";
 /// Where the verifier waits, inside the app's data directory (`pending.rs`).
@@ -156,23 +159,72 @@ fn take_verifier<R: Runtime>(app: &AppHandle<R>, attempt: &str) -> Option<String
     pending::take(&pending_dir(app)?, attempt)
 }
 
-/// Sends a login that has to leave the webview to the system browser, as a
-/// new attempt with a new verifier's challenge. False when `url` is no such
-/// login.
-pub fn open_in_browser<R: Runtime>(app: &AppHandle<R>, url: &Url) -> bool {
-    if !is_browser_login(url) {
-        return false;
-    }
+/// The attempt a login names and its verifier, when that attempt is waiting.
+fn waiting_attempt<R: Runtime>(app: &AppHandle<R>, url: &Url) -> Option<(String, String)> {
+    let attempt = query_value(url, "attempt")?;
+    let verifier = pending::peek(&pending_dir(app)?, &attempt)?;
+    Some((attempt, verifier))
+}
+
+/// Whether a login adds the provider to the signed-in account.
+fn is_link(url: &Url) -> bool {
+    query_value(url, "link").as_deref() == Some("1")
+}
+
+/// Has the page fetch the link's binding to its session, then open `login`
+/// with it, which `open_in_browser` sends on as an attempt already waiting.
+fn bind_script(challenge: &str, login: &Url) -> String {
+    let challenge = serde_json::json!({ "challenge": challenge });
+    let login = serde_json::Value::from(login.as_str());
+    format!(
+        "(() => {{ fetch('{BINDING_PATH}', {{ method: 'POST', \
+         headers: {{ 'Content-Type': 'application/json' }}, body: JSON.stringify({challenge}) }}) \
+         .then((answer) => (answer.ok ? answer.json() : Promise.reject(answer.status))) \
+         .then(({{ binding }}) => {{ const login = new URL({login}); \
+         login.searchParams.set('binding', binding); location.assign(login.href); }}) \
+         .catch(() => location.assign('{FAILED_PATH}')); }})();"
+    )
+}
+
+/// Starts an attempt for a login that has to leave the webview: a link
+/// first fetches its binding in the page, anything else opens straight away.
+fn start_attempt<R: Runtime>(webview: &Webview<R>, url: &Url) {
+    let app = webview.app_handle();
     let (Some(verifier), Some(attempt)) = (random_hex::<32>(), random_hex::<16>()) else {
         log::warn!("no randomness for a sign-in verifier");
-        return true;
+        return;
     };
     if let Err(err) = keep_verifier(app, &attempt, &verifier) {
         log::warn!("could not keep the sign-in verifier: {err}");
-        return true;
+        return;
     }
-    if let Some(login) = browser_login(url, &challenge_of(&verifier), &attempt) {
+    let challenge = challenge_of(&verifier);
+    let Some(login) = browser_login(url, &challenge, &attempt) else {
+        return;
+    };
+    if !is_link(url) {
         shell::open_outside(app, &login);
+    } else if let Err(err) = webview.eval(bind_script(&challenge, &login)) {
+        log::warn!("could not bind the link to this session: {err}");
+    }
+}
+
+/// Sends a login that has to leave the webview to the system browser. One
+/// naming an attempt that is waiting goes as that attempt (a link coming back
+/// with its binding); any other starts a new one. False when `url` is no
+/// such login.
+pub fn open_in_browser<R: Runtime>(webview: &Webview<R>, url: &Url) -> bool {
+    if !is_browser_login(url) {
+        return false;
+    }
+    let app = webview.app_handle();
+    match waiting_attempt(app, url) {
+        Some((attempt, verifier)) => {
+            if let Some(login) = browser_login(url, &challenge_of(&verifier), &attempt) {
+                shell::open_outside(app, &login);
+            }
+        }
+        None => start_attempt(webview, url),
     }
     true
 }
@@ -267,7 +319,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
 
 #[cfg(test)]
 mod tests {
-    use super::{Redeem, browser_login, challenge_of, link_parts, submit_script};
+    use super::{Redeem, bind_script, browser_login, challenge_of, link_parts, submit_script};
     use tauri::Url;
 
     fn url(value: &str) -> Url {
@@ -356,6 +408,19 @@ mod tests {
         });
         assert!(script.contains("form.action = '/api/auth/redeem'"));
         assert!(script.contains(r#"{"ticket":"abc","verifier":"it's\"<x>"}"#));
+    }
+
+    #[test]
+    fn binds_a_link_in_the_page_before_it_leaves() {
+        let login = url(
+            "https://events.ciphermaniac.com/api/auth/login/google?link=1&app=1&challenge=c0ffee&attempt=a77e",
+        );
+        let script = bind_script("c0ffee", &login);
+        assert!(script.contains("fetch('/api/auth/link-binding'"));
+        assert!(script.contains(r#"JSON.stringify({"challenge":"c0ffee"})"#));
+        assert!(script.contains(&format!("new URL(\"{login}\")")));
+        assert!(script.contains("login.searchParams.set('binding', binding)"));
+        assert!(script.contains("location.assign('/settings?signin=failed')"));
     }
 
     #[test]
