@@ -16,6 +16,7 @@ import { purgeClerkDeletions } from '../../lib/auth/clerk.js';
 import type { Context } from '../../lib/auth/env.js';
 import { sha256 } from '../../lib/auth/session.js';
 import { purgeProofs } from '../../lib/auth/rejection.js';
+import { sweepTickets } from '../../lib/auth/appTicket.js';
 import { sweepSignups } from '../../lib/auth/signup.js';
 import { privateJson } from '../../lib/tournaments/access.js';
 import { publishAfter } from '../../lib/tournaments/publish.js';
@@ -132,9 +133,11 @@ export async function onRequestPost(context: Context): Promise<Response> {
     return jsonError('Forbidden', 403);
   }
   const now = Date.now();
-  // Sign-ups that ran out waiting for their age check go here too, so none outlives its fifteen minutes by much.
+  // Sign-ups that ran out waiting for their age check go here too, so none outlives its fifteen minutes by much,
+  // and the app's sign-in tickets no one redeemed.
   await Promise.all([
     sweepSignups(db, now).run(),
+    sweepTickets(db, now).run(),
     purgeProofs(db, context.env.PROOFS),
     purgeClerkDeletions(db, context.env)
   ]);
