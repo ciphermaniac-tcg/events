@@ -20,6 +20,22 @@ struct FakeTom {
     steal_on_type: Option<&'static str>,
     keys_in: Vec<String>,
     saves: usize,
+    /// What else happens when Enter lands in the slip form.
+    after_enter: AfterEnter,
+    /// The window list can no longer be read.
+    blind: bool,
+}
+
+#[derive(Default, Clone, Copy)]
+enum AfterEnter {
+    #[default]
+    Nothing,
+    /// Enter pressed Close instead of submitting.
+    CloseSlip,
+    /// TOM exits.
+    Quit,
+    /// The window list stops answering.
+    GoBlind,
 }
 
 impl FakeTom {
@@ -39,11 +55,25 @@ impl FakeTom {
     }
 }
 
+impl FakeTom {
+    fn after_enter(&mut self) {
+        match self.after_enter {
+            AfterEnter::Nothing => {}
+            AfterEnter::CloseSlip => self.remove(SLIP),
+            AfterEnter::Quit => self.windows.retain(|(_, pid)| *pid != TOM_PID),
+            AfterEnter::GoBlind => self.blind = true,
+        }
+    }
+}
+
 impl Desktop for FakeTom {
     type Handle = String;
     type Focus = String;
 
     fn windows(&mut self) -> Result<Vec<OsWindow<String>>, String> {
+        if self.blind {
+            return Err("The window list could not be read.".into());
+        }
         Ok(self
             .windows
             .iter()
@@ -94,6 +124,7 @@ impl Desktop for FakeTom {
             } else {
                 self.recorded.push(code);
             }
+            self.after_enter();
         }
         Ok(())
     }
@@ -134,18 +165,21 @@ fn types_codes_dismisses_errors_and_gives_focus_back() {
     let mut tom = FakeTom::with(&[MAIN, SLIP]);
     // 21212 passes the local check but TOM rejects it (say, no such table).
     tom.bad = vec!["21212"];
-    let sent = codes(&["21113", "21212", "21014", "21220"]);
-    let results = submit(&mut tom, fast(), &sent);
-    let table_zero = crate::code::vet(&sent[2]).unwrap_err();
+    let results = submit(&mut tom, fast(), &codes(&["21113", "21212", "21220"]));
     assert_eq!(
         results,
         [
             SubmitResult::accepted("21113"),
             SubmitResult::rejected("21212", "TOM rejected the code."),
-            SubmitResult::rejected("21014", table_zero),
-            SubmitResult::accepted("21220"),
+            SubmitResult::not_ready(
+                "21220",
+                "Not sent, because 21212 before it was not accepted."
+            ),
         ]
     );
+    // The next batch still lands after the rejection.
+    let results = submit(&mut tom, fast(), &codes(&["21220"]));
+    assert_eq!(results, [SubmitResult::accepted("21220")]);
     assert_eq!(tom.recorded, ["21113", "21220"]);
     assert!(tom.keys_in.iter().all(|w| w == SLIP || w == ERROR));
     assert_eq!(tom.foreground, "Notes");
@@ -155,7 +189,8 @@ fn types_codes_dismisses_errors_and_gives_focus_back() {
 fn types_nothing_until_the_slip_form_is_open() {
     let mut tom = FakeTom::with(&[MAIN]);
     let results = submit(&mut tom, fast(), &codes(&["21113", "21121"]));
-    assert!(results.iter().all(|r| r.reason() == Some(OPEN_SLIP)));
+    assert_eq!(results[0].reason(), Some(OPEN_SLIP));
+    assert!(matches!(results[1], SubmitResult::NotReady { .. }));
     assert_eq!(tom.keys_in, Vec::<String>::new());
 }
 
@@ -226,4 +261,22 @@ fn saves_from_the_main_window_only() {
     assert_eq!(tom.keys_in, [MAIN]);
     assert_eq!(tom.saves, 1);
     assert_eq!(tom.foreground, "Notes");
+}
+
+#[test]
+fn reports_uncertain_when_toms_answer_cannot_be_seen() {
+    for after_enter in [AfterEnter::CloseSlip, AfterEnter::Quit, AfterEnter::GoBlind] {
+        let mut tom = FakeTom::with(&[MAIN, SLIP]);
+        tom.after_enter = after_enter;
+        let results = submit(&mut tom, fast(), &codes(&["21113", "21121"]));
+        assert!(
+            matches!(results[0], SubmitResult::Uncertain { .. }),
+            "{results:?}"
+        );
+        assert!(
+            matches!(results[1], SubmitResult::NotReady { .. }),
+            "{results:?}"
+        );
+        assert_eq!(tom.recorded.len(), 1, "only the first code was sent");
+    }
 }

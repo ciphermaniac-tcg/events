@@ -14,7 +14,8 @@
 //! - `tom_set_mode(mode)` -> `"inside" | "keys"`, saved for next time.
 //! - `tom_submit(entries: Entry[])` -> `SubmitResult[]`, one per entry, in order.
 //!   Each code must spell exactly its entry's layout (and never table 0) or it
-//!   is rejected unsent; once TOM is not ready, later entries are not sent.
+//!   is rejected unsent. The batch stops at the first entry that is not
+//!   accepted: every later one comes back `not_ready`, unsent.
 //!   In inside mode, a pod's paired round is started first when needed.
 //! - `tom_save()` -> `SaveResult`.
 //! - `tom_start_round(pod?: number)` -> `StartResult`. `pod` is TOM's category
