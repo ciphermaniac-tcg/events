@@ -125,7 +125,7 @@ pub struct Status {
     pub mode: Mode,
     /// The TOM launcher this app will start, when one is known.
     pub tom_path: Option<PathBuf>,
-    /// TOM is running as this app's child.
+    /// The TOM this app started is still running.
     pub launched: bool,
     /// A submit would be attempted now.
     pub ready: bool,

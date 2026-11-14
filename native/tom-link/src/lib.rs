@@ -16,6 +16,8 @@ mod code;
 mod inside;
 mod keys;
 mod locate;
+#[cfg(target_os = "macos")]
+mod macos_app;
 mod results;
 #[cfg(test)]
 mod testdir;
@@ -28,6 +30,8 @@ use keys::{Platform, Timing};
 use results::TomView;
 
 const NOT_LAUNCHED: &str = "Launch TOM from here to use inside mode.";
+/// The helper can only be added as TOM starts, never to a running TOM.
+const ALREADY_OPEN: &str = "TOM is already open without the helper, which can only be added as TOM starts. Quit TOM, then launch it from here.";
 
 /// The desktop app's handle on TOM.
 pub struct Bridge {
@@ -84,7 +88,25 @@ impl Bridge {
             .tom_path
             .clone()
             .ok_or("TOM was not found. Choose where it is installed.")?;
+        #[cfg(target_os = "macos")]
+        if let Some(app) = locate::bundle_of(&program) {
+            return self.launch_app(&app, &program, helper_jar);
+        }
         self.launch_with(Command::new(program), helper_jar)
+    }
+
+    /// macOS: opens the `.app` through `LaunchServices`, so TOM shows its own
+    /// Dock icon and name rather than this app's.
+    #[cfg(target_os = "macos")]
+    fn launch_app(&mut self, app: &Path, program: &Path, helper_jar: &Path) -> Result<(), String> {
+        if self.launched() {
+            return Ok(());
+        }
+        if macos_app::running(app) {
+            return Err(ALREADY_OPEN.into());
+        }
+        self.tom = Some(inside::Tom::open_app(app, program, helper_jar)?);
+        Ok(())
     }
 
     /// [`Bridge::launch`] with a caller-built command, such as a wrapper script.
@@ -96,13 +118,13 @@ impl Bridge {
             return Ok(());
         }
         if open_elsewhere(self.tom_path.as_deref()) {
-            return Err("TOM is already open. Close it, then launch it from here.".into());
+            return Err(ALREADY_OPEN.into());
         }
         self.tom = Some(inside::Tom::spawn(command, helper_jar)?);
         Ok(())
     }
 
-    /// TOM is running as this app's child.
+    /// The TOM this app started is still running.
     pub fn launched(&mut self) -> bool {
         self.tom.as_mut().is_some_and(inside::Tom::running)
     }
