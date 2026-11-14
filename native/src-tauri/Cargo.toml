@@ -34,6 +34,7 @@ tauri-plugin-fs = "2"
 tauri-plugin-persisted-scope = "2"
 tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }
 tauri-plugin-updater = "2"
+tauri-plugin-window-state = "2"
 tom-link = { path = "../tom-link" }
 
 [lints.clippy]

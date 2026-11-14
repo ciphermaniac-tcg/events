@@ -13,7 +13,7 @@ use tauri::{
 };
 use tauri_plugin_opener::OpenerExt;
 
-use crate::sign_in;
+use crate::{last_page, sign_in};
 
 pub const MAIN_WINDOW: &str = "main";
 
@@ -110,7 +110,29 @@ fn record_load<R: Runtime>(webview: &Webview<R>, payload: &PageLoadPayload<'_>) 
     if !load.loading {
         load.last_good = Some(payload.url().clone());
     }
+    drop(loads);
+    if payload.event() == PageLoadEvent::Finished && webview.label() == MAIN_WINDOW {
+        last_page::remember(webview.app_handle(), payload.url());
+        #[cfg(desktop)]
+        show_main_window(webview.app_handle());
+    }
 }
+
+/// Shows the main window, which stays hidden until its first page has
+/// loaded rather than flash an empty white window.
+#[cfg(desktop)]
+fn show_main_window<R: Runtime>(app: &AppHandle<R>) {
+    if let Some(window) = app.get_webview_window(MAIN_WINDOW)
+        && !window.is_visible().unwrap_or(true)
+        && let Err(err) = window.show()
+    {
+        log::warn!("could not show the window: {err}");
+    }
+}
+
+/// How long the main window waits for its first page before showing anyway.
+#[cfg(desktop)]
+const SHOW_WITHIN: std::time::Duration = std::time::Duration::from_secs(3);
 
 /// Where a webview goes after a navigation was stopped: nowhere when no page
 /// was loading, else back to the last page that loaded, or home.
@@ -192,19 +214,44 @@ pub fn create_main_window<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
     else {
         return Ok(());
     };
-    let builder = WebviewWindowBuilder::from_config(app, config)?;
+    let mut config = config.clone();
+    if let Some(page) = last_page::restore(app) {
+        config.url = WebviewUrl::External(page);
+    }
+    let builder = WebviewWindowBuilder::from_config(app, &config)?;
     #[cfg(desktop)]
-    let builder = {
-        let app = app.clone();
-        builder
-            .initialization_script(TOM_FLAG_SCRIPT)
-            .on_new_window(move |url, _features| {
-                follow_new_window(&app, &url);
-                tauri::webview::NewWindowResponse::Deny
-            })
-    };
+    let builder = desktop_window(app, builder);
     builder.build()?;
+    #[cfg(desktop)]
+    {
+        let app = app.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(SHOW_WITHIN);
+            show_main_window(&app);
+        });
+    }
     Ok(())
+}
+
+/// The main window as a desktop app's: hidden until it has something to
+/// show, told it can reach TOM, new windows kept in it, and no
+/// Safari link previews on a firm click.
+#[cfg(desktop)]
+fn desktop_window<'a, R: Runtime>(
+    app: &AppHandle<R>,
+    builder: WebviewWindowBuilder<'a, R, AppHandle<R>>,
+) -> WebviewWindowBuilder<'a, R, AppHandle<R>> {
+    let follower = app.clone();
+    let builder = builder
+        .visible(false)
+        .initialization_script(TOM_FLAG_SCRIPT)
+        .on_new_window(move |url, _features| {
+            follow_new_window(&follower, &url);
+            tauri::webview::NewWindowResponse::Deny
+        });
+    #[cfg(target_os = "macos")]
+    let builder = builder.allow_link_preview(false);
+    builder
 }
 
 /// A new-window request either loads in the main window or leaves the app.
