@@ -29,8 +29,9 @@ test('inside the app the site calls the TOM commands through Tauri’s bridge', 
   };
   global.window = { __TAURI_INTERNALS__: internals };
   assert.equal(inNativeApp(), true);
-  assert.deepEqual(await nativeTom().submit(['21113']), [{ status: 'accepted' }]);
-  assert.deepEqual(calls, [['internals', 'tom_submit', { codes: ['21113'] }]]);
+  const entry = { pod: 2, flight: null, round: 1, table: 1, outcome: 1 as const, code: '21113' };
+  assert.deepEqual(await nativeTom().submit([entry]), [{ status: 'accepted' }]);
+  assert.deepEqual(calls, [['internals', 'tom_submit', { entries: [entry] }]]);
 });
 
 test('starting a pod’s round in TOM names the pod by TOM’s category code and says why it did not start', async () => {

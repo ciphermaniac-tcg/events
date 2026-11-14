@@ -4,6 +4,8 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { type Invoke, startRoundTrouble, tomCommands } from '../../shared/native/tomCommands';
 
+const ENTRY = { pod: 2, flight: null, round: 1, table: 1, outcome: 1 as const, code: '21113' };
+
 function recording(answer: unknown = null) {
   const calls: [string, Record<string, unknown> | undefined][] = [];
   const invoke = (async (command: string, args?: Record<string, unknown>) => {
@@ -21,7 +23,7 @@ test('each command goes to the Rust command of its name, with its arguments name
   await tom.status();
   await tom.getMode();
   await tom.setMode('inside');
-  await tom.submit(['21113', '21121']);
+  await tom.submit([ENTRY]);
   await tom.save();
   await tom.startRound(2);
   await tom.startRound();
@@ -32,17 +34,17 @@ test('each command goes to the Rust command of its name, with its arguments name
     ['tom_status', undefined],
     ['tom_get_mode', undefined],
     ['tom_set_mode', { mode: 'inside' }],
-    ['tom_submit', { codes: ['21113', '21121'] }],
+    ['tom_submit', { entries: [ENTRY] }],
     ['tom_save', undefined],
     ['tom_start_round', { category: 2 }],
     ['tom_start_round', {}]
   ]);
 });
 
-test('a submit answers with what the Rust side returned, one result per code', async () => {
+test('a submit answers with what the Rust side returned, one result per entry', async () => {
   const results = [{ status: 'accepted' }, { status: 'rejected', message: 'Wrong round' }];
   const { tom } = recording(results);
-  assert.deepEqual(await tom.submit(['21113', '22113']), results);
+  assert.deepEqual(await tom.submit([ENTRY, { ...ENTRY, table: 2, code: '21212' }]), results);
 });
 
 test('a round TOM started, or had already started, is no trouble; anything else says why', () => {

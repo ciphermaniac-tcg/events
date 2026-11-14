@@ -32,9 +32,34 @@ export interface TomStatus {
   pods: TomPod[];
 }
 
-/** What became of one code: TOM took it, refused it with its message, or could not be reached. */
+/**
+ * One result for TOM, as the parts of its match slip code and the code
+ * itself, so the app can rebuild the code from the event's layout and refuse
+ * one that does not match: a bare code can read two ways in a pod with
+ * flights. Outcome 1 is Player 1 winning, 2 Player 2, 3 a tie.
+ */
+export interface SubmitEntry {
+  /** TOM's category code for the pod. */
+  pod: number;
+  /** The flight digit, null where the code has none. */
+  flight: number | null;
+  round: number;
+  table: number;
+  outcome: 1 | 2 | 3;
+  code: string;
+}
+
+/**
+ * What became of one entry: TOM took it, refused it with its message, could
+ * not be reached, or may or may not have recorded it ('uncertain', which is
+ * never sent again on its own). A batch stops at the first entry not taken,
+ * so the entries after it have no result and were not sent.
+ */
 export type SubmitResult =
-  { status: 'accepted' } | { status: 'rejected'; message: string } | { status: 'not_ready'; reason: string };
+  | { status: 'accepted' }
+  | { status: 'rejected'; message: string }
+  | { status: 'not_ready'; reason: string }
+  | { status: 'uncertain'; reason?: string };
 
 /** What came of starting a pod's round in TOM. */
 export type StartRoundResult =
@@ -66,8 +91,8 @@ export function tomCommands(invoke: Invoke) {
     status: () => invoke<TomStatus>('tom_status'),
     getMode: () => invoke<TomMode>('tom_get_mode'),
     setMode: (mode: TomMode) => invoke<void>('tom_set_mode', { mode }),
-    /** One result per code, in the order sent. */
-    submit: (codes: readonly string[]) => invoke<SubmitResult[]>('tom_submit', { codes }),
+    /** A result per entry, in the order sent, up to and including the first not taken. */
+    submit: (entries: readonly SubmitEntry[]) => invoke<SubmitResult[]>('tom_submit', { entries }),
     save: () => invoke<void>('tom_save'),
     /** Starts a pod's current round in TOM; an event with one pod may leave the pod out. */
     startRound: (category?: number) =>

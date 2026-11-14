@@ -5,18 +5,23 @@
  */
 
 import { createSignal } from 'solid-js';
-import { startRoundTrouble, type SubmitResult } from '../../../shared/native/tomCommands';
+import { startRoundTrouble, type SubmitEntry, type SubmitResult } from '../../../shared/native/tomCommands';
 import { errorText, tom } from './tom';
 
 const KEPT = 30;
 
+/** A result for TOM, and what it enters, for the log. */
 export interface Send {
-  code: string;
-  /** What the code enters, for the log. */
+  entry: SubmitEntry;
   what: string;
 }
 
-export interface LogEntry extends Send {
+interface Line {
+  code: string;
+  what: string;
+}
+
+export interface LogEntry extends Line {
   id: number;
   at: number;
   result: string;
@@ -25,15 +30,23 @@ export interface LogEntry extends Send {
 
 type Outcome = Pick<LogEntry, 'result' | 'ok'>;
 
+/** Why TOM did not take an entry. */
+function trouble(result: Exclude<SubmitResult, { status: 'accepted' }>): string {
+  if (result.status === 'rejected') {
+    return `Rejected: ${result.message}`;
+  }
+  if (result.status === 'not_ready') {
+    return `Not ready: ${result.reason}`;
+  }
+  return `Uncertain, check TOM before sending again${result.reason ? `: ${result.reason}` : ''}`;
+}
+
+/** A batch stops at the first entry TOM did not take, so one with no result was not sent. */
 function describe(result: SubmitResult | undefined): Outcome {
   if (!result) {
-    return { result: 'No answer', ok: false };
+    return { result: 'Not sent', ok: false };
   }
-  if (result.status === 'accepted') {
-    return { result: 'Accepted', ok: true };
-  }
-  const why = result.status === 'rejected' ? `Rejected: ${result.message}` : `Not ready: ${result.reason}`;
-  return { result: why, ok: false };
+  return result.status === 'accepted' ? { result: 'Accepted', ok: true } : { result: trouble(result), ok: false };
 }
 
 export function createLog() {
@@ -41,14 +54,14 @@ export function createLog() {
   const [busy, setBusy] = createSignal(false);
   let next = 0;
 
-  const add = (items: readonly (Send & Outcome)[]) => {
+  const add = (items: readonly (Line & Outcome)[]) => {
     const at = Date.now();
     const added = items.map(item => ({ ...item, id: next++, at }));
     setEntries(old => [...added.reverse(), ...old].slice(0, KEPT));
   };
 
   /** Runs one request unless another is under way; a failure is logged for `items`. */
-  async function one(items: readonly Send[], request: () => Promise<Outcome[]>) {
+  async function one(items: readonly Line[], request: () => Promise<Outcome[]>) {
     if (busy() || items.length === 0) {
       return;
     }
@@ -67,7 +80,13 @@ export function createLog() {
     entries,
     busy,
     send: (items: readonly Send[]) =>
-      one(items, async () => (await tom.submit(items.map(item => item.code))).map(describe)),
+      one(
+        items.map(({ entry, what }) => ({ code: entry.code, what })),
+        async () => {
+          const results = await tom.submit(items.map(item => item.entry));
+          return items.map((_, i) => describe(results[i]));
+        }
+      ),
     /** Starts a pod's round in TOM, named by its category code. */
     startRound: (category: number, what: string) =>
       one([{ code: '', what }], async () => {
