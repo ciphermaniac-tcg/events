@@ -1,14 +1,15 @@
-//! The Mac menu bar: the standard menus plus the app's own commands, which
-//! act on the main window. Settings, Back, Forward, Reload and the Go menu
-//! move within the site as its own links do; Feedback opens the main site in
-//! the browser.
+//! The menu bar: the standard menus plus the app's own commands, which act
+//! on the main window. Settings, Back, Forward, Reload and the Go menu move
+//! within the site as its own links do; Feedback opens the main site in the
+//! browser. "TOM Link…" (`tom.rs`) sits under Settings in the Mac's app menu
+//! and in the Window menu elsewhere, where File holds Settings.
 
 use tauri::{
     AppHandle, Manager, Runtime, Url,
     menu::{Menu, MenuBuilder, MenuEvent, MenuItemBuilder, SubmenuBuilder},
 };
 
-use crate::shell;
+use crate::{shell, tom};
 
 /// An app command: its menu id and what it does.
 struct Command {
@@ -97,11 +98,24 @@ fn item<R: Runtime>(
     .build(app)
 }
 
-fn app_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<tauri::menu::Submenu<R>> {
+/// History's shortcut: Safari's on the Mac; elsewhere Ctrl+Y is Redo.
+const HISTORY_KEYS: &str = if cfg!(target_os = "macos") {
+    "Cmd+Y"
+} else {
+    "Ctrl+H"
+};
+
+fn settings<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<tauri::menu::MenuItem<R>> {
+    item(app, "settings", "Settings…", Some("CmdOrCtrl+,"))
+}
+
+#[cfg(target_os = "macos")]
+fn first_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<tauri::menu::Submenu<R>> {
     SubmenuBuilder::new(app, "Ciphermaniac Events")
         .about(None)
         .separator()
-        .item(&item(app, "settings", "Settings…", Some("CmdOrCtrl+,"))?)
+        .item(&settings(app)?)
+        .item(&tom::menu_item(app)?)
         .separator()
         .services()
         .separator()
@@ -111,6 +125,15 @@ fn app_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<tauri::menu::Submen
         .separator()
         .quit()
         .build()
+}
+
+#[cfg(not(target_os = "macos"))]
+fn first_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<tauri::menu::Submenu<R>> {
+    let menu = SubmenuBuilder::new(app, "File").item(&settings(app)?);
+    // GTK shows Close Window and Quit only as dead, greyed-out items.
+    #[cfg(windows)]
+    let menu = menu.separator().close_window().quit();
+    menu.build()
 }
 
 fn edit_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<tauri::menu::Submenu<R>> {
@@ -139,10 +162,11 @@ fn go_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<tauri::menu::Submenu
         .item(&item(app, "forward", "Forward", Some("CmdOrCtrl+]"))?)
         .separator()
         .item(&item(app, "home", "Home", Some("CmdOrCtrl+Shift+H"))?)
-        .item(&item(app, "history", "History", Some("CmdOrCtrl+Y"))?)
+        .item(&item(app, "history", "History", Some(HISTORY_KEYS))?)
         .build()
 }
 
+#[cfg(target_os = "macos")]
 fn window_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<tauri::menu::Submenu<R>> {
     SubmenuBuilder::new(app, "Window")
         .minimize()
@@ -152,19 +176,32 @@ fn window_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<tauri::menu::Sub
         .build()
 }
 
+#[cfg(not(target_os = "macos"))]
+fn window_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<tauri::menu::Submenu<R>> {
+    SubmenuBuilder::new(app, "Window")
+        .minimize()
+        .maximize()
+        .separator()
+        .item(&tom::menu_item(app)?)
+        .build()
+}
+
+/// Help, which also holds About outside the Mac.
 fn help_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<tauri::menu::Submenu<R>> {
-    SubmenuBuilder::new(app, "Help")
+    let menu = SubmenuBuilder::new(app, "Help")
         .item(&item(app, "feedback", "Send Feedback", None)?)
         .separator()
         .item(&item(app, "terms", "Terms", None)?)
-        .item(&item(app, "privacy", "Privacy", None)?)
-        .build()
+        .item(&item(app, "privacy", "Privacy", None)?);
+    #[cfg(not(target_os = "macos"))]
+    let menu = menu.separator().about(None);
+    menu.build()
 }
 
 /// The app's menu bar.
 pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
     MenuBuilder::new(app)
-        .item(&app_menu(app)?)
+        .item(&first_menu(app)?)
         .item(&edit_menu(app)?)
         .item(&view_menu(app)?)
         .item(&go_menu(app)?)

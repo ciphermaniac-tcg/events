@@ -65,9 +65,9 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock, PoisonError};
 
 use serde::{Deserialize, Serialize};
-use tauri::menu::{Menu, MenuItem, Submenu};
+use tauri::menu::MenuItem;
 use tauri::path::BaseDirectory;
-use tauri::{AppHandle, Manager, State, WebviewUrl, WebviewWindowBuilder, Wry};
+use tauri::{AppHandle, Manager, Runtime, State, WebviewUrl, WebviewWindowBuilder};
 use tom_link::{Bridge, Entry, SaveResult, StartResult, Status, SubmitResult};
 
 const CONFIG_FILE: &str = "tom.json";
@@ -233,10 +233,9 @@ pub async fn tom_open_panel(app: AppHandle) -> Result<(), String> {
 }
 
 /// Readies TOM without touching it: the state the commands use, built on
-/// first use, and the menu item that opens the panel.
-pub fn setup(app: &tauri::App) -> tauri::Result<()> {
+/// first use, and what the menu's "TOM Link…" item (`menu_item`) does.
+pub fn setup(app: &tauri::App) {
     app.manage(Tom::new(app.handle()));
-    app.set_menu(menu(app.handle())?)?;
     app.on_menu_event(|app, event| {
         if event.id() == OPEN_PANEL
             && let Err(error) = open_panel(app)
@@ -244,7 +243,11 @@ pub fn setup(app: &tauri::App) -> tauri::Result<()> {
             log::warn!("the TOM panel could not open: {error}");
         }
     });
-    Ok(())
+}
+
+/// The menu item that opens the TOM panel; `menu.rs` places it.
+pub fn menu_item<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<MenuItem<R>> {
+    MenuItem::with_id(app, OPEN_PANEL, "TOM Link…", true, None::<&str>)
 }
 
 /// Shows the TOM panel, opening it the first time.
@@ -259,29 +262,4 @@ fn open_panel(app: &AppHandle) -> tauri::Result<()> {
         .inner_size(480.0, 720.0)
         .build()
         .map(drop)
-}
-
-/// The platform's usual menu with "TOM Link…" in the app menu on macOS and
-/// in the Window menu elsewhere.
-fn menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
-    let menu = Menu::default(app)?;
-    let item = MenuItem::with_id(app, OPEN_PANEL, "TOM Link…", true, None::<&str>)?;
-    let submenus: Vec<Submenu<Wry>> = menu
-        .items()?
-        .iter()
-        .filter_map(|entry| entry.as_submenu().cloned())
-        .collect();
-    if cfg!(target_os = "macos")
-        && let Some(app_menu) = submenus.first()
-    {
-        app_menu.insert(&item, 1)?;
-    } else if let Some(window) = submenus
-        .iter()
-        .find(|submenu| submenu.text().is_ok_and(|text| text == "Window"))
-    {
-        window.append(&item)?;
-    } else {
-        menu.append(&Submenu::with_items(app, "TOM", true, &[&item])?)?;
-    }
-    Ok(menu)
 }
