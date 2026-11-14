@@ -57,7 +57,7 @@ impl Tom {
     }
 
     pub(crate) fn view(&mut self) -> TomView {
-        match self.request::<HelperStatus>("status", None) {
+        match self.request::<HelperStatus>("status", &[]) {
             Ok(status) => status.into_view(),
             Err(reason) => TomView::unavailable(reason),
         }
@@ -65,7 +65,12 @@ impl Tom {
 
     pub(crate) fn submit(&mut self, entry: &Entry) -> SubmitResult {
         let code = entry.code.as_str();
-        match self.outcome("submit", Some(("code", code.to_owned()))) {
+        let fields = [
+            ("code", code.to_owned()),
+            ("pod", entry.pod.to_string()),
+            ("round", entry.round.to_string()),
+        ];
+        match self.outcome("submit", &fields) {
             Outcome::Accepted => SubmitResult::accepted(code),
             Outcome::Rejected { message } => SubmitResult::rejected(code, message),
             other => SubmitResult::not_ready(code, other.reason()),
@@ -73,15 +78,18 @@ impl Tom {
     }
 
     pub(crate) fn save(&mut self) -> SaveResult {
-        match self.outcome("save", None) {
+        match self.outcome("save", &[]) {
             Outcome::Saved => SaveResult::Saved,
             other => SaveResult::not_ready(other.reason()),
         }
     }
 
     pub(crate) fn start_round(&mut self, category: Option<u8>) -> StartResult {
-        let field = category.map(|category| ("category", category.to_string()));
-        match self.outcome("start_round", field) {
+        let fields: Vec<_> = category
+            .map(|category| ("category", category.to_string()))
+            .into_iter()
+            .collect();
+        match self.outcome("start_round", &fields) {
             Outcome::Started => StartResult::Started,
             Outcome::AlreadyStarted => StartResult::AlreadyStarted,
             other => StartResult::not_ready(other.reason()),
@@ -89,15 +97,15 @@ impl Tom {
     }
 
     /// The helper's answer, with transport failures folded into `NotReady`.
-    fn outcome(&mut self, op: &str, field: Option<(&str, String)>) -> Outcome {
-        self.request(op, field)
+    fn outcome(&mut self, op: &str, fields: &[(&str, String)]) -> Outcome {
+        self.request(op, fields)
             .unwrap_or_else(|reason| Outcome::NotReady { reason })
     }
 
     fn request<T: DeserializeOwned>(
         &mut self,
         op: &str,
-        field: Option<(&str, String)>,
+        fields: &[(&str, String)],
     ) -> Result<T, String> {
         if !self.running() {
             return Err("TOM has closed. Launch it again from here.".into());
@@ -105,7 +113,7 @@ impl Tom {
         let helper = self.helper.as_mut().ok_or(
             "TOM was started without its helper, so inside mode cannot reach it. Restart TOM from here.",
         )?;
-        helper.request(op, field)
+        helper.request(op, fields)
     }
 }
 
@@ -156,12 +164,12 @@ impl Helper {
     fn request<T: DeserializeOwned>(
         &mut self,
         op: &str,
-        field: Option<(&str, String)>,
+        fields: &[(&str, String)],
     ) -> Result<T, String> {
-        // The helper reads string values only, so leave a missing field out rather than null.
+        // The helper reads string values only, so a missing field is left out rather than null.
         let mut request = json!({ "token": self.token, "op": op });
-        if let Some((key, value)) = field {
-            request[key] = value.into();
+        for (key, value) in fields {
+            request[*key] = value.as_str().into();
         }
         let line = format!("{request}\n");
         let reply = self.exchange(&line).inspect_err(|_| self.conn = None)?;
@@ -341,15 +349,15 @@ mod tests {
                 r#"{"error":"unauthorized"}"#,
             ],
         );
-        let status: HelperStatus = helper.request("status", None).unwrap();
+        let status: HelperStatus = helper.request("status", &[]).unwrap();
         assert_eq!(status.into_view().windows, ["Main"]);
         let outcome: Outcome = helper
-            .request("submit", Some(("code", "21113".into())))
+            .request("submit", &[("code", "21113".into())])
             .unwrap();
         assert!(
             matches!(outcome, Outcome::Rejected { message } if message == "Two codes in a row")
         );
-        let refused = helper.request::<Outcome>("save", None).err().unwrap();
+        let refused = helper.request::<Outcome>("save", &[]).err().unwrap();
         assert!(refused.contains("unauthorized"));
         server.join().unwrap();
     }
@@ -361,9 +369,9 @@ mod tests {
             &helper,
             &[r#"{"result":"saved"}"#, r#"{"result":"accepted"}"#],
         );
-        helper.request::<Outcome>("save", None).unwrap();
+        helper.request::<Outcome>("save", &[]).unwrap();
         helper
-            .request::<Outcome>("submit", Some(("code", "21113".into())))
+            .request::<Outcome>("submit", &[("code", "21113".into())])
             .unwrap();
         let seen: Vec<serde_json::Value> = server
             .join()
@@ -390,10 +398,10 @@ mod tests {
             ],
         );
         let outcome: Outcome = helper
-            .request("start_round", Some(("category", "2".into())))
+            .request("start_round", &[("category", "2".into())])
             .unwrap();
         assert!(matches!(outcome, Outcome::AlreadyStarted));
-        let status: HelperStatus = helper.request("status", None).unwrap();
+        let status: HelperStatus = helper.request("status", &[]).unwrap();
         let pods = status.into_view().pods;
         assert_eq!(
             pods[0],
@@ -412,9 +420,28 @@ mod tests {
     }
 
     #[test]
+    fn names_the_round_a_code_is_for() {
+        let helper = Helper::create().unwrap();
+        let token = helper.token.clone();
+        let server = fake_helper(&helper, &[r#"{"result":"accepted"}"#]);
+        let child = Command::new("sleep").arg("5").spawn().unwrap();
+        let mut tom = Tom {
+            child,
+            helper: Some(helper),
+        };
+        let entry = crate::code::entry(2, None, 3, 1, 1, "23119");
+        assert_eq!(tom.submit(&entry), SubmitResult::accepted("23119"));
+        let seen: serde_json::Value = serde_json::from_str(&server.join().unwrap()[0]).unwrap();
+        let expected =
+            json!({ "token": token, "op": "submit", "code": "23119", "pod": "2", "round": "3" });
+        assert_eq!(seen, expected);
+        let _ = tom.child.kill();
+    }
+
+    #[test]
     fn waits_for_the_handshake_instead_of_hanging() {
         let mut helper = Helper::create().unwrap();
-        let error = helper.request::<Outcome>("status", None).err().unwrap();
+        let error = helper.request::<Outcome>("status", &[]).err().unwrap();
         assert_eq!(error, "TOM is still starting.");
     }
 

@@ -19,8 +19,11 @@ use tom_link::{Bridge, Entry, Mode, SaveResult, StartResult, SubmitResult};
 
 const DISPLAY: &str = ":93";
 const LOGIN: &str = "1234567";
-/// Masters only: one pod, six tables in round 1.
+/// Masters only: one pod, six tables a round.
 const MASTERS: &str = "12";
+/// Round 1 is played; round 2 is paired with its pairings viewed, not started.
+const PLAYED: &str = "1";
+const ROUND: u8 = 2;
 
 struct Env {
     tom_tdf: PathBuf,
@@ -88,7 +91,7 @@ impl Env {
         command
             .args(["-cp", &self.classpath(), "StartableHarness"])
             .arg(&self.work)
-            .arg(MASTERS)
+            .args([MASTERS, PLAYED])
             .env("DISPLAY", DISPLAY)
             .stdout(Stdio::null())
             .stderr(Stdio::null());
@@ -202,14 +205,14 @@ fn launch(env: &Env) -> Bridge {
     bridge
 }
 
-/// A Masters round 1 entry, with the code TOM's own file gives for it.
+/// A Masters entry for the current round, with the code TOM's own file gives for it.
 fn code(slips: &[(u32, u32, Vec<String>)], table: u16, outcome: u8) -> Entry {
     let slip = slips
         .iter()
         .find(|slip| slip.0 == u32::from(table))
         .unwrap();
     let code = slip.2[usize::from(outcome - 1)].clone();
-    entry(1, table, outcome, &code)
+    entry(ROUND, table, outcome, &code)
 }
 
 fn entry(round: u8, table: u16, outcome: u8, code: &str) -> Entry {
@@ -223,45 +226,50 @@ fn entry(round: u8, table: u16, outcome: u8, code: &str) -> Entry {
     }
 }
 
-/// Masters, round 2, table 1: well-formed, but not the current round.
-fn wrong_round() -> Entry {
-    entry(2, 1, 1, "22111")
+/// A slip from round 1 reported late: well-formed, but not the current round.
+fn late_slip() -> Entry {
+    entry(1, 1, 1, "21113")
+}
+
+fn accepted(entry: &Entry) -> SubmitResult {
+    SubmitResult::Accepted {
+        code: entry.code.clone(),
+    }
+}
+
+fn rejected_with(results: &[SubmitResult], text: &str) -> bool {
+    matches!(results, [SubmitResult::Rejected { message, .. }] if message.contains(text))
+}
+
+/// A late round-1 slip must not start round 2.
+fn late_slip_starts_nothing(bridge: &mut Bridge) {
+    let pods = bridge.status().pods;
+    assert_eq!(
+        (pods.len(), pods[0].category, pods[0].round, pods[0].started),
+        (1, Some(2), 2, false)
+    );
+    let results = bridge.submit(&[late_slip()]);
+    println!("late slip before the round: {results:?}");
+    assert!(
+        matches!(&results[..], [SubmitResult::NotReady { reason, .. }] if reason.contains("round must be started"))
+    );
+    assert!(!bridge.status().pods[0].started);
 }
 
 fn inside_mode(bridge: &mut Bridge, slips: &[(u32, u32, Vec<String>)]) {
-    let pods = bridge.status().pods;
-    assert_eq!(
-        (pods.len(), pods[0].category, pods[0].started),
-        (1, Some(2), false)
-    );
-
-    // The round is not started yet: submit starts it, then enters the code.
-    let codes = [
-        code(slips, 1, 1),
-        wrong_round(),
-        entry(1, 0, 1, "21014"),
-        code(slips, 2, 2),
-    ];
-    let results = bridge.submit(&codes);
+    // The round is not started yet: submit starts it, then enters the codes.
+    let entries = [code(slips, 1, 1), code(slips, 2, 2)];
+    let results = bridge.submit(&entries);
     println!("inside: {results:?}");
-    assert_eq!(
-        results[0],
-        SubmitResult::Accepted {
-            code: codes[0].code.clone()
-        }
-    );
-    assert!(
-        matches!(&results[1], SubmitResult::Rejected { message, .. } if message.contains("two codes in a row"))
-    );
-    assert!(
-        matches!(&results[2], SubmitResult::Rejected { message, .. } if message.contains("table 0"))
-    );
-    assert_eq!(
-        results[3],
-        SubmitResult::Accepted {
-            code: codes[3].code.clone()
-        }
-    );
+    assert_eq!(results, [accepted(&entries[0]), accepted(&entries[1])]);
+    assert!(rejected_with(
+        &bridge.submit(&[late_slip()]),
+        "two codes in a row"
+    ));
+    assert!(rejected_with(
+        &bridge.submit(&[entry(ROUND, 0, 1, "22012")]),
+        "table 0"
+    ));
 }
 
 fn start_round_is_idempotent(bridge: &mut Bridge) {
@@ -274,32 +282,16 @@ fn keys_mode(bridge: &mut Bridge, slips: &[(u32, u32, Vec<String>)]) {
     bridge.set_mode(Mode::Keys);
     let status = bridge.status();
     assert!(status.ready, "{status:?}");
-    let codes = [
-        code(slips, 3, 1),
-        wrong_round(),
-        code(slips, 4, 3),
-        code(slips, 5, 2),
-    ];
-    let results = bridge.submit(&codes);
+    let entries = [code(slips, 3, 1), code(slips, 4, 3)];
+    let results = bridge.submit(&entries);
     println!("keys: {results:?}");
+    assert_eq!(results, [accepted(&entries[0]), accepted(&entries[1])]);
+    assert!(rejected_with(&bridge.submit(&[late_slip()]), "rejected"));
+    // The code after a rejection still lands.
+    let last = code(slips, 5, 2);
     assert_eq!(
-        results[0],
-        SubmitResult::Accepted {
-            code: codes[0].code.clone()
-        }
-    );
-    assert!(matches!(&results[1], SubmitResult::Rejected { .. }));
-    assert_eq!(
-        results[2],
-        SubmitResult::Accepted {
-            code: codes[2].code.clone()
-        }
-    );
-    assert_eq!(
-        results[3],
-        SubmitResult::Accepted {
-            code: codes[3].code.clone()
-        }
+        bridge.submit(std::slice::from_ref(&last)),
+        [accepted(&last)]
     );
     assert!(
         matches!(bridge.save(), SaveResult::NotReady { reason } if reason.contains("cannot save"))
@@ -320,6 +312,7 @@ fn both_modes_record_results_in_the_saved_tdf() {
 
     let mut bridge = launch(&env);
     let slips = env.slips();
+    late_slip_starts_nothing(&mut bridge);
     inside_mode(&mut bridge, &slips);
     start_round_is_idempotent(&mut bridge);
     keys_mode(&mut bridge, &slips);

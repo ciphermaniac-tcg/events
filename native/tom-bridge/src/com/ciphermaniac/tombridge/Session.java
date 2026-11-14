@@ -63,22 +63,33 @@ final class Session implements Runnable {
       String op = request.getOrDefault("op", "");
       return switch (op) {
          case "status" -> tom.status();
-         case "submit" -> tom.submit(request.getOrDefault("code", ""));
+         case "submit" -> submit(request);
          case "save" -> tom.save();
-         case "start_round" -> startRound(request.get("category"));
+         case "start_round" -> startRound(request);
          default -> new Json.Obj().str("error", "unknown op").toString();
       };
    }
 
-   private String startRound(String category) {
-      if (category == null || category.isEmpty()) {
-         return tom.startRound(null);
-      }
+   private String submit(Map<String, String> request) {
       try {
-         return tom.startRound(Integer.valueOf(category));
+         return tom.submit(request.getOrDefault("code", ""), number(request, "pod"), number(request, "round"));
+      } catch (NumberFormatException e) {
+         return new Json.Obj().str("error", "invalid pod or round").toString();
+      }
+   }
+
+   private String startRound(Map<String, String> request) {
+      try {
+         return tom.startRound(number(request, "category"));
       } catch (NumberFormatException e) {
          return new Json.Obj().str("error", "invalid category").toString();
       }
+   }
+
+   /** An optional whole-number field, sent as a string. */
+   private static Integer number(Map<String, String> request, String key) {
+      String value = request.get(key);
+      return value == null || value.isEmpty() ? null : Integer.valueOf(value);
    }
 
    private static void reply(Writer out, String json) throws IOException {
