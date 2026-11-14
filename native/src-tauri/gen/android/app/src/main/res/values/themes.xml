@@ -6,7 +6,8 @@
     <!-- Shown from launch until the first page has loaded (MainActivity). -->
     <style name="Theme.ciphermaniac_events.Starting" parent="Theme.SplashScreen.IconBackground">
         <item name="windowSplashScreenBackground">@color/app_background</item>
-        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher_foreground</item>
+        <!-- The launcher icon itself, so the glow behind the mark shows too. -->
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
         <item name="windowSplashScreenIconBackgroundColor">@color/icon_background</item>
         <item name="postSplashScreenTheme">@style/Theme.ciphermaniac_events</item>
     </style>
