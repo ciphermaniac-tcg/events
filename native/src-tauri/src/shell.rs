@@ -234,8 +234,8 @@ pub fn create_main_window<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
 }
 
 /// The main window as a desktop app's: hidden until it has something to
-/// show, told it can reach TOM, new windows kept in it, and no
-/// Safari link previews on a firm click.
+/// show, told it can reach TOM, styled as an app (`app_style.rs`), new
+/// windows kept in it, and no Safari link previews on a firm click.
 #[cfg(desktop)]
 fn desktop_window<'a, R: Runtime>(
     app: &AppHandle<R>,
@@ -245,6 +245,7 @@ fn desktop_window<'a, R: Runtime>(
     let builder = builder
         .visible(false)
         .initialization_script(TOM_FLAG_SCRIPT)
+        .initialization_script(crate::app_style::script())
         .on_new_window(move |url, _features| {
             follow_new_window(&follower, &url);
             tauri::webview::NewWindowResponse::Deny
