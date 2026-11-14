@@ -250,9 +250,9 @@ fn desktop_window_built<R: Runtime>(window: &tauri::WebviewWindow<R>) {
 
 /// The main window as a desktop app's: hidden until it has something to
 /// show, told it can reach TOM, styled as an app (`app_style.rs`), colored
-/// with the site's mode (`theme.rs`), new
-/// windows kept in it, no Safari link previews on a firm click, and
-/// overlay scrollbars on Windows.
+/// with the site's mode (`theme.rs`), new windows kept in it, no Safari link
+/// previews on a firm click, and overlay scrollbars and the page's title on
+/// Windows.
 #[cfg(desktop)]
 fn desktop_window<'a, R: Runtime>(
     app: &AppHandle<R>,
@@ -270,10 +270,35 @@ fn desktop_window<'a, R: Runtime>(
         });
     #[cfg(target_os = "macos")]
     let builder = builder.allow_link_preview(false);
-    // Windows 11's thin scrollbars that widen on hover (WebView2 125 and later).
+    // Windows 11's thin scrollbars that widen on hover (WebView2 125 and
+    // later), and the page's title on the window, as a Windows app names
+    // what it has open.
     #[cfg(windows)]
-    let builder = builder.scroll_bar_style(tauri::webview::ScrollBarStyle::FluentOverlay);
+    let builder = builder
+        .scroll_bar_style(tauri::webview::ScrollBarStyle::FluentOverlay)
+        .on_document_title_changed(|window, title| {
+            let app_name = window.app_handle().config().product_name.clone();
+            let title = window_title(&title, app_name.as_deref().unwrap_or_default());
+            if let Err(err) = window.set_title(title) {
+                log::debug!("could not title the window: {err}");
+            }
+        });
     builder
+}
+
+/// The window's title for a page's: the page's own ("History — Ciphermaniac
+/// Events"), or the app's name for a page without one, which the webview
+/// reports as its address.
+#[cfg(any(windows, test))]
+fn window_title<'a>(page_title: &'a str, app_name: &'a str) -> &'a str {
+    let page_title = page_title.trim();
+    let is_address = Url::parse(page_title)
+        .is_ok_and(|url| is_web(&url) || matches!(url.scheme(), "about" | "data" | "blob"));
+    if page_title.is_empty() || is_address {
+        app_name
+    } else {
+        page_title
+    }
 }
 
 /// A new-window request either loads in the main window or leaves the app.
@@ -292,7 +317,7 @@ fn follow_new_window<R: Runtime>(app: &AppHandle<R>, url: &Url) {
 
 #[cfg(test)]
 mod tests {
-    use super::{Load, recovery, stays_in_app};
+    use super::{Load, recovery, stays_in_app, window_title};
     use tauri::Url;
 
     fn stays(url: &str) -> bool {
@@ -337,5 +362,18 @@ mod tests {
             last_good: last,
         };
         assert_eq!(recovery(Some(&loaded), home), None, "a loaded page stays");
+    }
+
+    #[test]
+    fn titles_the_window_with_the_page_or_the_app() {
+        let app = "Ciphermaniac Events";
+        assert_eq!(
+            window_title("History — Ciphermaniac Events", app),
+            "History — Ciphermaniac Events"
+        );
+        assert_eq!(window_title("Pairings: Round 3", app), "Pairings: Round 3");
+        assert_eq!(window_title(" ", app), app);
+        assert_eq!(window_title("about:blank", app), app);
+        assert_eq!(window_title("https://events.ciphermaniac.com/", app), app);
     }
 }
