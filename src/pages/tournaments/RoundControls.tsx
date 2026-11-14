@@ -8,6 +8,7 @@
 import { createSignal, createUniqueId, Show } from 'solid-js';
 import type { Pod, Round } from '../../../shared/tournament/types';
 import { t, tn } from '../../lib/i18n';
+import { inNativeApp } from '../../lib/native/detect';
 import { clockState, parseClock } from '../../lib/tournament/clockState';
 import { podLabel } from '../../lib/tournament/present';
 import { Clock } from './Clock';
@@ -86,6 +87,20 @@ function ClockSetter(props: { round: Round; onSet: (seconds: number) => void; on
 }
 
 /**
+ * In the desktop app, a TOM event's round starts in TOM too when its clock
+ * starts, so TOM takes the pod's results. The site's clock runs whatever TOM
+ * answers; TOM's own timer counts for nothing. Says why when TOM's round did
+ * not start, and null when it runs or there is no TOM to start.
+ */
+async function startInTom(state: ManageState, pod: Pod): Promise<string | null> {
+  if (!inNativeApp() || state.data()?.mode !== 'tom') {
+    return null;
+  }
+  const { startTomRound } = await import('../../lib/native/bridge');
+  return startTomRound(pod.category);
+}
+
+/**
  * The clock as one control: time left (a press types a new one), then start
  * or pause, then a minute either way. Where the event pairs more than one pod,
  * each with its own clock, a caption after it names whose it is.
@@ -96,7 +111,14 @@ export function ClockControls(props: { state: ManageState; pod: Pod; round: Roun
     const name = named();
     return name ? t('{pod} round clock', { pod: name }) : t('Round clock');
   };
-  const send = (type: 'startClock' | 'stopClock') => void props.state.send({ type, pod: props.pod.category });
+  const [tomTrouble, setTomTrouble] = createSignal<string | null>(null);
+  const send = (type: 'startClock' | 'stopClock') => {
+    void props.state.send({ type, pod: props.pod.category });
+    if (type === 'startClock') {
+      setTomTrouble(null);
+      void startInTom(props.state, props.pod).then(setTomTrouble);
+    }
+  };
   const adjust = (seconds: number) => void props.state.send({ type: 'adjustClock', pod: props.pod.category, seconds });
   const running = () => props.round.clockStartedAt != null;
   const [setting, setSetting] = createSignal(false);
@@ -139,6 +161,13 @@ export function ClockControls(props: { state: ManageState; pod: Pod; round: Roun
           <span class='muted tm-clock-caption' aria-hidden='true'>
             {name()}
           </span>
+        )}
+      </Show>
+      <Show when={tomTrouble()}>
+        {why => (
+          <small class='tm-clock-caption tm-clock-tom' role='status'>
+            {t('Not started in TOM: {why}', { why: why() })}
+          </small>
         )}
       </Show>
     </>

@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
-import { nativeTom } from '../../src/lib/native/bridge';
+import { nativeTom, startTomRound } from '../../src/lib/native/bridge';
 import { inNativeApp } from '../../src/lib/native/detect';
 
 const global = globalThis as { window?: unknown };
@@ -31,4 +31,25 @@ test('inside the app the site calls the TOM commands through Tauri’s bridge', 
   assert.equal(inNativeApp(), true);
   assert.deepEqual(await nativeTom().submit(['21113']), [{ status: 'accepted' }]);
   assert.deepEqual(calls, [['internals', 'tom_submit', { codes: ['21113'] }]]);
+});
+
+test('starting a pod’s round in TOM names the pod by TOM’s category code and says why it did not start', async () => {
+  const calls: unknown[][] = [];
+  const answers: unknown[] = [{ status: 'already_started' }, { status: 'not_ready', reason: 'TOM is not running' }];
+  global.window = {
+    __TAURI_INTERNALS__: {
+      invoke: (command: string, args?: Record<string, unknown>) => {
+        calls.push([command, args]);
+        return Promise.resolve(answers.shift());
+      }
+    }
+  };
+  assert.equal(await startTomRound('masters'), null);
+  assert.equal(await startTomRound('mixed'), 'TOM is not running');
+  assert.deepEqual(calls, [
+    ['tom_start_round', { category: 2 }],
+    ['tom_start_round', { category: 10 }]
+  ]);
+  global.window = { __TAURI_INTERNALS__: { invoke: () => Promise.reject(new Error('IPC closed')) } };
+  assert.equal(await startTomRound('masters'), 'IPC closed');
 });
