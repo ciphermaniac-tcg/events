@@ -2,6 +2,8 @@
 mod app_style;
 #[cfg(any(windows, test))]
 mod context_menu;
+#[cfg(windows)]
+mod downloads;
 mod last_page;
 #[cfg(desktop)]
 mod menu;
