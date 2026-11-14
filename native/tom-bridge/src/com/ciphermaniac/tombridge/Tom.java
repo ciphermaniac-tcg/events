@@ -5,6 +5,10 @@ import java.awt.Window;
 import java.awt.event.KeyEvent;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 import javax.swing.AbstractButton;
 import javax.swing.JFrame;
 import javax.swing.JMenuItem;
@@ -29,6 +33,20 @@ final class Tom {
    private static final long RESPONSE_TIMEOUT_MS = 3000;
    private static final long SAVE_SETTLE_MS = 1500;
    private static final long START_TIMEOUT_MS = 5000;
+   private static final long CLOSE_TIMEOUT_MS = 3000;
+   /** If the app never says a batch is over, the form closes this long after the last code. */
+   private static final long IDLE_FINISH_MS = 2000;
+
+   /** The slip form was opened by us, not the operator, so it is ours to close. */
+   private boolean openedSlip;
+   /** We ticked auto-save, so it is ours to untick: TOM keeps it for the whole session. */
+   private boolean tickedAutosave;
+   private ScheduledFuture<?> pendingFinish;
+   private final ScheduledExecutorService closer = Executors.newSingleThreadScheduledExecutor(task -> {
+      Thread thread = new Thread(task, BridgeProvider.NAME + "-closer");
+      thread.setDaemon(true);
+      return thread;
+   });
 
    /**
     * What the event thread saw on one poll: whether the thing being waited on
@@ -55,19 +73,80 @@ final class Tom {
       if (!code.matches(CODE_PATTERN)) {
          return new Json.Obj().str("error", "invalid code").toString();
       }
+      cancelPendingFinish();
       try {
          startPodOf(pod, round);
          openSlipDialog();
+         return enterAndObserve(code);
+      } catch (NotReady e) {
+         return notReady(e.getMessage());
+      } finally {
+         pendingFinish = closer.schedule(this::finish, IDLE_FINISH_MS, TimeUnit.MILLISECONDS);
+      }
+   }
+
+   /**
+    * Ends a batch: puts the slip form back as the operator left it, closing it
+    * if we opened it and unticking auto-save if we ticked it.
+    */
+   synchronized String finish() {
+      cancelPendingFinish();
+      boolean closing = openedSlip;
+      boolean untick = tickedAutosave;
+      openedSlip = false;
+      tickedAutosave = false;
+      try {
+         Swing.onEdt(() -> restoreSlip(closing, untick));
+         awaitSlipClosed(closing);
+         return new Json.Obj().str("result", "finished").toString();
       } catch (NotReady e) {
          return notReady(e.getMessage());
       }
-      return enterAndObserve(code);
+   }
+
+   private void cancelPendingFinish() {
+      if (pendingFinish != null) {
+         pendingFinish.cancel(false);
+         pendingFinish = null;
+      }
+   }
+
+   private static Void restoreSlip(boolean close, boolean untick) {
+      Dialog slip = Swing.dialog(SLIP);
+      if (slip == null) {
+         return null;
+      }
+      AbstractButton autosave = Swing.button(slip, text -> text.startsWith(AUTOSAVE));
+      if (untick && autosave != null && autosave.isSelected()) {
+         autosave.doClick(0);
+      }
+      AbstractButton closeButton = Swing.button(slip, "Close"::equals);
+      if (close && closeButton != null) {
+         // Closing ends the form's modal loop, so click after this task returns.
+         SwingUtilities.invokeLater(() -> closeButton.doClick(0));
+      } else if (close) {
+         SwingUtilities.invokeLater(slip::dispose);
+      }
+      return null;
+   }
+
+   private void awaitSlipClosed(boolean closing) throws NotReady {
+      long deadline = System.currentTimeMillis() + CLOSE_TIMEOUT_MS;
+      while (closing && System.currentTimeMillis() < deadline) {
+         Swing.sleep(POLL_MS);
+         if (Swing.onEdt(() -> Swing.dialog(SLIP) == null)) {
+            return;
+         }
+      }
+      if (closing) {
+         throw new NotReady(SLIP + " did not close.");
+      }
    }
 
    /** Once the code may be in TOM's field, a lost answer is uncertain, not "not ready". */
    private String enterAndObserve(String code) {
       try {
-         Swing.onEdt(() -> enter(code));
+         tickedAutosave |= Swing.onEdt(() -> enter(code));
       } catch (Uncertain e) {
          return uncertain(e.getMessage());
       } catch (NotReady e) {
@@ -255,6 +334,7 @@ final class Tom {
       if (!Swing.onEdt(Tom::startOpening)) {
          return;
       }
+      openedSlip = true;
       long deadline = System.currentTimeMillis() + OPEN_TIMEOUT_MS;
       String lastError = null;
       while (System.currentTimeMillis() < deadline) {
@@ -284,7 +364,8 @@ final class Tom {
       return message.isEmpty() ? "TOM showed an error." : message;
    }
 
-   private static Void enter(String code) throws NotReady {
+   /** Returns whether auto-save had to be ticked. */
+   private static Boolean enter(String code) throws NotReady {
       Dialog slip = Swing.dialog(SLIP);
       if (slip == null) {
          throw new NotReady(SLIP + " closed before the code was sent.");
@@ -293,7 +374,8 @@ final class Tom {
       if (autosave == null) {
          throw new NotReady("The \"" + AUTOSAVE + "\" option was not found in " + SLIP + ".");
       }
-      if (!autosave.isSelected()) {
+      boolean ticking = !autosave.isSelected();
+      if (ticking) {
          autosave.doClick(0);
       }
       JTextField field = Swing.editableField(slip);
@@ -303,7 +385,7 @@ final class Tom {
       field.setText(code);
       // TOM may answer with a modal Error dialog, so press Enter after this task returns.
       SwingUtilities.invokeLater(() -> pressEnter(field));
-      return null;
+      return ticking;
    }
 
    /** TOM acts on the release of Enter, so send both halves. */
