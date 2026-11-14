@@ -8,8 +8,8 @@
  * refused when it is too young for an account), or with `?gate=1` waits at the age check as
  * a provider's new sign-up does.
  *
- * With `app=1&challenge=` the native app has opened this in the system
- * browser (lib/auth/appTicket.ts): the challenge rides along in the state
+ * With `app=1&challenge=&attempt=` the native app has opened this in the
+ * system browser (lib/auth/appTicket.ts): both ride along in the state
  * cookie, and a link waits to check the account until the app redeems, as
  * the browser holds no session of the app's.
  */
@@ -25,7 +25,7 @@ import {
   SIGNUP_COOKIE
 } from '../../../lib/auth/cookies.js';
 import { type Context, param } from '../../../lib/auth/env.js';
-import { isChallenge } from '../../../lib/auth/appTicket.js';
+import { type AppStart, readAppStart } from '../../../lib/auth/appTicket.js';
 import { authorizeUrl, devLoginEnabled, devProfile, isRedirectProvider } from '../../../lib/auth/oauth.js';
 import { createSession, currentUser, randomToken, SESSION_SECONDS, upsertUser } from '../../../lib/auth/session.js';
 import { holdSignup, SIGNUP_SECONDS } from '../../../lib/auth/signup.js';
@@ -58,13 +58,12 @@ async function devSignIn({ request, env }: Context<'provider'>, next: string): P
   return redirectWithCookies(next, [cookie(request, SESSION_COOKIE, token, SESSION_SECONDS)]);
 }
 
-/** The app's challenge; null for a browser's own sign-in, and undefined when the app sent none to use. */
-function appChallenge(query: URLSearchParams): string | null | undefined {
+/** The app's start; null for a browser's own sign-in, and undefined when the app sent none to use. */
+function appStart(query: URLSearchParams): AppStart | null | undefined {
   if (query.get('app') !== '1') {
     return null;
   }
-  const challenge = query.get('challenge');
-  return isChallenge(challenge) ? challenge : undefined;
+  return readAppStart(query.get('challenge'), query.get('attempt')) ?? undefined;
 }
 
 /** Whether a link may start here: the browser's own needs its session, the app's is checked as it redeems. */
@@ -82,12 +81,12 @@ export async function onRequestGet(context: Context<'provider'>): Promise<Respon
   if (provider === 'dev') {
     return devSignIn(context, next);
   }
-  const challenge = appChallenge(query);
-  if (challenge === undefined) {
+  const app = appStart(query);
+  if (app === undefined) {
     return jsonError('The app sent no challenge', 400);
   }
   const linking = query.get('link') === '1';
-  if (linking && !(await mayLink(context, challenge !== null))) {
+  if (linking && !(await mayLink(context, app !== null))) {
     return jsonError('Sign in first', 401);
   }
   const state = randomToken(16);
@@ -95,6 +94,6 @@ export async function onRequestGet(context: Context<'provider'>): Promise<Respon
   if (!url) {
     return jsonError(`${provider} sign-in is not configured`, 503);
   }
-  const started = [state, next, linking ? 'link' : 'login', ...(challenge ? [challenge] : [])].join(' ');
+  const started = [state, next, linking ? 'link' : 'login', ...(app ? [app.challenge, app.attempt] : [])].join(' ');
   return redirectWithCookies(url, [cookie(context.request, OAUTH_COOKIE, started, STATE_SECONDS)]);
 }

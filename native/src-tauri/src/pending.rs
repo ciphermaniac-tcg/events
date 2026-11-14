@@ -1,6 +1,8 @@
-//! The verifier of a sign-in waiting for its link, kept on disk so it
-//! outlives the app being closed while the browser has the screen (Android
-//! may do that). It lives in a directory only this user can enter and a file
+//! The verifiers of sign-ins waiting for their links, one file per attempt
+//! named by the attempt's id, kept on disk so they outlive the app being
+//! closed while the browser has the screen (Android may do that). A link
+//! spends only the verifier of the attempt it names, so a stray link or a
+//! second attempt leaves the others waiting. It lives in a directory only this user can enter and a file
 //! only this user can read, and neither is followed through a link someone
 //! else planted. On Windows the per-user app data directory is private
 //! already, so there the files take its permissions.
@@ -11,7 +13,8 @@ use std::{
     time::{Duration, SystemTime},
 };
 
-const VERIFIER_FILE: &str = "verifier";
+/// An attempt's id: 16 random bytes in hex.
+const ATTEMPT_LENGTH: usize = 32;
 /// As long as the site's sign-in state lasts in the browser.
 const MAX_AGE: Duration = Duration::from_secs(10 * 60);
 
@@ -70,13 +73,12 @@ fn remove(path: &Path) {
     }
 }
 
-/// Keeps `verifier` in `dir` for the sign-in's link, in place of any before it.
-pub fn keep(dir: &Path, verifier: &str) -> io::Result<()> {
-    use std::io::Write;
-    private_dir(dir)?;
-    let path = dir.join(VERIFIER_FILE);
-    remove(&path);
-    create_private_file(&path)?.write_all(verifier.as_bytes())
+/// Whether `attempt` is an attempt id, which also keeps it a plain file name.
+pub fn is_attempt(attempt: &str) -> bool {
+    attempt.len() == ATTEMPT_LENGTH
+        && attempt
+            .bytes()
+            .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
 }
 
 fn is_fresh(meta: &fs::Metadata) -> bool {
@@ -86,10 +88,41 @@ fn is_fresh(meta: &fs::Metadata) -> bool {
         .is_some_and(|age| age < MAX_AGE)
 }
 
-/// Takes the verifier out of `dir`, once; none when it is too old, or is a
-/// link rather than the file kept.
-pub fn take(dir: &Path) -> Option<String> {
-    let path = dir.join(VERIFIER_FILE);
+/// Removes the attempts that ran out.
+fn sweep(dir: &Path) {
+    let Ok(entries) = fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        if !entry
+            .metadata()
+            .is_ok_and(|meta| meta.is_file() && is_fresh(&meta))
+        {
+            remove(&entry.path());
+        }
+    }
+}
+
+/// Keeps `verifier` in `dir` for the link of `attempt`.
+pub fn keep(dir: &Path, attempt: &str, verifier: &str) -> io::Result<()> {
+    use std::io::Write;
+    if !is_attempt(attempt) {
+        return Err(io::Error::other("not an attempt id"));
+    }
+    private_dir(dir)?;
+    sweep(dir);
+    let path = dir.join(attempt);
+    remove(&path);
+    create_private_file(&path)?.write_all(verifier.as_bytes())
+}
+
+/// Takes the verifier of `attempt` out of `dir`, once; none when there is
+/// none, it is too old, or it is a link rather than the file kept.
+pub fn take(dir: &Path, attempt: &str) -> Option<String> {
+    if !is_attempt(attempt) {
+        return None;
+    }
+    let path = dir.join(attempt);
     let meta = fs::symlink_metadata(&path).ok()?;
     let verifier = (meta.is_file() && is_fresh(&meta))
         .then(|| fs::read_to_string(&path).ok())
@@ -100,7 +133,7 @@ pub fn take(dir: &Path) -> Option<String> {
 
 #[cfg(test)]
 pub(crate) mod tests {
-    use super::{keep, take};
+    use super::{is_attempt, keep, take};
     use std::{fs, path::PathBuf};
 
     /// A fresh directory of the test's own under the system's temporary one.
@@ -113,13 +146,44 @@ pub(crate) mod tests {
         dir
     }
 
+    const FIRST: &str = "0123456789abcdef0123456789abcdef";
+    const SECOND: &str = "fedcba9876543210fedcba9876543210";
+
     #[test]
     fn keeps_a_verifier_once() {
         let dir = scratch("once").join("sign-in");
-        keep(&dir, "first").unwrap();
-        keep(&dir, "second").unwrap();
-        assert_eq!(take(&dir).as_deref(), Some("second"));
-        assert_eq!(take(&dir), None);
+        keep(&dir, FIRST, "first").unwrap();
+        assert_eq!(take(&dir, FIRST).as_deref(), Some("first"));
+        assert_eq!(take(&dir, FIRST), None);
+    }
+
+    #[test]
+    fn a_link_spends_only_the_attempt_it_names() {
+        let dir = scratch("attempts").join("sign-in");
+        keep(&dir, FIRST, "first").unwrap();
+        keep(&dir, SECOND, "second").unwrap();
+        assert_eq!(
+            take(&dir, "00000000000000000000000000000000"),
+            None,
+            "a stray link"
+        );
+        assert_eq!(take(&dir, SECOND).as_deref(), Some("second"));
+        assert_eq!(
+            take(&dir, FIRST).as_deref(),
+            Some("first"),
+            "the overlapping attempt still waits"
+        );
+    }
+
+    #[test]
+    fn names_only_attempt_ids() {
+        assert!(is_attempt(FIRST));
+        assert!(!is_attempt("../../../../etc/passwd/../../../x"));
+        assert!(!is_attempt("0123456789ABCDEF0123456789ABCDEF"));
+        assert!(!is_attempt("0123"));
+        let dir = scratch("names").join("sign-in");
+        assert!(keep(&dir, "../escape", "secret").is_err());
+        assert_eq!(take(&dir, "../escape"), None);
     }
 
     #[cfg(unix)]
@@ -128,15 +192,15 @@ pub(crate) mod tests {
         use std::os::unix::fs::PermissionsExt;
         let root = scratch("private");
         let made = root.join("made");
-        keep(&made, "secret").unwrap();
+        keep(&made, FIRST, "secret").unwrap();
         let permissions_of =
             |path: PathBuf| fs::metadata(path).unwrap().permissions().mode() & 0o777;
         assert_eq!(permissions_of(made.clone()), 0o700);
-        assert_eq!(permissions_of(made.join("verifier")), 0o600);
+        assert_eq!(permissions_of(made.join(FIRST)), 0o600);
         let open = root.join("open");
         fs::create_dir(&open).unwrap();
         fs::set_permissions(&open, fs::Permissions::from_mode(0o755)).unwrap();
-        keep(&open, "secret").unwrap();
+        keep(&open, FIRST, "secret").unwrap();
         assert_eq!(
             permissions_of(open),
             0o700,
@@ -153,15 +217,15 @@ pub(crate) mod tests {
         fs::write(&elsewhere, "untouched").unwrap();
         let dir = root.join("sign-in");
         fs::create_dir(&dir).unwrap();
-        symlink(&elsewhere, dir.join("verifier")).unwrap();
-        assert_eq!(take(&dir), None, "a linked file is not read");
-        symlink(&elsewhere, dir.join("verifier")).unwrap();
-        keep(&dir, "secret").unwrap();
+        symlink(&elsewhere, dir.join(FIRST)).unwrap();
+        assert_eq!(take(&dir, FIRST), None, "a linked file is not read");
+        symlink(&elsewhere, dir.join(FIRST)).unwrap();
+        keep(&dir, FIRST, "secret").unwrap();
         assert_eq!(fs::read_to_string(&elsewhere).unwrap(), "untouched");
         let linked_dir = root.join("linked");
         symlink(&dir, &linked_dir).unwrap();
         assert!(
-            keep(&linked_dir, "secret").is_err(),
+            keep(&linked_dir, FIRST, "secret").is_err(),
             "a linked directory is refused"
         );
     }

@@ -22,6 +22,8 @@ const cookieOf = (response: Response, name: string) =>
   (response.headers.getSetCookie().find(value => value.startsWith(`${name}=`)) ?? '').split(';')[0] ?? '';
 
 const VERIFIER = 'a-verifier-only-the-app-holds';
+/** The id of the app's sign-in attempt, which its link back names. */
+const ATTEMPT = '0123456789abcdef0123456789abcdef';
 
 function withGoogle() {
   env.GOOGLE_CLIENT_ID = 'id';
@@ -62,17 +64,18 @@ async function googleCallback(started: string, sub = 'g-1'): Promise<Response> {
   }
 }
 
-/** The ticket in the page that hands the sign-in to the app. */
+/** The ticket in the page that hands the sign-in to the app, whose link names the attempt. */
 async function ticketOf(page: Response): Promise<string> {
-  const ticket = /ciphermaniac-events:\/\/auth\?ticket=([\w-]+)/.exec(await page.text())?.[1];
-  assert.ok(ticket, 'the page links to the app with a ticket');
-  return ticket;
+  const ticket = /ciphermaniac-events:\/\/auth\?ticket=([\w-]+)&attempt=([0-9a-f]+)"/.exec(await page.text());
+  assert.ok(ticket?.[1], 'the page links to the app with a ticket');
+  assert.equal(ticket[2], ATTEMPT, 'the link names the attempt it belongs to');
+  return ticket[1];
 }
 
 /** A ticket for Google's `sub`, as the app's sign-in started with `query` leaves it. */
 async function appTicket(query = 'next=%2Fhost', sub = 'g-1'): Promise<string> {
   const challenge = await sha256(VERIFIER);
-  const started = await startLogin(`app=1&challenge=${challenge}&${query}`);
+  const started = await startLogin(`app=1&challenge=${challenge}&attempt=${ATTEMPT}&${query}`);
   const state = decodeURIComponent(cookieOf(started, 'cm_oauth').slice('cm_oauth='.length));
   return ticketOf(await googleCallback(state, sub));
 }
@@ -98,25 +101,27 @@ function knownAccount(sub = 'g-1') {
   );
 }
 
-test("the app's login carries its challenge through Google, and asks for one", async () => {
+test("the app's login carries its challenge and attempt through Google, and asks for both", async () => {
   const challenge = await sha256(VERIFIER);
-  const started = await startLogin(`app=1&challenge=${challenge}&next=%2Fhost`);
+  const started = await startLogin(`app=1&challenge=${challenge}&attempt=${ATTEMPT}&next=%2Fhost`);
   assert.equal(started.status, 302);
   assert.match(started.headers.get('location') ?? '', /^https:\/\/accounts\.google\.com\//);
-  assert.match(decodeURIComponent(cookieOf(started, 'cm_oauth')), new RegExp(` /host login ${challenge}$`));
-  assert.equal((await startLogin('app=1&next=%2Fhost')).status, 400);
-  assert.equal((await startLogin('app=1&challenge=not-a-hash')).status, 400);
+  assert.match(decodeURIComponent(cookieOf(started, 'cm_oauth')), new RegExp(` /host login ${challenge} ${ATTEMPT}$`));
+  assert.equal((await startLogin(`app=1&attempt=${ATTEMPT}&next=%2Fhost`)).status, 400);
+  assert.equal((await startLogin(`app=1&challenge=not-a-hash&attempt=${ATTEMPT}`)).status, 400);
+  assert.equal((await startLogin(`app=1&challenge=${challenge}`)).status, 400, 'no attempt');
+  assert.equal((await startLogin(`app=1&challenge=${challenge}&attempt=../x`)).status, 400);
 });
 
 test("a link from the app starts without the browser's session; the browser's own still needs one", async () => {
   const challenge = await sha256(VERIFIER);
-  assert.equal((await startLogin(`app=1&challenge=${challenge}&link=1`)).status, 302);
+  assert.equal((await startLogin(`app=1&challenge=${challenge}&attempt=${ATTEMPT}&link=1`)).status, 302);
   assert.equal((await startLogin('link=1')).status, 401);
 });
 
 test("the app's callback hands over a hashed ticket and no session of the browser's", async () => {
   const challenge = await sha256(VERIFIER);
-  const page = await googleCallback(`state /host login ${challenge}`);
+  const page = await googleCallback(`state /host login ${challenge} ${ATTEMPT}`);
   assert.equal(page.status, 200);
   assert.match(page.headers.get('content-type') ?? '', /text\/html/);
   assert.equal(cookieOf(page, 'cm_session'), '', 'the browser stays signed out');

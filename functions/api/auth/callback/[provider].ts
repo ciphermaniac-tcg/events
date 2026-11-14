@@ -9,7 +9,7 @@
  * for it instead (lib/auth/appTicket.ts).
  */
 
-import { isChallenge, mintTicket, returnToApp } from '../../../lib/auth/appTicket.js';
+import { type AppStart, mintTicket, readAppStart, returnToApp } from '../../../lib/auth/appTicket.js';
 import { clearCookie, OAUTH_COOKIE, readCookie, redirectWithCookies, safeNext } from '../../../lib/auth/cookies.js';
 import { type Context, param } from '../../../lib/auth/env.js';
 import { finishSignIn, type Started } from '../../../lib/auth/finish.js';
@@ -17,27 +17,26 @@ import { exchangeCode, isRedirectProvider, type Profile } from '../../../lib/aut
 import { jsonError } from '../../../lib/api/responses.js';
 import type { D1Like } from '../../../lib/types.js';
 
-/** How the login started, when the callback's state matches it; `challenge` when the app started it. */
-type StartedHere = Started & { challenge: string | null };
+/** How the login started, when the callback's state matches it; `app` when the app started it. */
+type StartedHere = Started & { app: AppStart | null };
 
 /** The `next` path the login started with, when the callback's state matches it. */
 function startedHere(request: Request, state: string | null): StartedHere | null {
-  const [expected, next, intent, challenge] = (readCookie(request, OAUTH_COOKIE) ?? '').split(' ');
+  const [expected, next, intent, challenge, attempt] = (readCookie(request, OAUTH_COOKIE) ?? '').split(' ');
   if (!state || !expected || state !== expected) {
     return null;
   }
-  const app = challenge ?? null;
-  return { next: safeNext(next ?? null), linking: intent === 'link', challenge: isChallenge(app) ? app : null };
+  return { next: safeNext(next ?? null), linking: intent === 'link', app: readAppStart(challenge, attempt) };
 }
 
 /** Ends the sign-in here, or for the app: a ticket the browser hands it. */
 async function finish(db: D1Like, request: Request, profile: Profile, started: StartedHere): Promise<Response> {
-  const { challenge, ...rest } = started;
+  const { app, ...rest } = started;
   const cookies = [clearCookie(request, OAUTH_COOKIE)];
-  if (!challenge) {
+  if (!app) {
     return finishSignIn(db, request, profile, { ...rest, cookies });
   }
-  return returnToApp(await mintTicket(db, { profile, ...rest }, challenge), cookies);
+  return returnToApp(await mintTicket(db, { profile, ...rest }, app.challenge), app.attempt, cookies);
 }
 
 export async function onRequestGet({ request, env, params }: Context<'provider'>): Promise<Response> {
