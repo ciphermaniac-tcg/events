@@ -282,7 +282,8 @@ fn desktop_window_built<R: Runtime>(window: &tauri::WebviewWindow<R>) {
 /// appearance chosen (`appearance.rs`) and colored with the site's mode
 /// (`theme.rs`), new windows kept in it, on the Mac a title strip in place
 /// of the head bar (`mac_title_strip.rs`) with dialogs dropping from it as
-/// sheets (`mac_sheets.rs`), and no Safari link previews on a firm click,
+/// sheets (`mac_sheets.rs`) and its round picker drawn as one of its group
+/// (`mac_controls.rs`), and no Safari link previews on a firm click,
 /// and overlay scrollbars and the page's title on Windows.
 #[cfg(desktop)]
 fn desktop_window<'a, R: Runtime>(
@@ -305,6 +306,10 @@ fn desktop_window<'a, R: Runtime>(
     let builder = crate::mac_title_strip::window(builder)
         .initialization_script(crate::mac_title_strip::script())
         .initialization_script(crate::app_style::site_script(crate::mac_sheets::CSS, ""))
+        .initialization_script(crate::app_style::site_script(
+            &crate::mac_controls::css(),
+            "",
+        ))
         .allow_link_preview(false);
     // Windows 11's thin scrollbars that widen on hover (WebView2 125 and
     // later), and the page's title on the window, as a Windows app names
