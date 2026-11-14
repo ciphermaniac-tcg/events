@@ -221,16 +221,25 @@ pub fn create_main_window<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
     let builder = WebviewWindowBuilder::from_config(app, &config)?;
     #[cfg(desktop)]
     let builder = desktop_window(app, builder);
-    builder.build()?;
+    let window = builder.build()?;
     #[cfg(desktop)]
-    {
-        let app = app.clone();
-        std::thread::spawn(move || {
-            std::thread::sleep(SHOW_WITHIN);
-            show_main_window(&app);
-        });
-    }
+    desktop_window_built(&window);
+    #[cfg(mobile)]
+    drop(window);
     Ok(())
+}
+
+/// What the desktop window needs once it exists: Windows' webview hooks
+/// (`webview2.rs`), and showing it anyway if its first page is slow.
+#[cfg(desktop)]
+fn desktop_window_built<R: Runtime>(window: &tauri::WebviewWindow<R>) {
+    #[cfg(windows)]
+    crate::webview2::setup(window);
+    let app = window.app_handle().clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(SHOW_WITHIN);
+        show_main_window(&app);
+    });
 }
 
 /// The main window as a desktop app's: hidden until it has something to
