@@ -17,7 +17,7 @@ use crate::{last_page, sign_in};
 
 pub const MAIN_WINDOW: &str = "main";
 
-const SITE_HOST: &str = "events.ciphermaniac.com";
+pub const SITE_HOST: &str = "events.ciphermaniac.com";
 
 /// Hosts the app loads itself: the site, Clerk's sign-in, and the bot checks
 /// the site and Discord show in frames (macOS asks about frames too).
@@ -245,7 +245,8 @@ fn desktop_window_built<R: Runtime>(window: &tauri::WebviewWindow<R>) {
 }
 
 /// The main window as a desktop app's: hidden until it has something to
-/// show, told it can reach TOM, styled as an app (`app_style.rs`), new
+/// show, told it can reach TOM, styled as an app (`app_style.rs`), colored
+/// with the site's mode (`theme.rs`), new
 /// windows kept in it, no Safari link previews on a firm click, and
 /// overlay scrollbars on Windows.
 #[cfg(desktop)]
@@ -258,6 +259,7 @@ fn desktop_window<'a, R: Runtime>(
         .visible(false)
         .initialization_script(TOM_FLAG_SCRIPT)
         .initialization_script(crate::app_style::script())
+        .initialization_script(crate::theme::script())
         .on_new_window(move |url, _features| {
             follow_new_window(&follower, &url);
             tauri::webview::NewWindowResponse::Deny
