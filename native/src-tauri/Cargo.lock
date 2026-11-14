@@ -534,6 +534,7 @@ dependencies = [
  "tauri-plugin-updater",
  "tauri-plugin-window-state",
  "tom-link",
+ "webkit2gtk",
  "webview2-com",
  "windows",
 ]

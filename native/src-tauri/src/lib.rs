@@ -7,6 +7,8 @@ mod downloads;
 mod last_page;
 #[cfg(desktop)]
 mod menu;
+#[cfg(any(windows, target_os = "linux", test))]
+mod offline;
 mod pending;
 mod shell;
 #[cfg(any(windows, test))]

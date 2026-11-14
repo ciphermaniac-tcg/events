@@ -25,6 +25,7 @@ fn install<R: Runtime>(controller: &ICoreWebView2Controller, window: WebviewWind
     };
     hooked("right-click menu", crate::context_menu::install(&webview));
     hooked("shortcuts", crate::shortcuts::install(controller));
+    hooked("offline page", crate::offline::install(&webview));
     hooked("downloads", crate::downloads::install(&webview, window));
 }
 

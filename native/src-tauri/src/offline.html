@@ -1,0 +1,38 @@
+<!doctype html>
+<!-- Placeholder: this screen, its wording and its retry behavior wait on a
+     design round (native-feel audit S1). Keep it plain until then. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ciphermaniac Events</title>
+<style>
+  :root { color-scheme: light dark; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: grid;
+    place-content: center;
+    justify-items: center;
+    gap: 16px;
+    font: 15px/1.4 system-ui, sans-serif;
+    background: #ececea;
+    color: #1c1d1b;
+  }
+  @media (prefers-color-scheme: dark) {
+    body { background: #161615; color: #f1f1ee; }
+  }
+  h1 { margin: 0; font-size: 20px; font-weight: 600; }
+  button { font: inherit; padding: 6px 16px; }
+</style>
+</head>
+<body>
+<h1>You’re offline</h1>
+<button type="button" id="retry">Retry</button>
+<script>
+  const retry = () => location.replace("{{retry}}");
+  document.getElementById('retry').addEventListener('click', retry);
+  addEventListener('online', retry);
+</script>
+</body>
+</html>
