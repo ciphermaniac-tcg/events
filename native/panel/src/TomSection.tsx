@@ -1,6 +1,8 @@
 import { Segmented } from '@ciphermaniac/design/components/Segmented';
 import { Show } from 'solid-js';
-import type { TomMode, TomStatus } from '../../../shared/native/tomCommands';
+import type { TomMode, TomPod, TomStatus } from '../../../shared/native/tomCommands';
+import { categoryCode } from '../../../shared/tournament/tdf';
+import { POD_CATEGORIES, POD_LABELS } from '../../../shared/tournament/types';
 import type { TomState } from './tomState';
 
 const MODE_OPTIONS: { value: TomMode; label: string }[] = [
@@ -13,11 +15,19 @@ const MODE_NEEDS: Record<TomMode, string> = {
   keys: 'Needs Speed Match Slip Entry open in TOM. TOM comes to the front while codes are typed.'
 };
 
+function podName(code: number): string {
+  const category = POD_CATEGORIES.find(c => categoryCode(c) === String(code));
+  return category ? POD_LABELS[category] : `Pod ${code}`;
+}
+
+/** Each pod's current round as TOM's window shows it. */
+const podLine = (pod: TomPod) => `${podName(pod.category)} round ${pod.round} ${pod.state}`;
+
 function running(status: TomStatus): string {
   if (!status.running) {
     return 'Not running';
   }
-  return status.inside ? 'Running, helper inside' : 'Running';
+  return [status.inside ? 'Running, helper inside' : 'Running', ...(status.pods ?? []).map(podLine)].join(' · ');
 }
 
 function statusLine(status: TomStatus | null): string {
