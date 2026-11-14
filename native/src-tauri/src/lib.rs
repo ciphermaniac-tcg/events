@@ -47,8 +47,6 @@ fn with_desktop(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<tauri::Wr
             tom::tom_set_path,
             tom::tom_launch,
             tom::tom_status,
-            tom::tom_get_mode,
-            tom::tom_set_mode,
             tom::tom_submit,
             tom::tom_save,
             tom::tom_start_round,

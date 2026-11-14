@@ -1,21 +1,10 @@
-//! What both entry modes report back, serialized for the desktop panel.
+//! What the bridge reports back, serialized for the desktop panel.
 
 use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
 use crate::code::Entry;
-
-/// How codes reach TOM.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum Mode {
-    /// The helper inside TOM's JVM. Needs TOM launched by this app.
-    #[default]
-    Inside,
-    /// Operating-system keystrokes into Speed Match Slip Entry.
-    Keys,
-}
 
 /// One code's fate. `{"result":"accepted","code":"21113"}` and so on.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -114,7 +103,7 @@ pub struct PodStatus {
     pub started: bool,
 }
 
-/// What TOM looks like right now, as far as the current mode can tell.
+/// What TOM looks like right now.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 #[expect(
@@ -122,7 +111,6 @@ pub struct PodStatus {
     reason = "a flat JSON shape for the panel"
 )]
 pub struct Status {
-    pub mode: Mode,
     /// The TOM launcher this app will start, when one is known.
     pub tom_path: Option<PathBuf>,
     /// The TOM this app started is still running.
@@ -135,11 +123,10 @@ pub struct Status {
     pub slip_dialog_open: bool,
     /// Titles of TOM's open windows.
     pub windows: Vec<String>,
-    /// Inside mode only; keys mode cannot read TOM's pods.
     pub pods: Vec<PodStatus>,
 }
 
-/// The view of TOM one mode produced, before the bridge adds its own fields.
+/// The view of TOM the helper produced, before the bridge adds its own fields.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(crate) struct TomView {
     pub ready: bool,
@@ -214,7 +201,6 @@ mod tests {
             serde_json::to_string(&SaveResult::Saved).unwrap(),
             r#"{"result":"saved"}"#
         );
-        assert_eq!(serde_json::to_string(&Mode::Keys).unwrap(), r#""keys""#);
         assert_eq!(
             serde_json::to_string(&StartResult::AlreadyStarted).unwrap(),
             r#"{"result":"already_started"}"#
