@@ -40,126 +40,18 @@
  */
 
 import { isAdmin } from '../../../../shared/accounts/roles.js';
-import { archetypeOfList } from '../../../../shared/tournament/archetypes.js';
-import { decklistOpenFor, enteredLate } from '../../../../shared/tournament/lateLists.js';
-import { MAX_DECKLIST_CHARS, parseDecklist } from '../../../../shared/tournament/decklist.js';
-import { decklistMatcher, fullNameKey, nameKey, similarlyNamed } from '../../../../shared/tournament/identify.js';
-import { mayBeMinor, mayBeUnder13 } from '../../../../shared/accounts/age.js';
-import { birthYear, yearOnlyBirthDate } from '../../../../shared/tournament/divisions.js';
-import { isPopId, type PlayerProfile, readProfile } from '../../../../shared/tournament/profile.js';
-import {
-  type Decklist,
-  decklistsLocked,
-  decklistsOpen,
-  type DeckMode,
-  decksEnabled,
-  isSanctioned,
-  type MyRegistration,
-  type Registration
-} from '../../../../shared/tournament/view.js';
+import { MAX_DECKLIST_CHARS } from '../../../../shared/tournament/decklist.js';
+import { yearOnlyBirthDate } from '../../../../shared/tournament/divisions.js';
+import { isPopId, readProfile } from '../../../../shared/tournament/profile.js';
+import { decklistsOpen, type DeckMode, isSanctioned } from '../../../../shared/tournament/view.js';
 import { readJsonObject } from '../../../lib/api/body.js';
 import { createRateLimiter, rateLimitAddress } from '../../../lib/api/rateLimiter.js';
-import { jsonError, noContent } from '../../../lib/api/responses.js';
+import { jsonError } from '../../../lib/api/responses.js';
 import { type Context, sameOrigin } from '../../../lib/auth/env.js';
-import { sha256 } from '../../../lib/auth/session.js';
-import { rowsChanged } from '../../../lib/d1.js';
-import {
-  type Access,
-  codeOf,
-  open,
-  openForStaff,
-  privateJson,
-  publicViewOf,
-  staffWrites
-} from '../../../lib/tournaments/access.js';
-import { archetypeRules } from '../../../lib/tournaments/archetypeRules.js';
-import { admitTry, clearFailures, forgive, LOCKED_OUT } from '../../../lib/tournaments/attempts.js';
-import { publishAfter } from '../../../lib/tournaments/publish.js';
-import {
-  FULL,
-  fullRefusal,
-  isFull,
-  type Kept,
-  keptChanges,
-  nameIsShared,
-  provesId,
-  rosterFull,
-  rosterPlayer,
-  withdrawnChanges
-} from '../../../lib/tournaments/registrations.js';
-import { commandChanges } from '../../../lib/tournaments/results.js';
-import {
-  type Changes,
-  loadTournament,
-  mutate,
-  pairedRounds,
-  type TournamentRow
-} from '../../../lib/tournaments/store.js';
+import { type Access, codeOf, open, openForStaff, privateJson } from '../../../lib/tournaments/access.js';
+import { deckMode, type Details, everyList, playerAnswer } from '../../../lib/tournaments/decklists.js';
+import { notTaking, register, type Submission, unlock, withdraw } from '../../../lib/tournaments/listWrites.js';
 import { msg } from '../../../../shared/i18n.js';
-
-interface DecklistRow {
-  /** The submitter's identity key (see identityKey). */
-  user_id: string;
-  pop_id: string;
-  first_name: string;
-  last_name: string;
-  birth_date: string;
-  deck: string;
-  archetype: string | null;
-  submitted_at: number;
-  owner_token: string | null;
-  /** The account the list belongs to, when one that is its player sent it. */
-  account: string | null;
-  deck_mode: string;
-}
-
-/** A list as stored, before it is checked against the roster (see presenter). */
-type Stored = Omit<Decklist, 'problems' | 'registered' | 'fromList' | 'late' | 'editable'>;
-
-const deckMode = (value: unknown): DeckMode | null => (value === 'paper' || value === 'digital' ? value : null);
-
-function fromRow(row: DecklistRow): Stored {
-  return {
-    popId: row.pop_id,
-    firstName: row.first_name,
-    lastName: row.last_name,
-    birthDate: row.birth_date,
-    deck: row.deck,
-    mode: deckMode(row.deck_mode) ?? 'digital',
-    archetype: row.archetype,
-    submittedAt: row.submitted_at,
-    locked: row.owner_token !== null
-  };
-}
-
-/**
- * Lists as the pages show them, each with its problems and where its player
- * stands on the event's list. The roster is indexed once for however many
- * lists there are: staff read the whole event's at a time.
- */
-function presenter(row: TournamentRow) {
-  const match = decklistMatcher(row.tournament, isSanctioned(row));
-  const players = new Map(row.tournament.players.map(player => [player.id, player]));
-  return (list: Stored): Decklist => {
-    const player = players.get(match(list) ?? '');
-    return {
-      ...list,
-      // A minor's cards are deleted once the event ends (see store.ts), leaving nothing to check.
-      problems: list.deck ? parseDecklist(list.deck).problems : [],
-      registered: player !== undefined,
-      fromList: player?.fromList === true,
-      late: enteredLate(row.tournament, player?.id ?? null),
-      editable: decklistOpenFor(row, player?.id ?? null)
-    };
-  };
-}
-
-/** Who a list belongs to: the Player ID at a sanctioned event, the full name at an unsanctioned one. */
-export function identityKey(profile: Pick<PlayerProfile, 'popId' | 'firstName' | 'lastName'>, sanctioned: boolean) {
-  return sanctioned ? `pop:${profile.popId.trim()}` : `name:${fullNameKey(profile)}`;
-}
-
-type Details = Pick<PlayerProfile, 'popId' | 'firstName' | 'lastName'>;
 
 /** The longest name a lookup takes, matching what a stored roster may hold (shared/tournament/validate.ts). */
 const MAX_LOOKUP_NAME = 200;
@@ -180,198 +72,6 @@ function detailsFrom(request: Request, sanctioned: boolean): Details | Response 
   }
   const complete = sanctioned ? isPopId(details.popId) : Boolean(details.firstName && details.lastName);
   return complete ? details : null;
-}
-
-/**
- * The signed-in account, when it is the player the details name, so the list
- * may be the account's: by the POP ID it holds at a sanctioned event; at an
- * unsanctioned one, by its Claim here, on a player with the list's name. A
- * list sent before any Claim is a device's only. A write names the account
- * by `sql` (bound to `values`), which reads as its ID only while it is still
- * that player when the write lands: the POP ID or the Claim read may be gone.
- */
-interface ListAccount {
-  id: string;
-  sql: string;
-  values: unknown[];
-}
-
-function matchingAccount(access: Access, details: Details): ListAccount | null {
-  const { user, row, claimed } = access;
-  if (!user) {
-    return null;
-  }
-  if (isSanctioned(row)) {
-    return user.popId === details.popId
-      ? { id: user.id, sql: '(SELECT id FROM users WHERE id = ? AND pop_id = ?)', values: [user.id, user.popId] }
-      : null;
-  }
-  const player = row.tournament.players.find(candidate => candidate.id === claimed);
-  return player && fullNameKey(player) === fullNameKey(details)
-    ? {
-        id: user.id,
-        sql: '(SELECT user_id FROM report_devices WHERE code = ? AND player_id = ? AND user_id = ?)',
-        values: [row.code, player.id, user.id]
-      }
-    : null;
-}
-
-/**
- * When a write may land: before round 1 (no round paired), or in a late
- * entrant's window (see decklistOpenFor), with as many rounds paired as when
- * the request read the event.
- */
-interface ListWindow {
-  late: boolean;
-  paired: number;
-}
-
-const BEFORE_ROUND_1: ListWindow = { late: false, paired: 0 };
-
-/** The window the player's write lands in, judged against the event as read; the caller has checked it is open. */
-function windowFor(row: TournamentRow): ListWindow {
-  return decklistsLocked(row)
-    ? { late: true, paired: row.tournament.pods.reduce((sum, pod) => sum + pod.rounds.length, 0) }
-    : BEFORE_ROUND_1;
-}
-
-/**
- * A write's guard that the event still takes lists as the write lands:
- * decklists open or closed (an event stored before decklists could be turned
- * off keeps its switch, see storedSettings) and no round paired since the request
- * read the event (none at all outside a late entrant's window, which also
- * closes as the event ends). Lists turned off or a round paired meanwhile
- * refuses the write all the same.
- */
-const STILL_TAKING =
-  'EXISTS (SELECT 1 FROM tournaments WHERE code = ? AND ' +
-  "coalesce(json_extract(settings, '$.decklists'), " +
-  "CASE WHEN json_type(settings, '$.decklistsOpen') IS NOT NULL THEN 'closed' END) IN ('open', 'closed') " +
-  "AND (? = 0 OR coalesce(json_extract(settings, '$.finished'), 0) = 0) " +
-  `AND (? = 1 OR json_extract(state, '$.startedAt') IS NULL) AND (${pairedRounds('state')}) = ?)`;
-
-/** STILL_TAKING's values after the event's code. */
-const windowValues = (window: ListWindow) => [window.late ? 1 : 0, window.late ? 1 : 0, window.paired];
-
-/** No account: a write names none, and no list's account matches it. */
-const NO_ACCOUNT: ListAccount = { id: '', sql: 'NULL', values: [] };
-
-/** Whether the asker owns the list: the token their device holds, or the account that is its player. */
-async function owns(row: DecklistRow, token: string, account: string | null): Promise<boolean> {
-  if (account !== null && row.account === account) {
-    return true;
-  }
-  return row.owner_token !== null && token !== '' && row.owner_token === (await sha256(token));
-}
-
-const listUnder = (access: Access, key: string) =>
-  access.db
-    .prepare('SELECT * FROM decklists WHERE code = ? AND user_id = ?')
-    .bind(access.row.code, key)
-    .first<DecklistRow>();
-
-const tokenOf = (request: Request) => new URL(request.url).searchParams.get('token') ?? '';
-
-/** The asker's own list without details: the latest sent with the device token they hold. */
-async function tokenList(access: Access, request: Request): Promise<DecklistRow | null> {
-  const token = tokenOf(request);
-  return token
-    ? access.db
-        .prepare('SELECT * FROM decklists WHERE code = ? AND owner_token = ? ORDER BY submitted_at DESC LIMIT 1')
-        .bind(access.row.code, await sha256(token))
-        .first<DecklistRow>()
-    : null;
-}
-
-/**
- * The list under the asker's details when it is their own, by the device
- * token they hold or the account that is its player. Nothing else reads a
- * list back without the birth year: a profile anyone can edit to someone
- * else's details must not show that person's list.
- */
-async function ownList(
-  access: Access,
-  request: Request,
-  details: Details,
-  listed: DecklistRow | null
-): Promise<DecklistRow | null> {
-  const account = matchingAccount(access, details)?.id ?? null;
-  return listed && (await owns(listed, tokenOf(request), account)) ? listed : null;
-}
-
-const WRONG_YEAR = msg('That birth year doesn’t match this Player ID.');
-
-/**
- * A Player ID's birth year, judged as one try against it (see
- * lib/tournaments/attempts.ts): true when it proves the ID, or the refusal.
- */
-async function proveYear(access: Access, popId: string, year: string, listed: DecklistRow | null) {
-  const { db, row } = access;
-  const right = provesId(row, popId, year, listed?.birth_date ?? null);
-  if (!(await admitTry({ db, code: row.code, popId, right, now: Date.now() }))) {
-    return jsonError(LOCKED_OUT, 429);
-  }
-  return right ? true : jsonError(WRONG_YEAR, 403);
-}
-
-/** What a Player ID finds: whether anyone is registered under it, and with its birth year, whose registration it is. */
-async function byPlayerId(access: Access, request: Request, details: Details): Promise<MyRegistration | Response> {
-  const year = new URL(request.url).searchParams.get('birthYear') ?? '';
-  const listed = await listUnder(access, identityKey(details, true));
-  const player = rosterPlayer(access.row, details);
-  const known = player !== undefined || listed !== null;
-  if (!known || !year) {
-    const mine = await ownList(access, request, details, listed);
-    return { known, mine: mine && presenter(access.row)(fromRow(mine)) };
-  }
-  const proved = await proveYear(access, details.popId, year, listed);
-  if (proved !== true) {
-    return proved;
-  }
-  const named = player ?? (listed ? { firstName: listed.first_name, lastName: listed.last_name } : null);
-  return {
-    known,
-    player: named && { firstName: named.firstName, lastName: named.lastName },
-    mine: listed && presenter(access.row)(fromRow(listed))
-  };
-}
-
-/** What names find at an unsanctioned event: the players named like them, and the asker's own list. */
-async function byName(access: Access, request: Request, details: Details): Promise<MyRegistration> {
-  // Names as the event publishes them: a near miss must not show a surname the public page shortens.
-  const shown = new Map(publicViewOf(access.row).tournament.players.map(player => [player.id, player]));
-  const matches = similarlyNamed(access.row.tournament.players, details).flatMap(player => {
-    const visible = shown.get(access.row.keys[player.id] ?? player.id);
-    return visible
-      ? [
-          {
-            firstName: visible.firstName,
-            lastName: visible.lastName,
-            sameName: fullNameKey(player) === fullNameKey(details),
-            sameSurname: nameKey(player.lastName) === nameKey(details.lastName)
-          }
-        ]
-      : [];
-  });
-  const listed = await listUnder(access, identityKey(details, false));
-  const mine = await ownList(access, request, details, listed);
-  return {
-    known: listed !== null || rosterPlayer(access.row, details) !== undefined,
-    matches,
-    mine: mine && presenter(access.row)(fromRow(mine))
-  };
-}
-
-async function playerAnswer(access: Access, request: Request): Promise<MyRegistration | Response> {
-  const details = detailsFrom(request, isSanctioned(access.row));
-  if (details instanceof Response) {
-    return details;
-  }
-  if (!details) {
-    const mine = await tokenList(access, request);
-    return { known: mine !== null, mine: mine && presenter(access.row)(fromRow(mine)) };
-  }
-  return isSanctioned(access.row) ? byPlayerId(access, request, details) : byName(access, request, details);
 }
 
 /**
@@ -403,96 +103,18 @@ export async function onRequestGet(context: Context<'code'>): Promise<Response> 
     return access;
   }
   if (access.role || (access.user && isAdmin(access.user.role))) {
-    const { results } = await access.db
-      .prepare('SELECT * FROM decklists WHERE code = ? ORDER BY last_name, first_name')
-      .bind(access.row.code)
-      .all<DecklistRow>();
-    const present = presenter(access.row);
-    return privateJson({ decklists: results.map(row => present(fromRow(row))), mine: null });
+    return privateJson({ decklists: await everyList(access), mine: null });
   }
   const allowance = lookupAllowance(access, context.request);
   if (allowance && !allowance.allows(`${access.row.code}:${rateLimitAddress(context.request)}`)) {
     return jsonError(msg('Too many requests from here. Try again shortly.'), 429);
   }
-  const answer = await playerAnswer(access, context.request);
+  const details = detailsFrom(context.request, isSanctioned(access.row));
+  if (details instanceof Response) {
+    return details;
+  }
+  const answer = await playerAnswer(access, context.request, details);
   return answer instanceof Response ? answer : privateJson({ decklists: [], ...answer });
-}
-
-interface Submission {
-  profile: PlayerProfile;
-  mode: DeckMode;
-  /** The pasted list; '' for a paper one. */
-  deck: string;
-  archetype: string | null;
-  /** At an unsanctioned event, the names the registration had, when this renames it. */
-  was: Details | null;
-  /**
-   * At a sanctioned event, the birth year the registration had when this save
-   * corrects it: the year that proves the Player ID, while the event's list
-   * takes the new one (see keptChanges). Null when the year is not changed.
-   */
-  wasYear: string | null;
-  /** The token the device holds for an earlier list under these details, if any. */
-  held: unknown;
-  localTime: unknown;
-}
-
-/** A player under 13 registers with staff (see shared/accounts/age.ts): paper is no way round it online. */
-const UNDER_13 = msg('Players under 13 register with staff at the event.');
-const LOCKED = msg('This list was sent from another device. Send it from that device, or ask staff to reset it.');
-/** A list from a player who may be under 18, once the event is over: its cards were deleted as it ended (store.ts). */
-const OVER_FOR_MINORS = msg('This event is over.');
-
-/** What follows a submission the guard let in, once its store has run: whether it landed. */
-interface Admitted {
-  stored: (landed: boolean) => Promise<void>;
-}
-
-const NOTHING_COUNTED: Admitted = { stored: async () => undefined };
-
-/**
- * The wrong-year guard for a submission at a sanctioned event (see
- * lib/tournaments/attempts.ts), or the refusal. Each try is let in or refused
- * by one statement, so lists landing at once are taken one at a time. A
- * Player ID on the event's list is judged against its birth date there (none
- * on it fits nothing, until staff add one). One that is not can only be
- * judged by the store, against a list kept under it, so the try counts before
- * the store runs and is forgiven when the list lands.
- */
-async function guardSubmission(
-  access: Access,
-  profile: PlayerProfile,
-  wasYear: string | null
-): Promise<Admitted | Response> {
-  const { db, row } = access;
-  if (!isSanctioned(row)) {
-    return NOTHING_COUNTED;
-  }
-  const now = Date.now();
-  // Asked before any try counts: a year under 13 is refused whatever the event's list says.
-  const year = birthYear(profile.birthDate);
-  if (mayBeUnder13(year, new Date(now))) {
-    return jsonError(UNDER_13, 403);
-  }
-  if (row.settings.finished && mayBeMinor(year, new Date(now))) {
-    return jsonError(OVER_FOR_MINORS, 403);
-  }
-  const listed = row.tournament.players.some(candidate => candidate.id === profile.popId);
-  // A correction proves the Player ID with the year it corrects.
-  const right = listed && provesId(row, profile.popId, wasYear ?? String(year ?? ''), null);
-  if (!(await admitTry({ db, code: row.code, popId: profile.popId, right, now }))) {
-    return jsonError(LOCKED_OUT, 429);
-  }
-  if (listed) {
-    return right ? NOTHING_COUNTED : jsonError(WRONG_YEAR, 403);
-  }
-  return {
-    stored: async landed => {
-      if (landed) {
-        await forgive(db, row.code, profile.popId, now);
-      }
-    }
-  };
 }
 
 /** The names an unsanctioned rename moves a registration from, when the body gives them. */
@@ -528,7 +150,7 @@ async function readSubmission(request: Request, sanctioned: boolean): Promise<Su
   if (!list) {
     return msg('Paste a decklist');
   }
-  // A player names no archetype: their list's cards do (see onRequestPut).
+  // A player names no archetype: their list's cards do (see register in lib/tournaments/listWrites.ts).
   return {
     profile,
     ...list,
@@ -541,211 +163,6 @@ async function readSubmission(request: Request, sanctioned: boolean): Promise<Su
 }
 
 /**
- * Saves a signed-in submitter's details to their account, so pages that know
- * them can find them. Only an account that already holds the list's Player ID
- * takes them: a POP ID carries an account's history and who it is at events,
- * and a list sent for a friend from your own phone must not give your account
- * theirs. The account page saves a POP ID, where one account holds each. An
- * unsanctioned event asked only for the name, so the Player ID and birth year
- * already there stay. It only runs after the list upsert changes a row, in the
- * same batch.
- */
-function saveToAccount(access: Access, userId: string, profile: PlayerProfile) {
-  const sanctioned = isSanctioned(access.row);
-  const guard = sanctioned ? 'pop_id = ?' : "(pop_id IS NULL OR pop_id = '' OR (first_name = ? AND last_name = ?))";
-  const values = sanctioned ? [profile.popId] : [profile.firstName, profile.lastName];
-  return access.db
-    .prepare(`UPDATE users SET first_name = ?, last_name = ? WHERE id = ? AND ${guard} AND changes() > 0`)
-    .bind(profile.firstName, profile.lastName, userId, ...values);
-}
-
-/**
- * Who may replace a list already kept under the details. At a sanctioned
- * event, a submission whose birth year is proved: by the guard, against the
- * event's list for a player on it, or here, against the year the list was
- * sent with. At an unsanctioned one, a list nobody holds, under
- * the birth year it was sent with; the device that holds the token; or the
- * account the list belongs to.
- */
-const REPLACES =
-  'WHERE ? = 1 ' +
-  "OR (? = 1 AND decklists.birth_date != '' AND substr(decklists.birth_date, -4) = substr(excluded.birth_date, -4)) " +
-  "OR (decklists.owner_token IS NULL AND (decklists.birth_date = '' " +
-  'OR substr(decklists.birth_date, -4) = substr(excluded.birth_date, -4))) OR decklists.owner_token = ? ' +
-  'OR (decklists.account IS NOT NULL AND decklists.account = excluded.account)';
-
-/**
- * Stores the list under its identity with the new token's hash: a first list,
- * one staff unlocked, or a replacement its sender may make (see REPLACES). A
- * list sent by the account that is its player is that account's; the device
- * that holds the token keeps the account its list had. False when the list
- * there is not the sender's to replace, which stays as it was.
- */
-async function store(
-  access: Access,
-  submission: Submission,
-  write: { tokenHash: string; now: number; window: ListWindow }
-): Promise<boolean> {
-  const { tokenHash, now, window } = write;
-  const { profile, deck } = submission;
-  const sanctioned = isSanctioned(access.row);
-  // The guard proved the birth year against the event's own list for a player on it.
-  const proved = sanctioned && rosterPlayer(access.row, profile) !== undefined;
-  const key = identityKey(profile, sanctioned);
-  const held = typeof submission.held === 'string' && submission.held ? await sha256(submission.held) : '';
-  const account = matchingAccount(access, profile) ?? NO_ACCOUNT;
-  // A list from a player who may be under 18 lands only while the event is not over, as it stands when the write does.
-  const minor = mayBeMinor(birthYear(profile.birthDate), new Date(now)) ? 1 : 0;
-  const insert = access.db
-    .prepare(
-      `INSERT INTO decklists (code, user_id, pop_id, first_name, last_name, birth_date, deck, deck_mode, archetype, submitted_at, owner_token, account) SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ${account.sql} ` +
-        `WHERE (? = 0 OR NOT EXISTS (SELECT 1 FROM tournaments WHERE code = ? AND coalesce(json_extract(settings, '$.finished'), 0) = 1)) ` +
-        `AND ${STILL_TAKING} ` +
-        `ON CONFLICT (code, user_id) DO UPDATE SET ` +
-        `pop_id = excluded.pop_id, first_name = excluded.first_name, last_name = excluded.last_name, ` +
-        `birth_date = excluded.birth_date, deck = excluded.deck, deck_mode = excluded.deck_mode, ` +
-        `archetype = excluded.archetype, submitted_at = excluded.submitted_at, owner_token = excluded.owner_token, ` +
-        `account = CASE WHEN excluded.account IS NOT NULL THEN excluded.account ` +
-        `WHEN decklists.owner_token = ? THEN decklists.account ELSE NULL END ${REPLACES}`
-    )
-    .bind(
-      access.row.code,
-      key,
-      profile.popId,
-      profile.firstName,
-      profile.lastName,
-      profile.birthDate,
-      deck,
-      submission.mode,
-      submission.archetype,
-      now,
-      tokenHash,
-      ...account.values,
-      minor,
-      access.row.code,
-      access.row.code,
-      ...windowValues(window),
-      held,
-      proved ? 1 : 0,
-      sanctioned ? 1 : 0,
-      held
-    );
-  const named = access.user ? [saveToAccount(access, access.user.id, profile)] : [];
-  const [stored] = await access.db.batch([insert, ...named]);
-  // The upsert changes no row when the list there is not the sender's, so its count is the answer.
-  return rowsChanged(stored) > 0;
-}
-
-/**
- * Moves an unsanctioned registration to the names it is renamed to, when its
- * sender owns it there (the device's token or the account) and nobody holds
- * the new names. Whether it moved; the store then saves the rest.
- */
-async function rename(
-  access: Access,
-  submission: Pick<Submission, 'profile' | 'held'> & { was: Details },
-  window: ListWindow
-): Promise<boolean> {
-  const { was, profile, held } = submission;
-  const token = typeof held === 'string' && held ? await sha256(held) : '';
-  const account = matchingAccount(access, was) ?? NO_ACCOUNT;
-  const moved = await access.db
-    .prepare(
-      'UPDATE decklists SET user_id = ?, first_name = ?, last_name = ? WHERE code = ? AND user_id = ? ' +
-        `AND (owner_token = ? OR account = ${account.sql}) AND ${STILL_TAKING} ` +
-        'AND NOT EXISTS (SELECT 1 FROM decklists AS taken WHERE taken.code = ? AND taken.user_id = ?)'
-    )
-    .bind(
-      identityKey(profile, false),
-      profile.firstName,
-      profile.lastName,
-      access.row.code,
-      identityKey(was, false),
-      token,
-      ...account.values,
-      access.row.code,
-      ...windowValues(window),
-      access.row.code,
-      identityKey(profile, false)
-    )
-    .run();
-  return rowsChanged(moved) === 1;
-}
-
-/**
- * What registering a submitter does to the event as it stands: a Swiss event
- * the organizer has not closed adds one not on its list, as staff would add
- * them, marked as added from their list, while it has room under its cap. A
- * TOM event's roster is TOM's, and a closed event takes nobody new. A rename
- * finds them under the names they had: the list's rename to the new ones is
- * the keeping's (see keptChanges).
- */
-function addition(
-  row: TournamentRow,
-  submission: Submission
-): { registration: 'full' } | { registration: Registration; added?: Changes } {
-  const { profile, was } = submission;
-  if (rosterPlayer(row, was ?? profile) !== undefined || rosterPlayer(row, profile) !== undefined) {
-    return { registration: 'matched' };
-  }
-  // At an unsanctioned event a shared full name is no one player's, so the submitter is not new.
-  if (!isSanctioned(row) && nameIsShared(row, profile)) {
-    return { registration: 'not-added' };
-  }
-  if (row.mode !== 'swiss' || row.settings.finished) {
-    return { registration: 'not-added' };
-  }
-  if (rosterFull(row)) {
-    return { registration: 'full' };
-  }
-  const player = {
-    firstName: profile.firstName,
-    lastName: profile.lastName,
-    ...(isSanctioned(row) ? { id: profile.popId, birthDate: profile.birthDate } : {}),
-    fromList: true
-  };
-  const added = commandChanges(row, { type: 'addPlayer', player }, submission.localTime);
-  return typeof added === 'string' ? { registration: 'not-added' } : { registration: 'added', added };
-}
-
-/**
- * Registers the submitter (see addition) and keeps the event in step with
- * their saved list (see keptChanges: a rename, a paper list for check-in, the
- * list's archetype), in one write judged against the event as it stands when
- * written: a second submission may have added them meanwhile, or filled the
- * last place. When the keeping is refused (a rename to a name staff gave
- * someone else, say), a player added stays added, and the refusal is what
- * the player is told: their list is saved, but the event still shows them as
- * it did.
- */
-async function enter(context: Context<'code'>, access: Access, submission: Submission, kept: Kept) {
-  let registration: Registration = 'not-added';
-  let refusal: string | null = null;
-  const outcome = await mutate(access.db, access.row, current => {
-    const entered = addition(current, submission);
-    if (entered.registration === 'full') {
-      return FULL;
-    }
-    const { added } = entered;
-    ({ registration } = entered);
-    const keeping = keptChanges(
-      added?.tournament ? { ...current, tournament: added.tournament } : current,
-      kept,
-      kept.localTime
-    );
-    refusal = typeof keeping === 'string' ? keeping : null;
-    return typeof keeping === 'string' ? (added ?? keeping) : { ...added, ...keeping };
-  });
-  if ('error' in outcome) {
-    return outcome.error === FULL ? 'full' : outcome.error;
-  }
-  if (outcome.row.version !== access.row.version) {
-    await publishAfter(context, outcome.row);
-  }
-  return refusal ?? { registration, row: outcome.row };
-}
-
-/**
  * A whole field can send its lists from one venue's Wi-Fi, so the limit is
  * counted per event and sized for a room: 150 submissions per address per
  * event per ten minutes, with a looser cap across every event so one address
@@ -754,32 +171,11 @@ async function enter(context: Context<'code'>, access: Access, submission: Submi
 const eventLimiter = createRateLimiter({ windowMs: 10 * 60 * 1000, maxRequests: 150 });
 const addressLimiter = createRateLimiter({ windowMs: 10 * 60 * 1000, maxRequests: 400 });
 
-/**
- * Why a list cannot be sent or withdrawn now: the event takes none, or the
- * player's list locked (as round 1 paired, or for a late entrant the round
- * after they joined).
- */
-function notTakingText(row: TournamentRow, playerId: string | null = null): string {
-  return row.settings.decklists === 'off' ? msg('This event does not take decklists') : lockedText(row, playerId);
-}
-
-const lockedText = (row: TournamentRow, playerId: string | null): string =>
-  enteredLate(row.tournament, playerId) ? LOCKED_AFTER_JOINING : LOCKED_AFTER_ROUND_1;
-
-const notTaking = (row: TournamentRow, playerId: string | null = null): Response =>
-  jsonError(notTakingText(row, playerId), 403);
-
-const LOCKED_AFTER_ROUND_1 = msg('Decklists are locked once round 1 is paired');
-const LOCKED_AFTER_JOINING = msg('Decklists are locked once the round after you joined is paired');
-
 function limited(context: Context<'code'>): boolean {
   const address = rateLimitAddress(context.request);
   const code = codeOf(context);
   return !(addressLimiter.allows(address) && eventLimiter.allows(`${code}:${address}`));
 }
-
-/** A token the device made for itself, when it sent one that looks like one. */
-const deviceToken = (held: unknown) => (typeof held === 'string' && /^[\w-]{16,100}$/.test(held) ? held : null);
 
 /** The request's event, when it may be written to by a player now, or why not. */
 async function openForPlayer(context: Context<'code'>): Promise<Access | Response> {
@@ -792,74 +188,6 @@ async function openForPlayer(context: Context<'code'>): Promise<Access | Respons
   return open(context, { claim: true });
 }
 
-/** The roster player a submission is for, or null for someone not on the event. */
-const submitter = (row: TournamentRow, submission: Submission) =>
-  rosterPlayer(row, submission.was ?? submission.profile)?.id ?? null;
-
-/** Whether the submission is someone new to the event: not on its list, and with no list in under their details. */
-async function isNewcomer(access: Access, submission: Submission): Promise<boolean> {
-  const named = submission.was ?? submission.profile;
-  if (rosterPlayer(access.row, named) !== undefined) {
-    return false;
-  }
-  return (await listUnder(access, identityKey(named, isSanctioned(access.row)))) === null;
-}
-
-/** Why the submission cannot go ahead before its list is stored, or null: the event is full, or a rename is not theirs. */
-async function beforeStore(access: Access, submission: Submission, window: ListWindow): Promise<Response | null> {
-  if ((await isNewcomer(access, submission)) && (await isFull(access.db, access.row))) {
-    return fullRefusal();
-  }
-  const { was, profile } = submission;
-  if (was && fullNameKey(was) !== fullNameKey(profile) && !(await rename(access, { ...submission, was }, window))) {
-    return refusedWrite(access, submitter(access.row, submission));
-  }
-  return null;
-}
-
-/** Takes back a list that landed for a registration the event then had no room for. */
-const unstore = (access: Access, profile: PlayerProfile) =>
-  access.db
-    .prepare('DELETE FROM decklists WHERE code = ? AND user_id = ?')
-    .bind(access.row.code, identityKey(profile, isSanctioned(access.row)))
-    .run();
-
-/** Stores a submission the guards let in, and registers its player: the answer, or the refusal. */
-async function submit(
-  context: Context<'code'>,
-  access: Access,
-  submission: Submission,
-  window: ListWindow
-): Promise<Response> {
-  const now = Date.now();
-  // The device's own token stays its token, so a retry after a lost answer still owns the list.
-  const token = deviceToken(submission.held) ?? crypto.randomUUID();
-  if (!(await store(access, submission, { tokenHash: await sha256(token), now, window }))) {
-    return refusedWrite(access, submitter(access.row, submission));
-  }
-  const { profile, deck, mode, archetype, was, wasYear, localTime } = submission;
-  const kept = await enter(context, access, submission, {
-    ...(was ? { was } : {}),
-    ...(wasYear ? { year: true } : {}),
-    now: profile,
-    mode,
-    archetype,
-    localTime
-  });
-  if (kept === 'full') {
-    await unstore(access, profile);
-    return fullRefusal();
-  }
-  if (typeof kept === 'string') {
-    return jsonError(kept, 409);
-  }
-  return privateJson({
-    decklist: presenter(kept.row)({ ...profile, deck, mode, archetype, submittedAt: now, locked: true }),
-    registration: kept.registration,
-    token
-  });
-}
-
 export async function onRequestPut(context: Context<'code'>): Promise<Response> {
   const access = await openForPlayer(context);
   if (access instanceof Response) {
@@ -869,60 +197,7 @@ export async function onRequestPut(context: Context<'code'>): Promise<Response> 
   if (typeof read === 'string') {
     return decklistsOpen(access.row) ? jsonError(read, 400) : notTaking(access.row);
   }
-  const sender = submitter(access.row, read);
-  if (!decklistOpenFor(access.row, sender)) {
-    return notTaking(access.row, sender);
-  }
-  const window = windowFor(access.row);
-  const guard = await guardSubmission(access, read.profile, read.wasYear);
-  if (guard instanceof Response) {
-    return guard;
-  }
-  const refused = await beforeStore(access, read, window);
-  if (refused) {
-    await guard.stored(false);
-    return refused;
-  }
-  // The list's archetype is read from its cards (see shared/tournament/archetypes.ts); with archetypes off, none is kept.
-  const archetype =
-    decksEnabled(access.row.settings) && read.mode === 'digital'
-      ? archetypeOfList(read.deck, await archetypeRules())
-      : null;
-  const submission = { ...read, archetype };
-  const answer = await submit(context, access, submission, window);
-  await guard.stored(answer.ok);
-  return answer;
-}
-
-/**
- * Withdraws the list under the details, while the event still takes lists:
- * at a sanctioned event once its birth year proved the Player ID, whatever
- * device sent it; at an unsanctioned one only the list the device's token or
- * the account owns, checked in the delete itself, so a list replaced
- * meanwhile is not the one withdrawn. Whether the asker may withdraw: true,
- * or the refusal.
- */
-async function dropList(access: Access, request: Request, details: Details): Promise<true | Response> {
-  const { db, row } = access;
-  const sanctioned = isSanctioned(row);
-  const key = identityKey(details, sanctioned);
-  const query = new URL(request.url).searchParams;
-  if (sanctioned) {
-    const listed = await listUnder(access, key);
-    const proved = await proveYear(access, details.popId, query.get('birthYear') ?? '', listed);
-    if (proved !== true || !listed) {
-      return proved;
-    }
-  }
-  const held = query.get('token') ?? '';
-  const account = matchingAccount(access, details) ?? NO_ACCOUNT;
-  const ownership = sanctioned ? '' : `AND (owner_token = ? OR account = ${account.sql}) `;
-  const values = sanctioned ? [] : [held ? await sha256(held) : '', ...account.values];
-  const deleted = await db
-    .prepare(`DELETE FROM decklists WHERE code = ? AND user_id = ? ${ownership}AND ${STILL_TAKING}`)
-    .bind(row.code, key, ...values, row.code, ...windowValues(BEFORE_ROUND_1))
-    .run();
-  return rowsChanged(deleted) === 1 ? true : refusedWrite(access);
+  return register(context, access, read);
 }
 
 export async function onRequestDelete(context: Context<'code'>): Promise<Response> {
@@ -941,29 +216,7 @@ export async function onRequestDelete(context: Context<'code'>): Promise<Respons
   if (!details) {
     return jsonError('Say whose registration to withdraw', 400);
   }
-  const allowed = await dropList(access, context.request, details);
-  if (allowed !== true) {
-    return allowed;
-  }
-  const outcome = await mutate(access.db, access.row, current =>
-    decklistsOpen(current) ? withdrawnChanges(current, details, null) : notTakingText(current)
-  );
-  if ('error' in outcome) {
-    return jsonError(outcome.error, 403);
-  }
-  if (outcome.row.version !== access.row.version) {
-    await publishAfter(context, outcome.row);
-  }
-  return noContent();
-}
-
-/** Why a write to a list did not land: the event stopped taking lists meanwhile, or the list is not the sender's. */
-async function refusedWrite(access: Access, playerId: string | null = null): Promise<Response> {
-  const now = await loadTournament(access.db, access.row.code);
-  if (now && !decklistOpenFor(now, playerId)) {
-    return notTaking(now, playerId);
-  }
-  return isSanctioned(access.row) ? jsonError(WRONG_YEAR, 403) : jsonError(LOCKED, 409);
+  return withdraw(context, access, details);
 }
 
 /** Staff unlock a list, so the next submission under its details takes it over from whichever device sent it. */
@@ -979,17 +232,5 @@ export async function onRequestPatch(context: Context<'code'>): Promise<Response
   if (!details) {
     return jsonError('Say whose list to unlock', 400);
   }
-  const { db, row } = access;
-  if (!decklistOpenFor(row, rosterPlayer(row, details)?.id ?? null)) {
-    return notTaking(row);
-  }
-  return staffWrites(access, guard => [
-    db
-      .prepare(
-        `UPDATE decklists SET owner_token = NULL, account = NULL WHERE code = ? AND user_id = ? AND ${guard.sql}`
-      )
-      .bind(row.code, identityKey(details, isSanctioned(row)), ...guard.values),
-    // Staff vouch for the player, so their Player ID's wrong birth years are forgiven too.
-    ...(isSanctioned(row) ? [clearFailures(db, row.code, details.popId, guard)] : [])
-  ]);
+  return unlock(access, details);
 }

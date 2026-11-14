@@ -10,8 +10,9 @@ import { withMark } from '../../../shared/tournament/checkins.js';
 import type { Command } from '../../../shared/tournament/commands.js';
 import { birthYear } from '../../../shared/tournament/divisions.js';
 import { birthYearFits, decklistPlayer, fullNameKey } from '../../../shared/tournament/identify.js';
+import type { PlayerProfile } from '../../../shared/tournament/profile.js';
 import type { Player } from '../../../shared/tournament/types.js';
-import { type DeckMode, isSanctioned } from '../../../shared/tournament/view.js';
+import { type DeckMode, isSanctioned, type Registration } from '../../../shared/tournament/view.js';
 import { msg } from '../../../shared/i18n.js';
 import { jsonResponse } from '../api/responses.js';
 import type { D1Like } from '../types.js';
@@ -164,4 +165,47 @@ export function withdrawnChanges(row: TournamentRow, who: Who, localTime: unknow
     return changes;
   }
   return combine(commandChanges(row, { type: 'removePlayer', id: player.id }, localTime), changes);
+}
+
+/** A registration as addition reads it: who sends it, the names it had when renamed, and the sender's local time. */
+interface Entrant {
+  profile: PlayerProfile;
+  was: Who | null;
+  localTime: unknown;
+}
+
+/**
+ * What registering a submitter does to the event as it stands: a Swiss event
+ * the organizer has not closed adds one not on its list, as staff would add
+ * them, marked as added from their list, while it has room under its cap. A
+ * TOM event's roster is TOM's, and a closed event takes nobody new. A rename
+ * finds them under the names they had: the list's rename to the new ones is
+ * the keeping's (see keptChanges).
+ */
+export function addition(
+  row: TournamentRow,
+  submission: Entrant
+): { registration: 'full' } | { registration: Registration; added?: Changes } {
+  const { profile, was } = submission;
+  if (rosterPlayer(row, was ?? profile) !== undefined || rosterPlayer(row, profile) !== undefined) {
+    return { registration: 'matched' };
+  }
+  // At an unsanctioned event a shared full name is no one player's, so the submitter is not new.
+  if (!isSanctioned(row) && nameIsShared(row, profile)) {
+    return { registration: 'not-added' };
+  }
+  if (row.mode !== 'swiss' || row.settings.finished) {
+    return { registration: 'not-added' };
+  }
+  if (rosterFull(row)) {
+    return { registration: 'full' };
+  }
+  const player = {
+    firstName: profile.firstName,
+    lastName: profile.lastName,
+    ...(isSanctioned(row) ? { id: profile.popId, birthDate: profile.birthDate } : {}),
+    fromList: true
+  };
+  const added = commandChanges(row, { type: 'addPlayer', player }, submission.localTime);
+  return typeof added === 'string' ? { registration: 'not-added' } : { registration: 'added', added };
 }
