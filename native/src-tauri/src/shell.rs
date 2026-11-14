@@ -320,23 +320,65 @@ fn window_title<'a>(page_title: &'a str, app_name: &'a str) -> &'a str {
     }
 }
 
-/// A new-window request either loads in the main window or leaves the app.
+/// The big screen's own window.
+#[cfg(desktop)]
+const SCREEN_WINDOW: &str = "screen";
+
+/// Whether `url` is an event's big screen (`/t/<code>?screen=1`), which the
+/// console opens in a new tab; its stream view (`&stream`) is not.
+#[cfg(any(desktop, test))]
+fn is_big_screen(url: &Url) -> bool {
+    url.host_str().is_some_and(is_site_host)
+        && url.path().starts_with("/t/")
+        && url
+            .query_pairs()
+            .any(|(key, value)| key == "screen" && value == "1")
+        && !url.query_pairs().any(|(key, _)| key == "stream")
+}
+
+/// Opens the big screen in a window of its own, as the site opens it in a
+/// tab of its own: the console stays where it was, and the screen can go to
+/// a projector and full screen there (the window-state plugin remembers
+/// where). A second one replaces the first.
+#[cfg(desktop)]
+fn open_big_screen<R: Runtime>(app: &AppHandle<R>, url: &Url) -> tauri::Result<()> {
+    if let Some(window) = app.get_webview_window(SCREEN_WINDOW) {
+        window.navigate(url.clone())?;
+        return window.set_focus();
+    }
+    let builder = WebviewWindowBuilder::new(app, SCREEN_WINDOW, WebviewUrl::External(url.clone()))
+        .title("Big Screen")
+        .inner_size(1280.0, 720.0)
+        .min_inner_size(640.0, 360.0)
+        .initialization_script(crate::app_style::script());
+    #[cfg(target_os = "macos")]
+    let builder = builder.allow_link_preview(false);
+    builder.build().map(drop)
+}
+
+/// A new-window request: the big screen opens in its own window, the rest
+/// of the site loads in the main window, and anything else leaves the app.
 #[cfg(desktop)]
 fn follow_new_window<R: Runtime>(app: &AppHandle<R>, url: &Url) {
     if !stays_in_app(url) {
         open_outside(app, url);
         return;
     }
-    if let Some(window) = app.get_webview_window(MAIN_WINDOW)
-        && let Err(err) = window.navigate(url.clone())
-    {
+    let opened = if is_big_screen(url) {
+        open_big_screen(app, url)
+    } else if let Some(window) = app.get_webview_window(MAIN_WINDOW) {
+        window.navigate(url.clone())
+    } else {
+        Ok(())
+    };
+    if let Err(err) = opened {
         log::warn!("could not open {url}: {err}");
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{Load, recovery, stays_in_app, window_title};
+    use super::{Load, is_big_screen, recovery, stays_in_app, window_title};
     use tauri::Url;
 
     fn stays(url: &str) -> bool {
@@ -394,5 +436,17 @@ mod tests {
         assert_eq!(window_title(" ", app), app);
         assert_eq!(window_title("about:blank", app), app);
         assert_eq!(window_title("https://events.ciphermaniac.com/", app), app);
+    }
+
+    #[test]
+    fn knows_an_events_big_screen() {
+        let screen = |url: &str| is_big_screen(&Url::parse(url).unwrap());
+        assert!(screen("https://events.ciphermaniac.com/t/ABC123?screen=1"));
+        assert!(!screen(
+            "https://events.ciphermaniac.com/t/ABC123?screen=1&stream=1"
+        ));
+        assert!(!screen("https://events.ciphermaniac.com/t/ABC123"));
+        assert!(!screen("https://events.ciphermaniac.com/host?screen=1"));
+        assert!(!screen("https://example.com/t/ABC123?screen=1"));
     }
 }
