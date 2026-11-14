@@ -53,7 +53,7 @@ impl Appearance {
     }
 }
 
-/// The script each page of the main window runs first: it puts `chosen`
+/// The script each page of a site window runs first: it puts `chosen`
 /// (or the run's later choice) in the site's storage before the site reads
 /// it, and leaves `__cmAppearance` for a later choice to paint the page.
 pub fn script(chosen: Appearance) -> String {
@@ -73,7 +73,7 @@ pub fn script(chosen: Appearance) -> String {
 }
 
 #[cfg(desktop)]
-pub use desktop::{on_menu_event, on_page_loaded, page_script, setup, submenu};
+pub use desktop::{follow, on_menu_event, on_page_loaded, page_script, setup, submenu};
 
 #[cfg(desktop)]
 mod desktop {
@@ -85,7 +85,10 @@ mod desktop {
     };
 
     use super::Appearance;
-    use crate::{shell, theme};
+    use crate::{big_screen::SCREEN_WINDOW, shell, theme};
+
+    /// The windows that show the site, and take the choice.
+    const SITE_WINDOWS: [&str; 2] = [shell::MAIN_WINDOW, SCREEN_WINDOW];
 
     const FILE: &str = "appearance";
     const MENU_PREFIX: &str = "appearance:";
@@ -194,7 +197,13 @@ mod desktop {
         theme::paint(window, dark);
     }
 
-    /// The main window's page script for the kept choice.
+    /// Gives a new big screen window the kept choice's theme; its page
+    /// script applies the choice to its pages.
+    pub fn follow<R: Runtime>(window: &WebviewWindow<R>) {
+        set_window_theme(window, load(window.app_handle()));
+    }
+
+    /// A site window's page script for the kept choice.
     pub fn page_script<R: Runtime>(app: &AppHandle<R>) -> String {
         super::script(load(app))
     }
@@ -210,19 +219,21 @@ mod desktop {
     fn apply<R: Runtime>(app: &AppHandle<R>, chosen: Appearance) {
         save(app, chosen);
         check(app, chosen);
-        let Some(window) = app.get_webview_window(shell::MAIN_WINDOW) else {
-            return;
-        };
-        set_window_theme(&window, chosen);
-        if let Err(err) = window.eval(apply_call(chosen)) {
-            log::debug!("could not apply the appearance: {err}");
+        for window in SITE_WINDOWS
+            .iter()
+            .filter_map(|label| app.get_webview_window(label))
+        {
+            set_window_theme(&window, chosen);
+            if let Err(err) = window.eval(apply_call(chosen)) {
+                log::debug!("could not apply the appearance: {err}");
+            }
         }
     }
 
     /// Whether a page that finished loading takes the current choice: a page
     /// of the site in a window with the page script.
     pub(super) fn takes_appearance(label: &str, url: &Url) -> bool {
-        label == shell::MAIN_WINDOW && url.host_str().is_some_and(shell::is_site_host)
+        SITE_WINDOWS.contains(&label) && url.host_str().is_some_and(shell::is_site_host)
     }
 
     /// Gives a site page that finished loading the current choice.
@@ -267,6 +278,13 @@ mod tests {
             "tom",
             &page("https://events.ciphermaniac.com/")
         ));
+        assert!(
+            takes_appearance(
+                "screen",
+                &page("https://events.ciphermaniac.com/t/MSFMQ9?screen=1")
+            ),
+            "the big screen follows too"
+        );
     }
 
     #[test]
