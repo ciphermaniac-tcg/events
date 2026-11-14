@@ -1,42 +1,105 @@
-//! Checks a result code before it goes anywhere near TOM.
+//! Checks a result before its code goes anywhere near TOM.
 //!
-//! A code is `pod [flight] round table outcome check`. Pod, flight, round and
-//! table widths depend on the event, so a code alone can parse several ways.
-//! A code is refused when no parse fits, or when every parse lands on table 0:
-//! byes and forced losses sit there and TOM would wrongly accept a code for one.
-//! Codes whose table the event layout decides are trusted to come from the
-//! slip-code builder, which never emits table 0.
+//! A code is `pod [flight] round table outcome check`, and how TOM splits it
+//! depends on the event: whether the pod has flights, how many digits the
+//! round takes. A code alone can read several ways (`211014` is round 1,
+//! table 10 without flights, but flight 1, round 1, table 0 with them), so
+//! every code arrives with the layout it was built from. The code must spell
+//! exactly that layout, and table 0, where byes and forced losses sit, is
+//! refused outright: TOM would accept a code for one.
+
+use serde::Deserialize;
 
 const MIN_LEN: usize = 5;
 const MAX_LEN: usize = 10;
 const MAX_VALUE: u64 = 2_147_483_647;
 const OUTCOMES: [u8; 5] = [0, 1, 2, 3, 6];
-const SINGLE_DIGIT_PODS: [u8; 5] = [0, 1, 2, 8, 9];
+const PODS: [u8; 6] = [0, 1, 2, 8, 9, 10];
 const MAX_TABLE_DIGITS: usize = 3;
 
-/// Returns why TOM must not be sent this code, or `Ok` when it may be.
+/// One result to enter, as the slip-code builder computed it from TOM's file.
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+pub struct Entry {
+    /// TOM's category code: 0, 1, 2, 8, 9 or 10.
+    pub pod: u8,
+    /// Only when the pod is flighted and the round is Swiss.
+    #[serde(default)]
+    pub flight: Option<u8>,
+    pub round: u8,
+    pub table: u16,
+    /// 0 pending, 1 player 1 wins, 2 player 2 wins, 3 tie, 6 double loss.
+    pub outcome: u8,
+    pub code: String,
+}
+
+/// Returns why TOM must not be sent this entry, or `Ok` when it may be.
 ///
 /// # Errors
 /// A sentence for the person who reported the result.
-pub fn vet(code: &str) -> Result<(), String> {
+pub fn vet(entry: &Entry) -> Result<(), String> {
+    let code = entry.code.as_str();
     let digits = digits(code)?;
+    check_layout(entry)?;
     let (body, tail) = digits.split_at(digits.len() - 2);
-    if !OUTCOMES.contains(&tail[0]) {
-        return Err(format!("{code} has an outcome digit TOM does not accept."));
-    }
     if tail[1] != check_digit(&digits[..digits.len() - 1]) {
         return Err(format!("{code} has the wrong check digit."));
     }
-    let tables = tables(body);
-    if tables.is_empty() {
-        return Err(format!("{code} does not match any pod and round TOM uses."));
+    let prefix = prefix(entry);
+    let table = body
+        .get(prefix.len()..)
+        .filter(|_| code.starts_with(&prefix));
+    let spelled = table
+        .filter(|t| (1..=MAX_TABLE_DIGITS).contains(&t.len()))
+        .map(number);
+    if spelled != Some(u32::from(entry.table)) || tail[0] != entry.outcome {
+        return Err(format!(
+            "{code} does not match pod {}, round {}, table {}, outcome {}.",
+            entry.pod, entry.round, entry.table, entry.outcome
+        ));
     }
-    if tables.iter().all(|&table| table == 0) {
+    Ok(())
+}
+
+fn check_layout(entry: &Entry) -> Result<(), String> {
+    let code = &entry.code;
+    if entry.table == 0 {
         return Err(format!(
             "{code} is for table 0, where byes and forced losses sit."
         ));
     }
+    if !PODS.contains(&entry.pod) {
+        return Err(format!(
+            "{code} names pod {}, which TOM does not use.",
+            entry.pod
+        ));
+    }
+    let flight_ok = entry.flight.is_none_or(|flight| (1..=9).contains(&flight));
+    let round_ok = (1..=99).contains(&entry.round);
+    let table_ok = entry.table < 1000;
+    if !(flight_ok && round_ok && table_ok) {
+        return Err(format!(
+            "{code} has a flight, round or table TOM cannot print."
+        ));
+    }
+    if !OUTCOMES.contains(&entry.outcome) {
+        return Err(format!("{code} has an outcome TOM does not accept."));
+    }
     Ok(())
+}
+
+/// Pod, flight and round as TOM prints them before the table.
+fn prefix(entry: &Entry) -> String {
+    let flight = entry
+        .flight
+        .map(|flight| flight.to_string())
+        .unwrap_or_default();
+    format!("{}{flight}{}", entry.pod, entry.round)
+}
+
+fn number(digits: &[u8]) -> u32 {
+    digits
+        .iter()
+        .fold(0, |acc, &digit| acc * 10 + u32::from(digit))
 }
 
 fn digits(code: &str) -> Result<Vec<u8>, String> {
@@ -64,89 +127,74 @@ pub(crate) fn check_digit(digits: &[u8]) -> u8 {
     u8::try_from((10 - sum % 10) % 10).unwrap_or(0)
 }
 
-/// Every table number the body could name, across all plausible layouts.
-fn tables(body: &[u8]) -> Vec<u32> {
-    let after_pod = pod_len(body).map_or(&[][..], |len| &body[len..]);
-    let mut out = Vec::new();
-    for after_flight in [Some(after_pod), skip_flight(after_pod)]
-        .into_iter()
-        .flatten()
-    {
-        for round_len in [1, 2] {
-            out.extend(table_after_round(after_flight, round_len));
-        }
+#[cfg(test)]
+pub(crate) fn entry(
+    pod: u8,
+    flight: Option<u8>,
+    round: u8,
+    table: u16,
+    outcome: u8,
+    code: &str,
+) -> Entry {
+    Entry {
+        pod,
+        flight,
+        round,
+        table,
+        outcome,
+        code: code.to_owned(),
     }
-    out
-}
-
-/// Pod 10 takes two digits; other pods one. "10" can only be pod 10, since
-/// neither a flight nor a round starts with 0.
-fn pod_len(body: &[u8]) -> Option<usize> {
-    match body {
-        [1, 0, ..] => Some(2),
-        [pod, ..] if SINGLE_DIGIT_PODS.contains(pod) => Some(1),
-        _ => None,
-    }
-}
-
-fn skip_flight(rest: &[u8]) -> Option<&[u8]> {
-    match rest {
-        [flight, tail @ ..] if *flight != 0 => Some(tail),
-        _ => None,
-    }
-}
-
-fn table_after_round(rest: &[u8], round_len: usize) -> Option<u32> {
-    let table = rest.get(round_len..)?;
-    let round_ok = rest.first().is_some_and(|&first| first != 0);
-    if !round_ok || table.is_empty() || table.len() > MAX_TABLE_DIGITS {
-        return None;
-    }
-    Some(
-        table
-            .iter()
-            .fold(0, |acc, &digit| acc * 10 + u32::from(digit)),
-    )
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn with_check(base: &str) -> String {
-        let digits: Vec<u8> = base.bytes().map(|b| b - b'0').collect();
-        format!("{base}{}", check_digit(&digits))
-    }
-
     #[test]
-    fn accepts_codes_tom_printed() {
-        for code in [
-            "21113", "21121", "21139", "210319", "2110914", "2213023", "01131", "2100113",
-            "2120525", "219918", "211112",
-        ] {
-            assert_eq!(vet(code), Ok(()), "{code}");
+    fn accepts_codes_tom_printed_with_their_layout() {
+        let printed = [
+            entry(2, None, 1, 1, 1, "21113"),
+            entry(2, None, 1, 1, 3, "21139"),
+            entry(2, None, 1, 3, 1, "210319"),
+            entry(2, Some(1), 1, 9, 1, "2110914"),
+            entry(2, Some(2), 1, 30, 2, "2213023"),
+            entry(0, None, 1, 1, 3, "01131"),
+            entry(2, None, 1, 205, 2, "2120525"),
+            entry(2, None, 11, 1, 1, "211112"),
+        ];
+        for entry in printed {
+            assert_eq!(vet(&entry), Ok(()), "{entry:?}");
         }
     }
 
     #[test]
     fn computes_the_documented_check_digit() {
-        assert_eq!(with_check("2111"), "21113");
+        assert_eq!(check_digit(&[2, 1, 1, 1]), 3);
     }
 
     #[test]
-    fn refuses_codes_that_can_only_be_table_zero() {
-        for base in ["2101", "21001", "210001", "2110001", "10101"] {
-            let code = with_check(base);
-            let error = vet(&code).unwrap_err();
-            assert!(error.contains("table 0"), "{code}: {error}");
+    fn refuses_a_code_that_reads_as_table_zero_in_a_flighted_pod() {
+        // Without flights 211014 is round 1, table 10. In a pod with flights,
+        // TOM reads flight 1, round 1, table 0: a bye.
+        assert_eq!(vet(&entry(2, None, 1, 10, 1, "211014")), Ok(()));
+        let error = vet(&entry(2, Some(1), 1, 10, 1, "211014")).unwrap_err();
+        assert!(error.contains("does not match"), "{error}");
+    }
+
+    #[test]
+    fn refuses_table_zero_and_mismatched_parts() {
+        let cases = [
+            (entry(2, None, 1, 0, 1, "21014"), "table 0"),
+            (entry(2, None, 2, 1, 1, "21113"), "does not match"),
+            (entry(2, None, 1, 1, 2, "21113"), "does not match"),
+            (entry(1, None, 1, 1, 1, "21113"), "does not match"),
+            (entry(3, None, 1, 1, 1, "31112"), "pod 3"),
+            (entry(2, None, 1, 1, 4, "21145"), "outcome"),
+        ];
+        for (entry, expected) in cases {
+            let error = vet(&entry).unwrap_err();
+            assert!(error.contains(expected), "{entry:?}: {error}");
         }
-    }
-
-    #[test]
-    fn keeps_tables_ending_in_zero() {
-        // Pod 2, round 1, table 10: also parses as flight 1, round 1, table 0.
-        assert_eq!(vet(&with_check("21101")), Ok(()));
-        assert_eq!(vet(&with_check("211002")), Ok(()));
     }
 
     #[test]
@@ -157,19 +205,11 @@ mod tests {
             ("9999999999", "too large"),
             ("+21113", "digits only"),
             ("TIE12", "digits only"),
-            (" 21113", "digits only"),
             ("21114", "check digit"),
-            ("21145", "outcome digit"),
         ];
         for (code, expected) in cases {
-            let error = vet(code).unwrap_err();
+            let error = vet(&entry(2, None, 1, 1, 1, code)).unwrap_err();
             assert!(error.contains(expected), "{code}: {error}");
         }
-    }
-
-    #[test]
-    fn refuses_unknown_pods() {
-        let error = vet(&with_check("3111")).unwrap_err();
-        assert!(error.contains("pod"), "{error}");
     }
 }

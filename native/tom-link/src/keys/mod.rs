@@ -11,6 +11,7 @@
 use std::thread;
 use std::time::{Duration, Instant};
 
+use crate::code::Entry;
 use crate::results::{SaveResult, SubmitResult, TomView, submit_each};
 
 #[cfg(target_os = "linux")]
@@ -187,16 +188,16 @@ pub(crate) fn view<D: Desktop>(desktop: &mut D) -> TomView {
 pub(crate) fn submit<D: Desktop>(
     desktop: &mut D,
     timing: Timing,
-    codes: &[String],
+    entries: &[Entry],
 ) -> Vec<SubmitResult> {
     if let Err(reason) = desktop.check_access(true) {
-        return codes
+        return entries
             .iter()
-            .map(|code| SubmitResult::not_ready(code, reason.clone()))
+            .map(|entry| SubmitResult::not_ready(&entry.code, reason.clone()))
             .collect();
     }
     let focus = desktop.focus().ok();
-    let results = submit_each(codes, |code| send(desktop, timing, code));
+    let results = submit_each(entries, |entry| send(desktop, timing, &entry.code));
     if let Some(focus) = focus {
         let _ = desktop.restore(focus);
     }
