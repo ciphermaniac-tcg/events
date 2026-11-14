@@ -70,8 +70,11 @@ pub fn window<R: tauri::Runtime>(
         .traffic_light_position(tauri::LogicalPosition::new(x, y))
 }
 
-/// The head bar as the strip. Its controls are 24 px, 7 above and below.
-/// `:root` outweighs the site's own rules for the bar, including a phone
+/// The head bar as the strip. Its controls are 24 px, 7 above and below,
+/// on the window buttons' center line and as far from the right edge as
+/// the close button is from the left. The account button takes a faint
+/// ring under the pointer and dims while held (`press.rs`), and its menu
+/// stays inside the window. `:root` outweighs the site's own rules for the bar, including a phone
 /// width's gutters and stylesheets a page loads later.
 fn css() -> String {
     format!(
@@ -81,6 +84,9 @@ fn css() -> String {
          padding: 0 {right}px 0 {left}px; }} \
          :root .site-head .tm-acct-button {{ width: 24px; height: 24px; font-size: 11px; }} \
          :root .site-head-signin {{ min-height: 24px; height: 24px; font-size: 12px; }} \
+         :root .site-head .tm-acct-button:hover {{ \
+         box-shadow: 0 0 0 3px color-mix(in srgb, var(--fg) 22%, transparent); }} \
+         :root .site-head .tm-acct-menu {{ max-height: calc(100dvh - var(--topnav-h) - {right}px - 8px); }} \
          :root main.page {{ padding-top: {PAGE_GAP}px; }}",
         right = edge(),
         left = lights_room(),
@@ -182,6 +188,8 @@ mod tests {
         assert!(css.contains(":root .site-head-name { display: none; }"));
         assert!(css.contains("padding: 0 13px 0 86px"));
         assert!(css.contains(":root main.page { padding-top: 18px; }"));
+        assert!(css.contains(".tm-acct-button:hover"));
+        assert!(css.contains("max-height: calc(100dvh - var(--topnav-h) - 13px - 8px)"));
     }
 
     #[test]
