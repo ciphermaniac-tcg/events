@@ -30,7 +30,8 @@ const required: [name: string, drop: string][] = [
   ['decklists_by_account', 'DROP INDEX decklists_by_account'],
   ['report_history_by_account', 'DROP INDEX report_history_by_account'],
   ['app_sign_in_tickets', 'DROP TABLE app_sign_in_tickets'],
-  ['app_sign_in_tickets_by_expiry', 'DROP INDEX app_sign_in_tickets_by_expiry']
+  ['app_sign_in_tickets_by_expiry', 'DROP INDEX app_sign_in_tickets_by_expiry'],
+  ['binding', 'ALTER TABLE app_sign_in_tickets RENAME COLUMN binding TO gone']
 ];
 
 test('deployment preflight accepts the full schema', () => {

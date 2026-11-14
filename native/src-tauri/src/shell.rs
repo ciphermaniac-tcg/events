@@ -150,7 +150,7 @@ fn recover<R: Runtime>(webview: &Webview<R>) {
 /// opened outside instead.
 fn follow<R: Runtime>(webview: &Webview<R>, url: &Url) -> bool {
     let app = webview.app_handle();
-    if sign_in::open_in_browser(app, url) {
+    if sign_in::open_in_browser(webview, url) {
         recover(webview);
         return false;
     }

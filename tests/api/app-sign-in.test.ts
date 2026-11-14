@@ -2,20 +2,22 @@
  * The native app's sign-in through the system browser
  * (functions/lib/auth/appTicket.ts): the browser's callback starts no session
  * of its own but hands the app a ticket, which the app's webview redeems once,
- * within its minute, with the verifier its challenge came from.
+ * within its minute, with the verifier its challenge came from; a link only
+ * from the session that asked for it.
  */
 
 import assert from 'node:assert/strict';
 import { mock, test } from 'node:test';
 
 import * as callback from '../../functions/api/auth/callback/[provider].ts';
+import * as linkBinding from '../../functions/api/auth/link-binding.ts';
 import * as login from '../../functions/api/auth/login/[provider].ts';
 import * as redeem from '../../functions/api/auth/redeem.ts';
 import { sha256 } from '../../functions/lib/auth/session.ts';
-import { apiSuite, ORIGIN, request } from '../__utils__/apiCalls.ts';
+import { apiSuite, type Handler, ORIGIN, request } from '../__utils__/apiCalls.ts';
 import type { sqliteD1 } from '../__utils__/sqliteD1.ts';
 
-const { env, signIn, userOf } = apiSuite();
+const { env, hit, signIn, userOf } = apiSuite();
 const raw = () => (env.TOURNAMENT_DB as ReturnType<typeof sqliteD1>).raw;
 const count = () => (raw().prepare('SELECT count(*) AS n FROM app_sign_in_tickets').get() as { n: number }).n;
 const cookieOf = (response: Response, name: string) =>
@@ -72,6 +74,22 @@ async function ticketOf(page: Response): Promise<string> {
   return ticket[1];
 }
 
+/** The binding a page of the site fetches for a link, asked by the session under `cookie`. */
+async function bindingOf(cookie: string, call: { origin?: string } = {}) {
+  const challenge = await sha256(VERIFIER);
+  return hit(
+    linkBinding.onRequestPost as Handler,
+    '/api/auth/link-binding',
+    {},
+    {
+      method: 'POST',
+      cookie,
+      body: { challenge },
+      ...call
+    }
+  );
+}
+
 /** A ticket for Google's `sub`, as the app's sign-in started with `query` leaves it. */
 async function appTicket(query = 'next=%2Fhost', sub = 'g-1'): Promise<string> {
   const challenge = await sha256(VERIFIER);
@@ -113,10 +131,38 @@ test("the app's login carries its challenge and attempt through Google, and asks
   assert.equal((await startLogin(`app=1&challenge=${challenge}&attempt=../x`)).status, 400);
 });
 
-test("a link from the app starts without the browser's session; the browser's own still needs one", async () => {
+test("a link from the app starts with its binding instead of the browser's session; the browser's own needs one", async () => {
   const challenge = await sha256(VERIFIER);
-  assert.equal((await startLogin(`app=1&challenge=${challenge}&attempt=${ATTEMPT}&link=1`)).status, 302);
+  const binding = (await bindingOf(await signIn('Linker'))).json.binding as string;
+  const started = await startLogin(`app=1&challenge=${challenge}&attempt=${ATTEMPT}&link=1&binding=${binding}`);
+  assert.equal(started.status, 302);
+  assert.match(
+    decodeURIComponent(cookieOf(started, 'cm_oauth')),
+    new RegExp(` link ${challenge} ${ATTEMPT} ${binding}$`)
+  );
+  assert.equal((await startLogin(`app=1&challenge=${challenge}&attempt=${ATTEMPT}&link=1`)).status, 401);
   assert.equal((await startLogin('link=1')).status, 401);
+});
+
+test('only a signed-in page of the site gets a binding, one for its own session', async () => {
+  const cookie = await signIn('Linker');
+  const own = await bindingOf(cookie);
+  assert.equal(own.status, 200);
+  assert.match(own.json.binding, /^[0-9a-f]{64}$/);
+  assert.notEqual((await bindingOf(await signIn('Other'))).json.binding, own.json.binding);
+  assert.equal((await bindingOf('')).status, 401);
+  assert.equal((await bindingOf(cookie, { origin: 'https://evil.example' })).status, 403);
+  const noChallenge = await hit(
+    linkBinding.onRequestPost as Handler,
+    '/api/auth/link-binding',
+    {},
+    {
+      method: 'POST',
+      cookie,
+      body: { challenge: 'nope' }
+    }
+  );
+  assert.equal(noChallenge.status, 400);
 });
 
 test("the app's callback hands over a hashed ticket and no session of the browser's", async () => {
@@ -167,8 +213,9 @@ test('a ticket past its minute is refused', async () => {
 });
 
 test("another site's post is refused without using the ticket, which the app's then redeems", async () => {
-  const ticket = await appTicket('next=%2Fsettings&link=1', 'g-other');
   const cookie = await signIn('Victim');
+  const { binding } = (await bindingOf(cookie)).json as { binding: string };
+  const ticket = await appTicket(`next=%2Fsettings&link=1&binding=${binding}`, 'g-other');
   const forged = await redeemWith({ ticket, verifier: VERIFIER }, cookie, 'https://evil.example');
   assert.equal(forged.headers.get('location'), '/settings?signin=failed');
   assert.deepEqual((await userOf(cookie)).providers, ['dev'], 'nothing linked');
@@ -193,8 +240,27 @@ test("a new sign-up from the app waits for its age check in the app's webview", 
 
 test("a link from the app adds Google to the webview's account", async () => {
   const cookie = await signIn('Linker');
-  const ticket = await appTicket('next=%2Fsettings&link=1', 'g-link');
+  const { binding } = (await bindingOf(cookie)).json as { binding: string };
+  const ticket = await appTicket(`next=%2Fsettings&link=1&binding=${binding}`, 'g-link');
   const linked = await redeemWith({ ticket, verifier: VERIFIER }, cookie);
   assert.equal(linked.headers.get('location'), '/settings');
   assert.deepEqual((await userOf(cookie)).providers, ['dev', 'google']);
+});
+
+test('a link redeemed by any session but the one that asked adds nothing', async () => {
+  const asker = await signIn('Asker');
+  const { binding } = (await bindingOf(asker)).json as { binding: string };
+  const other = await signIn('Other');
+  const elsewhere = await redeemWith(
+    { ticket: await appTicket(`next=%2Fsettings&link=1&binding=${binding}`, 'g-link'), verifier: VERIFIER },
+    other
+  );
+  assert.equal(elsewhere.headers.get('location'), '/settings?signin=failed');
+  assert.deepEqual((await userOf(other)).providers, ['dev'], 'nothing linked to the other account');
+  const signedOut = await redeemWith({
+    ticket: await appTicket(`next=%2Fsettings&link=1&binding=${binding}`, 'g-link'),
+    verifier: VERIFIER
+  });
+  assert.equal(signedOut.headers.get('location'), '/settings?signin=failed');
+  assert.deepEqual((await userOf(asker)).providers, ['dev'], 'nor to the account that asked');
 });

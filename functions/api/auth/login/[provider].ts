@@ -10,8 +10,9 @@
  *
  * With `app=1&challenge=&attempt=` the native app has opened this in the
  * system browser (lib/auth/appTicket.ts): both ride along in the state
- * cookie, and a link waits to check the account until the app redeems, as
- * the browser holds no session of the app's.
+ * cookie. A link from the app also needs `binding=`, its binding to the
+ * app's session, as the browser holds no session of the app's; the redeem
+ * checks it.
  */
 
 import { birthYearOfDate, oldEnoughForAccount } from '../../../../shared/accounts/age.js';
@@ -63,12 +64,26 @@ function appStart(query: URLSearchParams): AppStart | null | undefined {
   if (query.get('app') !== '1') {
     return null;
   }
-  return readAppStart(query.get('challenge'), query.get('attempt')) ?? undefined;
+  return readAppStart(query.get('challenge'), query.get('attempt'), query.get('binding')) ?? undefined;
 }
 
-/** Whether a link may start here: the browser's own needs its session, the app's is checked as it redeems. */
-async function mayLink({ env, request }: Context<'provider'>, app: boolean): Promise<boolean> {
-  return app || (env.TOURNAMENT_DB !== undefined && (await currentUser(env.TOURNAMENT_DB, request)) !== null);
+/** What the state cookie keeps of the app's start: its challenge and attempt, and a link's binding. */
+function appFields(app: AppStart | null, linking: boolean): string[] {
+  if (!app) {
+    return [];
+  }
+  return linking && app.binding ? [app.challenge, app.attempt, app.binding] : [app.challenge, app.attempt];
+}
+
+/**
+ * Whether a link may start here: the browser's own needs its session; the
+ * app's needs its binding to the app's session, which the redeem checks.
+ */
+async function mayLink({ env, request }: Context<'provider'>, app: AppStart | null): Promise<boolean> {
+  if (app) {
+    return app.binding !== null;
+  }
+  return env.TOURNAMENT_DB !== undefined && (await currentUser(env.TOURNAMENT_DB, request)) !== null;
 }
 
 export async function onRequestGet(context: Context<'provider'>): Promise<Response> {
@@ -86,7 +101,7 @@ export async function onRequestGet(context: Context<'provider'>): Promise<Respon
     return jsonError('The app sent no challenge', 400);
   }
   const linking = query.get('link') === '1';
-  if (linking && !(await mayLink(context, app !== null))) {
+  if (linking && !(await mayLink(context, app))) {
     return jsonError('Sign in first', 401);
   }
   const state = randomToken(16);
@@ -94,6 +109,6 @@ export async function onRequestGet(context: Context<'provider'>): Promise<Respon
   if (!url) {
     return jsonError(`${provider} sign-in is not configured`, 503);
   }
-  const started = [state, next, linking ? 'link' : 'login', ...(app ? [app.challenge, app.attempt] : [])].join(' ');
+  const started = [state, next, linking ? 'link' : 'login', ...appFields(app, linking)].join(' ');
   return redirectWithCookies(url, [cookie(context.request, OAUTH_COOKIE, started, STATE_SECONDS)]);
 }
