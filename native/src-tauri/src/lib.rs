@@ -1,6 +1,10 @@
+mod shell;
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-  let builder = tauri::Builder::default().plugin(tauri_plugin_opener::init());
+  let builder = tauri::Builder::default()
+    .plugin(tauri_plugin_opener::init())
+    .plugin(shell::init());
   #[cfg(desktop)]
   let builder = builder
     .plugin(tauri_plugin_dialog::init())
@@ -14,6 +18,7 @@ pub fn run() {
             .build(),
         )?;
       }
+      shell::create_main_window(app.handle())?;
       Ok(())
     })
     .run(tauri::generate_context!())
