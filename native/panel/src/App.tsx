@@ -22,7 +22,7 @@ export function App() {
       <TomSection state={tom} />
       <FileSection file={file} />
       <OpenTables tournament={file.tournament()} log={log} />
-      <ManualCode log={log} />
+      <ManualCode tournament={file.tournament()} log={log} />
       <ResultLog entries={log.entries()} />
     </main>
   );

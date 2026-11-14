@@ -4,7 +4,7 @@
  */
 
 import { createMemo, For, Show } from 'solid-js';
-import { type MatchSlip, matchSlips, slipCode, type SlipOutcome } from '../../../shared/tournament/slipCodes';
+import { type MatchSlip, matchSlips, slipEntry, type SlipOutcome } from '../../../shared/tournament/slipCodes';
 import { categoryCode } from '../../../shared/tournament/tdf';
 import { playerName, POD_LABELS, type Tournament } from '../../../shared/tournament/types';
 import type { Log } from './log';
@@ -18,7 +18,7 @@ const CHOICES: { outcome: SlipOutcome; label: string }[] = [
 function SlipRow(props: { slip: MatchSlip; pods: boolean; name: (id: string) => string; log: Log }) {
   const where = () =>
     `${props.pods ? `${POD_LABELS[props.slip.category]} ` : ''}round ${props.slip.round} table ${props.slip.table}`;
-  const choices = () => CHOICES.map(choice => ({ ...choice, code: slipCode(props.slip, choice.outcome) }));
+  const choices = () => CHOICES.map(choice => ({ ...choice, entry: slipEntry(props.slip, choice.outcome) }));
   return (
     <tr>
       <Show when={props.pods}>
@@ -31,13 +31,13 @@ function SlipRow(props: { slip: MatchSlip; pods: boolean; name: (id: string) => 
         <span class='tp-acts tp-row-acts'>
           <For each={choices()}>
             {choice => (
-              <Show when={choice.code}>
-                {code => (
+              <Show when={choice.entry}>
+                {entry => (
                   <button
                     type='button'
                     class='btn btn-secondary tp-small'
                     disabled={props.log.busy()}
-                    onClick={() => void props.log.send([{ code: code(), what: `${where()}: ${choice.label}` }])}
+                    onClick={() => void props.log.send([{ entry: entry(), what: `${where()}: ${choice.label}` }])}
                   >
                     {choice.label}
                   </button>

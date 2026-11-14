@@ -13,29 +13,40 @@
  * there, and its own reader then refuses the file, so a match without a table
  * or a second seat has no slip here. Only a pod's current round has slips:
  * TOM rejects any other round.
+ *
+ * What goes to TOM is an entry (see SubmitEntry): the code with its parts,
+ * so the app can check the code against the event's layout. A code typed by
+ * hand becomes an entry only when it reads as exactly one slip of the event.
  */
 
+import type { SubmitEntry } from '../native/tomCommands.js';
 import { categoryCode } from './tdf.js';
 import type { Outcome, Pod, PodCategory, Round, Tournament } from './types.js';
 
-/** The outcome digit TOM reads; 0 (back to pending) is left out on purpose. */
-const OUTCOME_DIGITS = { p1: '1', p2: '2', tie: '3', 'double-loss': '6' } as const;
+/** The outcome digit TOM reads. Pending (0) and double loss (6) are left out: neither is sent. */
+const OUTCOME_DIGITS = { p1: 1, p2: 2, tie: 3 } as const;
 
 export type SlipOutcome = keyof typeof OUTCOME_DIGITS;
 
-export const isSlipOutcome = (outcome: Outcome): outcome is SlipOutcome => Object.hasOwn(OUTCOME_DIGITS, outcome);
+const SLIP_OUTCOMES = Object.keys(OUTCOME_DIGITS) as SlipOutcome[];
+
+const isSlipOutcome = (outcome: Outcome): outcome is SlipOutcome => Object.hasOwn(OUTCOME_DIGITS, outcome);
 
 export interface MatchSlip {
   category: PodCategory;
+  /** TOM's category code for the pod. */
+  pod: number;
+  /** The flight digit, null where the code has none. */
+  flight: number | null;
   round: number;
   table: number;
+  /** How many digits TOM prints the table in: the round's highest table's. */
+  width: number;
   p1: string;
   p2: string;
   /** The result the file holds now. */
   outcome: Outcome;
-  /** Every digit before the outcome. */
-  prefix: string;
-  /** A top-cut match, where TOM takes a tie or double loss and records nothing. */
+  /** A top-cut match, where TOM takes a tie and records nothing. */
   elimination: boolean;
 }
 
@@ -45,30 +56,18 @@ export function checkDigit(digits: string): number {
   return (10 - (sum % 10)) % 10;
 }
 
-/** The code for one outcome of a slip, or null where TOM would record nothing. */
-export function slipCode(slip: MatchSlip, outcome: SlipOutcome): string | null {
-  if (slip.elimination && (outcome === 'tie' || outcome === 'double-loss')) {
+/** The digits before the table: pod, flight when the code has one, round. */
+const lead = (slip: MatchSlip) => `${slip.pod}${slip.flight ?? ''}${slip.round}`;
+
+/** The entry for one outcome of a slip, its code as TOM prints it; null where TOM would record nothing. */
+export function slipEntry(slip: MatchSlip, outcome: SlipOutcome): SubmitEntry | null {
+  if (slip.elimination && outcome === 'tie') {
     return null;
   }
-  const data = slip.prefix + OUTCOME_DIGITS[outcome];
-  return `${data}${checkDigit(data)}`;
-}
-
-const MAX_CODE = 2_147_483_647;
-const ACCEPTED_OUTCOME_DIGITS = new Set(['0', ...Object.values(OUTCOME_DIGITS)]);
-
-/**
- * Whether TOM would take a code typed by hand: digits only, five to ten of
- * them within TOM's integer range, an outcome digit it knows, and a check
- * digit that matches. TOM overwrites a result without asking, so a mistyped
- * code is refused here rather than sent.
- */
-export function isSlipCode(code: string): boolean {
-  if (!/^\d{5,10}$/.test(code) || Number(code) > MAX_CODE) {
-    return false;
-  }
-  const data = code.slice(0, -1);
-  return ACCEPTED_OUTCOME_DIGITS.has(data.slice(-1)) && checkDigit(data) === Number(code.slice(-1));
+  const digit = OUTCOME_DIGITS[outcome];
+  const data = `${lead(slip)}${String(slip.table).padStart(slip.width, '0')}${digit}`;
+  const { pod, flight, round, table } = slip;
+  return { pod, flight, round, table, outcome: digit, code: `${data}${checkDigit(data)}` };
 }
 
 function tableWidth(highest: number): number {
@@ -88,14 +87,14 @@ function roundSlips(pod: Pod, round: Round): MatchSlip[] {
   const flightOf = flightsOf(pod);
   const flighted = !elimination && new Set(flightOf.values()).size > 1;
   const width = tableWidth(Math.max(0, ...round.matches.map(match => match.table)));
-  const lead = categoryCode(pod.category);
+  const code = Number(categoryCode(pod.category));
   return round.matches.flatMap(({ table, p1, p2, outcome }) => {
-    const flight = flighted ? flightOf.get(p1) : '';
+    const flight = flighted ? flightOf.get(p1) : null;
     if (table <= 0 || p2 === null || flight === undefined) {
       return [];
     }
-    const prefix = `${lead}${flight}${round.number}${String(table).padStart(width, '0')}`;
-    return [{ category: pod.category, round: round.number, table, p1, p2, outcome, prefix, elimination }];
+    const { category } = pod;
+    return [{ category, pod: code, flight, round: round.number, table, width, p1, p2, outcome, elimination }];
   });
 }
 
@@ -108,14 +107,14 @@ export function matchSlips(tournament: Tournament): MatchSlip[] {
 }
 
 /**
- * The code that enters a result for a match, found by pod, round, table and
+ * The entry that enters a result for a match, found by pod, round, table and
  * both seats so a result for a match since re-paired finds none. Null when
  * the match has no slip or TOM would record nothing for the outcome.
  */
-export function resultCode(
+export function resultEntry(
   slips: readonly MatchSlip[],
   result: { pod: PodCategory; round: number; table: number; p1: string; p2: string | null; outcome: Outcome }
-): string | null {
+): SubmitEntry | null {
   const slip = slips.find(
     s =>
       s.category === result.pod &&
@@ -124,5 +123,39 @@ export function resultCode(
       s.p1 === result.p1 &&
       s.p2 === result.p2
   );
-  return slip && isSlipOutcome(result.outcome) ? slipCode(slip, result.outcome) : null;
+  return slip && isSlipOutcome(result.outcome) ? slipEntry(slip, result.outcome) : null;
+}
+
+const MAX_CODE = 2_147_483_647;
+
+/** Whether TOM would read a code at all: five to ten digits within its integer range, with a matching check digit. */
+const wellFormed = (code: string): boolean =>
+  /^\d{5,10}$/.test(code) && Number(code) <= MAX_CODE && checkDigit(code.slice(0, -1)) === Number(code.slice(-1));
+
+/** Whether a code reads as this slip with this outcome, its table padded or not, as TOM reads it. */
+function readsAs(slip: MatchSlip, outcome: SlipOutcome, code: string): boolean {
+  const start = lead(slip);
+  const table = code.slice(start.length, -2);
+  return (
+    code.startsWith(start) &&
+    code.at(-2) === String(OUTCOME_DIGITS[outcome]) &&
+    /^\d{1,3}$/.test(table) &&
+    Number(table) === slip.table
+  );
+}
+
+/**
+ * A code typed by hand, as the entry it stands for among the event's slips.
+ * TOM overwrites a result without asking, so a code that is malformed,
+ * matches no slip, or reads as more than one is refused with null.
+ */
+export function parseSlipCode(slips: readonly MatchSlip[], typed: string): SubmitEntry | null {
+  const code = typed.trim();
+  if (!wellFormed(code)) {
+    return null;
+  }
+  const reads = slips.flatMap(slip =>
+    SLIP_OUTCOMES.filter(outcome => readsAs(slip, outcome, code)).flatMap(outcome => slipEntry(slip, outcome) ?? [])
+  );
+  return reads.length === 1 ? reads[0]! : null;
 }
