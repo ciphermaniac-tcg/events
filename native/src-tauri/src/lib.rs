@@ -9,6 +9,8 @@ mod data_dir;
 mod downloads;
 mod last_page;
 #[cfg(any(target_os = "macos", test))]
+mod mac_sheets;
+#[cfg(any(target_os = "macos", test))]
 mod mac_title_strip;
 #[cfg(desktop)]
 mod menu;
