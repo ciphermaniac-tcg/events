@@ -1,4 +1,5 @@
-const TOM_COMMANDS: &[&str] = &[
+const COMMANDS: &[&str] = &[
+    "app_theme",
     "tom_detect",
     "tom_set_path",
     "tom_launch",
@@ -9,9 +10,9 @@ const TOM_COMMANDS: &[&str] = &[
 ];
 
 fn main() {
-    // Listing the commands makes each one need a permission, granted only to
-    // the local "tom" window by capabilities/tom.json.
-    let manifest = tauri_build::AppManifest::new().commands(TOM_COMMANDS);
+    // Listing the commands makes each one need a permission, granted to each
+    // window by capabilities/.
+    let manifest = tauri_build::AppManifest::new().commands(COMMANDS);
     tauri_build::try_build(tauri_build::Attributes::new().app_manifest(manifest))
         .expect("failed to run tauri-build");
 }

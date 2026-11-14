@@ -1,8 +1,11 @@
 //! The window's own colors, kept with the site's: the page color behind the
 //! site, so a slow start or a reload shows the page's color rather than
-//! white. They start from the system's mode, before the window shows.
+//! white. They start from the system's mode, before the window shows, then
+//! follow the mode the site reports through `app_theme`.
 
 use tauri::{Runtime, Theme, WebviewWindow, window::Color};
+
+use crate::shell;
 
 /// The site's page color in each mode (`--bg` in the design package's
 /// tokens.css).
@@ -27,6 +30,34 @@ pub fn paint<R: Runtime>(window: &WebviewWindow<R>, dark: bool) {
     }
 }
 
+/// Takes the site's mode, as `script` reports it.
+#[tauri::command]
+pub async fn app_theme<R: Runtime>(window: WebviewWindow<R>, dark: bool) {
+    if window.label() == shell::MAIN_WINDOW {
+        paint(&window, dark);
+    }
+}
+
+/// The script each page of the main window runs first: it reports the
+/// site's mode whenever it changes. The home page is dark in either mode;
+/// elsewhere `body[data-mode]` holds the mode, else the system's applies.
+pub fn script() -> String {
+    let site = shell::SITE_HOST;
+    format!(
+        "(() => {{ if (location.hostname !== '{site}') return; \
+         const system = matchMedia('(prefers-color-scheme: dark)'); let last; \
+         const report = () => {{ const body = document.body; const mode = body.dataset.mode; \
+         const dark = body.classList.contains('tm-home-mode') || (mode ? mode === 'dark' : system.matches); \
+         if (dark === last) return; last = dark; \
+         window.__TAURI_INTERNALS__.invoke('app_theme', {{ dark }}).catch(() => {{}}); }}; \
+         const start = () => {{ report(); system.addEventListener('change', report); \
+         new MutationObserver(report).observe(document.body, \
+         {{ attributes: true, attributeFilter: ['data-mode', 'class'] }}); }}; \
+         if (document.readyState === 'loading') {{ \
+         document.addEventListener('DOMContentLoaded', start, {{ once: true }}); }} else {{ start(); }} }})();"
+    )
+}
+
 /// Paints a new window for the system's mode.
 pub fn paint_for_system<R: Runtime>(window: &WebviewWindow<R>) {
     paint(
@@ -37,12 +68,20 @@ pub fn paint_for_system<R: Runtime>(window: &WebviewWindow<R>) {
 
 #[cfg(test)]
 mod tests {
-    use super::page_color;
+    use super::{page_color, script};
     use tauri::window::Color;
 
     #[test]
     fn paints_the_sites_page_color_for_each_mode() {
         assert_eq!(page_color(false), Color(0xec, 0xec, 0xea, 0xff));
         assert_eq!(page_color(true), Color(0x16, 0x16, 0x15, 0xff));
+    }
+
+    #[test]
+    fn reports_the_mode_only_from_the_sites_own_pages() {
+        let script = script();
+        assert!(script.contains("location.hostname !== 'events.ciphermaniac.com'"));
+        assert!(script.contains("invoke('app_theme', { dark })"));
+        assert!(script.contains("attributeFilter: ['data-mode', 'class']"));
     }
 }
