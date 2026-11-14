@@ -36,26 +36,25 @@ test('each command goes to the Rust command of its name, with its arguments name
     ['tom_set_mode', { mode: 'inside' }],
     ['tom_submit', { entries: [ENTRY] }],
     ['tom_save', undefined],
-    ['tom_start_round', { category: 2 }],
+    ['tom_start_round', { pod: 2 }],
     ['tom_start_round', {}]
   ]);
 });
 
 test('a submit answers with what the Rust side returned, one result per entry', async () => {
-  const results = [{ status: 'accepted' }, { status: 'rejected', message: 'Wrong round' }];
+  const results = [
+    { result: 'accepted', code: '21113' },
+    { result: 'rejected', code: '21212', message: 'Wrong round' }
+  ];
   const { tom } = recording(results);
   assert.deepEqual(await tom.submit([ENTRY, { ...ENTRY, table: 2, code: '21212' }]), results);
 });
 
-test('a round TOM started, or had already started, is no trouble; anything else says why', () => {
-  assert.equal(startRoundTrouble({ status: 'started' }), null);
-  assert.equal(startRoundTrouble({ status: 'already_started' }), null);
-  assert.equal(startRoundTrouble({ status: 'not_ready', reason: 'TOM is not running' }), 'TOM is not running');
+test('a round TOM started, or had already started, is no trouble; one not started says why', () => {
+  assert.equal(startRoundTrouble({ result: 'started' }), null);
+  assert.equal(startRoundTrouble({ result: 'already_started' }), null);
   assert.equal(
-    startRoundTrouble({ status: 'not_ready', reason: 'Dialog open', tomError: 'The round must be paired first.' }),
-    'The round must be paired first.',
-    'TOM’s own words first'
+    startRoundTrouble({ result: 'not_ready', reason: 'TOM said: The round must be paired first.' }),
+    'TOM said: The round must be paired first.'
   );
-  assert.equal(startRoundTrouble({ status: 'rejected', message: 'No such pod' }), 'No such pod');
-  assert.equal(startRoundTrouble({ status: 'rejected' }), 'TOM refused');
 });

@@ -1,7 +1,7 @@
 /**
  * The desktop app's commands for driving TOM, as its panel and the site call
- * them through Tauri's invoke. Every shape the Rust side returns is declared
- * here and nowhere else, so a change there is a change to this file only.
+ * them through Tauri's invoke. The Rust side (native/src-tauri/src/tom.rs)
+ * is the contract; every shape it returns is mirrored here and nowhere else.
  *
  * Two ways in: 'inside' has the app's helper, running in TOM's own Java
  * process, enter codes without TOM needing focus (TOM must have been launched
@@ -17,31 +17,42 @@
 
 export type TomMode = 'inside' | 'keys';
 
-/** A pod's current round as TOM's window shows it. */
+/** A pod's current round as TOM's window shows it; no category when TOM's tab title was not one the app knows. */
 export interface TomPod {
-  category: number;
+  category?: number;
   round: number;
-  state: 'paired' | 'running' | 'paused';
+  /** Running, paused or complete: TOM takes results for it. */
+  started: boolean;
 }
 
-/** What the app knows of TOM: where its program is, whether it runs, whether the helper is in it, and its pods. */
+/** What TOM looks like right now, as far as the current mode can tell. */
 export interface TomStatus {
-  path: string | null;
-  running: boolean;
-  inside: boolean;
+  mode: TomMode;
+  /** The TOM program tom_launch starts, when one is known. */
+  tomPath: string | null;
+  /** TOM is running as the app's child. */
+  launched: boolean;
+  /** A submit would be attempted now; `reason` says why not. */
+  ready: boolean;
+  reason: string | null;
+  tournamentOpen: boolean;
+  slipDialogOpen: boolean;
+  /** Titles of TOM's open windows. */
+  windows: string[];
+  /** Inside mode only; empty in keys mode. */
   pods: TomPod[];
 }
 
 /**
  * One result for TOM, as the parts of its match slip code and the code
- * itself, so the app can rebuild the code from the event's layout and refuse
- * one that does not match: a bare code can read two ways in a pod with
- * flights. Outcome 1 is Player 1 winning, 2 Player 2, 3 a tie.
+ * itself, so the app can check the code against the event's layout and
+ * refuse one that does not spell it: a bare code can read two ways in a pod
+ * with flights. Outcome 1 is Player 1 winning, 2 Player 2, 3 a tie.
  */
 export interface SubmitEntry {
   /** TOM's category code for the pod. */
   pod: number;
-  /** The flight digit, null where the code has none. */
+  /** The flight digit; null where the code has none (the app reads null as absent). */
   flight: number | null;
   round: number;
   table: number;
@@ -50,52 +61,45 @@ export interface SubmitEntry {
 }
 
 /**
- * What became of one entry: TOM took it, refused it with its message, could
- * not be reached, or may or may not have recorded it ('uncertain', which is
- * never sent again on its own). A batch stops at the first entry not taken,
- * so the entries after it have no result and were not sent.
+ * What became of one entry: TOM took it, refused it, it was not sent, or it
+ * may have reached TOM unseen ('uncertain': check TOM before sending it
+ * again, never resend it on its own). A batch stops at the first entry not
+ * taken; every later one comes back not_ready, unsent.
  */
 export type SubmitResult =
-  | { status: 'accepted' }
-  | { status: 'rejected'; message: string }
-  | { status: 'not_ready'; reason: string }
-  | { status: 'uncertain'; reason?: string };
+  | { result: 'accepted'; code: string }
+  | { result: 'rejected'; code: string; message: string }
+  | { result: 'not_ready'; code: string; reason: string }
+  | { result: 'uncertain'; code: string; reason: string };
 
-/** What came of starting a pod's round in TOM. */
+export type SaveResult = { result: 'saved' } | { result: 'not_ready'; reason: string };
+
+/** What came of starting a pod's round in TOM; a not_ready reason carries TOM's own error text. */
 export type StartRoundResult =
-  | { status: 'started' }
-  | { status: 'already_started' }
-  | { status: 'not_ready'; reason: string; tomError?: string }
-  | { status: 'rejected'; message?: string };
+  { result: 'started' } | { result: 'already_started' } | { result: 'not_ready'; reason: string };
 
 /** Why TOM's round did not start, or null when it runs, already running included. */
-export function startRoundTrouble(result: StartRoundResult): string | null {
-  if (result.status === 'not_ready') {
-    return result.tomError ?? result.reason;
-  }
-  if (result.status === 'rejected') {
-    return result.message ?? 'TOM refused';
-  }
-  return null;
-}
+export const startRoundTrouble = (result: StartRoundResult): string | null =>
+  result.result === 'not_ready' ? result.reason : null;
 
 /** Tauri's invoke, or anything with its shape. */
 export type Invoke = <T>(command: string, args?: Record<string, unknown>) => Promise<T>;
 
 export function tomCommands(invoke: Invoke) {
   return {
-    /** TOM's program where the app found it, or null. */
-    detect: () => invoke<string | null>('tom_detect'),
-    setPath: (path: string) => invoke<void>('tom_set_path', { path }),
-    launch: () => invoke<void>('tom_launch'),
+    /** TOM programs found in the usual install folders. */
+    detect: () => invoke<string[]>('tom_detect'),
+    /** The TOM program `path` resolves to, saved; rejects with a sentence when there is none there. */
+    setPath: (path: string) => invoke<string>('tom_set_path', { path }),
+    /** Starts TOM with the helper loaded; rejects with a sentence when it cannot. */
+    launch: () => invoke<TomStatus>('tom_launch'),
     status: () => invoke<TomStatus>('tom_status'),
     getMode: () => invoke<TomMode>('tom_get_mode'),
-    setMode: (mode: TomMode) => invoke<void>('tom_set_mode', { mode }),
-    /** A result per entry, in the order sent, up to and including the first not taken. */
+    setMode: (mode: TomMode) => invoke<TomMode>('tom_set_mode', { mode }),
+    /** A result per entry, in the order sent. */
     submit: (entries: readonly SubmitEntry[]) => invoke<SubmitResult[]>('tom_submit', { entries }),
-    save: () => invoke<void>('tom_save'),
+    save: () => invoke<SaveResult>('tom_save'),
     /** Starts a pod's current round in TOM; an event with one pod may leave the pod out. */
-    startRound: (category?: number) =>
-      invoke<StartRoundResult>('tom_start_round', category === undefined ? {} : { category })
+    startRound: (pod?: number) => invoke<StartRoundResult>('tom_start_round', pod === undefined ? {} : { pod })
   };
 }

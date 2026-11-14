@@ -22,23 +22,23 @@ const MODES: { value: TomMode; label: string }[] = [
 ];
 
 function reason(result: SubmitResult | undefined): string {
-  if (result?.status === 'rejected') {
+  if (result?.result === 'rejected') {
     return result.message;
   }
-  if (result?.status === 'uncertain') {
+  if (result?.result === 'uncertain') {
     return t('TOM may have it, check before sending again');
   }
-  return result?.status === 'not_ready' ? result.reason : t('No match slip');
+  return result?.result === 'not_ready' ? result.reason : t('No match slip');
 }
 
 /** How many TOM took, and why the first of the rest was not: a batch stops there. */
 function summary(results: readonly SubmitResult[], total: number): string {
-  const taken = results.filter(result => result.status === 'accepted').length;
+  const taken = results.filter(result => result.result === 'accepted').length;
   const sent = tn(taken, '{n} result sent to TOM', '{n} results sent to TOM');
   if (taken === total) {
     return sent;
   }
-  const why = reason(results.find(result => result.status !== 'accepted'));
+  const why = reason(results.find(result => result.result !== 'accepted'));
   return `${sent} · ${t('{n} not sent: {why}', { n: total - taken, why })}`;
 }
 

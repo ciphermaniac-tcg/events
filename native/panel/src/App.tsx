@@ -19,7 +19,7 @@ export function App() {
   return (
     <main class='tp'>
       <h1>TOM link</h1>
-      <TomSection state={tom} />
+      <TomSection state={tom} log={log} />
       <FileSection file={file} />
       <OpenTables tournament={file.tournament()} log={log} />
       <ManualCode tournament={file.tournament()} log={log} />
