@@ -12,12 +12,12 @@ import java.util.concurrent.Semaphore;
 
 /**
  * Serves the line-delimited JSON protocol on an ephemeral loopback port. The
- * desktop app passes a token and a handshake file path as system properties;
- * the port is written to that file once the socket is listening.
+ * desktop app names a private folder as a system property; the request token
+ * waits in its "token" file (never on the command line, which the JVM echoes),
+ * and the port is written to its "handshake.json" once the socket is listening.
  */
 final class Bridge {
-   static final String TOKEN_PROPERTY = "cmevents.tombridge.token";
-   static final String HANDSHAKE_PROPERTY = "cmevents.tombridge.handshake";
+   static final String DIR_PROPERTY = "cmevents.tombridge.dir";
    private static final int MIN_TOKEN_LENGTH = 32;
    static final int MAX_SESSIONS = 2;
    private static final int REQUEST_TIMEOUT_MS = 5000;
@@ -34,14 +34,14 @@ final class Bridge {
    }
 
    private static void run() throws IOException {
-      String token = System.getProperty(TOKEN_PROPERTY, "");
-      String handshake = System.getProperty(HANDSHAKE_PROPERTY, "");
-      if (token.length() < MIN_TOKEN_LENGTH || handshake.isEmpty()) {
-         log("not started: token or handshake path missing");
+      String dir = System.getProperty(DIR_PROPERTY, "");
+      String token = dir.isEmpty() ? "" : takeToken(Path.of(dir));
+      if (token.length() < MIN_TOKEN_LENGTH) {
+         log("not started: no token");
          return;
       }
       try (ServerSocket server = new ServerSocket(0, 8, InetAddress.getLoopbackAddress())) {
-         writeHandshake(Path.of(handshake), server.getLocalPort());
+         writeHandshake(Path.of(dir, "handshake.json"), server.getLocalPort());
          log("listening");
          serve(server, token, new Tom(), REQUEST_TIMEOUT_MS);
       }
@@ -80,6 +80,14 @@ final class Bridge {
       } catch (IOException e) {
          log("could not turn a client away: " + e);
       }
+   }
+
+   /** Reads the token and deletes its file, so it is on disk only until TOM starts. */
+   static String takeToken(Path dir) throws IOException {
+      Path file = dir.resolve("token");
+      String token = Files.readString(file, StandardCharsets.UTF_8).strip();
+      Files.delete(file);
+      return token;
    }
 
    private static void writeHandshake(Path file, int port) throws IOException {
