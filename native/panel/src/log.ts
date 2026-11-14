@@ -31,22 +31,22 @@ export interface LogEntry extends Line {
 type Outcome = Pick<LogEntry, 'result' | 'ok'>;
 
 /** Why TOM did not take an entry. */
-function trouble(result: Exclude<SubmitResult, { status: 'accepted' }>): string {
-  if (result.status === 'rejected') {
+function trouble(result: Exclude<SubmitResult, { result: 'accepted' }>): string {
+  if (result.result === 'rejected') {
     return `Rejected: ${result.message}`;
   }
-  if (result.status === 'not_ready') {
-    return `Not ready: ${result.reason}`;
+  if (result.result === 'not_ready') {
+    return `Not sent: ${result.reason}`;
   }
-  return `Uncertain, check TOM before sending again${result.reason ? `: ${result.reason}` : ''}`;
+  return `Uncertain, check TOM before sending again: ${result.reason}`;
 }
 
-/** A batch stops at the first entry TOM did not take, so one with no result was not sent. */
+/** A batch stops at the first entry TOM did not take; the later ones come back not sent. */
 function describe(result: SubmitResult | undefined): Outcome {
   if (!result) {
-    return { result: 'Not sent', ok: false };
+    return { result: 'No answer', ok: false };
   }
-  return result.status === 'accepted' ? { result: 'Accepted', ok: true } : { result: trouble(result), ok: false };
+  return result.result === 'accepted' ? { result: 'Accepted', ok: true } : { result: trouble(result), ok: false };
 }
 
 export function createLog() {
@@ -88,11 +88,17 @@ export function createLog() {
         }
       ),
     /** Starts a pod's round in TOM, named by its category code. */
-    startRound: (category: number, what: string) =>
+    startRound: (pod: number, what: string) =>
       one([{ code: '', what }], async () => {
-        const result = await tom.startRound(category);
+        const result = await tom.startRound(pod);
         const trouble = startRoundTrouble(result);
-        return [{ result: trouble ?? (result.status === 'started' ? 'Started' : 'Already started'), ok: !trouble }];
+        return [{ result: trouble ?? (result.result === 'started' ? 'Started' : 'Already started'), ok: !trouble }];
+      }),
+    /** Has TOM save its file, which the panel then reads again. */
+    save: () =>
+      one([{ code: '', what: 'Save in TOM' }], async () => {
+        const result = await tom.save();
+        return [result.result === 'saved' ? { result: 'Saved', ok: true } : { result: result.reason, ok: false }];
       })
   };
 }
