@@ -11,18 +11,21 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Map;
 
-/** One client connection: authenticated requests, one JSON object per line. */
+/** One client connection: a single authenticated request, one JSON object per line. */
 final class Session implements Runnable {
    private static final int MAX_LINE = 4096;
 
    private final Socket socket;
    private final byte[] token;
    private final Tom tom;
+   private final long deadline;
 
-   Session(Socket socket, String token, Tom tom) {
+   /** `requestTimeout`: milliseconds the client has to send its whole request. */
+   Session(Socket socket, String token, Tom tom, int requestTimeout) {
       this.socket = socket;
       this.token = token.getBytes(StandardCharsets.UTF_8);
       this.tom = tom;
+      this.deadline = System.currentTimeMillis() + requestTimeout;
    }
 
    @Override
@@ -37,14 +40,16 @@ final class Session implements Runnable {
    }
 
    private void serve(Reader in, Writer out) throws IOException {
-      for (String line = readLine(in); line != null; line = readLine(in)) {
-         Map<String, String> request = parse(line);
-         if (request == null || !authorized(request.get("token"))) {
-            reply(out, new Json.Obj().str("error", request == null ? "bad request" : "unauthorized").toString());
-            return;
-         }
-         reply(out, handle(request));
+      String line = readLine(in);
+      if (line == null) {
+         return;
       }
+      Map<String, String> request = parse(line);
+      if (request == null || !authorized(request.get("token"))) {
+         reply(out, new Json.Obj().str("error", request == null ? "bad request" : "unauthorized").toString());
+         return;
+      }
+      reply(out, handle(request));
    }
 
    private static Map<String, String> parse(String line) {
@@ -98,15 +103,18 @@ final class Session implements Runnable {
       out.flush();
    }
 
-   /** Reads one line without its terminator; null at end of stream. */
-   static String readLine(Reader in) throws IOException {
+   /**
+    * Reads one line without its terminator; null at end of stream. The whole
+    * line must arrive before the deadline, however slowly it trickles in.
+    */
+   private String readLine(Reader in) throws IOException {
       StringBuilder line = new StringBuilder();
       for (int c = in.read(); c != '\n'; c = in.read()) {
          if (c < 0) {
             return line.length() == 0 ? null : line.toString();
          }
-         if (line.length() >= MAX_LINE) {
-            throw new IOException("request line too long");
+         if (line.length() >= MAX_LINE || System.currentTimeMillis() > deadline) {
+            throw new IOException("request too long or too slow");
          }
          line.append((char) c);
       }

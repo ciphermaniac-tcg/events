@@ -117,7 +117,7 @@ impl Tom {
                 "TOM has closed. Launch it again from here.".into(),
             ));
         }
-        let helper = self.helper.as_mut().ok_or_else(|| {
+        let helper = self.helper.as_ref().ok_or_else(|| {
             Failure::Unsent(
                 "TOM was started without its helper, so inside mode cannot reach it. Restart TOM from here."
                     .into(),
@@ -144,16 +144,11 @@ impl Failure {
     }
 }
 
-/// The helper's side of one TOM run: secret, handshake file, connection.
+/// The helper's side of one TOM run: secret and handshake file. Each request
+/// gets its own connection; the helper serves one request per connection.
 struct Helper {
     token: String,
     dir: PathBuf,
-    conn: Option<Conn>,
-}
-
-struct Conn {
-    reader: BufReader<TcpStream>,
-    writer: TcpStream,
 }
 
 impl Helper {
@@ -163,7 +158,6 @@ impl Helper {
         Ok(Self {
             token: crate::random_hex(32),
             dir,
-            conn: None,
         })
     }
 
@@ -189,7 +183,7 @@ impl Helper {
     }
 
     fn request<T: DeserializeOwned>(
-        &mut self,
+        &self,
         op: &str,
         fields: &[(&str, String)],
     ) -> Result<T, Failure> {
@@ -199,18 +193,18 @@ impl Helper {
             request[*key] = value.as_str().into();
         }
         let line = format!("{request}\n");
-        let reply = self.exchange(&line).inspect_err(|_| self.conn = None)?;
+        let reply = self.exchange(&line)?;
         parse_reply(&reply)
     }
 
-    fn exchange(&mut self, line: &str) -> Result<String, Failure> {
-        let conn = self.connect().map_err(Failure::Unsent)?;
+    fn exchange(&self, line: &str) -> Result<String, Failure> {
+        let mut stream = self.open().map_err(Failure::Unsent)?;
         let lost = |error: std::io::Error| format!("Lost the connection to TOM's helper: {error}");
-        conn.writer
+        stream
             .write_all(line.as_bytes())
             .map_err(|error| Failure::Unsent(lost(error)))?;
         let mut reply = String::new();
-        match conn.reader.read_line(&mut reply) {
+        match BufReader::new(stream).read_line(&mut reply) {
             Ok(0) => Err(Failure::Unanswered(
                 "TOM's helper closed the connection.".into(),
             )),
@@ -219,30 +213,19 @@ impl Helper {
         }
     }
 
-    fn connect(&mut self) -> Result<&mut Conn, String> {
-        if self.conn.is_none() {
-            self.conn = Some(self.open()?);
-        }
-        Ok(self.conn.as_mut().expect("connection was just opened"))
-    }
-
-    fn open(&self) -> Result<Conn, String> {
+    fn open(&self) -> Result<TcpStream, String> {
         let port = read_port(&self.handshake()).ok_or("TOM is still starting.")?;
         let address = SocketAddr::from((Ipv4Addr::LOCALHOST, port));
-        let stream = TcpStream::connect_timeout(&address, CONNECT_TIMEOUT)
-            .map_err(|error| format!("Could not reach TOM's helper: {error}"))?;
-        let configure = |stream: &TcpStream| -> std::io::Result<TcpStream> {
-            stream.set_read_timeout(Some(READ_TIMEOUT))?;
-            stream.set_write_timeout(Some(WRITE_TIMEOUT))?;
-            stream.set_nodelay(true)?;
-            stream.try_clone()
-        };
-        let writer =
-            configure(&stream).map_err(|error| format!("Could not reach TOM's helper: {error}"))?;
-        Ok(Conn {
-            reader: BufReader::new(stream),
-            writer,
-        })
+        let unreachable = |error: std::io::Error| format!("Could not reach TOM's helper: {error}");
+        let stream = TcpStream::connect_timeout(&address, CONNECT_TIMEOUT).map_err(unreachable)?;
+        stream
+            .set_read_timeout(Some(READ_TIMEOUT))
+            .map_err(unreachable)?;
+        stream
+            .set_write_timeout(Some(WRITE_TIMEOUT))
+            .map_err(unreachable)?;
+        stream.set_nodelay(true).map_err(unreachable)?;
+        Ok(stream)
     }
 }
 
@@ -369,15 +352,16 @@ mod tests {
         let port = listener.local_addr().unwrap().port();
         fs::write(helper.handshake(), format!("{{\"port\":{port}}}")).unwrap();
         thread::spawn(move || {
-            let (stream, _) = listener.accept().unwrap();
-            let mut reader = BufReader::new(stream.try_clone().unwrap());
-            let mut writer = stream;
             let mut seen = Vec::new();
+            // One connection per request, as the real helper serves them.
             for reply in replies {
+                let (stream, _) = listener.accept().unwrap();
                 let mut line = String::new();
-                reader.read_line(&mut line).unwrap();
+                BufReader::new(stream.try_clone().unwrap())
+                    .read_line(&mut line)
+                    .unwrap();
                 seen.push(line);
-                writeln!(writer, "{reply}").unwrap();
+                writeln!(&stream, "{reply}").unwrap();
             }
             seen
         })
@@ -385,7 +369,7 @@ mod tests {
 
     #[test]
     fn reads_the_helpers_answers() {
-        let mut helper = Helper::create().unwrap();
+        let helper = Helper::create().unwrap();
         let server = fake_helper(
             &helper,
             &[
@@ -409,7 +393,7 @@ mod tests {
 
     #[test]
     fn sends_the_token_and_only_the_fields_it_needs() {
-        let mut helper = Helper::create().unwrap();
+        let helper = Helper::create().unwrap();
         let server = fake_helper(
             &helper,
             &[r#"{"result":"saved"}"#, r#"{"result":"accepted"}"#],
@@ -434,7 +418,7 @@ mod tests {
 
     #[test]
     fn starts_a_pods_round_and_reads_pod_state() {
-        let mut helper = Helper::create().unwrap();
+        let helper = Helper::create().unwrap();
         let server = fake_helper(
             &helper,
             &[
@@ -527,7 +511,7 @@ mod tests {
 
     #[test]
     fn waits_for_the_handshake_instead_of_hanging() {
-        let mut helper = Helper::create().unwrap();
+        let helper = Helper::create().unwrap();
         let error = helper.request::<Outcome>("status", &[]).err().unwrap();
         assert_eq!(error, Failure::Unsent("TOM is still starting.".into()));
     }
