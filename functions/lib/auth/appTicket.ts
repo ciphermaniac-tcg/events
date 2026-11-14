@@ -29,8 +29,26 @@ export interface AppSignIn {
   linking: boolean;
 }
 
-/** A challenge as the app sends it: the hex SHA-256 of its verifier. */
-export const isChallenge = (value: string | null): value is string => value !== null && /^[0-9a-f]{64}$/.test(value);
+/**
+ * What the app starts a sign-in with: the challenge, the hex SHA-256 of its
+ * verifier, and a random attempt id the link back names, so the app spends
+ * only the verifier of the attempt a link belongs to.
+ */
+export interface AppStart {
+  challenge: string;
+  attempt: string;
+}
+
+const isHex = (value: string | null | undefined, length: number): value is string =>
+  typeof value === 'string' && value.length === length && /^[0-9a-f]+$/.test(value);
+
+/** The app's start as it sends it, or null when either part is missing or malformed. */
+export function readAppStart(
+  challenge: string | null | undefined,
+  attempt: string | null | undefined
+): AppStart | null {
+  return isHex(challenge, 64) && isHex(attempt, 32) ? { challenge, attempt } : null;
+}
 
 /** Deletes every ticket that ran out. Each mint, each redeem and the idle sweep run it. */
 export const sweepTickets = (db: D1Like, now: number) =>
@@ -104,9 +122,9 @@ export async function redeemTicket(
  * The browser's last page: it opens the app with the ticket, and keeps a
  * button for when the browser waits for a tap before leaving for an app.
  */
-export function returnToApp(ticket: string, cookies: readonly string[]): Response {
-  // A ticket is URL-safe base64 (randomToken), so it needs no escaping in the markup.
-  const link = `${APP_RETURN}?ticket=${ticket}`;
+export function returnToApp(ticket: string, attempt: string, cookies: readonly string[]): Response {
+  // A ticket is URL-safe base64 (randomToken) and an attempt hex, so neither needs escaping in the markup.
+  const link = `${APP_RETURN}?ticket=${ticket}&attempt=${attempt}`;
   const body =
     '<!doctype html><html lang="en"><head><meta charset="utf-8">' +
     '<meta name="viewport" content="width=device-width, initial-scale=1">' +
