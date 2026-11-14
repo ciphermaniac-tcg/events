@@ -28,7 +28,9 @@ const required: [name: string, drop: string][] = [
   ['password_resets_by_expiry', 'DROP INDEX password_resets_by_expiry'],
   ['reset_reservations_by_time', 'DROP INDEX reset_reservations_by_time'],
   ['decklists_by_account', 'DROP INDEX decklists_by_account'],
-  ['report_history_by_account', 'DROP INDEX report_history_by_account']
+  ['report_history_by_account', 'DROP INDEX report_history_by_account'],
+  ['app_sign_in_tickets', 'DROP TABLE app_sign_in_tickets'],
+  ['app_sign_in_tickets_by_expiry', 'DROP INDEX app_sign_in_tickets_by_expiry']
 ];
 
 test('deployment preflight accepts the full schema', () => {

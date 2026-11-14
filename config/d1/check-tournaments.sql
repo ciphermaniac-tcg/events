@@ -1,6 +1,8 @@
 -- Read-only preflight. Missing columns, tables or indexes stop deployment.
 SELECT age_checked_at, age_birth_year, handle, profile_name, setup_offered_at FROM users WHERE 0;
 SELECT token_hash, profile, expires_at FROM pending_signups WHERE 0;
+SELECT ticket_hash, challenge, profile, next, linking, expires_at FROM app_sign_in_tickets
+ INDEXED BY app_sign_in_tickets_by_expiry WHERE expires_at > 0 LIMIT 0;
 SELECT store_id, community_day, last_import_at, requests FROM tournaments INDEXED BY tournaments_one_community_day
  WHERE community_day IS NOT NULL LIMIT 0;
 SELECT id FROM stores INDEXED BY stores_by_league WHERE league_id IS NOT NULL LIMIT 0;
