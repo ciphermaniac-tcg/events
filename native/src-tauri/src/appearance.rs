@@ -6,7 +6,11 @@
 //! kept as `cm:mode` in the page's storage, which the site reads before it
 //! draws, and `body[data-mode]`, which it paints. System clears a kept
 //! mode, including one the footer switch left behind, so the site follows
-//! the system again. The page's colors carry on to the window (`theme.rs`).
+//! the system again. A change during the run then tells the page with a
+//! `cm:app-mode` event, on which the site takes the stored mode up as its
+//! own, so what reads the mode in effect (Copy Image) follows; the app also
+//! paints `body[data-mode]` itself, for a site from before that event. The
+//! page's colors carry on to the window (`theme.rs`).
 //!
 //! The choice is kept in the app's data directory and read when the window
 //! is made, which is when a page script is fixed. A change during the run
@@ -66,7 +70,8 @@ pub fn script(chosen: Appearance) -> String {
          else localStorage.setItem('cm:mode', choice); }} catch {{}} \
          if (!document.body) return; \
          document.body.dataset.mode = choice !== 'system' ? choice \
-         : matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'; }}; \
+         : matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'; \
+         window.dispatchEvent(new Event('cm:app-mode')); }}; \
          let choice = '{chosen}'; try {{ choice = sessionStorage.getItem(KEY) ?? choice; }} catch {{}} \
          window.__cmAppearance(choice); }})();"
     )
@@ -302,5 +307,9 @@ mod tests {
         assert!(script.contains("localStorage.removeItem('cm:mode')"));
         assert!(script.contains("localStorage.setItem('cm:mode', choice)"));
         assert!(script.contains("document.body.dataset.mode"));
+        assert!(
+            script.contains("window.dispatchEvent(new Event('cm:app-mode'))"),
+            "the site takes the mode up as its own"
+        );
     }
 }
