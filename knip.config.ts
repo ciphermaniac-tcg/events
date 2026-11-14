@@ -31,7 +31,9 @@ const config: KnipConfig = {
     'tests/tournament/session.browser.ts',
     'tests/tournament/account-memory.browser.ts',
     'tests/tournament/kept-session.browser.ts',
-    'tests/tournament/deck-presets.browser.ts'
+    'tests/tournament/deck-presets.browser.ts',
+    'tests/tournament/public-view.browser.ts',
+    'tests/tournament/viewer-identity.browser.ts'
   ],
 
   project: [
