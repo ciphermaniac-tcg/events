@@ -1,3 +1,5 @@
+#[cfg(target_os = "android")]
+mod android;
 mod app_style;
 #[cfg(any(windows, test))]
 mod context_menu;
