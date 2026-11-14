@@ -1,3 +1,4 @@
+mod pending;
 mod shell;
 mod sign_in;
 #[cfg(desktop)]
