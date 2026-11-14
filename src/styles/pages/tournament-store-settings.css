@@ -128,8 +128,10 @@
   padding: 8px 12px;
   text-align: left;
 }
-.tm-staff-options > .btn:hover {
-  background: var(--surface-2);
+@media (hover: hover) {
+  .tm-staff-options > .btn:hover {
+    background: var(--surface-2);
+  }
 }
 .tm-staff-options .tm-confirm {
   display: flex;
