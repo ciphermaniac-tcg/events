@@ -8,6 +8,8 @@ mod data_dir;
 #[cfg(windows)]
 mod downloads;
 mod last_page;
+#[cfg(any(target_os = "macos", test))]
+mod mac_title_strip;
 #[cfg(desktop)]
 mod menu;
 #[cfg(any(windows, target_os = "linux", test))]
@@ -113,6 +115,8 @@ fn with_desktop(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<tauri::Wr
             tom::tom_save,
             tom::tom_start_round,
             tom::tom_open_panel,
+            #[cfg(target_os = "macos")]
+            mac_title_strip::title_strip_double_click,
         ])
 }
 

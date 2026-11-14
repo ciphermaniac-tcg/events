@@ -1,0 +1,7 @@
+# The Mac's title strip (mac_title_strip.rs): a double click on it does
+# what the system's title bar setting says. See tom-bridge.toml on why each
+# app command is listed.
+[[permission]]
+identifier = "title-strip"
+description = "Acts on a double click on the Mac's title strip."
+commands.allow = ["title_strip_double_click"]

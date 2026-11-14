@@ -37,6 +37,9 @@ tauri-plugin-updater = "2"
 tauri-plugin-window-state = "2"
 tom-link = { path = "../tom-link" }
 
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSString", "NSUserDefaults"] }
+
 [target.'cfg(target_os = "linux")'.dependencies]
 webkit2gtk = "2.0"
 
