@@ -95,4 +95,22 @@ public final class BridgeTest {
       }, 100, 2000);
       check("done".equals(answer), answer);
    }
+
+   private static void expectUncertain(String text, long elapsed, String why) {
+      try {
+         Tom.judge(text, "21113", elapsed);
+         check(false, "accepted or kept waiting although " + why);
+      } catch (NotReady expected) {
+         // uncertain, as it should be
+      }
+   }
+
+   static void testOnlyAnEmptiedFieldOnAnOpenFormCountsAsAccepted() throws Exception {
+      check(Tom.judge("", "21113", 900), "TOM emptied the field and showed no Error");
+      check(!Tom.judge("", "21113", 100), "too early to rule out an Error dialog");
+      check(!Tom.judge("21113", "21113", 500), "TOM has not handled the code yet");
+      expectUncertain(null, 900, "the slip form closed");
+      expectUncertain("9", 900, "someone typed in the field");
+      expectUncertain("21113", 3500, "TOM never handled the code");
+   }
 }

@@ -32,8 +32,8 @@ final class Tom {
 
    /**
     * What the event thread saw on one poll: whether the thing being waited on
-    * is there (the slip form, or a code TOM has not handled yet), and the
-    * message of an Error dialog it dismissed.
+    * is there (the slip form, or a started round), and the message of an Error
+    * dialog it dismissed.
     */
    private record Seen(boolean present, String error) {
    }
@@ -313,37 +313,48 @@ final class Tom {
       field.dispatchEvent(new KeyEvent(field, KeyEvent.KEY_RELEASED, now, 0, KeyEvent.VK_ENTER, '\n'));
    }
 
-   /** The code is still sitting in the field, so TOM has not handled it yet. */
-   private static boolean pending(String code) {
-      Dialog slip = Swing.dialog(SLIP);
-      JTextField field = slip == null ? null : Swing.editableField(slip);
-      return field != null && code.equals(field.getText().strip());
+   /** What the slip form showed after Enter. `text` is null when the form or its field is gone. */
+   private record Field(String text, String error) {
    }
 
-   private static Void clearField() {
+   private static Field observe() {
+      String error = dismissError();
       Dialog slip = Swing.dialog(SLIP);
       JTextField field = slip == null ? null : Swing.editableField(slip);
-      if (field != null) {
-         field.setText("");
+      return new Field(field == null ? null : field.getText().strip(), error);
+   }
+
+   /**
+    * Accepted only on positive evidence: the form is still open and TOM has
+    * emptied its field, with no Error after the settle time. False means keep
+    * watching; anything else TOM may or may not have taken.
+    */
+   static boolean judge(String text, String code, long elapsed) throws NotReady {
+      if (text == null) {
+         throw new NotReady(SLIP + " closed before TOM's answer could be seen.");
       }
-      return null;
+      if (text.isEmpty()) {
+         return elapsed >= SETTLE_MS;
+      }
+      if (!text.equals(code)) {
+         throw new NotReady("Something else was typed into TOM's Result Code field while the code was entered.");
+      }
+      if (elapsed >= RESPONSE_TIMEOUT_MS) {
+         throw new NotReady("TOM did not respond to the code.");
+      }
+      return false;
    }
 
    private String awaitOutcome(String code) throws NotReady {
       long start = System.currentTimeMillis();
       while (true) {
          Swing.sleep(POLL_MS);
-         Seen seen = Swing.onEdt(() -> new Seen(pending(code), dismissError()));
-         long elapsed = System.currentTimeMillis() - start;
+         Field seen = Swing.onEdt(Tom::observe);
          if (seen.error() != null) {
             return new Json.Obj().str("result", "rejected").str("message", seen.error()).toString();
          }
-         if (!seen.present() && elapsed >= SETTLE_MS) {
+         if (judge(seen.text(), code, System.currentTimeMillis() - start)) {
             return new Json.Obj().str("result", "accepted").toString();
-         }
-         if (elapsed >= RESPONSE_TIMEOUT_MS) {
-            Swing.onEdt(Tom::clearField);
-            throw new NotReady("TOM did not respond to the code.");
          }
       }
    }

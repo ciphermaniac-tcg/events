@@ -231,13 +231,12 @@ fn outcome<D: Desktop>(
     slip: &D::Handle,
 ) -> SubmitResult {
     thread::sleep(timing.settle);
-    let error = desktop
-        .windows()
-        .map(tom_windows)
-        .ok()
-        .and_then(|windows| find(&windows, ERROR).map(|w| w.handle.clone()));
-    let Some(error) = error else {
-        return SubmitResult::accepted(code);
+    let windows = match desktop.windows().map(tom_windows) {
+        Ok(windows) => windows,
+        Err(reason) => return SubmitResult::uncertain(code, unseen(&reason)),
+    };
+    let Some(error) = find(&windows, ERROR).map(|w| w.handle.clone()) else {
+        return seen_without_error(code, &windows);
     };
     match dismiss(desktop, timing, &error, slip) {
         Ok(()) => SubmitResult::rejected(code, "TOM rejected the code."),
@@ -246,6 +245,25 @@ fn outcome<D: Desktop>(
             "TOM rejected the code. Close its Error dialog before sending more.",
         ),
     }
+}
+
+fn unseen(why: &str) -> String {
+    format!("{why} TOM may or may not have recorded this code. Check TOM before sending it again.")
+}
+
+/// No Error window: accepted only while TOM and its slip form are still there
+/// to have taken the code. A vanished form may mean Enter pressed a button.
+fn seen_without_error<H>(code: &str, windows: &[OsWindow<H>]) -> SubmitResult {
+    if windows.is_empty() {
+        return SubmitResult::uncertain(code, unseen("TOM closed right after the code was sent."));
+    }
+    if find(windows, SLIP).is_none() {
+        return SubmitResult::uncertain(
+            code,
+            unseen(&format!("{SLIP} closed right after the code was sent.")),
+        );
+    }
+    SubmitResult::accepted(code)
 }
 
 /// Presses OK on TOM's Error dialog, then hands focus back to the slip form's field.
