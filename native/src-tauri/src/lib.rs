@@ -1,3 +1,5 @@
+#[cfg(desktop)]
+mod app_style;
 mod last_page;
 mod pending;
 mod shell;
