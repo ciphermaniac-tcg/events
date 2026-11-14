@@ -10,6 +10,8 @@ mod shell;
 mod sign_in;
 #[cfg(desktop)]
 mod theme;
+#[cfg(windows)]
+mod title_bar;
 #[cfg(desktop)]
 mod tom;
 #[cfg(desktop)]
