@@ -10,17 +10,15 @@
 
   <link rel="icon" type="image/svg+xml" href="/logo.svg">
 
-  <!-- Overlap TLS handshakes with JS download: report data comes from the R2
-       custom domain and archetype icons from r2.limitlesstcg.net. On a 150ms-RTT mobile
-       connection each cold handshake costs ~300-500ms if it waits for app boot.
-       R2 gets two preconnects on purpose: browsers keep separate connection
-       pools for CORS vs non-CORS requests to the same origin. The `crossorigin`
-       line warms the pool used by the JSON `fetch()`es; the bare line warms the
-       pool `<img>` card art loads on (no-CORS) — without it, the first card pays
-       a fresh DNS+TLS handshake the JSON preconnect never shared. -->
+  <!-- Overlap TLS handshakes with the JS download. An event page's first read is its
+       published view on the events bucket, so that host comes first. R2 serves the
+       sprites and card art, and gets two lines on purpose: browsers keep separate
+       connection pools for CORS and non-CORS requests to one origin, and the pages
+       use both. On a cold event page at 150 ms round trips the view lands about
+       240 ms sooner than with no hint for its host. -->
+  <link rel="preconnect" href="https://events-data.ciphermaniac.com" crossorigin>
   <link rel="preconnect" href="https://r2.ciphermaniac.com" crossorigin>
   <link rel="preconnect" href="https://r2.ciphermaniac.com">
-  <link rel="preconnect" href="https://r2.limitlesstcg.net">
 
   <!-- Inter is self-hosted (see src/styles/fonts.css): one variable file draws every
        weight, so preloading it brings the headings and the body text together. -->
