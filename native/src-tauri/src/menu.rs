@@ -4,13 +4,19 @@
 //! View > Appearance picks light or dark (`appearance.rs`); Feedback opens
 //! the main site in the browser. "TOM Link…" (`tom.rs`) sits under Settings
 //! in the Mac's app menu and in the Window menu elsewhere, where File holds
-//! Settings.
+//! Settings. On the Mac the menus are the system's own: File holds Close
+//! Window, View ends with Enter Full Screen, and Window and Help are the
+//! app's windows and help menus to the system, which lists the open windows
+//! in Window.
 
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use tauri::{
     AppHandle, Manager, Runtime, Url,
-    menu::{AboutMetadata, Menu, MenuBuilder, MenuEvent, MenuItemBuilder, SubmenuBuilder},
+    menu::{
+        AboutMetadata, HELP_SUBMENU_ID, Menu, MenuBuilder, MenuEvent, MenuItemBuilder,
+        SubmenuBuilder, WINDOW_SUBMENU_ID,
+    },
 };
 
 use crate::{appearance, shell, tom};
@@ -180,6 +186,12 @@ fn first_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<tauri::menu::Subm
         .build()
 }
 
+/// File, holding what the window has: Close Window (Cmd+W).
+#[cfg(target_os = "macos")]
+fn file_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<tauri::menu::Submenu<R>> {
+    SubmenuBuilder::new(app, "File").close_window().build()
+}
+
 #[cfg(not(target_os = "macos"))]
 fn first_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<tauri::menu::Submenu<R>> {
     let menu = SubmenuBuilder::new(app, "File").item(&settings(app)?);
@@ -202,7 +214,7 @@ fn edit_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<tauri::menu::Subme
 }
 
 fn view_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<tauri::menu::Submenu<R>> {
-    SubmenuBuilder::new(app, "View")
+    let menu = SubmenuBuilder::new(app, "View")
         .item(&item(app, "reload", "Reload", Some("CmdOrCtrl+R"))?)
         .separator()
         .item(&item(
@@ -215,9 +227,13 @@ fn view_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<tauri::menu::Subme
         .item(&item(app, "zoom_out", "Zoom Out", Some("CmdOrCtrl+-"))?)
         .separator()
         .item(&appearance::submenu(app)?)
-        .separator()
-        .fullscreen()
-        .build()
+        .separator();
+    // The system's own item, whose title AppKit turns to Exit Full Screen.
+    #[cfg(target_os = "macos")]
+    let menu = menu.fullscreen_with_text("Enter Full Screen");
+    #[cfg(not(target_os = "macos"))]
+    let menu = menu.fullscreen();
+    menu.build()
 }
 
 fn go_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<tauri::menu::Submenu<R>> {
@@ -230,19 +246,21 @@ fn go_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<tauri::menu::Submenu
         .build()
 }
 
+/// The system's Window menu: Minimize, Zoom, Bring All to Front, and the
+/// open windows, which the system lists under them.
 #[cfg(target_os = "macos")]
 fn window_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<tauri::menu::Submenu<R>> {
-    SubmenuBuilder::new(app, "Window")
+    SubmenuBuilder::with_id(app, WINDOW_SUBMENU_ID, "Window")
         .minimize()
         .maximize()
         .separator()
-        .close_window()
+        .bring_all_to_front()
         .build()
 }
 
 #[cfg(not(target_os = "macos"))]
 fn window_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<tauri::menu::Submenu<R>> {
-    SubmenuBuilder::new(app, "Window")
+    SubmenuBuilder::with_id(app, WINDOW_SUBMENU_ID, "Window")
         .minimize()
         .maximize()
         .separator()
@@ -252,7 +270,7 @@ fn window_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<tauri::menu::Sub
 
 /// Help, which also holds About outside the Mac.
 fn help_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<tauri::menu::Submenu<R>> {
-    let menu = SubmenuBuilder::new(app, "Help")
+    let menu = SubmenuBuilder::with_id(app, HELP_SUBMENU_ID, "Help")
         .item(&item(app, "feedback", "Send Feedback", None)?)
         .separator()
         .item(&item(app, "terms", "Terms", None)?)
@@ -264,9 +282,10 @@ fn help_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<tauri::menu::Subme
 
 /// The app's menu bar.
 pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
-    MenuBuilder::new(app)
-        .item(&first_menu(app)?)
-        .item(&edit_menu(app)?)
+    let menu = MenuBuilder::new(app).item(&first_menu(app)?);
+    #[cfg(target_os = "macos")]
+    let menu = menu.item(&file_menu(app)?);
+    menu.item(&edit_menu(app)?)
         .item(&view_menu(app)?)
         .item(&go_menu(app)?)
         .item(&window_menu(app)?)
