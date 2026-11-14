@@ -23,6 +23,7 @@ fn install(controller: &ICoreWebView2Controller) {
         }
     };
     hooked("right-click menu", crate::context_menu::install(&webview));
+    hooked("shortcuts", crate::shortcuts::install(controller));
 }
 
 fn hooked(part: &str, result: windows::core::Result<()>) {

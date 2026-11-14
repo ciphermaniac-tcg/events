@@ -7,6 +7,8 @@ mod last_page;
 mod menu;
 mod pending;
 mod shell;
+#[cfg(any(windows, test))]
+mod shortcuts;
 mod sign_in;
 #[cfg(desktop)]
 mod theme;
