@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-  ciphermaniac_events_lib::run();
+    ciphermaniac_events_lib::run();
 }
