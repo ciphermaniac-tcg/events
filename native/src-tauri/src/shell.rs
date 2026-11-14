@@ -256,10 +256,10 @@ pub fn create_main_window<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
 }
 
 /// What the desktop window needs once it exists: the appearance chosen, and
-/// the page color for it behind the page (`appearance.rs`), Windows' webview hooks
-/// (`webview2.rs`) and title bar (`title_bar.rs`), the app's offline page on
-/// Linux (`offline.rs`; Windows' is among its webview hooks), and showing it
-/// anyway if its first page is slow.
+/// the page color for it behind the page (`appearance.rs`), Windows'
+/// webview hooks (`webview2.rs`) and title bar (`title_bar.rs`), the app's
+/// offline page on Linux (`offline.rs`; Windows' is among its webview
+/// hooks), and showing it anyway if its first page is slow.
 #[cfg(desktop)]
 fn desktop_window_built<R: Runtime>(window: &tauri::WebviewWindow<R>) {
     crate::appearance::setup(window);

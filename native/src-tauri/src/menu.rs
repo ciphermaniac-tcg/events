@@ -1,8 +1,10 @@
 //! The menu bar: the standard menus plus the app's own commands, which act
 //! on the main window. Settings, Back, Forward, Reload and the Go menu move
 //! within the site as its own links do; the zoom commands scale the page;
-//! View > Appearance picks light or dark (`appearance.rs`); Feedback opens the main site in the browser. "TOM Link…" (`tom.rs`) sits under Settings in the Mac's app menu
-//! and in the Window menu elsewhere, where File holds Settings.
+//! View > Appearance picks light or dark (`appearance.rs`); Feedback opens
+//! the main site in the browser. "TOM Link…" (`tom.rs`) sits under Settings
+//! in the Mac's app menu and in the Window menu elsewhere, where File holds
+//! Settings.
 
 use std::sync::atomic::{AtomicUsize, Ordering};
 
