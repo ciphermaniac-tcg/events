@@ -54,16 +54,19 @@ fn is_browser_login(url: &Url) -> bool {
             .is_some_and(|provider| BROWSER_PROVIDERS.contains(&provider))
 }
 
+/// The parameters the app adds to a login, replaced if the page sent its own.
+const APP_PARAMS: &[&str] = &["app", "challenge", "attempt"];
+
 /// The login as the system browser opens it: the page's own query plus the
-/// app's flag and challenge.
-fn browser_login(url: &Url, challenge: &str) -> Option<Url> {
+/// app's flag, the challenge, and the attempt the link back will name.
+fn browser_login(url: &Url, challenge: &str, attempt: &str) -> Option<Url> {
     if !is_browser_login(url) {
         return None;
     }
     let mut login = url.clone();
     let kept: Vec<(String, String)> = url
         .query_pairs()
-        .filter(|(key, _)| key != "app" && key != "challenge")
+        .filter(|(key, _)| !APP_PARAMS.contains(&key.as_ref()))
         .map(|(key, value)| (key.into_owned(), value.into_owned()))
         .collect();
     login
@@ -71,19 +74,26 @@ fn browser_login(url: &Url, challenge: &str) -> Option<Url> {
         .clear()
         .extend_pairs(kept)
         .append_pair("app", "1")
-        .append_pair("challenge", challenge);
+        .append_pair("challenge", challenge)
+        .append_pair("attempt", attempt);
     Some(login)
 }
 
-/// The ticket an app link hands over, when it is one of the app's.
-fn ticket_of(link: &Url) -> Option<String> {
+fn query_value(url: &Url, name: &str) -> Option<String> {
+    url.query_pairs()
+        .find(|(key, _)| key == name)
+        .map(|(_, value)| value.into_owned())
+}
+
+/// The ticket an app link hands over and the attempt it belongs to, when it
+/// is one of the app's.
+fn link_parts(link: &Url) -> Option<(String, String)> {
     if link.scheme() != LINK_SCHEME || link.host_str() != Some(LINK_HOST) {
         return None;
     }
-    link.query_pairs()
-        .find(|(key, _)| key == "ticket")
-        .map(|(_, ticket)| ticket.into_owned())
-        .filter(|ticket| !ticket.is_empty())
+    let ticket = query_value(link, "ticket").filter(|ticket| !ticket.is_empty())?;
+    let attempt = query_value(link, "attempt").filter(|attempt| pending::is_attempt(attempt))?;
+    Some((ticket, attempt))
 }
 
 /// Posts the redeem form from the page it runs in, which lands where the
@@ -114,8 +124,9 @@ fn hex(bytes: &[u8]) -> String {
         .collect()
 }
 
-fn new_verifier() -> Option<String> {
-    let mut bytes = [0u8; 32];
+/// `N` random bytes in hex: 32 for a verifier, 16 for an attempt id.
+fn random_hex<const N: usize>() -> Option<String> {
+    let mut bytes = [0u8; N];
     getrandom::fill(&mut bytes).ok()?;
     Some(hex(&bytes))
 }
@@ -132,43 +143,49 @@ fn pending_dir<R: Runtime>(app: &AppHandle<R>) -> Option<PathBuf> {
         .map(|dir| dir.join(PENDING_DIR))
 }
 
-fn keep_verifier<R: Runtime>(app: &AppHandle<R>, verifier: &str) -> std::io::Result<()> {
+fn keep_verifier<R: Runtime>(
+    app: &AppHandle<R>,
+    attempt: &str,
+    verifier: &str,
+) -> std::io::Result<()> {
     let dir = pending_dir(app).ok_or(std::io::ErrorKind::NotFound)?;
-    pending::keep(&dir, verifier)
+    pending::keep(&dir, attempt, verifier)
 }
 
-fn take_verifier<R: Runtime>(app: &AppHandle<R>) -> Option<String> {
-    pending::take(&pending_dir(app)?)
+fn take_verifier<R: Runtime>(app: &AppHandle<R>, attempt: &str) -> Option<String> {
+    pending::take(&pending_dir(app)?, attempt)
 }
 
-/// Sends a login that has to leave the webview to the system browser, with
-/// a new verifier's challenge. False when `url` is no such login.
+/// Sends a login that has to leave the webview to the system browser, as a
+/// new attempt with a new verifier's challenge. False when `url` is no such
+/// login.
 pub fn open_in_browser<R: Runtime>(app: &AppHandle<R>, url: &Url) -> bool {
     if !is_browser_login(url) {
         return false;
     }
-    let Some(verifier) = new_verifier() else {
+    let (Some(verifier), Some(attempt)) = (random_hex::<32>(), random_hex::<16>()) else {
         log::warn!("no randomness for a sign-in verifier");
         return true;
     };
-    if let Err(err) = keep_verifier(app, &verifier) {
+    if let Err(err) = keep_verifier(app, &attempt, &verifier) {
         log::warn!("could not keep the sign-in verifier: {err}");
         return true;
     }
-    if let Some(login) = browser_login(url, &challenge_of(&verifier)) {
+    if let Some(login) = browser_login(url, &challenge_of(&verifier), &attempt) {
         shell::open_outside(app, &login);
     }
     true
 }
 
-/// Takes the verifier out for an app link's ticket and keeps both for the
-/// main window's next page of the site. False when no sign-in waits for it.
+/// Takes out the verifier of the attempt an app link names and keeps it with
+/// the link's ticket for the main window's next page of the site. False when
+/// that attempt is not waiting; any other attempt is left as it was.
 fn hold<R: Runtime>(app: &AppHandle<R>, link: &Url) -> bool {
-    let Some(ticket) = ticket_of(link) else {
+    let Some((ticket, attempt)) = link_parts(link) else {
         return false;
     };
-    let Some(verifier) = take_verifier(app) else {
-        log::warn!("a sign-in link arrived with no sign-in waiting");
+    let Some(verifier) = take_verifier(app, &attempt) else {
+        log::warn!("a sign-in link arrived for no attempt waiting");
         return false;
     };
     let Ok(mut pending) = PENDING.lock() else {
@@ -250,7 +267,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
 
 #[cfg(test)]
 mod tests {
-    use super::{Redeem, browser_login, challenge_of, submit_script, ticket_of};
+    use super::{Redeem, browser_login, challenge_of, link_parts, submit_script};
     use tauri::Url;
 
     fn url(value: &str) -> Url {
@@ -258,7 +275,7 @@ mod tests {
     }
 
     fn login(value: &str) -> Option<String> {
-        browser_login(&url(value), "c0ffee").map(String::from)
+        browser_login(&url(value), "c0ffee", "a77e").map(String::from)
     }
 
     #[test]
@@ -266,13 +283,13 @@ mod tests {
         assert_eq!(
             login("https://events.ciphermaniac.com/api/auth/login/google?next=%2Fhost").as_deref(),
             Some(
-                "https://events.ciphermaniac.com/api/auth/login/google?next=%2Fhost&app=1&challenge=c0ffee"
+                "https://events.ciphermaniac.com/api/auth/login/google?next=%2Fhost&app=1&challenge=c0ffee&attempt=a77e"
             )
         );
         assert_eq!(
-            login("https://events.ciphermaniac.com/api/auth/login/google?next=%2Fsettings&link=1&app=1&challenge=old")
+            login("https://events.ciphermaniac.com/api/auth/login/google?next=%2Fsettings&link=1&app=1&challenge=old&attempt=0ld")
                 .as_deref(),
-            Some("https://events.ciphermaniac.com/api/auth/login/google?next=%2Fsettings&link=1&app=1&challenge=c0ffee")
+            Some("https://events.ciphermaniac.com/api/auth/login/google?next=%2Fsettings&link=1&app=1&challenge=c0ffee&attempt=a77e")
         );
     }
 
@@ -291,16 +308,44 @@ mod tests {
     }
 
     #[test]
-    fn takes_tickets_only_from_the_apps_own_links() {
-        let ticket = |link: &str| ticket_of(&url(link));
+    fn takes_tickets_only_from_the_apps_own_links_naming_an_attempt() {
+        const ATTEMPT: &str = "0123456789abcdef0123456789abcdef";
+        let parts = |link: &str| link_parts(&url(link));
         assert_eq!(
-            ticket("ciphermaniac-events://auth?ticket=abc_-1").as_deref(),
-            Some("abc_-1")
+            parts(&format!(
+                "ciphermaniac-events://auth?ticket=abc_-1&attempt={ATTEMPT}"
+            )),
+            Some(("abc_-1".to_owned(), ATTEMPT.to_owned()))
         );
-        assert_eq!(ticket("ciphermaniac-events://auth"), None);
-        assert_eq!(ticket("ciphermaniac-events://auth?ticket="), None);
-        assert_eq!(ticket("ciphermaniac-events://other?ticket=abc"), None);
-        assert_eq!(ticket("https://auth/?ticket=abc"), None);
+        assert_eq!(
+            parts("ciphermaniac-events://auth?ticket=abc"),
+            None,
+            "no attempt"
+        );
+        assert_eq!(
+            parts("ciphermaniac-events://auth?ticket=abc&attempt=..%2Fx"),
+            None
+        );
+        assert_eq!(
+            parts(&format!("ciphermaniac-events://auth?attempt={ATTEMPT}")),
+            None
+        );
+        assert_eq!(
+            parts(&format!(
+                "ciphermaniac-events://auth?ticket=&attempt={ATTEMPT}"
+            )),
+            None
+        );
+        assert_eq!(
+            parts(&format!(
+                "ciphermaniac-events://other?ticket=abc&attempt={ATTEMPT}"
+            )),
+            None
+        );
+        assert_eq!(
+            parts(&format!("https://auth/?ticket=abc&attempt={ATTEMPT}")),
+            None
+        );
     }
 
     #[test]
