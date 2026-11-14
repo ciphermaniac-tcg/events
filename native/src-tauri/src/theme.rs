@@ -1,7 +1,8 @@
 //! The window's own colors, kept with the site's: the page color behind the
 //! site, so a slow start or a reload shows the page's color rather than
-//! white. They start from the system's mode, before the window shows, then
-//! follow the mode the site reports through `app_theme`.
+//! white, and on Windows 11 the title bar in the head bar's color
+//! (`title_bar.rs`). They start from the system's mode, before the window
+//! shows, then follow the mode the site reports through `app_theme`.
 
 use tauri::{Runtime, Theme, WebviewWindow, window::Color};
 
@@ -28,6 +29,8 @@ pub fn paint<R: Runtime>(window: &WebviewWindow<R>, dark: bool) {
     if let Err(err) = painted {
         log::debug!("could not color the window: {err}");
     }
+    #[cfg(windows)]
+    crate::title_bar::paint(window, dark);
 }
 
 /// Takes the site's mode, as `script` reports it.

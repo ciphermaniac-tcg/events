@@ -39,7 +39,7 @@ tom-link = { path = "../tom-link" }
 
 [target.'cfg(windows)'.dependencies]
 webview2-com = "0.39"
-windows = "0.62"
+windows = { version = "0.62", features = ["Win32_Graphics_Dwm"] }
 
 [lints.clippy]
 pedantic = { level = "warn", priority = -1 }
