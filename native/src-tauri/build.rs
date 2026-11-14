@@ -3,8 +3,6 @@ const TOM_COMMANDS: &[&str] = &[
     "tom_set_path",
     "tom_launch",
     "tom_status",
-    "tom_get_mode",
-    "tom_set_mode",
     "tom_submit",
     "tom_save",
     "tom_start_round",

@@ -2,11 +2,9 @@
 //! through its Speed Match Slip Entry form, the input TOM gives barcode
 //! scanners.
 //!
-//! Two modes share one interface and one result type:
-//! [`Mode::Inside`] talks to a helper loaded into TOM's own JVM, which needs
-//! TOM to be launched through [`Bridge::launch`]; [`Mode::Keys`] types into
-//! TOM's window with operating-system keystrokes, for a TOM started any way.
-//! Every code is checked with [`vet`] before either mode sends it.
+//! A helper loaded into TOM's own JVM does the entering, so TOM has to be
+//! started through [`Bridge::launch`]. Every code is checked with [`vet`]
+//! before it is sent.
 
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
@@ -14,51 +12,37 @@ use std::process::Command;
 
 mod code;
 mod inside;
-mod keys;
 mod locate;
 #[cfg(target_os = "macos")]
 mod macos_app;
 mod results;
+mod running;
 #[cfg(test)]
 mod testdir;
 
 pub use code::{Entry, vet};
 pub use locate::{detect, resolve};
-pub use results::{Mode, PodStatus, SaveResult, StartResult, Status, SubmitResult};
+pub use results::{PodStatus, SaveResult, StartResult, Status, SubmitResult};
 
-use keys::{Platform, Timing};
 use results::TomView;
 
-const NOT_LAUNCHED: &str = "Launch TOM from here to use inside mode.";
+const NOT_LAUNCHED: &str = "Launch TOM from here to send it results.";
 /// The helper can only be added as TOM starts, never to a running TOM.
 const ALREADY_OPEN: &str = "TOM is already open without the helper, which can only be added as TOM starts. Quit TOM, then launch it from here.";
 
 /// The desktop app's handle on TOM.
 pub struct Bridge {
-    mode: Mode,
     tom_path: Option<PathBuf>,
     tom: Option<inside::Tom>,
-    timing: Timing,
 }
 
 impl Bridge {
     #[must_use]
-    pub fn new(mode: Mode, tom_path: Option<PathBuf>) -> Self {
+    pub fn new(tom_path: Option<PathBuf>) -> Self {
         Self {
-            mode,
             tom_path,
             tom: None,
-            timing: Timing::default(),
         }
-    }
-
-    #[must_use]
-    pub fn mode(&self) -> Mode {
-        self.mode
-    }
-
-    pub fn set_mode(&mut self, mode: Mode) {
-        self.mode = mode;
     }
 
     #[must_use]
@@ -117,7 +101,7 @@ impl Bridge {
         if self.launched() {
             return Ok(());
         }
-        if open_elsewhere(self.tom_path.as_deref()) {
+        if running::elsewhere(self.tom_path.as_deref()) {
             return Err(ALREADY_OPEN.into());
         }
         self.tom = Some(inside::Tom::spawn(command, helper_jar)?);
@@ -130,15 +114,11 @@ impl Bridge {
     }
 
     pub fn status(&mut self) -> Status {
-        let view = match self.mode {
-            Mode::Inside => self
-                .tom
-                .as_mut()
-                .map_or_else(|| TomView::unavailable(NOT_LAUNCHED), inside::Tom::view),
-            Mode::Keys => with_desktop(self.tom_path.as_deref(), keys::view, TomView::unavailable),
-        };
+        let view = self
+            .tom
+            .as_mut()
+            .map_or_else(|| TomView::unavailable(NOT_LAUNCHED), inside::Tom::view);
         Status {
-            mode: self.mode,
             tom_path: self.tom_path.clone(),
             launched: self.launched(),
             ready: view.ready,
@@ -151,67 +131,32 @@ impl Bridge {
     }
 
     /// Sends entries in order. Each is vetted against its own layout first;
-    /// once TOM is not ready, the rest are reported not ready without being sent.
+    /// the batch stops at the first entry that is not accepted.
     pub fn submit(&mut self, entries: &[Entry]) -> Vec<SubmitResult> {
-        let timing = self.timing;
-        let all_not_ready = |reason: String| {
-            entries
+        match self.tom.as_mut() {
+            Some(tom) => results::submit_each(entries, |entry| tom.submit(entry)),
+            None => entries
                 .iter()
-                .map(|entry| SubmitResult::not_ready(&entry.code, reason.clone()))
-                .collect()
-        };
-        match (self.mode, self.tom.as_mut()) {
-            (Mode::Inside, Some(tom)) => results::submit_each(entries, |entry| tom.submit(entry)),
-            (Mode::Inside, None) => all_not_ready(NOT_LAUNCHED.into()),
-            (Mode::Keys, _) => with_desktop(
-                self.tom_path.as_deref(),
-                |desktop| keys::submit(desktop, timing, entries),
-                all_not_ready,
-            ),
+                .map(|entry| SubmitResult::not_ready(&entry.code, NOT_LAUNCHED))
+                .collect(),
         }
     }
 
     /// Presses TOM's Start Round for a pod (TOM category code), or for the
     /// only pod when `category` is `None`. Already started counts as success.
     pub fn start_round(&mut self, category: Option<u8>) -> StartResult {
-        match (self.mode, self.tom.as_mut()) {
-            (Mode::Inside, Some(tom)) => tom.start_round(category),
-            (Mode::Inside, None) => StartResult::not_ready(NOT_LAUNCHED),
-            (Mode::Keys, _) => StartResult::not_ready(
-                "Keys mode cannot see TOM's pods. Press Start Round in TOM, or use inside mode.",
-            ),
-        }
+        self.tom.as_mut().map_or_else(
+            || StartResult::not_ready(NOT_LAUNCHED),
+            |tom| tom.start_round(category),
+        )
     }
 
     /// Asks TOM to save its tournament file.
     pub fn save(&mut self) -> SaveResult {
-        let timing = self.timing;
-        match (self.mode, self.tom.as_mut()) {
-            (Mode::Inside, Some(tom)) => tom.save(),
-            (Mode::Inside, None) => SaveResult::not_ready(NOT_LAUNCHED),
-            (Mode::Keys, _) => with_desktop(
-                self.tom_path.as_deref(),
-                |desktop| keys::save(desktop, timing),
-                SaveResult::not_ready,
-            ),
-        }
+        self.tom
+            .as_mut()
+            .map_or_else(|| SaveResult::not_ready(NOT_LAUNCHED), inside::Tom::save)
     }
-}
-
-fn with_desktop<T>(
-    tom_path: Option<&Path>,
-    run: impl FnOnce(&mut Platform) -> T,
-    unavailable: impl FnOnce(String) -> T,
-) -> T {
-    match Platform::open(tom_path) {
-        Ok(mut desktop) => run(&mut desktop),
-        Err(reason) => unavailable(reason),
-    }
-}
-
-/// A TOM this app did not start already has windows open.
-fn open_elsewhere(tom_path: Option<&Path>) -> bool {
-    with_desktop(tom_path, keys::tom_running, |_| false)
 }
 
 pub(crate) fn random_hex(bytes: usize) -> String {
@@ -228,8 +173,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn inside_mode_needs_a_launch_first() {
-        let mut bridge = Bridge::new(Mode::Inside, None);
+    fn needs_a_launch_first() {
+        let mut bridge = Bridge::new(None);
         let status = bridge.status();
         assert!(!status.ready && !status.launched);
         assert_eq!(status.reason.as_deref(), Some(NOT_LAUNCHED));
@@ -246,7 +191,7 @@ mod tests {
     fn remembers_a_resolved_tom_path() {
         let dir = testdir::TestDir::new();
         let program = dir.file("TOM.app/Contents/MacOS/TOM");
-        let mut bridge = Bridge::new(Mode::Keys, None);
+        let mut bridge = Bridge::new(None);
         assert_eq!(
             bridge.set_tom_path(&dir.path().join("TOM.app")),
             Ok(program.clone())

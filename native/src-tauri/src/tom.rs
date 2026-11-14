@@ -16,13 +16,11 @@
 //!   through `LaunchServices`, so TOM keeps its own Dock icon), finding it
 //!   first when no path is saved. Rejects with a sentence when it cannot.
 //! - `tom_status()` -> `Status`.
-//! - `tom_get_mode()` -> `"inside" | "keys"`.
-//! - `tom_set_mode(mode)` -> `"inside" | "keys"`, saved for next time.
 //! - `tom_submit(entries: Entry[])` -> `SubmitResult[]`, one per entry, in order.
 //!   Each code must spell exactly its entry's layout (and never table 0) or it
 //!   is rejected unsent. The batch stops at the first entry that is not
 //!   accepted: every later one comes back `not_ready`, unsent.
-//!   In inside mode, a pod's paired round is started first when needed.
+//!   A pod's paired round is started first when an entry is for it.
 //! - `tom_save()` -> `SaveResult`.
 //! - `tom_open_panel()` -> `null`: shows the TOM panel, opening it if needed.
 //! - `tom_start_round(pod?: number)` -> `StartResult`. `pod` is TOM's category
@@ -39,7 +37,6 @@
 //!   code: string                   // the slip code those parts make
 //! }
 //! Status = {
-//!   mode: "inside" | "keys",
 //!   tomPath: string | null,        // the TOM program that tom_launch starts
 //!   launched: boolean,             // the TOM this app started is still running
 //!   ready: boolean,                // a submit would be attempted now
@@ -48,7 +45,6 @@
 //!   slipDialogOpen: boolean,       // Speed Match Slip Entry is open
 //!   windows: string[],             // titles of TOM's open windows
 //!   pods: { category?: number, round: number, started: boolean }[]
-//!                                  // inside mode only; [] in keys mode
 //! }
 //! SubmitResult =
 //!   | { result: "accepted", code: string }
@@ -70,7 +66,7 @@ use serde::{Deserialize, Serialize};
 use tauri::menu::{Menu, MenuItem, Submenu};
 use tauri::path::BaseDirectory;
 use tauri::{AppHandle, Manager, State, WebviewUrl, WebviewWindowBuilder, Wry};
-use tom_link::{Bridge, Entry, Mode, SaveResult, StartResult, Status, SubmitResult};
+use tom_link::{Bridge, Entry, SaveResult, StartResult, Status, SubmitResult};
 
 const CONFIG_FILE: &str = "tom.json";
 const HELPER_JAR: &str = "resources/tom-bridge.jar";
@@ -81,8 +77,6 @@ const OPEN_PANEL: &str = "tom-open-panel";
 #[derive(Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct Saved {
-    #[serde(default)]
-    mode: Mode,
     #[serde(default)]
     tom_path: Option<PathBuf>,
 }
@@ -145,7 +139,7 @@ impl Shared {
             .and_then(|text| serde_json::from_str(&text).ok())
             .unwrap_or_default();
         Self {
-            bridge: Mutex::new(Bridge::new(saved.mode, saved.tom_path)),
+            bridge: Mutex::new(Bridge::new(saved.tom_path)),
             config,
             helper_jar: helper_jar(app),
         }
@@ -156,7 +150,6 @@ impl Shared {
             return Err("This app has no settings folder.".into());
         };
         let saved = Saved {
-            mode: bridge.mode(),
             tom_path: bridge.tom_path().map(Path::to_path_buf),
         };
         let text = serde_json::to_string_pretty(&saved).map_err(|error| error.to_string())?;
@@ -212,20 +205,6 @@ pub async fn tom_launch(tom: State<'_, Tom>) -> Result<Status, String> {
 #[tauri::command]
 pub async fn tom_status(tom: State<'_, Tom>) -> Result<Status, String> {
     tom.run(|_, bridge| bridge.status()).await
-}
-
-#[tauri::command]
-pub async fn tom_get_mode(tom: State<'_, Tom>) -> Result<Mode, String> {
-    tom.run(|_, bridge| bridge.mode()).await
-}
-
-#[tauri::command]
-pub async fn tom_set_mode(tom: State<'_, Tom>, mode: Mode) -> Result<Mode, String> {
-    tom.run(move |shared, bridge| {
-        bridge.set_mode(mode);
-        shared.save_config(bridge).map(|()| mode)
-    })
-    .await?
 }
 
 #[tauri::command]
