@@ -283,12 +283,14 @@ fn desktop_window<'a, R: Runtime>(
         .initialization_script(TOM_FLAG_SCRIPT)
         .initialization_script(crate::app_style::script())
         .initialization_script(crate::theme::script())
+        .initialization_script(crate::try_menu::script(app))
         .on_new_window(move |url, _features| {
             follow_new_window(&follower, &url);
             tauri::webview::NewWindowResponse::Deny
         });
     #[cfg(target_os = "macos")]
     let builder = builder.allow_link_preview(false);
+    let builder = crate::try_menu::window(app, builder);
     // Windows 11's thin scrollbars that widen on hover (WebView2 125 and
     // later), and the page's title on the window, as a Windows app names
     // what it has open.
