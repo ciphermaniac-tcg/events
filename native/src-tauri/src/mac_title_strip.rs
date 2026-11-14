@@ -4,7 +4,9 @@
 //! strip: the window draws no title bar of its own (an overlay one, its
 //! title hidden, so Mission Control and the Window menu still name it), the
 //! site's name leaves the bar, and the bar takes the strip's height, so the
-//! rows that stick under it follow.
+//! rows that stick under it follow. The page starts closer under it than
+//! under the head bar, whose name and account gave the space above a page
+//! its weight.
 //!
 //! The strip moves the window when dragged, and a double click does what
 //! the system's "Double-click a window's title bar" setting says, as a
@@ -13,6 +15,10 @@
 
 /// The strip's height, in points.
 const HEIGHT: u32 = 38;
+
+/// The space between the strip and the page's first line, in place of the
+/// site's 36 px.
+const PAGE_GAP: u32 = 18;
 
 /// A window button's size.
 const BUTTON: u32 = 16;
@@ -74,7 +80,8 @@ fn css() -> String {
          :root .site-head-row {{ max-width: none; justify-content: flex-end; \
          padding: 0 {right}px 0 {left}px; }} \
          :root .site-head .tm-acct-button {{ width: 24px; height: 24px; font-size: 11px; }} \
-         :root .site-head-signin {{ min-height: 24px; height: 24px; font-size: 12px; }}",
+         :root .site-head-signin {{ min-height: 24px; height: 24px; font-size: 12px; }} \
+         :root main.page {{ padding-top: {PAGE_GAP}px; }}",
         right = edge(),
         left = lights_room(),
     )
@@ -174,6 +181,7 @@ mod tests {
         assert!(css.contains("--topnav-h: 38px !important"));
         assert!(css.contains(":root .site-head-name { display: none; }"));
         assert!(css.contains("padding: 0 13px 0 86px"));
+        assert!(css.contains(":root main.page { padding-top: 18px; }"));
     }
 
     #[test]
