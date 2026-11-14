@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "tom",
-  "description": "The local TOM panel: the bridge, plus reading a .tdf file the user picks.",
+  "description": "The local TOM panel: the bridge, plus finding and reading a .tdf file the user picks.",
   "windows": [
     "tom"
   ],
@@ -14,6 +14,7 @@
     "core:default",
     "tom-bridge",
     "dialog:allow-open",
-    "fs:allow-read-text-file"
+    "fs:allow-read-text-file",
+    "fs:allow-stat"
   ]
 }
