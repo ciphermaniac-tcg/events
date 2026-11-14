@@ -27,6 +27,9 @@ pub enum SubmitResult {
     Rejected { code: String, message: String },
     /// The code was not sent: TOM was not in a state to take it.
     NotReady { code: String, reason: String },
+    /// The code may have reached TOM but its fate was not seen. Check TOM
+    /// before sending it again.
+    Uncertain { code: String, reason: String },
 }
 
 impl SubmitResult {
@@ -44,6 +47,13 @@ impl SubmitResult {
         }
     }
 
+    pub(crate) fn uncertain(code: &str, reason: impl Into<String>) -> Self {
+        Self::Uncertain {
+            code: code.to_owned(),
+            reason: reason.into(),
+        }
+    }
+
     pub(crate) fn accepted(code: &str) -> Self {
         Self::Accepted {
             code: code.to_owned(),
@@ -52,7 +62,7 @@ impl SubmitResult {
 
     pub(crate) fn reason(&self) -> Option<&str> {
         match self {
-            Self::NotReady { reason, .. } => Some(reason),
+            Self::NotReady { reason, .. } | Self::Uncertain { reason, .. } => Some(reason),
             _ => None,
         }
     }

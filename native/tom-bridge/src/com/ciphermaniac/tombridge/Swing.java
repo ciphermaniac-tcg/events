@@ -12,6 +12,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 import javax.swing.AbstractButton;
 import javax.swing.JFrame;
@@ -27,14 +28,32 @@ import javax.swing.text.JTextComponent;
 /** Finds TOM's windows and controls by their visible text. Only touches java.desktop. */
 final class Swing {
    private static final long EDT_TIMEOUT_MS = 5000;
+   private static final long EDT_GRACE_MS = 2000;
+   private static final int PENDING = 0;
+   private static final int RUNNING = 1;
+   private static final int EXPIRED = 2;
 
    private Swing() {
    }
 
    /** Runs on the event thread and waits, without ever hanging the caller. */
    static <T> T onEdt(Callable<T> task) throws NotReady {
+      return onEdt(task, EDT_TIMEOUT_MS, EDT_GRACE_MS);
+   }
+
+   /**
+    * A task still queued when the wait runs out never runs: it may change TOM,
+    * and its caller has already reported that it did not. A task that already
+    * started gets `grace` more to finish; if it does not, what it did is
+    * unknown and the caller hears Uncertain.
+    */
+   static <T> T onEdt(Callable<T> task, long timeout, long grace) throws NotReady {
       CompletableFuture<T> result = new CompletableFuture<>();
+      AtomicInteger state = new AtomicInteger(PENDING);
       SwingUtilities.invokeLater(() -> {
+         if (!state.compareAndSet(PENDING, RUNNING)) {
+            return;
+         }
          try {
             result.complete(task.call());
          } catch (Throwable t) {
@@ -42,12 +61,29 @@ final class Swing {
          }
       });
       try {
-         return result.get(EDT_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+         return await(result, timeout);
       } catch (TimeoutException e) {
-         throw new NotReady("TOM is busy and did not respond.");
+         if (state.compareAndSet(PENDING, EXPIRED)) {
+            throw new NotReady("TOM is busy and did not respond.");
+         }
+         return finish(result, grace);
+      }
+   }
+
+   private static <T> T finish(CompletableFuture<T> result, long grace) throws NotReady {
+      try {
+         return await(result, grace);
+      } catch (TimeoutException e) {
+         throw new Uncertain("TOM stopped responding partway through.");
+      }
+   }
+
+   private static <T> T await(CompletableFuture<T> result, long millis) throws NotReady, TimeoutException {
+      try {
+         return result.get(millis, TimeUnit.MILLISECONDS);
       } catch (InterruptedException e) {
          Thread.currentThread().interrupt();
-         throw new NotReady("The bridge was interrupted.");
+         throw new Uncertain("The bridge was interrupted.");
       } catch (ExecutionException e) {
          throw unwrap(e.getCause());
       }
