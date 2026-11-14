@@ -4,4 +4,14 @@
 [[permission]]
 identifier = "tom-bridge"
 description = "Calls into the local TOM bridge."
-commands.allow = []
+commands.allow = [
+  "tom_detect",
+  "tom_set_path",
+  "tom_launch",
+  "tom_status",
+  "tom_get_mode",
+  "tom_set_mode",
+  "tom_submit",
+  "tom_save",
+  "tom_start_round",
+]
