@@ -124,6 +124,7 @@ const GROUPS: &[Group] = &[
         relaunch: false,
         choices: &[
             choice("site", "Shrinks Slightly (Today)"),
+            choice("fadeshrink", "Fades and Shrinks Slightly"),
             choice("tint", "Darkens, Size Unchanged"),
             choice("dim", "Fades, Size Unchanged"),
         ],
@@ -131,6 +132,97 @@ const GROUPS: &[Group] = &[
 ];
 
 const RESET: &str = "try:reset";
+
+/// The samples of the site's dialogs, by menu id and the kind the demo
+/// script takes.
+const DEMOS: &[(&str, &str, &str)] = &[
+    ("try-demo:confirm", "confirm", "Show a Sample Confirmation"),
+    ("try-demo:editor", "editor", "Show a Sample Editor"),
+    ("try-demo:sheet", "sheet", "Show a Sample Player Sheet"),
+];
+
+/// The site's own rules for its dialogs and player sheet
+/// (src/styles/pages/tournament.css and tournament-sheet.css), for a page
+/// that has not loaded them yet.
+const DEMO_STYLE: &str = r"
+.tm-modal { width: min(480px, calc(100vw - 32px)); padding: 0; text-align: start; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface); box-shadow: var(--shadow-float); color: var(--fg); }
+.tm-modal::backdrop { background: var(--scrim); }
+.tm-box-bar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); padding: 10px 14px; border-bottom: 1px solid var(--rule); font-size: var(--text-base); }
+.tm-box-bar:last-child { border-bottom: 0; }
+.tm-modal .tm-box-bar { padding: var(--space-3) var(--space-4); }
+.tm-modal h3 { margin: 0; font-size: var(--text-base); }
+.tm-modal-foot { justify-content: flex-end; }
+.tm-modal .tm-modal-body { display: grid; gap: var(--space-3); }
+.tm-modal .tm-box-bar + .tm-box-bar { border-top: 0; }
+.tm-modal .tm-box-bar.tm-modal-foot { position: sticky; bottom: 0; margin-top: -1px; border-top: 1px solid var(--rule); background: var(--surface); }
+.tm-field { display: grid; gap: var(--space-2); min-width: 0; }
+.tm-label { font-size: var(--text-base); font-weight: 600; }
+.tm-input { width: 100%; min-height: var(--control-h); font: inherit; font-size: var(--text-base); color: var(--fg); background: var(--field); border: var(--border-width) solid var(--border); border-radius: var(--radius-sm); padding: var(--space-2) 10px; }
+.tm-scrim { position: fixed; inset: 0; z-index: 60; background: var(--scrim); }
+.tm-sheet { position: fixed; top: 0; right: 0; bottom: 0; z-index: 61; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; width: min(440px, 100vw); background: var(--surface); border-left: 1px solid var(--border); box-shadow: var(--shadow-float); }
+.tm-sheet-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-2); margin: 0 var(--space-4); padding: var(--space-4) 0 var(--space-3); border-bottom: 1px solid var(--rule); }
+.tm-sheet-head h2 { margin: 0; font-size: var(--text-xl); }
+.tm-sheet-head p { margin: 2px 0 0; font-size: var(--text-base); }
+.tm-sheet-body { display: grid; align-content: start; gap: var(--space-3); overflow-y: auto; padding: var(--space-4); }
+.tm-sheet-foot { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-2); padding: var(--space-3) var(--space-4); border-top: 1px solid var(--rule); }
+";
+
+const CONFIRM_DEMO: &str = r#"<dialog class="tm-modal tm-confirm-dialog try-demo" aria-label="Drop Sam Rivera?">
+<div class="tm-box-bar"><h3>Drop Sam Rivera?</h3></div>
+<div class="tm-box-bar tm-modal-body"><p>They leave the event after this round. Their results so far stay in the standings.</p></div>
+<div class="tm-box-bar tm-modal-foot"><button type="button" class="btn btn-ghost" data-close>Keep</button><button type="button" class="btn btn-secondary tm-danger" data-close>Drop player</button></div>
+</dialog>"#;
+
+const EDITOR_DEMO: &str = r#"<dialog class="tm-modal tm-edit-player try-demo" aria-label="Edit player">
+<div class="tm-box-bar"><h3>Edit player</h3></div>
+<div class="tm-box-bar tm-modal-body">
+<div class="tm-field"><label class="tm-label" for="try-first">First name</label><input id="try-first" class="tm-input" value="Sam"></div>
+<div class="tm-field"><label class="tm-label" for="try-last">Last name</label><input id="try-last" class="tm-input" value="Rivera"></div>
+</div>
+<div class="tm-box-bar tm-modal-foot"><button type="button" class="btn btn-ghost" data-close>Cancel</button><button type="button" class="btn btn-primary" data-close>Save</button></div>
+</dialog>"#;
+
+const SHEET_DEMO: &str = r#"<div class="tm-sheet try-demo" role="dialog" aria-modal="true" aria-labelledby="try-sheet-title">
+<div class="tm-sheet-head"><div><h2 id="try-sheet-title">Sam Rivera</h2><p class="muted">3–1, table 4</p></div><button type="button" class="btn btn-ghost" data-close>Close</button></div>
+<div class="tm-sheet-body"><p>Round 1: won against Jordan Lee</p><p>Round 2: won against Priya Shah</p><p>Round 3: lost to Alex Kim</p><p>Round 4: won against Morgan Diaz</p></div>
+<div class="tm-sheet-foot"><button type="button" class="btn btn-secondary" data-close>Edit player</button></div>
+</div>"#;
+
+/// Opens a sample of one of the site's dialogs over the page, closed by its
+/// buttons, Escape or (for the sheet) a click beside it.
+fn demo_script(kind: &str) -> String {
+    let html = match kind {
+        "confirm" => CONFIRM_DEMO,
+        "editor" => EDITOR_DEMO,
+        _ => SHEET_DEMO,
+    };
+    let html = serde_json::Value::from(html);
+    let style = serde_json::Value::from(DEMO_STYLE);
+    format!(
+        "(() => {{ document.querySelectorAll('.try-demo').forEach(node => node.remove()); \
+         if (!document.getElementById('try-demo-style')) {{ const style = document.createElement('style'); \
+         style.id = 'try-demo-style'; style.textContent = {style}; document.head.prepend(style); }} \
+         const template = document.createElement('template'); template.innerHTML = {html}; \
+         const box = template.content.firstElementChild; \
+         if (box.tagName === 'DIALOG') {{ box.addEventListener('close', () => box.remove()); \
+         box.querySelectorAll('[data-close]').forEach(button => button.addEventListener('click', () => box.close())); \
+         document.body.append(box); box.showModal(); return; }} \
+         const scrim = document.createElement('div'); scrim.className = 'tm-scrim try-demo'; \
+         const close = () => {{ scrim.remove(); box.remove(); document.removeEventListener('keydown', onKey); }}; \
+         const onKey = event => {{ if (event.key === 'Escape') close(); }}; \
+         scrim.addEventListener('click', close); \
+         box.querySelectorAll('[data-close]').forEach(button => button.addEventListener('click', close)); \
+         document.addEventListener('keydown', onKey); document.body.append(scrim, box); }})();"
+    )
+}
+
+fn show_demo(app: &AppHandle<tauri::Wry>, kind: &str) {
+    if let Some(window) = app.get_webview_window(shell::MAIN_WINDOW)
+        && let Err(err) = window.eval(demo_script(kind))
+    {
+        log::debug!("could not show the sample: {err}");
+    }
+}
 const FILE: &str = "try.json";
 
 /// The choices made, by group; a group not in it is at today's.
@@ -201,11 +293,34 @@ fn attributes(choices: &Choices) -> BTreeMap<&'static str, String> {
         .collect()
 }
 
-/// Where the window's buttons go for a bar of `height`: centered in it,
-/// with as much room at the left as above (a button is 14 px).
+/// A window button's size, and how far the window's buttons land from the
+/// inset asked for: measured on macOS 15, an inset of (12, 9) put the close
+/// button 11 pt from the left and 3 pt from the top.
+const BUTTON: u32 = 16;
+#[cfg(any(target_os = "macos", test))]
+const BUTTON_RISE: u32 = 6;
+#[cfg(any(target_os = "macos", test))]
+const BUTTON_SHIFT: u32 = 1;
+
+/// The space above and below a window button centered in a bar of `height`.
+fn button_margin(height: u32) -> u32 {
+    height.saturating_sub(BUTTON) / 2
+}
+
+/// How far the close button sits from the window's left edge: a little more
+/// than above it, as `AppKit` places it in its own toolbars (20 pt in a 52 pt
+/// one, 18 above).
+fn lights_left(height: u32) -> u32 {
+    button_margin(height) + 2
+}
+
+/// The inset that puts the window's buttons there, centered in the bar.
+#[cfg(any(target_os = "macos", test))]
 fn traffic_lights(height: u32) -> (f64, f64) {
-    let inset = f64::from(height.saturating_sub(14)) / 2.0;
-    (inset + 3.0, inset)
+    (
+        f64::from(lights_left(height) + BUTTON_SHIFT),
+        f64::from(button_margin(height) + BUTTON_RISE),
+    )
 }
 
 /// The bar's height: the one chosen, or with no head bar the strip the
@@ -220,13 +335,10 @@ fn bar_height(choices: &Choices) -> u32 {
 const NO_BAR_HEIGHT: u32 = 32;
 
 /// The room the head bar leaves at its left for the window's buttons: the
-/// three buttons, 20 px apart, and a gap after them.
+/// three buttons, 20 pt apart, and after them a gap a little wider than the
+/// space above them.
 fn lights_room(height: u32) -> u32 {
-    let (x, _) = traffic_lights(height);
-    // The inset is a few points at most, so the cast keeps it whole.
-    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-    let x = x.round() as u32;
-    x + 54 + 16
+    lights_left(height) + 2 * 20 + BUTTON + button_margin(height) + 6
 }
 
 /// The page's stylesheet. Every rule waits for its attribute, so with none
@@ -240,7 +352,7 @@ const STYLE: &str = r#"
 :root[data-try-height="38"] .site-head .tm-acct-button { width: 24px; height: 24px; font-size: 11px; }
 :root[data-try-height="38"] .site-head-signin { min-height: 24px; height: 24px; font-size: 12px; }
 
-:root[data-try-bar="one"] .site-head-row { max-width: none; padding-left: var(--try-lights, 88px); padding-right: 16px; }
+:root[data-try-bar="one"] .site-head-row { max-width: none; padding-left: var(--try-lights, 92px); padding-right: var(--try-edge, 16px); }
 :root[data-try-bar="one"] .site-head { -webkit-user-select: none; user-select: none; }
 
 :root:is([data-try-color="window"], [data-try-bar="none"]) .site-head.head-bar {
@@ -269,7 +381,7 @@ const STYLE: &str = r#"
 :root[data-try-bar="none"], :root[data-try-bar="none"] body[data-mode] { --topnav-h: 32px !important; }
 :root[data-try-bar="none"] .site-head.head-bar { border-bottom: 0; }
 :root[data-try-bar="none"] .site-head-name { display: none; }
-:root[data-try-bar="none"] .site-head-row { max-width: none; justify-content: flex-end; padding: 0 10px 0 var(--try-lights, 88px); }
+:root[data-try-bar="none"] .site-head-row { max-width: none; justify-content: flex-end; padding: 0 var(--try-edge, 10px) 0 var(--try-lights, 78px); }
 :root[data-try-bar="none"] .site-head .tm-acct-button { width: 22px; height: 22px; font-size: 10px; }
 :root[data-try-bar="none"] .site-head-signin { min-height: 22px; height: 22px; font-size: 12px; }
 
@@ -290,6 +402,9 @@ const STYLE: &str = r#"
 
 :root[data-try-press="tint"] :is(button, .btn, [role="tab"], [role="menuitem"], .chip):active:not(:disabled) {
   box-shadow: inset 0 0 0 100vmax color-mix(in srgb, currentColor 12%, transparent) !important; transform: none !important;
+}
+:root[data-try-press="fadeshrink"] :is(button, .btn, [role="tab"], [role="menuitem"], .chip):active:not(:disabled) {
+  opacity: 0.7; transition-duration: 60ms;
 }
 :root[data-try-press="dim"] :is(button, .btn, [role="tab"], [role="menuitem"], .chip):active:not(:disabled) {
   opacity: 0.55 !important; transform: none !important; transition: none !important;
@@ -330,13 +445,16 @@ pub fn script<R: Runtime>(app: &AppHandle<R>) -> String {
     let choices = load(app);
     let launched = serde_json::to_string(&attributes(&choices)).unwrap_or_default();
     let style = serde_json::Value::from(STYLE);
-    let room = lights_room(bar_height(&choices));
+    let height = bar_height(&choices);
+    let room = lights_room(height);
+    let edge = lights_left(height);
     let site = shell::SITE_HOST;
     format!(
         "(() => {{ if (location.hostname !== '{site}') return; {MODE} {APPLY} \
          let choices = {launched}; try {{ const kept = JSON.parse(localStorage.getItem('cm-try')); \
          if (kept && kept.bar === choices.bar && kept.height === choices.height) choices = kept; }} catch {{}} \
          window.__cmTry(choices); document.documentElement.style.setProperty('--try-lights', '{room}px'); \
+         document.documentElement.style.setProperty('--try-edge', '{edge}px'); \
          const style = document.createElement('style'); style.textContent = {style}; \
          document.documentElement.append(style); {DRAG} }})();"
     )
@@ -397,6 +515,10 @@ pub fn build(app: &AppHandle<tauri::Wry>) -> tauri::Result<Submenu<tauri::Wry>> 
     let mut menu = SubmenuBuilder::new(app, "Try");
     for group in GROUPS {
         menu = menu.item(&group_menu(app, group, &choices, &mut items)?);
+    }
+    let mut menu = menu.separator();
+    for (id, _, label) in DEMOS {
+        menu = menu.item(&MenuItemBuilder::with_id(*id, *label).build(app)?);
     }
     let menu = menu
         .separator()
@@ -465,6 +587,10 @@ fn apply(app: &AppHandle<tauri::Wry>, choices: &Choices) {
 
 /// Takes a choice from the Try menu; other ids are not its.
 pub fn on_event(app: &AppHandle<tauri::Wry>, id: &str) -> bool {
+    if let Some((_, kind, _)) = DEMOS.iter().find(|(demo, _, _)| *demo == id) {
+        show_demo(app, kind);
+        return true;
+    }
     let before = load(app);
     let (choices, relaunches) = if id == RESET {
         let relaunches = GROUPS
@@ -492,7 +618,9 @@ pub fn on_event(app: &AppHandle<tauri::Wry>, id: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{Choices, attributes, bar_height, chosen, lights_room, parse_id, traffic_lights};
+    use super::{
+        Choices, attributes, bar_height, chosen, demo_script, lights_room, parse_id, traffic_lights,
+    };
 
     #[test]
     fn a_group_left_alone_is_todays() {
@@ -513,6 +641,14 @@ mod tests {
     }
 
     #[test]
+    fn opens_each_sample_as_the_site_draws_it() {
+        assert!(demo_script("confirm").contains("tm-confirm-dialog"));
+        assert!(demo_script("editor").contains("tm-edit-player"));
+        let sheet = demo_script("sheet");
+        assert!(sheet.contains("tm-sheet try-demo") && sheet.contains("tm-scrim try-demo"));
+    }
+
+    #[test]
     fn reads_only_its_own_ids() {
         assert!(
             parse_id("try:font:system")
@@ -525,9 +661,19 @@ mod tests {
 
     #[test]
     fn centers_the_windows_buttons_in_the_bar() {
-        assert_eq!(traffic_lights(44), (18.0, 15.0));
-        assert_eq!(lights_room(44), 88);
-        assert_eq!(traffic_lights(38), (15.0, 12.0));
+        // Measured: an inset of (12, 9) put the close button at (11, 3).
+        assert_eq!(
+            traffic_lights(32),
+            (11.0, 14.0),
+            "8 pt above and below in 32"
+        );
+        assert_eq!(traffic_lights(44), (17.0, 20.0));
+        assert_eq!(
+            traffic_lights(52),
+            (21.0, 24.0),
+            "20 pt from the left, as AppKit's toolbar"
+        );
+        assert_eq!(lights_room(44), 16 + 56 + 20);
         let mut choices = Choices::new();
         choices.insert("bar".into(), "none".into());
         choices.insert("height".into(), "52".into());
