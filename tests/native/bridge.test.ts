@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
 import { nativeTom, startTomRound } from '../../src/lib/native/bridge';
-import { hasTom, inNativeApp } from '../../src/lib/native/detect';
+import { drivesTom, hasTom, inNativeApp } from '../../src/lib/native/detect';
 
 const global = globalThis as { window?: unknown };
 
@@ -64,4 +64,13 @@ test('only the desktop app, which marks its window, has TOM; the Android app has
   assert.equal(hasTom(), true, 'desktop');
   global.window = { __CM_TOM__: true };
   assert.equal(hasTom(), false, 'a flag without the app');
+});
+
+test('the console drives TOM only for an event run in TOM, never one the site runs itself', () => {
+  global.window = { __TAURI_INTERNALS__: {}, __CM_TOM__: true };
+  assert.equal(drivesTom('tom'), true);
+  assert.equal(drivesTom('swiss'), false, 'a Swiss event on the site has no TOM at all');
+  assert.equal(drivesTom(undefined), false, 'before the event is loaded');
+  global.window = { __TAURI_INTERNALS__: {} };
+  assert.equal(drivesTom('tom'), false, 'the Android app');
 });

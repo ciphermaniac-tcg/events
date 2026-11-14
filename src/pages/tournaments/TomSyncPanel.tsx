@@ -676,6 +676,16 @@ export function TomStatus(props: { link: TomLink }) {
       <Show when={link().state() === 'reconnect'}>
         <Reconnect link={link()} />
       </Show>
+      {/* Only a TOM-run event's console has this head, so only it opens the app's TOM panel. */}
+      <Show when={hasTom()}>
+        <button
+          type='button'
+          class='btn btn-ghost'
+          onClick={() => void import('../../lib/native/bridge').then(m => m.nativeTom().openPanel())}
+        >
+          {t('TOM Link')}
+        </button>
+      </Show>
       <Show when={link().state() === 'none'}>
         <Show when={canLinkFiles()}>
           <button type='button' class='btn btn-secondary' onClick={() => void link().link()}>
