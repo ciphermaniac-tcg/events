@@ -2,16 +2,39 @@ package com.ciphermaniac.events
 
 import android.content.res.Configuration
 import android.os.Bundle
+import android.os.SystemClock
 import android.webkit.WebView
+import androidx.annotation.Keep
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import kotlin.math.roundToInt
 
 class MainActivity : TauriActivity() {
   private val bars = SystemBars(this)
   private var webView: WebView? = null
+  private var pageLoaded = false
 
   override fun onCreate(savedInstanceState: Bundle?) {
+    holdSplash()
     bars.apply()
     super.onCreate(savedInstanceState)
+  }
+
+  /**
+   * Keeps the splash screen up until the first page has loaded, as the
+   * desktop window stays hidden until then, and gives up after the same
+   * [SPLASH_LIMIT_MS] so a slow network never holds it for good.
+   */
+  private fun holdSplash() {
+    val since = SystemClock.uptimeMillis()
+    installSplashScreen().setKeepOnScreenCondition {
+      !pageLoaded && SystemClock.uptimeMillis() - since < SPLASH_LIMIT_MS
+    }
+  }
+
+  /** Called from Rust (android.rs) when the main window's page has loaded. */
+  @Keep
+  fun onMainPageFinished() {
+    pageLoaded = true
   }
 
   override fun onWebViewCreate(webView: WebView) {
@@ -32,5 +55,10 @@ class MainActivity : TauriActivity() {
   /** The page's text at the size set for the whole phone, which a webview ignores unless told. */
   private fun followFontScale(webView: WebView) {
     webView.settings.textZoom = (resources.configuration.fontScale * 100).roundToInt()
+  }
+
+  private companion object {
+    /** The desktop window's limit too (shell.rs, SHOW_WITHIN). */
+    const val SPLASH_LIMIT_MS = 3_000L
   }
 }

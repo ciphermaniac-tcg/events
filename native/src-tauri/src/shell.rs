@@ -111,6 +111,10 @@ fn record_load<R: Runtime>(webview: &Webview<R>, payload: &PageLoadPayload<'_>) 
         load.last_good = Some(payload.url().clone());
     }
     drop(loads);
+    #[cfg(target_os = "android")]
+    if webview.label() == MAIN_WINDOW {
+        crate::android::page_load(webview, payload.event());
+    }
     if payload.event() == PageLoadEvent::Finished && webview.label() == MAIN_WINDOW {
         last_page::remember(webview.app_handle(), payload.url());
         #[cfg(desktop)]
