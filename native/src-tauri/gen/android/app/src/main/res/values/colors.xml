@@ -2,4 +2,6 @@
 <resources>
     <!-- The site's theme-color for each scheme (index.html). -->
     <color name="app_background">#FFECECEA</color>
+    <!-- The site's head bar, dark in both schemes (the design package's .head-bar). -->
+    <color name="head_bar">#FF1C1D1B</color>
 </resources>
