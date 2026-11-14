@@ -231,6 +231,17 @@ fn late_slip() -> Entry {
     entry(1, 1, 1, "21113")
 }
 
+/// Submits a batch and checks TOM's slip form was closed again afterwards.
+fn submit(bridge: &mut Bridge, entries: &[Entry]) -> Vec<SubmitResult> {
+    let results = bridge.submit(entries);
+    let status = bridge.status();
+    assert!(
+        !status.slip_dialog_open,
+        "the slip form was left open: {status:?}"
+    );
+    results
+}
+
 fn accepted(entry: &Entry) -> SubmitResult {
     SubmitResult::Accepted {
         code: entry.code.clone(),
@@ -248,7 +259,7 @@ fn late_slip_starts_nothing(bridge: &mut Bridge) {
         (pods.len(), pods[0].category, pods[0].round, pods[0].started),
         (1, Some(2), 2, false)
     );
-    let results = bridge.submit(&[late_slip()]);
+    let results = submit(bridge, &[late_slip()]);
     println!("late slip before the round: {results:?}");
     assert!(
         matches!(&results[..], [SubmitResult::NotReady { reason, .. }] if reason.contains("round must be started"))
@@ -259,15 +270,15 @@ fn late_slip_starts_nothing(bridge: &mut Bridge) {
 fn inside_mode(bridge: &mut Bridge, slips: &[(u32, u32, Vec<String>)]) {
     // The round is not started yet: submit starts it, then enters the codes.
     let entries = [code(slips, 1, 1), code(slips, 2, 2)];
-    let results = bridge.submit(&entries);
+    let results = submit(bridge, &entries);
     println!("inside: {results:?}");
     assert_eq!(results, [accepted(&entries[0]), accepted(&entries[1])]);
     assert!(rejected_with(
-        &bridge.submit(&[late_slip()]),
+        &submit(bridge, &[late_slip()]),
         "two codes in a row"
     ));
     assert!(rejected_with(
-        &bridge.submit(&[entry(ROUND, 0, 1, "22012")]),
+        &submit(bridge, &[entry(ROUND, 0, 1, "22012")]),
         "table 0"
     ));
 }
@@ -281,14 +292,14 @@ fn start_round_is_idempotent(bridge: &mut Bridge) {
 /// A batch that stops at a rejection, then the next batch still lands.
 fn later_batches(bridge: &mut Bridge, slips: &[(u32, u32, Vec<String>)]) {
     let entries = [code(slips, 3, 1), late_slip(), code(slips, 4, 3)];
-    let results = bridge.submit(&entries);
+    let results = submit(bridge, &entries);
     println!("stopping batch: {results:?}");
     assert_eq!(results[0], accepted(&entries[0]));
     assert!(matches!(&results[1], SubmitResult::Rejected { .. }));
     assert!(matches!(&results[2], SubmitResult::NotReady { .. }));
     let entries = [code(slips, 4, 3), code(slips, 5, 2)];
     assert_eq!(
-        bridge.submit(&entries),
+        submit(bridge, &entries),
         [accepted(&entries[0]), accepted(&entries[1])]
     );
 }

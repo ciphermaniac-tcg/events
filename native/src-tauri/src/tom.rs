@@ -20,7 +20,9 @@
 //!   Each code must spell exactly its entry's layout (and never table 0) or it
 //!   is rejected unsent. The batch stops at the first entry that is not
 //!   accepted: every later one comes back `not_ready`, unsent.
-//!   A pod's paired round is started first when an entry is for it.
+//!   A pod's paired round is started first when an entry is for it. When the
+//!   batch ends, however it ends, Speed Match Slip Entry is closed again if the
+//!   helper opened it, and auto-save is unticked again if the helper ticked it.
 //! - `tom_save()` -> `SaveResult`.
 //! - `tom_open_panel()` -> `null`: shows the TOM panel, opening it if needed.
 //! - `tom_start_round(pod?: number)` -> `StartResult`. `pod` is TOM's category
