@@ -1249,6 +1249,15 @@ test('the console draws the house focus ring: one ring on a field, 2px on a butt
   await expect(focused).toHaveCSS('outline-offset', '2px');
 });
 
+test('a phone keyboard offers Done on the add form’s last field, whichever field that is', async ({ page }) => {
+  await mockConsole(page, event(4, 0, false), settingsOf({}));
+  const form = page.getByRole('form', { name: 'Add a player' });
+  await expect(form.getByLabel('Last name')).toHaveAttribute('enterkeyhint', 'done');
+  await mockConsole(page, event(4, 0, false), settingsOf({ sanctioned: true }));
+  await expect(form.getByLabel('Last name')).not.toHaveAttribute('enterkeyhint');
+  await expect(form.getByLabel('Birth year')).toHaveAttribute('enterkeyhint', 'done');
+});
+
 test('a sanctioned event adds a player only with their Player ID and birth year', async ({ page }) => {
   const sent = await mockConsole(page, event(4, 0, false), settingsOf({ sanctioned: true }));
   const form = page.getByRole('form', { name: 'Add a player' });

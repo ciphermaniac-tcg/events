@@ -105,7 +105,14 @@ function AddPlayer(props: { state: ManageState; code: string; sanctioned: boolea
           />
         </Field>
         <Field id='add-last' label={t('Last name')}>
-          <input id='add-last' class='tm-input' value={last()} onInput={e => setLast(e.currentTarget.value)} />
+          <input
+            id='add-last'
+            class='tm-input'
+            // The last field without a sanctioned event's two: Enter adds the player.
+            enterkeyhint={props.sanctioned ? undefined : 'done'}
+            value={last()}
+            onInput={e => setLast(e.currentTarget.value)}
+          />
         </Field>
         <Show when={props.sanctioned}>
           <Field id='add-pop' label={t('Player ID')}>
@@ -124,6 +131,7 @@ function AddPlayer(props: { state: ManageState; code: string; sanctioned: boolea
               id='add-year'
               class='tm-input'
               inputmode='numeric'
+              enterkeyhint='done'
               maxLength={4}
               value={year()}
               onInput={e => setYear(e.currentTarget.value.replace(/\D/g, ''))}
