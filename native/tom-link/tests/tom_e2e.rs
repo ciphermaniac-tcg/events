@@ -94,7 +94,7 @@ impl Env {
             .args([MASTERS, PLAYED])
             .env("DISPLAY", DISPLAY)
             .stdout(Stdio::null())
-            .stderr(Stdio::null());
+            .stderr(fs::File::create(self.work.join("stderr.log")).unwrap());
         command
     }
 
@@ -311,6 +311,12 @@ fn both_modes_record_results_in_the_saved_tdf() {
     unsafe { std::env::set_var("DISPLAY", DISPLAY) };
 
     let mut bridge = launch(&env);
+    // The JVM echoes JAVA_TOOL_OPTIONS to stderr; the secret must not be in them.
+    let stderr = fs::read_to_string(env.work.join("stderr.log")).unwrap();
+    assert!(
+        stderr.contains("Picked up JAVA_TOOL_OPTIONS") && !stderr.contains("token"),
+        "{stderr}"
+    );
     let slips = env.slips();
     late_slip_starts_nothing(&mut bridge);
     inside_mode(&mut bridge, &slips);
