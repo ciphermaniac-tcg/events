@@ -48,11 +48,16 @@ import {
   writeFile
 } from '../../lib/tournament/tomLink';
 import { fileTicks } from '../../lib/tournament/fileTicks';
+import { inNativeApp } from '../../lib/native/detect';
+import { lazyChunk } from '../../lib/preloadRecovery';
 import { autosaveMinutes, minutesSince, savesLate, withSave } from '../../lib/tournament/tomSaves';
 import { downloadBlob } from '../../lib/download';
 import { intlLocale, msg, t, tn } from '../../lib/i18n';
 import { ConfirmAction, ConfirmDialog } from './ConfirmAction';
 import { SettingRow } from './SettingControls';
+
+/** Only the desktop app sends results into TOM itself; a browser never loads this. */
+const NativeSend = lazyChunk(() => import('./NativeSend').then(m => ({ default: m.NativeSend })));
 
 /** 'none' before a file is linked (or on a browser that cannot hold one), 'reconnect' once following stops (see Lapse). */
 export type LinkState = 'none' | 'reconnect' | 'watching';
@@ -375,6 +380,8 @@ export function createTomLink(props: { manage: () => Manage; onSynced: (answer?:
     importedAt: () => props.manage().lastImportAt ?? null,
     error,
     pending: () => props.manage().pending.length,
+    results: () => props.manage().pending,
+    tournament: () => props.manage().tournament,
     /** The site has stopped following the file TOM keeps, so time extensions wait until it is reconnected. */
     locked: () => state() === 'reconnect',
     lapse,
@@ -660,7 +667,9 @@ export function TomStatus(props: { link: TomLink }) {
   return (
     <span class='tm-next-acts tm-tom-status'>
       <Show when={link().pending() > 0 && link().state() !== 'reconnect'}>
-        <WriteResults link={link()} />
+        <Show when={inNativeApp()} fallback={<WriteResults link={link()} />}>
+          <NativeSend tournament={link().tournament()} pending={link().results()} />
+        </Show>
       </Show>
       <Saved link={link()} lost={link().state() === 'reconnect'} />
       <Show when={link().state() === 'reconnect'}>

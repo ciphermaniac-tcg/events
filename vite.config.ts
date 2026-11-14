@@ -47,13 +47,14 @@ export default defineConfig({
               // the shell uses none of them. Nor the next-step workflow and share.ts, which keeps the parts of a
               // polled event that did not change: only the organizer's and event pages use them. Nor a correction's
               // preview or the linked .tdf's read beat, which only the console's corrections and TOM sync use, nor
-              // whether a correction can pair the next round again, which only the correction dialog asks.
+              // whether a correction can pair the next round again, which only the correction dialog asks, nor
+              // TOM's slip codes, which only the desktop app sends.
               // The rest of the folder stays, as splitting it costs more in total than it saves up front: each
               // export the shell loses renames the ones before it in every route's imports, so a cut that removes
               // as many exports as it adds is the one that stays cheap.
               name: 'tournament',
               priority: 1,
-              test: /(?:src[\\/]components[\\/]|src[\\/]main\.tsx$|tournaments[\\/](Field|SettingControls|OptionsMenu|Modal|ConfirmAction)\.tsx$|shared[\\/]tournament[\\/](?!tdf\.|xml\.|eventTime\.|requests\.|returns\.|lifecycleWorkflow\.|repairable\.)|src[\\/]lib[\\/]tournament[\\/](?!admin|applications|clerk|exportTdf|setupDraft|staff\.|stores\.|changes\.|tomSaves\.|liveData\.|tomLink\.|share\.|corrections\.|fileTicks\.))/,
+              test: /(?:src[\\/]components[\\/]|src[\\/]main\.tsx$|tournaments[\\/](Field|SettingControls|OptionsMenu|Modal|ConfirmAction)\.tsx$|shared[\\/]tournament[\\/](?!tdf\.|xml\.|eventTime\.|requests\.|returns\.|lifecycleWorkflow\.|repairable\.|slipCodes\.)|src[\\/]lib[\\/]tournament[\\/](?!admin|applications|clerk|exportTdf|setupDraft|staff\.|stores\.|changes\.|tomSaves\.|liveData\.|tomLink\.|share\.|corrections\.|fileTicks\.))/,
               includeDependenciesRecursively: true
             },
             // The Swiss engine runs in the browser only for the /host home page's sample event. Its own
