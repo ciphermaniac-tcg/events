@@ -8,9 +8,11 @@
 //! cursor, as on the Mac. On a phone, taps don't flash the webview's
 //! highlight, and links and images raise no callout. Text is set in the
 //! system's font (`system_font.rs`), a held control dims rather than
-//! shrinks (`press.rs`), and the footer is hidden (`footer.rs`). Only the
-//! site's own pages get it, and the site served to browsers is untouched.
+//! shrinks (`press.rs`), focus rings wait for the keyboard (`focus.rs`),
+//! and the footer is hidden (`footer.rs`). Only the site's own pages get
+//! it, and the site served to browsers is untouched.
 
+mod focus;
 mod footer;
 mod press;
 mod system_font;
@@ -52,6 +54,7 @@ fn rules() -> String {
     [
         SELECTION,
         PLATFORM,
+        focus::CSS,
         footer::CSS,
         press::CSS,
         &system_font::css(),
@@ -77,7 +80,7 @@ pub fn site_script(css: &str, then: &str) -> String {
 
 /// The script each page of the app's windows runs first.
 pub fn script() -> String {
-    site_script(&rules(), PLATFORM_SCRIPT)
+    site_script(&rules(), &format!("{} {PLATFORM_SCRIPT}", focus::SCRIPT))
 }
 
 #[cfg(test)]
