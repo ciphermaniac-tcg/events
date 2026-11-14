@@ -3,3 +3,4 @@ panel/dist/
 src-tauri/target/
 src-tauri/gen/schemas/
 src-tauri/resources/tom-bridge.jar
+tom-link/target/
