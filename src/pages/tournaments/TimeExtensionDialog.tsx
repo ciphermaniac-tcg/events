@@ -61,6 +61,7 @@ export function TimeExtensionDialog(props: { state: ManageState; selection: Exte
             <input
               id='extension-reason'
               class='tm-input'
+              enterkeyhint='done'
               maxLength={EXTENSION_REASON_MAX}
               value={reason()}
               onInput={event => setReason(event.currentTarget.value)}

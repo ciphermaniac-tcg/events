@@ -58,7 +58,14 @@ export function EditPlayerDialog(props: {
             <input id='edit-first' class='tm-input' value={first()} onInput={e => setFirst(e.currentTarget.value)} />
           </Field>
           <Field id='edit-last' label={t('Last name')}>
-            <input id='edit-last' class='tm-input' value={last()} onInput={e => setLast(e.currentTarget.value)} />
+            <input
+              id='edit-last'
+              class='tm-input'
+              // The last field without a sanctioned event's birth year: Enter saves.
+              enterkeyhint={props.sanctioned ? undefined : 'done'}
+              value={last()}
+              onInput={e => setLast(e.currentTarget.value)}
+            />
           </Field>
           <Show when={props.sanctioned}>
             <Field
@@ -71,6 +78,7 @@ export function EditPlayerDialog(props: {
                   {...control}
                   class='tm-input'
                   inputmode='numeric'
+                  enterkeyhint='done'
                   maxLength={4}
                   value={year()}
                   onInput={e => setYear(e.currentTarget.value.replace(/\D/g, ''))}
