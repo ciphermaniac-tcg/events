@@ -4,6 +4,8 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
+use crate::code::Entry;
+
 /// How codes reach TOM.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -147,23 +149,24 @@ impl TomView {
     }
 }
 
-/// Runs codes in order, vetting each; after the first not-ready answer the
+/// Runs entries in order, vetting each; after the first not-ready answer the
 /// rest are not sent, since TOM will not be ready for them either.
 pub(crate) fn submit_each(
-    codes: &[String],
-    mut send: impl FnMut(&str) -> SubmitResult,
+    entries: &[Entry],
+    mut send: impl FnMut(&Entry) -> SubmitResult,
 ) -> Vec<SubmitResult> {
     let mut halted: Option<String> = None;
-    codes
+    entries
         .iter()
-        .map(|code| {
+        .map(|entry| {
+            let code = entry.code.as_str();
             if let Some(reason) = &halted {
                 return SubmitResult::not_ready(code, reason.clone());
             }
-            if let Err(message) = crate::code::vet(code) {
+            if let Err(message) = crate::code::vet(entry) {
                 return SubmitResult::rejected(code, message);
             }
-            let result = send(code);
+            let result = send(entry);
             halted = result.reason().map(str::to_owned);
             result
         })
@@ -173,6 +176,7 @@ pub(crate) fn submit_each(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::code::entry;
 
     #[test]
     fn serializes_the_documented_shapes() {
@@ -199,11 +203,15 @@ mod tests {
 
     #[test]
     fn stops_sending_after_not_ready_and_never_sends_bad_codes() {
-        let codes: Vec<String> = ["21113", "21114", "21121", "21139"]
-            .map(String::from)
-            .into();
+        let entries = [
+            entry(2, None, 1, 1, 1, "21113"),
+            entry(2, None, 1, 1, 1, "21114"),
+            entry(2, None, 1, 1, 2, "21121"),
+            entry(2, None, 1, 1, 3, "21139"),
+        ];
         let mut sent = Vec::new();
-        let results = submit_each(&codes, |code| {
+        let results = submit_each(&entries, |entry| {
+            let code = entry.code.as_str();
             sent.push(code.to_owned());
             if code == "21121" {
                 SubmitResult::not_ready(code, "TOM closed")

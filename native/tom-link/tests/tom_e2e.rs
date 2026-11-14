@@ -15,7 +15,7 @@ use std::process::{Child, Command, Stdio};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use tom_link::{Bridge, Mode, SaveResult, StartResult, SubmitResult};
+use tom_link::{Bridge, Entry, Mode, SaveResult, StartResult, SubmitResult};
 
 const DISPLAY: &str = ":93";
 const LOGIN: &str = "1234567";
@@ -202,12 +202,31 @@ fn launch(env: &Env) -> Bridge {
     bridge
 }
 
-fn code(slips: &[(u32, u32, Vec<String>)], table: u32, outcome: usize) -> String {
-    slips.iter().find(|slip| slip.0 == table).unwrap().2[outcome - 1].clone()
+/// A Masters round 1 entry, with the code TOM's own file gives for it.
+fn code(slips: &[(u32, u32, Vec<String>)], table: u16, outcome: u8) -> Entry {
+    let slip = slips
+        .iter()
+        .find(|slip| slip.0 == u32::from(table))
+        .unwrap();
+    let code = slip.2[usize::from(outcome - 1)].clone();
+    entry(1, table, outcome, &code)
 }
 
-/// Pod 2 (Masters), round 2, table 1: well-formed, but not the current round.
-const WRONG_ROUND: &str = "22111";
+fn entry(round: u8, table: u16, outcome: u8, code: &str) -> Entry {
+    Entry {
+        pod: 2,
+        flight: None,
+        round,
+        table,
+        outcome,
+        code: code.to_owned(),
+    }
+}
+
+/// Masters, round 2, table 1: well-formed, but not the current round.
+fn wrong_round() -> Entry {
+    entry(2, 1, 1, "22111")
+}
 
 fn inside_mode(bridge: &mut Bridge, slips: &[(u32, u32, Vec<String>)]) {
     let pods = bridge.status().pods;
@@ -219,8 +238,8 @@ fn inside_mode(bridge: &mut Bridge, slips: &[(u32, u32, Vec<String>)]) {
     // The round is not started yet: submit starts it, then enters the code.
     let codes = [
         code(slips, 1, 1),
-        WRONG_ROUND.to_owned(),
-        "21014".to_owned(),
+        wrong_round(),
+        entry(1, 0, 1, "21014"),
         code(slips, 2, 2),
     ];
     let results = bridge.submit(&codes);
@@ -228,7 +247,7 @@ fn inside_mode(bridge: &mut Bridge, slips: &[(u32, u32, Vec<String>)]) {
     assert_eq!(
         results[0],
         SubmitResult::Accepted {
-            code: codes[0].clone()
+            code: codes[0].code.clone()
         }
     );
     assert!(
@@ -240,7 +259,7 @@ fn inside_mode(bridge: &mut Bridge, slips: &[(u32, u32, Vec<String>)]) {
     assert_eq!(
         results[3],
         SubmitResult::Accepted {
-            code: codes[3].clone()
+            code: codes[3].code.clone()
         }
     );
 }
@@ -257,7 +276,7 @@ fn keys_mode(bridge: &mut Bridge, slips: &[(u32, u32, Vec<String>)]) {
     assert!(status.ready, "{status:?}");
     let codes = [
         code(slips, 3, 1),
-        WRONG_ROUND.to_owned(),
+        wrong_round(),
         code(slips, 4, 3),
         code(slips, 5, 2),
     ];
@@ -266,20 +285,20 @@ fn keys_mode(bridge: &mut Bridge, slips: &[(u32, u32, Vec<String>)]) {
     assert_eq!(
         results[0],
         SubmitResult::Accepted {
-            code: codes[0].clone()
+            code: codes[0].code.clone()
         }
     );
     assert!(matches!(&results[1], SubmitResult::Rejected { .. }));
     assert_eq!(
         results[2],
         SubmitResult::Accepted {
-            code: codes[2].clone()
+            code: codes[2].code.clone()
         }
     );
     assert_eq!(
         results[3],
         SubmitResult::Accepted {
-            code: codes[3].clone()
+            code: codes[3].code.clone()
         }
     );
     assert!(
