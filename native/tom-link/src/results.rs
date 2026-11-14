@@ -159,8 +159,9 @@ impl TomView {
     }
 }
 
-/// Runs entries in order, vetting each; after the first not-ready answer the
-/// rest are not sent, since TOM will not be ready for them either.
+/// Runs entries in order, vetting each, and stops at the first one that is
+/// not accepted: the rest are reported not ready without being sent, so
+/// nothing lands after a result someone still has to look at.
 pub(crate) fn submit_each(
     entries: &[Entry],
     mut send: impl FnMut(&Entry) -> SubmitResult,
@@ -173,14 +174,23 @@ pub(crate) fn submit_each(
             if let Some(reason) = &halted {
                 return SubmitResult::not_ready(code, reason.clone());
             }
-            if let Err(message) = crate::code::vet(entry) {
-                return SubmitResult::rejected(code, message);
+            let result = match crate::code::vet(entry) {
+                Ok(()) => send(entry),
+                Err(message) => SubmitResult::rejected(code, message),
+            };
+            if !matches!(result, SubmitResult::Accepted { .. }) {
+                halted = Some(halted_by(code, &result));
             }
-            let result = send(entry);
-            halted = result.reason().map(str::to_owned);
             result
         })
         .collect()
+}
+
+fn halted_by(code: &str, result: &SubmitResult) -> String {
+    match result.reason() {
+        Some(reason) => format!("Not sent: {reason}"),
+        None => format!("Not sent, because {code} before it was not accepted."),
+    }
 }
 
 #[cfg(test)]
@@ -212,25 +222,59 @@ mod tests {
     }
 
     #[test]
-    fn stops_sending_after_not_ready_and_never_sends_bad_codes() {
+    fn stops_at_the_first_entry_that_is_not_accepted() {
         let entries = [
             entry(2, None, 1, 1, 1, "21113"),
-            entry(2, None, 1, 1, 1, "21114"),
-            entry(2, None, 1, 1, 2, "21121"),
-            entry(2, None, 1, 1, 3, "21139"),
+            entry(2, None, 1, 2, 1, "21212"),
+            entry(2, None, 1, 3, 1, "21311"),
         ];
         let mut sent = Vec::new();
         let results = submit_each(&entries, |entry| {
-            let code = entry.code.as_str();
-            sent.push(code.to_owned());
-            if code == "21121" {
-                SubmitResult::not_ready(code, "TOM closed")
+            sent.push(entry.code.clone());
+            if entry.code == "21212" {
+                SubmitResult::rejected(&entry.code, "TOM said no")
             } else {
-                SubmitResult::accepted(code)
+                SubmitResult::accepted(&entry.code)
             }
         });
-        assert_eq!(sent, ["21113", "21121"]);
-        assert!(matches!(results[1], SubmitResult::Rejected { .. }));
-        assert_eq!(results[3], SubmitResult::not_ready("21139", "TOM closed"));
+        assert_eq!(sent, ["21113", "21212"]);
+        assert_eq!(
+            results[2],
+            SubmitResult::not_ready(
+                "21311",
+                "Not sent, because 21212 before it was not accepted."
+            )
+        );
+    }
+
+    #[test]
+    fn never_sends_a_bad_code_or_anything_after_it() {
+        let entries = [
+            entry(2, None, 1, 1, 1, "21114"),
+            entry(2, None, 1, 1, 1, "21113"),
+        ];
+        let mut sent = 0;
+        let results = submit_each(&entries, |entry| {
+            sent += 1;
+            SubmitResult::accepted(&entry.code)
+        });
+        assert_eq!(sent, 0);
+        assert!(matches!(results[0], SubmitResult::Rejected { .. }));
+        assert!(matches!(results[1], SubmitResult::NotReady { .. }));
+    }
+
+    #[test]
+    fn passes_on_why_tom_was_not_ready() {
+        let entries = [
+            entry(2, None, 1, 1, 2, "21121"),
+            entry(2, None, 1, 1, 3, "21139"),
+        ];
+        let results = submit_each(&entries, |entry| {
+            SubmitResult::not_ready(&entry.code, "TOM closed")
+        });
+        assert_eq!(
+            results[1],
+            SubmitResult::not_ready("21139", "Not sent: TOM closed")
+        );
     }
 }
