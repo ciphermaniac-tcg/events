@@ -21,6 +21,7 @@ use core_graphics::event_source::{CGEventSource, CGEventSourceStateID};
 use libc::pid_t;
 
 use super::{Desktop, Foreground, OsWindow};
+use crate::macos_app::process_path;
 
 const FULL_NAME: &str = "Tournament Operations Manager";
 const KEYPAD_DIGITS: [CGKeyCode; 10] = [82, 83, 84, 85, 86, 87, 88, 89, 91, 92];
@@ -142,15 +143,6 @@ fn trusted(prompt: bool) -> bool {
     }
     // SAFETY: no arguments.
     unsafe { AXIsProcessTrusted() }
-}
-
-fn process_path(pid: pid_t) -> Option<PathBuf> {
-    let mut buffer = vec![0u8; usize::try_from(libc::PROC_PIDPATHINFO_MAXSIZE).ok()?];
-    let size = u32::try_from(buffer.len()).ok()?;
-    // SAFETY: the buffer is as large as we say.
-    let len = unsafe { libc::proc_pidpath(pid, buffer.as_mut_ptr().cast::<c_void>(), size) };
-    buffer.truncate(usize::try_from(len).ok().filter(|&len| len > 0)?);
-    Some(PathBuf::from(String::from_utf8_lossy(&buffer).into_owned()))
 }
 
 fn all_pids() -> Vec<pid_t> {
