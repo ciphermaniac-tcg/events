@@ -242,7 +242,11 @@ pub fn create_main_window<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
     #[cfg(desktop)]
     let builder = desktop_window(app, builder);
     #[cfg(mobile)]
-    let builder = builder.initialization_script(crate::app_style::script());
+    let builder = builder
+        .initialization_script(crate::app_style::script())
+        .initialization_script(crate::appearance::script(
+            crate::appearance::Appearance::System,
+        ));
     let window = builder.build()?;
     #[cfg(desktop)]
     desktop_window_built(&window);
@@ -251,14 +255,14 @@ pub fn create_main_window<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
     Ok(())
 }
 
-/// What the desktop window needs once it exists: the page color for the
-/// system's mode behind it (`theme.rs`), Windows' webview hooks
+/// What the desktop window needs once it exists: the appearance chosen, and
+/// the page color for it behind the page (`appearance.rs`), Windows' webview hooks
 /// (`webview2.rs`) and title bar (`title_bar.rs`), the app's offline page on
 /// Linux (`offline.rs`; Windows' is among its webview hooks), and showing it
 /// anyway if its first page is slow.
 #[cfg(desktop)]
 fn desktop_window_built<R: Runtime>(window: &tauri::WebviewWindow<R>) {
-    crate::theme::paint_for_system(window);
+    crate::appearance::setup(window);
     #[cfg(windows)]
     {
         crate::webview2::setup(window);
@@ -274,8 +278,9 @@ fn desktop_window_built<R: Runtime>(window: &tauri::WebviewWindow<R>) {
 }
 
 /// The main window as a desktop app's: hidden until it has something to
-/// show, told it can reach TOM, styled as an app (`app_style.rs`), colored
-/// with the site's mode (`theme.rs`), new windows kept in it, no Safari link
+/// show, told it can reach TOM, styled as an app (`app_style`), in the
+/// appearance chosen (`appearance.rs`) and colored with the site's mode
+/// (`theme.rs`), new windows kept in it, no Safari link
 /// previews on a firm click, and overlay scrollbars and the page's title on
 /// Windows.
 #[cfg(desktop)]
@@ -289,6 +294,7 @@ fn desktop_window<'a, R: Runtime>(
         .initialization_script(TOM_FLAG_SCRIPT)
         .initialization_script(crate::app_style::script())
         .initialization_script(crate::theme::script())
+        .initialization_script(crate::appearance::page_script(app))
         .on_new_window(move |url, _features| {
             follow_new_window(&follower, &url);
             tauri::webview::NewWindowResponse::Deny
