@@ -381,6 +381,7 @@ export function createTomLink(props: { manage: () => Manage; onSynced: (answer?:
     error,
     pending: () => props.manage().pending.length,
     results: () => props.manage().pending,
+    event: code,
     tournament: () => props.manage().tournament,
     /** The site has stopped following the file TOM keeps, so time extensions wait until it is reconnected. */
     locked: () => state() === 'reconnect',
@@ -668,7 +669,7 @@ export function TomStatus(props: { link: TomLink }) {
     <span class='tm-next-acts tm-tom-status'>
       <Show when={link().pending() > 0 && link().state() !== 'reconnect'}>
         <Show when={hasTom()} fallback={<WriteResults link={link()} />}>
-          <NativeSend tournament={link().tournament()} pending={link().results()} />
+          <NativeSend event={link().event()} tournament={link().tournament()} pending={link().results()} />
         </Show>
       </Show>
       <Saved link={link()} lost={link().state() === 'reconnect'} />
