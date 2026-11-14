@@ -10,7 +10,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use tauri::{
     AppHandle, Manager, Runtime, Url,
-    menu::{Menu, MenuBuilder, MenuEvent, MenuItemBuilder, SubmenuBuilder},
+    menu::{AboutMetadata, Menu, MenuBuilder, MenuEvent, MenuItemBuilder, SubmenuBuilder},
 };
 
 use crate::{appearance, shell, tom};
@@ -145,6 +145,19 @@ const HISTORY_KEYS: &str = if cfg!(target_os = "macos") {
     "Ctrl+H"
 };
 
+/// What About shows: the version, and the copyright kept in the bundle's
+/// config. The Mac's panel also shows a build number in parentheses, the
+/// same as the version here, so it gets an empty one, which leaves it out;
+/// elsewhere an empty one would print as "()".
+fn about<R: Runtime>(app: &AppHandle<R>) -> AboutMetadata<'static> {
+    AboutMetadata {
+        version: Some(app.package_info().version.to_string()),
+        short_version: cfg!(target_os = "macos").then(String::new),
+        copyright: app.config().bundle.copyright.clone(),
+        ..AboutMetadata::default()
+    }
+}
+
 fn settings<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<tauri::menu::MenuItem<R>> {
     item(app, "settings", "Settings…", Some("CmdOrCtrl+,"))
 }
@@ -152,7 +165,7 @@ fn settings<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<tauri::menu::MenuIt
 #[cfg(target_os = "macos")]
 fn first_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<tauri::menu::Submenu<R>> {
     SubmenuBuilder::new(app, "Ciphermaniac Events")
-        .about(None)
+        .about(Some(about(app)))
         .separator()
         .item(&settings(app)?)
         .item(&tom::menu_item(app)?)
@@ -245,7 +258,7 @@ fn help_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<tauri::menu::Subme
         .item(&item(app, "terms", "Terms", None)?)
         .item(&item(app, "privacy", "Privacy", None)?);
     #[cfg(not(target_os = "macos"))]
-    let menu = menu.separator().about(None);
+    let menu = menu.separator().about(Some(about(app)));
     menu.build()
 }
 
