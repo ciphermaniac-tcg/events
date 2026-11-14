@@ -30,6 +30,7 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "publisher": "Ciphermaniac",
     "createUpdaterArtifacts": false,
     "icon": [
       "icons/32x32.png",
