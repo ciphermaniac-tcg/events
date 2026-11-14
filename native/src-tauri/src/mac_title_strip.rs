@@ -70,26 +70,42 @@ pub fn window<R: tauri::Runtime>(
         .traffic_light_position(tauri::LogicalPosition::new(x, y))
 }
 
-/// The head bar as the strip. Its controls are 24 px, 7 above and below,
-/// on the window buttons' center line and as far from the right edge as
-/// the close button is from the left. The account button takes a faint
-/// ring under the pointer and dims while held (`press.rs`), and its menu
-/// stays inside the window. `:root` outweighs the site's own rules for the bar, including a phone
-/// width's gutters and stylesheets a page loads later.
+/// The strip's controls: the account button and Sign in.
+const CONTROL: u32 = 24;
+
+/// The space between the strip and the account menu under it.
+const MENU_GAP: u32 = 6;
+
+/// How far the account menu opens below the account button: the space under
+/// the button, the strip's 1 px border, and the gap.
+const fn menu_drop() -> u32 {
+    (HEIGHT - CONTROL) / 2 + 1 + MENU_GAP
+}
+
+/// The head bar as the strip. Its controls sit on the window buttons'
+/// center line, as far from the right edge as the close button is from the
+/// left. The account button takes a faint ring under the pointer and dims
+/// while held (`press.rs`); its menu opens just under the strip, its right
+/// edge on the button's, and scrolls rather than run past the window's
+/// bottom. `:root` outweighs the site's own rules for the bar, including a
+/// phone width's gutters and stylesheets a page loads later.
 fn css() -> String {
     format!(
         ":root, body[data-mode] {{ --topnav-h: {HEIGHT}px !important; }} \
          :root .site-head-name {{ display: none; }} \
          :root .site-head-row {{ max-width: none; justify-content: flex-end; \
          padding: 0 {right}px 0 {left}px; }} \
-         :root .site-head .tm-acct-button {{ width: 24px; height: 24px; font-size: 11px; }} \
-         :root .site-head-signin {{ min-height: 24px; height: 24px; font-size: 12px; }} \
+         :root .site-head .tm-acct-button {{ width: {CONTROL}px; height: {CONTROL}px; font-size: 11px; }} \
+         :root .site-head-signin {{ min-height: {CONTROL}px; height: {CONTROL}px; font-size: 12px; }} \
          :root .site-head .tm-acct-button:hover {{ \
          box-shadow: 0 0 0 3px color-mix(in srgb, var(--fg) 22%, transparent); }} \
-         :root .site-head .tm-acct-menu {{ max-height: calc(100dvh - var(--topnav-h) - {right}px - 8px); }} \
+         :root .site-head .tm-acct-menu {{ top: calc(100% + {drop}px); right: 0; \
+         max-height: calc(100dvh - var(--topnav-h) - {below}px); }} \
          :root main.page {{ padding-top: {PAGE_GAP}px; }}",
         right = edge(),
         left = lights_room(),
+        drop = menu_drop(),
+        below = 1 + MENU_GAP + edge(),
     )
 }
 
@@ -189,7 +205,8 @@ mod tests {
         assert!(css.contains("padding: 0 13px 0 86px"));
         assert!(css.contains(":root main.page { padding-top: 18px; }"));
         assert!(css.contains(".tm-acct-button:hover"));
-        assert!(css.contains("max-height: calc(100dvh - var(--topnav-h) - 13px - 8px)"));
+        assert!(css.contains(".tm-acct-menu { top: calc(100% + 14px); right: 0;"));
+        assert!(css.contains("max-height: calc(100dvh - var(--topnav-h) - 20px)"));
     }
 
     #[test]
