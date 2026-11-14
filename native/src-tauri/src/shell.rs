@@ -1,7 +1,8 @@
 //! Keeps the app on the event site. Links to anywhere else open in the
-//! system browser, including Google sign-in, which refuses embedded webviews.
-//! A navigation stopped while a page is still loading takes the webview back
-//! to the last page that loaded, so it is never left blank.
+//! system browser, and so does Google sign-in, which refuses embedded
+//! webviews (see `sign_in.rs`). A navigation stopped while a page is still
+//! loading takes the webview back to the last page that loaded, so it is
+//! never left blank.
 
 use std::{collections::HashMap, sync::Mutex};
 
@@ -12,7 +13,9 @@ use tauri::{
 };
 use tauri_plugin_opener::OpenerExt;
 
-const MAIN_WINDOW: &str = "main";
+use crate::sign_in;
+
+pub const MAIN_WINDOW: &str = "main";
 
 const SITE_HOST: &str = "events.ciphermaniac.com";
 
@@ -46,6 +49,11 @@ fn is_in_app_host(host: &str) -> bool {
             .any(|suffix| host.ends_with(suffix))
 }
 
+/// The site itself, or a local server standing in for it.
+pub fn is_site_host(host: &str) -> bool {
+    host == SITE_HOST || LOCAL_HOSTS.contains(&host)
+}
+
 fn is_discord_sign_in(host: &str, path: &str) -> bool {
     host == "discord.com" && DISCORD_SIGN_IN_PATHS.iter().any(|p| path.starts_with(p))
 }
@@ -61,14 +69,14 @@ fn stays_in_app(url: &Url) -> bool {
         .is_none_or(|host| is_in_app_host(host) || is_discord_sign_in(host, url.path()))
 }
 
-fn open_outside<R: Runtime>(app: &AppHandle<R>, url: &Url) {
+pub fn open_outside<R: Runtime>(app: &AppHandle<R>, url: &Url) {
     if let Err(err) = app.opener().open_url(url.as_str(), None::<&str>) {
         log::warn!("could not open {url} in the system browser: {err}");
     }
 }
 
 /// The site's address the main window opens on.
-fn home_url<R: Runtime>(app: &AppHandle<R>) -> Option<Url> {
+pub fn home_url<R: Runtime>(app: &AppHandle<R>) -> Option<Url> {
     let window = app
         .config()
         .app
@@ -142,6 +150,10 @@ fn recover<R: Runtime>(webview: &Webview<R>) {
 /// opened outside instead.
 fn follow<R: Runtime>(webview: &Webview<R>, url: &Url) -> bool {
     let app = webview.app_handle();
+    if sign_in::open_in_browser(app, url) {
+        recover(webview);
+        return false;
+    }
     if stays_in_app(url) {
         return true;
     }
