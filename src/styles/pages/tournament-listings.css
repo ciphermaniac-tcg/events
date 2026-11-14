@@ -27,8 +27,10 @@
 .tm-listings-head + .tm-listing {
   border-top: 0;
 }
-.tm-listing:hover {
-  background: var(--surface-2);
+@media (hover: hover) {
+  .tm-listing:hover {
+    background: var(--surface-2);
+  }
 }
 .tm-listing.is-on {
   background: color-mix(in srgb, var(--accent) 9%, var(--surface));

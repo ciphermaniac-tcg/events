@@ -66,9 +66,11 @@
 .tm-clock-acts > button + button {
   border-left: 1px solid var(--rule);
 }
-.tm-clock-group > button:hover,
-.tm-clock-acts > button:hover {
-  background: var(--surface-2);
+@media (hover: hover) {
+  .tm-clock-group > button:hover,
+  .tm-clock-acts > button:hover {
+    background: var(--surface-2);
+  }
 }
 /* The face is a button too: a press types the time left. It keeps the face's own size and weight. */
 .tm-clock-group .tm-clock-face {
@@ -1295,8 +1297,10 @@
   border-color: var(--tm-confirm-ink);
   color: var(--tm-confirm-fill);
 }
-.tm-console .tm-result.is-asking .btn-ghost:hover {
-  background: color-mix(in srgb, var(--tm-confirm-ink) 10%, var(--tm-confirm-fill));
+@media (hover: hover) {
+  .tm-console .tm-result.is-asking .btn-ghost:hover {
+    background: color-mix(in srgb, var(--tm-confirm-ink) 10%, var(--tm-confirm-fill));
+  }
 }
 .tm-console .tm-result.is-asking :focus-visible {
   outline-color: var(--tm-confirm-ink);

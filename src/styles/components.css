@@ -148,8 +148,10 @@
   color: var(--fg);
   text-decoration: none;
 }
-.site-head-name:hover {
-  text-decoration: none;
+@media (hover: hover) {
+  .site-head-name:hover {
+    text-decoration: none;
+  }
 }
 .site-head-name img {
   width: 20px;
@@ -221,9 +223,11 @@
   font-weight: 500;
   transition: color var(--ms-fast) var(--ease-base);
 }
-.site-footer-links a:hover {
-  color: var(--fg);
-  text-decoration: none;
+@media (hover: hover) {
+  .site-footer-links a:hover {
+    color: var(--fg);
+    text-decoration: none;
+  }
 }
 /* Pushed off the links, and the toggle off it: three groups, one row. */
 .site-footer-note {
