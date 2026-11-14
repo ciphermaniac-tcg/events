@@ -59,17 +59,25 @@ fn rules() -> String {
     .join(" ")
 }
 
-/// The script each page of the main window runs first.
-pub fn script() -> String {
-    let rules = serde_json::Value::from(rules());
+/// A page script for the site's own pages: it adds `css` once the page
+/// has its head, after the site's own stylesheets, and runs `then`.
+pub fn site_script(css: &str, then: &str) -> String {
+    let css = serde_json::Value::from(css);
     format!(
         "(() => {{ if (location.hostname !== '{SITE_HOST}') return; \
          const add = () => {{ const style = document.createElement('style'); \
-         style.textContent = {rules}; document.head.append(style); \
-         document.documentElement.classList.add('in-app'); }}; \
+         style.textContent = {css}; document.head.append(style); }}; \
          if (document.readyState === 'loading') {{ \
          document.addEventListener('DOMContentLoaded', add, {{ once: true }}); }} else {{ add(); }} \
-         {PLATFORM_SCRIPT} }})();"
+         {then} }})();"
+    )
+}
+
+/// The script each page of the app's windows runs first.
+pub fn script() -> String {
+    site_script(
+        &rules(),
+        &format!("document.documentElement.classList.add('in-app'); {PLATFORM_SCRIPT}"),
     )
 }
 
