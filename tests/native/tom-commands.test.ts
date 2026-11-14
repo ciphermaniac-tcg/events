@@ -21,8 +21,6 @@ test('each command goes to the Rust command of its name, with its arguments name
   await tom.setPath('C:\\TOM\\TOM.exe');
   await tom.launch();
   await tom.status();
-  await tom.getMode();
-  await tom.setMode('inside');
   await tom.submit([ENTRY]);
   await tom.save();
   await tom.startRound(2);
@@ -33,8 +31,6 @@ test('each command goes to the Rust command of its name, with its arguments name
     ['tom_set_path', { path: 'C:\\TOM\\TOM.exe' }],
     ['tom_launch', undefined],
     ['tom_status', undefined],
-    ['tom_get_mode', undefined],
-    ['tom_set_mode', { mode: 'inside' }],
     ['tom_submit', { entries: [ENTRY] }],
     ['tom_save', undefined],
     ['tom_start_round', { pod: 2 }],

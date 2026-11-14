@@ -46,19 +46,6 @@ body {
   flex-wrap: nowrap;
 }
 
-.tp-mode {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-3);
-  margin-top: var(--space-3);
-}
-
-.tp-mode p {
-  margin: 0;
-  font-size: var(--text-base);
-}
-
 .tp-small {
   min-height: 30px;
   padding: 0 10px;

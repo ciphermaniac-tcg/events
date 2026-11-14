@@ -3,19 +3,16 @@
  * them through Tauri's invoke. The Rust side (native/src-tauri/src/tom.rs)
  * is the contract; every shape it returns is mirrored here and nowhere else.
  *
- * Two ways in: 'inside' has the app's helper, running in TOM's own Java
- * process, enter codes without TOM needing focus (TOM must have been launched
- * from the app); 'keys' types each code into TOM's Speed Match Slip Entry
- * form, bringing TOM's window forward first. Either way TOM's round must be
- * started for it to take results; tom_submit starts it when it has to, and
+ * The app's helper, running in TOM's own Java process, enters each code
+ * without TOM needing focus, so TOM must have been launched from the app.
+ * TOM's round must be started for it to take results; tom_submit starts it
+ * when it has to, and
  * the console starts it along with the site's clock (tom_start_round). TOM's
  * own round timer means nothing here: the site's clock is the one that counts.
  *
  * Pods are named by TOM's category code (0 Juniors, 1 Seniors, 2 Masters, 8,
  * 9 and 10 for divisions played together; see categoryCode in tdf.ts).
  */
-
-export type TomMode = 'inside' | 'keys';
 
 /** A pod's current round as TOM's window shows it; no category when TOM's tab title was not one the app knows. */
 export interface TomPod {
@@ -25,9 +22,8 @@ export interface TomPod {
   started: boolean;
 }
 
-/** What TOM looks like right now, as far as the current mode can tell. */
+/** What TOM looks like right now, as far as the app's helper can tell. */
 export interface TomStatus {
-  mode: TomMode;
   /** The TOM program tom_launch starts, when one is known. */
   tomPath: string | null;
   /** TOM is running as the app's child. */
@@ -39,7 +35,6 @@ export interface TomStatus {
   slipDialogOpen: boolean;
   /** Titles of TOM's open windows. */
   windows: string[];
-  /** Inside mode only; empty in keys mode. */
   pods: TomPod[];
 }
 
@@ -94,8 +89,6 @@ export function tomCommands(invoke: Invoke) {
     /** Starts TOM with the helper loaded; rejects with a sentence when it cannot. */
     launch: () => invoke<TomStatus>('tom_launch'),
     status: () => invoke<TomStatus>('tom_status'),
-    getMode: () => invoke<TomMode>('tom_get_mode'),
-    setMode: (mode: TomMode) => invoke<TomMode>('tom_set_mode', { mode }),
     /** A result per entry, in the order sent. */
     submit: (entries: readonly SubmitEntry[]) => invoke<SubmitResult[]>('tom_submit', { entries }),
     save: () => invoke<SaveResult>('tom_save'),
