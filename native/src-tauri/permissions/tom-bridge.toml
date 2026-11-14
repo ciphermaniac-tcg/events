@@ -1,0 +1,7 @@
+# The TOM bridge commands. Declaring any app permission turns on Tauri's
+# app ACL, so every app command must be listed here before a window can
+# call it. The live site may call only these; see capabilities/.
+[[permission]]
+identifier = "tom-bridge"
+description = "Calls into the local TOM bridge."
+commands.allow = []
