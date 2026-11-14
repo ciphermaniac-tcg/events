@@ -69,10 +69,16 @@ fn stays_in_app(url: &Url) -> bool {
         .is_none_or(|host| is_in_app_host(host) || is_discord_sign_in(host, url.path()))
 }
 
+/// Opens `url` in the system browser, from a thread of its own: Android
+/// answers on its UI thread, which is the one reporting navigations.
 pub fn open_outside<R: Runtime>(app: &AppHandle<R>, url: &Url) {
-    if let Err(err) = app.opener().open_url(url.as_str(), None::<&str>) {
-        log::warn!("could not open {url} in the system browser: {err}");
-    }
+    let app = app.clone();
+    let url = url.clone();
+    std::thread::spawn(move || {
+        if let Err(err) = app.opener().open_url(url.as_str(), None::<&str>) {
+            log::warn!("could not open {url} in the system browser: {err}");
+        }
+    });
 }
 
 /// Opens a sign-in that has to leave the webview: in a Custom Tab over the

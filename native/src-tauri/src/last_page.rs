@@ -3,9 +3,9 @@
 
 use std::{fs, path::PathBuf};
 
-use tauri::{AppHandle, Manager, Runtime, Url};
+use tauri::{AppHandle, Runtime, Url};
 
-use crate::shell;
+use crate::{data_dir, shell};
 
 const LAST_PAGE_FILE: &str = "last-page";
 
@@ -23,10 +23,7 @@ fn worth_reopening(url: &Url) -> bool {
 }
 
 fn last_page_path<R: Runtime>(app: &AppHandle<R>) -> Option<PathBuf> {
-    app.path()
-        .app_data_dir()
-        .ok()
-        .map(|dir| dir.join(LAST_PAGE_FILE))
+    data_dir::get(app).map(|dir| dir.join(LAST_PAGE_FILE))
 }
 
 /// Keeps `url` as the page to reopen, when it is one.
