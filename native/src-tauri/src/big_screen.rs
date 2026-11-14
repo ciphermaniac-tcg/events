@@ -9,6 +9,10 @@
 //! windows are, outside the webview's own new-window callback: on the Mac
 //! that callback opened nothing. A request that still arrives through the
 //! callback (Cmd-click, `window.open`) is opened after it returns.
+//!
+//! The window is named for its event ("Collectibles Corner Locals · Big
+//! Screen"), from the page's title, so it can be told apart in Mission
+//! Control and the Window menu.
 
 use tauri::{AppHandle, Manager, Runtime, Url, WebviewUrl, WebviewWindowBuilder};
 
@@ -16,6 +20,34 @@ use crate::shell;
 
 /// The big screen's own window.
 const SCREEN_WINDOW: &str = "screen";
+
+const SCREEN_TITLE: &str = "Big Screen";
+
+/// The site's name, which ends a page's title after a dash (`pageTitle` in
+/// src/lib/title.ts) or is the whole of it.
+const SITE_NAME: &str = "Ciphermaniac Events";
+
+/// Whether a page's title is an address, as a webview reports a page with
+/// none.
+fn is_address(title: &str) -> bool {
+    Url::parse(title)
+        .is_ok_and(|url| matches!(url.scheme(), "http" | "https" | "about" | "data" | "blob"))
+}
+
+/// The window's title for the page's: the event's name, from a title the
+/// site gave the page, then "Big Screen".
+fn window_title(page_title: &str) -> String {
+    let page_title = page_title.trim();
+    let name = page_title
+        .strip_suffix(SITE_NAME)
+        .map_or(page_title, |rest| rest.trim_end().trim_end_matches('—'))
+        .trim();
+    if name.is_empty() || is_address(name) {
+        SCREEN_TITLE.to_owned()
+    } else {
+        format!("{name} · {SCREEN_TITLE}")
+    }
+}
 
 /// Whether `url` is an event's big screen on the site; its stream view
 /// (`&stream`) is not.
@@ -39,10 +71,15 @@ fn open<R: Runtime>(app: &AppHandle<R>, url: &Url) -> tauri::Result<()> {
         return window.set_focus();
     }
     let builder = WebviewWindowBuilder::new(app, SCREEN_WINDOW, WebviewUrl::External(url.clone()))
-        .title("Big Screen")
+        .title(SCREEN_TITLE)
         .inner_size(1280.0, 720.0)
         .min_inner_size(640.0, 360.0)
-        .initialization_script(crate::app_style::script());
+        .initialization_script(crate::app_style::script())
+        .on_document_title_changed(|window, title| {
+            if let Err(err) = window.set_title(&window_title(&title)) {
+                log::debug!("could not title the big screen: {err}");
+            }
+        });
     #[cfg(target_os = "macos")]
     let builder = builder.allow_link_preview(false);
     builder.build().map(drop)
@@ -88,7 +125,7 @@ pub fn script() -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{is_big_screen, screen_url, script};
+    use super::{is_big_screen, screen_url, script, window_title};
     use tauri::Url;
 
     #[test]
@@ -101,6 +138,24 @@ mod tests {
         assert!(!screen("https://events.ciphermaniac.com/t/ABC123"));
         assert!(!screen("https://events.ciphermaniac.com/host?screen=1"));
         assert!(!screen("https://example.com/t/ABC123?screen=1"));
+    }
+
+    #[test]
+    fn names_the_window_for_its_event() {
+        assert_eq!(
+            window_title("Collectibles Corner Locals — Ciphermaniac Events"),
+            "Collectibles Corner Locals · Big Screen"
+        );
+        assert_eq!(
+            window_title("MSFMQ9 — Ciphermaniac Events"),
+            "MSFMQ9 · Big Screen"
+        );
+        assert_eq!(window_title("Ciphermaniac Events"), "Big Screen");
+        assert_eq!(window_title(" "), "Big Screen");
+        assert_eq!(
+            window_title("https://events.ciphermaniac.com/t/MSFMQ9?screen=1"),
+            "Big Screen"
+        );
     }
 
     #[test]
