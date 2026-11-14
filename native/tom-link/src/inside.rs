@@ -59,7 +59,7 @@ impl Tom {
     pub(crate) fn view(&mut self) -> TomView {
         match self.request::<HelperStatus>("status", &[]) {
             Ok(status) => status.into_view(),
-            Err(reason) => TomView::unavailable(reason),
+            Err(failure) => TomView::unavailable(failure.reason()),
         }
     }
 
@@ -73,6 +73,7 @@ impl Tom {
         match self.outcome("submit", &fields) {
             Outcome::Accepted => SubmitResult::accepted(code),
             Outcome::Rejected { message } => SubmitResult::rejected(code, message),
+            Outcome::Uncertain { reason } => SubmitResult::uncertain(code, reason),
             other => SubmitResult::not_ready(code, other.reason()),
         }
     }
@@ -96,24 +97,50 @@ impl Tom {
         }
     }
 
-    /// The helper's answer, with transport failures folded into `NotReady`.
+    /// The helper's answer. A request that never reached it is `NotReady`; one
+    /// that did but got no answer may have run, so it is `Uncertain`.
     fn outcome(&mut self, op: &str, fields: &[(&str, String)]) -> Outcome {
         self.request(op, fields)
-            .unwrap_or_else(|reason| Outcome::NotReady { reason })
+            .unwrap_or_else(|failure| match failure {
+                Failure::Unsent(reason) => Outcome::NotReady { reason },
+                Failure::Unanswered(reason) => Outcome::Uncertain { reason },
+            })
     }
 
     fn request<T: DeserializeOwned>(
         &mut self,
         op: &str,
         fields: &[(&str, String)],
-    ) -> Result<T, String> {
+    ) -> Result<T, Failure> {
         if !self.running() {
-            return Err("TOM has closed. Launch it again from here.".into());
+            return Err(Failure::Unsent(
+                "TOM has closed. Launch it again from here.".into(),
+            ));
         }
-        let helper = self.helper.as_mut().ok_or(
-            "TOM was started without its helper, so inside mode cannot reach it. Restart TOM from here.",
-        )?;
+        let helper = self.helper.as_mut().ok_or_else(|| {
+            Failure::Unsent(
+                "TOM was started without its helper, so inside mode cannot reach it. Restart TOM from here."
+                    .into(),
+            )
+        })?;
         helper.request(op, fields)
+    }
+}
+
+/// Why a request got no usable answer.
+#[derive(Debug, PartialEq, Eq)]
+enum Failure {
+    /// It never reached the helper, or the helper refused it unread.
+    Unsent(String),
+    /// It reached the helper, which may have acted on it.
+    Unanswered(String),
+}
+
+impl Failure {
+    fn reason(self) -> String {
+        match self {
+            Self::Unsent(reason) | Self::Unanswered(reason) => reason,
+        }
     }
 }
 
@@ -165,7 +192,7 @@ impl Helper {
         &mut self,
         op: &str,
         fields: &[(&str, String)],
-    ) -> Result<T, String> {
+    ) -> Result<T, Failure> {
         // The helper reads string values only, so a missing field is left out rather than null.
         let mut request = json!({ "token": self.token, "op": op });
         for (key, value) in fields {
@@ -176,15 +203,19 @@ impl Helper {
         parse_reply(&reply)
     }
 
-    fn exchange(&mut self, line: &str) -> Result<String, String> {
-        let conn = self.connect()?;
+    fn exchange(&mut self, line: &str) -> Result<String, Failure> {
+        let conn = self.connect().map_err(Failure::Unsent)?;
         let lost = |error: std::io::Error| format!("Lost the connection to TOM's helper: {error}");
-        conn.writer.write_all(line.as_bytes()).map_err(lost)?;
+        conn.writer
+            .write_all(line.as_bytes())
+            .map_err(|error| Failure::Unsent(lost(error)))?;
         let mut reply = String::new();
         match conn.reader.read_line(&mut reply) {
-            Ok(0) => Err("TOM's helper closed the connection.".into()),
+            Ok(0) => Err(Failure::Unanswered(
+                "TOM's helper closed the connection.".into(),
+            )),
             Ok(_) => Ok(reply),
-            Err(error) => Err(lost(error)),
+            Err(error) => Err(Failure::Unanswered(lost(error))),
         }
     }
 
@@ -257,11 +288,15 @@ enum Reply<T> {
     Done(T),
 }
 
-fn parse_reply<T: DeserializeOwned>(line: &str) -> Result<T, String> {
+fn parse_reply<T: DeserializeOwned>(line: &str) -> Result<T, Failure> {
     match serde_json::from_str::<Reply<T>>(line) {
         Ok(Reply::Done(value)) => Ok(value),
-        Ok(Reply::Failed { error }) => Err(format!("TOM's helper refused the request: {error}")),
-        Err(_) => Err("TOM's helper gave an unreadable answer.".into()),
+        Ok(Reply::Failed { error }) => Err(Failure::Unsent(format!(
+            "TOM's helper refused the request: {error}"
+        ))),
+        Err(_) => Err(Failure::Unanswered(
+            "TOM's helper gave an unreadable answer.".into(),
+        )),
     }
 }
 
@@ -269,18 +304,28 @@ fn parse_reply<T: DeserializeOwned>(line: &str) -> Result<T, String> {
 #[serde(tag = "result", rename_all = "snake_case")]
 enum Outcome {
     Accepted,
-    Rejected { message: String },
-    NotReady { reason: String },
+    Rejected {
+        message: String,
+    },
+    NotReady {
+        reason: String,
+    },
     Saved,
     Started,
     AlreadyStarted,
+    /// The helper entered the code but could not see what TOM did with it.
+    Uncertain {
+        reason: String,
+    },
 }
 
 impl Outcome {
     /// Why a request did not do what it asked, for answers that are not its success.
     fn reason(self) -> String {
         match self {
-            Self::NotReady { reason } | Self::Rejected { message: reason } => reason,
+            Self::NotReady { reason }
+            | Self::Rejected { message: reason }
+            | Self::Uncertain { reason } => reason,
             _ => "TOM's helper gave an unexpected answer.".to_owned(),
         }
     }
@@ -358,7 +403,7 @@ mod tests {
             matches!(outcome, Outcome::Rejected { message } if message == "Two codes in a row")
         );
         let refused = helper.request::<Outcome>("save", &[]).err().unwrap();
-        assert!(refused.contains("unauthorized"));
+        assert!(matches!(refused, Failure::Unsent(reason) if reason.contains("unauthorized")));
         server.join().unwrap();
     }
 
@@ -419,6 +464,48 @@ mod tests {
         );
     }
 
+    /// TOM with a fake helper that reads one request, then gives `reply` (or hangs up).
+    fn tom_answering(reply: Option<&'static str>) -> Tom {
+        let helper = Helper::create().unwrap();
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
+        let port = listener.local_addr().unwrap().port();
+        fs::write(helper.handshake(), format!("{{\"port\":{port}}}")).unwrap();
+        thread::spawn(move || {
+            let (stream, _) = listener.accept().unwrap();
+            let mut line = String::new();
+            BufReader::new(stream.try_clone().unwrap())
+                .read_line(&mut line)
+                .unwrap();
+            if let Some(reply) = reply {
+                writeln!(&stream, "{reply}").unwrap();
+            }
+        });
+        Tom {
+            child: Command::new("sleep").arg("5").spawn().unwrap(),
+            helper: Some(helper),
+        }
+    }
+
+    #[test]
+    fn a_code_sent_but_unanswered_is_uncertain() {
+        let entry = crate::code::entry(2, None, 1, 1, 1, "21113");
+        let mut hung_up = tom_answering(None);
+        assert!(matches!(
+            hung_up.submit(&entry),
+            SubmitResult::Uncertain { .. }
+        ));
+        let mut unsure = tom_answering(Some(
+            r#"{"result":"uncertain","reason":"TOM stopped responding."}"#,
+        ));
+        assert_eq!(
+            unsure.submit(&entry),
+            SubmitResult::uncertain("21113", "TOM stopped responding.")
+        );
+        for mut tom in [hung_up, unsure] {
+            let _ = tom.child.kill();
+        }
+    }
+
     #[test]
     fn names_the_round_a_code_is_for() {
         let helper = Helper::create().unwrap();
@@ -442,7 +529,7 @@ mod tests {
     fn waits_for_the_handshake_instead_of_hanging() {
         let mut helper = Helper::create().unwrap();
         let error = helper.request::<Outcome>("status", &[]).err().unwrap();
-        assert_eq!(error, "TOM is still starting.");
+        assert_eq!(error, Failure::Unsent("TOM is still starting.".into()));
     }
 
     #[test]
