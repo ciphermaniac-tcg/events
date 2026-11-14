@@ -4,7 +4,7 @@
  * The mode lives on `body[data-mode]` and every colour follows from the tokens
  * that attribute selects, so switching is one attribute write rather than a
  * re-render. `initTheme` runs before the first render (main.tsx) — after it,
- * only the footer toggle writes.
+ * only the footer toggle writes, or in the desktop app View > Appearance.
  *
  * With nothing stored the site follows the OS, and keeps following it for the
  * session: someone whose machine goes dark at sunset gets a dark site without
@@ -20,6 +20,12 @@ export type Mode = 'light' | 'dark';
 
 const STORAGE_KEY = 'cm:mode';
 const DARK_QUERY = '(prefers-color-scheme: dark)';
+/**
+ * The desktop app's View > Appearance stands in for the footer toggle: it
+ * writes the stored mode (or clears it to follow the OS), then dispatches this
+ * on the window so the page takes the mode up as it would at load.
+ */
+const APP_MODE_EVENT = 'cm:app-mode';
 
 /** The mode the user has explicitly chosen, if any. */
 function storedMode(): Mode | null {
@@ -46,9 +52,16 @@ function paint(next: Mode): void {
   document.body.dataset.mode = next;
 }
 
+/** The mode storage and the OS give, as at load. */
+function followStorage(): void {
+  setModeSignal(storedMode() ?? systemMode());
+  paint(mode());
+}
+
 /** Puts the mode on the document. Call once, before the first render. */
 export function initTheme(): void {
   paint(mode());
+  window.addEventListener(APP_MODE_EVENT, followStorage);
   if (typeof matchMedia !== 'function') {
     return;
   }
