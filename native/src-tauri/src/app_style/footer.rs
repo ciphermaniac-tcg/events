@@ -7,8 +7,9 @@
 pub const CSS: &str = ".site-footer { display: none !important; }";
 
 /// Copies the footer's Terms, Privacy and Feedback into the account menu,
-/// above Sign out. It watches the document, as the page has no root yet. A copy closes the menu as the menu's own links do, by
-/// its button; the site's router follows it as it does every link.
+/// above Sign out. It watches the document, as the page has no root yet. A
+/// copy closes the menu as the menu's own links do, by its button; the
+/// site's router follows it as it does every link.
 #[cfg(any(mobile, test))]
 pub const ACCOUNT_MENU_LINKS: &str = "\
 const isKept = link => { const href = link.getAttribute('href') ?? ''; \
