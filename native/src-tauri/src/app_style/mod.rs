@@ -59,14 +59,16 @@ fn rules() -> String {
     .join(" ")
 }
 
-/// A page script for the site's own pages: it adds `css` once the page
-/// has its head, after the site's own stylesheets, and runs `then`.
+/// A page script for the site's own pages: once the page has its head, it
+/// adds `css` after the site's own stylesheets and marks the root `in-app`;
+/// before then the page may have no root at all. It runs `then` at once.
 pub fn site_script(css: &str, then: &str) -> String {
     let css = serde_json::Value::from(css);
     format!(
         "(() => {{ if (location.hostname !== '{SITE_HOST}') return; \
          const add = () => {{ const style = document.createElement('style'); \
-         style.textContent = {css}; document.head.append(style); }}; \
+         style.textContent = {css}; document.head.append(style); \
+         document.documentElement.classList.add('in-app'); }}; \
          if (document.readyState === 'loading') {{ \
          document.addEventListener('DOMContentLoaded', add, {{ once: true }}); }} else {{ add(); }} \
          {then} }})();"
@@ -75,10 +77,7 @@ pub fn site_script(css: &str, then: &str) -> String {
 
 /// The script each page of the app's windows runs first.
 pub fn script() -> String {
-    site_script(
-        &rules(),
-        &format!("document.documentElement.classList.add('in-app'); {PLATFORM_SCRIPT}"),
-    )
+    site_script(&rules(), PLATFORM_SCRIPT)
 }
 
 #[cfg(test)]
@@ -97,6 +96,15 @@ mod tests {
             !script.contains("input, textarea"),
             "fields stay selectable"
         );
+    }
+
+    #[test]
+    fn waits_for_the_pages_root() {
+        let script = super::site_script("", super::footer::ACCOUNT_MENU_LINKS);
+        let (before, add) = script.split_once("const add = () => {").unwrap();
+        let (_, after) = add.split_once("}; if (document.readyState").unwrap();
+        assert!(!before.contains("documentElement") && !after.contains("documentElement"));
+        assert!(script.contains("classList.add('in-app')"));
     }
 
     #[cfg(desktop)]
