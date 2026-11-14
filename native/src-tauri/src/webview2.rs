@@ -7,13 +7,14 @@ use webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2Controller;
 
 /// Hooks the main window's webview.
 pub fn setup<R: Runtime>(window: &WebviewWindow<R>) {
-    let hooked = window.with_webview(|webview| install(&webview.controller()));
+    let owner = window.clone();
+    let hooked = window.with_webview(move |webview| install(&webview.controller(), owner));
     if let Err(err) = hooked {
         log::warn!("could not reach the webview: {err}");
     }
 }
 
-fn install(controller: &ICoreWebView2Controller) {
+fn install<R: Runtime>(controller: &ICoreWebView2Controller, window: WebviewWindow<R>) {
     // SAFETY: a WebView2 call on the UI thread, which `with_webview` runs on.
     let webview = match unsafe { controller.CoreWebView2() } {
         Ok(webview) => webview,
@@ -24,6 +25,7 @@ fn install(controller: &ICoreWebView2Controller) {
     };
     hooked("right-click menu", crate::context_menu::install(&webview));
     hooked("shortcuts", crate::shortcuts::install(controller));
+    hooked("downloads", crate::downloads::install(&webview, window));
 }
 
 fn hooked(part: &str, result: windows::core::Result<()>) {
