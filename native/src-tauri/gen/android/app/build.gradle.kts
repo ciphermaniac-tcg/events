@@ -15,6 +15,16 @@ val tauriProperties = Properties().apply {
     }
 }
 
+// Release signing comes from gen/android/keystore.properties, which is
+// gitignored and points at a keystore kept outside the repo. Without it the
+// release APK is built unsigned.
+val keystoreProperties = Properties().apply {
+    val propFile = rootProject.file("keystore.properties")
+    if (propFile.exists()) {
+        propFile.inputStream().use { load(it) }
+    }
+}
+
 configure<ApplicationExtension> {
     compileSdk = 37
     namespace = "com.ciphermaniac.events"
@@ -25,6 +35,16 @@ configure<ApplicationExtension> {
         targetSdk = 37
         versionCode = tauriProperties.getProperty("tauri.android.versionCode", "1").toInt()
         versionName = tauriProperties.getProperty("tauri.android.versionName", "1.0")
+    }
+    if (!keystoreProperties.isEmpty) {
+        signingConfigs {
+            create("release") {
+                storeFile = file(keystoreProperties.getProperty("storeFile"))
+                storePassword = keystoreProperties.getProperty("password")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("password")
+            }
+        }
     }
     buildTypes {
         getByName("debug") {
@@ -41,6 +61,7 @@ configure<ApplicationExtension> {
             }
         }
         getByName("release") {
+            signingConfigs.findByName("release")?.let { signingConfig = it }
             optimization {
                enable = true
             }
