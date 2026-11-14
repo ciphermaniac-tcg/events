@@ -1,5 +1,7 @@
 #[cfg(desktop)]
 mod app_style;
+#[cfg(any(windows, test))]
+mod context_menu;
 mod last_page;
 #[cfg(desktop)]
 mod menu;
@@ -10,6 +12,8 @@ mod sign_in;
 mod tom;
 #[cfg(desktop)]
 mod updater;
+#[cfg(windows)]
+mod webview2;
 
 /// Starts the app.
 ///
