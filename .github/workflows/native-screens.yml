@@ -1,0 +1,135 @@
+# =============================================================================
+# Native app screenshots
+# =============================================================================
+# Builds the apps (native-build.yml, with an x86_64 APK for the emulator),
+# launches each on a hosted runner and screenshots it in light and dark: the
+# first seconds of a cold launch, home, sign-in, an event page, and the Go menu
+# on the Mac or Back and the keyboard on Android. The drivers are in
+# native/screens/. Each platform's shots and launch timings are one artifact,
+# screens-<platform>. No secrets: the APK is signed with a throwaway key.
+# =============================================================================
+
+name: Native screens
+
+on:
+  workflow_dispatch:
+    inputs:
+      event:
+        description: Event code for the event page (an unknown code shows the not-found page)
+        type: string
+        default: ''
+  push:
+    branches: [native/screens, feat/native]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-screens-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  EVENT_CODE: ${{ inputs.event || 'ZZZZZZ' }}
+
+jobs:
+  build:
+    uses: ./.github/workflows/native-build.yml
+    with:
+      android-target: x86_64
+
+  macos:
+    needs: build
+    runs-on: macos-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          name: native-macos
+          path: ${{ runner.temp }}/app
+      - name: Screenshot
+        run: |
+          dmg=$(find "$RUNNER_TEMP/app" -name '*.dmg' | head -n 1)
+          native/screens/macos.sh "$dmg" "$RUNNER_TEMP/screens"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: screens-macos
+          if-no-files-found: error
+          path: ${{ runner.temp }}/screens
+
+  windows:
+    needs: build
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          name: native-windows
+          path: ${{ runner.temp }}/app
+      - name: Screenshot
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem -Path "$env:RUNNER_TEMP/app" -Recurse -Filter '*-setup.exe' | Select-Object -First 1
+          & ./native/screens/windows.ps1 -Installer $installer.FullName -Out "$env:RUNNER_TEMP/screens"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: screens-windows
+          if-no-files-found: error
+          path: ${{ runner.temp }}/screens
+
+  android:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      # For cdp.mjs, which reads the webview over the DevTools protocol.
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: .node-version
+      # For the cold launch frames, taken from a screen recording.
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends ffmpeg
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          name: native-android
+          path: ${{ runner.temp }}/app
+      # The CI APK is unsigned, and Android installs only signed ones.
+      - name: Sign the APK with a throwaway key
+        run: |
+          tools=$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 | sort -V | tail -n 1)
+          apk=$(find "$RUNNER_TEMP/app" -name '*.apk' | head -n 1)
+          keytool -genkeypair -keystore "$RUNNER_TEMP/throwaway.jks" -storepass android \
+            -keypass android -alias throwaway -keyalg RSA -keysize 2048 -validity 1 -dname 'CN=Screens'
+          "$tools/zipalign" -p -f 4 "$apk" "$RUNNER_TEMP/aligned.apk"
+          "$tools/apksigner" sign --ks "$RUNNER_TEMP/throwaway.jks" --ks-pass pass:android \
+            --out "$RUNNER_TEMP/app.apk" "$RUNNER_TEMP/aligned.apk"
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' |
+            sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Screenshot
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_7
+          cores: 4
+          ram-size: 4096M
+          disable-animations: false
+          script: native/screens/android.sh "$RUNNER_TEMP/app.apk" "$RUNNER_TEMP/screens"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: screens-android
+          if-no-files-found: error
+          path: ${{ runner.temp }}/screens
