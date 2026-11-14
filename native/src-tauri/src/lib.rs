@@ -1,6 +1,8 @@
 #[cfg(desktop)]
 mod app_style;
 mod last_page;
+#[cfg(target_os = "macos")]
+mod menu;
 mod pending;
 mod shell;
 mod sign_in;
@@ -43,15 +45,21 @@ pub fn run() {
 
 /// What a desktop app has: one running at a time (opening a sign-in link or
 /// the app again brings the running one forward and hands it the link, so
-/// it must be the first plugin), and windows that open where they were left.
+/// it must be the first plugin), windows that open where they were left,
+/// and on the Mac the app's own menu bar.
 #[cfg(desktop)]
 fn with_desktop_shell(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<tauri::Wry> {
     use tauri_plugin_window_state::StateFlags;
-    with_single_instance(builder).plugin(
+    let builder = with_single_instance(builder).plugin(
         tauri_plugin_window_state::Builder::new()
             .with_state_flags(StateFlags::all() - StateFlags::VISIBLE - StateFlags::DECORATIONS)
             .build(),
-    )
+    );
+    #[cfg(target_os = "macos")]
+    let builder = builder
+        .menu(menu::build)
+        .on_menu_event(|app, event| menu::on_event(app, &event));
+    builder
 }
 
 #[cfg(desktop)]
