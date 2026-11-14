@@ -1,5 +1,6 @@
 //! What the Android activity (MainActivity.kt) hears from the main window:
-//! when its page has finished loading, which lets the splash screen go.
+//! when a page starts and finishes loading. The first page to finish lets
+//! the splash screen go, and each load lets back recheck what it can do.
 
 use tauri::{Runtime, Webview, webview::PageLoadEvent};
 
@@ -23,7 +24,9 @@ fn call_activity<R: Runtime>(webview: &Webview<R>, method: &'static str) {
 
 /// Tells the activity about a page load in the main window.
 pub fn page_load<R: Runtime>(webview: &Webview<R>, event: PageLoadEvent) {
-    if event == PageLoadEvent::Finished {
-        call_activity(webview, "onMainPageFinished");
-    }
+    let method = match event {
+        PageLoadEvent::Started => "onMainPageStarted",
+        PageLoadEvent::Finished => "onMainPageFinished",
+    };
+    call_activity(webview, method);
 }

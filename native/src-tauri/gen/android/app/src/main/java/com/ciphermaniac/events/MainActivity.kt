@@ -7,15 +7,18 @@ import android.webkit.WebView
 import androidx.annotation.Keep
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import kotlin.math.roundToInt
+import org.json.JSONObject
 
 class MainActivity : TauriActivity() {
   private val bars = SystemBars(this)
+  private lateinit var back: BackNavigation
   private var webView: WebView? = null
   private var pageLoaded = false
 
   override fun onCreate(savedInstanceState: Bundle?) {
     holdSplash()
     bars.apply()
+    back = BackNavigation(this)
     super.onCreate(savedInstanceState)
   }
 
@@ -31,16 +34,37 @@ class MainActivity : TauriActivity() {
     }
   }
 
+  /** Called from Rust (android.rs) when the main window starts loading a page. */
+  @Keep
+  fun onMainPageStarted() {
+    back.refresh()
+  }
+
   /** Called from Rust (android.rs) when the main window's page has loaded. */
   @Keep
   fun onMainPageFinished() {
     pageLoaded = true
+    back.refresh()
   }
 
   override fun onWebViewCreate(webView: WebView) {
     this.webView = webView
     bars.attach()
     followFontScale(webView)
+    back.attach(webView)
+    PageBridge.attach(this, webView, ::onPageMessage)
+  }
+
+  private fun onPageMessage(message: JSONObject) {
+    when (message.optString("type")) {
+      "state" -> back.onPageState(message.optBoolean("layer"), message.optBoolean("back"))
+    }
+  }
+
+  // Back before Android 13. From 13 on the system calls BackNavigation instead.
+  @Deprecated("Back reaches the app through OnBackInvokedCallback from Android 13 on")
+  override fun onBackPressed() {
+    back.back()
   }
 
   // The manifest keeps the activity through a switch between light and dark
