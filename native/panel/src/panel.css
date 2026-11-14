@@ -1,0 +1,110 @@
+/* The TOM panel's own layout; everything else is the design package's. */
+
+body {
+  background: var(--bg);
+}
+
+.tp {
+  max-width: 820px;
+  margin: 0 auto;
+  padding: var(--space-5) var(--space-4) var(--space-6);
+}
+
+.tp h1 {
+  margin: 0 0 var(--space-4);
+}
+
+.tp-section {
+  padding: var(--space-4) 0;
+  border-top: 1px solid var(--rule);
+}
+
+.tp-section h2 {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-base);
+  font-weight: 600;
+}
+
+.tp-line {
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-base);
+  overflow-wrap: anywhere;
+}
+
+.tp-acts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.tp-mode {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+
+.tp-mode p {
+  margin: 0;
+  font-size: var(--text-base);
+}
+
+.tp-small {
+  min-height: 30px;
+  padding: 0 10px;
+  font-size: var(--text-base);
+}
+
+.tp-field {
+  width: 14ch;
+  min-height: var(--control-h);
+  padding: 0 10px;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  color: var(--fg);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.tp-field:focus-visible {
+  outline: none;
+  border-color: var(--fg);
+  box-shadow: var(--focus-ring);
+}
+
+.tp-num {
+  font-variant-numeric: tabular-nums;
+}
+
+.tp-error,
+.tp-bad {
+  color: var(--negative);
+}
+
+.tp-error {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-base);
+}
+
+.tp-log {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-base);
+}
+
+.tp-log li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  padding: var(--space-1) 0;
+}
+
+@media (max-width: 600px) {
+  .tp-field {
+    font-size: 16px;
+  }
+}

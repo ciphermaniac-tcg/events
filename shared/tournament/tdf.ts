@@ -86,6 +86,9 @@ const CATEGORY_CODES: Record<PodCategory, string> = {
   'senior-masters': '9',
   mixed: '10'
 };
+/** The number TOM writes for a pod's category, which also leads its match slip codes (see slipCodes.ts). */
+export const categoryCode = (category: PodCategory): string => CATEGORY_CODES[category];
+
 const CATEGORIES_BY_CODE = new Map(
   Object.entries(CATEGORY_CODES).map(([category, code]) => [code, category as PodCategory])
 );

@@ -35,7 +35,10 @@ export default [
       'static/**',
       'archive/**',
       'dev/**',
-      'tests/fixtures/**'
+      'tests/fixtures/**',
+      'native/node_modules/**',
+      'native/panel/dist/**',
+      'native/src-tauri/**'
     ]
   },
   js.configs.recommended,
@@ -542,6 +545,7 @@ export default [
     files: [
       'src/**/*.{ts,tsx}',
       'shared/**/*.ts',
+      'native/panel/**/*.{ts,tsx}',
       'functions/**/*.{ts,js}',
       'scripts/**/*.{ts,mjs,js}',
       '.github/scripts/**/*.{ts,mjs,js}'
@@ -569,7 +573,12 @@ export default [
     files: ['**/*.ts', '**/*.tsx', '**/*.mts'],
     languageOptions: {
       parserOptions: {
-        project: ['./tsconfig.frontend.json', './tsconfig.json', './tsconfig.node.json'],
+        project: [
+          './tsconfig.frontend.json',
+          './tsconfig.json',
+          './tsconfig.node.json',
+          './native/panel/tsconfig.json'
+        ],
         tsconfigRootDir: root
       }
     },
