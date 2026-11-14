@@ -1,4 +1,3 @@
-#[cfg(desktop)]
 mod app_style;
 #[cfg(any(windows, test))]
 mod context_menu;

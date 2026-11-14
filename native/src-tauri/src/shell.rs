@@ -203,7 +203,8 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
 const TOM_FLAG_SCRIPT: &str = "window.__CM_TOM__ = true;";
 
 /// Builds the main window from its tauri.conf.json entry (`create: false`)
-/// so it can also catch `target="_blank"` links and `window.open` on desktop.
+/// so it can also catch `target="_blank"` links and `window.open` on desktop,
+/// and on a phone run the app's stylesheet (`app_style.rs`).
 pub fn create_main_window<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
     let Some(config) = app
         .config()
@@ -221,6 +222,8 @@ pub fn create_main_window<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
     let builder = WebviewWindowBuilder::from_config(app, &config)?;
     #[cfg(desktop)]
     let builder = desktop_window(app, builder);
+    #[cfg(mobile)]
+    let builder = builder.initialization_script(crate::app_style::script());
     let window = builder.build()?;
     #[cfg(desktop)]
     desktop_window_built(&window);
