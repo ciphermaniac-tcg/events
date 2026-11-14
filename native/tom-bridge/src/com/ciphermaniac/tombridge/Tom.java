@@ -1,0 +1,252 @@
+package com.ciphermaniac.tombridge;
+
+import java.awt.Dialog;
+import java.awt.Frame;
+import java.awt.Window;
+import java.awt.event.KeyEvent;
+import java.util.ArrayList;
+import java.util.List;
+import javax.swing.AbstractButton;
+import javax.swing.JMenuItem;
+import javax.swing.JTextField;
+import javax.swing.SwingUtilities;
+
+/**
+ * Drives TOM's Speed Match Slip Entry the way a scanner would, from inside
+ * TOM's JVM. Requests are serialized: TOM handles one code at a time.
+ */
+final class Tom {
+   static final String SLIP = "Speed Match Slip Entry";
+   static final String ERROR = "Error";
+   private static final String AUTOSAVE = "Automatically save valid scans";
+   private static final String TOURNAMENT_MARK = " - Tournament: ";
+   private static final String CODE_PATTERN = "[0-9]{5,10}";
+   private static final long POLL_MS = 50;
+   private static final long OPEN_TIMEOUT_MS = 5000;
+   private static final long ERROR_GRACE_MS = 1500;
+   private static final long SETTLE_MS = 800;
+   private static final long RESPONSE_TIMEOUT_MS = 3000;
+   private static final long SAVE_SETTLE_MS = 1500;
+
+   /**
+    * What the event thread saw on one poll: whether the thing being waited on
+    * is there (the slip form, or a code TOM has not handled yet), and the
+    * message of an Error dialog it dismissed.
+    */
+   private record Seen(boolean present, String error) {
+   }
+
+   synchronized String status() {
+      try {
+         return Swing.onEdt(Tom::describe);
+      } catch (NotReady e) {
+         return new Json.Obj().str("error", e.getMessage()).toString();
+      }
+   }
+
+   synchronized String submit(String code) {
+      if (!code.matches(CODE_PATTERN)) {
+         return new Json.Obj().str("error", "invalid code").toString();
+      }
+      try {
+         openSlipDialog();
+         Swing.onEdt(() -> enter(code));
+         return awaitOutcome(code);
+      } catch (NotReady e) {
+         return notReady(e.getMessage());
+      }
+   }
+
+   synchronized String save() {
+      try {
+         Swing.onEdt(Tom::clickSave);
+         return awaitSave();
+      } catch (NotReady e) {
+         return notReady(e.getMessage());
+      }
+   }
+
+   private static String describe() {
+      List<String> titles = new ArrayList<>();
+      for (Window window : Swing.showing()) {
+         String title = Swing.title(window);
+         if (!title.isBlank()) {
+            titles.add(title);
+         }
+      }
+      return new Json.Obj()
+         .bool("tournamentOpen", tournamentOpen())
+         .bool("slipDialogOpen", Swing.dialog(SLIP) != null)
+         .strs("windows", titles)
+         .toString();
+   }
+
+   private static boolean tournamentOpen() {
+      for (Window window : Swing.showing()) {
+         if (window instanceof Frame frame && frame.getTitle() != null && frame.getTitle().contains(TOURNAMENT_MARK)) {
+            return true;
+         }
+      }
+      return false;
+   }
+
+   /** A modal dialog other than the slip form, which would swallow our input. */
+   private static Dialog blocker(boolean allowSlip) {
+      for (Window window : Swing.showing()) {
+         if (window instanceof Dialog dialog && dialog.isModal() && !(allowSlip && SLIP.equals(dialog.getTitle()))) {
+            return dialog;
+         }
+      }
+      return null;
+   }
+
+   private static void requireIdle(boolean allowSlip) throws NotReady {
+      Dialog dialog = blocker(allowSlip);
+      if (dialog != null) {
+         throw new NotReady("TOM has the \"" + Swing.title(dialog) + "\" window open. Close it, then try again.");
+      }
+      if (!tournamentOpen()) {
+         throw new NotReady("No tournament is open in TOM.");
+      }
+   }
+
+   private static void clickMenu(String text) throws NotReady {
+      JMenuItem item = Swing.menuItem(text);
+      if (item == null) {
+         throw new NotReady("TOM's \"" + text + "\" menu item was not found.");
+      }
+      // The item may open a modal dialog, so click it after this task returns.
+      SwingUtilities.invokeLater(() -> item.doClick(0));
+   }
+
+   private static boolean startOpening() throws NotReady {
+      requireIdle(true);
+      if (Swing.dialog(SLIP) != null) {
+         return false;
+      }
+      clickMenu(SLIP);
+      return true;
+   }
+
+   private void openSlipDialog() throws NotReady {
+      if (!Swing.onEdt(Tom::startOpening)) {
+         return;
+      }
+      long deadline = System.currentTimeMillis() + OPEN_TIMEOUT_MS;
+      String lastError = null;
+      while (System.currentTimeMillis() < deadline) {
+         Swing.sleep(POLL_MS);
+         Seen seen = Swing.onEdt(() -> new Seen(Swing.dialog(SLIP) != null, dismissError()));
+         if (seen.error() != null) {
+            lastError = seen.error();
+            deadline = Math.min(deadline, System.currentTimeMillis() + ERROR_GRACE_MS);
+         } else if (seen.present()) {
+            return;
+         }
+      }
+      throw new NotReady(lastError != null ? lastError : SLIP + " did not open in TOM.");
+   }
+
+   /** Clicks OK on TOM's Error dialog; returns its message, or null when none is showing. */
+   private static String dismissError() {
+      Dialog error = Swing.dialog(ERROR);
+      if (error == null) {
+         return null;
+      }
+      String message = Swing.message(error);
+      AbstractButton ok = Swing.button(error, "OK"::equals);
+      if (ok != null) {
+         ok.doClick(0);
+      }
+      return message.isEmpty() ? "TOM showed an error." : message;
+   }
+
+   private static Void enter(String code) throws NotReady {
+      Dialog slip = Swing.dialog(SLIP);
+      if (slip == null) {
+         throw new NotReady(SLIP + " closed before the code was sent.");
+      }
+      AbstractButton autosave = Swing.button(slip, text -> text.startsWith(AUTOSAVE));
+      if (autosave == null) {
+         throw new NotReady("The \"" + AUTOSAVE + "\" option was not found in " + SLIP + ".");
+      }
+      if (!autosave.isSelected()) {
+         autosave.doClick(0);
+      }
+      JTextField field = Swing.editableField(slip);
+      if (field == null) {
+         throw new NotReady("The Result Code field was not found in " + SLIP + ".");
+      }
+      field.setText(code);
+      // TOM may answer with a modal Error dialog, so press Enter after this task returns.
+      SwingUtilities.invokeLater(() -> pressEnter(field));
+      return null;
+   }
+
+   /** TOM acts on the release of Enter, so send both halves. */
+   private static void pressEnter(JTextField field) {
+      long now = System.currentTimeMillis();
+      field.dispatchEvent(new KeyEvent(field, KeyEvent.KEY_PRESSED, now, 0, KeyEvent.VK_ENTER, '\n'));
+      field.dispatchEvent(new KeyEvent(field, KeyEvent.KEY_RELEASED, now, 0, KeyEvent.VK_ENTER, '\n'));
+   }
+
+   /** The code is still sitting in the field, so TOM has not handled it yet. */
+   private static boolean pending(String code) {
+      Dialog slip = Swing.dialog(SLIP);
+      JTextField field = slip == null ? null : Swing.editableField(slip);
+      return field != null && code.equals(field.getText().strip());
+   }
+
+   private static Void clearField() {
+      Dialog slip = Swing.dialog(SLIP);
+      JTextField field = slip == null ? null : Swing.editableField(slip);
+      if (field != null) {
+         field.setText("");
+      }
+      return null;
+   }
+
+   private String awaitOutcome(String code) throws NotReady {
+      long start = System.currentTimeMillis();
+      while (true) {
+         Swing.sleep(POLL_MS);
+         Seen seen = Swing.onEdt(() -> new Seen(pending(code), dismissError()));
+         long elapsed = System.currentTimeMillis() - start;
+         if (seen.error() != null) {
+            return new Json.Obj().str("result", "rejected").str("message", seen.error()).toString();
+         }
+         if (!seen.present() && elapsed >= SETTLE_MS) {
+            return new Json.Obj().str("result", "accepted").toString();
+         }
+         if (elapsed >= RESPONSE_TIMEOUT_MS) {
+            Swing.onEdt(Tom::clearField);
+            throw new NotReady("TOM did not respond to the code.");
+         }
+      }
+   }
+
+   private static Void clickSave() throws NotReady {
+      requireIdle(true);
+      clickMenu("Save");
+      return null;
+   }
+
+   private String awaitSave() throws NotReady {
+      long deadline = System.currentTimeMillis() + SAVE_SETTLE_MS;
+      while (System.currentTimeMillis() < deadline) {
+         Swing.sleep(POLL_MS);
+         String error = Swing.onEdt(Tom::dismissError);
+         if (error != null) {
+            throw new NotReady(error);
+         }
+         if (Swing.onEdt(() -> blocker(true) != null)) {
+            throw new NotReady("TOM is asking a question about saving. Answer it in TOM.");
+         }
+      }
+      return new Json.Obj().str("result", "saved").toString();
+   }
+
+   private static String notReady(String reason) {
+      return new Json.Obj().str("result", "not_ready").str("reason", reason).toString();
+   }
+}
