@@ -1,13 +1,14 @@
 package com.ciphermaniac.tombridge;
 
 import java.awt.Dialog;
-import java.awt.Frame;
 import java.awt.Window;
 import java.awt.event.KeyEvent;
 import java.util.ArrayList;
 import java.util.List;
 import javax.swing.AbstractButton;
+import javax.swing.JFrame;
 import javax.swing.JMenuItem;
+import javax.swing.JTabbedPane;
 import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
 
@@ -19,7 +20,7 @@ final class Tom {
    static final String SLIP = "Speed Match Slip Entry";
    static final String ERROR = "Error";
    private static final String AUTOSAVE = "Automatically save valid scans";
-   private static final String TOURNAMENT_MARK = " - Tournament: ";
+   static final String TOURNAMENT_MARK = " - Tournament: ";
    private static final String CODE_PATTERN = "[0-9]{5,10}";
    private static final long POLL_MS = 50;
    private static final long OPEN_TIMEOUT_MS = 5000;
@@ -27,6 +28,7 @@ final class Tom {
    private static final long SETTLE_MS = 800;
    private static final long RESPONSE_TIMEOUT_MS = 3000;
    private static final long SAVE_SETTLE_MS = 1500;
+   private static final long START_TIMEOUT_MS = 5000;
 
    /**
     * What the event thread saw on one poll: whether the thing being waited on
@@ -34,6 +36,10 @@ final class Tom {
     * message of an Error dialog it dismissed.
     */
    private record Seen(boolean present, String error) {
+   }
+
+   /** A Start Round click in flight: which pod tab, and the tab to show again after. */
+   private record Starting(int index, int previous) {
    }
 
    synchronized String status() {
@@ -49,6 +55,7 @@ final class Tom {
          return new Json.Obj().str("error", "invalid code").toString();
       }
       try {
+         startPodOf(code);
          openSlipDialog();
          Swing.onEdt(() -> enter(code));
          return awaitOutcome(code);
@@ -66,6 +73,106 @@ final class Tom {
       }
    }
 
+   synchronized String startRound(Integer category) {
+      try {
+         String result = startPod(category) ? "started" : "already_started";
+         return new Json.Obj().str("result", result).toString();
+      } catch (NotReady e) {
+         return notReady(e.getMessage());
+      }
+   }
+
+   /** Starts a pod's paired round; false when it had already started. */
+   private boolean startPod(Integer category) throws NotReady {
+      Starting starting = Swing.onEdt(() -> clickStart(category));
+      if (starting == null) {
+         return false;
+      }
+      awaitStarted(starting);
+      return true;
+   }
+
+   private static Starting clickStart(Integer category) throws NotReady {
+      requireIdle(true);
+      JFrame frame = Pods.mainFrame();
+      JTabbedPane pane = frame == null ? null : Pods.podPane(frame);
+      if (pane == null) {
+         throw new NotReady("TOM's pod tabs were not found.");
+      }
+      Pods.Pod pod = Pods.pick(Pods.read(pane), category);
+      if (pod.state().started()) {
+         return null;
+      }
+      if (pod.state() != Pods.State.PAIRED) {
+         throw new NotReady(Pods.notStartable(pod.state()));
+      }
+      int previous = pane.getSelectedIndex();
+      AbstractButton start;
+      try {
+         start = Pods.prepareStart(frame, pane, pod);
+      } catch (NotReady e) {
+         pane.setSelectedIndex(previous);
+         throw e;
+      }
+      SwingUtilities.invokeLater(() -> start.doClick(0));
+      return new Starting(pod.index(), previous);
+   }
+
+   private void awaitStarted(Starting starting) throws NotReady {
+      long deadline = System.currentTimeMillis() + START_TIMEOUT_MS;
+      while (System.currentTimeMillis() < deadline) {
+         Swing.sleep(POLL_MS);
+         Seen seen = Swing.onEdt(() -> new Seen(podStarted(starting.index()), dismissError()));
+         if (seen.error() != null) {
+            throw new NotReady(seen.error());
+         }
+         if (seen.present()) {
+            Swing.onEdt(() -> showTab(starting.previous()));
+            return;
+         }
+      }
+      throw new NotReady("TOM did not start the round.");
+   }
+
+   private static boolean podStarted(int index) {
+      JFrame frame = Pods.mainFrame();
+      List<Pods.Pod> pods = Pods.read(frame == null ? null : Pods.podPane(frame));
+      return index < pods.size() && pods.get(index).state().started();
+   }
+
+   private static Void showTab(int index) {
+      JFrame frame = Pods.mainFrame();
+      JTabbedPane pane = frame == null ? null : Pods.podPane(frame);
+      if (pane != null && index >= 0 && index < pane.getTabCount()) {
+         pane.setSelectedIndex(index);
+      }
+      return null;
+   }
+
+   /**
+    * TOM only takes results for a started round, so start the code's pod
+    * first when TOM shows its round paired but not started.
+    */
+   private void startPodOf(String code) throws NotReady {
+      Pods.Pod pod = Swing.onEdt(() -> pairedPodOf(code));
+      if (pod != null) {
+         startPod(pod.category());
+      }
+   }
+
+   private static Pods.Pod pairedPodOf(String code) {
+      JFrame frame = Pods.mainFrame();
+      List<Pods.Pod> pods = Pods.read(frame == null ? null : Pods.podPane(frame));
+      int category = code.startsWith("10") ? 10 : code.charAt(0) - '0';
+      for (Pods.Pod pod : pods) {
+         boolean mine = pods.size() == 1 || Integer.valueOf(category).equals(pod.category());
+         if (mine && pod.state() == Pods.State.PAIRED) {
+            return pod;
+         }
+      }
+      return null;
+   }
+
    private static String describe() {
       List<String> titles = new ArrayList<>();
       for (Window window : Swing.showing()) {
@@ -74,20 +181,17 @@ final class Tom {
             titles.add(title);
          }
       }
+      JFrame frame = Pods.mainFrame();
       return new Json.Obj()
          .bool("tournamentOpen", tournamentOpen())
          .bool("slipDialogOpen", Swing.dialog(SLIP) != null)
          .strs("windows", titles)
+         .objs("pods", Pods.toJson(Pods.read(frame == null ? null : Pods.podPane(frame))))
          .toString();
    }
 
    private static boolean tournamentOpen() {
-      for (Window window : Swing.showing()) {
-         if (window instanceof Frame frame && frame.getTitle() != null && frame.getTitle().contains(TOURNAMENT_MARK)) {
-            return true;
-         }
-      }
-      return false;
+      return Pods.mainFrame() != null;
    }
 
    /** A modal dialog other than the slip form, which would swallow our input. */
@@ -102,6 +206,9 @@ final class Tom {
 
    private static void requireIdle(boolean allowSlip) throws NotReady {
       Dialog dialog = blocker(allowSlip);
+      if (dialog != null && ERROR.equals(dialog.getTitle())) {
+         throw new NotReady("TOM is showing an error: " + Swing.message(dialog) + " Close it, then try again.");
+      }
       if (dialog != null) {
          throw new NotReady("TOM has the \"" + Swing.title(dialog) + "\" window open. Close it, then try again.");
       }

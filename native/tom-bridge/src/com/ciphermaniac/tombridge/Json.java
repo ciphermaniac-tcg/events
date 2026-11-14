@@ -78,6 +78,11 @@ final class Json {
          return raw(key, list.append(']').toString());
       }
 
+      /** A list of objects already encoded as JSON. */
+      Obj objs(String key, List<String> encoded) {
+         return raw(key, "[" + String.join(",", encoded) + "]");
+      }
+
       private Obj raw(String key, String json) {
          if (body.length() > 0) {
             body.append(',');

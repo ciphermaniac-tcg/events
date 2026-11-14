@@ -65,8 +65,20 @@ final class Session implements Runnable {
          case "status" -> tom.status();
          case "submit" -> tom.submit(request.getOrDefault("code", ""));
          case "save" -> tom.save();
+         case "start_round" -> startRound(request.get("category"));
          default -> new Json.Obj().str("error", "unknown op").toString();
       };
+   }
+
+   private String startRound(String category) {
+      if (category == null || category.isEmpty()) {
+         return tom.startRound(null);
+      }
+      try {
+         return tom.startRound(Integer.valueOf(category));
+      } catch (NumberFormatException e) {
+         return new Json.Obj().str("error", "invalid category").toString();
+      }
    }
 
    private static void reply(Writer out, String json) throws IOException {
