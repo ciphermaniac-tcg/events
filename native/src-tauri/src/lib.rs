@@ -1,3 +1,4 @@
+mod last_page;
 mod pending;
 mod shell;
 mod sign_in;
@@ -12,7 +13,7 @@ mod updater;
 /// When Tauri cannot start, which leaves nothing to show.
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let builder = with_single_instance(tauri::Builder::default())
+    let builder = with_desktop_shell(tauri::Builder::default())
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(shell::init())
@@ -38,9 +39,19 @@ pub fn run() {
         .expect("error while building tauri application");
 }
 
-/// One app at a time on desktop: opening a sign-in link or the app again
-/// brings the running one forward and hands it the link. It must be the
-/// first plugin.
+/// What a desktop app has: one running at a time (opening a sign-in link or
+/// the app again brings the running one forward and hands it the link, so
+/// it must be the first plugin), and windows that open where they were left.
+#[cfg(desktop)]
+fn with_desktop_shell(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<tauri::Wry> {
+    use tauri_plugin_window_state::StateFlags;
+    with_single_instance(builder).plugin(
+        tauri_plugin_window_state::Builder::new()
+            .with_state_flags(StateFlags::all() - StateFlags::VISIBLE - StateFlags::DECORATIONS)
+            .build(),
+    )
+}
+
 #[cfg(desktop)]
 fn with_single_instance(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<tauri::Wry> {
     builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
@@ -54,7 +65,7 @@ fn with_single_instance(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<t
 }
 
 #[cfg(mobile)]
-fn with_single_instance(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<tauri::Wry> {
+fn with_desktop_shell(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<tauri::Wry> {
     builder
 }
 
