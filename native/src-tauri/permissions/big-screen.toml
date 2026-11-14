@@ -1,0 +1,6 @@
+# An event's big screen in its own window (big_screen.rs). See
+# tom-bridge.toml on why each app command is listed.
+[[permission]]
+identifier = "big-screen"
+description = "Opens an event's big screen in a window of its own."
+commands.allow = ["open_big_screen"]

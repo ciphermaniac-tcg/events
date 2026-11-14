@@ -1,5 +1,6 @@
 const COMMANDS: &[&str] = &[
     "app_theme",
+    "open_big_screen",
     "title_strip_double_click",
     "tom_detect",
     "tom_set_path",
