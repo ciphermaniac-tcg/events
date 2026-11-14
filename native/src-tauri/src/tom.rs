@@ -12,7 +12,8 @@
 //! - `tom_set_path(path)` -> `string`: the TOM program `path` resolves to (an
 //!   `.app`, an install folder or the program itself), saved for next time.
 //!   Rejects with a sentence when there is no TOM there.
-//! - `tom_launch()` -> `Status`: starts TOM with the helper loaded, finding it
+//! - `tom_launch()` -> `Status`: starts TOM with the helper loaded (on macOS
+//!   through `LaunchServices`, so TOM keeps its own Dock icon), finding it
 //!   first when no path is saved. Rejects with a sentence when it cannot.
 //! - `tom_status()` -> `Status`.
 //! - `tom_get_mode()` -> `"inside" | "keys"`.
@@ -40,7 +41,7 @@
 //! Status = {
 //!   mode: "inside" | "keys",
 //!   tomPath: string | null,        // the TOM program that tom_launch starts
-//!   launched: boolean,             // TOM is running as this app's child
+//!   launched: boolean,             // the TOM this app started is still running
 //!   ready: boolean,                // a submit would be attempted now
 //!   reason: string | null,         // why not, when ready is false
 //!   tournamentOpen: boolean,

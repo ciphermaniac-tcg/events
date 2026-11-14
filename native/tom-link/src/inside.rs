@@ -1,9 +1,9 @@
-//! Inside mode: TOM runs as our child with the helper jar loaded into its JVM,
-//! and we talk to the helper over loopback.
+//! Inside mode: TOM is started by this app with the helper jar loaded into its
+//! JVM, and we talk to the helper over loopback.
 //!
-//! The helper is injected only through this child's `JAVA_TOOL_OPTIONS`, and
-//! only after the jar is confirmed present: a missing or broken assistive
-//! technology stops TOM from starting.
+//! The helper is injected only through the `JAVA_TOOL_OPTIONS` of the TOM we
+//! start, and only after the jar is confirmed present: a missing or broken
+//! assistive technology stops TOM from starting.
 
 use std::ffi::OsString;
 use std::fs;
@@ -31,29 +31,78 @@ const READ_TIMEOUT: Duration = Duration::from_secs(20);
 
 /// TOM started by this app.
 pub(crate) struct Tom {
-    child: Child,
+    process: Process,
     helper: Option<Helper>,
 }
 
+/// How TOM's process is followed.
+enum Process {
+    /// Started as our child process.
+    Child(Child),
+    /// Started by macOS `LaunchServices`: not our child, so followed by pid and
+    /// the program that pid runs.
+    #[cfg(target_os = "macos")]
+    App { pid: u32, program: PathBuf },
+}
+
+impl Process {
+    fn running(&mut self) -> bool {
+        match self {
+            Self::Child(child) => matches!(child.try_wait(), Ok(None)),
+            #[cfg(target_os = "macos")]
+            Self::App { pid, program } => crate::macos_app::alive(*pid, program),
+        }
+    }
+}
+
+/// The helper and the `JAVA_TOOL_OPTIONS` that load it, when `jar` is a
+/// non-empty file; otherwise TOM starts plain.
+fn prepare(jar: &Path) -> Result<Option<(Helper, OsString)>, String> {
+    if !fs::metadata(jar).is_ok_and(|meta| meta.is_file() && meta.len() > 0) {
+        return Ok(None);
+    }
+    let helper = Helper::create()?;
+    let options = helper.tool_options(jar, std::env::var_os(JAVA_TOOL_OPTIONS))?;
+    Ok(Some((helper, options)))
+}
+
 impl Tom {
-    /// Starts TOM, with the helper when `jar` is a non-empty file.
+    /// Starts TOM as a child process, with the helper when the jar is there.
     pub(crate) fn spawn(mut command: Command, jar: &Path) -> Result<Self, String> {
-        let helper = if fs::metadata(jar).is_ok_and(|meta| meta.is_file() && meta.len() > 0) {
-            let helper = Helper::create()?;
-            let existing = std::env::var_os(JAVA_TOOL_OPTIONS);
-            command.env(JAVA_TOOL_OPTIONS, helper.tool_options(jar, existing)?);
-            Some(helper)
-        } else {
-            None
-        };
+        let prepared = prepare(jar)?;
+        if let Some((_, options)) = &prepared {
+            command.env(JAVA_TOOL_OPTIONS, options);
+        }
         let child = command
             .spawn()
             .map_err(|error| format!("TOM could not be started: {error}"))?;
-        Ok(Self { child, helper })
+        Ok(Self {
+            process: Process::Child(child),
+            helper: prepared.map(|(helper, _)| helper),
+        })
+    }
+
+    /// Starts the `.app` through `LaunchServices` so TOM keeps its own Dock icon
+    /// and identity; `program` is the launcher inside it, for liveness checks.
+    #[cfg(target_os = "macos")]
+    pub(crate) fn open_app(app: &Path, program: &Path, jar: &Path) -> Result<Self, String> {
+        let prepared = prepare(jar)?;
+        let environment: Vec<(&str, &std::ffi::OsStr)> = prepared
+            .iter()
+            .map(|(_, options)| (JAVA_TOOL_OPTIONS, options.as_os_str()))
+            .collect();
+        let pid = crate::macos_app::open(app, &environment)?;
+        Ok(Self {
+            process: Process::App {
+                pid,
+                program: program.to_path_buf(),
+            },
+            helper: prepared.map(|(helper, _)| helper),
+        })
     }
 
     pub(crate) fn running(&mut self) -> bool {
-        matches!(self.child.try_wait(), Ok(None))
+        self.process.running()
     }
 
     pub(crate) fn view(&mut self) -> TomView {
@@ -352,6 +401,19 @@ mod tests {
     use std::net::TcpListener;
     use std::thread;
 
+    impl Tom {
+        #[allow(
+            irrefutable_let_patterns,
+            reason = "macOS builds also follow TOM by pid"
+        )]
+        fn kill(&mut self) {
+            if let Process::Child(child) = &mut self.process {
+                let _ = child.kill();
+                let _ = child.wait();
+            }
+        }
+    }
+
     /// Answers each request line with the next canned reply, recording requests.
     fn fake_helper(
         helper: &Helper,
@@ -474,7 +536,7 @@ mod tests {
             }
         });
         Tom {
-            child: Command::new("sleep").arg("5").spawn().unwrap(),
+            process: Process::Child(Command::new("sleep").arg("5").spawn().unwrap()),
             helper: Some(helper),
         }
     }
@@ -495,7 +557,7 @@ mod tests {
             SubmitResult::uncertain("21113", "TOM stopped responding.")
         );
         for mut tom in [hung_up, unsure] {
-            let _ = tom.child.kill();
+            tom.kill();
         }
     }
 
@@ -504,9 +566,8 @@ mod tests {
         let helper = Helper::create().unwrap();
         let token = helper.token.clone();
         let server = fake_helper(&helper, &[r#"{"result":"accepted"}"#]);
-        let child = Command::new("sleep").arg("5").spawn().unwrap();
         let mut tom = Tom {
-            child,
+            process: Process::Child(Command::new("sleep").arg("5").spawn().unwrap()),
             helper: Some(helper),
         };
         let entry = crate::code::entry(2, None, 3, 1, 1, "23119");
@@ -515,7 +576,7 @@ mod tests {
         let expected =
             json!({ "token": token, "op": "submit", "code": "23119", "pod": "2", "round": "3" });
         assert_eq!(seen, expected);
-        let _ = tom.child.kill();
+        tom.kill();
     }
 
     #[test]
@@ -557,6 +618,6 @@ mod tests {
         command.env(JAVA_TOOL_OPTIONS, "");
         let mut tom = Tom::spawn(command, Path::new("/nonexistent/tom-bridge.jar")).unwrap();
         assert!(tom.helper.is_none());
-        let _ = tom.child.wait();
+        tom.kill();
     }
 }

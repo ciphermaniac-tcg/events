@@ -39,6 +39,19 @@ pub fn resolve(path: &Path) -> Result<PathBuf, String> {
     program.ok_or_else(|| format!("No TOM program was found in {}.", path.display()))
 }
 
+/// The `.app` a macOS launcher lives in (`X.app/Contents/MacOS/X`), so it
+/// can be opened through `LaunchServices` instead of exec'd.
+#[cfg(any(target_os = "macos", test))]
+pub(crate) fn bundle_of(program: &Path) -> Option<PathBuf> {
+    let macos = program
+        .parent()
+        .filter(|dir| dir.ends_with("Contents/MacOS"))?;
+    let app = macos.parent()?.parent()?;
+    app.extension()
+        .is_some_and(|ext| ext == "app")
+        .then(|| app.to_path_buf())
+}
+
 fn roots() -> Vec<PathBuf> {
     let home = std::env::var_os("HOME").map(PathBuf::from);
     let local = std::env::var_os("LOCALAPPDATA").map(PathBuf::from);
@@ -137,6 +150,18 @@ mod tests {
         assert_eq!(
             resolve(&dir.path().join(format!("{FULL_NAME}.app"))),
             Ok(program)
+        );
+    }
+
+    #[test]
+    fn finds_the_app_a_launcher_belongs_to() {
+        let app = Path::new("/Applications/Tournament Operations Manager.app");
+        let program = app.join("Contents/MacOS/Tournament Operations Manager");
+        assert_eq!(bundle_of(&program), Some(app.to_path_buf()));
+        assert_eq!(bundle_of(Path::new("/opt/tom/launcher")), None);
+        assert_eq!(
+            bundle_of(Path::new("/Applications/X.app/Contents/Resources/x")),
+            None
         );
     }
 
