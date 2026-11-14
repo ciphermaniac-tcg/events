@@ -46,6 +46,7 @@
 //!   | { result: "accepted", code: string }
 //!   | { result: "rejected", code: string, message: string }  // TOM's Error text, or the code check's
 //!   | { result: "not_ready", code: string, reason: string }  // not sent; includes any TOM Error text
+//!   | { result: "uncertain", code: string, reason: string }  // may have reached TOM; check TOM before resending
 //! SaveResult = { result: "saved" } | { result: "not_ready", reason: string }
 //! StartResult =
 //!   | { result: "started" }

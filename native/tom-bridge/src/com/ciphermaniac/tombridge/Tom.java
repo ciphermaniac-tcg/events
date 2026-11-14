@@ -58,10 +58,25 @@ final class Tom {
       try {
          startPodOf(pod, round);
          openSlipDialog();
-         Swing.onEdt(() -> enter(code));
-         return awaitOutcome(code);
       } catch (NotReady e) {
          return notReady(e.getMessage());
+      }
+      return enterAndObserve(code);
+   }
+
+   /** Once the code may be in TOM's field, a lost answer is uncertain, not "not ready". */
+   private String enterAndObserve(String code) {
+      try {
+         Swing.onEdt(() -> enter(code));
+      } catch (Uncertain e) {
+         return uncertain(e.getMessage());
+      } catch (NotReady e) {
+         return notReady(e.getMessage());
+      }
+      try {
+         return awaitOutcome(code);
+      } catch (NotReady e) {
+         return uncertain(e.getMessage());
       }
    }
 
@@ -352,6 +367,11 @@ final class Tom {
          }
       }
       return new Json.Obj().str("result", "saved").toString();
+   }
+
+   private static String uncertain(String reason) {
+      String advice = " TOM may or may not have recorded this code. Check TOM before sending it again.";
+      return new Json.Obj().str("result", "uncertain").str("reason", reason + advice).toString();
    }
 
    private static String notReady(String reason) {
