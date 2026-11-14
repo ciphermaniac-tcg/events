@@ -5,7 +5,9 @@
   "identifier": "com.ciphermaniac.events",
   "build": {
     "frontendDist": "../panel/dist",
-    "devUrl": "http://127.0.0.1:4420"
+    "devUrl": "http://127.0.0.1:4420",
+    "beforeDevCommand": "npm run dev:panel",
+    "beforeBuildCommand": "npm run build:panel && npm run build:bridge"
   },
   "app": {
     "windows": [
