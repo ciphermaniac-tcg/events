@@ -8,7 +8,7 @@ import java.io.File;
 /**
  * tom-tdf's GuiHarness, except every pod's first round is left paired with
  * its pairings viewed, so TOM's main button reads "Start Round".
- * Args: workDir masters
+ * Args: workDir masters [playedRounds]
  */
 public class StartableHarness {
    public static void main(String[] a) throws Exception {
@@ -17,7 +17,8 @@ public class StartableHarness {
       GuiHarness.writeInstall(home, new File(work, "TOM_DATA"), 20);
       System.setProperty("user.home", home.getPath());
 
-      Tournament t = GuiHarness.build(Tournament.TournamentMode.LEAGUECHALLENGE, Integer.parseInt(a[1]), 0, 0, 0, 1, 0, false);
+      int played = a.length > 2 ? Integer.parseInt(a[2]) : 0;
+      Tournament t = GuiHarness.build(Tournament.TournamentMode.LEAGUECHALLENGE, Integer.parseInt(a[1]), 0, 0, 0, 1, played, false);
       for (Pod pod : t.getPods()) {
          Round round = pod.getCurrentRound();
          if (round.getStage() == 2) {

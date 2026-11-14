@@ -50,12 +50,13 @@ final class Tom {
       }
    }
 
-   synchronized String submit(String code) {
+   /** `pod` and `round` say which round the code is for; without them no round is started. */
+   synchronized String submit(String code, Integer pod, Integer round) {
       if (!code.matches(CODE_PATTERN)) {
          return new Json.Obj().str("error", "invalid code").toString();
       }
       try {
-         startPodOf(code);
+         startPodOf(pod, round);
          openSlipDialog();
          Swing.onEdt(() -> enter(code));
          return awaitOutcome(code);
@@ -153,24 +154,24 @@ final class Tom {
     * TOM only takes results for a started round, so start the code's pod
     * first when TOM shows its round paired but not started.
     */
-   private void startPodOf(String code) throws NotReady {
-      Pods.Pod pod = Swing.onEdt(() -> pairedPodOf(code));
-      if (pod != null) {
-         startPod(pod.category());
+   private void startPodOf(Integer category, Integer round) throws NotReady {
+      if (category != null && round != null && Swing.onEdt(() -> awaitingStart(category, round))) {
+         startPod(category);
       }
    }
 
-   private static Pods.Pod pairedPodOf(String code) {
+   /**
+    * Only the exact round the result is for: a late slip from an earlier round
+    * must not start the next one, and a code for another pod must not start this one.
+    */
+   private static boolean awaitingStart(int category, int round) {
       JFrame frame = Pods.mainFrame();
-      List<Pods.Pod> pods = Pods.read(frame == null ? null : Pods.podPane(frame));
-      int category = code.startsWith("10") ? 10 : code.charAt(0) - '0';
-      for (Pods.Pod pod : pods) {
-         boolean mine = pods.size() == 1 || Integer.valueOf(category).equals(pod.category());
-         if (mine && pod.state() == Pods.State.PAIRED) {
-            return pod;
+      for (Pods.Pod pod : Pods.read(frame == null ? null : Pods.podPane(frame))) {
+         if (Integer.valueOf(category).equals(pod.category()) && pod.round() == round) {
+            return pod.state() == Pods.State.PAIRED;
          }
       }
-      return null;
+      return false;
    }
 
    private static String describe() {
