@@ -8,7 +8,7 @@
 import { createSignal, createUniqueId, Show } from 'solid-js';
 import type { Pod, Round } from '../../../shared/tournament/types';
 import { t, tn } from '../../lib/i18n';
-import { inNativeApp } from '../../lib/native/detect';
+import { hasTom } from '../../lib/native/detect';
 import { clockState, parseClock } from '../../lib/tournament/clockState';
 import { podLabel } from '../../lib/tournament/present';
 import { Clock } from './Clock';
@@ -93,7 +93,7 @@ function ClockSetter(props: { round: Round; onSet: (seconds: number) => void; on
  * not start, and null when it runs or there is no TOM to start.
  */
 async function startInTom(state: ManageState, pod: Pod): Promise<string | null> {
-  if (!inNativeApp() || state.data()?.mode !== 'tom') {
+  if (!hasTom() || state.data()?.mode !== 'tom') {
     return null;
   }
   const { startTomRound } = await import('../../lib/native/bridge');
