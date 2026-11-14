@@ -2,6 +2,8 @@
 mod android;
 mod app_style;
 mod appearance;
+#[cfg(any(desktop, test))]
+mod big_screen;
 #[cfg(any(windows, test))]
 mod context_menu;
 mod data_dir;
@@ -117,6 +119,7 @@ fn with_desktop(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<tauri::Wr
             tom::tom_save,
             tom::tom_start_round,
             tom::tom_open_panel,
+            big_screen::open_big_screen,
             #[cfg(target_os = "macos")]
             mac_title_strip::title_strip_double_click,
         ])
