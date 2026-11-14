@@ -52,6 +52,10 @@
     }
   },
   "plugins": {
+    "deep-link": {
+      "mobile": [{ "scheme": ["ciphermaniac-events"], "host": "auth", "appLink": false }],
+      "desktop": { "schemes": ["ciphermaniac-events"] }
+    },
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDdFNTJGQ0VGRkY4MkU5RTcKUldUbjZZTC83L3hTZm5qNEZ1VFArV3Q2MENyR2xPb0dkdWlEcitZVnl6WlA3Sm1tUzlHQkJzM3YK",
       "endpoints": [
