@@ -4,6 +4,6 @@
     <color name="app_background">#FFECECEA</color>
     <!-- The site's head bar, dark in both schemes (the design package's .head-bar). -->
     <color name="head_bar">#FF1C1D1B</color>
-    <!-- The launcher icon's background (icons/source/icon.json). -->
-    <color name="icon_background">#FF161615</color>
+    <!-- The edge of the launcher icon's background (icons-src/android/background.svg). -->
+    <color name="icon_background">#FF141413</color>
 </resources>
