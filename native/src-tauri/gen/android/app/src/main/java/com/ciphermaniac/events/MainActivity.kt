@@ -12,6 +12,7 @@ import org.json.JSONObject
 class MainActivity : TauriActivity() {
   private val bars = SystemBars(this)
   private lateinit var back: BackNavigation
+  private lateinit var files: FileHandoff
   private var webView: WebView? = null
   private var pageLoaded = false
 
@@ -19,6 +20,7 @@ class MainActivity : TauriActivity() {
     holdSplash()
     bars.apply()
     back = BackNavigation(this)
+    files = FileHandoff(this)
     super.onCreate(savedInstanceState)
   }
 
@@ -58,6 +60,8 @@ class MainActivity : TauriActivity() {
   private fun onPageMessage(message: JSONObject) {
     when (message.optString("type")) {
       "state" -> back.onPageState(message.optBoolean("layer"), message.optBoolean("back"))
+      "share" -> files.share(message)
+      "save" -> files.save(message)
     }
   }
 
