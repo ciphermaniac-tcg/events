@@ -1,0 +1,6 @@
+# The site's light or dark mode, which the window's own colors follow
+# (theme.rs). See tom-bridge.toml on why each app command is listed.
+[[permission]]
+identifier = "app-theme"
+description = "Tells the app the site's light or dark mode."
+commands.allow = ["app_theme"]

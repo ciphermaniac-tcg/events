@@ -92,6 +92,7 @@ fn with_desktop(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<tauri::Wr
         .plugin(tauri_plugin_persisted_scope::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
+            theme::app_theme,
             tom::tom_detect,
             tom::tom_set_path,
             tom::tom_launch,
