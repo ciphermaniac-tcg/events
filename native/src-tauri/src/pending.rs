@@ -21,7 +21,10 @@ const MAX_AGE: Duration = Duration::from_secs(10 * 60);
 /// Makes `dir` this user's alone, refusing one that is a link.
 fn private_dir(dir: &Path) -> io::Result<()> {
     match fs::symlink_metadata(dir) {
+        #[cfg(unix)]
         Ok(meta) if meta.is_dir() => restrict_dir(dir),
+        #[cfg(not(unix))]
+        Ok(meta) if meta.is_dir() => Ok(()),
         Ok(_) => Err(io::Error::other("the sign-in directory is not a directory")),
         Err(err) if err.kind() == io::ErrorKind::NotFound => create_private_dir(dir),
         Err(err) => Err(err),
@@ -46,11 +49,6 @@ fn create_private_dir(dir: &Path) -> io::Result<()> {
 fn restrict_dir(dir: &Path) -> io::Result<()> {
     use std::os::unix::fs::PermissionsExt;
     fs::set_permissions(dir, fs::Permissions::from_mode(0o700))
-}
-
-#[cfg(not(unix))]
-fn restrict_dir(_dir: &Path) -> io::Result<()> {
-    Ok(())
 }
 
 /// A new file only this user can read; never one that was there, link or not.
