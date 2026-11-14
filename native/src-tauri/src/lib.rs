@@ -1,4 +1,6 @@
 mod shell;
+#[cfg(desktop)]
+mod updater;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -8,7 +10,8 @@ pub fn run() {
   #[cfg(desktop)]
   let builder = builder
     .plugin(tauri_plugin_dialog::init())
-    .plugin(tauri_plugin_fs::init());
+    .plugin(tauri_plugin_fs::init())
+    .plugin(tauri_plugin_updater::Builder::new().build());
   builder
     .setup(|app| {
       if cfg!(debug_assertions) {
@@ -19,6 +22,8 @@ pub fn run() {
         )?;
       }
       shell::create_main_window(app.handle())?;
+      #[cfg(desktop)]
+      updater::check_on_launch(app.handle());
       Ok(())
     })
     .run(tauri::generate_context!())
