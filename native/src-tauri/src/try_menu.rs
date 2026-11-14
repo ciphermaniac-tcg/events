@@ -41,6 +41,7 @@ const GROUPS: &[Group] = &[
         choices: &[
             choice("separate", "Separate Title Bar (Today)"),
             choice("one", "One Bar: the Head Bar Is the Title Bar"),
+            choice("none", "No Head Bar: Account at the Top Right"),
         ],
     },
     Group {
@@ -95,23 +96,36 @@ const GROUPS: &[Group] = &[
         ],
     },
     Group {
-        key: "sheets",
-        label: "Dialogs",
+        key: "appearance",
+        label: "Appearance",
         relaunch: false,
         choices: &[
-            choice("site", "Centered, Side Panel (Today)"),
+            choice("system", "Match the System"),
+            choice("light", "Light"),
+            choice("dark", "Dark"),
+        ],
+    },
+    Group {
+        key: "sheets",
+        label: "Where Confirmations and Editors Open",
+        relaunch: false,
+        choices: &[
+            choice(
+                "site",
+                "Middle of the Window, Player Sheet at the Side (Today)",
+            ),
             choice("attached", "Attached Under the Bar"),
             choice("float", "Floating Below the Bar"),
         ],
     },
     Group {
         key: "press",
-        label: "Press",
+        label: "How a Button Looks While Held Down",
         relaunch: false,
         choices: &[
-            choice("site", "The Site's (Today)"),
-            choice("tint", "Ink Wash"),
-            choice("dim", "Dim"),
+            choice("site", "Shrinks Slightly (Today)"),
+            choice("tint", "Darkens, Size Unchanged"),
+            choice("dim", "Fades, Size Unchanged"),
         ],
     },
 ];
@@ -194,9 +208,16 @@ fn traffic_lights(height: u32) -> (f64, f64) {
     (inset + 3.0, inset)
 }
 
+/// The bar's height: the one chosen, or with no head bar the strip the
+/// window's buttons and the account sit in.
 fn bar_height(choices: &Choices) -> u32 {
+    if chosen(choices, "bar") == "none" {
+        return NO_BAR_HEIGHT;
+    }
     chosen(choices, "height").parse().unwrap_or(44)
 }
+
+const NO_BAR_HEIGHT: u32 = 32;
 
 /// The room the head bar leaves at its left for the window's buttons: the
 /// three buttons, 20 px apart, and a gap after them.
@@ -211,9 +232,9 @@ fn lights_room(height: u32) -> u32 {
 /// The page's stylesheet. Every rule waits for its attribute, so with none
 /// set the site is as it is today.
 const STYLE: &str = r#"
-:root[data-try-height="38"], :root[data-try-height="38"] body[data-mode] { --topnav-h: 38px !important; }
-:root[data-try-height="40"], :root[data-try-height="40"] body[data-mode] { --topnav-h: 40px !important; }
-:root[data-try-height="52"], :root[data-try-height="52"] body[data-mode] { --topnav-h: 52px !important; }
+:root[data-try-height="38"]:not([data-try-bar="none"]), :root[data-try-height="38"]:not([data-try-bar="none"]) body[data-mode] { --topnav-h: 38px !important; }
+:root[data-try-height="40"]:not([data-try-bar="none"]), :root[data-try-height="40"]:not([data-try-bar="none"]) body[data-mode] { --topnav-h: 40px !important; }
+:root[data-try-height="52"]:not([data-try-bar="none"]), :root[data-try-height="52"]:not([data-try-bar="none"]) body[data-mode] { --topnav-h: 52px !important; }
 :root[data-try-height="38"] .site-head-name, :root[data-try-height="38"] .site-head-name small { font-size: 13px; }
 :root[data-try-height="38"] .site-head-name img { width: 16px; height: 19px; }
 :root[data-try-height="38"] .site-head .tm-acct-button { width: 24px; height: 24px; font-size: 11px; }
@@ -222,7 +243,7 @@ const STYLE: &str = r#"
 :root[data-try-bar="one"] .site-head-row { max-width: none; padding-left: var(--try-lights, 88px); padding-right: 16px; }
 :root[data-try-bar="one"] .site-head { -webkit-user-select: none; user-select: none; }
 
-:root[data-try-color="window"] .site-head.head-bar {
+:root:is([data-try-color="window"], [data-try-bar="none"]) .site-head.head-bar {
   --bg: inherit; --surface: inherit; --surface-2: inherit; --field: inherit; --border: inherit;
   --rule: inherit; --fg: inherit; --muted: inherit; --negative: inherit; --accent: inherit;
   --accent-hover: inherit; --accent-ink: inherit; --accent-ink-hover: inherit; --accent-fill: inherit;
@@ -244,6 +265,13 @@ const STYLE: &str = r#"
 }
 
 :root[data-try-footer="hidden"] .site-footer { display: none !important; }
+
+:root[data-try-bar="none"], :root[data-try-bar="none"] body[data-mode] { --topnav-h: 32px !important; }
+:root[data-try-bar="none"] .site-head.head-bar { border-bottom: 0; }
+:root[data-try-bar="none"] .site-head-name { display: none; }
+:root[data-try-bar="none"] .site-head-row { max-width: none; justify-content: flex-end; padding: 0 10px 0 var(--try-lights, 88px); }
+:root[data-try-bar="none"] .site-head .tm-acct-button { width: 22px; height: 22px; font-size: 10px; }
+:root[data-try-bar="none"] .site-head-signin { min-height: 22px; height: 22px; font-size: 12px; }
 
 @keyframes try-drop { from { transform: translateY(-14px); opacity: 0; } }
 :root[data-try-sheets="attached"] dialog.tm-modal[open] { margin: var(--topnav-h) auto auto; border-top: 0; border-radius: 0 0 10px 10px; animation: try-drop 180ms ease-out; }
@@ -272,13 +300,24 @@ const STYLE: &str = r#"
 /// for the page's next load in this run.
 const APPLY: &str = "window.__cmTry = choices => { const root = document.documentElement; \
      for (const [key, value] of Object.entries(choices)) root.setAttribute('data-try-' + key, value); \
-     try { localStorage.setItem('cm-try', JSON.stringify(choices)); } catch {} };";
+     try { localStorage.setItem('cm-try', JSON.stringify(choices)); } catch {} \
+     window.__cmTryMode(choices.appearance); };";
+
+/// Sets the site's light or dark mode as the site's footer switch does
+/// (`cm:mode` in src/lib/theme.ts): stored for a mode picked, cleared to
+/// follow the system.
+const MODE: &str = "window.__cmTryMode = appearance => { \
+     try { if (appearance === 'system') localStorage.removeItem('cm:mode'); \
+     else localStorage.setItem('cm:mode', appearance); } catch {} \
+     const paint = () => { document.body.dataset.mode = appearance === 'system' \
+     ? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : appearance; }; \
+     if (document.body) paint(); else document.addEventListener('DOMContentLoaded', paint, { once: true }); };";
 
 /// Moves the window by the head bar when it is the title bar, and zooms it
 /// on a double click, as a title bar does; its links and buttons stay
 /// theirs.
 const DRAG: &str = "document.addEventListener('mousedown', event => { \
-     if (event.button !== 0 || document.documentElement.dataset.tryBar !== 'one') return; \
+     if (event.button !== 0 || !['one', 'none'].includes(document.documentElement.dataset.tryBar)) return; \
      const target = event.target; if (!(target instanceof Element) || !target.closest('.site-head')) return; \
      if (target.closest('a, button, input, select, textarea, [role]')) return; \
      event.preventDefault(); const invoke = window.__TAURI_INTERNALS__.invoke; \
@@ -294,7 +333,7 @@ pub fn script<R: Runtime>(app: &AppHandle<R>) -> String {
     let room = lights_room(bar_height(&choices));
     let site = shell::SITE_HOST;
     format!(
-        "(() => {{ if (location.hostname !== '{site}') return; {APPLY} \
+        "(() => {{ if (location.hostname !== '{site}') return; {MODE} {APPLY} \
          let choices = {launched}; try {{ const kept = JSON.parse(localStorage.getItem('cm-try')); \
          if (kept && kept.bar === choices.bar && kept.height === choices.height) choices = kept; }} catch {{}} \
          window.__cmTry(choices); document.documentElement.style.setProperty('--try-lights', '{room}px'); \
@@ -310,7 +349,7 @@ pub fn window<'a, R: Runtime>(
     builder: WebviewWindowBuilder<'a, R, AppHandle<R>>,
 ) -> WebviewWindowBuilder<'a, R, AppHandle<R>> {
     let choices = load(app);
-    if chosen(&choices, "bar") != "one" {
+    if chosen(&choices, "bar") == "separate" {
         return builder;
     }
     #[cfg(target_os = "macos")]
@@ -453,7 +492,7 @@ pub fn on_event(app: &AppHandle<tauri::Wry>, id: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{Choices, attributes, chosen, lights_room, parse_id, traffic_lights};
+    use super::{Choices, attributes, bar_height, chosen, lights_room, parse_id, traffic_lights};
 
     #[test]
     fn a_group_left_alone_is_todays() {
@@ -489,5 +528,13 @@ mod tests {
         assert_eq!(traffic_lights(44), (18.0, 15.0));
         assert_eq!(lights_room(44), 88);
         assert_eq!(traffic_lights(38), (15.0, 12.0));
+        let mut choices = Choices::new();
+        choices.insert("bar".into(), "none".into());
+        choices.insert("height".into(), "52".into());
+        assert_eq!(
+            bar_height(&choices),
+            32,
+            "with no head bar, the strip's height"
+        );
     }
 }
