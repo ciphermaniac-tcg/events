@@ -17,7 +17,7 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
 };
 use windows_sys::core::BOOL;
 
-use super::{Desktop, OsWindow};
+use super::{Desktop, Foreground, OsWindow};
 
 pub(crate) struct Platform;
 
@@ -135,10 +135,13 @@ impl Desktop for Platform {
         Ok(unsafe { GetForegroundWindow() })
     }
 
-    fn foreground_title(&mut self) -> Result<Option<String>, String> {
+    fn foreground(&mut self) -> Result<Option<Foreground>, String> {
         // SAFETY: no arguments.
         let window = unsafe { GetForegroundWindow() };
-        Ok((!window.is_null()).then(|| title(window)))
+        Ok((!window.is_null()).then(|| Foreground {
+            title: title(window),
+            pid: Some(pid_and_thread(window).0),
+        }))
     }
 
     fn activate(&mut self, window: &HWND) -> Result<(), String> {
