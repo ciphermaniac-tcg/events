@@ -21,6 +21,8 @@ mod title_bar;
 #[cfg(desktop)]
 mod tom;
 #[cfg(desktop)]
+mod try_menu;
+#[cfg(desktop)]
 mod updater;
 #[cfg(windows)]
 mod webview2;
@@ -70,8 +72,16 @@ fn with_desktop_shell(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<tau
                 .with_state_flags(StateFlags::all() - StateFlags::VISIBLE - StateFlags::DECORATIONS)
                 .build(),
         )
-        .menu(menu::build)
-        .on_menu_event(|app, event| menu::on_event(app, &event))
+        .menu(|app| {
+            let bar = menu::build(app)?;
+            bar.append(&try_menu::build(app)?)?;
+            Ok(bar)
+        })
+        .on_menu_event(|app, event| {
+            if !try_menu::on_event(app, event.id().as_ref()) {
+                menu::on_event(app, &event);
+            }
+        })
 }
 
 #[cfg(desktop)]

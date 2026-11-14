@@ -18,6 +18,8 @@
   ],
   "permissions": [
     "tom-bridge",
-    "app-theme"
+    "app-theme",
+    "core:window:allow-start-dragging",
+    "core:window:allow-internal-toggle-maximize"
   ]
 }
