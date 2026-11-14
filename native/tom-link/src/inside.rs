@@ -127,6 +127,13 @@ impl Tom {
         }
     }
 
+    /// Ends a batch: the helper closes the slip form if it opened it and puts
+    /// back what it changed. Best effort; the helper also does this by itself
+    /// shortly after the last code.
+    pub(crate) fn finish(&mut self) {
+        let _ = self.request::<Outcome>("finish", &[]);
+    }
+
     pub(crate) fn save(&mut self) -> SaveResult {
         match self.outcome("save", &[]) {
             Outcome::Saved => SaveResult::Saved,
@@ -354,6 +361,7 @@ enum Outcome {
     Saved,
     Started,
     AlreadyStarted,
+    Finished,
     /// The helper entered the code but could not see what TOM did with it.
     Uncertain {
         reason: String,
@@ -396,7 +404,7 @@ impl HelperStatus {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use std::net::TcpListener;
     use std::thread;
@@ -406,7 +414,7 @@ mod tests {
             irrefutable_let_patterns,
             reason = "macOS builds also follow TOM by pid"
         )]
-        fn kill(&mut self) {
+        pub(crate) fn kill(&mut self) {
             if let Process::Child(child) = &mut self.process {
                 let _ = child.kill();
                 let _ = child.wait();
@@ -415,6 +423,34 @@ mod tests {
     }
 
     /// Answers each request line with the next canned reply, recording requests.
+    /// A request that never comes ends the fake instead of hanging the test.
+    fn accept_within(listener: &TcpListener, wait: Duration) -> Option<TcpStream> {
+        listener.set_nonblocking(true).unwrap();
+        let deadline = std::time::Instant::now() + wait;
+        while std::time::Instant::now() < deadline {
+            if let Ok((stream, _)) = listener.accept() {
+                stream.set_nonblocking(false).unwrap();
+                return Some(stream);
+            }
+            thread::sleep(Duration::from_millis(10));
+        }
+        None
+    }
+
+    /// TOM run by a stand-in process, with a fake helper giving `replies`.
+    /// The handle yields the requests the fake saw.
+    pub(crate) fn fake_tom(
+        replies: &'static [&'static str],
+    ) -> (Tom, thread::JoinHandle<Vec<String>>) {
+        let helper = Helper::create().unwrap();
+        let server = fake_helper(&helper, replies);
+        let tom = Tom {
+            process: Process::Child(Command::new("sleep").arg("5").spawn().unwrap()),
+            helper: Some(helper),
+        };
+        (tom, server)
+    }
+
     fn fake_helper(
         helper: &Helper,
         replies: &'static [&'static str],
@@ -426,7 +462,9 @@ mod tests {
             let mut seen = Vec::new();
             // One connection per request, as the real helper serves them.
             for reply in replies {
-                let (stream, _) = listener.accept().unwrap();
+                let Some(stream) = accept_within(&listener, Duration::from_secs(5)) else {
+                    break;
+                };
                 let mut line = String::new();
                 BufReader::new(stream.try_clone().unwrap())
                     .read_line(&mut line)

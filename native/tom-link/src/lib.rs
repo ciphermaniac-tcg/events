@@ -131,10 +131,15 @@ impl Bridge {
     }
 
     /// Sends entries in order. Each is vetted against its own layout first;
-    /// the batch stops at the first entry that is not accepted.
+    /// the batch stops at the first entry that is not accepted. Afterwards,
+    /// whatever happened, TOM's slip form is closed again if the helper opened it.
     pub fn submit(&mut self, entries: &[Entry]) -> Vec<SubmitResult> {
         match self.tom.as_mut() {
-            Some(tom) => results::submit_each(entries, |entry| tom.submit(entry)),
+            Some(tom) => {
+                let results = results::submit_each(entries, |entry| tom.submit(entry));
+                tom.finish();
+                results
+            }
             None => entries
                 .iter()
                 .map(|entry| SubmitResult::not_ready(&entry.code, NOT_LAUNCHED))
@@ -185,6 +190,35 @@ mod tests {
             bridge.start_round(Some(2)),
             StartResult::not_ready(NOT_LAUNCHED)
         );
+    }
+
+    /// The ops the fake helper was asked for, in order.
+    fn ops(seen: &[String]) -> Vec<String> {
+        seen.iter()
+            .map(|line| serde_json::from_str::<serde_json::Value>(line).unwrap()["op"].to_string())
+            .collect()
+    }
+
+    #[test]
+    fn closes_the_slip_form_after_every_batch() {
+        const ACCEPTED: [&str; 2] = [r#"{"result":"accepted"}"#, r#"{"result":"finished"}"#];
+        const REJECTED: [&str; 2] = [
+            r#"{"result":"rejected","message":"no"}"#,
+            r#"{"result":"finished"}"#,
+        ];
+        let entries = [code::entry(2, None, 1, 1, 1, "21113")];
+        for replies in [&ACCEPTED, &REJECTED] {
+            let (tom, server) = inside::tests::fake_tom(replies);
+            let mut bridge = Bridge {
+                tom_path: None,
+                tom: Some(tom),
+            };
+            bridge.submit(&entries);
+            assert_eq!(ops(&server.join().unwrap()), [r#""submit""#, r#""finish""#]);
+            if let Some(tom) = bridge.tom.as_mut() {
+                tom.kill();
+            }
+        }
     }
 
     #[test]

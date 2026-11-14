@@ -70,6 +70,7 @@ final class Session implements Runnable {
          case "status" -> tom.status();
          case "submit" -> submit(request);
          case "save" -> tom.save();
+         case "finish" -> tom.finish();
          case "start_round" -> startRound(request);
          default -> new Json.Obj().str("error", "unknown op").toString();
       };
