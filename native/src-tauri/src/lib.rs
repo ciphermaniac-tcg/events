@@ -3,6 +3,7 @@ mod android;
 mod app_style;
 #[cfg(any(windows, test))]
 mod context_menu;
+mod data_dir;
 #[cfg(windows)]
 mod downloads;
 mod last_page;
@@ -46,6 +47,7 @@ pub fn run() {
                         .build(),
                 )?;
             }
+            data_dir::init(app.handle());
             shell::create_main_window(app.handle())?;
             #[cfg(desktop)]
             {
