@@ -99,6 +99,8 @@ export function tomCommands(invoke: Invoke) {
     /** A result per entry, in the order sent. */
     submit: (entries: readonly SubmitEntry[]) => invoke<SubmitResult[]>('tom_submit', { entries }),
     save: () => invoke<SaveResult>('tom_save'),
+    /** Shows the TOM panel, opening it if needed: the app opens without it, as most events never use TOM. */
+    openPanel: () => invoke<void>('tom_open_panel'),
     /** Starts a pod's current round in TOM; an event with one pod may leave the pod out. */
     startRound: (pod?: number) => invoke<StartRoundResult>('tom_start_round', pod === undefined ? {} : { pod })
   };

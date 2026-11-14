@@ -12,3 +12,6 @@ export const inNativeApp = (): boolean => typeof window !== 'undefined' && '__TA
  * TOM, so it keeps the browser's controls.
  */
 export const hasTom = (): boolean => inNativeApp() && '__CM_TOM__' in window;
+
+/** Whether the console drives TOM for an event: only one run in TOM, never one the site runs, and only in the desktop app. */
+export const drivesTom = (mode: string | undefined): boolean => mode === 'tom' && hasTom();

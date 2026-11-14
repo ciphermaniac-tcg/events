@@ -27,6 +27,7 @@ test('each command goes to the Rust command of its name, with its arguments name
   await tom.save();
   await tom.startRound(2);
   await tom.startRound();
+  await tom.openPanel();
   assert.deepEqual(calls, [
     ['tom_detect', undefined],
     ['tom_set_path', { path: 'C:\\TOM\\TOM.exe' }],
@@ -37,7 +38,8 @@ test('each command goes to the Rust command of its name, with its arguments name
     ['tom_submit', { entries: [ENTRY] }],
     ['tom_save', undefined],
     ['tom_start_round', { pod: 2 }],
-    ['tom_start_round', {}]
+    ['tom_start_round', {}],
+    ['tom_open_panel', undefined]
   ]);
 });
 
