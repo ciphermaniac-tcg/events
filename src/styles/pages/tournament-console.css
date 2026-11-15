@@ -447,6 +447,15 @@
   font-size: var(--text-base);
   font-weight: 600;
 }
+/* The sprite slot is one width for both seats, as in the pairings table behind
+   the sheet, so the two names line up whatever their decks draw. */
+.tm-console .tm-result-sheet .tm-sheet-seat .tm-deck,
+.tm-console .tm-result-sheet .tm-sheet-seats:has(.tm-deck) .tm-sheet-seat:not(:has(.tm-deck))::before {
+  min-width: 38px;
+}
+.tm-console .tm-result-sheet .tm-sheet-seats:has(.tm-deck) .tm-sheet-seat:not(:has(.tm-deck))::before {
+  content: '';
+}
 .tm-console .tm-sheet-seat.is-lost {
   color: var(--muted);
   font-weight: 500;

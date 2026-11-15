@@ -2141,6 +2141,34 @@ test('the mobile result sheet keeps the table’s menu beside its number and the
   expect(Math.abs(state.x + state.width - (top.x + top.width))).toBeLessThanOrEqual(1);
 });
 
+test('the mobile result sheet lines up both names whether a deck draws one sprite or two @mobileOnly', async ({
+  page
+}) => {
+  const t = event(4, 0, true);
+  const match = firstMatch(t);
+  const settings = settingsOf({ deckVisibility: 'always' });
+  await mockConsole(page, t, settings);
+  await page.route('**/archetype-icons.json', route =>
+    route.fulfill({ json: { 'Gardevoir ex': ['gardevoir', 'kirlia'] } })
+  );
+  await page.route('**/pokemon-sprites/gen9/*.png', route => route.fulfill({ path: 'static/img/substitute.png' }));
+  const decks = { [match.p1]: 'Gardevoir ex', [match.p2 ?? '']: 'Rogue Brew' };
+  await page.route(`**/api/tournaments/${CODE}/manage*`, route =>
+    route.fulfill({ json: { ...manageOf(CODE, t, { settings, decks }), reports: [], requests: [], checkins: {} } })
+  );
+  await page.reload();
+  await page.locator('.tm-matches tbody tr:not(.tm-group-row)').first().click();
+  const sheet = page.getByRole('dialog', { name: 'Result, table 1', exact: true });
+  await expect(sheet.locator('.tm-deck[title="Gardevoir ex"] img')).toHaveCount(2);
+  await expect(sheet.locator('.tm-deck[title="Rogue Brew"] img')).toHaveCount(1);
+  // Read together: the sheet may still be sliding in.
+  const lefts = await sheet.evaluate(el =>
+    [...el.querySelectorAll('.tm-sheet-seat .tm-name')].map(name => name.getBoundingClientRect().left)
+  );
+  expect(lefts).toHaveLength(2);
+  expect(lefts[1]).toBe(lefts[0]);
+});
+
 test('Escape closes the extension menu before the mobile result sheet @mobileOnly', async ({ page }) => {
   await mockConsole(page, event(4, 0, true), settingsOf({}));
   await page.locator('.tm-matches tbody tr:not(.tm-group-row)').first().click();
