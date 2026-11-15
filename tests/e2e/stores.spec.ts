@@ -880,6 +880,15 @@ test('a store page’s title sits under its way back where the store settings’
   expect(await drop('/stores/store-1')).toBe(await drop('/stores/store-1/settings'));
 });
 
+test('a store page and its settings are one width, so the head holds still between them', async ({ page }) => {
+  await mock(page, { user: MANAGER });
+  await page.goto('/stores/store-1');
+  const store = await page.locator('.tm-storepage').boundingBox();
+  await page.goto('/stores/store-1/settings');
+  const settings = await page.locator('.tm-store-settings-page').boundingBox();
+  expect(settings?.width).toBe(store?.width);
+});
+
 test('a store page’s League line sits as far under its title as an event’s first line does', async ({ page }) => {
   await mock(page, { user: MANAGER });
   await page.goto('/stores/store-1');

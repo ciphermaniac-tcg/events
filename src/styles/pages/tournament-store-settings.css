@@ -1,10 +1,10 @@
 /* Store settings: the sections down the left, the chosen one at right. */
 
 /* ---------- Store settings ---------- */
-/* The page is as wide as its sections need, so the hero's action and the
-   sections end on one edge. */
+/* As wide as the store's own page, so the heading and its action stay put
+   moving between the two; the hero's action and the sections end on one edge. */
 .tm-store-settings-page {
-  max-width: 1040px;
+  max-width: 1080px;
 }
 .tm-store-section {
   display: grid;
