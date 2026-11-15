@@ -166,6 +166,35 @@ test('an opened list records, edits and removes its player’s deck checks once 
   await expect(row).toContainText('Not checked');
 });
 
+test('on a phone, a row with a deck sets its last deck check under its check, not in the deck’s column @mobileOnly', async ({
+  page
+}) => {
+  const t = pairedEvent();
+  await mockConsole(page, t);
+  // Archetypes on and the list's deck named, so the row keeps a column for its sprite.
+  const settings = {
+    ...DEFAULT_SETTINGS,
+    sanctioned: false,
+    decklists: 'open' as const,
+    deckVisibility: 'always' as const
+  };
+  await page.route(`**/api/tournaments/${CODE}/manage*`, route =>
+    route.fulfill({ json: manageOf(CODE, t, { settings }) })
+  );
+  await page.route(`**/api/tournaments/${CODE}/decklists`, route =>
+    route.fulfill({ json: { decklists: [{ ...LIST, archetype: 'Gardevoir ex' }], mine: null } })
+  );
+  await page.reload();
+  await page.getByRole('tab', { name: 'Decklists' }).click();
+  const row = page.locator('.tm-lists tbody tr').first();
+  await expect(row.locator('.tm-list-deck-check')).toHaveText('Not checked');
+  // Read together: the row may still be sliding in.
+  const lefts = await row.evaluate(tr =>
+    ['.tm-who', '.tm-list-deck-check'].map(cell => tr.querySelector(cell)?.getBoundingClientRect().left)
+  );
+  expect(lefts[1]).toBe(lefts[0]);
+});
+
 test('a check saved while the next is typed keeps the next, as does removing a check it does not edit', async ({
   page
 }) => {

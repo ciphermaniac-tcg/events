@@ -1092,11 +1092,15 @@
   .tm-console .tm-lists .tm-list-sprite:empty {
     display: none;
   }
-  .tm-console .tm-lists tr:has(> .tm-list-sprite:empty) > .tm-extra-col {
+  .tm-console .tm-lists tr:has(> .tm-list-sprite:empty) > :is(.tm-list-deck-check, .tm-extra-col) {
     grid-column: 1;
   }
   .tm-console .tm-lists .tm-list-when {
     width: auto;
+  }
+  /* Under the check, not in the deck icon's column below the icon. */
+  .tm-console .tm-lists .tm-list-deck-check {
+    grid-column: 2;
   }
   .tm-console .tm-lists .tm-extra-col {
     grid-column: 2;
