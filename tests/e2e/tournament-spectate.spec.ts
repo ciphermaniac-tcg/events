@@ -8,6 +8,7 @@
 
 import { readFileSync } from 'node:fs';
 import { expect, type Page } from '@playwright/test';
+import { expectAccessible } from './a11y';
 import { test } from './network-guard';
 
 import { parseTdf } from '../../shared/tournament/tdf';
@@ -674,3 +675,12 @@ test('on a phone a bye starts where the names above it do, with decks shown or n
     expect(await textStart(page, '.tm-matches td.tm-seat > .muted-cell')).toBe(name);
   }
 });
+
+for (const tab of ['', '?tab=standings', '?tab=decklist']) {
+  test(`the public event page${tab} meets WCAG 2.2 AA and fits the screen @mobile`, async ({ page }) => {
+    await mockApi(page);
+    await page.goto(`/t/${CODE}${tab}`);
+    await expect(page.locator('main')).toBeVisible();
+    await expectAccessible(page);
+  });
+}

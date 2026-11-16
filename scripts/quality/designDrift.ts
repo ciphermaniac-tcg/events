@@ -248,6 +248,31 @@ const CHECKS: Check[] = [
       return [];
     }
     return [{ rule: 'disabled-state', message: `disabled opacity ${opacity} — the house value is 0.4` }];
+  },
+
+  // Ruling: no coloured side rules. A bar down one edge of a row or card reads
+  // as a status flag; state is shown in words or weight instead.
+  rule =>
+    ['border-left', 'border-right', 'border-inline-start', 'border-inline-end'].flatMap(side => {
+      const value = decl(rule.body, side) ?? decl(rule.body, `${side}-width`);
+      const px = Number.parseFloat(/(\d*\.?\d+)px/.exec(value ?? '')?.[1] ?? '0');
+      return px > 1
+        ? [{ rule: 'no-side-rule', message: `${side}: ${value} — a one-sided rule wider than a hairline` }]
+        : [];
+    }),
+
+  // Ruling: no status dots, pulsing or still. A small filled circle beside a
+  // label is decoration standing in for words.
+  rule => {
+    const radius = decl(rule.body, 'border-radius');
+    if (!radius || !/^(50%|999px|var\(--radius-pill\))$/.test(radius)) {
+      return [];
+    }
+    const size = (prop: string) => Number.parseFloat(decl(rule.body, prop) ?? 'NaN');
+    const filled = decl(rule.body, 'background') ?? decl(rule.body, 'background-color');
+    return size('width') <= 12 && size('height') <= 12 && filled
+      ? [{ rule: 'no-status-dot', message: 'a small filled circle — say the state in words' }]
+      : [];
   }
 ];
 

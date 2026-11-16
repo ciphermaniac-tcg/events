@@ -80,3 +80,25 @@ test('16px fields scoped by width alone are drift; by width or touch they are no
     ['touch-field-size .tm-input, .tm-select', 'touch-field-size .tm-page :is(input, select, textarea)']
   );
 });
+
+test('a one-sided rule wider than a hairline is drift; a hairline is not', () => {
+  assert.deepEqual(
+    rulesHit(`
+      .live { border-left: 3px solid var(--accent); }
+      .edge { border-inline-start-width: 2px; }
+      .hair { border-left: 1px solid var(--line); }
+    `),
+    ['no-side-rule .live', 'no-side-rule .edge']
+  );
+});
+
+test('a small filled circle is a status dot; a large one or an empty ring is not', () => {
+  assert.deepEqual(
+    rulesHit(`
+      .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); }
+      .avatar { width: 40px; height: 40px; border-radius: 50%; background: var(--surface); }
+      .ring { width: 8px; height: 8px; border-radius: 50%; border: 1px solid var(--fg); }
+    `),
+    ['no-status-dot .dot']
+  );
+});

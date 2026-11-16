@@ -4,6 +4,7 @@
  */
 
 import { expect, type Locator, type Page } from '@playwright/test';
+import { expectAccessible } from './a11y';
 import { test } from './network-guard';
 
 async function signedOut(page: Page) {
@@ -179,4 +180,9 @@ test('the raised band runs to the window’s edges', async ({ page }) => {
     clip: { x: band.x + band.width / 2, y: band.y + 4, width: 1, height: 1 }
   });
   expect(shot.equals(raised)).toBe(true);
+});
+
+test('the signed-out home page meets WCAG 2.2 AA and fits the screen @mobile', async ({ page }) => {
+  await signedOut(page);
+  await expectAccessible(page);
 });

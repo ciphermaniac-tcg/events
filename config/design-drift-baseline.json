@@ -1,8 +1,9 @@
 {
   "note": "Known design drift, recorded so new drift fails the build. This list may only shrink — see scripts/check-design-drift.ts and the ledger on /style.",
-  "generated": "2026-11-09",
+  "generated": "2026-11-16",
   "allowed": [
     "pages/tournament-auth.css|type-scale|.tm-auth .tm-settings-title",
+    "pages/tournament-console.css|no-side-rule|.tm-console .tm-check-earlier",
     "pages/tournament-home.css|colour-literal|.tm-hp",
     "pages/tournament-home.css|colour-literal|.tm-hp-bar",
     "pages/tournament-home.css|colour-literal|.tm-hp-bar small"
