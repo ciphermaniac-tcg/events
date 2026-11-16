@@ -57,7 +57,7 @@ async function inStore<T>(mode: IDBTransactionMode, use: (store: IDBObjectStore)
 export async function loadSaved(): Promise<Saved | null> {
   try {
     const [bytes, version] = await inStore('readonly', store =>
-      Promise.all([done(store.get(KEY)), done(store.get(VERSION))])
+      Promise.all([done<unknown>(store.get(KEY)), done<unknown>(store.get(VERSION))])
     );
     // A database saved before versions were kept counts as one version of its own.
     return bytes instanceof Uint8Array ? { bytes, version: typeof version === 'string' ? version : '' } : null;

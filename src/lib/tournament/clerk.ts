@@ -156,7 +156,15 @@ export type Step =
     };
 
 /** A refusal of this client's own, read as Clerk's are (`clerkProblem`). */
-const refusal = (code: string) => ({ errors: [{ code }] });
+/** A refusal in the shape Clerk's own errors take, so one reader handles both. */
+class Refusal extends Error {
+  readonly errors: { code: string }[];
+  constructor(code: string) {
+    super(code);
+    this.errors = [{ code }];
+  }
+}
+const refusal = (code: string) => new Refusal(code);
 
 /** Clerk loaded and its client, with no session left from a sign-in that never finished to refuse another. */
 async function ready(publishableKey: string): Promise<{ clerk: ClerkJs; client: NonNullable<ClerkJs['client']> }> {

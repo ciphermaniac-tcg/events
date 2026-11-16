@@ -9,6 +9,20 @@ import { maintainabilityRule } from './scripts/quality/maintainability.mjs';
 
 const root = fileURLToPath(new URL('.', import.meta.url));
 
+const PRIVATE_FIELDS = {
+  selector: "PropertyDefinition[kind='field'][key.type='PrivateIdentifier']",
+  message:
+    'Private class fields are disallowed for compatibility with older mobile browsers. Use underscored properties or closures instead.'
+};
+const NEXT_READ = "CallExpression[callee.property.name='get'][arguments.0.value='next']";
+const NEXT_MESSAGE =
+  'Read `next` only through safeNext (server) or ownPath (browser); a raw redirect target is an open redirect.';
+/** Open-redirect guard (973c7fd6): a `next` read must go straight into safeNext or ownPath. */
+const RAW_NEXT = [
+  { selector: `:not(CallExpression) > ${NEXT_READ}`, message: NEXT_MESSAGE },
+  { selector: `CallExpression:not([callee.name=/^(safeNext|ownPath)$/]) > ${NEXT_READ}`, message: NEXT_MESSAGE }
+];
+
 export default [
   {
     ignores: [
@@ -35,14 +49,7 @@ export default [
       sourceType: 'module'
     },
     rules: {
-      'no-restricted-syntax': [
-        'error',
-        {
-          selector: "PropertyDefinition[kind='field'][key.type='PrivateIdentifier']",
-          message:
-            'Private class fields are disallowed for compatibility with older mobile browsers. Use underscored properties or closures instead.'
-        }
-      ],
+      'no-restricted-syntax': ['error', PRIVATE_FIELDS, ...RAW_NEXT],
       'no-unused-vars': 'off',
       '@typescript-eslint/no-unused-vars': [
         'error',
@@ -445,6 +452,7 @@ export default [
       globals: {}
     },
     rules: {
+      'no-restricted-syntax': ['error', PRIVATE_FIELDS],
       'no-magic-numbers': 'off',
       'max-lines-per-function': 'off',
       'max-lines': 'off',
@@ -583,14 +591,45 @@ export default [
     }
   },
   {
-    files: ['shared/data/**/*.ts'],
+    files: ['src/**/*.{ts,tsx}', 'shared/**/*.ts', 'functions/**/*.ts', 'scripts/**/*.ts', 'demo/**/*.{ts,tsx}'],
+    ignores: ['**/*.test.ts'],
     rules: {
-      '@typescript-eslint/no-explicit-any': 'error',
+      '@typescript-eslint/use-unknown-in-catch-callback-variable': 'error',
+      '@typescript-eslint/only-throw-error': 'error',
+      '@typescript-eslint/consistent-type-assertions': [
+        'error',
+        { assertionStyle: 'as', objectLiteralTypeAssertions: 'never' }
+      ]
+    }
+  },
+  {
+    // Solid types a resource's error as any, so .tsx stays out of the unsafe-any rules.
+    // scrollRestore.ts returns an untyped `new Map()`; the router it imports can't load
+    // under node:test, so no change to it can meet the changed-line coverage gate yet.
+    files: ['src/**/*.ts', 'shared/**/*.ts', 'functions/**/*.ts', 'scripts/**/*.ts', 'demo/**/*.ts'],
+    ignores: ['**/*.test.ts', 'src/lib/scrollRestore.ts'],
+    rules: {
       '@typescript-eslint/no-unsafe-assignment': 'error',
       '@typescript-eslint/no-unsafe-argument': 'error',
       '@typescript-eslint/no-unsafe-call': 'error',
       '@typescript-eslint/no-unsafe-member-access': 'error',
       '@typescript-eslint/no-unsafe-return': 'error'
+    }
+  },
+  {
+    // src/ keeps any for Solid's lazy(), whose component constraint is Component<any>.
+    files: ['shared/**/*.ts', 'functions/**/*.ts', 'scripts/**/*.ts', 'demo/**/*.ts'],
+    ignores: ['**/*.test.ts'],
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'error',
+      'no-restricted-properties': [
+        'error',
+        {
+          object: 'Math',
+          property: 'random',
+          message: 'Use crypto.getRandomValues for anything a person could guess, such as event codes (see b941e86c).'
+        }
+      ]
     }
   }
 ];

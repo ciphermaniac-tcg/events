@@ -202,7 +202,7 @@ function Hero(props: { state: ManageState; manage: Manage; pod: Pod | undefined;
     return round && round.status !== 'finished' && !progress().champion && !finished() ? round : null;
   };
   const step = createMemo(() =>
-    props.tom ? ({ kind: 'none' } as NextStep) : nextStep(progress(), finished(), plan())
+    props.tom ? ({ kind: 'none' } satisfies NextStep) : nextStep(progress(), finished(), plan())
   );
   /** The step, when it is of the kind asked for. */
   const stepOf = <K extends NextStep['kind']>(kind: K) => {
@@ -568,7 +568,7 @@ export function ManageEvent(props: { code: string }) {
 
   /** An invite link joins the staff first, which takes the account; the event is then read as staff. */
   async function join(code: string, invite: string) {
-    await joinStaff(code, invite).catch(err => setJoinError(errorText(err)));
+    await joinStaff(code, invite).catch((err: unknown) => setJoinError(errorText(err)));
     await state.load();
   }
 

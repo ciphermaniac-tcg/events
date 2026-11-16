@@ -38,7 +38,7 @@ function createDraft<T extends object>(): SettingsDraft<T> {
     value: (key, saved) => (Object.hasOwn(edits(), key) ? (edits()[key] as T[typeof key]) : saved[key]),
     set(key, value, saved) {
       const others = kept(edits(), other => other !== key);
-      replace(value === saved[key] ? others : ({ ...others, [key]: value } as Partial<T>));
+      replace(value === saved[key] ? others : { ...others, [key]: value });
     },
     changes: saved => kept(edits(), (key, value) => value !== saved[key]),
     forget: sent => replace(kept(edits(), (key, value) => sent[key] !== value))

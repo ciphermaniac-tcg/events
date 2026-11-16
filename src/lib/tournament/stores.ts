@@ -319,8 +319,9 @@ export function detailsProblems(details: StoreDetails): Partial<Record<keyof Sto
 
 /** Details as the server keeps them: trimmed, the country in capitals. */
 export function cleanDetails(details: StoreDetails): StoreDetails {
-  const trimmed = Object.fromEntries(Object.entries(details).map(([key, value]) => [key, value.trim()]));
-  return { ...(trimmed as unknown as StoreDetails), country: details.country.trim().toUpperCase() };
+  const fields: Record<keyof StoreDetails, string> = details;
+  const trimmed = Object.fromEntries(Object.entries(fields).map(([key, value]) => [key, value.trim()]));
+  return { ...(trimmed as Record<keyof StoreDetails, string>), country: details.country.trim().toUpperCase() };
 }
 
 /** The name the server lists an invite link under: the start of its token's SHA-256, as hex. */

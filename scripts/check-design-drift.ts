@@ -142,7 +142,7 @@ function report(findings: Finding[], allowed: Set<string>): void {
 }
 
 function runCheck(findings: Finding[]): void {
-  const baseline: string[] = JSON.parse(readFileSync(BASELINE, 'utf8')).allowed;
+  const { allowed: baseline } = JSON.parse(readFileSync(BASELINE, 'utf8')) as { allowed: string[] };
   const allowed = new Set(baseline);
   const added = findings.filter(f => !allowed.has(f.key));
   const seen = new Set(findings.map(f => f.key));

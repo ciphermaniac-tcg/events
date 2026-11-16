@@ -554,7 +554,7 @@ function HeadJudge(props: { manage: Manage; removals: number }) {
     const { code } = props.manage;
     await nameHeadJudge(code, userId || null)
       .then(mutate)
-      .catch(err => setError(errorText(err)));
+      .catch((err: unknown) => setError(errorText(err)));
   }
   return (
     <SettingRow label={t('Head judge')} for='head-judge' note={t('May approve result corrections')}>

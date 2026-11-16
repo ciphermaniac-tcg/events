@@ -27,7 +27,7 @@ const [session, { refetch, mutate }] = createRoot(() => {
         confirmed = true;
         return answer;
       })
-      .catch(error => {
+      .catch((error: unknown) => {
         const known = confirmed ? (latestValue(session) ?? value) : undefined;
         if (known) {
           return known;

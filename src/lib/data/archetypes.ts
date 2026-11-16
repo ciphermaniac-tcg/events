@@ -63,7 +63,7 @@ export async function loadArchetypeIconMap(
  */
 export function archetypeIconMapSettled(): boolean {
   if (!iconMapAsked) {
-    loadArchetypeIconMap().catch(error => console.warn(error));
+    loadArchetypeIconMap().catch((error: unknown) => console.warn(error));
   }
   return iconMapSettled();
 }
