@@ -8,7 +8,7 @@ import { returnEffects } from '../../shared/tournament/returns.ts';
 import { revisionOf } from '../../shared/tournament/revision.ts';
 import { type ExtensionCommand, keepTimeExtensions, setTimeExtension } from '../../shared/tournament/timeExtensions.ts';
 import { withSiteClocks } from '../../shared/tournament/tomClock.ts';
-import type { Match, Round, Tournament } from '../../shared/tournament/types.ts';
+import type { Round, Tournament } from '../../shared/tournament/types.ts';
 import { readTournament } from '../../shared/tournament/validate.ts';
 import { assignKeys, publicTournament } from '../../shared/tournament/view.ts';
 import { commandRunner } from '../__utils__/commands.ts';

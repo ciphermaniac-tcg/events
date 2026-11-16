@@ -20,7 +20,6 @@ import { seededRandom } from '../../shared/tournament/random';
 import { parseTdf } from '../../shared/tournament/tdf';
 import { readTournament } from '../../shared/tournament/validate';
 import {
-  applyPending,
   assignKeys,
   DEFAULT_SETTINGS,
   isSanctioned,

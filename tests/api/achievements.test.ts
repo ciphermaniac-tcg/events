@@ -10,7 +10,6 @@ import { test } from 'node:test';
 import * as me from '../../functions/api/me.ts';
 import * as profiles from '../../functions/api/profiles/[handle].ts';
 import * as event from '../../functions/api/tournaments/[code]/index.ts';
-import * as report from '../../functions/api/tournaments/[code]/report.ts';
 import { launchGrant } from '../../functions/lib/auth/session.ts';
 import { loadTournament } from '../../functions/lib/tournaments/store.ts';
 import type { Badge } from '../../shared/accounts/achievements.ts';

@@ -11,7 +11,6 @@ import assert from 'node:assert/strict';
 import { beforeEach, test } from 'node:test';
 
 import * as me from '../../functions/api/me.ts';
-import * as report from '../../functions/api/tournaments/[code]/report.ts';
 import type { TournamentEnv } from '../../functions/lib/auth/env.ts';
 import { loadTournament } from '../../functions/lib/tournaments/store.ts';
 import { apiCalls, type Handler } from '../__utils__/apiCalls.ts';

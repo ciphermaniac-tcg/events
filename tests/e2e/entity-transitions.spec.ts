@@ -2,7 +2,7 @@ import { expect, type Page } from '@playwright/test';
 import { test } from './network-guard';
 import type { PublicProfile, PublicStore } from '../../shared/accounts/types';
 import { emptyTournament } from '../../shared/tournament/create';
-import { DEFAULT_SETTINGS, type Manage, type TournamentView } from '../../shared/tournament/view';
+import { type Manage, type TournamentView } from '../../shared/tournament/view';
 import { deferred } from '../__utils__/deferred';
 import { manageOf } from './console-fixture';
 

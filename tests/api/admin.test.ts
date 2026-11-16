@@ -24,17 +24,16 @@ import * as adminStore from '../../functions/api/admin/stores/[id].ts';
 import * as applications from '../../functions/api/applications/index.ts';
 import * as history from '../../functions/api/history.ts';
 import * as me from '../../functions/api/me.ts';
-import * as report from '../../functions/api/tournaments/[code]/report.ts';
 import * as tournaments from '../../functions/api/tournaments/index.ts';
 import type { TournamentEnv } from '../../functions/lib/auth/env.ts';
 import type { StoreApplication } from '../../shared/accounts/stores.ts';
 import { apiSuite, type Call, type Handler } from '../__utils__/apiCalls.ts';
-import { at, eventCalls } from '../__utils__/eventCalls.ts';
+import { eventCalls } from '../__utils__/eventCalls.ts';
 import { storeApplication } from '../__utils__/storeApplication.ts';
 import { sqliteD1 } from '../__utils__/sqliteD1.ts';
 
 const { env, hit, signIn } = apiSuite();
-const { newSwiss, send, addPlayers, settle, playerSays } = eventCalls(hit);
+const { newSwiss, send, settle, playerSays } = eventCalls(hit);
 
 /** The test database itself, for what no request sets. */
 const raw = () => (env.TOURNAMENT_DB as ReturnType<typeof sqliteD1>).raw;

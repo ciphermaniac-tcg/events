@@ -936,7 +936,7 @@ export function firstPlaces(input: Tournament): string[] {
   );
 }
 
-function finalsCount(t: Tournament, pod: Pod, division: Division, of: (id: string) => Division): number {
+function finalsCount(_t: Tournament, pod: Pod, division: Division, of: (id: string) => Division): number {
   const frozen = pod.divisionCounts?.[division];
   if (frozen !== undefined) {
     return frozen;

@@ -6,7 +6,6 @@
 
 import type { Command } from '../../shared/tournament/commands.ts';
 import { emptyTournament } from '../../shared/tournament/create.ts';
-import { latestRound } from '../../shared/tournament/rounds.ts';
 import type { PodCategory, Tournament } from '../../shared/tournament/types.ts';
 import { commandRunner, freshContext, pendingResults } from './commands.ts';
 

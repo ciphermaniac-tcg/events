@@ -15,8 +15,6 @@ import * as me from '../../functions/api/me.ts';
 import * as data from '../../functions/api/me/data.ts';
 import * as tournaments from '../../functions/api/tournaments/index.ts';
 import * as idle from '../../functions/api/tournaments/idle.ts';
-import * as report from '../../functions/api/tournaments/[code]/report.ts';
-import * as event from '../../functions/api/tournaments/[code]/index.ts';
 import { sha256 } from '../../functions/lib/auth/session.ts';
 import { loadTournament } from '../../functions/lib/tournaments/store.ts';
 import type { HistoryEntry } from '../../shared/accounts/types.ts';
@@ -76,10 +74,6 @@ const eventsOf = async (cookie: string) =>
       code: string;
     }[]
   ).map(summary => summary.code);
-
-/** Moves an event's making back a second, as one made before a wipe in the same millisecond would not be. */
-const backdate = (code: string) =>
-  raw().prepare('UPDATE tournaments SET created_at = created_at - 1000 WHERE code = ?').run(code);
 
 async function exported(cookie?: string, parts?: string) {
   const path = parts === undefined ? '/api/me/data' : `/api/me/data?parts=${parts}`;

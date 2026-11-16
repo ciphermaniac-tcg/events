@@ -12,7 +12,6 @@ import { beforeEach, test } from 'node:test';
 import * as corrections from '../../functions/api/tournaments/[code]/corrections.ts';
 import * as headJudge from '../../functions/api/tournaments/[code]/head-judge.ts';
 import * as penaltyNotes from '../../functions/api/tournaments/[code]/penalty-notes.ts';
-import * as staff from '../../functions/api/tournaments/[code]/staff.ts';
 import type { TournamentEnv } from '../../functions/lib/auth/env.ts';
 import { apiCalls, type Handler } from '../__utils__/apiCalls.ts';
 import { at, eventCalls } from '../__utils__/eventCalls.ts';
@@ -21,7 +20,7 @@ import { countingTrips, racing, sqliteD1 } from '../__utils__/sqliteD1.ts';
 let env: TournamentEnv;
 let db: ReturnType<typeof sqliteD1>;
 const { hit, signIn } = apiCalls(() => env);
-const { newSwiss, send, addPlayers, runningEvent } = eventCalls(hit, signIn);
+const { runningEvent } = eventCalls(hit, signIn);
 
 beforeEach(() => {
   db = sqliteD1('tournaments.sql');

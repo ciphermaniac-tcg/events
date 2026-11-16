@@ -9,7 +9,6 @@ import {
   PairingError,
   type PairingHistory,
   pairSwiss,
-  pairTopCut,
   rankForPairing,
   sortSwissPairings
 } from '../../shared/tournament/pairing.ts';

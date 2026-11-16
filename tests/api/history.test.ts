@@ -18,7 +18,6 @@ import * as claim from '../../functions/api/tournaments/[code]/claim.ts';
 import * as decklists from '../../functions/api/tournaments/[code]/decklists.ts';
 import * as event from '../../functions/api/tournaments/[code]/index.ts';
 import * as manage from '../../functions/api/tournaments/[code]/manage.ts';
-import * as report from '../../functions/api/tournaments/[code]/report.ts';
 import * as sync from '../../functions/api/tournaments/[code]/sync.ts';
 import { loadTournament } from '../../functions/lib/tournaments/store.ts';
 import type { HistoryEntry } from '../../shared/accounts/types.ts';

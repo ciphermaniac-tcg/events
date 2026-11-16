@@ -10,9 +10,7 @@
 import assert from 'node:assert/strict';
 import { afterEach, mock, test } from 'node:test';
 
-import * as event from '../../functions/api/tournaments/[code]/index.ts';
 import * as manage from '../../functions/api/tournaments/[code]/manage.ts';
-import * as report from '../../functions/api/tournaments/[code]/report.ts';
 import * as requests from '../../functions/api/tournaments/[code]/requests.ts';
 import { apiSuite, type Handler } from '../__utils__/apiCalls.ts';
 import { at, eventCalls } from '../__utils__/eventCalls.ts';

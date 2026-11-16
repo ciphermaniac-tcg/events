@@ -20,7 +20,6 @@ import * as community from '../../functions/api/community.ts';
 import * as me from '../../functions/api/me.ts';
 import * as setup from '../../functions/api/me/setup.ts';
 import * as decklists from '../../functions/api/tournaments/[code]/decklists.ts';
-import * as report from '../../functions/api/tournaments/[code]/report.ts';
 import * as idle from '../../functions/api/tournaments/idle.ts';
 import type { TournamentEnv } from '../../functions/lib/auth/env.ts';
 import { HOSTS_ONLY, UNDER_13 } from '../../shared/accounts/age.ts';

@@ -23,7 +23,7 @@ let env: TournamentEnv;
 let db: ReturnType<typeof sqliteD1>;
 const { hit, signIn, userOf } = apiCalls(() => env);
 const calls = eventCalls(hit, signIn);
-const { newSwiss, send, addPlayers, settle } = calls;
+const { settle } = calls;
 
 beforeEach(() => {
   db = sqliteD1('tournaments.sql');

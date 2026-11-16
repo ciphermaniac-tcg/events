@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { applyCommand, type Command } from '../../shared/tournament/commands.ts';
 import { emptyTournament } from '../../shared/tournament/create.ts';
 import { bracketOrder } from '../../shared/tournament/seeding.ts';
 import { seededRandom } from '../../shared/tournament/random.ts';
