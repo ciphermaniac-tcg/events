@@ -25,7 +25,6 @@ import {
   zoneName
 } from '../../lib/tournament/stores';
 import { latestValue } from '../../lib/resource';
-import { errorText } from '../../lib/tournament/api';
 import { TournamentHero } from './Hero';
 import { StoreLoadError } from './SessionGate';
 import { StoreMap } from './StoreMap';
@@ -200,7 +199,7 @@ export function StorePage(props: { id: string }) {
         when={current()}
         fallback={
           <Show when={read.error} fallback={<Skeleton height='320px' />}>
-            <StoreLoadError line={errorText(read.error)} onRetry={() => void refetch()} />
+            <StoreLoadError error={read.error} onRetry={() => void refetch()} />
           </Show>
         }
       >

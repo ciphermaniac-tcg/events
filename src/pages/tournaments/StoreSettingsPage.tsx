@@ -20,7 +20,7 @@ import {
 } from '../../../shared/accounts/stores';
 import type { PublicStore } from '../../../shared/accounts/types';
 import { Skeleton } from '@ciphermaniac/design/components/Skeleton';
-import { errorText, type SignInOffer } from '../../lib/tournament/api';
+import { type SignInOffer } from '../../lib/tournament/api';
 import { msg, t } from '../../lib/i18n';
 import {
   byWeek,
@@ -233,7 +233,7 @@ function Settings(props: { id: string }) {
       when={current()}
       fallback={
         <Show when={read.error} fallback={<Skeleton height='240px' />}>
-          <StoreLoadError line={errorText(read.error)} onRetry={() => void refetch()} />
+          <StoreLoadError error={read.error} onRetry={() => void refetch()} />
         </Show>
       }
     >

@@ -783,6 +783,15 @@ test('a store whose id reads as an auth page is still its own page', async ({ pa
   await expect(page.getByRole('heading', { name: 'Sign in' })).toHaveCount(0);
 });
 
+test('an unknown store is not found, with a way home and nothing to try again', async ({ page }) => {
+  await mock(page, { user: null, role: null });
+  await page.route('**/api/stores/nope', route => route.fulfill({ status: 404, json: { error: 'No such store' } }));
+  await page.goto('/stores/nope');
+  await expect(page.getByRole('heading', { name: 'Store not found' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Go home' })).toHaveAttribute('href', '/');
+  await expect(page.getByRole('button', { name: 'Try again' })).toHaveCount(0);
+});
+
 test('a store page whose first load fails can be tried again', async ({ page }) => {
   await mock(page, { user: null, role: null });
   let attempts = 0;
