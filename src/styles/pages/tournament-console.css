@@ -78,6 +78,12 @@
   text-align: left;
   cursor: pointer;
 }
+/* A dialog's two-way choice (a table's two players) sizes to its names. */
+.tm-modal .tm-field > .segmented {
+  justify-self: start;
+  width: max-content;
+  max-width: 100%;
+}
 /* A time extension's minutes: less, the minutes, more, in the clock's bordered strip. */
 .tm-minutes {
   display: inline-flex;

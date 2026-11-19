@@ -78,7 +78,8 @@ export interface ResultEntry {
   failedFor: (round: Round, match: Match) => Outcome | undefined;
   /** For a result not taken: the result now standing, when another device changed it from the one this one saw. */
   conflictFor: (round: Round, match: Match) => Outcome | undefined;
-  send: (round: Round, match: Match, outcome: Outcome) => void;
+  /** `expected`: what must stand for it to land, in place of what the console shows now. */
+  send: (round: Round, match: Match, outcome: Outcome, expected?: Outcome) => void;
   /** Several results, each sent once the one before is answered, all for the pod they were entered in. */
   sendAll: (round: Round, results: readonly { match: Match; outcome: Outcome }[]) => Promise<void>;
   retry: (round: Round, match: Match) => Promise<void>;
@@ -132,10 +133,10 @@ export function createResultEntry(state: () => ManageState, pod: () => Pod): Res
     const { table, p1, p2 } = match;
     return { pod: category(), round: round.number, table, p1, p2 };
   };
-  /** The result with what stands for it in the console's copy now. */
-  const entered = (round: Round, match: Match, outcome: Outcome): EnteredResult => {
+  /** The result with what must stand for it: `expected`, or what stands in the console's copy now. */
+  const entered = (round: Round, match: Match, outcome: Outcome, expected?: Outcome): EnteredResult => {
     const key = at(round, match);
-    return { ...key, outcome, expected: standingNow(key) };
+    return { ...key, outcome, expected: expected ?? standingNow(key) };
   };
   const standingNow = (key: Omit<EnteredResult, 'outcome'>) => {
     const data = state().data();
@@ -232,7 +233,7 @@ export function createResultEntry(state: () => ManageState, pod: () => Pod): Res
       const standing = result && standingNow(result);
       return standing && standing !== result.expected && standing !== result.outcome ? standing : undefined;
     },
-    send: (round, match, outcome) => void sendEntered(entered(round, match, outcome)),
+    send: (round, match, outcome, expected) => void sendEntered(entered(round, match, outcome, expected)),
     // Sent at once, many results race for the event's one version and can run out of tries.
     sendAll: async (round, results) => {
       for (const result of results.map(each => entered(round, each.match, each.outcome))) {

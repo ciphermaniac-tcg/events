@@ -62,6 +62,7 @@ export function ResultSheet(props: {
   onPick: (outcome: Outcome) => void;
   onClose: () => void;
   onTimeExtension?: () => void;
+  onPenalty?: () => void;
   /** What the table's menu adds to its results (see TableMenu). */
   menu: TableMenuOf;
   pod: Pod;
@@ -177,6 +178,11 @@ export function ResultSheet(props: {
             <Show when={props.onTimeExtension}>
               <button type='button' class='tm-menu-item' onClick={() => props.onTimeExtension?.()}>
                 {t('Time extension')}
+              </button>
+            </Show>
+            <Show when={props.onPenalty}>
+              <button type='button' class='tm-menu-item' onClick={() => props.onPenalty?.()}>
+                {t('Penalty')}
               </button>
             </Show>
             <StreamLink {...props.menu} pod={props.pod} table={props.match.table} />

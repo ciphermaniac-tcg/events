@@ -1634,5 +1634,7 @@
     "one": "Ajouter {n} minute",
     "other": "Ajouter {n} minutes"
   },
-  "Copy stream overlay link": "Copier le lien de l’overlay pour le stream"
+  "Copy stream overlay link": "Copier le lien de l’overlay pour le stream",
+  "Penalty, table {table}": "Sanction, table {table}",
+  "Save and record the loss": "Enregistrer et saisir la défaite"
 }

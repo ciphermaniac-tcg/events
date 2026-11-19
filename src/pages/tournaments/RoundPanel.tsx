@@ -65,6 +65,7 @@ import { OptionsMenu } from './OptionsMenu';
 import { Clock } from './Clock';
 import { ExtensionClock } from './ExtensionClock';
 import type { ExtensionSelection } from './TimeExtensionDialog';
+import type { PenaltySelection } from './PenaltyDialog';
 import { RoundPicker, RoundStepper } from './RoundStepper';
 import { MatchTable } from './MatchTable';
 import { ChampionLine, ClockControls, DeleteRound, RepairControl } from './RoundControls';
@@ -76,6 +77,7 @@ import { SeatResets, StreamLink, type TableMenuOf } from './TableMenu';
 const CutBracket = lazyPanel(() => import('./Bracket').then(m => ({ default: m.CutBracket })));
 // The sheet results take where rows are narrow; a desktop console never opens it.
 const ResultSheet = lazyPanel(() => import('./ResultSheet').then(m => ({ default: m.ResultSheet })));
+const PenaltyDialog = lazyPanel(() => import('./PenaltyDialog').then(m => ({ default: m.PenaltyDialog })));
 const TimeExtensionDialog = lazyPanel(() =>
   import('./TimeExtensionDialog').then(m => ({ default: m.TimeExtensionDialog }))
 );
@@ -113,6 +115,8 @@ interface ResultProps {
   onRetry: () => void;
   onDiscard: () => void;
   onTimeExtension?: () => void;
+  /** Notes a penalty at the table (see PenaltyDialog); not for an Admin watching. */
+  onPenalty?: () => void;
   /** Where rows are too narrow for their controls: the result opens the table's sheet instead. */
   onOpen?: () => void;
   /** A past Swiss round's result, which can only be corrected (see Corrections.tsx); null otherwise. */
@@ -296,6 +300,11 @@ function StandingResult(props: ResultProps) {
           <Show when={props.onTimeExtension}>
             <button type='button' class='tm-menu-item' onClick={() => props.onTimeExtension?.()}>
               {t('Time extension')}
+            </button>
+          </Show>
+          <Show when={props.onPenalty}>
+            <button type='button' class='tm-menu-item' onClick={() => props.onPenalty?.()}>
+              {t('Penalty')}
             </button>
           </Show>
           <StreamLink {...props.menu} pod={props.pod} table={props.match.table} />
@@ -509,6 +518,7 @@ function TableSheet(props: {
   onPick: (outcome: Outcome) => void;
   onClose: () => void;
   onTimeExtension?: () => void;
+  onPenalty?: () => void;
   menu: TableMenuOf;
 }) {
   return (
@@ -525,6 +535,7 @@ function TableSheet(props: {
         onPick={outcome => props.onPick(outcome)}
         onClose={() => props.onClose()}
         onTimeExtension={props.onTimeExtension}
+        onPenalty={props.onPenalty}
         menu={props.menu}
         pod={props.pod}
       />
@@ -774,24 +785,55 @@ function createTables(
   return (match: Match) => tables().get(match) ?? tableState(match, round() as Round);
 }
 
-/** The dialogs a table's menu opens, over the round: its time extension. */
-function createTableDialogs(props: { state: ManageState; pod: Pod }, closeSheet: () => void) {
+/**
+ * The dialogs a table's menu opens, over the round: its time extension and a
+ * penalty. `record` enters a result for a table still open, where results are
+ * entered here, which a penalty that decides the match does at once.
+ */
+function createTableDialogs(
+  props: { state: ManageState; manage: Manage; pod: Pod },
+  names: () => Map<string, string>,
+  closeSheet: () => void,
+  record: (match: Match) => ((outcome: Outcome) => void) | undefined
+) {
   const [extension, setExtension] = createSignal<ExtensionSelection | null>(null);
+  const [penalty, setPenalty] = createSignal<PenaltySelection | null>(null);
   onMount(() => warmChunks([TimeExtensionDialog.preload]));
   return {
+    penalty: (match: Match, r: Round) =>
+      props.manage.watching
+        ? undefined
+        : () => {
+            closeSheet();
+            setPenalty({ round: r.number, match, record: record(match) });
+          },
     extend(match: Match, r: Round) {
       closeSheet();
       props.state.clearError();
       setExtension({ pod: props.pod.category, round: r.number, match });
     },
     view: () => (
-      <Show when={extension()} keyed>
-        {selection => (
-          <Suspense>
-            <TimeExtensionDialog state={props.state} selection={selection} onClose={() => setExtension(null)} />
-          </Suspense>
-        )}
-      </Show>
+      <>
+        <Show when={extension()} keyed>
+          {selection => (
+            <Suspense>
+              <TimeExtensionDialog state={props.state} selection={selection} onClose={() => setExtension(null)} />
+            </Suspense>
+          )}
+        </Show>
+        <Show when={penalty()} keyed>
+          {selection => (
+            <Suspense>
+              <PenaltyDialog
+                code={props.manage.code}
+                selection={selection}
+                names={names()}
+                onClose={() => setPenalty(null)}
+              />
+            </Suspense>
+          )}
+        </Show>
+      </>
     )
   };
 }
@@ -837,7 +879,10 @@ export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod
   const live = () => !props.locked && !tom() && timed() && !ended();
   // A TOM event's results are entered in TOM, so its rows open no sheet and take no presses.
   const { opens, inRow, openSheet, sheetMatch, closeSheet } = createRowSheet(() => locked() || tom());
-  const dialogs = createTableDialogs(props, closeSheet);
+  const dialogs = createTableDialogs(props, names, closeSheet, match =>
+    // A penalty's loss lands only on a table still playing, as it was when the penalty was given.
+    !tom() && isOpen(match) ? outcome => send(match, outcome, false, 'pending') : undefined
+  );
   // Only the table asked about, and the one asked before it, draw again as the question moves.
   const askingAt = createSelector(() => {
     const choice = asking();
@@ -883,14 +928,14 @@ export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod
    * Sends a result. `refocus`: hand the filter back for the next table; not
    * from the sheet, whose screen has no room for a keyboard.
    */
-  function send(match: Match, outcome: Outcome, refocus = true) {
+  function send(match: Match, outcome: Outcome, refocus = true, expected?: Outcome) {
     const r = round();
     setAsking(null);
     if (refocus) {
       backToFilter();
     }
     if (r) {
-      entry.send(r, match, outcome);
+      entry.send(r, match, outcome, expected);
     }
   }
 
@@ -965,6 +1010,7 @@ export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod
                     onAccept={outcome => send(match, outcome)}
                     onOpen={opens() ? () => openSheet(match) : undefined}
                     onTimeExtension={canExtend(match) ? () => dialogs.extend(match, r()) : undefined}
+                    onPenalty={dialogs.penalty(match, r())}
                     past={fixes.cell(match, r())}
                     menu={props}
                     onKeep={() => {
@@ -1046,6 +1092,7 @@ export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod
                     }}
                     onClose={closeSheet}
                     onTimeExtension={canExtend(match()) ? () => dialogs.extend(match(), r()) : undefined}
+                    onPenalty={dialogs.penalty(match(), r())}
                     menu={props}
                   />
                 )}

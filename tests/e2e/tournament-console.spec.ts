@@ -2241,6 +2241,81 @@ test('a table menu resets a seat first and copies the table’s stream overlay l
   await released;
 });
 
+test('a penalty from a table’s menu notes it for the seat picked and records a Match Loss there @mobile', async ({
+  page
+}) => {
+  const t = event(4, 0, true);
+  const match = firstMatch(t);
+  const sent = await mockConsole(page, t, settingsOf({}));
+  const notes: unknown[] = [];
+  await page.route(`**/api/tournaments/${CODE}/penalty-notes`, route => {
+    if (route.request().method() === 'POST') {
+      notes.push(route.request().postDataJSON());
+    }
+    return route.fulfill({ json: { entries: [], judges: [{ id: 'u1', name: 'morgan' }] } });
+  });
+  if ((page.viewportSize()?.width ?? 1000) <= 900) {
+    await page.locator('.tm-matches tbody tr:not(.tm-group-row)').first().click();
+  }
+  await page.getByRole('button', { name: `More for table ${match.table}`, exact: true }).click();
+  await page.getByRole('button', { name: 'Penalty', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: `Penalty, table ${match.table}`, exact: true });
+  const second = t.players.find(p => p.id === match.p2);
+  await dialog.getByRole('radio', { name: `${second?.firstName} ${second?.lastName}` }).click();
+  // A Warning is only a note.
+  await dialog.getByLabel('Penalty', { exact: true }).selectOption('warning');
+  await expect(dialog.getByRole('button', { name: 'Save note', exact: true })).toBeVisible();
+  await dialog.getByLabel('Penalty', { exact: true }).selectOption('match-loss');
+  await dialog.getByRole('button', { name: 'Save and record the loss', exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  expect(notes).toEqual([
+    expect.objectContaining({ playerId: match.p2, round: 1, penalty: 'match-loss', replaces: null })
+  ]);
+  await expect
+    .poll(() => sent.at(-1))
+    .toMatchObject({ type: 'reportResult', table: match.table, p1: match.p1, outcome: 'p1' });
+});
+
+test('a penalty on its way holds its seat, and its loss lands only on a table still playing', async ({ page }) => {
+  const t = event(4, 0, true);
+  const match = firstMatch(t);
+  const sent = await mockConsole(page, t, settingsOf({}));
+  const notes: { playerId: string }[] = [];
+  const held = deferred<void>();
+  await page.route(`**/api/tournaments/${CODE}/penalty-notes`, async route => {
+    if (route.request().method() === 'POST') {
+      notes.push(route.request().postDataJSON() as { playerId: string });
+      await held.promise;
+    }
+    return route.fulfill({ json: { entries: [], judges: [{ id: 'u1', name: 'morgan' }] } });
+  });
+  await page.getByRole('button', { name: `More for table ${match.table}`, exact: true }).click();
+  await page.getByRole('button', { name: 'Penalty', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: `Penalty, table ${match.table}`, exact: true });
+  const [first, second] = [match.p1, match.p2].map(id => t.players.find(p => p.id === id)!);
+  await dialog.getByLabel('Penalty', { exact: true }).selectOption('match-loss');
+  await dialog.getByRole('button', { name: 'Save and record the loss', exact: true }).click();
+  await expect.poll(() => notes).toHaveLength(1);
+  // On its way, the seat and the penalty stay as sent.
+  await dialog.getByRole('radio', { name: `${second?.firstName} ${second?.lastName}` }).click();
+  await expect(dialog.getByRole('radio', { name: `${first?.firstName} ${first?.lastName}` })).toBeChecked();
+  await expect(dialog.getByLabel('Penalty', { exact: true })).toBeDisabled();
+  // Meanwhile the table's result comes in from elsewhere.
+  const { table, p1, p2 } = match;
+  const reported = runCommands(t, { type: 'reportResult', pod: 'masters', round: 1, table, p1, p2, outcome: 'p1' });
+  await page.route(`**/api/tournaments/${CODE}/manage*`, route => route.fulfill({ json: consoleOf(reported, 9) }));
+  const looked = page.waitForResponse(response => response.url().includes('/manage'));
+  await page.evaluate(() => window.dispatchEvent(new Event('online')));
+  await looked;
+  held.resolve();
+  await expect(dialog).toHaveCount(0);
+  expect(notes).toEqual([expect.objectContaining({ playerId: match.p1 })]);
+  // The loss asks for the table as it was, still playing, so it cannot land over the result.
+  await expect
+    .poll(() => sent.at(-1))
+    .toMatchObject({ type: 'reportResult', table: match.table, outcome: 'p2', expected: 'pending' });
+});
+
 test('canceling or failing an extension keeps the result unchanged @mobile', async ({ page }) => {
   const t = event(4, 0, true);
   const { table } = t.pods[0]!.rounds[0]!.matches[0]!;
