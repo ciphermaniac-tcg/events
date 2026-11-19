@@ -702,13 +702,13 @@ test('a store lists its ended events latest first, with players and winners name
     codes.push((await create(manager, { store, ...body })).json.code as string);
   }
   const player = (id: string, firstName: string, lastName: string) => ({ id, firstName, lastName, birthDate: '' });
-  const finish = (code: string, startDate: string, players: object[], winner: string) => {
+  const finish = (code: string, startDate: string, players: object[], winner: string, startsAt = '') => {
     raw()
       .prepare(
-        "UPDATE tournaments SET settings = json_set(settings, '$.finished', 1), " +
+        "UPDATE tournaments SET settings = json_set(settings, '$.finished', 1, '$.startsAt', ?), " +
           "state = json_set(state, '$.info.startDate', ?, '$.players', json(?)) WHERE code = ?"
       )
-      .run(startDate, JSON.stringify(players), code);
+      .run(startsAt, startDate, JSON.stringify(players), code);
     raw().prepare('INSERT INTO event_wins (code, player_id) VALUES (?, ?)').run(code, winner);
   };
   finish(codes[0]!, '9/2/2026', [player('1', 'Ash', 'Ketchum'), player('2', 'Misty', 'Waterflower')], '1');
@@ -716,8 +716,15 @@ test('a store lists its ended events latest first, with players and winners name
     codes[1]!,
     '10/13/2026',
     [player('a', 'Ash', 'Ketchum'), player('b', 'Ash', 'Kelly'), player('c', 'Brock', 'Harrison')],
-    'a'
+    'a',
+    '2026-10-17T11:00'
   );
+  raw()
+    .prepare(
+      "UPDATE tournaments SET settings = json_set(settings, '$.startsAt', '2026-11-21T11:00'), " +
+        "state = json_set(state, '$.info.startDate', '11/18/2026') WHERE code = ?"
+    )
+    .run(codes[2]);
   const read = await hit(storeRoute.onRequestGet as Handler, `/api/stores/${store}`, { id: store });
   const past = read.json.store.past as {
     code: string;
@@ -729,14 +736,14 @@ test('a store lists its ended events latest first, with players and winners name
   assert.deepEqual(
     past.map(item => [item.code, item.date, item.players, item.winners, item.sanctioned]),
     [
-      [codes[1], '2026-10-13', 3, ['Ash Ket.'], false],
+      [codes[1], '2026-10-17', 3, ['Ash Ket.'], false],
       [codes[0], '2026-09-02', 2, ['Ash Ketchum'], true]
     ]
   );
   assert.deepEqual(
-    (read.json.store.events as { code: string }[]).map(item => item.code),
-    [codes[2]],
-    'an event that has not ended is upcoming, not past'
+    (read.json.store.events as { code: string; startDate: string }[]).map(item => [item.code, item.startDate]),
+    [[codes[2], '11/21/2026']],
+    'an event that has not ended is upcoming, not past, on the day its start time names'
   );
 });
 

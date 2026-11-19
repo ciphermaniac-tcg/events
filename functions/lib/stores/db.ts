@@ -7,6 +7,7 @@
  */
 
 import { parseTomDate } from '../../../shared/tournament/divisions.js';
+import { startDateOf } from '../../../shared/tournament/limits.js';
 import {
   type GivenRole,
   type LeagueNight,
@@ -449,7 +450,7 @@ export function storeEvents(found: { results?: unknown[] } | undefined): StoreEv
   return rows<StoreEventRow>(found).map(row => ({
     code: row.code,
     name: row.name ?? row.code,
-    startDate: row.start_date ?? '',
+    startDate: startDateOf(row.starts_at ?? '', row.start_date ?? ''),
     startsAt: row.starts_at ?? '',
     sanctioned: row.mode === 'tom' || row.sanctioned !== 0,
     status: row.rounds > 0 ? 'live' : 'upcoming'
@@ -460,6 +461,7 @@ interface PastEventRow {
   code: string;
   name: string | null;
   start_date: string | null;
+  starts_at: string | null;
   created_at: number;
   sanctioned: number | null;
   mode: string;
@@ -476,8 +478,8 @@ const PAST_LIMIT = 100;
 
 const PAST_SQL =
   "SELECT t.code, t.mode, t.created_at, json_extract(t.state, '$.info.name') AS name, " +
-  "json_extract(t.state, '$.info.startDate') AS start_date, json_extract(t.settings, '$.sanctioned') AS sanctioned, " +
-  "(SELECT json_group_array(json_object('id', json_extract(players.value, '$.id'), " +
+  "json_extract(t.state, '$.info.startDate') AS start_date, json_extract(t.settings, '$.startsAt') AS starts_at, " +
+  "json_extract(t.settings, '$.sanctioned') AS sanctioned, (SELECT json_group_array(json_object('id', json_extract(players.value, '$.id'), " +
   "'firstName', json_extract(players.value, '$.firstName'), 'lastName', json_extract(players.value, '$.lastName'))) " +
   "FROM json_each(t.state, '$.players') players) AS field, " +
   '(SELECT json_group_array(w.player_id) FROM event_wins w WHERE w.code = t.code) AS winners ' +
@@ -510,7 +512,7 @@ function pastEvent(row: PastEventRow, timeZone: string): PastEvent {
   return {
     code: row.code,
     name: row.name ?? row.code,
-    date: isoDate(row.start_date) || pastEventDate(timeZone, row.created_at),
+    date: isoDate(startDateOf(row.starts_at ?? '', row.start_date ?? '')) || pastEventDate(timeZone, row.created_at),
     sanctioned,
     players: field.length,
     winners: winnerNames(field, JSON.parse(row.winners) as string[], sanctioned)

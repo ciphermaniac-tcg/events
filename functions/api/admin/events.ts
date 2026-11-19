@@ -5,7 +5,7 @@
  */
 
 import type { AdminEvent } from '../../../shared/accounts/types.js';
-import { eventDay, tomDate } from '../../../shared/tournament/limits.js';
+import { startDateOf } from '../../../shared/tournament/limits.js';
 import { displayNameSql } from '../../lib/accounts/handles.js';
 import { openForAdmin } from '../../lib/auth/admin.js';
 import type { Context } from '../../lib/auth/env.js';
@@ -29,23 +29,13 @@ interface EventRow {
   updated_at: number;
 }
 
-/**
- * The day the event is on: the day its start time names, which the organizer
- * can change, else its .tdf date, which for an event made here is the day it
- * was made.
- */
-const dayOf = (row: EventRow): string => {
-  const day = eventDay(row.starts_at ?? '', '');
-  return day ? tomDate(day) : (row.start_date ?? '');
-};
-
 const eventOf = (row: EventRow): AdminEvent => ({
   code: row.code,
   name: row.name ?? '',
   store: row.store_id === null ? null : { id: row.store_id, name: row.store_name ?? '' },
   owner: row.owner ?? '',
   players: row.players ?? 0,
-  startDate: dayOf(row),
+  startDate: startDateOf(row.starts_at ?? '', row.start_date ?? ''),
   finished: row.finished === 1,
   rounds: row.rounds ?? 0,
   updatedAt: row.updated_at

@@ -25,6 +25,16 @@ export function eventDay(startsAt: string, today: string): string {
 export const tomDate = (day: string) => `${day.slice(5, 7)}/${day.slice(8, 10)}/${day.slice(0, 4)}`;
 
 /**
+ * The day an event is on, as TOM writes a date: the day its start time
+ * names, which the organizer can change, else its .tdf date, which for an
+ * event made here is the day it was made.
+ */
+export function startDateOf(startsAt: string, startDate: string): string {
+  const day = eventDay(startsAt, '');
+  return day ? tomDate(day) : startDate;
+}
+
+/**
  * The organizer's date, as their browser sent it (YYYY-MM-DD): taken when it
  * is within a day of the server's, as every time zone's date is; the server's
  * UTC date otherwise.
