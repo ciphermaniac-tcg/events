@@ -2601,6 +2601,19 @@ test('an event with a fee and nobody on its roster shows no check-in box', async
   await expect(page.getByText('Everyone is checked in.')).toHaveCount(0);
 });
 
+test('a Player ID with letters is refused in the add row, not saved as its digits', async ({ page }) => {
+  const sent = await mockConsole(page, event(1, 0, false), settingsOf({ sanctioned: true }));
+  const form = page.getByRole('form', { name: 'Add a player' });
+  await form.getByLabel('First name').fill('Sam');
+  await form.getByLabel('Last name').fill('Lee');
+  await form.getByLabel('Birth year').fill('2001');
+  await form.getByLabel('Player ID').fill('12ab');
+  await expect(form.getByText('A Player ID is up to ten digits')).toBeVisible();
+  await expect(form.getByRole('button', { name: 'Add player' })).toBeDisabled();
+  await form.getByLabel('Player ID').press('Enter');
+  expect(sent).toHaveLength(0);
+});
+
 test('a roster of one counts one player beside its search', async ({ page }) => {
   await mockConsole(page, event(1, 0, false), settingsOf({}));
   await expect(page.locator('.tm-panel').getByText('1 player', { exact: true })).toBeVisible();

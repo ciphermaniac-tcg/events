@@ -49,8 +49,13 @@ function AddPlayer(props: { state: ManageState; code: string; sanctioned: boolea
   const [year, setYear] = createSignal('');
   // A sanctioned event's player is reported to Play! Pokémon under their Player ID and placed by birth year.
   const identified = () => !props.sanctioned || (popId() !== '' && year().length === 4);
+  // Typed letters are refused rather than dropped, so "12ab" is never saved as 12.
+  const popInvalid = () => props.sanctioned && popId() !== '' && !/^\d{1,10}$/.test(popId());
   async function submit(event: Event) {
     event.preventDefault();
+    if (popInvalid()) {
+      return;
+    }
     const ok = await props.state.send({
       type: 'addPlayer',
       player: {
@@ -94,8 +99,9 @@ function AddPlayer(props: { state: ManageState; code: string; sanctioned: boolea
               id='add-pop'
               class='tm-input'
               inputmode='numeric'
+              aria-invalid={popInvalid() || undefined}
               value={popId()}
-              onInput={e => setPopId(e.currentTarget.value.replace(/\D/g, ''))}
+              onInput={e => setPopId(e.currentTarget.value.trim())}
             />
           </Field>
           <Field id='add-year' label={t('Birth year')}>
@@ -112,7 +118,7 @@ function AddPlayer(props: { state: ManageState; code: string; sanctioned: boolea
         <button
           type='submit'
           class='btn btn-primary'
-          disabled={props.state.busy() || !first().trim() || !last().trim() || !identified()}
+          disabled={props.state.busy() || !first().trim() || !last().trim() || !identified() || popInvalid()}
         >
           {props.late ? t('Add late player') : t('Add player')}
         </button>
@@ -120,6 +126,9 @@ function AddPlayer(props: { state: ManageState; code: string; sanctioned: boolea
       {/* Why Add stays grey once a name is in: the rest a sanctioned event needs. */}
       <Show when={!identified() && (first().trim() || last().trim())}>
         <p class='tm-box-bar muted'>{t('Player ID and birth year are needed at a sanctioned event')}</p>
+      </Show>
+      <Show when={popInvalid()}>
+        <p class='tm-box-bar tm-error'>{t('A Player ID is up to ten digits')}</p>
       </Show>
     </form>
   );
