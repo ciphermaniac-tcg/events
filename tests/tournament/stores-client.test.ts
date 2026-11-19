@@ -36,6 +36,8 @@ import {
   joinCommunity,
   joinStore,
   listingFill,
+  movedFrom,
+  oneNightADay,
   removeMember,
   saveLeagueNights,
   saveStoreDetails,
@@ -186,7 +188,7 @@ test('store details say which fields the server would refuse, and are cleaned as
     address: '4522 Fredericksburg Rd',
     country: 'usa',
     website: 'http://combat.example',
-    discord: 'discord.gg/x',
+    discord: 'discord.example/x',
     email: 'not-mail'
   };
   assert.deepEqual(Object.keys(detailsProblems(typed)).sort(), ['country', 'discord', 'email', 'website']);
@@ -195,6 +197,14 @@ test('store details say which fields the server would refuse, and are cleaned as
   const fine = { ...typed, country: ' us', website: 'https://combat.example', discord: '', email: 'a@b.co' };
   assert.deepEqual(detailsProblems(fine), {});
   assert.deepEqual(cleanDetails(fine), { ...fine, name: 'Combat Power', country: 'US' });
+  // A link typed without its scheme is taken as https, and checked as that.
+  const bare = { ...fine, website: ' combat.example ', discord: 'discord.gg/x' };
+  assert.deepEqual(detailsProblems(bare), {});
+  assert.deepEqual(
+    [cleanDetails(bare).website, cleanDetails(bare).discord],
+    ['https://combat.example', 'https://discord.gg/x']
+  );
+  assert.ok(detailsProblems({ ...bare, website: 'http://combat.example' }).website, 'another scheme stays refused');
 });
 
 test('times, dates, nights and their changes read as the pages show them', () => {
@@ -227,6 +237,22 @@ test('a new league night takes a weekday the store has none on', () => {
   assert.match(first.id, /^[\w-]{1,24}$/);
   assert.equal(blankNight([night]).weekday, 4);
   assert.notEqual(blankNight([]).id, first.id);
+});
+
+test('a moved date starts at its own night’s time, and one night a weekday names its night by the date', () => {
+  const thursday = { id: 'thu', weekday: 4, time: '18:30', name: '', fee: '' };
+  const late = { id: 'late', weekday: 4, time: '20:00', name: '', fee: '' };
+  const moved = (date: string, nightId: string | null) => ({ date, nightId, time: null, note: '' });
+  // 2026-11-26 is a Thursday, 2026-11-27 a Friday.
+  assert.equal(movedFrom(moved('2026-11-26', null), [thursday]), '18:30');
+  assert.equal(movedFrom(moved('2026-11-26', 'late'), [thursday, late]), '20:00');
+  assert.equal(
+    movedFrom(moved('2026-11-26', null), [thursday, late]),
+    '18:00',
+    'two that day: no one time to start from'
+  );
+  assert.equal(movedFrom(moved('2026-11-27', null), [thursday]), '18:00');
+  assert.deepEqual([oneNightADay([thursday]), oneNightADay([thursday, late])], [true, false]);
 });
 
 test('time zones name themselves, and a zone the browser lacks stays listed', () => {

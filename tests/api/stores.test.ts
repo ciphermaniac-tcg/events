@@ -418,6 +418,13 @@ test('an invite lets one person in, once and for a week, as what it was made for
   );
   const listed = await hit(members.onRequestGet as Handler, '/members', { id: store }, { cookie: manager });
   assert.equal(listed.json.invites.length, 1);
+  // Before anyone signs in, an open link names its store and as what it lets them in; a used one is gone.
+  const lookUp = (invite: string) => hit(join.onRequestGet as Handler, `/api/stores/join?invite=${invite}`, {});
+  const named = await lookUp(fresh.json.token);
+  const storeName = raw().prepare('SELECT name FROM stores WHERE id = ?').get(store)?.name;
+  assert.deepEqual(named.json, { store: storeName, role: 'manager' });
+  assert.equal((await lookUp(token)).status, 410, 'a used link names nothing');
+  assert.equal((await lookUp('')).status, 410);
   await hit(
     members.onRequestDelete as Handler,
     `/members?invite=${listed.json.invites[0].id}`,
@@ -654,6 +661,12 @@ test('a store says what it is to anyone, its contact details to its people, and 
   assert.equal(open.json.store.name, 'Combat Power Gaming');
   assert.equal(open.json.contact, undefined, 'no phone or email for the public');
   assert.equal(open.json.store.phone, undefined);
+  // Phone and email are for admins: neither the public page nor the locator's published index carries them.
+  const published = objects.get(STORES_INDEX_KEY) ?? '';
+  assert.ok(published.includes('Combat Power Gaming'), 'the change was published');
+  for (const shown of [JSON.stringify(open.json), published]) {
+    assert.ok(!shown.includes('210-555-0100') && !shown.includes('store@example.com'));
+  }
   const inside = await hit(storeRoute.onRequestGet as Handler, `/api/stores/${store}`, at, { cookie: helper });
   assert.deepEqual([inside.json.role, inside.json.contact.phone], ['staff', '210-555-0100']);
   assert.equal((await hit(storeRoute.onRequestGet as Handler, '/api/stores/nope', { id: 'nope' })).status, 404);

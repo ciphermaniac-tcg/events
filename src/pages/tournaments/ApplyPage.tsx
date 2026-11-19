@@ -4,19 +4,23 @@
  * and becomes one at once; a Store is a certified Play! Pokémon league
  * location, which an admin approves from its Application (see
  * StoreApplicationForm). Only an account whose profile is complete, its POP
- * ID included, may apply for a store; an incomplete one is sent to Settings.
- * An account with an Application pending sees where it stands instead (see
- * ApplicantStatus); a rejected one, or one whose access was removed, opens
- * the rows again from there. Signed out, one box to sign in.
+ * ID included, and which has an email may apply for a store; one without is
+ * shown everything it lacks at once, each with the way to it in Settings
+ * (which offers the way back). An account in a store sees its stores in
+ * place of the store row. An account with an Application pending sees where
+ * it stands instead (see ApplicantStatus); a rejected one, or one whose
+ * access was removed, opens the rows again from there. Signed out, the two
+ * rows to read, and one box to sign in.
  */
 
 import { SessionGate } from './SessionGate';
 import { A, useNavigate, useSearchParams } from '@solidjs/router';
-import { createResource, createSignal, type JSX, onMount, Show, untrack } from 'solid-js';
+import { createResource, createSignal, For, type JSX, onMount, Show, untrack } from 'solid-js';
 import { canJoinCommunity } from '../../../shared/accounts/roles';
-import type { MyApplication } from '../../../shared/accounts/types';
+import { managesStore } from '../../../shared/accounts/stores';
+import type { ApplicationState, MyApplication, MyStore } from '../../../shared/accounts/types';
 import { type Me } from '../../lib/tournament/api';
-import { msg, t, tx } from '../../lib/i18n';
+import { msg, t } from '../../lib/i18n';
 import { applicantStage, fetchApplication } from '../../lib/tournament/applications';
 import { joinCommunity } from '../../lib/tournament/stores';
 import { latestValue } from '../../lib/resource';
@@ -50,7 +54,7 @@ const PATHS: Record<Path, { title: string; joined: string; line: string; held: s
 };
 
 /** One way in: what it is, and, for a Community organizer, what it may run and may not yet. */
-function PathRow(props: { path: Path; joined: boolean; children: JSX.Element }) {
+function PathRow(props: { path: Path; joined: boolean; children?: JSX.Element }) {
   const words = () => PATHS[props.path];
   return (
     <div class='tm-path'>
@@ -65,6 +69,53 @@ function PathRow(props: { path: Path; joined: boolean; children: JSX.Element }) 
       </div>
       {props.children}
     </div>
+  );
+}
+
+/** A store the account is in: the way to its settings for a Manager, its page for Staff. */
+function StoreRow(props: { store: MyStore }) {
+  const manages = () => managesStore(props.store.role);
+  return (
+    <div class='tm-path'>
+      <div class='tm-path-text'>
+        <h2 class='tm-path-title'>{props.store.name}</h2>
+        <span class='muted'>{t('You run this store.')}</span>
+      </div>
+      <A
+        class='btn btn-secondary'
+        href={manages() ? `/stores/${props.store.id}/settings` : `/stores/${props.store.id}`}
+      >
+        {manages() ? t('Store settings') : t('Store page')}
+      </A>
+    </div>
+  );
+}
+
+/** What a store application needs that the account lacks, each with the way to it in Settings. */
+function StoreNeeds(props: { eligible: ApplicationState['eligible'] }) {
+  return (
+    <>
+      <p class='tm-apply-lead'>{t('A store application needs:')}</p>
+      <ul class='tm-apply-needs'>
+        <Show when={!props.eligible.profile}>
+          <li>
+            <span>{t('Your name and Player ID')}</span>
+            <A class='btn btn-secondary' href='/settings?section=profile&next=%2Fapply%3Fstore'>
+              {t('Add in Settings')}
+            </A>
+          </li>
+        </Show>
+        <Show when={!props.eligible.email}>
+          {/* Linking Google or Discord gives the account its email (see linkIdentity). */}
+          <li>
+            <span>{t('An email from Google or Discord')}</span>
+            <A class='btn btn-secondary' href='/settings?next=%2Fapply%3Fstore'>
+              {t('Link in Settings')}
+            </A>
+          </li>
+        </Show>
+      </ul>
+    </>
   );
 }
 
@@ -92,44 +143,58 @@ function CommunityStart() {
 /**
  * The two ways in, one row each: a player may become a Community organizer
  * at once; a Community organizer is told it runs unsanctioned events alone,
- * with the way to its events; any account may open the store application.
+ * with the way to its events; any account may open the store application,
+ * and one already in a store sees its stores instead, with a quieter way
+ * to apply for another under them.
  */
-function PathRows(props: { role: Me['role']; store: boolean; storeOpen: boolean; onStore: () => void }) {
-  const joined = () => props.role === 'community';
+function PathRows(props: { user: Me; store: boolean; storeOpen: boolean; onStore: () => void }) {
+  const joined = () => props.user.role === 'community';
+  const stores = () => props.user.stores;
   return (
-    <section class='tm-box tm-paths'>
-      <Show when={canJoinCommunity(props.role) || joined()}>
-        <PathRow path='community' joined={joined()}>
-          <Show when={joined()} fallback={<CommunityStart />}>
-            <A class='btn btn-secondary' href='/'>
-              {t('Your events')}
-            </A>
-          </Show>
-        </PathRow>
-      </Show>
-      <Show when={!props.store}>
-        <PathRow path='store' joined={joined()}>
-          <button
-            type='button'
-            class='btn btn-secondary'
-            aria-expanded={props.storeOpen}
-            onClick={() => props.onStore()}
-          >
-            {t('Apply as store')}
+    <>
+      <section class='tm-box tm-paths'>
+        <Show when={canJoinCommunity(props.user.role) || joined()}>
+          <PathRow path='community' joined={joined()}>
+            <Show when={joined()} fallback={<CommunityStart />}>
+              <A class='btn btn-secondary' href='/'>
+                {t('Your events')}
+              </A>
+            </Show>
+          </PathRow>
+        </Show>
+        <For each={stores()}>{store => <StoreRow store={store} />}</For>
+        <Show when={!props.store && stores().length === 0}>
+          <PathRow path='store' joined={joined()}>
+            <button
+              type='button'
+              class='btn btn-secondary'
+              aria-expanded={props.storeOpen}
+              onClick={() => props.onStore()}
+            >
+              {t('Apply as store')}
+            </button>
+          </PathRow>
+        </Show>
+      </section>
+      <Show when={stores().length > 0 && !props.storeOpen}>
+        <p class='tm-apply-another'>
+          <button type='button' onClick={() => props.onStore()}>
+            {t('Apply for another store')}
           </button>
-        </PathRow>
+        </p>
       </Show>
-    </section>
+    </>
   );
 }
 
 /** Signed in: where the account stands, then the rows when it may take one now. */
 function Applying(props: { user: Me }) {
-  const [params] = useSearchParams<{ again?: string }>();
+  // `store`: back from Settings, where the store application sent the account for what it needs.
+  const [params] = useSearchParams<{ again?: string; store?: string }>();
   const [state, { refetch, mutate }] = createResource(fetchApplication);
   // Settings' Apply again opens the rows as the page opens, at the store, which is what was applied for.
   const [again, setAgain] = createSignal(params.again !== undefined);
-  const [storeOpen, setStoreOpen] = createSignal(untrack(again));
+  const [storeOpen, setStoreOpen] = createSignal(untrack(again) || params.store !== undefined);
   const current = () => latestValue(state);
   createSessionCatchUp(
     () => props.user.role,
@@ -156,53 +221,20 @@ function Applying(props: { user: Me }) {
           </Show>
           <Show when={open()}>
             <PathRows
-              role={props.user.role}
+              user={props.user}
               store={stage() === 'store'}
               storeOpen={storeOpen()}
               onStore={() => setStoreOpen(true)}
             />
             <Show when={storeOpen()}>
-              <Show
-                when={s().eligible.profile}
-                fallback={
-                  <>
-                    <p class='tm-apply-profile'>
-                      {t('A store application needs your Player ID, name and birth year.')}
-                    </p>
-                    <p class='tm-apply-profile'>
-                      <A class='btn btn-primary' href='/settings'>
-                        {t('Complete your profile')}
-                      </A>
-                    </p>
-                  </>
-                }
-              >
-                <Show
-                  when={s().eligible.email}
-                  fallback={
-                    // Linking Google or Discord gives the account its email (see linkIdentity).
-                    <p class='tm-apply-profile'>
-                      {tx(
-                        'A store application needs an email we can reach you at. Link Google or Discord in {settings} to add one.',
-                        {
-                          settings: (
-                            <A class='tm-link-inline' href='/settings'>
-                              {t('Settings')}
-                            </A>
-                          )
-                        }
-                      )}
-                    </p>
-                  }
-                >
-                  <StoreApplicationForm
-                    onSent={sent}
-                    onStale={() => {
-                      void refetch();
-                      void refreshSession();
-                    }}
-                  />
-                </Show>
+              <Show when={s().eligible.profile && s().eligible.email} fallback={<StoreNeeds eligible={s().eligible} />}>
+                <StoreApplicationForm
+                  onSent={sent}
+                  onStale={() => {
+                    void refetch();
+                    void refreshSession();
+                  }}
+                />
               </Show>
             </Show>
           </Show>
@@ -222,7 +254,18 @@ export function ApplyPage() {
         {s => (
           <>
             <TournamentHero title={t(TITLE)} />
-            <Show when={s().user} fallback={<SignedOutBox offer={s()} next='/apply' />}>
+            <Show
+              when={s().user}
+              fallback={
+                <div class='tm-apply'>
+                  <section class='tm-box tm-paths'>
+                    <PathRow path='community' joined={false} />
+                    <PathRow path='store' joined={false} />
+                  </section>
+                  <SignedOutBox offer={s()} next='/apply' />
+                </div>
+              }
+            >
               {user => <Applying user={user()} />}
             </Show>
           </>

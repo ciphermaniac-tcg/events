@@ -107,15 +107,54 @@
   gap: var(--space-2) var(--space-3);
 }
 .tm-apply-foot .tm-error,
-.tm-apply-profile,
+.tm-apply-lead,
+.tm-apply-another,
 .tm-apply-unknown {
   margin: 0;
 }
+/* What a store application still needs, each with its way to Settings: rules between, no box. */
+.tm-apply-lead,
+.tm-apply-needs {
+  font-size: var(--text-body);
+}
+.tm-apply-needs {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.tm-apply-needs li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-3) 0;
+  border-block: 1px solid var(--rule);
+}
+.tm-apply-needs li + li {
+  border-top: 0;
+}
+.tm-apply-another button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--fg);
+  font: inherit;
+  font-size: var(--text-base);
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 40%, transparent);
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
 @media (max-width: 640px) {
-  .tm-apply-foot .btn-primary,
-  .tm-apply-profile .btn {
+  .tm-apply-foot .btn-primary {
     width: 100%;
     justify-content: center;
+  }
+  .tm-apply-another button {
+    min-height: 44px;
   }
 }
 .tm-apply-league .tm-input {

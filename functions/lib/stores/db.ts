@@ -396,6 +396,21 @@ export async function withdrawInvite(db: D1Like, storeId: string, id: string, gu
   return rowsChanged(done) === 1;
 }
 
+/** The store an open link lets someone into and as what, for the page that asks them to sign in; null when it is gone or ran out. */
+export async function inviteOf(
+  db: D1Like,
+  token: string,
+  now = Date.now()
+): Promise<{ store: string; role: GivenRole } | null> {
+  const row = await db
+    .prepare(
+      'SELECT s.name, i.role FROM store_invites i JOIN stores s ON s.id = i.store_id WHERE i.token_hash = ? AND i.expires_at > ?'
+    )
+    .bind(await sha256(token), now)
+    .first<{ name: string; role: string }>();
+  return row ? { store: row.name, role: row.role === 'manager' ? 'manager' : 'staff' } : null;
+}
+
 /**
  * Lets the account in through a link, once: joining and using the link up are
  * one transaction, so two people cannot both come in on it. Someone already

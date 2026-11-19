@@ -61,3 +61,8 @@
     font-size: 35px;
   }
 }
+/* Saved, then the way back to the page that sent the account here. */
+.tm-settings-body .tm-set-foot.is-back {
+  flex-direction: row;
+  justify-content: flex-start;
+}

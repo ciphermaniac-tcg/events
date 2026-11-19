@@ -216,8 +216,9 @@ export function signInUrl(provider: Provider, next: string, name?: string): stri
   return `/api/auth/login/${provider}?${query}`;
 }
 
-export function linkUrl(provider: OAuthProvider): string {
-  return `/api/auth/login/${provider}?${new URLSearchParams({ next: '/settings', link: '1' })}`;
+/** Links another sign-in to the account, then comes back to `next`. */
+export function linkUrl(provider: OAuthProvider, next = '/settings'): string {
+  return `/api/auth/login/${provider}?${new URLSearchParams({ next, link: '1' })}`;
 }
 
 export const listTournaments = () => call<{ tournaments: TournamentSummary[] }>('/api/tournaments');

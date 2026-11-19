@@ -39,11 +39,50 @@
   pointer-events: none;
 }
 
+/* Each field under its name: a column head over the list on a wide screen, a label over the field on a phone. */
+.tm-night-cell {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.tm-night-cell > * {
+  width: 100%;
+  min-width: 0;
+}
+.tm-night-label {
+  display: none;
+}
+.tm-night-heads,
+.tm-night-label {
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+.tm-night.tm-night-heads {
+  padding-bottom: 0;
+}
+.tm-night-gap {
+  visibility: hidden;
+  padding-inline: var(--space-2);
+  border-inline: 1px solid;
+}
+.tm-night-heads + .tm-night {
+  border-top: 0;
+}
+
 @media (max-width: 640px) {
   .tm-store-fields {
     grid-template-columns: minmax(0, 1fr);
   }
-  .tm-night > .tm-input:not(.tm-night-time, .tm-night-fee) {
+  .tm-night.tm-night-heads {
+    display: none;
+  }
+  .tm-night-heads + .tm-night {
+    padding-top: 0;
+  }
+  .tm-night-label {
+    display: block;
+  }
+  .tm-night > .is-wide {
     grid-column: 1 / -1;
   }
   /* Remove ends its row at the fields' edge, rather than floating at the middle of the line. */
@@ -59,7 +98,7 @@
 }
 .tm-night {
   display: grid;
-  align-items: center;
+  align-items: end;
   gap: var(--space-2);
   padding: var(--space-2) 0;
   border-top: 1px solid var(--rule);

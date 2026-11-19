@@ -5,7 +5,7 @@
  * form tried to send (`checked`).
  */
 
-import { createSignal, For } from 'solid-js';
+import { createSignal, For, Show } from 'solid-js';
 import { STORE_LIMITS, type StoreDetails } from '../../../shared/accounts/stores';
 import { msg, t } from '../../lib/i18n';
 import { detailsProblems, timeZones, zoneName } from '../../lib/tournament/stores';
@@ -31,15 +31,22 @@ const FIELDS: FieldSpec[] = [
   { key: 'region', label: msg('State or region'), max: L.region, autocomplete: 'address-level1' },
   { key: 'postal', label: msg('Postal code'), max: L.postal, autocomplete: 'postal-code' },
   { key: 'country', label: msg('Country'), max: 2, placeholder: 'US', autocomplete: 'country' },
-  { key: 'website', label: msg('Website'), max: L.url, type: 'url', placeholder: 'https://' },
-  { key: 'discord', label: 'Discord', max: L.url, type: 'url', placeholder: 'https://discord.gg/' },
+  { key: 'website', label: msg('Website'), max: L.url, type: 'url', placeholder: 'riversidegames.com' },
+  { key: 'discord', label: 'Discord', max: L.url, type: 'url', placeholder: 'discord.gg/invite' },
   { key: 'phone', label: msg('Phone'), max: L.phone, type: 'tel', autocomplete: 'tel' },
   { key: 'email', label: msg('Email'), max: L.email, type: 'email', autocomplete: 'email' }
 ];
 
+const isContact = (key: keyof StoreDetails) => key === 'phone' || key === 'email';
+
+/**
+ * `part`: every field (the application), what the store page shows
+ * ('shown'), or the phone and email only Ciphermaniac admins see ('contact').
+ */
 export function StoreFields(props: {
   /** Prefix for the fields' ids, so two forms on a page never share one. */
   id: string;
+  part?: 'shown' | 'contact';
   details: StoreDetails;
   timeZone: string;
   checked: boolean;
@@ -50,9 +57,11 @@ export function StoreFields(props: {
   const problems = () => detailsProblems(props.details);
   const shown = (key: keyof StoreDetails) => (props.checked || left().has(key) ? problems()[key] : undefined);
   const fieldId = (key: string) => `${props.id}-${key}`;
+  const fields = () =>
+    props.part ? FIELDS.filter(spec => isContact(spec.key) === (props.part === 'contact')) : FIELDS;
   return (
     <div class='tm-store-fields'>
-      <For each={FIELDS}>
+      <For each={fields()}>
         {spec => (
           <div classList={{ 'tm-store-wide': spec.wide === true }}>
             <Field id={fieldId(spec.key)} label={t(spec.label)} error={shown(spec.key)}>
@@ -73,36 +82,38 @@ export function StoreFields(props: {
           </div>
         )}
       </For>
-      <div class='tm-store-wide'>
-        <Field id={fieldId('zone')} label={t('Time zone')}>
-          <select
-            id={fieldId('zone')}
-            class='tm-select tm-select-full'
-            onChange={e => props.onTimeZone(e.currentTarget.value)}
-          >
-            <For each={timeZones(props.timeZone)}>
-              {zone => (
-                <option value={zone} selected={zone === props.timeZone}>
-                  {zone === props.timeZone
-                    ? `${zone.replaceAll('_', ' ')} (${zoneName(zone)})`
-                    : zone.replaceAll('_', ' ')}
-                </option>
-              )}
-            </For>
-          </select>
-        </Field>
-      </div>
-      <div class='tm-store-wide'>
-        <Field id={fieldId('details')} label={t('About the store')}>
-          <textarea
-            id={fieldId('details')}
-            class='tm-input tm-textarea'
-            maxLength={L.details}
-            value={props.details.details}
-            onInput={e => props.onChange({ ...props.details, details: e.currentTarget.value })}
-          />
-        </Field>
-      </div>
+      <Show when={props.part !== 'contact'}>
+        <div class='tm-store-wide'>
+          <Field id={fieldId('zone')} label={t('Time zone')}>
+            <select
+              id={fieldId('zone')}
+              class='tm-select tm-select-full'
+              onChange={e => props.onTimeZone(e.currentTarget.value)}
+            >
+              <For each={timeZones(props.timeZone)}>
+                {zone => (
+                  <option value={zone} selected={zone === props.timeZone}>
+                    {zone === props.timeZone
+                      ? `${zone.replaceAll('_', ' ')} (${zoneName(zone)})`
+                      : zone.replaceAll('_', ' ')}
+                  </option>
+                )}
+              </For>
+            </select>
+          </Field>
+        </div>
+        <div class='tm-store-wide'>
+          <Field id={fieldId('details')} label={t('About the store')}>
+            <textarea
+              id={fieldId('details')}
+              class='tm-input tm-textarea'
+              maxLength={L.details}
+              value={props.details.details}
+              onInput={e => props.onChange({ ...props.details, details: e.currentTarget.value })}
+            />
+          </Field>
+        </div>
+      </Show>
     </div>
   );
 }

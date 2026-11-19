@@ -105,7 +105,7 @@ function NightsSection(props: { store: PublicStore; onSaved: (store: PublicStore
           onChange={changeNights}
         />
       </div>
-      <h2 class='tm-subhead tm-box-head'>{t('Dates that differ')}</h2>
+      <h2 class='tm-subhead tm-box-head'>{t('Off nights and changes')}</h2>
       <div class='tm-box tm-store-pane'>
         <NightExceptions exceptions={exceptions()} nights={nights()} today={today()} onChange={setExceptions} />
       </div>
@@ -165,6 +165,19 @@ function DetailsSection(props: {
       <div class='tm-box tm-store-pane'>
         <StoreFields
           id='store-field'
+          part='shown'
+          details={details()}
+          timeZone={timeZone()}
+          checked={checked()}
+          onChange={setDetails}
+          onTimeZone={setTimeZone}
+        />
+      </div>
+      <h2 class='tm-subhead tm-box-head'>{t('Private, for Ciphermaniac admins')}</h2>
+      <div class='tm-box tm-store-pane'>
+        <StoreFields
+          id='store-field'
+          part='contact'
           details={details()}
           timeZone={timeZone()}
           checked={checked()}
@@ -277,7 +290,7 @@ function Settings(props: { id: string }) {
                 <NightsSection store={answer().store} onSaved={store => saved(store)} />
               </Pane>
               <Pane of='staff' current={section()} opened={opened()}>
-                <StoreStaff storeId={answer().store.id} />
+                <StoreStaff storeId={answer().store.id} storeName={answer().store.name} />
               </Pane>
               <Pane of='displays' current={section()} opened={opened()}>
                 <StoreDisplays storeId={answer().store.id} />

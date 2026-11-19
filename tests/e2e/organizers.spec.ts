@@ -108,6 +108,10 @@ async function mockApplicant(page: Page, start: ApplicationState, user: typeof M
       live = live && { ...live, stores: live.stores.filter(store => store.id !== left) };
       return route.fulfill({ status: 204 });
     }
+    if (key === 'PUT /api/me') {
+      live = live && { ...live, ...(request.postDataJSON() as Partial<typeof ME>) };
+      return route.fulfill({ json: { user: live } });
+    }
     if (key === 'GET /api/applications/mine') {
       return route.fulfill({ json: state });
     }
@@ -172,13 +176,49 @@ test('a store application sends without a note', async ({ page }) => {
   expect(posted(asks)).toEqual([{ explanation: '', store: true }]);
 });
 
-test('an incomplete profile is sent to Settings, with no form', async ({ page }) => {
-  await mockApplicant(page, { ...NONE, eligible: { profile: false, email: true } }, { ...ME, popId: null });
+test('a store application lists everything it still needs at once, each a way to Settings', async ({ page }) => {
+  await mockApplicant(page, { ...NONE, eligible: { profile: false, email: false } }, { ...ME, popId: null });
   await page.goto('/apply');
   await page.getByRole('button', { name: 'Apply as store' }).click();
-  await expect(page.getByText('A store application needs your Player ID, name and birth year.')).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Complete your profile' })).toHaveAttribute('href', '/settings');
+  const needs = page.locator('.tm-apply-needs li');
+  await expect(needs).toHaveText([
+    /Your name and Player ID\s*Add in Settings/,
+    /An email from Google or Discord\s*Link in Settings/
+  ]);
+  await expect(needs.getByRole('link', { name: 'Add in Settings' })).toHaveAttribute(
+    'href',
+    '/settings?section=profile&next=%2Fapply%3Fstore'
+  );
+  await expect(needs.getByRole('link', { name: 'Link in Settings' })).toHaveAttribute(
+    'href',
+    '/settings?next=%2Fapply%3Fstore'
+  );
+  // One filled button on the page: the community row's.
+  await expect(page.locator('.btn-primary')).toHaveCount(1);
   await expect(page.getByRole('button', { name: 'Send application' })).toHaveCount(0);
+});
+
+test('Settings opened from the application offers the way back after a save, and links back to it', async ({
+  page
+}) => {
+  await mockApplicant(page, { ...NONE, eligible: { profile: false, email: false } }, { ...ME, providers: [] });
+  await page.goto('/apply');
+  await page.getByRole('button', { name: 'Apply as store' }).click();
+  await page.getByRole('link', { name: 'Add in Settings' }).click();
+  // Linking an email comes back to the application as well.
+  await expect(page.getByRole('link', { name: 'Link Discord' })).toHaveAttribute('href', /next=%2Fapply%3Fstore/);
+  await expect(page.getByRole('link', { name: 'Back to your application' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Save profile' }).click();
+  await page.getByRole('link', { name: 'Back to your application' }).click();
+  // Back where it was left: the store application open on what it still needs.
+  await expect(page).toHaveURL(/\/apply\?store$/);
+  await expect(page.locator('.tm-apply-needs li')).toHaveCount(2);
+  // Opened on its own, Settings keeps its Save button after a save.
+  await page.goto('/settings?section=profile');
+  await expect(page.getByRole('link', { name: 'Link Discord' })).toHaveAttribute('href', /next=%2Fsettings/);
+  await page.getByRole('button', { name: 'Save profile' }).click();
+  await expect(page.getByRole('status')).toHaveText('Saved');
+  await expect(page.getByRole('link', { name: 'Back to your application' })).toHaveCount(0);
 });
 
 test('a pending Application shows where it stands instead of the form, and withdraws', async ({ page }) => {
@@ -245,9 +285,14 @@ test('an approved account sees its store was approved, with the way to its event
   await expect(page.getByRole('button', { name: 'Send application' })).toHaveCount(0);
 });
 
-test('signed out, the apply page offers sign-in that comes back to it', async ({ page }) => {
+test('signed out, the apply page shows both ways in to read, and sign-in that comes back to it', async ({ page }) => {
   await mockApplicant(page, NONE, null);
   await page.goto('/apply');
+  await expect(page.locator('.tm-path-title')).toHaveText([
+    'I want to run a tournament for fun',
+    'I run an official Play! Pokémon store'
+  ]);
+  await expect(page.locator('.tm-paths').getByRole('button')).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Sign in with Google' })).toHaveAttribute('href', /next=%2Fapply/);
 });
 

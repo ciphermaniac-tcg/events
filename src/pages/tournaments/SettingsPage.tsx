@@ -84,8 +84,11 @@ type Section = (typeof SECTIONS)[number]['id'];
 const readSection = (value: string | undefined): Section =>
   SECTIONS.find(section => section.id === value)?.id ?? 'profile';
 
+/** The store application, opened as it was left for Settings. */
+const APPLYING = '/apply?store';
+
 /** Who is signed in, at the head of the column: picture, name, username, and the accounts linked or offered. */
-function Identity(props: { user: Me; providers: readonly Provider[] }) {
+function Identity(props: { user: Me; providers: readonly Provider[]; next: string }) {
   const offered = () => (['google', 'discord'] as const).filter(provider => props.providers.includes(provider));
   return (
     <div class='tm-settings-who'>
@@ -100,7 +103,7 @@ function Identity(props: { user: Me; providers: readonly Provider[] }) {
             <Show
               when={props.user.providers.includes(provider)}
               fallback={
-                <a class='tm-link-inline' href={linkUrl(provider)} rel='external'>
+                <a class='tm-link-inline' href={linkUrl(provider, props.next)} rel='external'>
                   {t('Link {provider}', { provider: PROVIDER_NAMES[provider] })}
                 </a>
               }
@@ -128,7 +131,9 @@ function Pane(props: { of: Section; current: Section; opened: ReadonlySet<Sectio
  * right under its name, kept in the address as ?section=.
  */
 function SignedIn(props: { user: Me; providers: readonly Provider[] }) {
-  const [params, setParams] = useSearchParams<{ section?: string }>();
+  const [params, setParams] = useSearchParams<{ section?: string; next?: string }>();
+  // Opened from the store application, which a linked email or a saved profile is for: the way back to it, open.
+  const fromApply = () => params.next === APPLYING;
   const section = () => readSection(params.section);
   const opened = createMemo<ReadonlySet<Section>>(
     prev => (prev.has(section()) ? prev : new Set([...prev, section()])),
@@ -146,7 +151,7 @@ function SignedIn(props: { user: Me; providers: readonly Provider[] }) {
       <Trail here={t('Settings')} />
       <div class='tm-side-layout tm-settings-layout'>
         <div class='tm-settings-side'>
-          <Identity user={props.user} providers={props.providers} />
+          <Identity user={props.user} providers={props.providers} next={fromApply() ? APPLYING : '/settings'} />
           <nav ref={nav} class='tm-side-nav' aria-label={t('Settings')}>
             <For each={SECTIONS}>
               {s => (
@@ -166,7 +171,7 @@ function SignedIn(props: { user: Me; providers: readonly Provider[] }) {
         <div class='tm-side-content tm-settings-body'>
           <h1 class='tm-settings-title'>{label()}</h1>
           <Pane of='profile' current={section()} opened={opened()}>
-            <Profile user={props.user} />
+            <Profile user={props.user} fromApply={fromApply()} />
           </Pane>
           <Pane of='username' current={section()} opened={opened()}>
             <Username user={props.user} />
@@ -258,7 +263,8 @@ function Username(props: { user: Me }) {
   );
 }
 
-function Profile(props: { user: Me }) {
+/** `fromApply`: opened from the store application, so a save offers the way back to it. */
+function Profile(props: { user: Me; fromApply: boolean }) {
   // eslint-disable-next-line solid/reactivity -- the form edits a copy of the profile it opened with
   const [profile, setProfile] = createSignal<PlayerProfile>(emptyProfile(props.user));
   const [touched, setTouched] = createSignal(false);
@@ -272,6 +278,7 @@ function Profile(props: { user: Me }) {
     }
   });
   // A POP ID another account holds is told under the field, with the way to have it settled.
+  const back = () => props.fromApply && status() === 'saved';
   const problems = () => ({
     ...(touched() ? profileErrors(profile()) : {}),
     ...(clash() ? { popId: error() ?? '' } : {})
@@ -319,15 +326,24 @@ function Profile(props: { user: Me }) {
             }}
           />
         </div>
-        <div class='tm-box-bar tm-set-foot'>
+        <div class='tm-box-bar tm-set-foot' classList={{ 'is-back': back() }}>
           <Show when={status() === 'saved'}>
             <span class='muted' role='status'>
               {t('Saved')}
             </span>
           </Show>
-          <button type='submit' class='btn btn-primary' disabled={status() === 'saving'}>
-            {t('Save profile')}
-          </button>
+          <Show
+            when={back()}
+            fallback={
+              <button type='submit' class='btn btn-primary' disabled={status() === 'saving'}>
+                {t('Save profile')}
+              </button>
+            }
+          >
+            <A class='btn btn-secondary' href={APPLYING}>
+              {t('Back to your application')}
+            </A>
+          </Show>
         </div>
       </form>
       <ErrorLine message={clash() ? null : error()} />

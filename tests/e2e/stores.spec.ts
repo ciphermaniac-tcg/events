@@ -137,6 +137,8 @@ interface Options {
   members?: StoreMember[];
   /** Settles when a save of the league nights is answered; at once unless said otherwise. */
   nightsAnswered?: Promise<void>;
+  /** The store as the functions hold it; Combat Power Gaming unless said otherwise. */
+  store?: PublicStore;
 }
 
 /** The functions as the pages call them, holding a store's state as they would, and every ask they get. */
@@ -144,7 +146,7 @@ async function mock(page: Page, options: Options = {}) {
   const asks: Asked[] = [];
   let user = options.user === undefined ? ME : options.user;
   let state = options.state ?? NONE;
-  let store = STORE;
+  let store = options.store ?? STORE;
   let members = options.members ?? [
     member('acct-0', 'Lee Owens', 'owner'),
     member('acct-1', 'Mary Jackson', 'manager'),
@@ -242,6 +244,11 @@ async function mock(page: Page, options: Options = {}) {
     if (key === 'GET /api/stores/store-1/listings') {
       return route.fulfill({ json: { listings: options.listings ?? LISTINGS } });
     }
+    if (key === 'GET /api/stores/join') {
+      return url.searchParams.get('invite') === 'good'
+        ? route.fulfill({ json: { store: 'Combat Power Gaming', role: 'staff' } })
+        : route.fulfill({ status: 410, json: { error: 'This invite link was used or has run out' } });
+    }
     if (key === 'POST /api/stores/join') {
       return body?.token === 'good'
         ? route.fulfill({ json: { storeId: 'store-1' } })
@@ -308,7 +315,7 @@ async function lookUp(page: Page) {
   await page.getByRole('button', { name: 'Look up' }).click();
 }
 
-test('an approved store that is also a Community organizer is not offered the store row', async ({ page }) => {
+test('an approved store that is also a Community organizer sees its store, not the store row', async ({ page }) => {
   const application = {
     id: 'app-1',
     status: 'approved' as const,
@@ -320,9 +327,17 @@ test('an approved store that is also a Community organizer is not offered the st
   };
   await mock(page, { user: { ...MANAGER, role: 'community' }, state: { ...NONE, application } });
   await page.goto('/apply');
-  await expect(page.locator('.tm-path-title')).toHaveText(['Community organizer']);
+  await expect(page.locator('.tm-path-title')).toHaveText(['Community organizer', 'Combat Power Gaming']);
+  await expect(page.getByText('You run this store.')).toBeVisible();
+  await expect(page.locator('.tm-paths').getByRole('link', { name: 'Store settings' })).toHaveAttribute(
+    'href',
+    '/stores/store-1/settings'
+  );
   await expect(page.getByText('You are currently not approved for sanctioned events.')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Apply as store' })).toHaveCount(0);
+  // Another store is a quieter way in, which opens the application under the rows.
+  await page.getByRole('button', { name: 'Apply for another store' }).click();
+  await expect(page.getByLabel('League ID or pokemon.com league page')).toBeVisible();
 });
 
 test('a store application starts from the league, prefilled, and sends what the functions read @mobile', async ({
@@ -352,10 +367,11 @@ test('a store application starts from the league, prefilled, and sends what the 
   await why.selectOption('owner');
   await certified.check();
   await expect(certified).not.toHaveAttribute('aria-invalid', 'true');
-  await page.getByLabel('Website').fill('combatpower.example');
+  await page.getByLabel('Website').fill('http://combatpower.example');
   await page.getByRole('button', { name: 'Send application' }).click();
   await expect(page.getByText('Starts with https://')).toBeVisible();
-  await page.getByLabel('Website').fill('https://combatpower.example');
+  // A link typed without its scheme is taken as https.
+  await page.getByLabel('Website').fill('combatpower.example');
   await page.getByRole('button', { name: 'Add a league night' }).click();
   await page.getByLabel('League night 1 start').fill('');
   await page.getByRole('button', { name: 'Send application' }).click();
@@ -363,10 +379,7 @@ test('a store application starts from the league, prefilled, and sends what the 
   await expect(page.getByText('Give each league night a start time')).toBeVisible();
   await page.getByLabel('League night 1 day').selectOption('Wednesday');
   await page.getByLabel('League night 1 start').fill('19:30');
-  await expect(page.getByLabel('League night 1 event name')).toHaveAttribute(
-    'placeholder',
-    'Listed as Combat Power Gaming'
-  );
+  await expect(page.getByLabel('League night 1 event name')).toHaveAttribute('placeholder', 'Combat Power Gaming');
   await expect(page.locator('.tm-fee-symbol')).toHaveText('$');
   await page.getByLabel('League night 1 fee').fill('5');
   await page.getByLabel('Note').fill('I own the store.');
@@ -534,9 +547,9 @@ test('store settings: league nights edited while a save is on its way keep the e
 test('store settings: removing a night a date named turns the date to every night that day', async ({ page }) => {
   const asks = await mock(page, { user: MANAGER });
   await page.goto('/stores/store-1/settings');
-  await expect(page.getByLabel('Date 1 night')).toHaveValue('sun');
+  // One night a weekday: the date says which night it is, so no night is asked for.
+  await expect(page.getByLabel('Date 1 night')).toHaveCount(0);
   await page.getByLabel('League night 1 remove').click();
-  await expect(page.getByLabel('Date 1 night')).toHaveValue('');
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByRole('status')).toHaveText('Saved');
   const [sent] = sentTo(asks, 'PUT', '/api/stores/store-1/nights') as Pick<PublicStore, 'nights' | 'exceptions'>[];
@@ -701,7 +714,12 @@ test('store settings: details save with the store’s place kept', async ({ page
   await page.getByRole('navigation', { name: 'Store settings' }).getByRole('button', { name: 'Details' }).click();
   await expect(page).toHaveURL(/section=details/);
   await expect(page.getByLabel('Phone')).toHaveValue('(210) 555-0100');
+  // Phone and email sit apart, under who sees them.
+  const form = page.locator('form[aria-labelledby="store-details-head"]');
+  await expect(form.locator('.tm-box-head')).toHaveText(['Details', 'Private, for Ciphermaniac admins']);
+  await expect(form.locator('.tm-box').nth(1).getByRole('textbox')).toHaveCount(2);
   await page.getByLabel('Store name').fill('Combat Power Games');
+  await page.getByLabel('Discord').fill('discord.gg/combatpower2');
   await page.getByLabel('About the store').fill('Open late.');
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByRole('status')).toHaveText('Saved');
@@ -714,6 +732,7 @@ test('store settings: details save with the store’s place kept', async ({ page
   expect(sent?.details).toMatchObject({
     name: 'Combat Power Games',
     details: 'Open late.',
+    discord: 'https://discord.gg/combatpower2',
     email: 'hi@combat.example'
   });
   expect(sent?.place).toEqual({ lat: STORE.lat, lon: STORE.lon, timeZone: 'America/Chicago' });
@@ -897,10 +916,10 @@ test('a store page’s League line sits as far under its title as an event’s f
   expect((meta?.y ?? 0) - (title?.y ?? 0) - (title?.height ?? 0)).toBe(8);
 });
 
-test('an invite link joins the store and goes on to its page; a used one says so', async ({ page }) => {
+test('an invite link joins the store and goes on to its events; a used one says so', async ({ page }) => {
   const asks = await mock(page);
   await page.goto('/stores/join?invite=good');
-  await expect(page).toHaveURL(/\/stores\/store-1$/);
+  await expect(page).toHaveURL(/\/\?tab=organizing$/);
   expect(sentTo(asks, 'POST', '/api/stores/join')).toEqual([{ token: 'good' }]);
   await page.goto('/stores/join?invite=old');
   await expect(page.getByRole('heading', { level: 1, name: 'This invite didn’t work' })).toBeVisible();
@@ -934,14 +953,18 @@ test('a broken invite centres its error state on a phone held sideways @mobile',
   expect(Math.abs((await centre('.error-state')) - (await centre('main')))).toBeLessThanOrEqual(1);
 });
 
-test('signed out, an invite link says what signing in is for, and sign-in comes back to it', async ({ page }) => {
+test('signed out, an invite link names its store and role, and sign-in comes back to it', async ({ page }) => {
   await mock(page, { user: null });
   await page.goto('/stores/join?invite=good');
-  await expect(page.getByText('Sign in to join this store’s staff.')).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Join Combat Power Gaming as staff');
+  await expect(page.getByText('Sign in to join.')).toBeVisible();
   await expect(page.getByRole('link', { name: 'Sign in with Google' })).toHaveAttribute(
     'href',
     /next=%2Fstores%2Fjoin%3Finvite%3Dgood/
   );
+  // A link already used says so before anyone signs in for it.
+  await page.goto('/stores/join?invite=old');
+  await expect(page.locator('.error-state-line')).toHaveText('This invite link was used or has run out');
   await page.goto('/stores/join');
   await expect(page.locator('.error-state-line')).toHaveText('This invite link is incomplete.');
 });
@@ -1066,7 +1089,7 @@ test('each league night keeps its fields on one line, and stacks them whole on a
   await page.goto('/stores/store-1/settings');
   for (const width of [1280, 820, 412, 320]) {
     await page.setViewportSize({ width, height: 900 });
-    const night = page.locator('.tm-night:not(.tm-night-exception)').first();
+    const night = page.locator('.tm-night:not(.tm-night-exception, .tm-night-heads)').first();
     await expect(night).toBeVisible();
     const layout = await night.evaluate(el => {
       const box = el.getBoundingClientRect();
@@ -1093,6 +1116,26 @@ test('each league night keeps its fields on one line, and stacks them whole on a
   }
 });
 
+test('league nights name their fields in column heads on a wide screen, and over each field on a phone', async ({
+  page
+}) => {
+  await mock(page, { user: MANAGER });
+  await page.goto('/stores/store-1/settings');
+  const heads = page.locator('.tm-night-heads');
+  await expect(heads.first().locator('span:not(.tm-night-gap)')).toHaveText(['Day', 'Start', 'Event name', 'Fee']);
+  // One night a weekday: a date's own day says which night it changes.
+  await expect(heads.nth(1).locator('span:not(.tm-night-gap)')).toHaveText(['Date', 'Change', 'Note']);
+  await expect(page.getByRole('heading', { name: 'Off nights and changes' })).toBeVisible();
+  await expect(page.locator('.tm-night-label').first()).toBeHidden();
+  // A date moved starts at its night’s own time.
+  await page.getByLabel('Date 1 change').selectOption('moved');
+  await expect(page.getByLabel('Date 1 new start')).toHaveValue('15:00');
+  await page.setViewportSize({ width: 390, height: 900 });
+  await expect(heads.first()).toBeHidden();
+  await expect(page.locator('.tm-night-label').first()).toHaveText('Day');
+  await expect(page.locator('.tm-night-label').first()).toBeVisible();
+});
+
 test('a date that differs ends with its Remove at the row’s edge, after its note, on a phone @mobileOnly', async ({
   page
 }) => {
@@ -1100,7 +1143,7 @@ test('a date that differs ends with its Remove at the row’s edge, after its no
   await page.goto('/stores/store-1/settings');
   for (const width of [412, 320]) {
     await page.setViewportSize({ width, height: 900 });
-    const row = page.locator('.tm-night-exception').first();
+    const row = page.locator('.tm-night-exception:not(.tm-night-heads)').first();
     const [box, note, remove] = await Promise.all([
       row.boundingBox(),
       row.getByLabel('Date 1 note').boundingBox(),
@@ -1111,12 +1154,15 @@ test('a date that differs ends with its Remove at the row’s edge, after its no
   }
 });
 
-test('a date that differs stacks its fields whole on a phone held sideways', async ({ page }) => {
-  await mock(page, { user: MANAGER });
+test('a date that differs stacks its fields whole on a phone held sideways, when it names one of two nights', async ({
+  page
+}) => {
+  const twoWednesdays = [...STORE.nights, { id: 'late', weekday: 3, time: '21:00', name: 'Late', fee: '' }];
+  await mock(page, { user: MANAGER, store: { ...STORE, nights: twoWednesdays } });
   await page.goto('/stores/store-1/settings');
   for (const width of [932, 700]) {
     await page.setViewportSize({ width, height: 430 });
-    const row = page.locator('.tm-night-exception').first();
+    const row = page.locator('.tm-night-exception:not(.tm-night-heads)').first();
     const [box, night, remove] = await Promise.all([
       row.boundingBox(),
       row.getByLabel('Date 1 night').boundingBox(),
@@ -1265,6 +1311,10 @@ test('store settings: a new preset edited while its save is on its way keeps the
   });
   await page.goto('/stores/store-1/settings?section=displays');
   const name = page.getByLabel('Name');
+  // With no preset yet the form is the new one, so there is nothing to pick and no New preset to press.
+  await expect(name).toBeVisible();
+  await expect(page.getByRole('button', { name: 'New preset' })).toHaveCount(0);
+  await expect(page.locator('.tm-display-preview-head')).toHaveText('Thursday League Night');
   await name.fill('Combat Power');
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByRole('button', { name: 'Save' })).toBeDisabled();
@@ -1282,12 +1332,17 @@ test('store settings: a new preset started while another saves stays new, and do
   page
 }) => {
   await mock(page, { user: MANAGER });
+  const corner = {
+    id: 'corner',
+    name: 'Collectibles Corner',
+    options: { scale: 1, layout: 'auto', pageSeconds: 20, room: { inches: 100, feet: 25 } }
+  };
   const answer = deferred<void>();
   const puts: Record<string, unknown>[] = [];
   await page.route('**/api/stores/store-1/displays*', async route => {
     const request = route.request();
     if (request.method() !== 'PUT') {
-      return route.fulfill({ json: { presets: [] } });
+      return route.fulfill({ json: { presets: [corner] } });
     }
     const body = request.postDataJSON() as Record<string, unknown>;
     puts.push(body);
@@ -1298,6 +1353,7 @@ test('store settings: a new preset started while another saves stays new, and do
   });
   await page.goto('/stores/store-1/settings?section=displays');
   const name = page.getByLabel('Name');
+  await page.getByRole('button', { name: 'New preset' }).click();
   await name.fill('First preset');
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByRole('button', { name: 'Save' })).toBeDisabled();

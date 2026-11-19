@@ -32,6 +32,7 @@ import { ErrorLine } from './Field';
 import { createAction } from './action';
 import { SaveBar } from './StoreSave';
 import { SettingRow } from './SettingControls';
+import { SettingInfo } from './SettingInfo';
 
 const LAYOUT_WORDS: Record<Exclude<DisplayLayout, 'auto'>, string> = {
   faceoff: msg('Face-off scroll'),
@@ -72,13 +73,13 @@ const nudged = (scale: number, by: number) =>
   Math.max(SCALE_LIMITS.min, Math.min(SCALE_LIMITS.max, Math.round((scale + by) * 100) / 100));
 
 /** The screen as the room will see it: a few rows of pairings at the preset's text size. */
-function Preview(props: { options: DisplayOptions; name: string }) {
+function Preview(props: { options: DisplayOptions }) {
   const columns = () => Math.max(1, Math.min(3, Math.floor(3.3 / props.options.scale)));
   const rows = () => Math.max(2, Math.floor(10 / props.options.scale));
   const shown = () => Array.from({ length: columns() * rows() }, (_, i) => i);
   return (
     <div class='tm-display-preview' style={{ '--tm-preview-scale': props.options.scale }} aria-hidden='true'>
-      <p class='tm-display-preview-head'>{props.name || t('Big screen')}</p>
+      <p class='tm-display-preview-head'>{t('Thursday League Night')}</p>
       <ol style={{ 'grid-template-columns': `repeat(${columns()}, minmax(0, 1fr))` }}>
         <For each={shown()}>
           {i => (
@@ -306,34 +307,35 @@ export function StoreDisplays(props: { storeId: string }) {
         noValidate
         onSubmit={submit}
       >
-        <h2 class='tm-subhead tm-box-head' id='store-displays-head'>
+        <h2 class='tm-subhead tm-box-head tm-label-row' id='store-displays-head'>
           {t('Display presets')}
+          <SettingInfo text={msg('Pick one in an event’s console, Event tab.')} />
         </h2>
         <ErrorLine message={read.error ? errorText(read.error) : null} />
-        <div class='tm-set-inline'>
-          <Show when={presets().length}>
+        <Show when={presets().length}>
+          <div class='tm-set-inline'>
             <Segmented
               options={presets().map(preset => ({ value: preset.id, label: preset.name }))}
               selected={draft().id ?? ''}
               onSelect={pick}
               ariaLabel={t('Preset')}
             />
-          </Show>
-          <button
-            type='button'
-            class='btn btn-secondary'
-            aria-pressed={draft().id === null}
-            disabled={presets().length >= MAX_DISPLAY_PRESETS}
-            onClick={() => pick('')}
-          >
-            {t('New preset')}
-          </button>
-        </div>
+            <button
+              type='button'
+              class='btn btn-secondary'
+              aria-pressed={draft().id === null}
+              disabled={presets().length >= MAX_DISPLAY_PRESETS}
+              onClick={() => pick('')}
+            >
+              {t('New preset')}
+            </button>
+          </div>
+        </Show>
         <div class='tm-display-editor'>
           <div class='tm-box tm-set-box'>
             <PresetFields draft={draft()} onChange={setDraft} />
           </div>
-          <Preview options={draft().options} name={draft().name} />
+          <Preview options={draft().options} />
         </div>
         <SaveBar dirty={dirty()} busy={save.busy()} saved={save.saved()} error={save.error()} reason={problem(draft())}>
           <Show when={draft().id}>

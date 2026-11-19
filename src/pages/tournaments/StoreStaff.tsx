@@ -40,7 +40,13 @@ const inviteLabel = (role: GivenRole) => (role === 'manager' ? t('Manager invite
  * One open link: as what it lets someone in and until when, and Withdraw. The
  * one just made also shows its address, the only time it can, with Copy.
  */
-function InviteRow(props: { invite: StoreInvite; link: string | null; busy: boolean; onWithdraw: () => void }) {
+function InviteRow(props: {
+  invite: StoreInvite;
+  link: string | null;
+  store: string;
+  busy: boolean;
+  onWithdraw: () => void;
+}) {
   const { copied, copy } = createCopied();
   return (
     <div class='tm-box-bar tm-store-invite'>
@@ -63,8 +69,14 @@ function InviteRow(props: { invite: StoreInvite; link: string | null; busy: bool
                 {copied() ? t('Copied') : t('Copy')}
               </button>
             </span>
-            <span class='muted tm-small tm-invite-hint'>
-              {t("Anyone with a Ciphermaniac account can join your store's organizer team with this one-time link.")}
+            <span class='muted tm-invite-hint'>
+              {props.invite.role === 'manager'
+                ? t('Anyone with a Ciphermaniac account can join {store} as a manager with this one-time link.', {
+                    store: props.store
+                  })
+                : t('Anyone with a Ciphermaniac account can join {store} as staff with this one-time link.', {
+                    store: props.store
+                  })}
             </span>
           </div>
         )}
@@ -165,7 +177,7 @@ function MemberRow(props: {
   );
 }
 
-export function StoreStaff(props: { storeId: string }) {
+export function StoreStaff(props: { storeId: string; storeName: string }) {
   const navigate = useNavigate();
   const [people, { mutate, refetch }] = createResource(() => props.storeId, fetchPeople);
   const action = createAction();
@@ -269,6 +281,7 @@ export function StoreStaff(props: { storeId: string }) {
               {open => (
                 <InviteRow
                   invite={open}
+                  store={props.storeName}
                   link={made()?.id === open.id ? (made()?.link ?? null) : null}
                   busy={action.busy()}
                   onWithdraw={() => withdraw(open.id)}

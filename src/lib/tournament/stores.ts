@@ -90,6 +90,10 @@ export const withdrawInvite = (id: string, invite: string) =>
 /** The signed-in account joins the store an invite link was made for. */
 export const joinStore = (token: string) => call<{ storeId: string }>('/api/stores/join', json('POST', { token }));
 
+/** What an open invite link is for: the store's name and as what it lets someone in. */
+export const fetchInvite = (token: string) =>
+  call<{ store: string; role: GivenRole }>(`/api/stores/join?${new URLSearchParams({ invite: token })}`);
+
 /** What pokemon.com lists for the store's league from today on. */
 export const fetchListings = (id: string) => call<{ listings: Listing[] }>(`${storePath(id)}/listings`);
 
@@ -188,6 +192,18 @@ export function blankNight(nights: readonly LeagueNight[]): LeagueNight {
   const taken = new Set(nights.map(night => night.weekday));
   const weekday = [3, 4, 5, 2, 1, 6, 0].find(day => !taken.has(day)) ?? 0;
   return { id: newNightId(), weekday, time: '18:00', name: '', fee: '' };
+}
+
+/** Whether no weekday has two nights, so a date names its night by its weekday alone. */
+export const oneNightADay = (nights: readonly LeagueNight[]) =>
+  new Set(nights.map(night => night.weekday)).size === nights.length;
+
+/** Where a date moved to starts out: the time of the night it changes, or of that weekday's only night; else 6:00 PM. */
+export function movedFrom(exception: NightException, nights: readonly LeagueNight[]): string {
+  const weekday = new Date(`${exception.date}T12:00:00Z`).getUTCDay();
+  const named = nights.find(night => night.id === exception.nightId);
+  const sameDay = nights.filter(night => night.weekday === weekday);
+  return named?.time ?? (sameDay.length === 1 ? sameDay[0]!.time : '18:00');
 }
 
 /** A night's fee as its field shows it: without the currency symbol the field puts in front. */
@@ -292,10 +308,16 @@ function isHttps(value: string): boolean {
   }
 }
 
+/** A link as typed, with https:// put in front when it names no scheme of its own. */
+const withScheme = (value: string) => {
+  const link = value.trim();
+  return link && !/^[a-z][a-z\d+.-]*:/i.test(link) ? `https://${link}` : link;
+};
+
 /** The fields of `details` the server would refuse, each with why, as the form shows them. */
 export function detailsProblems(details: StoreDetails): Partial<Record<keyof StoreDetails, string>> {
   const problems: Partial<Record<keyof StoreDetails, string>> = {};
-  const link = (value: string) => value.trim() !== '' && !isHttps(value.trim());
+  const link = (value: string) => value.trim() !== '' && !isHttps(withScheme(value));
   if (!details.name.trim()) {
     problems.name = t('Enter the store’s name');
   }
@@ -308,7 +330,7 @@ export function detailsProblems(details: StoreDetails): Partial<Record<keyof Sto
   if (link(details.website)) {
     problems.website = t('Starts with https://');
   }
-  if (readDiscordInvite(details.discord.trim()) === null) {
+  if (readDiscordInvite(withScheme(details.discord)) === null) {
     problems.discord = t('Enter a Discord invite URL');
   }
   if (details.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(details.email.trim())) {
@@ -317,11 +339,16 @@ export function detailsProblems(details: StoreDetails): Partial<Record<keyof Sto
   return problems;
 }
 
-/** Details as the server keeps them: trimmed, the country in capitals. */
+/** Details as the server keeps them: trimmed, the country in capitals, links with their https://. */
 export function cleanDetails(details: StoreDetails): StoreDetails {
   const fields: Record<keyof StoreDetails, string> = details;
   const trimmed = Object.fromEntries(Object.entries(fields).map(([key, value]) => [key, value.trim()]));
-  return { ...(trimmed as Record<keyof StoreDetails, string>), country: details.country.trim().toUpperCase() };
+  return {
+    ...(trimmed as Record<keyof StoreDetails, string>),
+    country: details.country.trim().toUpperCase(),
+    website: withScheme(details.website),
+    discord: withScheme(details.discord)
+  };
 }
 
 /** The name the server lists an invite link under: the start of its token's SHA-256, as hex. */
