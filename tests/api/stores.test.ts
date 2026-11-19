@@ -991,8 +991,10 @@ test('a Community organizer’s event takes no Play! Pokémon kind or other date
   raw()
     .prepare("UPDATE users SET first_name = 'Mia', last_name = 'Lee', pop_id = '555' WHERE handle = 'manager'")
     .run();
-  const storeEvent = await newEvent(manager, { store: (await storeOf(manager))! });
+  const store = (await storeOf(manager))!;
+  const storeEvent = await newEvent(manager, { store });
   const shown = await hit(event.onRequestGet as Handler, `/api/tournaments/${storeEvent}`, at(storeEvent));
+  assert.equal(shown.json.store, store, 'its venue links to the store’s page');
   assert.deepEqual(
     [shown.json.tournament.info.organizerName, shown.json.tournament.info.organizerPopId],
     ['', ''],

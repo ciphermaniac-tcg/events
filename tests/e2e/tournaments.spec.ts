@@ -2321,6 +2321,16 @@ test.describe('a viewer in another time zone', () => {
   });
 });
 
+test('a store’s event links its venue to the store’s page @mobile', async ({ page }) => {
+  const settings = { ...VIEW.settings, venue: 'Test Games', address: '100 Main Street' };
+  await mockApi(page, { ...VIEW, tournament: unpairedTournament(), settings, store: 'test-games' });
+  await page.goto(`/t/${CODE}`);
+  await expect(page.locator('.tm-logistics').getByRole('link', { name: 'Test Games' })).toHaveAttribute(
+    'href',
+    '/stores/test-games'
+  );
+});
+
 test('a reporting player asks staff to drop them and can take it back until staff answer @mobile', async ({ page }) => {
   const view = { ...VIEW, settings: { ...VIEW.settings, playerReporting: true } };
   await mockApi(page, view);

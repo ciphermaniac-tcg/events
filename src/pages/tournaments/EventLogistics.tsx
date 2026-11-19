@@ -1,9 +1,11 @@
 /**
- * Where and when, for players: the venue, and check-in and the start in the
+ * Where and when, for players: the venue, linked to its store's page when a
+ * store runs the event, and check-in and the start in the
  * event's own zone, with the viewer's time under any that reads differently
  * where they are.
  */
 
+import { A } from '@solidjs/router';
 import { For, Show } from 'solid-js';
 import { eventTimes } from '../../../shared/tournament/eventTime';
 import type { TournamentSettings } from '../../../shared/tournament/view';
@@ -11,7 +13,8 @@ import { t } from '../../lib/i18n';
 
 type Shown = Pick<TournamentSettings, 'timeZone' | 'checkInAt' | 'startsAt' | 'venue' | 'address'>;
 
-export function EventLogistics(props: { settings: Shown }) {
+/** `store`: the store that runs the event, whose page the venue links to. */
+export function EventLogistics(props: { settings: Shown; store?: string | null }) {
   const times = () =>
     (
       [
@@ -30,7 +33,9 @@ export function EventLogistics(props: { settings: Shown }) {
             <tr>
               <th scope='row'>{t('Venue')}</th>
               <td>
-                {props.settings.venue}
+                <Show when={props.settings.venue && props.store} fallback={props.settings.venue}>
+                  {store => <A href={`/stores/${store()}`}>{props.settings.venue}</A>}
+                </Show>
                 <Show when={props.settings.address}>
                   <small class='muted'>{props.settings.address}</small>
                 </Show>

@@ -325,6 +325,8 @@ export interface TournamentView {
   /** Each public key's archetype label, when the organizer's deck visibility allows. */
   decks: Record<string, string>;
   settings: TournamentSettings;
+  /** The store that runs the event, whose page its venue links to; null for none, absent from views published before. */
+  store?: string | null;
   viewer: Viewer;
 }
 

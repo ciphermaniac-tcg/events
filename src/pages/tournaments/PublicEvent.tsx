@@ -1028,7 +1028,7 @@ function Hero(props: { view: TournamentView; prefer: (PodCategory | null)[]; min
         }
       />
       <Show when={!underway()}>
-        <EventLogistics settings={settings()} />
+        <EventLogistics settings={settings()} store={props.view.store} />
         <Show when={settings().details}>
           <p class='tm-details'>{settings().details}</p>
         </Show>
