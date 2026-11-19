@@ -161,7 +161,8 @@ test('a console refusal appears only after the request fails and clears while re
   const first = deferred<void>();
   await page.route('**/api/tournaments/FIRST/manage*', async route => {
     await first.promise;
-    await route.fulfill({ status: 403, json: { error: 'Forbidden' } });
+    // A lapsed session; a 403 sends someone off the staff to the event's page instead.
+    await route.fulfill({ status: 401, json: { error: 'Forbidden' } });
   });
   await page.goto('/host/FIRST');
   await expect(page.getByRole('button', { name: 'Account' })).toBeVisible();

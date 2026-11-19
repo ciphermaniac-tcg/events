@@ -4,7 +4,7 @@
  */
 
 import { divisionLookup } from '../../../shared/tournament/divisions';
-import { A, useSearchParams } from '@solidjs/router';
+import { A, useNavigate, useSearchParams } from '@solidjs/router';
 import {
   createEffect,
   createMemo,
@@ -600,6 +600,13 @@ export function ManageEvent(props: { code: string }) {
   const state = createManage(() => props.code);
   const [joinError, setJoinError] = createSignal<string | null>(null);
   const user = () => latestValue(session)?.user;
+  const navigate = useNavigate();
+  // Signed in, off the staff and without an invite, the event's own page is the one there is to see.
+  createEffect(() => {
+    if (user() && state.loadError()?.status === 403 && !params.invite) {
+      navigate(`/t/${props.code}`, { replace: true });
+    }
+  });
 
   /** An invite link joins the staff first, which takes the account; the event is then read as staff. */
   async function join(code: string, invite: string) {

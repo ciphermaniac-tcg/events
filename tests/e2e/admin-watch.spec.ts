@@ -68,3 +68,21 @@ test('an Admin watching on a phone sees the round clock and a late player, with 
   await expect(pin.getByRole('timer')).toBeVisible();
   await expect(pin.getByRole('group', { name: 'Round clock' })).toHaveCount(0);
 });
+
+test('someone off the staff who opens the console lands on the event page', async ({ page }) => {
+  await page.route('**/api/**', route => {
+    const url = new URL(route.request().url());
+    if (url.pathname === '/api/me') {
+      return route.fulfill({ json: organizerMe() });
+    }
+    if (url.pathname === `/api/tournaments/${CODE}/manage`) {
+      return route.fulfill({ status: 403, json: { error: 'Only this event’s staff can do that' } });
+    }
+    return route.fulfill({ status: 404, json: { error: 'Not found' } });
+  });
+  await page.goto('/');
+  await page.goto(`/host/${CODE}`);
+  await expect(page).toHaveURL(`/t/${CODE}`);
+  await page.goBack();
+  await expect(page).toHaveURL('/');
+});
