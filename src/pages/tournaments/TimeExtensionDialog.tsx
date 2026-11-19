@@ -77,7 +77,7 @@ export function TimeExtensionDialog(props: { state: ManageState; selection: Exte
           <button type='button' class='btn btn-ghost' disabled={props.state.busy()} onClick={() => props.onClose()}>
             {t('Cancel')}
           </button>
-          <button type='submit' class='btn btn-primary' disabled={props.state.busy()}>
+          <button type='submit' class='btn btn-primary' disabled={props.state.busy() || !(minutes() > 0)}>
             {t('Save extension')}
           </button>
         </div>

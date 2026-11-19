@@ -2056,6 +2056,8 @@ test('table extensions use the match menu and support editing and removal @mobil
   const { table } = round.matches[0]!;
   const sent = await mockConsole(page, t, settingsOf({}), [], true);
   let editor = await openExtension(page, table);
+  // No extra minutes yet: nothing to save.
+  await expect(editor.getByRole('button', { name: 'Save extension', exact: true })).toBeDisabled();
   await editor.getByLabel('Extra minutes').fill('5');
   await editor.getByLabel('Reason', { exact: true }).fill('Judge call');
   await editor.getByRole('button', { name: 'Save extension', exact: true }).click();
