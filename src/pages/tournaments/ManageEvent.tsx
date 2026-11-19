@@ -442,13 +442,27 @@ function Console(props: { state: ReturnType<typeof createManage>; manage: Manage
           onSynced: async answer => (answer ? props.state.take(answer) : props.state.load())
         })
       : null;
+  // A round or cut paired from the head opens its pairings, wherever the console was, unless the organizer has left it.
+  let open = true;
+  onCleanup(() => (open = false));
+  const heroState: ManageState = {
+    // eslint-disable-next-line solid/reactivity -- the console's state is the same object for as long as it is open
+    ...props.state,
+    send: async command => {
+      const sent = await props.state.send(command);
+      if (open && sent && (command.type === 'pairRound' || command.type === 'startTopCut')) {
+        setTab('round');
+      }
+      return sent;
+    }
+  };
   return (
     <div class='tm-page tm-console' classList={{ 'is-pairings': tab() === 'round' }}>
       <Show when={watching}>
         <p class='muted'>{t('Read only. You’re not on this event’s staff.')}</p>
       </Show>
       <fieldset class='tm-readonly' disabled={watching}>
-        <Hero state={props.state} manage={props.manage} pod={pod()} tom={tom} />
+        <Hero state={heroState} manage={props.manage} pod={pod()} tom={tom} />
       </fieldset>
       <Tabs id='console' options={wideTabs()} selected={tab()} onSelect={setTab} ariaLabel={t('Event sections')} />
       {/* A phone's tabs, in a bar along the bottom of the screen as the dashboard's are. */}

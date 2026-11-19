@@ -2935,3 +2935,31 @@ test('check-in fills half an hour before the start, moves with it, and is refuse
   await expect(checkIn).toHaveAttribute('aria-invalid', 'true');
   await expect(page.locator('form', { has: checkIn }).getByRole('button', { name: 'Save' })).toBeDisabled();
 });
+
+test('a round paired from another tab opens its pairings', async ({ page }) => {
+  await mockConsole(page, event(8, 1, false), settingsOf({}), [], true);
+  await page.getByRole('tab', { name: 'Settings', exact: true }).click();
+  await page.getByRole('button', { name: 'Pair round 2' }).click();
+  await expect(page.getByRole('tab', { name: 'Pairings', exact: true })).toHaveAttribute('aria-selected', 'true');
+});
+
+test('a round paired as the organizer leaves the console changes nothing where they went', async ({ page }) => {
+  await mockConsole(page, event(8, 1, false), settingsOf({}), [], true);
+  let answer = () => {};
+  const held = new Promise<void>(resolve => {
+    answer = resolve;
+  });
+  await page.route(`**/api/tournaments/${CODE}/commands`, async route => {
+    await held;
+    await route.fallback();
+  });
+  await page.getByRole('tab', { name: 'Settings', exact: true }).click();
+  await page.getByRole('button', { name: 'Pair round 2' }).click();
+  await page.getByRole('link', { name: 'Your events' }).click();
+  await expect(page).toHaveURL('/?tab=organizing');
+  const sent = page.waitForResponse(`**/api/tournaments/${CODE}/commands`);
+  answer();
+  await sent;
+  await page.evaluate(() => new Promise(requestAnimationFrame));
+  await expect(page).toHaveURL('/?tab=organizing');
+});
