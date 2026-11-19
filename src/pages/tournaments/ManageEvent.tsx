@@ -185,12 +185,7 @@ function Hero(props: { state: ManageState; manage: Manage; pod: Pod | undefined;
   /** The lead of the meta line: where the round stands, then what else needs saying about it. */
   const lead = () => {
     const { tom } = props;
-    const extra = tom
-      ? [tomPart(tom)]
-      : [
-          ...(waiting() ? [t('{n} not seated', { n: waiting() })] : []),
-          ...(swissOver() ? [t('top cuts under way')] : [])
-        ];
+    const extra = tom ? [tomPart(tom)] : waiting() ? [t('{n} not seated', { n: waiting() })] : [];
     const rounds = tom ? null : (plan()?.rounds ?? null);
     // A console that cannot reach the site says so, rather than showing an old round as the current one.
     const stale = props.state.loadError() ? [t('not updating')] : [];

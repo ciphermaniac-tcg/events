@@ -573,7 +573,7 @@ test('after the planned rounds the step is the top cut, set in a dialog, with an
   page
 }) => {
   // Sixteen players play five rounds and a top 4, as Play! Pokémon recommends.
-  const sent = await mockConsole(page, event(16, 5, false), settingsOf({}));
+  const sent = await mockConsole(page, event(16, 5, false), settingsOf({}), [], true);
   await expect(page.getByText('Round 5 of 5 complete')).toBeVisible();
   const step = page.locator('.tm-split');
   await expect(step.getByRole('button', { name: 'Start top cut' })).toHaveClass(/btn-primary/);
@@ -594,6 +594,9 @@ test('after the planned rounds the step is the top cut, set in a dialog, with an
   await dialog.getByRole('button', { name: 'Start top 8 cut' }).click();
   await expect(dialog).toBeHidden();
   await expect.poll(() => sent.at(-1)).toEqual({ type: 'startTopCut', pod: 'masters', size: 8 });
+  // The round line names the cut alone, with no suffix about cuts under way.
+  await expect(page.locator('.tm-meta-lead')).toContainText('Quarterfinals in progress');
+  await expect(page.locator('.tm-meta-lead')).not.toContainText('top cuts under way');
 });
 
 function prerelease(rounds: number): Tournament {
