@@ -326,7 +326,7 @@ export function CheckInBox(props: { state: ManageState; manage: Manage; players:
   const asks = () => checkColumns(props.manage).length > 0;
   const total = () => props.players.filter(player => player.droppedAfter === null).length;
   return (
-    <Show when={asks()}>
+    <Show when={asks() && props.players.length > 0}>
       <Show
         when={!hasStarted(props.manage.tournament)}
         fallback={

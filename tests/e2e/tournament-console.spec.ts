@@ -2595,6 +2595,12 @@ test('once the event has started, a division’s round 1 pairs without waiting o
   await expect(page.getByRole('button', { name: 'Pair round 1' })).toBeEnabled();
 });
 
+test('an event with a fee and nobody on its roster shows no check-in box', async ({ page }) => {
+  await mockConsole(page, event(0, 0, false), settingsOf({ entryFee: 10 }));
+  await expect(page.getByRole('form', { name: 'Add a player' })).toBeVisible();
+  await expect(page.getByText('Everyone is checked in.')).toHaveCount(0);
+});
+
 test('the roster’s filter stays inside its box on a narrow phone, a choice to a line @mobileOnly', async ({ page }) => {
   await page.setViewportSize({ width: 280, height: 640 });
   await mockConsole(page, event(3, 0, false), settingsOf({ entryFee: 10 }));
