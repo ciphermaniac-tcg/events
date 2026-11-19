@@ -516,7 +516,7 @@ function Console(props: { state: ReturnType<typeof createManage>; manage: Manage
       <TabPanel tabs='console' selected={tab()}>
         <Show when={tab() === 'round'}>
           <Show when={pod()} fallback={<p class='muted'>{t('Add players to start pairing.')}</p>}>
-            {p => <RoundPanel state={props.state} manage={props.manage} pod={p()} locked={tom?.locked() ?? false} />}
+            {p => <RoundPanel state={props.state} manage={props.manage} pod={p()} locked={watching || tom?.locked()} />}
           </Show>
         </Show>
         <Show when={tab() === 'players'}>

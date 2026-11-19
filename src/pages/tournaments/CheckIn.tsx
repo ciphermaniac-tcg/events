@@ -188,7 +188,7 @@ function CheckBox(props: { state: ManageState; manage: Manage; id: string; name:
         type='checkbox'
         class='tm-check-box'
         checked={held()?.[props.mark] === true}
-        disabled={locked() || isSaving(props.id, props.mark)}
+        disabled={locked() || props.manage.watching || isSaving(props.id, props.mark)}
         aria-label={`${t(MARK_LABELS[props.mark])}: ${props.name}`}
         onChange={e => {
           const box = e.currentTarget;
@@ -347,7 +347,7 @@ export function CheckInBox(props: { state: ManageState; manage: Manage; players:
             fallback={<p class='tm-box-bar tm-check-done'>{t('Everyone is checked in.')}</p>}
           >
             <Show
-              when={!tom()}
+              when={!tom() && !props.manage.watching}
               fallback={
                 <p class='tm-box-bar'>
                   {open().length === 1

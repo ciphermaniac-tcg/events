@@ -343,7 +343,9 @@ export function StaffSheet(props: SheetProps) {
   const seen: Seen = { props, names, records, decks };
   const lists = () => props.manage.settings.decklists !== 'off';
   // Only where the roster offers them: the site runs the event, and there is something left to do.
-  const acts = createMemo(() => props.manage.mode === 'swiss' && offersActions(props.manage, props.player));
+  const acts = createMemo(
+    () => props.manage.mode === 'swiss' && !props.manage.watching && offersActions(props.manage, props.player)
+  );
   return (
     <Sheet
       title={

@@ -94,7 +94,7 @@ export function StaffRequests(props: { state: ManageState; manage: Manage }) {
                     <td class='tm-num'>{timeOfDay(request.at)}</td>
                     <td>
                       <Show
-                        when={request.status === 'open' && !props.manage.settings.finished}
+                        when={request.status === 'open' && !props.manage.settings.finished && !props.manage.watching}
                         fallback={<Status manage={props.manage} request={request} />}
                       >
                         <Answers state={props.state} manage={props.manage} request={request} />

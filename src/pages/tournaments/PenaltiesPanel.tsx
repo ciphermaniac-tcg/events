@@ -294,7 +294,7 @@ function PenaltyWord(props: { penalty: Penalty }) {
   );
 }
 
-function NoteRow(props: { note: PenaltyNote; onEdit: () => void; onRemove: () => void }) {
+function NoteRow(props: { note: PenaltyNote; readOnly: boolean; onEdit: () => void; onRemove: () => void }) {
   return (
     <tr>
       <td class='num tm-table-col'>{props.note.round}</td>
@@ -311,18 +311,20 @@ function NoteRow(props: { note: PenaltyNote; onEdit: () => void; onRemove: () =>
         {nameOr(props.note.recordedBy)}, {timeOfDay(props.note.recordedAt)}
       </td>
       <td class='tm-extra-col'>
-        <span class='tm-row-actions'>
-          <button type='button' class='btn btn-ghost tm-small' onClick={() => props.onEdit()}>
-            {t('Edit')}
-          </button>
-          <ConfirmAction
-            label={t('Remove')}
-            question={t('Remove this penalty note?')}
-            confirmLabel={t('Remove')}
-            danger
-            onConfirm={() => props.onRemove()}
-          />
-        </span>
+        <Show when={!props.readOnly}>
+          <span class='tm-row-actions'>
+            <button type='button' class='btn btn-ghost tm-small' onClick={() => props.onEdit()}>
+              {t('Edit')}
+            </button>
+            <ConfirmAction
+              label={t('Remove')}
+              question={t('Remove this penalty note?')}
+              confirmLabel={t('Remove')}
+              danger
+              onConfirm={() => props.onRemove()}
+            />
+          </span>
+        </Show>
       </td>
     </tr>
   );
@@ -352,7 +354,12 @@ function CheckRow(props: { check: DeckCheckEntry }) {
   );
 }
 
-function Log(props: { lines: Line[]; onEdit: (note: PenaltyNote) => void; onRemove: (id: string) => void }) {
+function Log(props: {
+  lines: Line[];
+  readOnly: boolean;
+  onEdit: (note: PenaltyNote) => void;
+  onRemove: (id: string) => void;
+}) {
   return (
     <div class='table-wrap'>
       <table class='data tm-penalty-log'>
@@ -376,6 +383,7 @@ function Log(props: { lines: Line[]; onEdit: (note: PenaltyNote) => void; onRemo
               line.kind === 'note' ? (
                 <NoteRow
                   note={line.note}
+                  readOnly={props.readOnly}
                   onEdit={() => props.onEdit(line.note)}
                   onRemove={() => props.onRemove(line.note.id)}
                 />
@@ -606,27 +614,29 @@ export function PenaltiesPanel(props: { state: ManageState; manage: Manage }) {
   return (
     <div class='tm-panel'>
       <DisqualifyOffer state={props.state} manage={props.manage} id={offered()} onDone={() => setOffered(null)} />
-      <section class='tm-box'>
-        <div class='tm-box-bar'>
-          <strong>{draft().replaces ? t('Edit note') : t('Record a penalty')}</strong>
-          <span class='muted'>{t('Staff only')}</span>
-        </div>
-        <div class='tm-box-bar'>
-          <NoteForm
-            draft={draft()}
-            players={players()}
-            search={query => findPlayers(props.manage.tournament, players(), query)}
-            seat={id => seatOf(props.manage.tournament, id)}
-            latestOf={id => (id ? latestOf(id) : latest())}
-            judges={notes.judges()}
-            saving={saving()}
-            error={error()}
-            onChange={setDraft}
-            onSave={save}
-            onCancel={reset}
-          />
-        </div>
-      </section>
+      <Show when={!props.manage.watching}>
+        <section class='tm-box'>
+          <div class='tm-box-bar'>
+            <strong>{draft().replaces ? t('Edit note') : t('Record a penalty')}</strong>
+            <span class='muted'>{t('Staff only')}</span>
+          </div>
+          <div class='tm-box-bar'>
+            <NoteForm
+              draft={draft()}
+              players={players()}
+              search={query => findPlayers(props.manage.tournament, players(), query)}
+              seat={id => seatOf(props.manage.tournament, id)}
+              latestOf={id => (id ? latestOf(id) : latest())}
+              judges={notes.judges()}
+              saving={saving()}
+              error={error()}
+              onChange={setDraft}
+              onSave={save}
+              onCancel={reset}
+            />
+          </div>
+        </section>
+      </Show>
       <section class='tm-box'>
         <Filters
           query={query()}
@@ -651,6 +661,7 @@ export function PenaltiesPanel(props: { state: ManageState; manage: Manage }) {
         >
           <Log
             lines={lines()}
+            readOnly={props.manage.watching === true}
             onEdit={note => {
               setDraft(editing(note));
               setError(null);

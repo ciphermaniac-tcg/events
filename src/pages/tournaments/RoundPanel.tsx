@@ -62,6 +62,7 @@ import { changeQuestion, outcomeLabel, outcomeNoun, recordsBefore, staffReport }
 import { ConfirmDialog } from './ConfirmAction';
 import type { ManageState } from './manageState';
 import { OptionsMenu } from './OptionsMenu';
+import { Clock } from './Clock';
 import { ExtensionClock } from './ExtensionClock';
 import type { ExtensionSelection } from './TimeExtensionDialog';
 import { RoundPicker, RoundStepper } from './RoundStepper';
@@ -472,7 +473,10 @@ function RoundPin(props: {
       <div class='tm-round-pin'>
         <RoundPicker pod={props.pod} selected={props.round.number} onSelect={props.onPick} />
         <Show when={props.clocked}>
-          <ClockControls state={props.state} pod={props.pod} round={props.round} />
+          {/* A watching Admin sees the time with nothing to press. */}
+          <Show when={!props.state.data()?.watching} fallback={<Clock round={props.round} set />}>
+            <ClockControls state={props.state} pod={props.pod} round={props.round} />
+          </Show>
         </Show>
         {/* Selected on focus, so the next table's number replaces the last one's. */}
         <input
@@ -562,13 +566,15 @@ function NotSeated(props: { state: ManageState; pod: Pod; names: string }) {
       <div class='tm-strip is-note' role='status'>
         <span>{tx('Not seated this round: {names}', { names: <strong>{props.names}</strong> })}</span>
         <span class='tm-grow' />
-        <RepairControl
-          state={props.state}
-          pod={props.pod}
-          class='btn btn-secondary tm-small'
-          label={t('Re-pair to seat them')}
-          names={props.names}
-        />
+        <Show when={!props.state.data()?.watching}>
+          <RepairControl
+            state={props.state}
+            pod={props.pod}
+            class='btn btn-secondary tm-small'
+            label={t('Re-pair to seat them')}
+            names={props.names}
+          />
+        </Show>
       </div>
     </Show>
   );
@@ -765,7 +771,7 @@ function createTables(
 export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod; locked?: boolean }) {
   const tom = () => props.manage.mode === 'tom';
   const ended = () => props.manage.settings.finished;
-  /** Nothing can be entered: a TOM file to reconnect, an event that has ended, or a round past (see PastNote). */
+  /** Nothing can be entered: a watching Admin, a TOM file to reconnect, an event that has ended, or a round past (see PastNote). */
   const locked = () => props.locked === true || ended() || !isLatest();
   const latest = () => latestRound(props.pod);
   const [picked, setPicked] = createSignal<number | null>(null);
@@ -802,7 +808,7 @@ export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod
   /** The round's clock, run from its latest round until there is a champion, TOM's or not. */
   const timed = () => isLatest() && winner() === null;
   /** The staff controls that act on the round, offered only where its clock is, never for TOM, and not once it ends. */
-  const live = () => !tom() && timed() && !ended();
+  const live = () => !props.locked && !tom() && timed() && !ended();
   // A TOM event's results are entered in TOM, so its rows open no sheet and take no presses.
   const { opens, inRow, openSheet, sheetMatch, closeSheet } = createRowSheet(() => locked() || tom());
   // Only the table asked about, and the one asked before it, draw again as the question moves.

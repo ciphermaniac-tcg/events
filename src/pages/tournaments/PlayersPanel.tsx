@@ -137,7 +137,9 @@ function AddPlayer(props: { state: ManageState; code: string; sanctioned: boolea
 function DeckCell(props: RowProps) {
   return (
     <td class='tm-deck-cell'>
-      <DeckPicker state={props.state} manage={props.manage} playerId={props.player.id} decks={props.decks} />
+      <fieldset class='tm-readonly' disabled={props.manage.watching}>
+        <DeckPicker state={props.state} manage={props.manage} playerId={props.player.id} decks={props.decks} />
+      </fieldset>
     </td>
   );
 }
@@ -204,7 +206,7 @@ function PlayerRow(props: RowProps) {
       <Show when={showsCheckIn(props.manage)}>
         <CheckInCells state={props.state} manage={props.manage} id={props.player.id} name={playerName(props.player)} />
       </Show>
-      <Show when={swiss()} fallback={<td class='tm-extra-col' />}>
+      <Show when={swiss() && !props.manage.watching} fallback={<td class='tm-extra-col' />}>
         <td class='tm-extra-col'>
           <PlayerActions
             state={props.state}
@@ -307,7 +309,7 @@ export function PlayersPanel(props: { state: ManageState; manage: Manage; onPlay
   };
   return (
     <div class='tm-panel'>
-      <Show when={swiss() && !props.manage.settings.finished}>
+      <Show when={swiss() && !props.manage.settings.finished && !props.manage.watching}>
         <AddPlayer state={props.state} code={props.manage.code} sanctioned={sanctioned()} late={started()} />
       </Show>
       <StaffRequests state={props.state} manage={props.manage} />

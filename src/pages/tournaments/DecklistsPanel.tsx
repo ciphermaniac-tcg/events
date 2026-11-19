@@ -162,24 +162,26 @@ function DecklistRow(props: RowProps) {
             >
               {props.open ? t('Hide') : t('View')}
             </button>
-            {/* An ended event's roster stands until it is reopened. */}
-            <Show when={props.manage.mode === 'swiss' && !props.manage.settings.finished && !playerId()}>
-              <button type='button' class='btn btn-ghost tm-small' onClick={() => void add()}>
-                {t('Add to event')}
-              </button>
-            </Show>
-            <Show when={canUseDeck()}>
-              <button type='button' class='btn btn-ghost tm-small' onClick={useDeck}>
-                {t('Use their deck')}
-              </button>
-            </Show>
-            <Show when={props.list.locked && decklistOpenFor(props.manage, playerId() ?? null)}>
-              <ConfirmAction
-                label={t('Unlock')}
-                question={t('Let another device send this list?')}
-                confirmLabel={t('Unlock')}
-                onConfirm={() => void unlock()}
-              />
+            <Show when={!props.manage.watching}>
+              {/* An ended event's roster stands until it is reopened. */}
+              <Show when={props.manage.mode === 'swiss' && !props.manage.settings.finished && !playerId()}>
+                <button type='button' class='btn btn-ghost tm-small' onClick={() => void add()}>
+                  {t('Add to event')}
+                </button>
+              </Show>
+              <Show when={canUseDeck()}>
+                <button type='button' class='btn btn-ghost tm-small' onClick={useDeck}>
+                  {t('Use their deck')}
+                </button>
+              </Show>
+              <Show when={props.list.locked && decklistOpenFor(props.manage, playerId() ?? null)}>
+                <ConfirmAction
+                  label={t('Unlock')}
+                  question={t('Let another device send this list?')}
+                  confirmLabel={t('Unlock')}
+                  onConfirm={() => void unlock()}
+                />
+              </Show>
             </Show>
           </span>
         </td>
@@ -191,12 +193,14 @@ function DecklistRow(props: RowProps) {
               {id => (
                 <div class='tm-check-split'>
                   <ListCards list={props.list} />
-                  <DeckCheckSide
-                    checks={props.checks as DeckChecks}
-                    playerId={id}
-                    latestRound={latestRoundOf(props.manage.tournament, id)}
-                    me={latestValue(session)?.user?.id ?? null}
-                  />
+                  <fieldset class='tm-readonly' disabled={props.manage.watching}>
+                    <DeckCheckSide
+                      checks={props.checks as DeckChecks}
+                      playerId={id}
+                      latestRound={latestRoundOf(props.manage.tournament, id)}
+                      me={latestValue(session)?.user?.id ?? null}
+                    />
+                  </fieldset>
                 </div>
               )}
             </Show>
@@ -369,7 +373,13 @@ export function DecklistsPanel(props: { state: ManageState; manage: Manage }) {
             {t('Submit decklist page')}
           </A>
           <span class='tm-grow' />
-          <Show when={decksEnabled(props.manage.settings) && all().some(list => list.mode === 'digital')}>
+          <Show
+            when={
+              !props.manage.watching &&
+              decksEnabled(props.manage.settings) &&
+              all().some(list => list.mode === 'digital')
+            }
+          >
             <RereadArchetypes state={props.state} manage={props.manage} onDone={() => void refetch()} />
           </Show>
         </div>
