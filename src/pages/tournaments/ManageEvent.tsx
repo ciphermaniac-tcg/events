@@ -18,9 +18,17 @@ import {
   Switch,
   untrack
 } from 'solid-js';
-import { activeIds, cutPodsOf, latestRound, livePods, roundComplete } from '../../../shared/tournament/rounds';
+import {
+  activeIds,
+  cutPodsOf,
+  hasStarted as eventStarted,
+  latestRound,
+  livePods,
+  roundComplete
+} from '../../../shared/tournament/rounds';
 
 import type { Pod, PodCategory } from '../../../shared/tournament/types';
+import { notCheckedIn } from '../../../shared/tournament/checkins';
 import { Segmented } from '@ciphermaniac/design/components/Segmented';
 import { TabPanel, Tabs } from '@ciphermaniac/design/components/Tabs';
 import { Icon } from '@ciphermaniac/design/components/Icon';
@@ -156,6 +164,21 @@ const WaitingStep = (props: { label: string }) => (
   </button>
 );
 
+/** Why round 1 cannot pair yet, as the server would refuse it (see pairingRefusal), or null. */
+function firstRoundBlock(manage: Manage, active: number): string | null {
+  if (active < 2) {
+    return t('Add players to pair');
+  }
+  if (eventStarted(manage.tournament)) {
+    return null;
+  }
+  const open = notCheckedIn(manage, manage.tournament.players, manage.checkins ?? {}).length;
+  if (open === 0) {
+    return null;
+  }
+  return open === 1 ? t('1 player isn’t checked in.') : t('{n} players aren’t checked in.', { n: open });
+}
+
 /**
  * The console's head, the same on every tab: the event, where its round
  * stands, and the step to take next. TOM pairs a TOM event's rounds, so
@@ -216,7 +239,9 @@ function Hero(props: { state: ManageState; manage: Manage; pod: Pod | undefined;
     }
     return s.kind === 'pair' && progress().round?.kind === 'swiss' ? { ...s, end: 'pair' as RoundEnd } : null;
   };
-  const firstBlocked = () => pairStep() !== null && !progress().round && active() < 2;
+  /** Why round 1 cannot pair yet, while it is the step; null once it can. */
+  const firstBlock = () => (pairStep() !== null && !progress().round ? firstRoundBlock(props.manage, active()) : null);
+  const firstBlocked = () => firstBlock() !== null;
   /** Whether the main step pairs a round now: not a top cut or the end, which no drop request holds back. */
   const pairsNow = () => {
     const end = roundEnd();
@@ -225,8 +250,9 @@ function Hero(props: { state: ManageState; manage: Manage; pod: Pod | undefined;
   // Players who asked to drop are answered before the next round pairs them (see dropGate).
   const drops = () => (pairsNow() ? podDrops(props.manage, props.pod).length : 0);
   const reason = () => {
-    if (firstBlocked()) {
-      return t('Add players to pair');
+    const first = firstBlock();
+    if (first) {
+      return first;
     }
     return drops()
       ? tn(drops(), '{n} drop request waiting', '{n} drop requests waiting')
