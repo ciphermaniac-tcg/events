@@ -743,8 +743,11 @@ test('changing a result that stands names both players, and a double click there
   // Read once the row is drawn, not while the event is still on its way.
   await expect(rowOf(page, match).locator('.tm-name')).toHaveCount(2);
   const names = (await rowOf(page, match).locator('.tm-name').allTextContents()) as [string, string];
-  await rowOf(page, match).locator('.tm-seat-link').nth(1).dblclick();
   const asking = page.getByRole('group', { name: 'Confirm result' });
+  // The winner already recorded has nothing to change to.
+  await rowOf(page, match).locator('.tm-seat-link').first().click();
+  await expect(asking).toHaveCount(0);
+  await rowOf(page, match).locator('.tm-seat-link').nth(1).dblclick();
   await expect(asking.locator('.tm-result-label')).toHaveText(`Change ${names[0]}’s win to ${names[1]}’s?`);
   expect(sent).toHaveLength(0);
   await asking.getByRole('button', { name: 'Change' }).click();

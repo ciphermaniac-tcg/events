@@ -838,8 +838,11 @@ export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod
     return filterMatches(r.matches, names(), query()).filter(m => !openOnly() || isOpen(m));
   });
 
+  /** Asks to record or change a result; the result already standing has nothing to ask. */
   function report(match: Match, outcome: Outcome) {
-    setAsking({ table: match.table, p1: match.p1, outcome });
+    if (tableOf(match).shown.outcome !== outcome) {
+      setAsking({ table: match.table, p1: match.p1, outcome });
+    }
   }
 
   /** After a result, the filter takes focus with its text selected, ready for the next table. */
