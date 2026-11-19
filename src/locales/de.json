@@ -1639,5 +1639,10 @@
   "Save and record the loss": "Speichern und Niederlage eintragen",
   "Save and write a penalty": "Speichern und Strafe erfassen",
   "Deck check: {notes}": "Deckprüfung: {notes}",
-  "{name} asks to drop": "{name} möchte aussteigen"
+  "{name} asks to drop": "{name} möchte aussteigen",
+  "Round {round} if re-paired": "Runde {round} neu ausgelost",
+  "Round {round} if kept": "Runde {round} unverändert",
+  "Round {round} is paired again from the corrected standings.": "Runde {round} wird nach der korrigierten Tabelle neu ausgelost.",
+  "Apply only": "Nur übernehmen",
+  "Apply and re-pair round {round}": "Übernehmen und Runde {round} neu auslosen"
 }

@@ -38,6 +38,8 @@ export interface CorrectionRequest {
   note: string;
   /** The event's version the correction was previewed on; another write since refuses it. */
   version: number;
+  /** The next round is also paired again from the corrected standings, in the same write (see repairable.ts). */
+  repair?: true;
 }
 
 /** Who approved a correction: the organizer, alone when the event names no head judge, or the head judge. */
@@ -95,7 +97,8 @@ export function readCorrection(value: Record<string, unknown>): CorrectionReques
     p2: text(value.p2),
     outcome: value.outcome as Outcome,
     note: text(value.note),
-    version: value.version as number
+    version: value.version as number,
+    ...(value.repair === true ? { repair: true as const } : {})
   };
 }
 

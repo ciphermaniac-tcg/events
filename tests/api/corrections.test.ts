@@ -4,7 +4,8 @@
  * correction lands only in the handbook's window, only on the event as it
  * was previewed (a write since refuses it, and it is not tried again), and
  * always with its audit entry beside it; it changes that one result and no
- * other round.
+ * other round, unless it pairs the next round again, in the same write and
+ * only while that round is not yet in play.
  */
 
 import assert from 'node:assert/strict';
@@ -18,6 +19,7 @@ import * as manage from '../../functions/api/tournaments/[code]/manage.ts';
 import * as staff from '../../functions/api/tournaments/[code]/staff.ts';
 import type { TournamentEnv } from '../../functions/lib/auth/env.ts';
 import type { CorrectionEntry } from '../../shared/tournament/corrections.ts';
+import { pointsBefore } from '../../shared/tournament/rounds.ts';
 import type { Match, Pod, Tournament } from '../../shared/tournament/types.ts';
 import { apiCalls, type Handler } from '../__utils__/apiCalls.ts';
 import { at, eventCalls } from '../__utils__/eventCalls.ts';
@@ -26,7 +28,7 @@ import { racing, sqliteD1 } from '../__utils__/sqliteD1.ts';
 let env: TournamentEnv;
 let db: ReturnType<typeof sqliteD1>;
 const { hit, signIn, userOf } = apiCalls(() => env);
-const { newSwiss, send, addPlayers, settle, joinStaff } = eventCalls(hit);
+const { newSwiss, send, addPlayers, settle, joinStaff, playerSays } = eventCalls(hit);
 
 beforeEach(() => {
   db = sqliteD1('tournaments.sql');
@@ -173,6 +175,77 @@ test('a correction previewed on an older version of the event is refused and wri
   assert.deepEqual((await record(code, owner)).corrections, []);
   const match = masters((await managed(code, owner)).tournament).rounds[0]!.matches.find(m => m.table === 1)!;
   assert.equal(match.outcome, 'p1');
+});
+
+const CHANGED = 'The event changed since you looked. Look again and try once more.';
+
+/** A player at round 2's first table reports a win from their phone, as staff have not yet settled. */
+async function reportFromPhone(code: string, owner: string) {
+  const match = masters((await managed(code, owner)).tournament).rounds[1]!.matches[0]!;
+  const device = crypto.randomUUID();
+  const { reportToken } = (await playerSays(code, { popId: match.p1, device })).json as { reportToken: string };
+  const reported = await playerSays(code, { popId: match.p1, device, reportToken, result: 'win' });
+  assert.equal(reported.status, 200, JSON.stringify(reported.json));
+}
+
+test('a correction that re-pairs round 2 does both in one write, pairing it from the corrected standings', async () => {
+  const { code, owner } = await inRound2();
+  const before = await managed(code, owner);
+  const corrected = await correct(code, owner, await flipTable1(code, owner, { repair: true }));
+  assert.equal(corrected.status, 200, JSON.stringify(corrected.json));
+  const after = corrected.json as { version: number; tournament: Tournament };
+  assert.equal(after.version, before.version + 1, 'one write');
+  const pod = masters(after.tournament);
+  assert.equal(pod.rounds.length, 2);
+  assert.equal(pod.rounds[0]!.matches.find(m => m.table === 1)!.outcome, 'p2');
+  // Round 2 as paired before set the corrected players against opponents on other points; paired again, it does not.
+  const points = pointsBefore(pod, 2);
+  const even = (r: Pod['rounds'][number]) =>
+    r.matches.filter(m => m.p2 !== null).every(m => points.get(m.p1) === points.get(m.p2!));
+  assert.equal(even(masters(before.tournament).rounds[1]!), false);
+  assert.equal(even(pod.rounds[1]!), true);
+  assert.ok(pod.rounds[1]!.matches.every(m => m.p2 === null || m.outcome === 'pending'));
+  assert.equal((await record(code, owner)).corrections.length, 1);
+});
+
+test('a re-pair is refused once round 2 is in play, and the correction with it', async () => {
+  const inPlay: [string, (code: string, owner: string) => Promise<unknown>][] = [
+    ['its clock started', (code, owner) => send(code, owner, { type: 'startClock', pod: 'masters' })],
+    [
+      'a time extension',
+      async (code, owner) => {
+        const { table, p1, p2 } = masters((await managed(code, owner)).tournament).rounds[1]!.matches[0]!;
+        const extension = { type: 'setTimeExtension', pod: 'masters', round: 2, table, p1, p2, seconds: 300 };
+        return send(code, owner, { ...extension, reason: 'Judge call' });
+      }
+    ],
+    ['a player’s report', reportFromPhone]
+  ];
+  for (const [what, play] of inPlay) {
+    const { code, owner } = await inRound2();
+    await settle(code, owner, { playerReporting: true });
+    await play(code, owner);
+    const before = await managed(code, owner);
+    const refused = await correct(code, owner, await flipTable1(code, owner, { repair: true }));
+    assert.deepEqual([refused.status, refused.json.error], [409, CHANGED], what);
+    assert.deepEqual(await managed(code, owner), before, `${what}: nothing written`);
+  }
+});
+
+test('a report that lands between the preview and a re-pair refuses it, and the correction alone then goes', async () => {
+  const { code, owner } = await inRound2();
+  await settle(code, owner, { playerReporting: true });
+  const previewed = await flipTable1(code, owner, { repair: true });
+  await reportFromPhone(code, owner);
+  const before = await managed(code, owner);
+  const refused = await correct(code, owner, previewed);
+  assert.deepEqual([refused.status, refused.json.error], [409, CHANGED]);
+  assert.deepEqual(await managed(code, owner), before, 'nothing written');
+  // Looked at again, round 2 is in play: the dialog offers the correction alone, which keeps it as paired.
+  const alone = await correct(code, owner, await flipTable1(code, owner));
+  assert.equal(alone.status, 200, JSON.stringify(alone.json));
+  const after = alone.json as { tournament: Tournament };
+  assert.deepEqual(masters(after.tournament).rounds[1], masters(before.tournament).rounds[1]);
 });
 
 test('a correction outside the window, or of a match that changed, is refused', async () => {

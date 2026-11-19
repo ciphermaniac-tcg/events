@@ -49,6 +49,7 @@ async function mockConsole(page: Page, start: Tournament, approver: 'organizer' 
   let version = 3;
   let writes = writesFirst;
   const sent: Body[] = [];
+  const commands: Command[] = [];
   const entries: CorrectionEntry[] = [];
   const view = () => manageOf(CODE, tournament, { version, role: approver ? 'owner' : 'staff' });
   function correctionsRoute(route: Route) {
@@ -68,6 +69,14 @@ async function mockConsole(page: Page, start: Tournament, approver: 'organizer' 
     const request = body as unknown as Parameters<typeof correctedTournament>[1];
     const from = tournament.pods[0]!.rounds[0]!.matches.find(m => m.table === request.table)!.outcome;
     tournament = correctedTournament(tournament, request, body.localTime as string);
+    if (body.repair) {
+      // Paired again in the same write, as the functions do: round 2 deleted, then paired.
+      tournament = runCommands(
+        tournament,
+        { type: 'deleteRound', pod: 'masters' },
+        { type: 'pairRound', pod: 'masters' }
+      );
+    }
     version += 1;
     entries.unshift({
       ...(request as unknown as Pick<CorrectionEntry, 'pod' | 'round' | 'table' | 'p1' | 'p2'>),
@@ -91,13 +100,20 @@ async function mockConsole(page: Page, start: Tournament, approver: 'organizer' 
         url.searchParams.get('since') === String(version)
           ? route.fulfill({ status: 204 })
           : route.fulfill({ json: view() }),
-      [`/api/tournaments/${CODE}/corrections`]: () => correctionsRoute(route)
+      [`/api/tournaments/${CODE}/corrections`]: () => correctionsRoute(route),
+      [`/api/tournaments/${CODE}/commands`]: () => {
+        const { command } = route.request().postDataJSON() as { command: Command };
+        commands.push(command);
+        tournament = runCommands(tournament, command);
+        version += 1;
+        return route.fulfill({ json: view() });
+      }
     };
     return (routes[url.pathname] ?? (() => route.fulfill({ status: 404, json: { error: 'Not found' } })))();
   });
   await page.goto(`/host/${CODE}`);
   await page.getByRole('button', { name: 'Previous round' }).click();
-  return sent;
+  return Object.assign(sent, { commands });
 }
 
 test('the organizer corrects a round 1 result during round 2, after seeing what it changes', async ({ page }) => {
@@ -111,7 +127,8 @@ test('the organizer corrects a round 1 result during round 2, after seeing what 
   await page.getByRole('button', { name: 'Correct result' }).click();
   const dialog = page.getByRole('dialog', { name: 'Correct round 1, table 1' });
   await expect(dialog).toContainText('Recorded 1–0. Correct to');
-  await expect(dialog.getByRole('button', { name: 'Apply correction' })).toBeDisabled();
+  await expect(dialog.getByRole('button', { name: 'Apply only' })).toBeDisabled();
+  await expect(dialog.getByRole('button', { name: 'Apply and re-pair round 2' })).toBeDisabled();
   await expect(dialog).toContainText('Approving as Organizer, organizer (no head judge named)');
 
   await dialog.getByRole('radio', { name: `${loser} Test won` }).click();
@@ -119,17 +136,20 @@ test('the organizer corrects a round 1 result during round 2, after seeing what 
   await expect(dialog.locator('.tm-correction-diff tbody tr').filter({ hasText: `${winner} Test` })).toContainText(
     '1-0-0 to 0-1-0'
   );
-  await expect(dialog).toContainText("Round 2's pairings stay as they are.");
+  // Round 2 has no result in, so it can be paired again: the preview says what each choice does.
+  await expect(dialog.locator('.tm-correction-next')).toHaveText(['Round 2 if re-paired', 'Round 2 if kept']);
+  await expect(dialog).toContainText('Round 2 is paired again from the corrected standings.');
   await expect(dialog).toContainText('Round 3 pairs from the corrected standings.');
 
-  await dialog.getByRole('button', { name: 'Apply correction' }).click();
+  await dialog.getByRole('button', { name: 'Apply only' }).click();
   // Under the note, where it is fixed.
   await expect(dialog.locator('#correction-note-error')).toHaveText('Say which slip and what was wrong');
   await expect(dialog.getByLabel('Note')).toHaveAttribute('aria-invalid', 'true');
   expect(sent).toHaveLength(0);
   await dialog.getByLabel('Note').fill('Slip for table 1 has the wrong winner circled.');
-  await dialog.getByRole('button', { name: 'Apply correction' }).click();
+  await dialog.getByRole('button', { name: 'Apply only' }).click();
   await expect(dialog).toBeHidden();
+  expect(sent[0]).not.toHaveProperty('repair');
 
   expect(sent[0]).toMatchObject({
     pod: 'masters',
@@ -165,14 +185,62 @@ test('a correction refused because the event changed reads it again, and the nex
   const dialog = page.getByRole('dialog', { name: 'Correct round 1, table 1' });
   await dialog.getByRole('radio', { name: `${loser} Test won` }).click();
   await dialog.getByLabel('Note').fill('Slip for table 1 has the wrong winner circled.');
-  await dialog.getByRole('button', { name: 'Apply correction' }).click();
+  await dialog.getByRole('button', { name: 'Apply only' }).click();
   await expect(dialog).toContainText('The event changed since you looked');
   // The fresh copy doesn't build a new dialog: what was chosen and typed stays.
   await expect(dialog.getByLabel('Note')).toHaveValue('Slip for table 1 has the wrong winner circled.');
   await expect(dialog.getByRole('radio', { name: `${loser} Test won` })).toBeChecked();
-  await dialog.getByRole('button', { name: 'Apply correction' }).click();
+  await dialog.getByRole('button', { name: 'Apply only' }).click();
   await expect(dialog).toBeHidden();
   expect(sent.map(body => body.version)).toEqual([3, 4]);
+});
+
+test('a correction applied with a re-pair pairs round 2 again from the corrected standings', async ({ page }) => {
+  const t = inRound2();
+  const table1 = t.pods[0]!.rounds[0]!.matches.find(m => m.table === 1)!;
+  const loser = t.players.find(p => p.id === table1.p2)!.firstName;
+  const sent = await mockConsole(page, t, 'organizer');
+  await page.getByRole('button', { name: 'More for table 1' }).click();
+  await page.getByRole('button', { name: 'Correct result' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Correct round 1, table 1' });
+  await dialog.getByRole('radio', { name: `${loser} Test won` }).click();
+  await dialog.getByLabel('Note').fill('Slip for table 1 has the wrong winner circled.');
+  await dialog.getByRole('button', { name: 'Apply and re-pair round 2' }).click();
+  await expect(dialog).toBeHidden();
+  // One request, which the server takes or refuses whole: no round deleted without the correction, or after it.
+  expect([...sent]).toEqual([expect.objectContaining({ round: 1, table: 1, outcome: 'p2', repair: true })]);
+  expect(sent.commands).toEqual([]);
+});
+
+test('once round 2’s clock has started, a correction keeps its pairings and offers no re-pair', async ({ page }) => {
+  const t = runCommands(inRound2(), { type: 'startClock', pod: 'masters' });
+  await mockConsole(page, t, 'organizer');
+  const table1 = t.pods[0]!.rounds[0]!.matches.find(m => m.table === 1)!;
+  const loser = t.players.find(p => p.id === table1.p2)!.firstName;
+  await page.getByRole('button', { name: 'More for table 1' }).click();
+  await page.getByRole('button', { name: 'Correct result' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Correct round 1, table 1' });
+  await dialog.getByRole('radio', { name: `${loser} Test won` }).click();
+  await expect(dialog).toContainText("Round 2's pairings stay as they are.");
+  await expect(dialog.getByRole('button', { name: /re-pair/ })).toHaveCount(0);
+});
+
+test('once round 2 has a result in, a correction keeps its pairings and offers no re-pair', async ({ page }) => {
+  const t = inRound2();
+  const [first] = pendingResults(t.pods[0]!);
+  const sent = await mockConsole(page, runCommands(t, first!), 'organizer');
+  const table1 = t.pods[0]!.rounds[0]!.matches.find(m => m.table === 1)!;
+  const loser = t.players.find(p => p.id === table1.p2)!.firstName;
+  await page.getByRole('button', { name: 'More for table 1' }).click();
+  await page.getByRole('button', { name: 'Correct result' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Correct round 1, table 1' });
+  await dialog.getByRole('radio', { name: `${loser} Test won` }).click();
+  await expect(dialog).toContainText("Round 2's pairings stay as they are.");
+  await expect(dialog.getByRole('button', { name: /re-pair/ })).toHaveCount(0);
+  await dialog.getByLabel('Note').fill('Slip for table 1 has the wrong winner circled.');
+  await dialog.getByRole('button', { name: 'Apply correction' }).click();
+  await expect(dialog).toBeHidden();
+  expect(sent.commands).toEqual([]);
 });
 
 test('staff who cannot approve are told who can, and get no correction to make', async ({ page }) => {

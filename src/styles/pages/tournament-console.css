@@ -991,6 +991,12 @@
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
+.tm-correction-changes .tm-correction-next {
+  margin-top: var(--space-3);
+}
+.tm-correction-next + .tm-correction-lines {
+  margin-top: 0;
+}
 .tm-correction-lines {
   display: grid;
   gap: var(--space-1);

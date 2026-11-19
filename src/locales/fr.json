@@ -1639,5 +1639,10 @@
   "Save and record the loss": "Enregistrer et saisir la défaite",
   "Save and write a penalty": "Enregistrer et saisir une sanction",
   "Deck check: {notes}": "Vérification de deck : {notes}",
-  "{name} asks to drop": "{name} demande à abandonner"
+  "{name} asks to drop": "{name} demande à abandonner",
+  "Round {round} if re-paired": "Ronde {round} si elle est réappariée",
+  "Round {round} if kept": "Ronde {round} si elle est conservée",
+  "Round {round} is paired again from the corrected standings.": "La ronde {round} est appariée à nouveau d’après le classement corrigé.",
+  "Apply only": "Appliquer seulement",
+  "Apply and re-pair round {round}": "Appliquer et réapparier la ronde {round}"
 }

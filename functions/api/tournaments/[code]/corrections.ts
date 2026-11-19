@@ -9,8 +9,11 @@
  * table, p1, p2, outcome, note, version, localTime? }. `version` is the
  * event's version the correction was previewed on: if anything has been
  * written since, it is refused (409) rather than tried again, so a correction
- * never lands on standings nobody saw. Answers with the console's new copy of
- * the event.
+ * never lands on standings nobody saw. With `repair`, the round being played
+ * is also paired again from the corrected standings, as staff would by hand
+ * (deleted, then paired), in the same write: refused (409) once that round is
+ * in play (see repairable.ts), and the correction with it. Answers with the
+ * console's new copy of the event.
  */
 
 import { readJsonObject } from '../../../lib/api/body.js';
@@ -20,7 +23,11 @@ import { type Access, askerOf, openForStaff, openForStaffRead, privateJson } fro
 import { answerStaff } from '../../../lib/tournaments/answers.js';
 import { loadCorrections } from '../../../lib/tournaments/corrections.js';
 import { headJudgeOf } from '../../../lib/tournaments/headJudge.js';
-import { type Changes, tryChange } from '../../../lib/tournaments/store.js';
+import { commandChanges } from '../../../lib/tournaments/results.js';
+import { type Changes, type TournamentRow, tryChange } from '../../../lib/tournaments/store.js';
+import type { Command } from '../../../../shared/tournament/commands.js';
+import { repairableRound } from '../../../../shared/tournament/repairable.js';
+import type { PodCategory, Tournament } from '../../../../shared/tournament/types.js';
 import {
   type ApproverRole,
   correctableMatch,
@@ -39,6 +46,20 @@ function approverRole(access: Pick<Access, 'role' | 'user'>, headJudge: StaffAcc
     return 'head-judge';
   }
   return access.role === 'owner' ? 'organizer' : null;
+}
+
+/** The event after `command`, or why it was refused. */
+function applied(row: TournamentRow, command: Command, localTime: string): Tournament | string {
+  const changes = commandChanges(row, command, localTime);
+  return typeof changes === 'string' ? changes : (changes.refusal ?? changes.tournament ?? row.tournament);
+}
+
+/** `row`'s event with `pod`'s latest round paired again, the way staff would by hand: deleted, then paired. */
+function repaired(row: TournamentRow, pod: PodCategory, localTime: string): Tournament | string {
+  const deleted = applied(row, { type: 'deleteRound', pod }, localTime);
+  return typeof deleted === 'string'
+    ? deleted
+    : applied({ ...row, tournament: deleted }, { type: 'pairRound', pod }, localTime);
 }
 
 export async function onRequestGet(context: Context<'code'>): Promise<Response> {
@@ -69,7 +90,11 @@ export async function onRequestPost(context: Context<'code'>): Promise<Response>
     return jsonError(request, 400);
   }
   const { row } = access;
-  if (request.version !== row.version) {
+  // A round in play since the preview has changed, as any other write would: the dialog looks again.
+  if (
+    request.version !== row.version ||
+    (request.repair && !repairableRound(row.tournament, row, request.pod, request.round))
+  ) {
     return jsonError(CHANGED, 409);
   }
   const ctx = { tom: row.mode === 'tom', finished: row.settings.finished, paired: row.pairedThrough ?? {} };
@@ -78,24 +103,31 @@ export async function onRequestPost(context: Context<'code'>): Promise<Response>
     return jsonError(match, 400);
   }
   const localTime = isTomDateTime(body.localTime) ? body.localTime : tomDateTime(new Date());
-  const change = (): Changes => ({
-    tournament: correctedTournament(row.tournament, request, localTime),
-    correction: {
-      pod: request.pod,
-      round: request.round,
-      table: request.table,
-      p1: request.p1,
-      p2: request.p2,
-      from: match.outcome,
-      to: request.outcome,
-      note: request.note,
-      approver: access.user?.id ?? '',
-      role,
-      alone: role === 'organizer' && headJudge === null,
-      // The round being played: always the corrected round's next (see roundRefusal).
-      during: request.round + 1
+  const change = (): Changes | string => {
+    const corrected = correctedTournament(row.tournament, request, localTime);
+    const tournament = request.repair ? repaired({ ...row, tournament: corrected }, request.pod, localTime) : corrected;
+    if (typeof tournament === 'string') {
+      return tournament;
     }
-  });
+    return {
+      tournament,
+      correction: {
+        pod: request.pod,
+        round: request.round,
+        table: request.table,
+        p1: request.p1,
+        p2: request.p2,
+        from: match.outcome,
+        to: request.outcome,
+        note: request.note,
+        approver: access.user?.id ?? '',
+        role,
+        alone: role === 'organizer' && headJudge === null,
+        // The round being played: always the corrected round's next (see roundRefusal).
+        during: request.round + 1
+      }
+    };
+  };
   const outcome = await tryChange(access.db, row, change, askerOf(access));
   return outcome ? answerStaff(context, access, outcome) : jsonError(CHANGED, 409);
 }

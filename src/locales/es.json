@@ -1639,5 +1639,10 @@
   "Save and record the loss": "Guardar y registrar la derrota",
   "Save and write a penalty": "Guardar y registrar una penalización",
   "Deck check: {notes}": "Revisión de mazo: {notes}",
-  "{name} asks to drop": "{name} pide abandonar"
+  "{name} asks to drop": "{name} pide abandonar",
+  "Round {round} if re-paired": "Ronda {round} si se reempareja",
+  "Round {round} if kept": "Ronda {round} si se mantiene",
+  "Round {round} is paired again from the corrected standings.": "La ronda {round} se reempareja según la clasificación corregida.",
+  "Apply only": "Solo aplicar",
+  "Apply and re-pair round {round}": "Aplicar y reemparejar la ronda {round}"
 }

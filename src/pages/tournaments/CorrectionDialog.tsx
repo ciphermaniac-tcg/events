@@ -4,11 +4,13 @@
  * anything is sent, every standing it changes and the next round's matches
  * that now pair players on different points. The correction goes on the
  * event as previewed: if the event changes first, the server refuses it and
- * the preview reads the event again.
+ * the preview reads the event again. While the next round is not yet in play
+ * (see repairable.ts), it can be paired again in the same write.
  */
 
 import { createMemo, createSignal, For, Show, untrack } from 'solid-js';
 import { CORRECTION_LIMITS } from '../../../shared/tournament/corrections';
+import { repairableRound } from '../../../shared/tournament/repairable';
 import { percentLabel, recordLabel, type Standing } from '../../../shared/tournament/standings';
 import { DIVISION_LABELS, type Match, type Outcome, type Pod } from '../../../shared/tournament/types';
 import { Segmented } from '@ciphermaniac/design/components/Segmented';
@@ -33,7 +35,54 @@ function Moved(props: { before: string; after: string }) {
   );
 }
 
-function Changes(props: { preview: CorrectionPreview; names: Map<string, string>; round: number }) {
+/** What becomes of the next round: as it stands, or with `repairable` also paired again, each said under its own head. */
+function NextRound(props: {
+  preview: CorrectionPreview;
+  names: Map<string, string>;
+  round: number;
+  repairable: boolean;
+}) {
+  const name = (id: string) => props.names.get(id) ?? id;
+  const next = () => props.round + 1;
+  return (
+    <>
+      <Show when={props.repairable}>
+        <h4 class='tm-correction-next'>{t('Round {round} if re-paired', { round: next() })}</h4>
+        <ul class='tm-correction-lines'>
+          <li>{t('Round {round} is paired again from the corrected standings.', { round: next() })}</li>
+        </ul>
+        <h4 class='tm-correction-next'>{t('Round {round} if kept', { round: next() })}</h4>
+      </Show>
+      <ul class='tm-correction-lines'>
+        <Show when={!props.repairable}>
+          <li>{t("Round {round}'s pairings stay as they are.", { round: next() })}</li>
+        </Show>
+        <For each={props.preview.next.filter(m => m.points[0] !== m.points[1])}>
+          {m => (
+            <li>
+              {t('Round {round} table {table} now pairs {p1} ({p1Points} pts) with {p2} ({p2Points} pts).', {
+                round: next(),
+                table: m.table,
+                p1: name(m.p1),
+                p1Points: m.points[0],
+                p2: name(m.p2),
+                p2Points: m.points[1]
+              })}
+            </li>
+          )}
+        </For>
+        <li>{t('Round {round} pairs from the corrected standings.', { round: props.round + 2 })}</li>
+      </ul>
+    </>
+  );
+}
+
+function Changes(props: {
+  preview: CorrectionPreview;
+  names: Map<string, string>;
+  round: number;
+  repairable: boolean;
+}) {
   const name = (id: string) => props.names.get(id) ?? id;
   const row = (before: Standing, after: Standing) => (
     <tr>
@@ -72,24 +121,7 @@ function Changes(props: { preview: CorrectionPreview; names: Map<string, string>
           </>
         )}
       </For>
-      <ul class='tm-correction-lines'>
-        <li>{t("Round {round}'s pairings stay as they are.", { round: props.round + 1 })}</li>
-        <For each={props.preview.next.filter(m => m.points[0] !== m.points[1])}>
-          {m => (
-            <li>
-              {t('Round {round} table {table} now pairs {p1} ({p1Points} pts) with {p2} ({p2Points} pts).', {
-                round: props.round + 1,
-                table: m.table,
-                p1: name(m.p1),
-                p1Points: m.points[0],
-                p2: name(m.p2),
-                p2Points: m.points[1]
-              })}
-            </li>
-          )}
-        </For>
-        <li>{t('Round {round} pairs from the corrected standings.', { round: props.round + 2 })}</li>
-      </ul>
+      <NextRound preview={props.preview} names={props.names} round={props.round} repairable={props.repairable} />
     </div>
   );
 }
@@ -136,7 +168,8 @@ export function CorrectionDialog(props: {
         })
       : null
   );
-  async function apply() {
+  const repairable = () => repairableRound(props.manage.tournament, props.manage, opened.category, round);
+  async function apply(repair: boolean) {
     if (!note().trim()) {
       setNoteMissing(true);
       return;
@@ -152,7 +185,8 @@ export function CorrectionDialog(props: {
         p2: match.p2 ?? '',
         outcome: outcome(),
         note: note(),
-        version: props.manage.version
+        version: props.manage.version,
+        ...(repair ? { repair: true as const } : {})
       };
       props.onDone(await correctResult(props.manage.code, request));
     } catch (err) {
@@ -174,7 +208,7 @@ export function CorrectionDialog(props: {
       <form
         onSubmit={event => {
           event.preventDefault();
-          void apply();
+          void apply(repairable());
         }}
       >
         <div class='tm-box-bar tm-modal-body'>
@@ -214,7 +248,7 @@ export function CorrectionDialog(props: {
             when={preview()}
             fallback={<p class='muted tm-correction-who'>{t('Choose the corrected result to see what changes.')}</p>}
           >
-            {p => <Changes preview={p()} names={props.names} round={round} />}
+            {p => <Changes preview={p()} names={props.names} round={round} repairable={repairable()} />}
           </Show>
         </div>
         <div class='tm-box-bar tm-modal-foot'>
@@ -228,9 +262,26 @@ export function CorrectionDialog(props: {
           <button type='button' class='btn btn-ghost' onClick={() => props.onClose()}>
             {t('Cancel')}
           </button>
-          <button type='submit' class='btn btn-primary' disabled={!changed() || saving()}>
-            {t('Apply correction')}
-          </button>
+          <Show
+            when={repairable()}
+            fallback={
+              <button type='submit' class='btn btn-primary' disabled={!changed() || saving()}>
+                {t('Apply correction')}
+              </button>
+            }
+          >
+            <button
+              type='button'
+              class='btn btn-secondary'
+              disabled={!changed() || saving()}
+              onClick={() => void apply(false)}
+            >
+              {t('Apply only')}
+            </button>
+            <button type='submit' class='btn btn-primary' disabled={!changed() || saving()}>
+              {t('Apply and re-pair round {round}', { round: round + 1 })}
+            </button>
+          </Show>
         </div>
       </form>
     </Modal>
