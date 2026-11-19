@@ -29,6 +29,7 @@ import {
 } from '../../shared/tournament/view';
 import { manageOf, organizerMe, runCommands } from './console-fixture';
 import { droppedBeforeRoundOne, pendingResults } from '../__utils__/commands';
+import { deferred } from '../__utils__/deferred';
 
 const CODE = 'SWISS2';
 
@@ -80,14 +81,15 @@ async function mockConsole(
   reports: readonly PlayerReport[] = [],
   apply = false,
   requests: PlayerRequest[] = [],
-  role: 'owner' | 'staff' = 'owner'
+  role: 'owner' | 'staff' = 'owner',
+  store: string | null = 'store-1'
 ) {
   const sent: Command[] = [];
   const answers: unknown[] = [];
   const decks: unknown[] = [];
   const saved: Partial<TournamentSettings>[] = [];
   const manage = {
-    ...manageOf(CODE, tournament, { settings, role }),
+    ...manageOf(CODE, tournament, { settings, role, store }),
     reports,
     requests,
     decks: {} as Record<string, string>,
@@ -1172,23 +1174,41 @@ test('a sanctioned event adds a player only with their Player ID and birth year'
     .toMatchObject({ type: 'addPlayer', player: { id: '4242', birthDate: '02/27/2001' } });
 });
 
-test('an unsaved setting survives a switch to another tab', async ({ page }) => {
+test('a setting saves as it is left, with no Save to press', async ({ page }) => {
   const sent = await mockConsole(page, event(4, 0, true), settingsOf({}));
   await page.getByRole('tab', { name: 'Settings' }).click();
-  const saves = page.locator('.tm-set-foot').getByRole('button', { name: 'Save' });
-  // A Save is the tab's primary only while its box has something to save.
-  await expect(saves.first()).toHaveClass(/btn-secondary/);
-  await expect(page.locator('.tm-set-foot .btn-primary')).toHaveCount(0);
-  await page.getByLabel('Event description').fill('Doors at nine');
-  await expect(page.locator('.tm-set-foot .btn-primary')).toHaveCount(1);
+  await expect(page.getByRole('button', { name: 'Save' })).toHaveCount(0);
+  const details = page.getByLabel('Event description');
+  await details.fill('Doors at nine');
+  // Typing alone sends nothing; leaving the field saves it.
+  expect(sent.saved).toEqual([]);
+  await details.blur();
+  await expect.poll(() => sent.saved).toEqual([{ details: 'Doors at nine' }]);
   await page.getByLabel('Event name').fill('Friday Night League');
-  await page.getByRole('tab', { name: 'Pairings' }).click();
+  await page.getByLabel('Event name').press('Tab');
+  await expect.poll(() => sent.at(-1)).toEqual({ type: 'updateInfo', info: { name: 'Friday Night League' } });
+  // A switch saves as it is pressed.
+  await page
+    .getByRole('radiogroup', { name: 'Mobile result reporting' })
+    .getByRole('radio', { name: 'Enabled' })
+    .click();
+  await expect.poll(() => sent.saved.at(-1)).toEqual({ playerReporting: true });
+});
+
+test('a refused save says why and keeps what was typed', async ({ page }) => {
+  await mockConsole(page, event(4, 0, true), settingsOf({}));
+  await page.route(`**/api/tournaments/${CODE}/settings`, route =>
+    route.fulfill({ status: 503, json: { error: 'Try again shortly' } })
+  );
+  await page.getByRole('tab', { name: 'Settings' }).click();
+  const details = page.getByLabel('Event description');
+  await details.fill('Doors at nine');
+  await details.blur();
+  await expect(page.getByText('Try again shortly')).toBeVisible();
+  await expect(details).toHaveValue('Doors at nine');
+  await page.getByRole('tab', { name: 'Players' }).click();
   await page.getByRole('tab', { name: 'Settings' }).click();
   await expect(page.getByLabel('Event description')).toHaveValue('Doors at nine');
-  await expect(page.getByLabel('Event name')).toHaveValue('Friday Night League');
-  await expect(page.getByText('Unsaved changes')).toHaveCount(2);
-  await page.getByRole('button', { name: 'Save' }).first().click();
-  await expect.poll(() => sent.at(-1)).toEqual({ type: 'updateInfo', info: { name: 'Friday Night League' } });
 });
 
 test('a colleague’s change shows in an untouched setting, and saving sends only what was edited', async ({ page }) => {
@@ -1204,9 +1224,86 @@ test('a colleague’s change shows in an untouched setting, and saving sends onl
   await page.evaluate(() => window.dispatchEvent(new Event('online')));
   await expect(reporting.getByRole('radio', { name: 'Enabled' })).toHaveAttribute('aria-checked', 'true');
   await expect(page.getByLabel('Event description')).toHaveValue('Doors at nine');
-  const box = page.locator('section', { has: page.getByRole('heading', { name: 'For players' }) });
-  await box.getByRole('button', { name: 'Save' }).click();
+  await page.getByLabel('Event description').blur();
   await expect.poll(() => sent.saved).toEqual([{ details: 'Doors at nine' }]);
+});
+
+test('an edit a colleague overtook is dropped when its field is left, not saved over theirs', async ({ page }) => {
+  const settings = settingsOf({});
+  const sent = await mockConsole(page, event(4, 0, true), settings);
+  await page.getByRole('tab', { name: 'Settings' }).click();
+  const details = page.getByLabel('Event description');
+  await details.fill('Doors at nine');
+  // A colleague saves another description meanwhile; the console's next look brings it in.
+  const changed = { ...consoleOf(event(4, 0, true), 9), settings: { ...settings, details: 'Doors at ten' } };
+  await page.route(`**/api/tournaments/${CODE}/manage*`, route => route.fulfill({ json: changed }));
+  const looked = page.waitForResponse(response => response.url().includes('/manage'));
+  await page.evaluate(() => window.dispatchEvent(new Event('online')));
+  await looked;
+  await details.blur();
+  await expect(details).toHaveValue('Doors at ten');
+  await expect(page.getByText('The event changed since you looked. Look again and try once more.')).toBeVisible();
+  expect(sent.saved).toEqual([]);
+});
+
+test('a setting switched on and back off before its save is answered ends off', async ({ page }) => {
+  const sent = await mockConsole(page, event(4, 0, true), settingsOf({}), [], true);
+  const held = deferred<void>();
+  await page.route(
+    `**/api/tournaments/${CODE}/settings`,
+    async route => {
+      await held.promise;
+      await route.fallback();
+    },
+    { times: 1 }
+  );
+  await page.getByRole('tab', { name: 'Settings' }).click();
+  const reporting = page.getByRole('radiogroup', { name: 'Mobile result reporting' });
+  await reporting.getByRole('radio', { name: 'Enabled' }).click();
+  await reporting.getByRole('radio', { name: 'Disabled' }).click();
+  held.resolve();
+  await expect.poll(() => sent.saved).toEqual([{ playerReporting: true }, { playerReporting: false }]);
+  await expect(reporting.getByRole('radio', { name: 'Disabled' })).toHaveAttribute('aria-checked', 'true');
+});
+
+test('a save made after leaving Settings and coming back waits for the one still on its way', async ({ page }) => {
+  const sent = await mockConsole(page, event(4, 0, true), settingsOf({}), [], true);
+  const held = deferred<void>();
+  await page.route(
+    `**/api/tournaments/${CODE}/settings`,
+    async route => {
+      await held.promise;
+      await route.fallback();
+    },
+    { times: 1 }
+  );
+  await page.getByRole('tab', { name: 'Settings' }).click();
+  await page.getByLabel('Event description').fill('Doors at nine');
+  await page.getByLabel('Event description').blur();
+  await page.getByRole('tab', { name: 'Players' }).click();
+  await page.getByRole('tab', { name: 'Settings' }).click();
+  await page
+    .getByRole('radiogroup', { name: 'Mobile result reporting' })
+    .getByRole('radio', { name: 'Enabled' })
+    .click();
+  held.resolve();
+  await expect.poll(() => sent.saved).toEqual([{ details: 'Doors at nine' }, { playerReporting: true }]);
+});
+
+test('an unsanctioned store event offers a League Cup once it is sanctioned, and picking one changes its kind alone', async ({
+  page
+}) => {
+  const local = runCommands(event(4, 0, false), { type: 'updateInfo', info: { eventType: 'local' } });
+  const sent = await mockConsole(page, local, settingsOf({}), [], true);
+  await page.getByRole('tab', { name: 'Settings' }).click();
+  const kinds = page.getByRole('combobox', { name: 'Event type', exact: true });
+  await expect(kinds.locator('option')).toHaveText(['Local', 'Prerelease']);
+  await page.getByRole('checkbox', { name: 'Sanctioned', exact: true }).check();
+  await expect.poll(() => sent.saved).toEqual([{ sanctioned: true }]);
+  await expect(kinds.locator('option')).toHaveText(['League Cup', 'League Challenge', 'Local', 'Prerelease']);
+  await kinds.selectOption('cup');
+  await expect.poll(() => sent.at(-1)).toEqual({ type: 'updateInfo', info: { eventType: 'cup' } });
+  expect(sent.saved).toEqual([{ sanctioned: true }]);
 });
 
 test('a sanctioned event downloads its .tdf, named for the version it copies', async ({ page }) => {
@@ -1759,14 +1856,21 @@ test('a round clock too wide for a phone puts its actions under the time, every 
   expect(head.right).toBeLessThanOrEqual(320);
 });
 
-test('a 320px phone wraps a store event’s four types inside the Event box @mobileOnly', async ({ page }) => {
+test('a 320px phone keeps a store event’s type and Sanctioned inside the Rules box @mobileOnly', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 640 });
-  await mockConsole(page, partlyPlayed(8, 0, 2), settingsOf({}));
+  await mockConsole(page, partlyPlayed(8, 0, 2), settingsOf({}), [], true);
   await page.getByRole('tablist', { name: 'Event sections' }).getByRole('tab', { name: 'Settings' }).click();
-  const kinds = page.getByRole('radiogroup', { name: 'Event type', exact: true });
-  await expect(kinds.getByRole('radio')).toHaveCount(4);
-  const row = await kinds.evaluate(group => group.closest('.tm-set-row')!.getBoundingClientRect().right);
-  const rights = await kinds.getByRole('radio').evaluateAll(radios => radios.map(r => r.getBoundingClientRect().right));
+  const kinds = page.getByRole('combobox', { name: 'Event type', exact: true });
+  await expect(kinds.locator('option')).toHaveCount(4);
+  // A Cup is always sanctioned; a Local asks.
+  await kinds.selectOption('local');
+  await expect(page.getByRole('checkbox', { name: 'Sanctioned', exact: true })).toBeVisible();
+  const row = await kinds.evaluate(select => select.closest('.tm-set-row')!.getBoundingClientRect().right);
+  const rights = await page
+    .locator('.tm-set-row', { has: kinds })
+    .locator('select, .tm-check')
+    .evaluateAll(parts => parts.map(part => part.getBoundingClientRect().right));
+  expect(rights).toHaveLength(2);
   expect(Math.max(...rights)).toBeLessThanOrEqual(row);
 });
 
@@ -2199,17 +2303,38 @@ for (const size of [
   });
 }
 
-test('an event made before time zones picks one and its venue from Settings', async ({ page }) => {
-  const sent = await mockConsole(page, event(8, 0, true), settingsOf({}));
+test('an event made before time zones picks one in Settings, and a store’s event is played at the store', async ({
+  page
+}) => {
+  const sent = await mockConsole(
+    page,
+    event(8, 0, true),
+    settingsOf({ venue: 'Combat Power Gaming', address: '4522 Fredericksburg Rd' })
+  );
   await page.getByRole('tab', { name: 'Settings' }).click();
   const zone = page.getByRole('combobox', { name: 'Time zone' });
   await expect(zone).toHaveValue('');
   await zone.selectOption('America/Chicago');
-  await page.getByRole('textbox', { name: 'Venue' }).fill('Test Games');
-  const box = page.locator('section', { has: page.getByRole('heading', { name: 'For players' }) });
-  await box.getByRole('button', { name: 'Save' }).click();
-  await expect.poll(() => sent.saved.at(-1)).toEqual({ timeZone: 'America/Chicago', venue: 'Test Games' });
+  await expect.poll(() => sent.saved.at(-1)).toEqual({ timeZone: 'America/Chicago' });
   await expect(zone.locator('option[value=""]')).toHaveCount(0);
+  await expect(page.getByRole('textbox', { name: 'Venue' })).toHaveCount(0);
+  await expect(page.getByRole('textbox', { name: 'Address' })).toHaveCount(0);
+  await expect(page.locator('.tm-set-row', { hasText: 'Venue' })).toContainText(
+    'Combat Power Gaming, 4522 Fredericksburg Rd'
+  );
+});
+
+test('a community event’s venue and address are optional and save as they are left', async ({ page }) => {
+  const sent = await mockConsole(page, event(8, 0, true), settingsOf({}), [], false, [], 'owner', null);
+  await page.getByRole('tab', { name: 'Settings' }).click();
+  const venue = page.getByRole('textbox', { name: 'Venue' });
+  await expect(venue).toHaveValue('');
+  await venue.fill('Test Games');
+  await venue.press('Tab');
+  await expect.poll(() => sent.saved.at(-1)).toEqual({ venue: 'Test Games' });
+  await page.getByRole('textbox', { name: 'Address' }).fill('12 Mill St');
+  await page.getByRole('textbox', { name: 'Address' }).blur();
+  await expect.poll(() => sent.saved.at(-1)).toEqual({ address: '12 Mill St' });
 });
 
 test('staff see a drop request on the Players tab and confirm it by its ID in one request', async ({ page }) => {
@@ -2967,17 +3092,23 @@ test('the head names whose clock it runs only where the event pairs more than on
 });
 
 test('check-in fills half an hour before the start, moves with it, and is refused once after it', async ({ page }) => {
-  await mockConsole(page, event(4, 0, false), settingsOf({ startsAt: '2026-11-14T18:00' }));
+  const sent = await mockConsole(page, event(4, 0, false), settingsOf({ startsAt: '2026-11-14T18:00' }));
   await page.getByRole('tab', { name: 'Settings' }).click();
   await page.getByRole('button', { name: '30 minutes before · 5:30 PM' }).click();
   const checkIn = page.locator('#set-check-in');
   await expect(checkIn).toHaveValue('2026-11-14T17:30');
+  await expect.poll(() => sent.saved).toEqual([{ checkInAt: '2026-11-14T17:30' }]);
   await page.locator('#set-start').fill('2026-11-14T19:00');
+  await page.locator('#set-start').blur();
   await expect(checkIn).toHaveValue('2026-11-14T18:30');
+  await expect.poll(() => sent.saved.at(-1)).toEqual({ startsAt: '2026-11-14T19:00', checkInAt: '2026-11-14T18:30' });
   await checkIn.fill('2026-11-14T19:30');
+  await checkIn.blur();
   await expect(page.getByText('Check-in is after the start.')).toBeVisible();
   await expect(checkIn).toHaveAttribute('aria-invalid', 'true');
-  await expect(page.locator('form', { has: checkIn }).getByRole('button', { name: 'Save' })).toBeDisabled();
+  // Refused here, so nothing more is sent.
+  await page.evaluate(() => new Promise(requestAnimationFrame));
+  expect(sent.saved).toHaveLength(2);
 });
 
 test('a round paired from another tab opens its pairings', async ({ page }) => {

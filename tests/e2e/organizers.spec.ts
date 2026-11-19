@@ -668,29 +668,14 @@ test('/host: an account whose only store was revoked keeps its link, and applies
   await expect(page.getByRole('link', { name: 'Apply to run events' })).toBeVisible();
 });
 
-test('the new event setup explains player reporting, archetypes and decklists, each set Disabled to start', async ({
-  page
-}) => {
+test('the new event setup leaves player reporting, archetypes and decklists to Settings', async ({ page }) => {
   await mockHost(page, { ...ME, role: 'community' });
   await page.goto('/');
   await page.getByRole('button', { name: 'Start an event' }).click();
-  for (const [setting, words] of [
-    ['Mobile result reporting', 'report the results of their match'],
-    ['Archetypes', 'organizer entry of player deck archetypes'],
-    ['Decklists', 'submit their decklists in TCGL format']
-  ]) {
-    const tip = page.locator('.tm-set-row', { hasText: setting }).locator('.info-tip');
-    await tip.hover();
-    await expect(tip.getByRole('tooltip')).toBeVisible();
-    await expect(tip.getByRole('tooltip')).toContainText(words);
+  await expect(page.getByRole('textbox', { name: 'Event name' })).toBeVisible();
+  for (const setting of ['Mobile result reporting', 'Archetypes', 'Decklists']) {
+    await expect(page.locator('.tm-set-row', { hasText: setting })).toHaveCount(0);
   }
-  await expect(
-    page.getByRole('radiogroup', { name: 'Mobile result reporting' }).getByRole('radio', { checked: true })
-  ).toHaveText('Disabled');
-  await expect(page.getByRole('combobox', { name: 'Archetypes', exact: true })).toHaveValue('off');
-  await expect(page.getByRole('combobox', { name: 'Archetypes', exact: true }).locator('option:checked')).toHaveText(
-    'Disabled'
-  );
 });
 
 test('/host: an event’s row says when it starts, on a phone under its name @mobile', async ({ page }) => {

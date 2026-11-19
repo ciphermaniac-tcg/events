@@ -50,6 +50,7 @@ import { latestValue } from '../../lib/resource';
 import { Skeleton } from '@ciphermaniac/design/components/Skeleton';
 import { SessionGate } from './SessionGate';
 import { ErrorLine } from './Field';
+import { createCopied } from './copied';
 import { ErrorState } from '@ciphermaniac/design/components/ErrorState';
 import { consoleEvery, lookOnReturn, schedulePolls } from '../../lib/tournament/viewPoll';
 import { LiveDataStatus } from './LiveDataStatus';
@@ -312,7 +313,7 @@ function Hero(props: { state: ManageState; manage: Manage; pod: Pod | undefined;
                 <span class='dot'>·</span>
               </span>
               <span class='tm-meta-part'>
-                <span class='num'>{props.manage.code}</span>
+                <CodeCopy code={props.manage.code} />
                 <span class='dot'>·</span>
               </span>
               <span class='tm-meta-part'>
@@ -348,6 +349,21 @@ function Hero(props: { state: ManageState; manage: Manage; pod: Pod | undefined;
         </div>
       </section>
     </>
+  );
+}
+
+/** The event's code, which copies the public page's link when pressed and says so for a moment. */
+function CodeCopy(props: { code: string }) {
+  const { copied, copy } = createCopied();
+  return (
+    <button
+      type='button'
+      class='tm-code-copy'
+      aria-label={t('Copy the public page link')}
+      onClick={() => void copy(`${location.origin}/t/${props.code}`)}
+    >
+      <span class='num'>{copied() ? t('Link copied') : props.code}</span>
+    </button>
   );
 }
 

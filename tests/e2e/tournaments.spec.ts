@@ -609,10 +609,15 @@ test('sanctioned setup requires Play! Tools confirmation; local setup skips it @
   const confirmation = page.getByRole('checkbox', { name: 'I’ve created this event in Play! Tools' });
   await expect(create).toBeDisabled();
   await page.getByRole('textbox', { name: 'Event name' }).fill('Tuesday League');
+  // A store that sanctions starts at a League Cup, which always is sanctioned.
+  await expect(page.getByRole('combobox', { name: 'Event type', exact: true })).toHaveValue('cup');
+  await expect(confirmation).not.toBeChecked();
+  await expect(create).toBeDisabled();
+  await page.getByRole('combobox', { name: 'Event type', exact: true }).selectOption('local');
   await expect(create).toBeEnabled();
   await expect(confirmation).toHaveCount(0);
-  const sanctioned = page.getByRole('radiogroup', { name: 'Sanctioned', exact: true });
-  await sanctioned.getByRole('radio', { name: 'Yes', exact: true }).click();
+  const sanctioned = page.getByRole('checkbox', { name: 'Sanctioned', exact: true });
+  await sanctioned.check();
   await expect(confirmation).not.toBeChecked();
   await expect(create).toBeDisabled();
   const reason = page.locator('.tm-setup-foot').getByText('Confirm the event is in Play! Tools to create it');
@@ -633,15 +638,21 @@ test('sanctioned setup requires Play! Tools confirmation; local setup skips it @
   await expect(reason).toHaveCount(0);
   await confirmation.uncheck();
   await expect(create).toBeDisabled();
-  await sanctioned.getByRole('radio', { name: 'No', exact: true }).click();
+  await sanctioned.uncheck();
   await expect(confirmation).toHaveCount(0);
   await expect(create).toBeEnabled();
-  await sanctioned.getByRole('radio', { name: 'Yes', exact: true }).click();
+  // A League Cup is always sanctioned, so it is not asked.
+  await page.getByRole('combobox', { name: 'Event type', exact: true }).selectOption('cup');
+  await expect(sanctioned).toHaveCount(0);
   await confirmation.check();
   await create.click();
   await expect(page.locator('.tm-error')).toHaveText('Fixture submission');
   expect(submissions).toEqual([
-    expect.objectContaining({ name: 'Tuesday League', settings: expect.objectContaining({ sanctioned: true }) })
+    expect.objectContaining({
+      name: 'Tuesday League',
+      eventType: 'cup',
+      settings: expect.objectContaining({ sanctioned: true })
+    })
   ]);
   await page.getByRole('button', { name: 'Cancel', exact: true }).click();
   await page.getByRole('button', { name: 'Start an event' }).click();
@@ -657,12 +668,9 @@ for (const [eventType, label] of [
     await page.goto('/');
     await page.getByRole('button', { name: 'Start an event' }).click();
     await page.getByRole('textbox', { name: 'Event name' }).fill('Synthetic');
-    const kinds = page.getByRole('radiogroup', { name: 'Event type', exact: true });
-    await kinds.getByRole('radio', { name: label, exact: true }).click();
-    await expect(page.locator('#setup-minutes')).toHaveAttribute('min', eventType === 'local' ? '10' : '20');
-    await expect(page.locator('#setup-minutes')).toHaveAttribute('max', '90');
-    await page.locator('#setup-minutes').fill(eventType === 'local' ? '10' : '20');
-    await expect(kinds.getByRole('radio', { name: label, exact: true })).toHaveAttribute('aria-checked', 'true');
+    const kinds = page.getByRole('combobox', { name: 'Event type', exact: true });
+    await kinds.selectOption({ label });
+    await expect(kinds).toHaveValue(eventType);
     await page.getByRole('button', { name: 'Create event' }).click();
     await expect(page.locator('.tm-error')).toHaveText('Fixture submission');
     // Brought into view, a field lands clear of the sticky head bar.
@@ -709,20 +717,17 @@ test('a sanctioned setup asks who pairs: TOM goes on from its file, and Cipherma
   }, TDF_SOURCE);
   await page.goto('/');
   await page.getByRole('button', { name: 'Start an event' }).click();
+  // The League Cup it starts at is sanctioned.
   const pairing = page.getByRole('radiogroup', { name: 'Pairing and results', exact: true });
-  await expect(pairing).toHaveCount(0);
-  const sanctioned = page.getByRole('radiogroup', { name: 'Sanctioned', exact: true });
-  await sanctioned.getByRole('radio', { name: 'Yes', exact: true }).click();
   await expect(pairing.getByRole('radio', { name: 'Ciphermaniac', exact: true })).toHaveAttribute(
     'aria-checked',
     'true'
   );
   await expect(page.getByRole('button', { name: /^Where rounds are paired and results are kept\./ })).toHaveCount(1);
-  await expect(page.getByText('Can’t be changed after the event is created')).toBeVisible();
   await pairing.getByRole('radio', { name: 'TOM', exact: true }).click();
   await expect(page.getByText('From the .tdf')).toBeVisible();
   await expect(page.getByRole('textbox', { name: 'Event name' })).toHaveCount(0);
-  await expect(page.getByRole('spinbutton', { name: 'Swiss round minutes' })).toHaveCount(0);
+  await expect(page.getByLabel('Format')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Create event' })).toHaveCount(0);
   await page.getByRole('button', { name: 'Link .tdf file' }).click();
   await expect(page.locator('.tm-setup-file')).toContainText('Fixture Challenge');
@@ -733,7 +738,7 @@ test('a sanctioned setup asks who pairs: TOM goes on from its file, and Cipherma
     'aria-checked',
     'true'
   );
-  await sanctioned.getByRole('radio', { name: 'No', exact: true }).click();
+  await page.getByRole('combobox', { name: 'Event type', exact: true }).selectOption('local');
   await expect(pairing).toHaveCount(0);
 });
 
@@ -741,10 +746,6 @@ test('a sanctioned setup narrowed past where TOM runs goes back to pairing here'
   await mockOrganizer(page);
   await page.goto('/');
   await page.getByRole('button', { name: 'Start an event' }).click();
-  await page
-    .getByRole('radiogroup', { name: 'Sanctioned', exact: true })
-    .getByRole('radio', { name: 'Yes', exact: true })
-    .click();
   const pairing = page.getByRole('radiogroup', { name: 'Pairing and results', exact: true });
   await pairing.getByRole('radio', { name: 'TOM', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Create event' })).toHaveCount(0);
@@ -784,10 +785,6 @@ test('a TOM setup reached from a Swiss one keeps the store picked there', async 
   await page.goto('/');
   await page.getByRole('button', { name: 'Start an event' }).click();
   await page.getByRole('combobox', { name: 'Run as' }).selectOption('store-2');
-  await page
-    .getByRole('radiogroup', { name: 'Sanctioned', exact: true })
-    .getByRole('radio', { name: 'Yes', exact: true })
-    .click();
   await page
     .getByRole('radiogroup', { name: 'Pairing and results', exact: true })
     .getByRole('radio', { name: 'TOM', exact: true })
@@ -1839,36 +1836,25 @@ test('the display reacquires its wake lock after returning to view', async ({ pa
   await expect.poll(asks).toBe(2);
 });
 
-test('setup recovers after cancel and reload and refuses invalid minutes @mobile', async ({ page }) => {
+test('setup recovers after cancel and reload @mobile', async ({ page }) => {
   const submissions = await mockOrganizer(page);
   await page.goto('/');
   await page.getByRole('button', { name: 'Start an event' }).click();
   await page.getByRole('textbox', { name: 'Event name' }).fill('Recovered setup');
+  await page.getByRole('combobox', { name: 'Event type', exact: true }).selectOption('local');
   await page.locator('#setup-starts').fill('2026-10-18T12:00');
-  const minutes = page.getByRole('spinbutton', { name: 'Swiss round minutes' });
-  await minutes.fill('');
-  await expect(page.getByRole('button', { name: 'Create event' })).toBeDisabled();
-  // The reason sits under the field it is about.
-  await expect(minutes).toHaveAttribute('aria-describedby', 'setup-minutes-status');
-  await expect(minutes.locator('xpath=..').locator('#setup-minutes-status')).toHaveText(
-    'Enter whole minutes from 1 to 180'
-  );
-  await page.locator('.tm-setup').evaluate(form => form.dispatchEvent(new Event('submit', { bubbles: true })));
-  expect(submissions).toEqual([]);
+  await page.locator('#setup-fee').fill('12.5');
   await page.getByRole('button', { name: 'Cancel', exact: true }).click();
   await page.reload();
   await page.getByRole('button', { name: 'Start an event' }).click();
   await expect(page.getByRole('textbox', { name: 'Event name' })).toHaveValue('Recovered setup');
   await expect(page.locator('#setup-starts')).toHaveValue('2026-10-18T12:00');
-  await expect(minutes).toHaveValue('');
-  await minutes.fill('30.5');
-  await expect(page.getByRole('button', { name: 'Create event' })).toBeDisabled();
-  await minutes.fill('35');
+  await expect(page.locator('#setup-fee')).toHaveValue('12.5');
   await page.getByRole('button', { name: 'Create event' }).click();
   await expect(page.locator('.tm-error')).toHaveText('Fixture submission');
-  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
-  await page.getByRole('button', { name: 'Start an event' }).click();
-  await expect(minutes).toHaveValue('35');
+  expect(submissions).toEqual([
+    expect.objectContaining({ roundTime: 30, settings: expect.objectContaining({ entryFee: 12.5 }) })
+  ]);
 });
 
 test('setup offers each set’s Prerelease as a format', async ({ page }) => {
@@ -1876,6 +1862,7 @@ test('setup offers each set’s Prerelease as a format', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Start an event' }).click();
   await page.getByRole('textbox', { name: 'Event name' }).fill('Delta Reign Prerelease');
+  await page.getByRole('combobox', { name: 'Event type', exact: true }).selectOption('prerelease');
   const format = page.locator('#setup-format');
   await expect(format.locator('optgroup[label="Prerelease"] option').first()).toHaveText('Delta Reign Prerelease');
   await format.selectOption('Delta Reign Prerelease');
@@ -1935,12 +1922,13 @@ test('successful creation clears the setup draft', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Start an event' }).click();
   await page.getByRole('textbox', { name: 'Event name' }).fill('Created event');
+  await page.getByRole('combobox', { name: 'Event type', exact: true }).selectOption('local');
   await page.getByRole('button', { name: 'Create event' }).click();
   await expect(page).toHaveURL(new RegExp(`/host/${CODE}`));
   await page.goto('/');
   await page.getByRole('button', { name: 'Start an event' }).click();
   await expect(page.getByRole('textbox', { name: 'Event name' })).toHaveValue('');
-  await expect(page.getByRole('spinbutton', { name: 'Swiss round minutes' })).toHaveValue('30');
+  await expect(page.getByRole('combobox', { name: 'Event type', exact: true })).toHaveValue('cup');
 });
 
 test('TOM creation opens the known event when handle persistence fails', async ({ page }) => {
@@ -2251,33 +2239,40 @@ test('a remembered lookup keeps its target when reporting is confirmed beside an
   expect(reports[0]).toMatchObject({ popId: selectedPlayer.id, reportToken: 'selected-token', result: 'win' });
 });
 
-test('setup asks when, starting in the store’s zone, and keeps the answers; the store is where', async ({ page }) => {
+test('a store’s setup starts in its zone and asks no venue: the store is where', async ({ page }) => {
   const submissions = await mockOrganizer(page);
   await page.goto('/');
   await page.getByRole('button', { name: 'Start an event' }).click();
-  const zone = page.getByRole('combobox', { name: 'Time zone' });
-  await expect(zone).toHaveValue('America/Chicago');
+  await expect(page.getByRole('combobox', { name: 'Time zone' })).toHaveCount(0);
   await expect(page.getByRole('textbox', { name: 'Venue' })).toHaveCount(0);
   await expect(page.getByRole('textbox', { name: 'Address' })).toHaveCount(0);
   await page.getByRole('textbox', { name: 'Event name' }).fill('Sunday Cup');
-  await page.locator('#setup-check-in').fill('2026-10-18T11:30');
-  await zone.selectOption('Europe/London');
-  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
-  await page.reload();
-  await page.getByRole('button', { name: 'Start an event' }).click();
-  await expect(page.locator('#setup-check-in')).toHaveValue('2026-10-18T11:30');
-  await expect(zone).toHaveValue('Europe/London');
+  await page.getByRole('checkbox', { name: 'I’ve created this event in Play! Tools' }).check();
   await page.getByRole('button', { name: 'Create event' }).click();
   await expect(page.locator('.tm-error')).toHaveText('Fixture submission');
   expect(submissions).toEqual([
     expect.objectContaining({
-      settings: expect.objectContaining({
-        timeZone: 'Europe/London',
-        venue: '',
-        address: '',
-        checkInAt: '2026-10-18T11:30'
-      })
+      settings: expect.objectContaining({ timeZone: 'America/Chicago', venue: '', address: '' })
     })
+  ]);
+});
+
+test('a community event’s setup asks an optional venue and address', async ({ page }) => {
+  const submissions = await mockOrganizer(page);
+  await page.route('**/api/me', route =>
+    route.fulfill({
+      json: { user: { id: 'community', name: 'Community', role: 'community', stores: [] }, providers: [] }
+    })
+  );
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Start an event' }).click();
+  await page.getByRole('textbox', { name: 'Event name' }).fill('Thursday Night Local');
+  await expect(page.getByRole('checkbox', { name: 'Sanctioned', exact: true })).toHaveCount(0);
+  await page.getByRole('textbox', { name: 'Venue' }).fill('Test Games');
+  await page.getByRole('button', { name: 'Create event' }).click();
+  await expect(page.locator('.tm-error')).toHaveText('Fixture submission');
+  expect(submissions).toEqual([
+    expect.objectContaining({ store: null, settings: expect.objectContaining({ venue: 'Test Games', address: '' }) })
   ]);
 });
 
@@ -2434,41 +2429,41 @@ test('a store event picks its big screen preset on the Settings tab', async ({ p
   const select = page.getByLabel('Display preset');
   await expect(select).toHaveValue('');
   await select.selectOption('wall');
-  await page.locator('section', { hasText: 'Big screen' }).getByRole('button', { name: 'Save' }).click();
   await expect.poll(() => picked).toEqual([{ preset: 'wall' }]);
   await expect(select).toHaveValue('wall');
-  await expect(page.locator('section', { hasText: 'Big screen' }).getByText('Unsaved changes')).toHaveCount(0);
 });
 
-test('a big screen preset picked while another saves stays picked, unsaved', async ({ page }) => {
+test('a big screen preset picked while another saves stays picked, and saves after it', async ({ page }) => {
   await tomConsole(page, () => ({ status: 200, json: tomManage() }), { following: false });
   const presets = [
     { id: 'wall', name: 'Wall TV', options: { scale: 1.5, layout: 'alphabetical', pageSeconds: 15 } },
     { id: 'gym', name: 'Gym TV', options: { scale: 1, layout: 'auto', pageSeconds: 20 } }
   ];
   const answer = deferred<void>();
+  const picked: unknown[] = [];
   await page.route(`**/api/tournaments/${CODE}/display`, async route => {
     if (route.request().method() !== 'PUT') {
       return route.fulfill({ json: { presets, selected: null } });
     }
+    const body = route.request().postDataJSON() as { preset: string };
+    // Each save is a newer version, so whichever answer lands last, the later pick stands.
+    const version = tomManage().version + picked.push(body);
     await answer.promise;
-    const display = { ...presets[0], storeId: 'store-1' };
-    return route.fulfill({ json: { ...tomManage(), settings: { ...DEFAULT_SETTINGS, display } } });
+    const display = { ...presets.find(preset => preset.id === body.preset)!, storeId: 'store-1' };
+    return route.fulfill({ json: { ...tomManage(), version, settings: { ...DEFAULT_SETTINGS, display } } });
   });
   await page.getByRole('tab', { name: 'Settings' }).click();
-  const box = page.locator('section', { hasText: 'Big screen' });
   const select = page.getByLabel('Display preset');
   await expect(select.locator('option', { hasText: 'Gym TV' })).toHaveCount(1);
   await select.selectOption('wall');
-  await box.getByRole('button', { name: 'Save' }).click();
+  await expect.poll(() => picked).toEqual([{ preset: 'wall' }]);
   await select.selectOption('gym');
   answer.resolve();
-  await expect(box.getByRole('button', { name: 'Save' })).toBeEnabled();
+  await expect.poll(() => picked).toEqual([{ preset: 'wall' }, { preset: 'gym' }]);
   await expect(select).toHaveValue('gym');
-  await expect(box.getByText('Unsaved changes')).toBeVisible();
 });
 
-test('a refused big screen preset save keeps the pick unsaved to try again', async ({ page }) => {
+test('a refused big screen preset save keeps the pick to try again', async ({ page }) => {
   await tomConsole(page, () => ({ status: 200, json: tomManage() }), { following: false });
   const preset = { id: 'wall', name: 'Wall TV', options: { scale: 1.5, layout: 'alphabetical', pageSeconds: 15 } };
   await page.route(`**/api/tournaments/${CODE}/display`, route =>
@@ -2477,14 +2472,11 @@ test('a refused big screen preset save keeps the pick unsaved to try again', asy
       : route.fulfill({ json: { presets: [preset], selected: null } })
   );
   await page.getByRole('tab', { name: 'Settings' }).click();
-  const box = page.locator('section', { hasText: 'Big screen' });
   const select = page.getByLabel('Display preset');
   await expect(select.locator('option', { hasText: 'Wall TV' })).toHaveCount(1);
   await select.selectOption('wall');
-  await box.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByText('Try again shortly')).toBeVisible();
   await expect(select).toHaveValue('wall');
-  await expect(box.getByText('Unsaved changes')).toBeVisible();
 });
 
 test('a sole division whose clock is paused says so under the clock', async ({ page }) => {

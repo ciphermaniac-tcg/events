@@ -1,12 +1,12 @@
 /**
  * The console's event tab, as bordered boxes of settings rows (label at left,
- * control at right): the event itself (name, round lengths, Swiss rounds),
- * what players see and do (start, format, archetypes, sanctioned, reporting,
- * decklists, details), a store event's big screen preset (StoreDisplays),
- * a TOM event's file (TomFileRow), finishing (end or reopen, the .tdf), the staff invite
- * and who is on staff, and deleting the event. Each box of settings saves on
- * its own and says when it has unsaved changes; anything that cannot be taken
- * back asks first.
+ * control at right): the event as players find it (name, when and where,
+ * fee, cap, description), its rules (kind and sanctioning, format, decks,
+ * rounds, reporting), a store event's big screen preset (StoreDisplays),
+ * a TOM event's file (TomFileRow), the staff invite and who is on staff,
+ * finishing (end or reopen once round 1 is paired, the .tdf), and deleting
+ * the event. Each field saves as it is left, with no Save to press, the way
+ * check-in ticks do; anything that cannot be taken back asks first.
  */
 
 import { useNavigate } from '@solidjs/router';
@@ -31,62 +31,43 @@ import {
   rotateStaffToken,
   saveSettings
 } from '../../lib/tournament/api';
-import { currencySymbol } from '../../lib/events/format';
 import { intlLocale, t, tn } from '../../lib/i18n';
 import { latestValue } from '../../lib/resource';
 import { downloadBlob } from '../../lib/download';
 import { createCopied } from './copied';
 import { ConfirmAction } from './ConfirmAction';
 import { registrantsSource, siteRegistrants } from './siteRegistrants';
-import { settingsDraft } from './settingsDrafts';
+import { queueSave, type SettingsDraft, settingsDraft } from './settingsDrafts';
 import { ErrorLine } from './Field';
 import { FormatSelect } from './FormatSelect';
 import { EndEventStep } from './NextStep';
 import { session } from './session';
 import type { ManageState } from './manageState';
-import '../../styles/pages/tournament-store-forms.css';
-import { DecklistsSwitch, EventTypeSwitch, RoundsSelect } from './SettingChoices';
+import { ALWAYS_SANCTIONED, DecklistsSwitch, EventTypeSelect, RoundsSelect } from './SettingChoices';
 import { ArchetypesSelect, SettingRow, Toggle } from './SettingControls';
 import { checkInAfterStart } from './checkInTime';
-import { type Logistics, LogisticsRows } from './LogisticsRows';
+import { FeeField, fieldNumber, type Logistics, LogisticsRows } from './LogisticsRows';
 import { reportingInfo, SETTING_INFO, SettingInfo } from './SettingInfo';
 import { TomFileRow, type TomLink } from './TomSyncPanel';
 
 /**
- * A box of settings with its heading, and a foot with Save and whether
- * anything is unsaved. Save is the view's primary only while its box has
- * changes to save, so the tab holds one at a time beside the head's step.
+ * A box of settings with its heading. Every field saves as it is left, or at
+ * once for a choice (see SettingsForm), so the box has no Save of its own: a
+ * change event from any field in it saves, and Enter in a field does too.
  */
-function SettingsBox(props: {
-  title: string;
-  dirty: boolean;
-  busy: boolean;
-  onSave: () => void;
-  children: JSX.Element;
-}) {
+function SettingsBox(props: { title: string; onSave: () => void; children: JSX.Element }) {
   return (
     <section>
       <h2 class='tm-subhead tm-box-head'>{props.title}</h2>
       <form
         class='tm-box tm-set-box'
+        onChange={() => props.onSave()}
         onSubmit={event => {
           event.preventDefault();
           props.onSave();
         }}
       >
         {props.children}
-        <div class='tm-box-bar tm-set-foot'>
-          <Show when={props.dirty}>
-            <span class='muted'>{t('Unsaved changes')}</span>
-          </Show>
-          <button
-            type='submit'
-            class={props.dirty ? 'btn btn-primary' : 'btn btn-secondary'}
-            disabled={props.busy || !props.dirty}
-          >
-            {t('Save')}
-          </button>
-        </div>
       </form>
     </section>
   );
@@ -102,122 +83,21 @@ function recommendedRounds(manage: Manage, type: EventType): number | undefined 
   return pod && others.length === 0 ? recommendedStructure(swissAttendance(pod), type).rounds : undefined;
 }
 
-/** The event's own details the Event box edits, with its Swiss rounds, which are a setting. */
+/** The event's own details, which change by command rather than as settings. */
 interface EventFields {
   name: string;
   roundTime: number;
   finalsRoundTime: number;
   eventType: EventType;
-  roundCap: number;
 }
 
 const eventFields = (manage: Manage): EventFields => {
   const { name, roundTime, finalsRoundTime } = manage.tournament.info;
-  return {
-    name,
-    roundTime,
-    finalsRoundTime,
-    eventType: eventTypeOf(manage.tournament),
-    roundCap: manage.settings.roundCap
-  };
+  return { name, roundTime, finalsRoundTime, eventType: eventTypeOf(manage.tournament) };
 };
 
 /** What a row says once round 1 is paired: when a change made now takes effect. Nothing before. */
 const midEvent = (manage: Manage, note: string) => (hasStarted(manage.tournament) ? note : undefined);
-
-function EventDetails(props: { state: ManageState; manage: Manage }) {
-  // eslint-disable-next-line solid/reactivity -- one draft per event, kept across tabs (see settingsDrafts)
-  const draft = settingsDraft<EventFields>(props.manage.code, 'event');
-  const saved = () => eventFields(props.manage);
-  const field = <K extends keyof EventFields>(key: K) => draft.value(key, saved());
-  const set = <K extends keyof EventFields>(key: K, value: EventFields[K]) => draft.set(key, value, saved());
-  // A Prerelease's stored short round time is raised as the box opens.
-  untrack(() => {
-    if (props.manage.tournament.info.eventType === 'prerelease') {
-      set('roundTime', Math.max(30, field('roundTime')));
-    }
-  });
-  const timeLimits = () => eventTimeLimits(field('eventType'));
-  const minMinutes = () =>
-    isSanctioned(props.manage) ? Math.max(SANCTIONED.minutes, timeLimits().minimum) : timeLimits().minimum;
-  // The rounds are a setting and the rest the event's own details, so each goes where it is kept.
-  async function save() {
-    const { code } = props.manage;
-    const { roundCap, ...info } = draft.changes(saved());
-    const sent = Object.keys(info).length === 0 || (await props.state.send({ type: 'updateInfo', info }));
-    if (sent) {
-      draft.forget(info);
-    }
-    if (sent && roundCap !== undefined && (await props.state.run(() => saveSettings(code, { roundCap })))) {
-      draft.forget({ roundCap });
-    }
-  }
-  return (
-    <SettingsBox
-      title={t('Event')}
-      dirty={Object.keys(draft.changes(saved())).length > 0}
-      busy={props.state.busy()}
-      onSave={() => void save()}
-    >
-      <SettingRow label={t('Event name')} for='info-name'>
-        <input
-          id='info-name'
-          class='tm-input'
-          value={field('name')}
-          onInput={e => set('name', e.currentTarget.value)}
-        />
-      </SettingRow>
-      <SettingRow
-        label={t('Event type')}
-        note={midEvent(props.manage, t('Changes the top cut still to come. Rounds played stay as they are.'))}
-      >
-        <EventTypeSwitch
-          value={field('eventType')}
-          types={props.manage.store === null && !isSanctioned(props.manage) ? ['local', 'prerelease'] : undefined}
-          onChange={value => set('eventType', value)}
-        />
-      </SettingRow>
-      <SettingRow label={t('Swiss round minutes')} for='info-round'>
-        <input
-          id='info-round'
-          class='tm-input tm-set-minutes'
-          type='number'
-          min={minMinutes()}
-          max={timeLimits().maximum}
-          value={field('roundTime')}
-          onInput={e => set('roundTime', Number(e.currentTarget.value))}
-        />
-      </SettingRow>
-      <SettingRow label={t('Top cut round minutes')} for='info-finals'>
-        <input
-          id='info-finals'
-          disabled={
-            ['local', 'prerelease'].includes(field('eventType')) && props.manage.tournament.settings?.type !== 3
-          }
-          class='tm-input tm-set-minutes'
-          type='number'
-          min={minMinutes()}
-          max={timeLimits().maximum}
-          value={field('finalsRoundTime')}
-          onInput={e => set('finalsRoundTime', Number(e.currentTarget.value))}
-        />
-      </SettingRow>
-      <SettingRow
-        label={t('Swiss rounds')}
-        for='info-rounds'
-        note={midEvent(props.manage, t('The next step follows the new count.'))}
-      >
-        <RoundsSelect
-          id='info-rounds'
-          value={field('roundCap')}
-          recommended={recommendedRounds(props.manage, field('eventType'))}
-          min={isSanctioned(props.manage) ? SANCTIONED.swissRounds : 1}
-          onChange={value => set('roundCap', value)}
-        />
-      </SettingRow>
-    </SettingsBox>
-  );
-}
 
 type PlayerSettings = Logistics &
   Pick<
@@ -232,11 +112,12 @@ type PlayerSettings = Logistics &
     | 'decklists'
     | 'entryFee'
     | 'playerCap'
+    | 'roundCap'
   >;
 
 const pickPlayerSettings = (settings: TournamentSettings): PlayerSettings => {
   const { details, format, startsAt, deckVisibility, sanctioned, playerReporting, decklists } = settings;
-  const { agreedReportsSettle } = settings;
+  const { agreedReportsSettle, roundCap } = settings;
   const { timeZone, checkInAt, venue, address, entryFee, playerCap } = settings;
   return {
     details,
@@ -252,9 +133,86 @@ const pickPlayerSettings = (settings: TournamentSettings): PlayerSettings => {
     agreedReportsSettle,
     decklists,
     entryFee,
-    playerCap
+    playerCap,
+    roundCap
   };
 };
+
+/** Sends a box's changes through `write`, if it has any; whether nothing was left unsent by a refusal. */
+async function sendDraft<T extends object>(
+  box: SettingsDraft<T>,
+  saved: T,
+  write: (changes: Partial<T>) => Promise<boolean>
+): Promise<boolean> {
+  const changes = box.changes(saved);
+  if (Object.keys(changes).length === 0) {
+    return true;
+  }
+  box.sending(changes);
+  const ok = await write(changes);
+  box.settle(changes, ok);
+  return ok;
+}
+
+/**
+ * The Settings tab's fields, saved as they are left: the edits are kept
+ * per event (see settingsDrafts) and `save` sends whatever differs from the
+ * event, its details by command and the rest as settings, one save after
+ * another. A refused save leaves its edits in their fields, as typed, and
+ * says why above the tabs; the next save tries them again. An edit a
+ * colleague overtook is dropped rather than sent over theirs, and the tabs
+ * say the event changed. Check-in after the start is not sent until one of
+ * them moves.
+ */
+interface SettingsForm {
+  info: <K extends keyof EventFields>(key: K) => EventFields[K];
+  setInfo: <K extends keyof EventFields>(key: K, value: EventFields[K]) => void;
+  value: () => PlayerSettings;
+  set: <K extends keyof PlayerSettings>(key: K, value: PlayerSettings[K]) => void;
+  save: () => void;
+}
+
+function createSettingsForm(state: ManageState, manage: () => Manage): SettingsForm {
+  const { code } = untrack(manage);
+  const details = settingsDraft<EventFields>(code, 'event');
+  const draft = settingsDraft<PlayerSettings>(code, 'players');
+  const savedInfo = () => eventFields(manage());
+  const saved = createMemo(() => pickPlayerSettings(manage().settings));
+  // The form's values: each edit, or the event's own where there is none, built once for every row that reads them.
+  const value = createMemo(() => {
+    const now = saved();
+    return Object.fromEntries(
+      (Object.keys(now) as (keyof PlayerSettings)[]).map(key => [key, draft.value(key, now)])
+    ) as unknown as PlayerSettings;
+  });
+  async function sendBoxes(): Promise<boolean> {
+    const info = await sendDraft(details, savedInfo(), changes => state.send({ type: 'updateInfo', info: changes }));
+    if (!info || checkInAfterStart(value().checkInAt, value().startsAt)) {
+      return false;
+    }
+    return sendDraft(draft, saved(), changes => state.run(() => saveSettings(code, changes)));
+  }
+  async function send() {
+    // Both boxes drop what a colleague overtook, before either sends.
+    const overtaken = [details.overtaken(savedInfo()), draft.overtaken(saved())].includes(true);
+    if ((await sendBoxes()) && overtaken) {
+      state.fail(t('The event changed since you looked. Look again and try once more.'));
+    }
+  }
+  // A Prerelease's stored short round time is raised as the tab opens, and saved with the next change.
+  untrack(() => {
+    if (manage().tournament.info.eventType === 'prerelease') {
+      details.set('roundTime', Math.max(30, details.value('roundTime', savedInfo())), savedInfo());
+    }
+  });
+  return {
+    info: key => details.value(key, savedInfo()),
+    setInfo: (key, next) => details.set(key, next, savedInfo()),
+    value,
+    set: (key, next) => draft.set(key, next, saved()),
+    save: () => queueSave(code, send)
+  };
+}
 
 /** What the cap row says: how to have none, or that a cap under who is in takes nobody new and removes nobody. */
 const capNote = (cap: number, registered: number) =>
@@ -262,79 +220,63 @@ const capNote = (cap: number, registered: number) =>
     ? t('{n} players are already registered. Nobody is removed, but no one new can register.', { n: registered })
     : t('Leave blank for no cap.');
 
-/** A number field's value as a setting: blank is 0, and so is anything the field could not read. */
-const fieldNumber = (input: HTMLInputElement) => (Number.isFinite(input.valueAsNumber) ? input.valueAsNumber : 0);
-
-/** The entry fee, behind the symbol of the currency the event's country uses. */
-function FeeField(props: { id: string; country: string; value: number; onChange: (value: number) => void }) {
-  const symbol = () => currencySymbol(props.country) ?? '$';
+/** Where a store's event is played: the store, as its record named it when the event was made. */
+function StoreVenue(props: { venue: string; address: string }) {
   return (
-    <span class='tm-night-fee'>
-      <span class='tm-fee-symbol' aria-hidden='true'>
-        {symbol()}
-      </span>
-      <input
-        id={props.id}
-        class='tm-input tm-set-minutes'
-        style={{ 'padding-left': `calc(14px + ${symbol().length}ch)` }}
-        type='number'
-        inputMode='decimal'
-        min={0}
-        step={0.01}
-        max={SETTINGS_LIMITS.entryFee}
-        value={props.value || ''}
-        onInput={e => props.onChange(fieldNumber(e.currentTarget))}
-      />
-    </span>
+    <Show when={props.venue || props.address}>
+      <SettingRow label={t('Venue')}>
+        <span>{[props.venue, props.address].filter(Boolean).join(', ')}</span>
+      </SettingRow>
+    </Show>
   );
 }
 
-function ForPlayers(props: { state: ManageState; manage: Manage }) {
-  // eslint-disable-next-line solid/reactivity -- one draft per event, kept across tabs (see settingsDrafts)
-  const store = settingsDraft<PlayerSettings>(props.manage.code, 'players');
-  const saved = createMemo(() => pickPlayerSettings(props.manage.settings));
-  // The form's values: each edit, or the event's own where there is none, built once for every row that reads them.
-  const draft = createMemo(() => {
-    const now = saved();
-    return Object.fromEntries(
-      (Object.keys(now) as (keyof PlayerSettings)[]).map(key => [key, store.value(key, now)])
-    ) as unknown as PlayerSettings;
-  });
-  const set = <K extends keyof PlayerSettings>(key: K, value: PlayerSettings[K]) => store.set(key, value, saved());
+/** The event as players find it: its name, when and where, what it costs, how many it takes, and what it says. */
+function EventBox(props: { form: SettingsForm; manage: Manage }) {
+  const value = () => props.form.value();
   const registered = () => props.manage.tournament.players.filter(player => player.droppedAfter === null).length;
-  async function save() {
-    const { code } = props.manage;
-    const changes = store.changes(saved());
-    if (await props.state.run(() => saveSettings(code, changes))) {
-      store.forget(changes);
-    }
-  }
   return (
-    <SettingsBox
-      title={t('For players')}
-      dirty={Object.keys(store.changes(saved())).length > 0}
-      busy={props.state.busy() || checkInAfterStart(draft().checkInAt, draft().startsAt)}
-      onSave={() => void save()}
-    >
+    <SettingsBox title={t('Event')} onSave={props.form.save}>
+      {/* A TOM event's name is the file's. */}
+      <Show when={props.manage.mode === 'swiss'}>
+        <SettingRow label={t('Event name')} for='info-name'>
+          <input
+            id='info-name'
+            class='tm-input'
+            value={props.form.info('name')}
+            onInput={e => props.form.setInfo('name', e.currentTarget.value)}
+          />
+        </SettingRow>
+      </Show>
       <SettingRow label={t('Starts')} for='set-start'>
         <input
           id='set-start'
           class='tm-input'
           type='datetime-local'
-          value={draft().startsAt}
-          onInput={e => set('startsAt', e.currentTarget.value)}
+          value={value().startsAt}
+          onInput={e => props.form.set('startsAt', e.currentTarget.value)}
         />
       </SettingRow>
-      <LogisticsRows id='set' value={draft()} startsAt={draft().startsAt} onChange={set} />
-      <SettingRow label={t('Entry fee')} for='set-fee' note={t('Leave blank for a free event.')}>
+      <LogisticsRows
+        id='set'
+        value={value()}
+        place={props.manage.store === null}
+        startsAt={value().startsAt}
+        onChange={props.form.set}
+        onFill={props.form.save}
+      />
+      <Show when={props.manage.store !== null}>
+        <StoreVenue venue={value().venue} address={value().address} />
+      </Show>
+      <SettingRow label={t('Entry fee')} for='set-fee'>
         <FeeField
           id='set-fee'
           country={props.manage.tournament.info.country}
-          value={draft().entryFee}
-          onChange={value => set('entryFee', value)}
+          value={value().entryFee}
+          onChange={fee => props.form.set('entryFee', fee)}
         />
       </SettingRow>
-      <SettingRow label={t('Player cap')} for='set-cap' note={capNote(draft().playerCap, registered())}>
+      <SettingRow label={t('Player cap')} for='set-cap' note={capNote(value().playerCap, registered())}>
         <input
           id='set-cap'
           class='tm-input tm-set-minutes'
@@ -342,70 +284,159 @@ function ForPlayers(props: { state: ManageState; manage: Manage }) {
           inputMode='numeric'
           min={0}
           max={SETTINGS_LIMITS.playerCap}
-          value={draft().playerCap || ''}
-          onInput={e => set('playerCap', Math.trunc(fieldNumber(e.currentTarget)))}
+          value={value().playerCap || ''}
+          onInput={e => props.form.set('playerCap', Math.trunc(fieldNumber(e.currentTarget)))}
         />
-      </SettingRow>
-      <SettingRow label={t('Format')} for='set-format'>
-        <FormatSelect id='set-format' value={draft().format} onChange={value => set('format', value)} />
-      </SettingRow>
-      <SettingRow label={t('Archetypes')} for='set-decks' info={<SettingInfo text={SETTING_INFO.archetypes} />}>
-        {/* Showing decks sooner than the event does now is the organizer's call alone (see settings.ts). */}
-        <ArchetypesSelect
-          id='set-decks'
-          value={draft().deckVisibility}
-          soonest={props.manage.role === 'owner' ? undefined : props.manage.settings.deckVisibility}
-          onChange={v => set('deckVisibility', v)}
-        />
-      </SettingRow>
-      {/* Only a store's event is sanctioned; one sanctioned before stores existed can still be turned off. */}
-      <Show when={props.manage.mode === 'swiss' && (props.manage.store !== null || props.manage.settings.sanctioned)}>
-        <SettingRow label={t('Sanctioned')}>
-          <Toggle
-            label={t('Sanctioned')}
-            value={draft().sanctioned}
-            on={t('Yes')}
-            off={t('No')}
-            onChange={v => set('sanctioned', v)}
-          />
-        </SettingRow>
-      </Show>
-      <SettingRow
-        label={t('Mobile result reporting')}
-        info={<SettingInfo text={reportingInfo(draft().sanctioned)} />}
-        note={midEvent(props.manage, t('Applies to open tables at once.'))}
-      >
-        <Toggle
-          label={t('Mobile result reporting')}
-          value={draft().playerReporting}
-          onChange={v => set('playerReporting', v)}
-        />
-      </SettingRow>
-      <Show when={draft().playerReporting && props.manage.mode === 'swiss'}>
-        <SettingRow label={t('Agreeing reports count')} info={<SettingInfo text={SETTING_INFO.agreedReportsSettle} />}>
-          <Toggle
-            label={t('Agreeing reports count')}
-            value={draft().agreedReportsSettle}
-            onChange={v => set('agreedReportsSettle', v)}
-          />
-        </SettingRow>
-      </Show>
-      <SettingRow
-        label={t('Decklists')}
-        info={<SettingInfo text={SETTING_INFO.decklists} />}
-        note={midEvent(props.manage, t('Players can’t send lists once round 1 is paired.'))}
-      >
-        <DecklistsSwitch value={draft().decklists} onChange={v => set('decklists', v)} />
       </SettingRow>
       <SettingRow label={t('Event description')} for='set-details'>
         <textarea
           id='set-details'
           class='tm-input tm-textarea'
           maxLength={SETTINGS_LIMITS.details}
-          value={draft().details}
-          onInput={e => set('details', e.currentTarget.value)}
+          value={value().details}
+          onInput={e => props.form.set('details', e.currentTarget.value)}
         />
       </SettingRow>
+    </SettingsBox>
+  );
+}
+
+/**
+ * The kind of event and whether it is sanctioned, asked only of a Swiss
+ * event: only a store's is sanctioned, though one sanctioned before stores
+ * existed can still be turned off. A League Cup or Challenge always is, so
+ * they are offered once the event is sanctioned, which the server checks
+ * (the store's league, round lengths, players' IDs); picking one then
+ * changes the kind alone. One that is a Cup or Challenge already keeps every
+ * kind to move to.
+ */
+function EventTypeRow(props: { form: SettingsForm; manage: Manage }) {
+  const asked = () => props.manage.store !== null || props.manage.settings.sanctioned;
+  const types = () =>
+    isSanctioned(props.manage) || ALWAYS_SANCTIONED.includes(eventTypeOf(props.manage.tournament))
+      ? undefined
+      : (['local', 'prerelease'] as const);
+  return (
+    <SettingRow
+      label={t('Event type')}
+      note={midEvent(props.manage, t('Changes the top cut still to come. Rounds played stay as they are.'))}
+    >
+      <EventTypeSelect
+        value={props.form.info('eventType')}
+        types={types()}
+        sanctioned={asked() ? props.form.value().sanctioned : undefined}
+        onChange={type => props.form.setInfo('eventType', type)}
+        onSanctioned={on => props.form.set('sanctioned', on)}
+      />
+    </SettingRow>
+  );
+}
+
+/** How a Swiss event's rounds run: how long each is and how many Swiss rounds it plans. */
+function RoundRows(props: { form: SettingsForm; manage: Manage }) {
+  const timeLimits = () => eventTimeLimits(props.form.info('eventType'));
+  const minMinutes = () =>
+    isSanctioned(props.manage) ? Math.max(SANCTIONED.minutes, timeLimits().minimum) : timeLimits().minimum;
+  return (
+    <>
+      <SettingRow
+        label={t('Swiss rounds')}
+        for='info-rounds'
+        note={midEvent(props.manage, t('The next step follows the new count.'))}
+      >
+        <RoundsSelect
+          id='info-rounds'
+          value={props.form.value().roundCap}
+          recommended={recommendedRounds(props.manage, props.form.info('eventType'))}
+          min={isSanctioned(props.manage) ? SANCTIONED.swissRounds : 1}
+          onChange={cap => props.form.set('roundCap', cap)}
+        />
+      </SettingRow>
+      <SettingRow label={t('Swiss round minutes')} for='info-round'>
+        <input
+          id='info-round'
+          class='tm-input tm-set-minutes'
+          type='number'
+          min={minMinutes()}
+          max={timeLimits().maximum}
+          value={props.form.info('roundTime')}
+          onInput={e => props.form.setInfo('roundTime', Number(e.currentTarget.value))}
+        />
+      </SettingRow>
+      <SettingRow label={t('Top cut round minutes')} for='info-finals'>
+        <input
+          id='info-finals'
+          disabled={
+            ['local', 'prerelease'].includes(props.form.info('eventType')) &&
+            props.manage.tournament.settings?.type !== 3
+          }
+          class='tm-input tm-set-minutes'
+          type='number'
+          min={minMinutes()}
+          max={timeLimits().maximum}
+          value={props.form.info('finalsRoundTime')}
+          onInput={e => props.form.setInfo('finalsRoundTime', Number(e.currentTarget.value))}
+        />
+      </SettingRow>
+    </>
+  );
+}
+
+/** How the event runs: its kind, format, decks, rounds and reporting. A switch saves as it is pressed. */
+function RulesBox(props: { form: SettingsForm; manage: Manage }) {
+  const value = () => props.form.value();
+  const choose = <K extends keyof PlayerSettings>(key: K, next: PlayerSettings[K]) => {
+    props.form.set(key, next);
+    props.form.save();
+  };
+  const swiss = () => props.manage.mode === 'swiss';
+  return (
+    <SettingsBox title={t('Rules')} onSave={props.form.save}>
+      <Show when={swiss()}>
+        <EventTypeRow form={props.form} manage={props.manage} />
+      </Show>
+      <SettingRow label={t('Format')} for='set-format'>
+        <FormatSelect id='set-format' value={value().format} onChange={format => props.form.set('format', format)} />
+      </SettingRow>
+      <SettingRow
+        label={t('Decklists')}
+        info={<SettingInfo text={SETTING_INFO.decklists} />}
+        note={midEvent(props.manage, t('Players can’t send lists once round 1 is paired.'))}
+      >
+        <DecklistsSwitch value={value().decklists} onChange={v => choose('decklists', v)} />
+      </SettingRow>
+      <SettingRow label={t('Archetypes')} for='set-decks' info={<SettingInfo text={SETTING_INFO.archetypes} />}>
+        {/* Showing decks sooner than the event does now is the organizer's call alone (see settings.ts). */}
+        <ArchetypesSelect
+          id='set-decks'
+          value={value().deckVisibility}
+          soonest={props.manage.role === 'owner' ? undefined : props.manage.settings.deckVisibility}
+          onChange={v => props.form.set('deckVisibility', v)}
+        />
+      </SettingRow>
+      <Show when={swiss()}>
+        <RoundRows form={props.form} manage={props.manage} />
+      </Show>
+      <SettingRow
+        label={t('Mobile result reporting')}
+        info={<SettingInfo text={reportingInfo(value().sanctioned)} />}
+        note={midEvent(props.manage, t('Applies to open tables at once.'))}
+      >
+        <Toggle
+          label={t('Mobile result reporting')}
+          value={value().playerReporting}
+          onChange={v => choose('playerReporting', v)}
+        />
+      </SettingRow>
+      <Show when={value().playerReporting && swiss()}>
+        <SettingRow label={t('Agreeing reports count')} info={<SettingInfo text={SETTING_INFO.agreedReportsSettle} />}>
+          <Toggle
+            label={t('Agreeing reports count')}
+            value={value().agreedReportsSettle}
+            onChange={v => choose('agreedReportsSettle', v)}
+          />
+        </SettingRow>
+      </Show>
     </SettingsBox>
   );
 }
@@ -427,36 +458,42 @@ function Finish(props: { state: ManageState; manage: Manage }) {
     const { code } = props.manage;
     void props.state.run(() => saveSettings(code, { finished: false }));
   }
+  // Until round 1 there is nothing to end; the head's step ends the event once it runs.
+  const status = () => props.manage.settings.finished || hasStarted(props.manage.tournament);
   return (
-    <section>
-      <h2 class='tm-subhead tm-box-head'>{t('Finish')}</h2>
-      <div class='tm-box'>
-        <SettingRow label={t('Status')}>
-          <span class='tm-set-inline'>
-            <span>{props.manage.settings.finished ? t('Ended') : t('In progress')}</span>
-            <Show
-              when={props.manage.settings.finished}
-              fallback={<EndEventStep state={props.state} manage={props.manage} primary={false} />}
-            >
-              <button type='button' class='btn btn-secondary' disabled={props.state.busy()} onClick={reopen}>
-                {t('Reopen event')}
-              </button>
-            </Show>
-          </span>
-        </SettingRow>
-        {/* Only a Play! Pokémon event has a file to report. */}
-        <Show when={isSanctioned(props.manage)}>
-          <SettingRow label={t('Play! Pokémon file')}>
-            <span class='tm-set-inline'>
-              <button type='button' class='btn btn-secondary' onClick={download}>
-                {t('Download .tdf')}
-              </button>
-              <span class='muted tm-num'>{t('Version {version}', { version: props.manage.version })}</span>
-            </span>
-          </SettingRow>
-        </Show>
-      </div>
-    </section>
+    <Show when={status() || isSanctioned(props.manage)}>
+      <section>
+        <h2 class='tm-subhead tm-box-head'>{t('Finish')}</h2>
+        <div class='tm-box'>
+          <Show when={status()}>
+            <SettingRow label={t('Status')}>
+              <span class='tm-set-inline'>
+                <span>{props.manage.settings.finished ? t('Ended') : t('In progress')}</span>
+                <Show
+                  when={props.manage.settings.finished}
+                  fallback={<EndEventStep state={props.state} manage={props.manage} primary={false} />}
+                >
+                  <button type='button' class='btn btn-secondary' disabled={props.state.busy()} onClick={reopen}>
+                    {t('Reopen event')}
+                  </button>
+                </Show>
+              </span>
+            </SettingRow>
+          </Show>
+          {/* Only a Play! Pokémon event has a file to report. */}
+          <Show when={isSanctioned(props.manage)}>
+            <SettingRow label={t('Play! Pokémon file')}>
+              <span class='tm-set-inline'>
+                <button type='button' class='btn btn-secondary' onClick={download}>
+                  {t('Download .tdf')}
+                </button>
+                <span class='muted tm-num'>{t('Version {version}', { version: props.manage.version })}</span>
+              </span>
+            </SettingRow>
+          </Show>
+        </div>
+      </section>
+    </Show>
   );
 }
 
@@ -734,6 +771,9 @@ function BigScreenPreset(props: { state: ManageState; manage: Manage }) {
   function save() {
     const { code } = props.manage;
     const sent = picked();
+    if (sent === null || sent === (kept()?.id ?? '')) {
+      return;
+    }
     const preset = value() || null;
     void props.state
       .run(() => call<Manage>(displayPath(code), json('PUT', { preset })))
@@ -745,7 +785,7 @@ function BigScreenPreset(props: { state: ManageState; manage: Manage }) {
       });
   }
   return (
-    <SettingsBox title={t('Big screen')} dirty={value() !== (kept()?.id ?? '')} busy={props.state.busy()} onSave={save}>
+    <SettingsBox title={t('Big screen')} onSave={save}>
       <SettingRow label={t('Display preset')} for='set-display'>
         <select id='set-display' class='tm-select' value={value()} onChange={e => setPicked(e.currentTarget.value)}>
           <option value=''>{t('Automatic')}</option>
@@ -776,23 +816,25 @@ function TomFile(props: { link: TomLink }) {
 }
 
 export function EventPanel(props: { state: ManageState; manage: Manage; tom: TomLink | null }) {
+  // eslint-disable-next-line solid/reactivity -- one form per event, kept across tabs (see settingsDrafts)
+  const form = createSettingsForm(props.state, () => props.manage);
   return (
     <div class='tm-panel tm-event-panel'>
       {/* Staff change the organizer's event, so they are told a save reaches everyone. */}
       <Show when={props.manage.role !== 'owner'}>
         <p class='muted'>{t('Settings saved here change the event for everyone.')}</p>
       </Show>
-      <Show when={props.manage.mode === 'swiss'}>
-        <EventDetails state={props.state} manage={props.manage} />
-      </Show>
       <Show when={props.tom}>{link => <TomFile link={link()} />}</Show>
-      <ForPlayers state={props.state} manage={props.manage} />
+      <EventBox form={form} manage={props.manage} />
+      <RulesBox form={form} manage={props.manage} />
       <Show when={props.manage.store !== null}>
         <BigScreenPreset state={props.state} manage={props.manage} />
       </Show>
-      <Finish state={props.state} manage={props.manage} />
       <Show when={props.manage.role === 'owner'}>
         <StaffInvite state={props.state} manage={props.manage} />
+      </Show>
+      <Finish state={props.state} manage={props.manage} />
+      <Show when={props.manage.role === 'owner'}>
         <DeleteEvent manage={props.manage} />
       </Show>
     </div>

@@ -1,10 +1,11 @@
 /**
  * Setting up a new event on one screen: a heading and the name, then one box
- * of settings rows with every other answer at its default, changed in place.
- * A Swiss event asks everything; an event followed from TOM asks only what
- * its .tdf does not say (the name, sanctioning, divisions and round length all
- * come from the file). The controls are the ones the console's Event tab
- * uses, so a setting looks the same in both places. An account that may run
+ * of what players need first: its kind and whether it is sanctioned, the
+ * format, the start, where it is played and the entry fee. Everything else
+ * starts at its default and is changed in the console's Settings, whose
+ * controls these are, so a setting looks the same in both places. An event
+ * followed from TOM asks only what its .tdf does not say (the name,
+ * sanctioning, divisions and round length all come from the file). An account that may run
  * events more than one way picks who runs this one first: one of its stores,
  * or itself, whose events are never sanctioned and so ask nothing about it.
  * A store's Swiss event can start from one of its pokemon.com listings (see
@@ -16,7 +17,7 @@
 import { createSignal, For, type JSX, Show, untrack } from 'solid-js';
 import type { Listing } from '../../../shared/accounts/types';
 import { DEFAULT_ROUND_MINUTES, eventTimeLimits } from '../../../shared/tournament/create';
-import { CREATIONS_PER_DAY, eventDay, isRoundMinutes } from '../../../shared/tournament/limits';
+import { CREATIONS_PER_DAY, eventDay } from '../../../shared/tournament/limits';
 import { t } from '../../lib/i18n';
 import { createMedia, NOT_TOM_DESKTOP } from '../../lib/media';
 import { setupDraft } from '../../lib/tournament/setupDraft';
@@ -27,11 +28,10 @@ import { LISTING_KINDS, listingFill } from '../../lib/tournament/stores';
 import { ErrorLine } from './Field';
 import { FormatSelect } from './FormatSelect';
 import { ListingPicker } from './ListingPicker';
-import { checkInAfterStart } from './checkInTime';
-import { browserZone, type Logistics, LogisticsRows } from './LogisticsRows';
-import { DecklistsSwitch, EventTypeSwitch, RoundsSelect } from './SettingChoices';
-import { ArchetypesSelect, SettingRow, Toggle } from './SettingControls';
-import { reportingInfo, SETTING_INFO, SettingInfo } from './SettingInfo';
+import { browserZone, FeeField, PlaceRows } from './LogisticsRows';
+import { ALWAYS_SANCTIONED, EventTypeSelect } from './SettingChoices';
+import { SettingRow, Toggle } from './SettingControls';
+import { SETTING_INFO, SettingInfo } from './SettingInfo';
 
 export interface Setup {
   name: string;
@@ -74,23 +74,14 @@ const isListing = (value: unknown): value is Listing | null => {
   );
 };
 
-/** What the event does with decks: archetypes, and whether it takes lists (Open lists are shown once round 1 is paired). */
-function DeckRows(props: {
-  archetypes: DeckVisibility;
-  decklists: DecklistMode;
-  onArchetypes: (value: DeckVisibility) => void;
-  onDecklists: (value: DecklistMode) => void;
-}) {
-  return (
-    <>
-      <SettingRow label={t('Archetypes')} for='setup-archetypes' info={<SettingInfo text={SETTING_INFO.archetypes} />}>
-        <ArchetypesSelect id='setup-archetypes' value={props.archetypes} onChange={props.onArchetypes} />
-      </SettingRow>
-      <SettingRow label={t('Decklists')} info={<SettingInfo text={SETTING_INFO.decklists} />}>
-        <DecklistsSwitch value={props.decklists} onChange={props.onDecklists} />
-      </SettingRow>
-    </>
-  );
+/**
+ * The round length to create the event with: the one Run again brought, kept
+ * within what its kind allows, and at least a sanctioned round's.
+ */
+function roundMinutes(minutes: number, type: EventType, sanctioned: boolean): number {
+  const { minimum, maximum } = eventTimeLimits(type);
+  const floor = sanctioned ? Math.max(SANCTIONED.minutes, minimum) : minimum;
+  return Math.min(maximum, Math.max(floor, Math.round(minutes) || DEFAULT_ROUND_MINUTES));
 }
 
 /** The browser's own date, YYYY-MM-DD. */
@@ -126,20 +117,21 @@ export function EventSetup(props: {
   const [playToolsConfirmed, setPlayToolsConfirmed] = field('playToolsConfirmed', false, isBoolean);
   const [format, setFormat] = field('format', 'Standard', isString);
   const [startsAt, setStartsAt] = field('startsAt', '', isString);
-  const [checkInAt, setCheckInAt] = field('checkInAt', '', isString);
-  // '' follows who runs the event until the organizer picks a zone.
-  const [zone, setZone] = field('timeZone', '', isString);
+  const [entryFee, setEntryFee] = field('entryFee', 0, isNumber);
+  // '' follows who runs the event; Run again brings the zone of the event it repeats.
+  const [zone] = field('timeZone', '', isString);
   const [venue, setVenue] = field('venue', '', isString);
   const [address, setAddress] = field('address', '', isString);
-  const [roundTime, setRoundTime] = field('roundTime', String(DEFAULT_ROUND_MINUTES), isString);
-  const [reporting, setReporting] = field('reporting', false, isBoolean);
-  const [archetypes, setArchetypes] = field<DeckVisibility>('archetypes', 'off', (value): value is DeckVisibility =>
+  // Not asked here: Run again brings these, and Settings changes them.
+  const [roundTime] = field('roundTime', String(DEFAULT_ROUND_MINUTES), isString);
+  const [reporting] = field('reporting', false, isBoolean);
+  const [archetypes] = field<DeckVisibility>('archetypes', 'off', (value): value is DeckVisibility =>
     ['off', 'always', 'after'].includes(String(value))
   );
-  const [decklists, setDecklists] = field<DecklistMode>('decklists', 'off', (value): value is DecklistMode =>
+  const [decklists] = field<DecklistMode>('decklists', 'off', (value): value is DecklistMode =>
     ['off', 'open', 'closed'].includes(String(value))
   );
-  const [roundCap, setRoundCap] = field('roundCap', 0, isNumber);
+  const [roundCap] = field('roundCap', 0, isNumber);
   const [eventType, setEventType] = field<EventType>('eventType', 'cup', (value): value is EventType =>
     EVENT_TYPES.includes(value as EventType)
   );
@@ -160,16 +152,11 @@ export function EventSetup(props: {
   const notTomDesktop = createMedia(NOT_TOM_DESKTOP);
   /** Run by a store, which is where it is played. */
   const atStore = () => runAs() !== null;
-  const logistics = (): Logistics => ({
-    timeZone: zone() || (props.runAs.find(option => option.id === runAs())?.timeZone ?? browserZone()),
-    checkInAt: checkInAt(),
-    venue: atStore() ? '' : venue(),
-    address: atStore() ? '' : address()
-  });
-  const setLogistics = { timeZone: setZone, checkInAt: setCheckInAt, venue: setVenue, address: setAddress };
   /** Run under the account's own name or an unsanctioned store's: never sanctioned. */
   const own = () => !props.runAs.find(option => option.id === runAs())?.sanctions;
-  const sanctioned = () => !own() && sanctionedChoice();
+  const selectedEventType = () => (own() && !['local', 'prerelease'].includes(eventType()) ? 'local' : eventType());
+  /** A League Cup or Challenge always is; a Local or Prerelease when the organizer says. */
+  const sanctioned = () => !own() && (ALWAYS_SANCTIONED.includes(selectedEventType()) || sanctionedChoice());
   /** A sanctioned event TOM pairs: it starts from TOM's file, which answers the rest. */
   const tomOffered = () => swiss() && sanctioned() && props.tdfLink !== undefined && !notTomDesktop();
   const tomPairs = () => tomOffered() && tomChosen();
@@ -186,31 +173,13 @@ export function EventSetup(props: {
   }
   /** The listing it starts from, which says whether it is sanctioned and its kind; none run as the account's own. */
   const listed = () => (own() ? null : listing());
-  const selectedEventType = () => (own() && !['local', 'prerelease'].includes(eventType()) ? 'local' : eventType());
   const needsName = () => swiss() && !name().trim();
   const needsPlayTools = () => (swiss() ? sanctioned() : props.tdfSanctioned);
-  const shortRounds = () => swiss() && sanctioned() && Number(roundTime()) < SANCTIONED.minutes;
-  const invalidMinutes = () => swiss() && !isRoundMinutes(Number(roundTime()));
   const limited = () => props.community && runAs() === null;
   const day = () => eventDay(startsAt(), localToday());
   const dayTaken = () => limited() && props.communityDays.includes(day());
   const cannotCreate = () =>
-    [
-      props.busy,
-      needsName(),
-      invalidMinutes(),
-      shortRounds(),
-      dayTaken(),
-      checkInAfterStart(checkInAt(), startsAt()),
-      needsPlayTools() && !playToolsConfirmed()
-    ].some(Boolean);
-  /** A sanctioned event plays at least three rounds, so a lower cap goes back to the recommendation. */
-  function setSanctionedTo(value: boolean) {
-    setSanctioned(value);
-    if (value && roundCap() > 0 && roundCap() < SANCTIONED.swissRounds) {
-      setRoundCap(0);
-    }
-  }
+    [props.busy, needsName(), dayTaken(), needsPlayTools() && !playToolsConfirmed()].some(Boolean);
 
   /** A listing fills what it says; Not listed here leaves what was typed and drops only the sanction ID. */
   function pick(next: Listing | null) {
@@ -222,7 +191,7 @@ export function EventSetup(props: {
     setName(fill.name);
     setStartsAt(fill.startsAt);
     setEventType(fill.eventType);
-    setSanctionedTo(fill.sanctioned);
+    setSanctioned(fill.sanctioned);
     // Listed on pokemon.com is what being created in Play! Tools leads to.
     setPlayToolsConfirmed(fill.sanctioned);
   }
@@ -230,6 +199,14 @@ export function EventSetup(props: {
     setRunAs(id);
     setListing(null);
   }
+  /** Where it is played and the zone its times are in: a store's event is at the store, in its zone. */
+  const logistics = () => ({
+    timeZone: zone() || (props.runAs.find(option => option.id === runAs())?.timeZone ?? browserZone()),
+    venue: atStore() ? '' : venue(),
+    address: atStore() ? '' : address()
+  });
+  /** A sanctioned event plays at least three rounds, so a lower cap goes back to the recommendation. */
+  const cap = () => (sanctioned() && roundCap() < SANCTIONED.swissRounds ? 0 : roundCap());
 
   function submit(event: Event) {
     event.preventDefault();
@@ -239,7 +216,7 @@ export function EventSetup(props: {
     const from = listed();
     props.onCreate({
       name: name().trim(),
-      roundTime: Number(roundTime()),
+      roundTime: roundMinutes(Number(roundTime()), selectedEventType(), sanctioned()),
       eventType: selectedEventType(),
       store: runAs(),
       today: localToday(),
@@ -248,10 +225,11 @@ export function EventSetup(props: {
         format: format(),
         startsAt: startsAt(),
         ...logistics(),
+        entryFee: entryFee(),
         deckVisibility: archetypes(),
         decklists: decklists(),
         playerReporting: reporting(),
-        ...(swiss() ? { sanctioned: sanctioned(), roundCap: roundCap() } : {})
+        ...(swiss() ? { sanctioned: sanctioned(), roundCap: cap() } : {})
       }
     });
   }
@@ -282,14 +260,14 @@ export function EventSetup(props: {
       </Show>
       <div class='tm-box'>
         <Show when={!tomPairs() && listing()}>{picked => <ListingRow listing={picked()} />}</Show>
-        <Show when={swiss() && !own() && !listed()}>
-          <SettingRow label={t('Sanctioned')}>
-            <Toggle
-              label={t('Sanctioned')}
-              value={sanctioned()}
-              on={t('Yes')}
-              off={t('No')}
-              onChange={setSanctionedTo}
+        <Show when={swiss() && !listed()}>
+          <SettingRow label={t('Event type')}>
+            <EventTypeSelect
+              value={selectedEventType()}
+              types={own() ? ['local', 'prerelease'] : undefined}
+              sanctioned={own() ? undefined : sanctionedChoice()}
+              onChange={setEventType}
+              onSanctioned={setSanctioned}
             />
           </SettingRow>
         </Show>
@@ -312,36 +290,17 @@ export function EventSetup(props: {
               onInput={e => setStartsAt(e.currentTarget.value)}
             />
           </SettingRow>
-          <LogisticsRows
-            id='setup'
-            value={logistics()}
-            place={!atStore()}
-            startsAt={startsAt()}
-            onChange={(key, value) => setLogistics[key](value)}
-          />
-          <Show when={swiss()}>
-            <SwissRows
-              eventType={selectedEventType()}
-              listed={listed() !== null}
-              own={own()}
-              sanctioned={sanctioned()}
-              roundTime={roundTime()}
-              invalidMinutes={invalidMinutes()}
-              roundCap={roundCap()}
-              onEventType={setEventType}
-              onRoundTime={setRoundTime}
-              onRoundCap={setRoundCap}
+          <Show when={!atStore()}>
+            <PlaceRows
+              id='setup'
+              venue={venue()}
+              address={address()}
+              onChange={(key, value) => (key === 'venue' ? setVenue(value) : setAddress(value))}
             />
           </Show>
-          <SettingRow label={t('Mobile result reporting')} info={<SettingInfo text={reportingInfo(sanctioned())} />}>
-            <Toggle label={t('Mobile result reporting')} value={reporting()} onChange={setReporting} />
+          <SettingRow label={t('Entry fee')} for='setup-fee'>
+            <FeeField id='setup-fee' country='' value={entryFee()} onChange={setEntryFee} />
           </SettingRow>
-          <DeckRows
-            archetypes={archetypes()}
-            decklists={decklists()}
-            onArchetypes={setArchetypes}
-            onDecklists={setDecklists}
-          />
         </Show>
       </div>
       <Show
@@ -351,9 +310,7 @@ export function EventSetup(props: {
             limited={limited()}
             dayTaken={dayTaken()}
             day={day()}
-            invalidMinutes={invalidMinutes()}
             needsName={needsName()}
-            shortRounds={shortRounds()}
             unconfirmed={needsPlayTools() === true && !playToolsConfirmed()}
             cannotCreate={cannotCreate()}
             onCancel={props.onCancel}
@@ -391,62 +348,6 @@ function TdfFooter(props: { link: JSX.Element; onCancel: () => void }) {
   );
 }
 
-/** What only an event paired here asks: its kind, unless a listing said, and its rounds' length and count. */
-function SwissRows(props: {
-  eventType: EventType;
-  listed: boolean;
-  own: boolean;
-  sanctioned: boolean;
-  roundTime: string;
-  invalidMinutes: boolean;
-  roundCap: number;
-  onEventType: (value: EventType) => void;
-  onRoundTime: (value: string) => void;
-  onRoundCap: (value: number) => void;
-}) {
-  const timeLimits = () => eventTimeLimits(props.eventType);
-  return (
-    <>
-      <Show when={!props.listed}>
-        <SettingRow label={t('Event type')}>
-          <EventTypeSwitch
-            value={props.eventType}
-            types={props.own ? ['local', 'prerelease'] : undefined}
-            onChange={props.onEventType}
-          />
-        </SettingRow>
-      </Show>
-      <SettingRow label={t('Swiss round minutes')} for='setup-minutes'>
-        <input
-          id='setup-minutes'
-          class='tm-input tm-set-minutes'
-          type='number'
-          required
-          step='1'
-          aria-describedby={props.invalidMinutes ? 'setup-minutes-status' : undefined}
-          min={props.sanctioned ? Math.max(SANCTIONED.minutes, timeLimits().minimum) : timeLimits().minimum}
-          max={timeLimits().maximum}
-          value={props.roundTime}
-          onInput={e => props.onRoundTime(e.currentTarget.value)}
-        />
-        <Show when={props.invalidMinutes}>
-          <span id='setup-minutes-status' class='tm-error' role='status'>
-            {t('Enter whole minutes from 1 to 180')}
-          </span>
-        </Show>
-      </SettingRow>
-      <SettingRow label={t('Swiss rounds')} for='setup-rounds'>
-        <RoundsSelect
-          id='setup-rounds'
-          value={props.roundCap}
-          min={props.sanctioned ? SANCTIONED.swissRounds : 1}
-          onChange={props.onRoundCap}
-        />
-      </SettingRow>
-    </>
-  );
-}
-
 /**
  * Whether TOM or Ciphermaniac pairs a sanctioned event and keeps its results,
  * asked only on a desktop, where TOM runs. It cannot change once the event is
@@ -455,11 +356,7 @@ function SwissRows(props: {
  */
 function PairingRow(props: { tom: boolean; onChange: (tom: boolean) => void }) {
   return (
-    <SettingRow
-      label={t('Pairing and results')}
-      info={<SettingInfo text={SETTING_INFO.pairing} />}
-      note={t('Can’t be changed after the event is created')}
-    >
+    <SettingRow label={t('Pairing and results')} info={<SettingInfo text={SETTING_INFO.pairing} />}>
       <Toggle
         label={t('Pairing and results')}
         value={props.tom}
@@ -500,14 +397,11 @@ function PlayToolsRow(props: { confirmed: boolean; onConfirm: (value: boolean) =
 
 /**
  * Why Create event can't be pressed yet, the first of what holds it back, or
- * null. Minutes out of range and a date taken say so above the foot.
+ * null. A date taken says so above the foot.
  */
-function blockedReason(why: { needsName: boolean; shortRounds: boolean; unconfirmed: boolean }): string | null {
+function blockedReason(why: { needsName: boolean; unconfirmed: boolean }): string | null {
   if (why.needsName) {
     return t('Name the event to create it');
-  }
-  if (why.shortRounds) {
-    return t('Sanctioned rounds are at least {minutes} minutes', { minutes: SANCTIONED.minutes });
   }
   return why.unconfirmed ? t('Confirm the event is in Play! Tools to create it') : null;
 }
@@ -516,9 +410,7 @@ function SetupFooter(props: {
   limited: boolean;
   dayTaken: boolean;
   day: string;
-  invalidMinutes: boolean;
   needsName: boolean;
-  shortRounds: boolean;
   /** A sanctioned event not yet confirmed as created in Play! Tools. */
   unconfirmed: boolean;
   cannotCreate: boolean;

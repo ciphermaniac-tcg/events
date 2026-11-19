@@ -5,11 +5,14 @@
  * with the first page, so these load with the pages that use them.
  */
 
-import { For } from 'solid-js';
+import { For, Show } from 'solid-js';
 import { EVENT_TYPE_LABELS, EVENT_TYPES, type EventType } from '../../../shared/tournament/types';
 import { type DecklistMode, SETTINGS_LIMITS } from '../../../shared/tournament/view';
 import { Segmented } from '@ciphermaniac/design/components/Segmented';
 import { msg, t, tn } from '../../lib/i18n';
+
+/** The kinds that are always sanctioned, so whether they are is never asked. */
+export const ALWAYS_SANCTIONED: readonly EventType[] = ['cup', 'challenge'];
 
 const CAPS = Array.from({ length: SETTINGS_LIMITS.roundCap }, (_, i) => i + 1);
 
@@ -19,14 +22,42 @@ const DECKLIST_OPTIONS: { value: DecklistMode; label: string }[] = [
   { value: 'open', label: msg('Open') }
 ];
 
-/** The event kind, which sets its mode and initial round structure. */
-export function EventTypeSwitch(props: {
+/**
+ * The event kind, which sets its mode and initial round structure, and beside
+ * it whether the event is sanctioned (`sanctioned`, left out where it is not
+ * asked). A League Cup or Challenge always is, so it is not asked of either.
+ */
+export function EventTypeSelect(props: {
   value: EventType;
   types?: readonly EventType[] | undefined;
+  sanctioned?: boolean | undefined;
   onChange: (value: EventType) => void;
+  onSanctioned?: (value: boolean) => void;
 }) {
-  const options = () => (props.types ?? EVENT_TYPES).map(value => ({ value, label: t(EVENT_TYPE_LABELS[value]) }));
-  return <Segmented options={options()} selected={props.value} onSelect={props.onChange} ariaLabel={t('Event type')} />;
+  return (
+    <span class='tm-set-inline'>
+      <select
+        class='tm-select'
+        aria-label={t('Event type')}
+        value={props.value}
+        onChange={e => props.onChange(e.currentTarget.value as EventType)}
+      >
+        <For each={props.types ?? EVENT_TYPES}>
+          {value => <option value={value}>{t(EVENT_TYPE_LABELS[value])}</option>}
+        </For>
+      </select>
+      <Show when={props.sanctioned !== undefined && !ALWAYS_SANCTIONED.includes(props.value)}>
+        <label class='tm-check'>
+          <input
+            type='checkbox'
+            checked={props.sanctioned}
+            onChange={e => props.onSanctioned?.(e.currentTarget.checked)}
+          />
+          {t('Sanctioned')}
+        </label>
+      </Show>
+    </span>
+  );
 }
 
 /** Whether the event takes decklists, and if it does, whether players can send one now. */

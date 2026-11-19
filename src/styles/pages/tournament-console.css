@@ -216,6 +216,20 @@
 .tm-console-hero .hero-meta {
   margin-top: var(--space-2);
 }
+/* The code reads as a link to copy, underlined as the line's links are. Positioned, so on a
+   phone the tall press area of a link wrapped under it does not cover it. */
+.tm-code-copy {
+  position: relative;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--accent-ink);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 40%, transparent);
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
 .tm-console .tm-meta-lead {
   color: var(--fg);
   font-weight: 500;
