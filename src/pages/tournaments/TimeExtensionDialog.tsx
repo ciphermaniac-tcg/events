@@ -1,7 +1,7 @@
 import { createSignal, Show, untrack } from 'solid-js';
 import { EXTENSION_REASON_MAX, type ExtensionCommand } from '../../../shared/tournament/timeExtensions';
 import type { Match, PodCategory } from '../../../shared/tournament/types';
-import { t } from '../../lib/i18n';
+import { t, tn } from '../../lib/i18n';
 import { ErrorLine, Field } from './Field';
 import type { ManageState } from './manageState';
 import { Modal } from './Modal';
@@ -15,7 +15,10 @@ export interface ExtensionSelection {
 export function TimeExtensionDialog(props: { state: ManageState; selection: ExtensionSelection; onClose: () => void }) {
   // The editor keeps the pairing it opened on, even if a poll replaces it.
   const selection = untrack(() => props.selection);
-  const [minutes, setMinutes] = createSignal((selection.match.timeExtension?.seconds ?? 0) / 60);
+  const editing = selection.match.timeExtension;
+  // A new extension starts at the usual three minutes; an existing one at what it gives.
+  const [minutes, setMinutes] = createSignal(editing ? editing.seconds / 60 : 3);
+  const step = (by: number) => setMinutes(n => Math.min(60, Math.max(0, n + by)));
   const [reason, setReason] = createSignal(selection.match.timeExtension?.reason ?? '');
 
   async function save(seconds: number) {
@@ -44,18 +47,18 @@ export function TimeExtensionDialog(props: { state: ManageState; selection: Exte
         }}
       >
         <div class='tm-box-bar tm-modal-body'>
-          <Field id='extension-minutes' label={t('Extra minutes')}>
-            <input
-              id='extension-minutes'
-              class='tm-input'
-              type='number'
-              min='0'
-              max='60'
-              step='1'
-              required
-              value={minutes()}
-              onInput={event => setMinutes(Number(event.currentTarget.value))}
-            />
+          <Field id='extension-minutes' label={t('Extra time')}>
+            <span class='tm-minutes'>
+              <button type='button' aria-label={t('Take a minute off')} onClick={() => step(-1)}>
+                −
+              </button>
+              <output id='extension-minutes' aria-live='polite'>
+                {t('{n} min', { n: minutes() })}
+              </output>
+              <button type='button' aria-label={t('Add a minute')} onClick={() => step(1)}>
+                +
+              </button>
+            </span>
           </Field>
           <Field id='extension-reason' label={t('Reason')}>
             <input
@@ -69,7 +72,7 @@ export function TimeExtensionDialog(props: { state: ManageState; selection: Exte
           <ErrorLine message={props.state.error()} />
         </div>
         <div class='tm-box-bar tm-modal-foot'>
-          <Show when={selection.match.timeExtension}>
+          <Show when={editing}>
             <button type='button' class='btn btn-ghost' disabled={props.state.busy()} onClick={() => void save(0)}>
               {t('Remove extension')}
             </button>
@@ -78,7 +81,7 @@ export function TimeExtensionDialog(props: { state: ManageState; selection: Exte
             {t('Cancel')}
           </button>
           <button type='submit' class='btn btn-primary' disabled={props.state.busy() || !(minutes() > 0)}>
-            {t('Save extension')}
+            {editing ? t('Save extension') : tn(minutes(), 'Add {n} minute', 'Add {n} minutes')}
           </button>
         </div>
       </form>

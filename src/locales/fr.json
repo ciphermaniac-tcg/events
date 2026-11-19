@@ -357,7 +357,6 @@
   "expires {date}": "expire le {date}",
   "Export": "Exportation",
   "Export data": "Exporter mes données",
-  "Extra minutes": "Minutes supplémentaires",
   "Face-off scroll": "Défilement des duels",
   "Fail": "Non conforme",
   "Farthest viewer": "Spectateur le plus éloigné",
@@ -1628,5 +1627,11 @@
   "Keep it": "Garder",
   "After round {n}": "Après la ronde {n}",
   "Check-in {time}": "Check-in à {time}",
-  "Your registration": "Ton inscription"
+  "Your registration": "Ton inscription",
+  "Extra time": "Temps supplémentaire",
+  "{n} min": "{n} min",
+  "Add {n} minutes": {
+    "one": "Ajouter {n} minute",
+    "other": "Ajouter {n} minutes"
+  }
 }

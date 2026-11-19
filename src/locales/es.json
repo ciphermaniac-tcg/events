@@ -376,7 +376,6 @@
   "expires {date}": "caduca el {date}",
   "Export": "Exportar",
   "Export data": "Exportar datos",
-  "Extra minutes": "Minutos extra",
   "Face-off scroll": "Enfrentamientos en carrusel",
   "Fail": "Incorrecta",
   "Farthest viewer": "Espectador más lejano",
@@ -1628,5 +1627,11 @@
   "Keep it": "Mantener",
   "After round {n}": "Tras la ronda {n}",
   "Check-in {time}": "Check-in a las {time}",
-  "Your registration": "Tu inscripción"
+  "Your registration": "Tu inscripción",
+  "Extra time": "Tiempo extra",
+  "{n} min": "{n} min",
+  "Add {n} minutes": {
+    "one": "Añadir {n} minuto",
+    "other": "Añadir {n} minutos"
+  }
 }

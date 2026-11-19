@@ -78,6 +78,34 @@
   text-align: left;
   cursor: pointer;
 }
+/* A time extension's minutes: less, the minutes, more, in the clock's bordered strip. */
+.tm-minutes {
+  display: inline-flex;
+  justify-self: start;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  overflow: hidden;
+}
+.tm-minutes > button {
+  width: var(--control-h);
+  min-height: var(--control-h);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--fg);
+}
+.tm-minutes > button:hover {
+  background: var(--surface-2);
+}
+.tm-minutes > output {
+  min-width: 84px;
+  align-self: center;
+  border-inline: 1px solid var(--rule);
+  line-height: var(--control-h);
+  text-align: center;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
 .tm-clock-setter {
   display: flex;
   flex: 1 0 100%;

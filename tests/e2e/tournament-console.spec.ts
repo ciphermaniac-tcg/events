@@ -2163,11 +2163,17 @@ test('table extensions use the match menu and support editing and removal @mobil
   const { table } = round.matches[0]!;
   const sent = await mockConsole(page, t, settingsOf({}), [], true);
   let editor = await openExtension(page, table);
-  // No extra minutes yet: nothing to save.
-  await expect(editor.getByRole('button', { name: 'Save extension', exact: true })).toBeDisabled();
-  await editor.getByLabel('Extra minutes').fill('5');
+  // A new extension starts at three minutes; at none there is nothing to save.
+  await expect(editor.getByLabel('Extra time')).toHaveText('3 min');
+  for (let i = 0; i < 3; i += 1) {
+    await editor.getByRole('button', { name: 'Take a minute off', exact: true }).click();
+  }
+  await expect(editor.getByRole('button', { name: 'Add 0 minutes', exact: true })).toBeDisabled();
+  for (let i = 0; i < 5; i += 1) {
+    await editor.getByRole('button', { name: 'Add a minute', exact: true }).click();
+  }
   await editor.getByLabel('Reason', { exact: true }).fill('Judge call');
-  await editor.getByRole('button', { name: 'Save extension', exact: true }).click();
+  await editor.getByRole('button', { name: 'Add 5 minutes', exact: true }).click();
   await expect(editor).toHaveCount(0);
   await expect
     .poll(() => sent[0])
@@ -2180,9 +2186,11 @@ test('table extensions use the match menu and support editing and removal @mobil
     .filter({ has: page.getByRole('timer', { name: `Time left at table ${table}`, exact: true }) });
   await expect(row.locator('.tm-extension')).toContainText('+5 min');
   editor = await openExtension(page, table);
-  await expect(editor.getByLabel('Extra minutes')).toHaveValue('5');
+  await expect(editor.getByLabel('Extra time')).toHaveText('5 min');
   await expect(editor.getByLabel('Reason', { exact: true })).toHaveValue('Judge call');
-  await editor.getByLabel('Extra minutes').fill('10');
+  for (let i = 0; i < 5; i += 1) {
+    await editor.getByRole('button', { name: 'Add a minute', exact: true }).click();
+  }
   await editor.getByRole('button', { name: 'Save extension', exact: true }).click();
   await expect.poll(() => sent[1]).toMatchObject({ type: 'setTimeExtension', seconds: 600 });
   await expect(page.getByRole('timer', { name: `Time left at table ${table}`, exact: true })).toHaveText(
@@ -2200,15 +2208,14 @@ test('canceling or failing an extension keeps the result unchanged @mobile', asy
   const { table } = t.pods[0]!.rounds[0]!.matches[0]!;
   const sent = await mockConsole(page, t, settingsOf({}));
   let editor = await openExtension(page, table);
-  await editor.getByLabel('Extra minutes').fill('5');
+  await editor.getByRole('button', { name: 'Add a minute', exact: true }).click();
   await editor.getByRole('button', { name: 'Cancel', exact: true }).click();
   expect(sent).toHaveLength(0);
   editor = await openExtension(page, table);
   await page.route(`**/api/tournaments/${CODE}/commands`, route =>
     route.fulfill({ status: 400, json: { error: 'This match has changed; reload the round' } })
   );
-  await editor.getByLabel('Extra minutes').fill('5');
-  await editor.getByRole('button', { name: 'Save extension', exact: true }).click();
+  await editor.getByRole('button', { name: 'Add 3 minutes', exact: true }).click();
   await expect(editor).toBeVisible();
   await expect(editor.getByRole('alert')).toHaveText('This match has changed; reload the round');
   await expect(page.locator('.tm-extension')).toHaveCount(0);

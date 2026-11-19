@@ -357,7 +357,6 @@
   "expires {date}": "gültig bis {date}",
   "Export": "Export",
   "Export data": "Daten exportieren",
-  "Extra minutes": "Zusätzliche Minuten",
   "Face-off scroll": "Paarungen als Laufband",
   "Fail": "Nicht bestanden",
   "Farthest viewer": "Hinterste Reihe",
@@ -1628,5 +1627,11 @@
   "Keep it": "Behalten",
   "After round {n}": "Nach Runde {n}",
   "Check-in {time}": "Check-in um {time}",
-  "Your registration": "Deine Anmeldung"
+  "Your registration": "Deine Anmeldung",
+  "Extra time": "Zusätzliche Zeit",
+  "{n} min": "{n} Min.",
+  "Add {n} minutes": {
+    "one": "{n} Minute hinzufügen",
+    "other": "{n} Minuten hinzufügen"
+  }
 }
