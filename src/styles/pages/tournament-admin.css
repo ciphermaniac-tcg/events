@@ -1,24 +1,24 @@
 /* The admin page (/admin): the Applications queue, the Organizers table and
-   the POP ID lookup. Desktop first, where the queue is worked; a phone
-   restacks each to one column. */
+   the account card over Users. Desktop first, where the queue is worked; a
+   phone restacks each to one column. */
 
-/* ---------- An Application, or an account found ----------
+/* ---------- An Application ----------
    Who at left (the name, then label and value pairs), what at right (the
    explanation, the proof, the decision); rows part on the hairline. */
-:is(.tm-app, .tm-found) {
+.tm-app {
   display: grid;
   grid-template-columns: minmax(0, 300px) minmax(0, 1fr);
   gap: var(--space-2) var(--space-5);
   padding: var(--space-4) 14px;
   border-top: 1px solid var(--rule);
 }
-.tm-box > :is(.tm-app, .tm-found):first-of-type {
+.tm-box > .tm-app:first-of-type {
   border-top: 0;
 }
-.tm-box-bar + :is(.tm-app, .tm-found) {
+.tm-box-bar + .tm-app {
   border-top: 0;
 }
-:is(.tm-app, .tm-found) h3 {
+.tm-app h3 {
   margin: 0 0 var(--space-2);
   font-size: var(--text-lg);
   font-weight: 600;
@@ -74,17 +74,21 @@
   padding-top: var(--space-3);
   border-top: 1px solid var(--rule);
 }
-:is(.tm-app-decide-row, .tm-lookup-row, .tm-move-row) {
+.tm-app-decide-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
 }
-:is(.tm-app-decide-row, .tm-lookup-row, .tm-move-row) .tm-input {
-  flex: 1 1 240px;
+.tm-app-decide-row .tm-input {
+  flex: 1 1 220px;
   min-width: 0;
 }
-:is(.tm-app-decide, .tm-move) .tm-error {
+/* Approve stands apart from the note and Reject, which go together. */
+.tm-app-decide-gap {
+  flex: 0 0 var(--space-4);
+}
+.tm-app-decide .tm-error {
   margin: 0;
 }
 
@@ -112,44 +116,58 @@
   display: none;
 }
 
-/* ---------- POP IDs ---------- */
-.tm-lookup {
+/* ---------- Users and the account card ---------- */
+.tm-admin-users tbody tr {
+  cursor: pointer;
+}
+.tm-user-open {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.tm-user-role {
+  display: block;
+}
+.tm-account-dialog {
+  width: min(560px, calc(100vw - 32px));
+}
+.tm-account-close {
+  margin-left: auto;
+}
+.tm-account {
   display: grid;
-  gap: var(--space-2);
-  padding: 14px;
+  gap: var(--space-3);
+  padding: var(--space-4) 14px;
 }
-.tm-lookup-row {
-  max-width: 560px;
+.tm-account p {
+  margin: 0;
 }
-.tm-found-acts {
-  display: grid;
-  align-content: start;
-  justify-items: end;
-  gap: var(--space-2);
-}
-/* A question asked in place wraps under its account rather than running off the box. */
-.tm-found-acts > .tm-row-actions {
+.tm-account .tm-row-actions {
   flex-wrap: wrap;
-  justify-content: flex-end;
 }
-.tm-found .tm-confirm-label {
+.tm-account .tm-confirm-label {
   white-space: normal;
 }
 .tm-move {
   display: grid;
   gap: var(--space-2);
-  width: min(100%, 520px);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--rule);
 }
 .tm-move-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
-.tm-move-row .tm-confirm {
-  flex-wrap: wrap;
-}
-.tm-move-row .tm-confirm-label {
+/* A long name wraps rather than pushing Move out of the box. */
+.table-wrap .data .tm-move-match {
+  width: 100%;
   white-space: normal;
+  overflow-wrap: anywhere;
 }
 .tm-admin .tm-mono {
   font-family: ui-monospace, 'SF Mono', Menlo, monospace;
@@ -224,14 +242,11 @@
   }
 }
 @media (max-width: 640px) {
-  :is(.tm-app, .tm-found) {
+  .tm-app {
     grid-template-columns: minmax(0, 1fr);
   }
-  .tm-found-acts {
-    justify-items: start;
-  }
-  .tm-found-acts > .tm-row-actions {
-    justify-content: flex-start;
+  .tm-app-decide-gap {
+    display: none;
   }
   .tm-app-decide-row .btn {
     flex: 1;
@@ -239,11 +254,5 @@
   }
   .tm-app-decide-row .tm-input {
     flex-basis: 100%;
-  }
-}
-/* Under 16px, iOS zooms the page when a field takes focus: on any touch screen, landscape and tablets too. */
-@media (max-width: 640px), (pointer: coarse) {
-  .tm-admin .tm-input.tm-mono {
-    font-size: 16px;
   }
 }

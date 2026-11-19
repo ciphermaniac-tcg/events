@@ -41,6 +41,10 @@ export const fetchRoleHolders = () => call<{ accounts: RoleHolder[] }>('/api/adm
 export const setOrganizerAccess = (id: string, role: 'community' | 'revoked') =>
   call<{ account: RoleHolder }>(`/api/admin/organizers/${encodeURIComponent(id)}`, json('POST', { role }));
 
+/** Revokes a store Manager: takes them out of that store. */
+export const removeFromStore = (id: string, store: string) =>
+  call<null>(`/api/admin/organizers/${encodeURIComponent(id)}`, json('POST', { role: 'revoked', store }));
+
 /** Every event on the site, the last changed first. */
 export const fetchAllEvents = () => call<{ events: AdminEvent[] }>('/api/admin/events');
 

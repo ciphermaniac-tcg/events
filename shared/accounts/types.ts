@@ -94,14 +94,27 @@ export interface AdminApplication extends MyApplication {
   leagueTaken: { id: string; name: string } | null;
 }
 
-/** An account with a role, as the admin's list of Organizers and Admins shows it. */
+/** A store an account owns or manages, as the admin page names it. */
+export interface RunStore {
+  id: string;
+  name: string;
+  role: 'owner' | 'manager';
+}
+
+/**
+ * An account with a role, or one store it runs, as the admin's list of
+ * Organizers and Admins shows it: a row for its role, and one for each store.
+ */
 export interface RoleHolder {
   id: string;
   name: string;
   email: string | null;
   popId: string | null;
-  role: AccountRole;
-  /** When the role last changed; null when a migration set it. */
+  /** Its role; null on a store's row. */
+  role: AccountRole | null;
+  /** The store the row is for; null on its role's row. */
+  store: RunStore | null;
+  /** When the role last changed, or when it joined the store; null when a migration set it. */
   roleAt: number | null;
   /** How many events the account owns. */
   events: number;
@@ -134,9 +147,10 @@ export interface FoundAccount {
   createdAt: number;
 }
 
-/** An account in the admin page's list of every account: one found, with its username. */
+/** An account in the admin page's list of every account: one found, with its username and the stores it runs. */
 export interface AdminUser extends FoundAccount {
   handle: string;
+  stores: RunStore[];
 }
 
 /** A store as its members and admins see it (shared/accounts/stores.ts). */

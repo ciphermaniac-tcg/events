@@ -3,11 +3,13 @@ import { createEffect, type JSX } from 'solid-js';
 /**
  * A native modal dialog, shown while `open`: the page behind it is inert,
  * focus moves in and comes back, and Escape closes it through `onClose`.
+ * `bar` goes after the title, at the end of its bar.
  */
 export function Modal(props: {
   open: boolean;
   title: string;
   class?: string;
+  bar?: JSX.Element;
   onClose: () => void;
   children: JSX.Element;
 }) {
@@ -33,6 +35,7 @@ export function Modal(props: {
     >
       <div class='tm-box-bar'>
         <h3>{props.title}</h3>
+        {props.bar}
       </div>
       {props.children}
     </dialog>

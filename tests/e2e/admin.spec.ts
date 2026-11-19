@@ -1,15 +1,16 @@
 /**
  * The admin page against mocked admin endpoints: anyone but an Admin finds
- * nothing there; an Admin approves an Application with a note, revokes and
- * reinstates a Community organizer, and moves or clears a POP ID after
- * looking its holder up.
+ * nothing there; an Admin approves an Application, rejects one with a note,
+ * revokes and reinstates a Community organizer, takes a Manager out of a
+ * store, and opens an account from Users to move its POP ID to an account
+ * found by name, or clear it.
  */
 
 import { expect, type Page } from '@playwright/test';
 import { test } from './network-guard';
 
 import type { AccountRole } from '../../shared/accounts/roles';
-import type { AdminApplication, AdminUser, FoundAccount, RoleHolder } from '../../shared/accounts/types';
+import type { AdminApplication, AdminUser, RoleHolder } from '../../shared/accounts/types';
 
 const ADMIN = {
   id: 'reese',
@@ -46,48 +47,87 @@ function application(id: string, extra: Partial<AdminApplication> = {}): AdminAp
   };
 }
 
+const STORE = { id: 'store-1', name: 'Combat Power Gaming' };
+
 const HOLDERS: RoleHolder[] = [
-  { id: 'reese', name: 'Reese', email: 'reese@example.com', popId: null, role: 'admin', roleAt: null, events: 3 },
+  {
+    id: 'reese',
+    name: 'Reese',
+    email: 'reese@example.com',
+    popId: null,
+    role: 'admin',
+    store: null,
+    roleAt: null,
+    events: 3
+  },
   {
     id: 'ada',
     name: 'Ada Lovelace',
     email: 'ada@example.com',
     popId: '1001',
     role: 'community',
+    store: null,
     roleAt: DAY,
     events: 1
+  },
+  {
+    id: 'kit',
+    name: 'Kit Manager',
+    email: null,
+    popId: null,
+    role: null,
+    store: { ...STORE, role: 'manager' },
+    roleAt: DAY,
+    events: 0
+  },
+  {
+    id: 'olive',
+    name: 'Olive Owner',
+    email: null,
+    popId: null,
+    role: null,
+    store: { ...STORE, role: 'owner' },
+    roleAt: DAY,
+    events: 2
   }
 ];
 
-const FOUND: FoundAccount = {
+const MARY: AdminUser = {
   id: 'Xk3_aQ9-pL0wZt7u',
   name: 'Mary',
+  handle: 'mary',
   email: 'mary@example.com',
   popId: '7200001',
   role: null,
-  createdAt: DAY
+  createdAt: DAY,
+  stores: [{ ...STORE, role: 'manager' }]
 };
 
-/** The account a POP ID's move is checked against. */
-const OTHER: FoundAccount = {
+/** The account a POP ID moves to, found by name. */
+const BEN: AdminUser = {
   id: 'Other_account_01',
   name: 'Ben Ortiz',
+  handle: 'ben',
   email: null,
+  popId: null,
+  role: null,
+  createdAt: DAY,
+  stores: []
+};
+
+/** An account older than any the Users list holds, so only an exact lookup finds it. */
+const OLDER = {
+  id: 'Older_account_01',
+  name: 'Dana Wells',
+  email: 'dana@example.com',
   popId: null,
   role: null,
   createdAt: DAY
 };
 
-/** What a lookup finds: no one for POP ID 404 or the account ID nobody, Ben by his ID, else Mary. */
-function foundFor(query: URLSearchParams): FoundAccount[] {
-  if (query.get('popId') === '404' || query.get('id') === 'nobody') {
-    return [];
-  }
-  return query.get('id') === OTHER.id ? [OTHER] : [FOUND];
-}
-
 const USERS: AdminUser[] = [
-  { ...FOUND, handle: 'mary' },
+  MARY,
+  BEN,
   {
     id: 'reese',
     name: 'Reese',
@@ -95,7 +135,8 @@ const USERS: AdminUser[] = [
     email: 'reese@example.com',
     popId: null,
     role: 'admin',
-    createdAt: DAY
+    createdAt: DAY,
+    stores: []
   }
 ];
 
@@ -171,7 +212,11 @@ async function mockAdmin(page: Page, user: typeof ADMIN | null = ADMIN, decidedE
     }
     if (url.pathname.startsWith('/api/admin/organizers/')) {
       const id = url.pathname.split('/').pop();
-      holders = holders.map(h => (h.id === id ? { ...h, role: body?.role as AccountRole } : h));
+      if (body?.store) {
+        holders = holders.filter(h => !(h.id === id && h.store?.id === body.store));
+        return route.fulfill({ status: 204 });
+      }
+      holders = holders.map(h => (h.id === id && !h.store ? { ...h, role: body?.role as AccountRole } : h));
       return route.fulfill({ json: { account: holders.find(h => h.id === id) } });
     }
     if (url.pathname === '/api/admin/events') {
@@ -181,10 +226,12 @@ async function mockAdmin(page: Page, user: typeof ADMIN | null = ADMIN, decidedE
       return route.fulfill({ json: { users: USERS } });
     }
     if (url.pathname === '/api/admin/accounts') {
-      return route.fulfill({ json: { accounts: foundFor(url.searchParams) } });
+      // Past the newest accounts the list holds: one found only by its exact email.
+      const found = url.searchParams.get('email') === OLDER.email ? [OLDER] : [];
+      return route.fulfill({ json: { accounts: found } });
     }
     if (url.pathname === '/api/admin/pop-ids') {
-      return route.fulfill({ json: { from: FOUND.id, to: body?.accountId ?? null } });
+      return route.fulfill({ json: { from: MARY.id, to: body?.accountId ?? null } });
     }
     return route.fulfill({ status: 404, json: { error: 'Not found' } });
   });
@@ -204,7 +251,7 @@ test('anyone but an Admin finds no admin page, and it asks for nothing', async (
   }
 });
 
-test('an Admin approves an Application with a note, and it shows as decided in place @mobile', async ({ page }) => {
+test('an Admin approves an Application, and it shows as decided in place @mobile', async ({ page }) => {
   const asks = await mockAdmin(page);
   await page.goto('/admin');
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Admin');
@@ -215,21 +262,22 @@ test('an Admin approves an Application with a note, and it shows as decided in p
   await expect(first).toContainText('I run the Thursday league at the card shop.');
   const count = page.locator('.tm-apps > .tm-box-bar');
   await expect(count).toContainText('2 pending');
-  await first.getByLabel('Note to applicant').fill('Welcome aboard');
+  await first.getByLabel('Note to applicant if rejected').fill('Typed, then approved');
   await first.getByRole('button', { name: 'Approve' }).click();
   await expect(first.locator('.tm-flag')).toHaveText('Approved');
   await expect(first).toContainText('by Reese');
   await expect(first.getByRole('button', { name: 'Approve' })).toHaveCount(0);
   await expect(count).toContainText('1 pending');
   expect(adminAsks(asks).filter(a => a.method === 'POST')).toEqual([
-    { method: 'POST', path: '/api/admin/applications/app-1', body: { decision: 'approve', note: 'Welcome aboard' } }
+    { method: 'POST', path: '/api/admin/applications/app-1', body: { decision: 'approve', note: '' } }
   ]);
 });
 
-test('an Admin rejects one, and reads the decided ones by status', async ({ page }) => {
+test('an Admin rejects one with a note beside Reject, and reads the decided ones by status', async ({ page }) => {
   const asks = await mockAdmin(page);
   await page.goto('/admin');
   const second = page.locator('.tm-app').nth(1);
+  await second.getByPlaceholder('Note if rejecting').fill('Send the certificate');
   await second.getByRole('button', { name: 'Reject' }).click();
   expect(adminAsks(asks).filter(a => a.method === 'POST')).toEqual([]);
   await second.getByRole('group', { name: 'Reject Mary Jackson?' }).getByRole('button', { name: 'Reject' }).click();
@@ -246,7 +294,10 @@ test('an Admin rejects one, and reads the decided ones by status', async ({ page
       .map(a => `${a.method} ${a.path}`)
   ).toEqual(['POST /api/admin/applications/app-2', 'GET /api/admin/applications?status=rejected']);
   await expect.poll(() => pendingReads().length).toBe(3);
-  expect(adminAsks(asks).find(a => a.method === 'POST')?.body).toEqual({ decision: 'reject', note: '' });
+  expect(adminAsks(asks).find(a => a.method === 'POST')?.body).toEqual({
+    decision: 'reject',
+    note: 'Send the certificate'
+  });
 });
 
 test('an Admin revokes a Community organizer, asked first, and reinstates them; an Admin is not changed here', async ({
@@ -275,29 +326,80 @@ test('an Admin revokes a Community organizer, asked first, and reinstates them; 
   ]);
 });
 
-test('an Admin looks a POP ID up, moves it to another account and clears it, each asked first', async ({ page }) => {
+test('a store’s Manager is listed with the store and taken out of it, asked first; its Owner is not', async ({
+  page
+}) => {
+  const asks = await mockAdmin(page);
+  await page.goto('/admin?tab=organizers');
+  const kit = page.getByRole('row', { name: /Kit Manager/ });
+  await expect(kit).toContainText('Manager, Combat Power Gaming');
+  await expect(kit.getByRole('link', { name: 'Combat Power Gaming' })).toHaveAttribute('href', '/stores/store-1');
+  const olive = page.getByRole('row', { name: /Olive Owner/ });
+  await expect(olive).toContainText('Owner, Combat Power Gaming');
+  await expect(olive.getByRole('button')).toHaveCount(0);
+  await kit.getByRole('button', { name: 'Remove from store' }).click();
+  const ask = page.getByRole('dialog', { name: 'Remove Kit Manager from Combat Power Gaming?' });
+  await expect(ask).toContainText('Kit Manager can no longer run Combat Power Gaming events. Their account stays.');
+  await ask.getByRole('button', { name: 'Remove' }).click();
+  await expect(kit).toHaveCount(0);
+  expect(adminAsks(asks).filter(a => a.method === 'POST')).toEqual([
+    { method: 'POST', path: '/api/admin/organizers/kit', body: { role: 'revoked', store: 'store-1' } }
+  ]);
+});
+
+test('an Admin opens an account from Users, moves its POP ID to one found by name, and clears it, each asked first', async ({
+  page
+}) => {
   const asks = await mockAdmin(page);
   await page.goto('/admin');
-  await page.getByRole('tab', { name: 'POP IDs' }).click();
-  await expect(page).toHaveURL(/tab=pop-ids/);
-  await page.getByLabel('POP ID, email or account ID').fill('7200001');
-  await page.getByRole('button', { name: 'Look up' }).click();
-  const found = page.locator('.tm-found');
-  await expect(found).toContainText('Xk3_aQ9-pL0wZt7u');
-  await found.getByRole('button', { name: 'Move to account…' }).click();
-  await found.getByLabel('Account ID').fill('Other_account_01');
-  await found.getByRole('button', { name: 'Move' }).click();
+  await expect(page.getByRole('tab', { name: 'POP IDs' })).toHaveCount(0);
+  await page.getByRole('tab', { name: 'Users' }).click();
+  await page.getByRole('row', { name: /Mary/ }).click();
+  const card = page.getByRole('dialog', { name: 'Mary' });
+  await expect(card).toContainText(MARY.id);
+  await expect(card.getByRole('link', { name: 'Combat Power Gaming' })).toBeVisible();
+  await expect(card.getByRole('button', { name: 'Remove from store' })).toBeVisible();
+  await card.getByRole('button', { name: 'Move to account…' }).click();
+  const search = card.getByRole('searchbox', { name: 'Move 7200001 to' });
+  await expect(search).toBeFocused();
+  await search.fill('nobody');
+  await expect(card).toContainText('No users.');
+  await search.fill('ben');
+  await card.getByRole('row').filter({ hasText: 'Ben Ortiz' }).getByRole('button', { name: 'Move' }).click();
   const move = page.getByRole('dialog', { name: 'Move 7200001 to Ben Ortiz?' });
   await expect(move).toContainText('7200001 and its history leave Mary for Ben Ortiz, who joined');
   await move.getByRole('button', { name: 'Move' }).click();
-  await expect(found.getByRole('button', { name: 'Move to account…' })).toBeVisible();
-  await found.getByRole('button', { name: 'Clear' }).click();
-  await found.getByRole('group', { name: 'Clear 7200001 from Mary?' }).getByRole('button', { name: 'Clear' }).click();
-  await expect.poll(() => adminAsks(asks).filter(a => a.method === 'POST').length).toBe(2);
-  expect(adminAsks(asks).map(a => `${a.method} ${a.path}`)).toContain('GET /api/admin/accounts?popId=7200001');
+  const ben = page.getByRole('dialog', { name: 'Ben Ortiz' });
+  await expect(ben).toContainText('7200001');
+  await ben.getByRole('button', { name: 'Clear' }).click();
+  await ben
+    .getByRole('group', { name: 'Clear 7200001 from Ben Ortiz?' })
+    .getByRole('button', { name: 'Clear' })
+    .click();
+  await expect(ben.getByRole('button', { name: 'Clear' })).toHaveCount(0);
+  await ben.getByRole('button', { name: 'Close' }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.locator('.tm-admin-users')).not.toContainText('7200001');
   expect(adminAsks(asks).filter(a => a.method === 'POST')).toEqual([
-    { method: 'POST', path: '/api/admin/pop-ids', body: { popId: '7200001', accountId: 'Other_account_01' } },
+    { method: 'POST', path: '/api/admin/pop-ids', body: { popId: '7200001', accountId: BEN.id } },
     { method: 'POST', path: '/api/admin/pop-ids', body: { popId: '7200001', accountId: null } }
+  ]);
+});
+
+test('the Move search finds an account past the newest ones by its exact email, and opens it once moved', async ({
+  page
+}) => {
+  const asks = await mockAdmin(page);
+  await page.goto('/admin?tab=users');
+  await page.getByRole('row', { name: /Mary/ }).click();
+  const card = page.getByRole('dialog', { name: 'Mary' });
+  await card.getByRole('button', { name: 'Move to account…' }).click();
+  await card.getByRole('searchbox', { name: 'Move 7200001 to' }).fill(OLDER.email);
+  await card.getByRole('row').filter({ hasText: 'Dana Wells' }).getByRole('button', { name: 'Move' }).click();
+  await page.getByRole('dialog', { name: 'Move 7200001 to Dana Wells?' }).getByRole('button', { name: 'Move' }).click();
+  await expect(page.getByRole('dialog', { name: 'Dana Wells' })).toContainText('7200001');
+  expect(adminAsks(asks).filter(a => a.method === 'POST')).toEqual([
+    { method: 'POST', path: '/api/admin/pop-ids', body: { popId: '7200001', accountId: OLDER.id } }
   ]);
 });
 
@@ -310,39 +412,6 @@ test('one another Admin decided first says so, and the queue is read again witho
   await expect(page.locator('.tm-app')).toContainText('I judge at the card shop.');
   // The head's count, the page's queue, and the queue again: no decision was made, so no recount.
   expect(adminAsks(asks).filter(a => a.path === '/api/admin/applications?status=pending')).toHaveLength(3);
-});
-
-test('a lookup that finds no one says so, the same lookup asks again, and a move to no account is refused', async ({
-  page
-}) => {
-  const asks = await mockAdmin(page);
-  await page.goto('/admin?tab=pop-ids');
-  const field = page.getByLabel('POP ID, email or account ID');
-  await field.fill('404');
-  await page.getByRole('button', { name: 'Look up' }).click();
-  await expect(page.locator('.tm-empty')).toHaveText('No account found.');
-  await field.fill('7200001');
-  await page.getByRole('button', { name: 'Look up' }).click();
-  await page.getByRole('button', { name: 'Look up' }).click();
-  await expect.poll(() => adminAsks(asks).filter(a => a.path === '/api/admin/accounts?popId=7200001').length).toBe(2);
-  const found = page.locator('.tm-found');
-  await found.getByRole('button', { name: 'Move to account…' }).click();
-  await found.getByLabel('Account ID', { exact: true }).fill('nobody');
-  await found.getByRole('button', { name: 'Move' }).click();
-  await expect(found.getByRole('alert')).toHaveText('No account has the ID nobody');
-  await expect(page.getByRole('dialog')).toHaveCount(0);
-  expect(adminAsks(asks).filter(a => a.method === 'POST')).toEqual([]);
-});
-
-test('a cleared POP ID leaves its account in sight, looked up by its ID', async ({ page }) => {
-  const asks = await mockAdmin(page);
-  await page.goto('/admin?tab=pop-ids');
-  await page.getByLabel('POP ID, email or account ID').fill('7200001');
-  await page.getByRole('button', { name: 'Look up' }).click();
-  await page.locator('.tm-found').getByRole('button', { name: 'Clear' }).click();
-  await page.getByRole('group', { name: 'Clear 7200001 from Mary?' }).getByRole('button', { name: 'Clear' }).click();
-  await expect(page.getByLabel('POP ID, email or account ID')).toHaveValue(FOUND.id);
-  await expect.poll(() => adminAsks(asks).at(-1)?.path).toBe(`/api/admin/accounts?id=${FOUND.id}`);
 });
 
 test('an Admin sees every event, a store’s and a community one, each opening its page', async ({ page }) => {
@@ -361,10 +430,11 @@ test('an Admin sees every account, and finds one by what they type', async ({ pa
   await mockAdmin(page);
   await page.goto('/admin?tab=users');
   const rows = page.locator('.tm-admin-users tbody tr');
-  await expect(rows).toHaveCount(2);
+  await expect(rows).toHaveCount(3);
   await expect(rows.nth(0)).toContainText('mary@example.com');
   await expect(rows.nth(0)).toContainText('7200001');
-  await expect(rows.nth(1)).toContainText('Admin');
+  await expect(rows.nth(0)).toContainText('Manager, Combat Power Gaming');
+  await expect(rows.nth(2)).toContainText('Admin');
   await page.getByLabel('Find a user').fill('7200001');
   await expect(rows).toHaveCount(1);
   await expect(rows.nth(0)).toContainText('Mary');

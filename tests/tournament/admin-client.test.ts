@@ -13,6 +13,7 @@ import {
   findAccounts,
   lookupQuery,
   movePopId,
+  removeFromStore,
   setOrganizerAccess
 } from '../../src/lib/tournament/admin.ts';
 
@@ -42,6 +43,7 @@ test('each admin call goes to its endpoint with its body', async () => {
   await fetchRoleHolders();
   await setOrganizerAccess('u1', 'revoked');
   await setOrganizerAccess('u1', 'community');
+  await removeFromStore('u1', 's/1');
   await findAccounts(' 7200001 ');
   await movePopId('7200001', 'u2');
   await movePopId('7200001', null);
@@ -53,6 +55,7 @@ test('each admin call goes to its endpoint with its body', async () => {
     { url: '/api/admin/organizers', method: 'GET', body: undefined },
     { url: '/api/admin/organizers/u1', method: 'POST', body: { role: 'revoked' } },
     { url: '/api/admin/organizers/u1', method: 'POST', body: { role: 'community' } },
+    { url: '/api/admin/organizers/u1', method: 'POST', body: { role: 'revoked', store: 's/1' } },
     { url: '/api/admin/accounts?popId=7200001', method: 'GET', body: undefined },
     { url: '/api/admin/pop-ids', method: 'POST', body: { popId: '7200001', accountId: 'u2' } },
     { url: '/api/admin/pop-ids', method: 'POST', body: { popId: '7200001', accountId: null } }

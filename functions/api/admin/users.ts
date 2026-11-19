@@ -1,10 +1,11 @@
 /**
  * GET /api/admin/users — every account on the site, the newest first: its
- * name, username, email, POP ID and role, and when it was made.
+ * name, username, email, POP ID and role, the stores it owns or manages, and
+ * when it was made.
  */
 
 import { foundAccount, type FoundAccountRow } from '../../lib/accounts/admin.js';
-import type { AdminUser } from '../../../shared/accounts/types.js';
+import type { AdminUser, RunStore } from '../../../shared/accounts/types.js';
 import { displayNameSql } from '../../lib/accounts/handles.js';
 import { openForAdmin } from '../../lib/auth/admin.js';
 import type { Context } from '../../lib/auth/env.js';
@@ -15,12 +16,23 @@ const MAX_USERS = 1000;
 
 interface UserRow extends FoundAccountRow {
   handle: string | null;
+  /** A JSON array of the stores it runs. */
+  stores: string;
 }
 
-const userOf = (row: UserRow): AdminUser => ({ ...foundAccount(row), handle: row.handle ?? '' });
+const userOf = (row: UserRow): AdminUser => ({
+  ...foundAccount(row),
+  handle: row.handle ?? '',
+  stores: JSON.parse(row.stores) as RunStore[]
+});
+
+/** The stores each account owns or manages, by the members index. */
+const STORES =
+  "(SELECT json_group_array(json_object('id', s.id, 'name', s.name, 'role', m.role)) FROM store_members m " +
+  "JOIN stores s ON s.id = m.store_id WHERE m.user_id = users.id AND m.role IN ('owner', 'manager')) AS stores";
 
 const QUERY =
-  `SELECT id, ${displayNameSql('users')} AS name, handle, email, pop_id, role, created_at FROM users ` +
+  `SELECT id, ${displayNameSql('users')} AS name, handle, email, pop_id, role, created_at, ${STORES} FROM users ` +
   `ORDER BY created_at DESC LIMIT ${MAX_USERS}`;
 
 export async function onRequestGet(context: Context): Promise<Response> {

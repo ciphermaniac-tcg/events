@@ -1,9 +1,10 @@
 /**
- * The Admin's sections, shared by /admin and the dashboard's Admin tab. Five
+ * The Admin's sections, shared by /admin and the dashboard's Admin tab. Four
  * tabs: Applications (the queue to decide, see AdminApplications), Organizers
- * (every account with a role, and its access, see AdminOrganizers), POP IDs
- * (settling who holds one, see AdminPopIds), Events (every event on the
- * site, see AdminEvents) and Users (every account, see AdminUsers). The open section is kept in the address under
+ * (every account with a role or a store, and its access, see
+ * AdminOrganizers), Events (every event on the site, see AdminEvents) and
+ * Users (every account, whose card settles who holds a POP ID, see
+ * AdminUsers). The open section is kept in the address under
  * `param`, so a reload stays on it; the dashboard already uses `tab` for its
  * own tabs.
  */
@@ -15,16 +16,14 @@ import { msg, t } from '../../lib/i18n';
 import { AdminApplications } from './AdminApplications';
 import { AdminEvents } from './AdminEvents';
 import { AdminOrganizers } from './AdminOrganizers';
-import { AdminPopIds } from './AdminPopIds';
 import { AdminUsers } from './AdminUsers';
 import '../../styles/pages/tournament-admin.css';
 
-type Section = 'applications' | 'organizers' | 'pop-ids' | 'events' | 'users';
+type Section = 'applications' | 'organizers' | 'events' | 'users';
 
 const SECTIONS: { value: Section; label: string }[] = [
   { value: 'applications', label: msg('Applications') },
   { value: 'organizers', label: msg('Organizers') },
-  { value: 'pop-ids', label: msg('POP IDs') },
   { value: 'events', label: msg('Events') },
   { value: 'users', label: msg('Users') }
 ];
@@ -48,9 +47,6 @@ export function AdminSections(props: { param: 'tab' | 'section' }) {
           </Match>
           <Match when={section() === 'organizers'}>
             <AdminOrganizers />
-          </Match>
-          <Match when={section() === 'pop-ids'}>
-            <AdminPopIds />
           </Match>
           <Match when={section() === 'events'}>
             <AdminEvents />

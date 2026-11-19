@@ -27,6 +27,7 @@ import * as me from '../../functions/api/me.ts';
 import * as tournaments from '../../functions/api/tournaments/index.ts';
 import type { TournamentEnv } from '../../functions/lib/auth/env.ts';
 import type { StoreApplication } from '../../shared/accounts/stores.ts';
+import type { AdminUser, RoleHolder } from '../../shared/accounts/types.ts';
 import { apiSuite, type Call, type Handler } from '../__utils__/apiCalls.ts';
 import { eventCalls } from '../__utils__/eventCalls.ts';
 import { storeApplication } from '../__utils__/storeApplication.ts';
@@ -165,6 +166,16 @@ test('every admin route answers only an Admin', async () => {
             method: 'POST',
             body: { role: 'revoked' }
           }
+        )
+    ],
+    [
+      'remove from store',
+      call =>
+        hit(
+          organizer.onRequestPost as Handler,
+          `/x/${target}`,
+          { id: target },
+          { ...call, method: 'POST', body: { role: 'revoked', store: 's' } }
         )
     ],
     ['accounts', call => hit(accounts.onRequestGet as Handler, '/api/admin/accounts?popId=100', {}, call)],
@@ -394,29 +405,63 @@ test('a decision that loses the race to another Admin’s changes nothing', asyn
   assert.equal(raw().prepare('SELECT COUNT(*) AS n FROM stores').get()?.n, 0, 'no store for a rejected Application');
 });
 
-test('the Organizers list holds every account with a role and how many events it owns', async () => {
+test('the Organizers list holds every account with a role, each store an account runs, and the events it owns', async () => {
   const admin = await signIn('Admin', 'admin');
   const owner = await signIn('Busy', 'community');
   await createEvent(owner, { day: 1 });
   await createEvent(owner, { day: 2 });
   await signIn('Gone', 'revoked');
   await signIn('Plain');
-  await signIn('Store Owner', 'organizer');
+  const storeOwner = await signIn('Store Owner', 'organizer');
+  const [store] = await storesOf(storeOwner);
+  raw()
+    .prepare("INSERT INTO store_members (store_id, user_id, role, added_at) VALUES (?, ?, 'manager', 5)")
+    .run(store!.id, await idOf(owner));
+  raw()
+    .prepare("INSERT INTO store_members (store_id, user_id, role, added_at) VALUES (?, ?, 'staff', 5)")
+    .run(store!.id, await idOf(await signIn('Judge')));
   const listed = await hit(organizers.onRequestGet as Handler, '/api/admin/organizers', {}, { cookie: admin });
   assert.deepEqual(
-    listed.json.accounts.map((account: { name: string; role: string; events: number }) => [
-      account.name,
-      account.role,
-      account.events
-    ]),
+    listed.json.accounts.map((account: RoleHolder) => [account.name, account.role, account.store, account.events]),
     [
-      ['admin', 'admin', 0],
-      ['busy', 'community', 2],
-      ['gone', 'revoked', 0]
+      ['admin', 'admin', null, 0],
+      ['busy', 'community', null, 2],
+      ['busy', null, { id: store!.id, name: 'Store Owner Games', role: 'manager' }, 2],
+      ['gone', 'revoked', null, 0],
+      ['store-owner', null, { id: store!.id, name: 'Store Owner Games', role: 'owner' }, 0]
     ]
   );
   const [first] = listed.json.accounts;
-  assert.deepEqual(Object.keys(first).sort(), ['email', 'events', 'id', 'name', 'popId', 'role', 'roleAt']);
+  assert.deepEqual(Object.keys(first).sort(), ['email', 'events', 'id', 'name', 'popId', 'role', 'roleAt', 'store']);
+});
+
+test('revoking a store’s Manager takes them out of the store; its Owner and Staff stay', async () => {
+  const admin = await signIn('Admin', 'admin');
+  const ownerCookie = await signIn('Owner', 'organizer');
+  const [store] = await storesOf(ownerCookie);
+  const manager = await signIn('Manager');
+  const managerId = await idOf(manager);
+  assert.equal((await storeAct(admin, store!.id, { manager: managerId })).status, 200);
+  const judge = await idOf(await signIn('Judge'));
+  raw()
+    .prepare("INSERT INTO store_members (store_id, user_id, role, added_at) VALUES (?, ?, 'staff', 5)")
+    .run(store!.id, judge);
+  const revoke = (id: string) =>
+    hit(
+      organizer.onRequestPost as Handler,
+      `/api/admin/organizers/${id}`,
+      { id },
+      { method: 'POST', cookie: admin, body: { role: 'revoked', store: store!.id } }
+    );
+  assert.equal((await revoke(managerId)).status, 204);
+  assert.deepEqual(await storesOf(manager), []);
+  assert.equal((await createEvent(manager, { store: store!.id })).status, 403, 'they run its events no more');
+  assert.equal(raw().prepare('SELECT role FROM users WHERE id = ?').get(managerId)?.role, null, 'the account stays');
+  const again = await revoke(managerId);
+  assert.deepEqual([again.status, again.json.error], [404, 'Not a manager of that store']);
+  assert.equal((await revoke(await idOf(ownerCookie))).status, 404, 'an Owner stays');
+  assert.equal((await revoke(judge)).status, 404, 'Staff are not revoked here');
+  assert.equal((await storesOf(ownerCookie)).length, 1);
 });
 
 test('the Events list holds every event, a store’s and an account’s own alike, the last changed first', async () => {
@@ -461,7 +506,22 @@ test('the Users list holds every account, the newest first', async () => {
     ].sort()
   );
   assert.ok(users[0]!.createdAt >= users[1]!.createdAt, 'the newest first');
-  assert.deepEqual(Object.keys(users[0]!).sort(), ['createdAt', 'email', 'handle', 'id', 'name', 'popId', 'role']);
+  assert.deepEqual(Object.keys(users[0]!).sort(), [
+    'createdAt',
+    'email',
+    'handle',
+    'id',
+    'name',
+    'popId',
+    'role',
+    'stores'
+  ]);
+  const runner = await signIn('Runner', 'organizer');
+  const [store] = await storesOf(runner);
+  const again = await hit(adminUsers.onRequestGet as Handler, '/api/admin/users', {}, { cookie: admin });
+  const listedRunner = (again.json.users as AdminUser[]).find(user => user.handle === 'runner');
+  assert.deepEqual(listedRunner?.stores, [{ id: store!.id, name: 'Runner Games', role: 'owner' }]);
+  assert.deepEqual((again.json.users as AdminUser[]).find(user => user.handle === 'busy')?.stores, []);
 });
 
 test('a Community organizer’s access is removed and given back; an Admin’s and a player’s are not one', async () => {
@@ -552,7 +612,7 @@ test('an Admin finds accounts by POP ID, email or ID, exactly', async () => {
   );
   const listed = await hit(adminUsers.onRequestGet as Handler, '/api/admin/users', {}, { cookie: admin });
   const user = listed.json.users.find((account: { id: string }) => account.id === id);
-  assert.deepEqual(user, { ...found, handle: 'holder' });
+  assert.deepEqual(user, { ...found, handle: 'holder', stores: [] });
   assert.deepEqual(Object.keys(found).sort(), ['createdAt', 'email', 'id', 'name', 'popId', 'role']);
   assert.equal((await lookUp(admin, 'email=holder%40example.com')).json.accounts[0].id, id);
   assert.equal((await lookUp(admin, 'email=%20HoLdEr%40EXAMPLE.COM%20')).json.accounts[0].id, id);

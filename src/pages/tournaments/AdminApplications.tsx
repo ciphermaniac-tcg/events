@@ -3,9 +3,8 @@
  * first, with a switch to the approved or rejected ones. Each shows the name
  * and POP ID it was sent with, the account as it is now, the store it asks
  * for, why, and the role approving gives the applicant in it, the
- * explanation, and a pending one takes Approve or Reject with an optional
- * note to the applicant. A
- * decided one stays in place, showing the decision, until the list is read
+ * explanation, and a pending one takes Approve, or Reject with an optional
+ * note to the applicant beside it. A decided one stays in place, showing the decision, until the list is read
  * again.
  */
 
@@ -47,7 +46,7 @@ const COUNTS: Record<ApplicationStatus, (n: number) => string> = {
 };
 
 /** One fact about an Application: its label at left, its value beside it. */
-function Fact(props: { label: string; value: string | null | undefined }) {
+export function Fact(props: { label: string; value: string | null | undefined }) {
   return (
     <Show when={props.value}>
       {value => (
@@ -61,7 +60,7 @@ function Fact(props: { label: string; value: string | null | undefined }) {
 }
 
 /**
- * Approve or Reject, with the note the applicant sees. One another Admin
+ * Approve, then Reject with the note beside it that the applicant sees. One another Admin
  * decided first, or its applicant withdrew, sends the list to be read again
  * (`onStale`).
  */
@@ -74,7 +73,8 @@ function Decide(props: {
   const action = createAction();
   async function decide(decision: 'approve' | 'reject') {
     const { application, onStale } = props;
-    const asked = note();
+    // The note is the reason for a rejection; an approval sends none.
+    const asked = decision === 'reject' ? note() : '';
     const answer = await action.run(
       () => decideApplication(application.id, decision, asked),
       err => {
@@ -88,23 +88,11 @@ function Decide(props: {
       props.onDecided(answer.application);
     }
   }
-  const id = () => `note-${props.application.id}`;
   // Each row's controls are told apart by the applicant's name, its heading.
   const who = () => `app-${props.application.id}`;
   return (
     <div class='tm-app-decide'>
-      <label class='tm-label' for={id()}>
-        {t('Note to applicant')} <span class='muted tm-optional'>{t('optional')}</span>
-      </label>
       <div class='tm-app-decide-row'>
-        <input
-          id={id()}
-          class='tm-input'
-          aria-describedby={who()}
-          maxlength={NOTE_MAX}
-          value={note()}
-          onInput={event => setNote(event.currentTarget.value)}
-        />
         <button
           type='button'
           class='btn btn-secondary tm-accept'
@@ -114,6 +102,16 @@ function Decide(props: {
         >
           {t('Approve')}
         </button>
+        <span class='tm-app-decide-gap' />
+        <input
+          class='tm-input'
+          aria-label={t('Note to applicant if rejected')}
+          aria-describedby={who()}
+          placeholder={t('Note if rejecting')}
+          maxlength={NOTE_MAX}
+          value={note()}
+          onInput={event => setNote(event.currentTarget.value)}
+        />
         <ConfirmAction
           class='btn btn-ghost'
           label={t('Reject')}
