@@ -184,10 +184,15 @@ function PhoneExtension(props: { minutes: number }) {
   );
 }
 
-/** The tables in their order, or split into those in progress and those done while the round has both. */
+/**
+ * The tables in their order, or split into those in progress and those done
+ * while the round has both. Held rows keep the group they had, so while any
+ * has moved on (`labelled` false) the groups go unnamed rather than miscount.
+ */
 function grouped(
   matches: readonly Match[],
-  playing: ((match: Match) => boolean) | undefined
+  playing: ((match: Match) => boolean) | undefined,
+  labelled = true
 ): { label: string | null; matches: Match[] }[] {
   const sorted = sortMatches(matches);
   if (!playing) {
@@ -197,8 +202,8 @@ function grouped(
   const done = sorted.filter(m => !playing(m));
   return open.length && done.length
     ? [
-        { label: t('In progress · {count}', { count: open.length }), matches: open },
-        { label: t('Done · {count}', { count: done.length }), matches: done }
+        { label: labelled ? t('In progress · {count}', { count: open.length }) : null, matches: open },
+        { label: labelled ? t('Done · {count}', { count: done.length }) : null, matches: done }
       ]
     : [{ label: null, matches: sorted }];
 }
@@ -216,7 +221,11 @@ function createHeldGroups(props: MatchTableProps) {
   const shown = createMemo(() => {
     const live = props.inProgress;
     const groups = held();
-    return grouped(props.matches, live && groups ? match => groups.get(matchKey(match)) ?? live(match) : live);
+    if (!live || !groups) {
+      return grouped(props.matches, live);
+    }
+    const moved = props.matches.some(match => groups.get(matchKey(match)) === !live(match));
+    return grouped(props.matches, match => groups.get(matchKey(match)) ?? live(match), !moved);
   });
   return {
     shown,

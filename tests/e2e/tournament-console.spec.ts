@@ -567,6 +567,14 @@ test('a table entered with the mouse keeps its place until the pointer leaves th
   await page.mouse.move(1, 1);
   await expect(page.locator('.tm-group-row')).toHaveText(['In progress · 3', 'Done · 1']);
   await expect(rows.last().locator('td.tm-table-col')).toHaveText(String(first.table));
+  // A second result entered with the pointer back on the tables: its row holds, and the groups go unnamed until they regroup.
+  const second = t.pods[0]!.rounds.at(-1)!.matches[1]!;
+  await rowOf(page, second).locator('.tm-seat-link').first().dblclick();
+  await expect(rowOf(page, second).locator('.tm-result-label')).toHaveText('1–0');
+  await expect(page.locator('.tm-group-row')).toHaveCount(0);
+  await expect(rows.first().locator('td.tm-table-col')).toHaveText(String(second.table));
+  await page.mouse.move(1, 1);
+  await expect(page.locator('.tm-group-row')).toHaveText(['In progress · 2', 'Done · 2']);
 });
 
 test('after the planned rounds the step is the top cut, set in a dialog, with another round and the end behind it', async ({
