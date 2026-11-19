@@ -1638,5 +1638,6 @@
   "Penalty, table {table}": "Strafe, Tisch {table}",
   "Save and record the loss": "Speichern und Niederlage eintragen",
   "Save and write a penalty": "Speichern und Strafe erfassen",
-  "Deck check: {notes}": "Deckprüfung: {notes}"
+  "Deck check: {notes}": "Deckprüfung: {notes}",
+  "{name} asks to drop": "{name} möchte aussteigen"
 }

@@ -13,7 +13,7 @@ import type { Manage } from '../../lib/tournament/api';
 import { seatOf } from '../../lib/tournament/present';
 import { msg, t, tc, timeOfDay } from '../../lib/i18n';
 import type { ManageState } from './manageState';
-import { Answers } from './DropCheck';
+import { Answers } from './DropAnswers';
 
 const STATUS_LABELS: Record<PlayerRequest['status'], string> = {
   open: msg('Waiting'),

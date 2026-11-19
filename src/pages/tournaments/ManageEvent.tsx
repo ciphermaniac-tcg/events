@@ -59,7 +59,7 @@ import '../../styles/pages/tournament-console.css';
 import { ClockControls } from './RoundControls';
 import { EndEventStep, type RoundEnd, RoundEndSplit } from './NextStep';
 import { createTomLink, type Lapse, type TomLink, TomStatus } from './TomSyncPanel';
-import { createDropGate, podDrops } from './dropGate';
+import { createDropGate, DropAsk, podDrops } from './dropGate';
 import { Trail } from './Trail';
 import { pageTitle } from '../../lib/title';
 import { warmChunks } from '../../lib/preloadRecovery';
@@ -340,7 +340,7 @@ function Hero(props: { state: ManageState; manage: Manage; pod: Pod | undefined;
           <Show when={props.pod && clockRound()}>
             {round => <ClockControls state={props.state} pod={props.pod as Pod} round={round()} class='is-large' />}
           </Show>
-          <span class='tm-grow' />
+          <DropAsk state={props.state} manage={props.manage} pod={props.pod} />
           <div class='tm-next'>
             {action}
             <Show when={reason() && !openTablesOnly()}>

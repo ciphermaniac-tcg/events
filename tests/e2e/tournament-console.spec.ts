@@ -2485,6 +2485,20 @@ test('staff see a drop request on the Players tab and confirm it by its ID in on
   await expect(page.getByRole('tab', { name: 'Players', exact: true })).toBeVisible();
 });
 
+test('the console’s head names a player asking to drop, beside the next round, and answers them there @mobile', async ({
+  page
+}) => {
+  const t = event(8, 0, true);
+  const player = t.players[0]!;
+  const asked: PlayerRequest = { id: 'request-1', player: player.id, kind: 'drop', at: 1, status: 'open' };
+  const sent = await mockConsole(page, t, settingsOf({}), [], false, [asked]);
+  const ask = page.locator('.tm-console-steps .tm-drop-ask');
+  await expect(ask).toContainText(`${player.firstName} ${player.lastName} asks to drop`);
+  await ask.getByRole('button', { name: 'Decline' }).click();
+  await expect.poll(() => sent.answers).toEqual([expect.objectContaining({ id: 'request-1', status: 'declined' })]);
+  await expect(ask).toHaveCount(0);
+});
+
 test('on a 320px phone a drop request stacks in its box, its table named and its answers in reach @mobileOnly', async ({
   page
 }) => {
