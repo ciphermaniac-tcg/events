@@ -219,7 +219,7 @@ test('deck checks on their way read as loading, and ones that could not be read 
   await expect(row).toContainText('Not checked');
 });
 
-test('an opened paper list says it was handed in on paper, beside its checks', async ({ page }) => {
+test('an opened paper list nobody has ticked says it is not received, beside its checks', async ({ page }) => {
   await mockConsole(page, pairedEvent());
   // Routes added later answer first, so this one takes over the list the console's mock serves.
   await page.route(`**/api/tournaments/${CODE}/decklists`, route =>
@@ -227,6 +227,6 @@ test('an opened paper list says it was handed in on paper, beside its checks', a
   );
   await page.getByRole('tab', { name: 'Decklists' }).click();
   await page.locator('.tm-lists tbody tr').first().getByRole('button', { name: 'View' }).click();
-  await expect(page.locator('.tm-list-none')).toHaveText('Handed in on paper.');
+  await expect(page.locator('.tm-list-none')).toHaveText('Not received');
   await expect(page.locator('.tm-check-side')).toContainText('No deck checks yet.');
 });

@@ -135,3 +135,63 @@ test('on a phone with archetypes off, a list’s name starts its row instead of 
   const actions = await row.locator('.tm-row-actions').evaluate(el => el.getBoundingClientRect().left);
   expect(actions).toBeLessThan(start);
 });
+
+test('a paper list reads as not received until staff tick List received, with no check result', async ({ page }) => {
+  const tournament = runCommands(emptyTournament({ name: 'Friday League' }), ...adds);
+  const id = tournament.players.find(player => player.firstName === 'Player1')?.id ?? '';
+  let received = false;
+  await page.route('**/api/**', route => {
+    const url = new URL(route.request().url());
+    if (url.pathname === '/api/me') {
+      return route.fulfill({ json: organizerMe() });
+    }
+    if (url.pathname === `/api/tournaments/${CODE}/manage`) {
+      const manage = manageOf(CODE, tournament, {
+        settings: { ...DEFAULT_SETTINGS, sanctioned: false, decklists: 'open', deckVisibility: 'always' },
+        checkins: { [id]: received ? { paper: true, list: true } : { paper: true } }
+      });
+      return url.searchParams.has('since') ? route.fulfill({ status: 204 }) : route.fulfill({ json: manage });
+    }
+    if (url.pathname === `/api/tournaments/${CODE}/decklists`) {
+      return route.fulfill({ json: { decklists: [list('Rogue', 'paper')], mine: null } });
+    }
+    return route.fulfill({ status: 404, json: { error: 'Not found' } });
+  });
+  const row = page.locator('.tm-lists tbody tr').first();
+  for (const [state, text] of [
+    [false, 'Not received'],
+    [true, 'Handed in on paper.']
+  ] as const) {
+    received = state;
+    await page.goto(`/host/${CODE}`);
+    await page.getByRole('tab', { name: 'Decklists' }).click();
+    await expect(row.locator('.tm-list-check')).toHaveText(text);
+    await row.getByRole('button', { name: 'View' }).click();
+    await expect(page.locator('.tm-expansion')).toHaveText(state ? 'Handed in on paper.' : 'Not received');
+  }
+});
+
+test('a site registrant’s paper list reads as received once ticked, before they are on the roster', async ({
+  page
+}) => {
+  const manage = manageOf(CODE, emptyTournament({ name: 'Friday League' }), {
+    settings: { ...DEFAULT_SETTINGS, sanctioned: true, decklists: 'open', deckVisibility: 'always' },
+    checkins: { '1234567': { list: true } }
+  });
+  await page.route('**/api/**', route => {
+    const url = new URL(route.request().url());
+    if (url.pathname === '/api/me') {
+      return route.fulfill({ json: organizerMe() });
+    }
+    if (url.pathname === `/api/tournaments/${CODE}/manage`) {
+      return url.searchParams.has('since') ? route.fulfill({ status: 204 }) : route.fulfill({ json: manage });
+    }
+    if (url.pathname === `/api/tournaments/${CODE}/decklists`) {
+      return route.fulfill({ json: { decklists: [{ ...list('Rogue', 'paper'), popId: '1234567' }], mine: null } });
+    }
+    return route.fulfill({ status: 404, json: { error: 'Not found' } });
+  });
+  await page.goto(`/host/${CODE}`);
+  await page.getByRole('tab', { name: 'Decklists' }).click();
+  await expect(page.locator('.tm-lists tbody tr').first().locator('.tm-list-check')).toHaveText('Handed in on paper.');
+});

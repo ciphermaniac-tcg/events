@@ -109,6 +109,12 @@ function DecklistRow(props: RowProps) {
       props.onChanged();
     }
   }
+  /**
+   * Where a paper list stands: in staff's hands only once they tick List received on the Players tab,
+   * against the roster player or, for a site registrant not yet in TOM, their Player ID.
+   */
+  const paper = () =>
+    props.manage.checkins?.[playerId() ?? props.list.popId]?.list ? t('Handed in on paper.') : t('Not received');
   const canUseDeck = () =>
     archetypes() && playerId() && props.list.archetype && props.manage.decks[playerId() ?? ''] !== props.list.archetype;
   return (
@@ -141,8 +147,10 @@ function DecklistRow(props: RowProps) {
         </td>
         <td class='muted-cell tm-num tm-nowrap tm-list-when'>{submittedAt(props.list.submittedAt)}</td>
         <td class='tm-list-check'>
-          <Show when={props.list.problems.length} fallback={<span class='muted-cell'>OK</span>}>
-            <span class='tm-problem'>{props.list.problems.join(t('; '))}</span>
+          <Show when={props.list.mode !== 'paper'} fallback={<span class='muted-cell'>{paper()}</span>}>
+            <Show when={props.list.problems.length} fallback={<span class='muted-cell'>OK</span>}>
+              <span class='tm-problem'>{props.list.problems.join(t('; '))}</span>
+            </Show>
           </Show>
         </td>
         <Show when={props.checks}>
@@ -189,10 +197,10 @@ function DecklistRow(props: RowProps) {
       <Show when={props.open}>
         <tr class='tm-expansion'>
           <td colSpan={props.checks ? 6 : 5}>
-            <Show when={props.checks && playerId()} keyed fallback={<ListCards list={props.list} />}>
+            <Show when={props.checks && playerId()} keyed fallback={<ListCards list={props.list} paper={paper()} />}>
               {id => (
                 <div class='tm-check-split'>
-                  <ListCards list={props.list} />
+                  <ListCards list={props.list} paper={paper()} />
                   <fieldset class='tm-readonly' disabled={props.manage.watching}>
                     <DeckCheckSide
                       checks={props.checks as DeckChecks}
@@ -211,15 +219,15 @@ function DecklistRow(props: RowProps) {
   );
 }
 
-/** An opened list's cards, or why it has none: handed in on paper, or deleted once the event was over. */
-function ListCards(props: { list: Decklist }) {
+/** An opened list's cards, or why it has none: where its paper copy stands, or deleted once the event was over. */
+function ListCards(props: { list: Decklist; paper: string }) {
   return (
     <Show
       when={props.list.deck}
       fallback={
         <div class='tm-list-columns'>
           <p class='muted tm-list-none'>
-            {props.list.mode === 'paper' ? t('Handed in on paper.') : t('Cards deleted after the event')}
+            {props.list.mode === 'paper' ? props.paper : t('Cards deleted after the event')}
           </p>
         </div>
       }
