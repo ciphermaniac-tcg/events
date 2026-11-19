@@ -1636,5 +1636,7 @@
   },
   "Copy stream overlay link": "Link zum Stream-Overlay kopieren",
   "Penalty, table {table}": "Strafe, Tisch {table}",
-  "Save and record the loss": "Speichern und Niederlage eintragen"
+  "Save and record the loss": "Speichern und Niederlage eintragen",
+  "Save and write a penalty": "Speichern und Strafe erfassen",
+  "Deck check: {notes}": "Deckprüfung: {notes}"
 }

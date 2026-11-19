@@ -70,6 +70,9 @@ async function mockConsole(page: Page, tournament: Tournament, held: Promise<voi
     if (url.pathname === `/api/tournaments/${CODE}/manage`) {
       return url.searchParams.has('since') ? route.fulfill({ status: 204 }) : route.fulfill({ json: manage });
     }
+    if (url.pathname === `/api/tournaments/${CODE}/penalty-notes`) {
+      return route.fulfill({ json: { entries: [], judges: CHECKERS } });
+    }
     if (url.pathname === `/api/tournaments/${CODE}/decklists`) {
       return route.fulfill({ json: { decklists: [LIST], mine: null } });
     }
@@ -136,7 +139,16 @@ test('an opened list records, edits and removes its player’s deck checks once 
   await expect(side.getByRole('radio', { name: 'Fail' })).toHaveAttribute('aria-checked', 'true');
   await expect(side.getByRole('radio', { name: 'Fail' })).toBeFocused();
   await side.getByLabel('Notes').fill('Four Iono in the deck, three on the list.');
-  await side.getByRole('button', { name: 'Save check' }).click();
+  // A fail goes on to its penalty: the Penalties tab's form, filled in with the player, round and notes.
+  await side.getByRole('button', { name: 'Save and write a penalty' }).click();
+  const form = page.locator('.tm-penalty-form');
+  await expect(form.getByRole('combobox', { name: 'Player' })).toHaveValue('Test, Player1');
+  await expect(form.getByLabel('Round')).toHaveValue('1');
+  await expect(form.getByLabel('Notes')).toHaveValue('Deck check: Four Iono in the deck, three on the list.');
+  await expect(form.getByLabel('Penalty')).toHaveValue('');
+  await expect(form.getByLabel('Penalty')).toBeFocused();
+  await page.getByRole('tab', { name: 'Decklists' }).click();
+  await row.getByRole('button', { name: 'View' }).click();
   await expect(side.locator('.tm-check-list')).toContainText('R1 · Fail · checked by Organizer');
   await expect(side.locator('.tm-check-list')).toContainText('Recorded by Organizer at');
   await expect(row).toContainText('R1 Fail');
@@ -175,8 +187,8 @@ test('a check saved while the next is typed keeps the next, as does removing a c
   await page.locator('.tm-lists tbody tr').first().getByRole('button', { name: 'View' }).click();
   const side = page.locator('.tm-check-side');
   await side.getByRole('radio', { name: 'Fail' }).click();
-  await side.getByRole('button', { name: 'Save check' }).click();
-  await expect(side.getByRole('button', { name: 'Save check' })).toBeDisabled();
+  await side.getByRole('button', { name: 'Save and write a penalty' }).click();
+  await expect(side.getByRole('button', { name: 'Save and write a penalty' })).toBeDisabled();
   await side.getByRole('radio', { name: 'Pass' }).click();
   await side.getByLabel('Notes').fill('Second look, all in order.');
   answer.resolve();

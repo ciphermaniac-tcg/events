@@ -66,6 +66,7 @@ import { warmChunks } from '../../lib/preloadRecovery';
 import { lazyPanel } from './lazyPanel';
 import { BarIcon } from './BarIcon';
 import { TabBar } from './TabBar';
+import type { PenaltyStart } from './PenaltiesPanel';
 
 // Pairings is the tab a running event lives on, so only it loads with the page;
 // the others load when opened (decklists are read before the event, the
@@ -447,6 +448,8 @@ function Console(props: { state: ReturnType<typeof createManage>; manage: Manage
   const setTab = (value: Tab) =>
     setParams({ tab: value === defaultTab(props.manage) ? undefined : value }, { replace: true });
   const [podChoice, setPodChoice] = createSignal<PodCategory | null>(null);
+  // A failed deck check's penalty, which the Penalties tab begins its form with.
+  const [penaltyStart, setPenaltyStart] = createSignal<PenaltyStart | null>(null);
   // The player whose sheet is open, from a name on the roster or standings; never from a pairing, whose names record results.
   const [sheetId, setSheetId] = createSignal<string | null>(null);
   const sheetPlayer = () => props.manage.tournament.players.find(player => player.id === sheetId());
@@ -560,10 +563,22 @@ function Console(props: { state: ReturnType<typeof createManage>; manage: Manage
           </Show>
         </Show>
         <Show when={tab() === 'decklists'}>
-          <DecklistsPanel state={props.state} manage={props.manage} />
+          <DecklistsPanel
+            state={props.state}
+            manage={props.manage}
+            onPenalty={start => {
+              setPenaltyStart(start);
+              setTab('penalties');
+            }}
+          />
         </Show>
         <Show when={tab() === 'penalties'}>
-          <PenaltiesPanel state={props.state} manage={props.manage} />
+          <PenaltiesPanel
+            state={props.state}
+            manage={props.manage}
+            start={penaltyStart()}
+            onStarted={() => setPenaltyStart(null)}
+          />
         </Show>
         <Show when={tab() === 'event'}>
           <fieldset class='tm-readonly' disabled={watching}>

@@ -8,7 +8,18 @@
  * removal, so each says who wrote it down and when.
  */
 
-import { createEffect, createMemo, createResource, createSignal, For, type JSX, on, Show } from 'solid-js';
+import {
+  createEffect,
+  createMemo,
+  createResource,
+  createSignal,
+  For,
+  type JSX,
+  on,
+  onMount,
+  Show,
+  untrack
+} from 'solid-js';
 import { Skeleton } from '@ciphermaniac/design/components/Skeleton';
 import { RetryError } from './Field';
 import { type DeckCheckEntry, standingChecks } from '../../../shared/tournament/deckChecks';
@@ -116,12 +127,18 @@ function Select(props: {
   label: string;
   value: string | number;
   onChange: (value: string) => void;
+  ref?: (el: HTMLSelectElement) => void;
   children: JSX.Element;
 }) {
   return (
     <label>
       {props.label}
-      <select class='tm-select' value={props.value} onChange={e => props.onChange(e.currentTarget.value)}>
+      <select
+        ref={props.ref}
+        class='tm-select'
+        value={props.value}
+        onChange={e => props.onChange(e.currentTarget.value)}
+      >
         {props.children}
       </select>
     </label>
@@ -144,6 +161,8 @@ interface FormProps {
   onChange: (draft: Draft) => void;
   onSave: () => void;
   onCancel: () => void;
+  /** A note started elsewhere asks for its penalty first. */
+  started?: boolean;
 }
 
 function PlayerOption(props: { name: string; query: string; seat: string }) {
@@ -205,6 +224,7 @@ function NoteForm(props: FormProps) {
       </Select>
       <Select
         label={t('Penalty')}
+        ref={el => props.started && queueMicrotask(() => el.focus())}
         value={props.draft.penalty}
         onChange={value => set({ penalty: isPenalty(value) ? value : '' })}
       >
@@ -520,7 +540,20 @@ function DisqualifyOffer(props: { state: ManageState; manage: Manage; id: string
   );
 }
 
-export function PenaltiesPanel(props: { state: ManageState; manage: Manage }) {
+/** A note started elsewhere, as from a failed deck check: its player, round and notes. */
+export interface PenaltyStart {
+  playerId: string;
+  round: number;
+  notes: string;
+}
+
+/** `start`: a note to begin the form with, taken as the tab opens (`onStarted`). */
+export function PenaltiesPanel(props: {
+  state: ManageState;
+  manage: Manage;
+  start?: PenaltyStart | null;
+  onStarted?: () => void;
+}) {
   const notes = createPenaltyNotes(() => props.manage.code);
   const me = () => latestValue(session)?.user?.id ?? null;
   // Each player's latest round (see latestRoundOf), worked out once rather than for every player read.
@@ -541,7 +574,9 @@ export function PenaltiesPanel(props: { state: ManageState; manage: Manage }) {
     props.manage.tournament.players.filter(player => latestOf(player.id) > 0).sort(byLastName)
   );
 
-  const [draft, setDraft] = createSignal(fresh(latest(), me()));
+  const start = untrack(() => props.start);
+  const [draft, setDraft] = createSignal({ ...fresh(latest(), me()), ...start });
+  onMount(() => props.onStarted?.());
   // A new note left on its player's latest round stays on it as the next is paired, so it isn't filed under the last.
   // A memo, so the draft's own edits don't run it again: only a new round does.
   const draftLatest = createMemo(() => (draft().playerId ? latestOf(draft().playerId) : latest()));
@@ -633,6 +668,7 @@ export function PenaltiesPanel(props: { state: ManageState; manage: Manage }) {
               onChange={setDraft}
               onSave={save}
               onCancel={reset}
+              started={Boolean(start)}
             />
           </div>
         </section>

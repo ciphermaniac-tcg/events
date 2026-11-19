@@ -39,6 +39,7 @@ import { shared } from '../../lib/tournament/share';
 import { ConfirmAction } from './ConfirmAction';
 import { DecklistColumns } from './DecklistColumns';
 import { createDeckChecks, type DeckChecks, DeckCheckSide, LastCheck } from './DeckChecks';
+import type { PenaltyStart } from './PenaltiesPanel';
 import { session } from './session';
 import { DeckIcons } from './DeckIcons';
 import type { ManageState } from './manageState';
@@ -321,7 +322,12 @@ function RereadArchetypes(props: { state: ManageState; manage: Manage; onDone: (
   );
 }
 
-export function DecklistsPanel(props: { state: ManageState; manage: Manage }) {
+export function DecklistsPanel(props: {
+  state: ManageState;
+  manage: Manage;
+  /** Opens the penalty form for a deck check just failed. */
+  onPenalty: (start: PenaltyStart) => void;
+}) {
   const [lists, { refetch, mutate }] = createResource(
     () => props.manage.code,
     code => fetchDecklists(code).then(result => result.decklists)
@@ -329,7 +335,7 @@ export function DecklistsPanel(props: { state: ManageState; manage: Manage }) {
   const accepting = () => decklistsOpen(props.manage);
   const locked = () => decklistsLocked(props.manage);
   // Deck checks are read once round 1 is paired, before which there can be none.
-  const checks = createMemo(() => (locked() ? createDeckChecks(() => props.manage.code) : null));
+  const checks = createMemo(() => (locked() ? createDeckChecks(() => props.manage.code, props.onPenalty) : null));
   /** Looks for new lists, keeping the rows of the lists that did not change. A failed look keeps the lists shown. */
   const look = () =>
     void fetchDecklists(props.manage.code)

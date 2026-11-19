@@ -28,9 +28,13 @@ import { latestValue } from '../../lib/resource';
 import { msg, t, timeOfDay, tn } from '../../lib/i18n';
 import { Segmented } from '@ciphermaniac/design/components/Segmented';
 import { ConfirmAction } from './ConfirmAction';
+import type { PenaltyStart } from './PenaltiesPanel';
 
-/** The event's deck check record, read once for the tab and replaced by each write's answer. */
-export function createDeckChecks(code: () => string) {
+/**
+ * The event's deck check record, read once for the tab and replaced by each
+ * write's answer. `onPenalty` opens the penalty form for a check just failed.
+ */
+export function createDeckChecks(code: () => string, onPenalty?: (start: PenaltyStart) => void) {
   const [record, { refetch, mutate }] = createResource(code, fetchDeckChecks);
   // Each player's checks as they stand, the latest round first, sorted once for every row that reads them.
   const byPlayer = createMemo(() => {
@@ -45,6 +49,7 @@ export function createDeckChecks(code: () => string) {
   });
   return {
     code,
+    onPenalty,
     /** A player's checks as they stand, the latest round first. */
     of: (playerId: string): DeckCheck[] => byPlayer().get(playerId) ?? [],
     checkers: () => latestValue(record)?.checkers ?? [],
@@ -268,7 +273,11 @@ function CheckForm(props: FormProps) {
       </label>
       <div class='tm-check-wide tm-row-actions'>
         <button type='submit' class='btn btn-primary tm-small' disabled={props.saving}>
-          {props.draft.replaces ? t('Save edit') : t('Save check')}
+          {props.draft.replaces
+            ? t('Save edit')
+            : props.draft.result === 'fail'
+              ? t('Save and write a penalty')
+              : t('Save check')}
         </button>
         <Show when={props.draft.replaces}>
           <button type='button' class='btn btn-ghost tm-small' onClick={() => props.onCancel()}>
@@ -307,7 +316,7 @@ export function DeckCheckSide(props: SideProps) {
     setError(null);
   };
   /** Sends a write and takes its answer; the form starts again only if it still holds what `done` says was written. */
-  async function write(request: () => Promise<DeckCheckRecord>, done: (now: Draft) => boolean) {
+  async function write(request: () => Promise<DeckCheckRecord>, done: (now: Draft) => boolean): Promise<boolean> {
     setSaving(true);
     setError(null);
     try {
@@ -315,8 +324,10 @@ export function DeckCheckSide(props: SideProps) {
       if (done(draft())) {
         reset();
       }
+      return true;
     } catch (err) {
       setError(errorText(err));
+      return false;
     } finally {
       setSaving(false);
     }
@@ -339,10 +350,15 @@ export function DeckCheckSide(props: SideProps) {
     const checker = checkerId === SOMEONE_ELSE ? { checkerName } : { checkerId };
     const check = { playerId: props.playerId, round, result, notes, replaces, ...checker };
     const code = props.checks.code();
+    // A new failed check goes on to its penalty, the check's notes carried over.
+    const penalty = result === 'fail' && !replaces ? props.checks.onPenalty : undefined;
+    const start = { playerId: props.playerId, round, notes: notes ? t('Deck check: {notes}', { notes }) : '' };
+    // Only while the form still holds the check: one already typed after it stays.
+    let kept = false;
     void write(
       () => recordDeckCheck(code, check),
-      now => now === sent
-    );
+      now => (kept = now === sent)
+    ).then(saved => saved && kept && penalty?.(start));
   }
   return (
     <div class='tm-check-side'>
