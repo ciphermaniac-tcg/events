@@ -293,8 +293,8 @@ export function PlayersPanel(props: { state: ManageState; manage: Manage; onPlay
       return capped;
     }
     return shown() === all
-      ? tn(all, '{n} players', '{n} players')
-      : tn(all, '{shown} of {n} players', '{shown} of {n} players', { shown: shown() });
+      ? tn(all, '{n} player', '{n} players')
+      : tn(all, '{shown} of {n} player', '{shown} of {n} players', { shown: shown() });
   };
   return (
     <div class='tm-panel'>

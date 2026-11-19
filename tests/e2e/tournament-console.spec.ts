@@ -2601,6 +2601,11 @@ test('an event with a fee and nobody on its roster shows no check-in box', async
   await expect(page.getByText('Everyone is checked in.')).toHaveCount(0);
 });
 
+test('a roster of one counts one player beside its search', async ({ page }) => {
+  await mockConsole(page, event(1, 0, false), settingsOf({}));
+  await expect(page.locator('.tm-panel').getByText('1 player', { exact: true })).toBeVisible();
+});
+
 test('the roster’s filter stays inside its box on a narrow phone, a choice to a line @mobileOnly', async ({ page }) => {
   await page.setViewportSize({ width: 280, height: 640 });
   await mockConsole(page, event(3, 0, false), settingsOf({ entryFee: 10 }));
