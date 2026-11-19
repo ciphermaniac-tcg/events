@@ -30,6 +30,8 @@ export interface HistoryEntry {
   startDate: string;
   /** The organizer's start time, as a datetime-local input gives it; '' when unset. */
   startsAt: string;
+  /** Check-in as the organizer set it, the same way; '' when unset, absent from entries read before it was kept. */
+  checkInAt?: string;
   format: string;
   mode: TournamentMode;
   /** Finished once the organizer closes it, live from its first round, upcoming before. */

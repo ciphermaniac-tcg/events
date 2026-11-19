@@ -15,6 +15,7 @@ import { test } from './network-guard';
 
 import type { AccountRole } from '../../shared/accounts/roles';
 import type { HistoryEntry } from '../../shared/accounts/types';
+import { type PlayerResult, reportedOutcome } from '../../shared/tournament/reports';
 import { type Command } from '../../shared/tournament/commands';
 import { emptyTournament } from '../../shared/tournament/create';
 import { parseTdf } from '../../shared/tournament/tdf';
@@ -966,16 +967,22 @@ async function mockEvent(
     refuse?: boolean;
     /** The account holds the player's seat already, so a device asking with it is given no token. */
     tokenless?: boolean;
+    /** Staff dropped Ash after round 1. */
+    dropped?: boolean;
   }
 ) {
   const code = 'LEAGUE';
   const keys = assignKeys(t, {});
+  const ash = t.players.find(p => p.lastName === 'Ketchum')?.id ?? '';
+  const shownT = publicTournament(t, keys, !options.sanctioned);
   const published: PublishedView = {
     code,
     mode: 'swiss',
     version: 2,
     updatedAt: 0,
-    tournament: publicTournament(t, keys, !options.sanctioned),
+    tournament: options.dropped
+      ? { ...shownT, players: shownT.players.map(p => (p.id === keys[ash] ? { ...p, droppedAfter: 1 } : p)) }
+      : shownT,
     pending: [],
     reports: [],
     divisions: publicDivisions(t, keys, Date.UTC(2026, 9, 3)),
@@ -983,10 +990,26 @@ async function mockEvent(
     settings: { ...DEFAULT_SETTINGS, sanctioned: options.sanctioned, playerReporting: true }
   };
   const asks: { method: string; path: string; body: unknown }[] = [];
-  const ash = t.players.find(p => p.lastName === 'Ketchum')?.id ?? '';
   let linked = options.linked ?? (options.sanctioned && Boolean(options.user));
   let reporter = true;
   let held: Promise<void> | null = null;
+  /** What Ash reported, as the server keeps it: a result files one, a withdrawal takes it back. */
+  const fileReport = (body: { result?: PlayerResult; withdraw?: true }) => {
+    const match = published.tournament.pods[0]?.rounds[0]?.matches.find(m => m.p1 === keys[ash] || m.p2 === keys[ash]);
+    if (match && body.result) {
+      const report = { pod: 'masters' as const, round: 1, table: match.table, p1: match.p1, p2: match.p2 ?? '' };
+      published.reports = [
+        {
+          ...report,
+          by: keys[ash] ?? '',
+          outcome: reportedOutcome(match, keys[ash] ?? '', body.result),
+          at: Date.now()
+        }
+      ];
+    } else if (body.withdraw) {
+      published.reports = [];
+    }
+  };
   await page.route(`**/tournaments/v1/${code}.json`, route =>
     route.fulfill({ json: published, headers: { 'access-control-allow-origin': '*' } })
   );
@@ -1007,6 +1030,7 @@ async function mockEvent(
         return route.fulfill({ status: 403, json: { error: 'Someone else is already reporting for this player.' } });
       }
       linked = Boolean(options.user);
+      fileReport(request.postDataJSON() as { result?: PlayerResult; withdraw?: true });
       return route.fulfill({
         json: {
           key: keys[ash],
@@ -1266,6 +1290,56 @@ test('on a 320px phone, every report answer stays inside the match box @mobileOn
     const answer = await page.getByRole('button', { name, exact: true }).boundingBox();
     expect((answer?.x ?? 0) + (answer?.width ?? 0)).toBeLessThanOrEqual((box?.x ?? 0) + (box?.width ?? 0));
   }
+});
+
+test('a report filed stays on the strip after a reload, and pressing it again asks before taking it back @mobile', async ({
+  page
+}) => {
+  const { code, asks } = await mockEvent(page, roundOne(true), {
+    sanctioned: true,
+    user: { ...ME, popId: '1001' },
+    tokenless: true
+  });
+  await page.goto(`/t/${code}`);
+  await page.getByRole('button', { name: 'Report result' }).click();
+  await page.getByRole('button', { name: 'I won' }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'You reported a win' })).toBeVisible();
+  await page.reload();
+  const strip = page.locator('.tm-you-top');
+  await expect(strip).toContainText('Reported a win');
+  await expect(page.getByRole('button', { name: 'Report result' })).toHaveCount(0);
+  await strip.getByRole('button', { name: 'Change' }).click();
+  const won = page.getByRole('button', { name: 'I won' });
+  await expect(won).toHaveAttribute('aria-pressed', 'true');
+  // A second press of the answer filed is a question, not a withdrawal.
+  await won.click();
+  const ask = page.getByRole('group', { name: 'Take back' });
+  await expect(ask).toContainText('Take back your win?');
+  await ask.getByRole('button', { name: 'Keep it' }).click();
+  await expect(ask).toHaveCount(0);
+  await expect(won).toHaveAttribute('aria-pressed', 'true');
+  expect(asks.filter(a => (a.body as { withdraw?: boolean } | null)?.withdraw)).toEqual([]);
+  await won.click();
+  await ask.getByRole('button', { name: 'Take back' }).click();
+  await expect(won).toHaveAttribute('aria-pressed', 'false');
+  expect(asks.filter(a => (a.body as { withdraw?: boolean } | null)?.withdraw)).toHaveLength(1);
+});
+
+test('a player staff dropped sees Dropped and the round on their strip, and nothing left to ask staff', async ({
+  page
+}) => {
+  const { code } = await mockEvent(page, roundOne(true), {
+    sanctioned: true,
+    user: { ...ME, popId: '1001' },
+    tokenless: true,
+    dropped: true
+  });
+  await page.goto(`/t/${code}`);
+  const strip = page.locator('.tm-you-top');
+  await expect(strip).toHaveText('DroppedAfter round 1');
+  await expect(page.locator('.tm-you-who')).toContainText('Ash Ketchum');
+  await expect(page.getByRole('button', { name: 'Report result' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Request drop' })).toHaveCount(0);
 });
 
 test('on a device that never asked, an account that holds its player’s seat by POP ID reports without a token', async ({
@@ -1667,6 +1741,37 @@ test('the Playing tab always takes an event code, even when History fails to loa
   await panel.getByRole('textbox', { name: 'Event code' }).fill(' k7rw2p ');
   await panel.getByRole('button', { name: 'Go' }).click();
   await expect(page).toHaveURL(/\/t\/K7RW2P$/);
+});
+
+test('with nothing being played, the next event the player is in leads the Playing tab with its check-in @mobile', async ({
+  page
+}) => {
+  await mockDashboard(page, ME);
+  const next = (code: string, name: string, startsAt: string, checkInAt: string): HistoryEntry => ({
+    code,
+    key: '7',
+    name,
+    startDate: '',
+    startsAt,
+    checkInAt,
+    format: 'Standard',
+    mode: 'swiss',
+    status: 'upcoming',
+    version: 1
+  });
+  const later = next('LATER1', 'Mill Street Challenge', '2099-11-28T10:00', '');
+  const soon = next('SOON01', 'Riverside Thursday Cup', '2099-11-19T18:30', '2099-11-19T17:30');
+  await page.route('**/api/history', route => route.fulfill({ json: { entries: [later, soon, ENTRIES[2]] } }));
+  await page.goto('/');
+  const lead = page.locator('.tm-dash-live');
+  await expect(lead).toHaveCount(1);
+  await expect(lead.locator('.tm-dash-live-event')).toHaveText(/^Riverside Thursday Cup · Thu, Nov 19/);
+  await expect(lead.locator('.tm-dash-live-big')).toHaveText('Check-in 5:30 PM');
+  await expect(lead.getByRole('link', { name: 'Your registration' })).toHaveAttribute('href', '/t/SOON01');
+  // The rest still come up under it, without the one leading.
+  const coming = page.locator('.tm-dash-section', { has: page.getByRole('heading', { name: 'Coming up' }) });
+  await expect(coming).toContainText('Mill Street Challenge');
+  await expect(coming).not.toContainText('Riverside Thursday Cup');
 });
 
 test('a player with no events yet is welcomed with the way to play, then the way to run events @mobile', async ({

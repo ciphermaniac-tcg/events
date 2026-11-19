@@ -371,7 +371,7 @@ const keyOf = async (code: string, playerId: string) => (await loadTournament(db
 test('an account’s History lists the sanctioned events its POP ID plays in, as each stands', async () => {
   const owner = await signIn('Organizer', 'organizer');
   const code = await newSwiss(owner);
-  await settle(code, owner, { format: 'Expanded', startsAt: '2026-10-10T11:00' });
+  await settle(code, owner, { format: 'Expanded', startsAt: '2026-10-10T11:00', checkInAt: '2026-10-10T10:30' });
   await addPlayers(code, owner, 4);
   const player = await signIn('Player');
   assert.deepEqual((await historyOf(player)).json, { entries: [], activity: [] });
@@ -383,6 +383,7 @@ test('an account’s History lists the sanctioned events its POP ID plays in, as
     name: 'Test Cup',
     startDate: (await loadTournament(db(), code))?.tournament.info.startDate,
     startsAt: '2026-10-10T11:00',
+    checkInAt: '2026-10-10T10:30',
     format: 'Expanded',
     mode: 'swiss',
     status: 'upcoming',

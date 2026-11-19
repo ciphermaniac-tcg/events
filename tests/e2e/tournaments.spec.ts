@@ -2784,7 +2784,7 @@ test('on a phone the player’s table stays under the head once their strip scro
   await expect(page.locator('.tm-you')).toBeInViewport();
 });
 
-test('a player presses their answer again to take the report back, and no line promises agreeing reports count', async ({
+test('a player presses their answer again and confirms to take the report back, and no line promises agreeing reports count', async ({
   page
 }) => {
   const open = openTable();
@@ -2831,6 +2831,7 @@ test('a player presses their answer again to take the report back, and no line p
   await won.click();
   await expect(won).toHaveAttribute('aria-pressed', 'true');
   await won.click();
+  await page.getByRole('group', { name: 'Take back' }).getByRole('button', { name: 'Take back' }).click();
   await expect.poll(() => bodies.at(-1)).toMatchObject({ withdraw: true });
   await expect(won).toHaveAttribute('aria-pressed', 'false');
   await expect(page.locator('.tm-you-status')).toHaveText('Not reported');

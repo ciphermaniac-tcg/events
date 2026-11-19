@@ -57,7 +57,8 @@ const NEWEST = `ORDER BY t.updated_at DESC LIMIT ${MAX_ENTRIES}`;
 const entryColumns = (player: string) =>
   `t.code, t.mode, t.version, t.updated_at, json_extract(t.player_keys, '$."' || ${player} || '"') AS key, ` +
   "json_extract(t.state, '$.info.name') AS name, json_extract(t.state, '$.info.startDate') AS start_date, " +
-  "json_extract(t.settings, '$.startsAt') AS starts_at, json_extract(t.settings, '$.format') AS format, " +
+  "json_extract(t.settings, '$.startsAt') AS starts_at, json_extract(t.settings, '$.checkInAt') AS check_in_at, " +
+  "json_extract(t.settings, '$.format') AS format, " +
   `json_extract(t.settings, '$.finished') AS finished, ${pairedRounds('t.state')} AS rounds, ` +
   `EXISTS (SELECT 1 FROM event_wins w WHERE w.code = t.code AND w.player_id = ${player}) AS won, ` +
   "(SELECT s.country || '/' || s.region || '/' || s.city FROM stores s WHERE s.id = t.store_id AND s.city <> '') AS city";
@@ -71,6 +72,7 @@ interface EntryRow {
   name: string | null;
   start_date: string | null;
   starts_at: string | null;
+  check_in_at: string | null;
   format: string | null;
   finished: number | null;
   rounds: number | null;
@@ -168,6 +170,7 @@ const entryOf = (row: EntryRow & { key: string }): HistoryEntry => ({
   name: row.name ?? '',
   startDate: row.start_date ?? '',
   startsAt: row.starts_at ?? DEFAULT_SETTINGS.startsAt,
+  checkInAt: row.check_in_at ?? '',
   format: row.format ?? DEFAULT_SETTINGS.format,
   mode: row.mode === 'tom' ? 'tom' : 'swiss',
   status: statusOf(row),

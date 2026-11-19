@@ -38,10 +38,13 @@ import { isBye, matchPoints, recordLabel, sideResult } from '../../../shared/tou
 import { hasStarted, podOf, withSwiss } from '../../../shared/tournament/rounds';
 import type { Pod, Round, Match as TableMatch } from '../../../shared/tournament/types';
 import { type PublishedView, type TournamentView } from '../../../shared/tournament/view';
-import { ApiError, errorText, reportAsPlayer, type SignInOffer } from '../../lib/tournament/api';
+import { ApiError, type Decklist, errorText, reportAsPlayer, type SignInOffer } from '../../lib/tournament/api';
+import { marksFor } from '../../../shared/tournament/checkins';
+import { divisionFor, eventSeason } from '../../../shared/tournament/divisions';
 import {
   currentMatchOf,
   divisionHeading,
+  firstRoundTime,
   namesById,
   podStandings,
   recordsSoFar,
@@ -68,6 +71,20 @@ const REPORTED: Record<PlayerResult, string> = {
   win: msg('You reported a win'),
   loss: msg('You reported a loss'),
   tie: msg('You reported a tie')
+};
+
+/** A report filed, on the strip once its answers are put away. */
+const FILED: Record<PlayerResult, string> = {
+  win: msg('Reported a win'),
+  loss: msg('Reported a loss'),
+  tie: msg('Reported a tie')
+};
+
+/** Asked when the answer already filed is pressed again, which would take it back. */
+const TAKE_BACK: Record<PlayerResult, string> = {
+  win: msg('Take back your win?'),
+  loss: msg('Take back your loss?'),
+  tie: msg('Take back your tie?')
 };
 
 const NOT_REPORTER = msg('Someone else is already reporting for this player. Ask staff if that’s wrong.');
@@ -281,6 +298,18 @@ function ReportPanel(props: { report: Report; found: Found; settles: boolean }) 
     return t(state.locked ? NOTES.locked : NOTES.reported);
   };
   const fixed = () => Boolean(s()?.locked || s()?.final);
+  // The answer filed, pressed again, asks before it is taken back: a double tap must not undo a report.
+  const [asking, setAsking] = createSignal(false);
+  const press = (result: PlayerResult, on: boolean) => {
+    setAsking(on);
+    if (!on) {
+      void props.report.send(result);
+    }
+  };
+  const takeBack = () => {
+    setAsking(false);
+    void props.report.send(null);
+  };
   return (
     <div class='tm-you-panel'>
       <div class='tm-you-answers'>
@@ -301,9 +330,8 @@ function ReportPanel(props: { report: Report; found: Found; settles: boolean }) 
                   disabled={props.report.busy() || (fixed() && !on())}
                   aria-disabled={fixed() ? 'true' : undefined}
                   onClick={() => {
-                    // The answer already filed, pressed again, is taken back: nothing is reported until they answer anew.
                     if (!fixed()) {
-                      void props.report.send(on() ? null : choice.result);
+                      press(choice.result, on());
                     }
                   }}
                 >
@@ -320,9 +348,61 @@ function ReportPanel(props: { report: Report; found: Found; settles: boolean }) 
           {status()}
         </strong>
       </div>
-      <Show when={note()}>{text => <p class='tm-you-note muted'>{text()}</p>}</Show>
+      <Show
+        when={asking() && !fixed() && s()?.chosen}
+        fallback={<Show when={note()}>{text => <p class='tm-you-note muted'>{text()}</p>}</Show>}
+      >
+        {chosen => (
+          <div class='tm-row-actions tm-confirm' role='group' aria-label={t('Take back')}>
+            <span>{t(TAKE_BACK[chosen()])}</span>
+            <button
+              type='button'
+              class='btn btn-secondary tm-small tm-danger'
+              disabled={props.report.busy()}
+              onClick={takeBack}
+            >
+              {t('Take back')}
+            </button>
+            <button type='button' class='btn btn-ghost tm-small' onClick={() => setAsking(false)}>
+              {t('Keep it')}
+            </button>
+          </div>
+        )}
+      </Show>
       <ErrorLine message={props.report.error()} />
     </div>
+  );
+}
+
+/**
+ * Report result, or once a report is filed, what it said and Change, which
+ * opens the answers again; a report locked in has nothing left to change.
+ */
+function ReportStart(props: { report: Report; onOpen: () => void }) {
+  const filed = () => {
+    const state = props.report.state();
+    return state && !state.disputed && !state.final ? state.chosen : null;
+  };
+  return (
+    <Show
+      when={filed()}
+      fallback={
+        <button type='button' class='btn btn-primary tm-small' onClick={() => props.onOpen()}>
+          {t('Report result')}
+        </button>
+      }
+    >
+      {chosen => (
+        <>
+          <strong>{t(FILED[chosen()])}</strong>
+          <Show when={!props.report.state()?.locked}>
+            <button type='button' class='btn btn-ghost tm-small' onClick={() => props.onOpen()}>
+              {t('Change')}
+            </button>
+          </Show>
+        </>
+      )}
+    </Show>
   );
 }
 
@@ -390,9 +470,7 @@ function MatchLine(props: Props & { me: string; found: Found; report: Report; op
                     <Clock round={props.found.round} extraSeconds={props.found.match.timeExtension?.seconds} />
                   </span>
                   <Show when={canReport()}>
-                    <button type='button' class='btn btn-primary tm-small' onClick={() => props.onOpen()}>
-                      {t('Report result')}
-                    </button>
+                    <ReportStart report={props.report} onOpen={props.onOpen} />
                   </Show>
                 </>
               }
@@ -490,10 +568,15 @@ function MatchBox(props: Props & { me: string; askAs: PlayerClaim | null }) {
   // Props go through whole: spreading them into an object would read them once and lose later updates.
   const report = createReport(props, found);
   const placed = () => (props.view.settings.finished ? placeOf(props.view, props.me) : null);
+  /** The round the viewer dropped after, once staff dropped them: the strip says so in place of their last table. */
+  const dropped = () =>
+    props.view.settings.finished
+      ? null
+      : (props.view.tournament.players.find(player => player.id === props.me)?.droppedAfter ?? null);
   const started = () => hasStarted(props.view.tournament);
   const panel = () => {
     const state = report.state();
-    return props.reports && state && !state.final && (open() || state.disputed) ? state : null;
+    return props.reports && state && !state.final && !dropped() && (open() || state.disputed) ? state : null;
   };
   /** Another device reports for this player: this one follows the table and says why it cannot report. */
   const followsOnly = () => {
@@ -510,7 +593,7 @@ function MatchBox(props: Props & { me: string; askAs: PlayerClaim | null }) {
   let box: HTMLElement | undefined;
   const phone = createMedia('(max-width: 640px)');
   const past = createScrolledPast(() => box);
-  const pinned = () => (props.pins && phone() && past() ? found() : null);
+  const pinned = () => (props.pins && phone() && past() && !dropped() ? found() : null);
   return (
     <section ref={box} class='tm-box tm-you' aria-label={t('Your match')}>
       <Show when={pinned()}>
@@ -539,6 +622,14 @@ function MatchBox(props: Props & { me: string; askAs: PlayerClaim | null }) {
                 <span class='tm-you-mid num'>
                   {recordLabel(row().record)} · {tn(row().points, '{n} pt', '{n} pts')}
                 </span>
+              </>
+            )}
+          </Match>
+          <Match when={dropped()}>
+            {after => (
+              <>
+                <span class='tm-you-big'>{t('Dropped')}</span>
+                <span class='tm-you-mid'>{t('After round {n}', { n: after() })}</span>
               </>
             )}
           </Match>
@@ -579,7 +670,7 @@ function MatchBox(props: Props & { me: string; askAs: PlayerClaim | null }) {
       <Show when={panel() && found()}>
         {f => <ReportPanel report={report} found={f()} settles={settles(props.view)} />}
       </Show>
-      <Show when={!props.view.settings.finished && props.askAs}>
+      <Show when={!props.view.settings.finished && !dropped() && props.askAs}>
         {claim => (
           <PlayerRequests
             view={props.view}
@@ -659,6 +750,40 @@ function WhoLine(props: Props & { me: string; division: string; record: string |
       </div>
       <ErrorLine message={error()} />
     </>
+  );
+}
+
+/**
+ * Where check-in stands for a registration, as far as the page can say: a
+ * paper list waits for staff, and a digital one with nothing else asked of it
+ * (no fee, no TOM) is all its player has to do. Otherwise, when round 1 is.
+ */
+function checkInLine(view: TournamentView, list: Decklist): string {
+  if (list.mode === 'paper') {
+    return t('Hand your list to staff to check in');
+  }
+  if (marksFor(view, undefined).length === 0) {
+    return t('Checked in');
+  }
+  const first = firstRoundTime(view.settings.startsAt);
+  return first ? t('Round 1 at {time}', { time: first }) : '';
+}
+
+/** Before round 1, the registration this device or account holds, over the tabs: that it is in, check-in, and whose. */
+export function RegisteredCard(props: { view: TournamentView; list: Decklist }) {
+  const division = () => divisionHeading(divisionFor(props.list.birthDate, eventSeason(props.view.tournament)));
+  return (
+    <section class='tm-box tm-you' aria-label={t('Your registration')}>
+      <div class='tm-you-top'>
+        <span class='tm-you-big'>{t('Registered')}</span>
+        <span class='tm-you-mid'>{checkInLine(props.view, props.list)}</span>
+      </div>
+      <div class='tm-you-who'>
+        <span class='muted'>
+          {props.list.firstName} {props.list.lastName} · {division()}
+        </span>
+      </div>
+    </section>
   );
 }
 

@@ -44,6 +44,7 @@ import { Skeleton } from '@ciphermaniac/design/components/Skeleton';
 import { TabPanel, Tabs } from '@ciphermaniac/design/components/Tabs';
 import {
   ApiError,
+  type Decklist,
   fetchListReaders,
   fetchPublished,
   fetchView,
@@ -90,7 +91,8 @@ import { PlayerSheet } from './PlayerSheet';
 import { PublicPairings } from './PublicPairings';
 import type { Identified } from './Identify';
 import { StandingsTable } from './StandingsTable';
-import { YourMatch } from './YourMatch';
+import { RegisteredCard, YourMatch } from './YourMatch';
+import { createMyList } from './myList';
 import '../../styles/pages/tournament-public.css';
 import { pageTitle } from '../../lib/title';
 import { RoundStepper } from './RoundStepper';
@@ -686,6 +688,15 @@ function EventBody(props: {
 
   const tabs = createMemo(() => tabsFor(props.view, listOwner() !== null || holdsDecklist(props.view.code)));
   const tab = () => pickTab(tabs(), params.tab, props.view);
+  // Read for the Registered card before round 1, and for the registration tab whenever it is open.
+  // eslint-disable-next-line solid/reactivity -- the page is one event's for as long as it is open
+  const myList = createMyList(props.view.code, listOwner, () => !started() || tab() === 'decklist');
+  /** What the registration form last said this device holds, newer than the read. */
+  const [held, setHeld] = createSignal<Decklist | null | undefined>(undefined);
+  const registered = () => {
+    const list = held() === undefined ? myList.current() : held();
+    return !started() && list?.registered ? list : null;
+  };
 
   const bar = (withRounds: boolean, withSearch = true) => (
     <>
@@ -768,6 +779,7 @@ function EventBody(props: {
           }}
         />
       </Show>
+      <Show when={registered()}>{list => <RegisteredCard view={props.view} list={list()} />}</Show>
       <Tabs
         id='event'
         options={tabs()}
@@ -825,14 +837,13 @@ function EventBody(props: {
           <DecklistForm
             code={props.view.code}
             sanctioned={isSanctioned(props.view)}
-            owner={listOwner()}
+            list={myList}
+            held={held()}
+            onHeld={setHeld}
             open={takingLists(props.view)}
             withdrawable={decklistsOpen(props.view)}
             closes={
               decklistsOpen(props.view) ? timeShown(props.view.settings.startsAt, props.view.settings.timeZone) : null
-            }
-            checkIn={
-              decklistsOpen(props.view) ? timeShown(props.view.settings.checkInAt, props.view.settings.timeZone) : null
             }
             full={rosterFull(props.view)}
             season={eventSeason(props.view.tournament)}

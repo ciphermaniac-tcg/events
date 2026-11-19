@@ -1443,6 +1443,15 @@ tr.is-in .tm-place {
 .tm-reg-who strong {
   font-size: var(--text-lg);
 }
+/* The account's own registration: its name, and under it what it registers with. */
+.tm-reg-lines {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+.tm-reg-lines .muted {
+  font-size: var(--text-sm);
+}
 .tm-reg-note {
   margin: 0;
   font-size: var(--text-sm);

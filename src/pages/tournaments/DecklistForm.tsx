@@ -7,33 +7,30 @@
  * until the device knows whether a list is in, nothing is sent over it.
  */
 
-import { createMemo, createResource, Show } from 'solid-js';
-import type { PlayerProfile } from '../../../shared/tournament/profile';
-import { type Decklist, lookUpRegistration } from '../../lib/tournament/api';
-import { latestValue } from '../../lib/resource';
+import { Show } from 'solid-js';
+import type { Decklist } from '../../lib/tournament/api';
 import { msg, t } from '../../lib/i18n';
-import { emptyProfile } from './ProfileFields';
-import { recall } from './decklistMemory';
+import type { ListState, MyList } from './myList';
 import { RegistrationForm } from './RegistrationForm';
 
 interface FormProps {
   code: string;
   /** Unsanctioned, the form asks for the name alone. */
   sanctioned: boolean;
+  /** The registration the page read for this device or account (see myList.ts). */
+  list: MyList;
   /**
-   * Whose list the signed-in account owns here, when it is a player: its POP
-   * ID, or the full name of its Claim. A device that kept no list reads the
-   * account's with it, and no token.
+   * What the form last said this device holds, once it sent or let one go:
+   * newer than the read, so a form opened again starts from it.
    */
-  owner: ListOwner | null;
+  held: Decklist | null | undefined;
+  onHeld: (list: Decklist | null) => void;
   /** Whether players can register now; when not, the page shows the receipt. */
   open: boolean;
   /** Registrations may still be withdrawn (see decklistsOpen). */
   withdrawable: boolean;
   /** The start as players read it, which is when changes close; null when none is set. */
   closes: string | null;
-  /** Check-in as players read it; null when none is set. */
-  checkIn: string | null;
   /** The event's own list is at its cap. */
   full: boolean;
   /** The event's season, which places a birth year in its division. */
@@ -42,39 +39,8 @@ interface FormProps {
   years: boolean;
 }
 
-type ListOwner = Pick<PlayerProfile, 'popId' | 'firstName' | 'lastName'>;
-
-/** This device's list, by the details and token it kept; on a device that kept none, the account's own. */
-async function loadMine([code, owner]: readonly [string, ListOwner | null]): Promise<Decklist | null> {
-  const kept = recall(code);
-  if (kept) {
-    return (await lookUpRegistration(code, kept.profile ?? emptyProfile(), { token: kept.token })).mine;
-  }
-  return owner ? (await lookUpRegistration(code, owner)).mine : null;
-}
-
-/** Whether the device knows its list yet: still reading it, the read failed, or known (a list, or none). */
-type ListState = 'loading' | 'failed' | 'known';
-
-/** The asker's own list as the server has it, read once for the form and the receipt alike. */
-function createMyList(props: FormProps) {
-  // eslint-disable-next-line solid/reactivity -- read once for the event the page opened on
-  const kept = recall(props.code);
-  // Read again only for another owner, not for every new copy of the event the props come from; a device's own list has none.
-  const whose = createMemo(() => [props.code, kept ? null : props.owner] as const, undefined, {
-    equals: (a, b) => a[0] === b[0] && a[1] === b[1]
-  });
-  const [mine, { refetch }] = createResource(whose, loadMine);
-  const state = (): ListState => {
-    if (mine.error) {
-      return 'failed';
-    }
-    return mine.state === 'ready' || mine.state === 'refreshing' ? 'known' : 'loading';
-  };
-  return { state, retry: () => void refetch(), current: () => latestValue(mine) ?? null };
-}
-
-type MyList = ReturnType<typeof createMyList>;
+/** The device's registration as it stands: what the form last said, else what the page read. */
+const mineOf = (held: Decklist | null | undefined, read: Decklist | null) => (held === undefined ? read : held);
 
 /** What a list not known yet says. */
 const UNKNOWN: Record<Exclude<ListState, 'known'>, string> = {
@@ -108,10 +74,10 @@ const closedNote = (late: boolean): string =>
     : msg('Registration closed when round 1 was paired.');
 
 /** The list as it was sent, read-only, once players can no longer change it. */
-function Receipt(props: FormProps & { list: MyList }) {
+function Receipt(props: FormProps) {
   return (
     <section class='tm-box tm-reg'>
-      <Show when={props.list.current()}>
+      <Show when={mineOf(props.held, props.list.current())}>
         {mine => (
           <>
             <div class='tm-box-bar tm-reg-head'>
@@ -134,7 +100,7 @@ function Receipt(props: FormProps & { list: MyList }) {
           </>
         )}
       </Show>
-      <p class='tm-box-bar muted'>{t(closedNote(props.list.current()?.late === true))}</p>
+      <p class='tm-box-bar muted'>{t(closedNote(mineOf(props.held, props.list.current())?.late === true))}</p>
     </section>
   );
 }
@@ -143,26 +109,25 @@ function Receipt(props: FormProps & { list: MyList }) {
 const LATE_NOTE = msg('Round 1 has started. Only a player already in the event can send a late list.');
 
 export function DecklistForm(props: FormProps) {
-  const list = createMyList(props);
   // After round 1 a list held stays a receipt unless its own player may still send it; one not held may be theirs.
-  const editable = () => props.withdrawable || (list.current()?.editable ?? true);
+  const editable = () => props.withdrawable || (mineOf(props.held, props.list.current())?.editable ?? true);
   return (
-    <Show when={list.state() === 'known'} fallback={<ListStatus list={list} />}>
-      <Show when={props.open && editable()} fallback={<Receipt {...props} list={list} />}>
+    <Show when={props.list.state() === 'known'} fallback={<ListStatus list={props.list} />}>
+      <Show when={props.open && editable()} fallback={<Receipt {...props} />}>
         {/* Made again for each list read: another owner's list is another player's registration. */}
-        <Show when={[list.current()] as const} keyed>
-          {([mine]) => (
+        <Show when={[props.list.current()] as const} keyed>
+          {([read]) => (
             <RegistrationForm
               code={props.code}
               sanctioned={props.sanctioned}
               closes={props.closes}
-              checkIn={props.checkIn}
               full={props.full}
-              mine={mine}
+              mine={mineOf(props.held, read)}
+              onHeld={list => props.onHeld(list)}
               withdrawable={props.withdrawable}
               season={props.season}
               years={props.years}
-              note={props.withdrawable || mine ? undefined : t(LATE_NOTE)}
+              note={props.withdrawable || mineOf(props.held, props.list.current()) ? undefined : t(LATE_NOTE)}
             />
           )}
         </Show>

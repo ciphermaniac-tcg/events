@@ -20,13 +20,14 @@ import { createEffect, createMemo, createSignal, For, type JSX, Match, on, Show,
 import { mayBeUnder13 } from '../../../shared/accounts/age';
 import { type DeckSection, parseDecklist } from '../../../shared/tournament/decklist';
 import { isPopId, type PlayerProfile, profileErrors } from '../../../shared/tournament/profile';
-import type { Decklist, DeckMode, NamedPlayer } from '../../../shared/tournament/view';
-import { divisionFor } from '../../../shared/tournament/divisions';
+import type { Decklist, DeckMode, MyRegistration, NamedPlayer } from '../../../shared/tournament/view';
+import { birthYear, divisionFor } from '../../../shared/tournament/divisions';
 import type { Division } from '../../../shared/tournament/types';
 import {
   ApiError,
   errorText,
   lookUpRegistration,
+  type Me,
   saveProfile,
   submitRegistration,
   withdrawRegistration
@@ -47,8 +48,6 @@ export interface RegistrationProps {
   sanctioned: boolean;
   /** The start as players read it, which is when changes close; null when the organizer set none. */
   closes: string | null;
-  /** Check-in as players read it, which a new registration is told; null when the organizer set none. */
-  checkIn: string | null;
   /** The event's own list is at its cap, so nobody new can register. */
   full: boolean;
   /** The registration this device or account already holds, once read; it opens straight away. */
@@ -61,6 +60,8 @@ export interface RegistrationProps {
   season: number;
   /** Whether a registration may still correct its birth year: before round 1, at a sanctioned event paired here. */
   years: boolean;
+  /** The registration this device now holds, once one is sent or let go (null), for the page's Registered card. */
+  onHeld?: (list: Decklist | null) => void;
 }
 
 /** The division a birth year places the player in, said under the field as it is typed. */
@@ -71,6 +72,47 @@ const DIVISION_NAMES: Record<Division, string> = {
 };
 
 type Step = 'lookup' | 'prove' | 'pick' | 'new' | 'edit' | 'withdrawn';
+
+/** What registering as the account sends: its name, and its Player ID and birth year, or those typed where it lacks them. */
+function asAccount(user: Me | null, typed: PlayerProfile): PlayerProfile {
+  return user
+    ? {
+        firstName: user.firstName ?? '',
+        lastName: user.lastName ?? '',
+        popId: user.popId || typed.popId,
+        birthDate: user.birthDate || typed.birthDate
+      }
+    : typed;
+}
+
+/** The signed-in account, when it has the name a registration of its own goes under. */
+function account(): Me | null {
+  const user = latestValue(session)?.user;
+  return user?.firstName?.trim() && user.lastName?.trim() ? user : null;
+}
+
+const nameKey = (names: NamedPlayer) => `${names.firstName.trim()}|${names.lastName.trim()}`.toLowerCase();
+
+/**
+ * At an unsanctioned event, what a name's lookup found: the device's own
+ * registration, or the one of exactly that name, to open; names like it, to
+ * ask about; or null for nobody.
+ */
+function nameFound(
+  found: MyRegistration,
+  typed: NamedPlayer
+): { player: NamedPlayer; list: Decklist | null } | { near: NamedPlayer[] } | null {
+  const near = found.matches ?? [];
+  // Only the name exactly as typed opens straight away: a slip from it may be someone else's registration.
+  const same = near.length === 1 ? near.find(player => player.sameName) : undefined;
+  if (found.mine) {
+    return { player: found.mine, list: found.mine };
+  }
+  if (same) {
+    return { player: { firstName: same.firstName, lastName: typed.lastName }, list: null };
+  }
+  return near.length > 0 ? { near } : null;
+}
 
 /** The registration's state and what it can do, apart from how it is drawn. */
 function createRegistration(props: RegistrationProps) {
@@ -104,9 +146,19 @@ function createRegistration(props: RegistrationProps) {
   const [error, setError] = createSignal<string | null>(null);
   const parsed = createMemo(() => parseDecklist(deck()));
   const token = () => recall(props.code)?.token ?? '';
+  // Someone else was asked for, in place of the signed-in account's own registration.
+  const [other, setOther] = createSignal(false);
+  /**
+   * Registering as the account, which the player chose by not asking for
+   * someone else: its name, and its Player ID and birth year where it has
+   * them, the fields under the head standing in for those it lacks.
+   */
+  const self = () => (step() === 'lookup' && !other() ? account() : null);
+  const registrant = () => asAccount(self(), profile());
+  const hold = (list: Decklist | null) => props.onHeld?.(list);
   // A player under 13 registers with staff (see shared/accounts/age.ts), so the year typed says so at once.
   const young = () => {
-    const year = birthYearOf(profile().birthDate);
+    const year = birthYearOf(registrant().birthDate);
     return props.sanctioned && /^\d{4}$/.test(year) && mayBeUnder13(Number(year), new Date());
   };
 
@@ -137,15 +189,16 @@ function createRegistration(props: RegistrationProps) {
     }
   }
 
-  /** A registration found: its player's names, and its list when there is one. */
+  /** A registration found: its player's names, and its list unless one was chosen before the name was checked (see save). */
   function open(found: NamedPlayer, list: Decklist | null) {
+    const chosen = mode() !== null;
     heldYear = birthYearOf(profile().birthDate);
     setProfile(prev => ({ ...prev, firstName: found.firstName, lastName: found.lastName }));
     setKept(found);
-    setMode(list?.mode ?? null);
-    setDeck(list?.deck ?? '');
+    setMode(chosen ? mode() : (list?.mode ?? null));
+    setDeck(chosen ? deck() : (list?.deck ?? ''));
     setOwn(list !== null);
-    setChanged(false);
+    setChanged(chosen);
     setStep('edit');
   }
 
@@ -154,27 +207,32 @@ function createRegistration(props: RegistrationProps) {
     if (names) {
       setProfile(prev => ({ ...prev, ...names }));
     }
+    // Its name was looked up, or the player chose it as typed: registering it asks no more.
+    cleared = nameKey(profile());
     setStep('new');
+  }
+
+  // The names the registration starts new with, which registering does not look up again.
+  let cleared = '';
+  /** At an unsanctioned event, what the name being registered finds (see nameFound); false for nobody. */
+  async function lookUpName(): Promise<boolean> {
+    setProfile(registrant());
+    const found = nameFound(await lookUpRegistration(props.code, profile(), { token: token() }), profile());
+    if (found && 'near' in found) {
+      setMatches(found.near);
+      setStep('pick');
+    } else if (found) {
+      open(found.player, found.list);
+    }
+    return found !== null;
   }
 
   /** The Player ID, or the name, typed: what it finds decides the next step. */
   async function lookTask() {
-    const found = await lookUpRegistration(props.code, profile(), { token: token() });
     if (props.sanctioned) {
+      const found = await lookUpRegistration(props.code, profile(), { token: token() });
       setStep(found.known ? 'prove' : 'new');
-      return;
-    }
-    const near = found.matches ?? [];
-    // Only the name exactly as typed opens straight away: a slip from it may be someone else's registration.
-    const same = near.length === 1 ? near.find(player => player.sameName) : undefined;
-    if (found.mine) {
-      open(found.mine, found.mine);
-    } else if (same) {
-      open({ firstName: same.firstName, lastName: profile().lastName }, null);
-    } else if (near.length > 0) {
-      setMatches(near);
-      setStep('pick');
-    } else {
+    } else if (!(await lookUpName())) {
       startNew();
     }
   }
@@ -196,9 +254,15 @@ function createRegistration(props: RegistrationProps) {
    */
   const yearCorrection = (sent: PlayerProfile) =>
     props.years && heldYear && birthYearOf(sent.birthDate) !== heldYear ? { wasYear: heldYear } : {};
+  /** A new registration at an unsanctioned event has its name checked first, as one typed signed out does. */
+  async function checkedSaveTask() {
+    if (props.sanctioned || kept() !== null || nameKey(registrant()) === cleared || !(await lookUpName())) {
+      await saveTask();
+    }
+  }
   async function saveTask() {
     const before = recall(props.code);
-    const sent = profile();
+    const sent = registrant();
     const own = before?.token ?? crypto.randomUUID();
     // Kept before the list goes, so a list that lands without its answer is still this device's to change.
     remember(props.code, { profile: sent, token: own });
@@ -213,8 +277,10 @@ function createRegistration(props: RegistrationProps) {
         ...yearCorrection(sent)
       });
       remember(props.code, { profile: sent, token: result.token });
+      hold(result.decklist);
       heldYear = birthYearOf(sent.birthDate);
-      setSaved(step() === 'new' ? 'new' : 'edit');
+      setProfile(sent);
+      setSaved(step() === 'edit' ? 'edit' : 'new');
       setKept({ firstName: sent.firstName, lastName: sent.lastName });
       setNaming(false);
       setOwn(true);
@@ -228,13 +294,14 @@ function createRegistration(props: RegistrationProps) {
       throw err;
     }
   }
-  const save = () => run(saveTask);
+  const save = () => run(checkedSaveTask);
 
   async function withdrawTask() {
     // The year it was opened or saved with: one typed into Change name or year and not saved proves nothing yet.
     const proof = props.sanctioned ? { birthYear: heldYear || birthYearOf(profile().birthDate) } : { token: token() };
     await withdrawRegistration(props.code, { ...profile(), ...(kept() ?? {}) }, proof);
     remember(props.code, null);
+    hold(null);
     setStep('withdrawn');
   }
   const withdraw = () => run(withdrawTask);
@@ -256,6 +323,7 @@ function createRegistration(props: RegistrationProps) {
   /** Someone else on this device: forget whose registration it held, and start again. */
   function notYou() {
     remember(props.code, null);
+    hold(null);
     heldYear = '';
     setProfile(emptyProfile());
     setKept(null);
@@ -267,7 +335,16 @@ function createRegistration(props: RegistrationProps) {
     setWithdrawing(false);
     setOwn(false);
     setLeaving(false);
+    setOther(false);
     setStep('lookup');
+  }
+
+  /** Someone else, from the account's own registration: blank fields, the Player ID among them at a sanctioned event. */
+  function elsewhere() {
+    setProfile(emptyProfile());
+    setError(null);
+    setOther(true);
+    setStep('new');
   }
 
   /**
@@ -302,18 +379,24 @@ function createRegistration(props: RegistrationProps) {
     leaving,
     setLeaving,
     someoneElse,
+    elsewhere,
+    other,
+    self,
+    registrant,
     saved,
     changed,
     busy,
     error,
     idTaken,
     young,
-    full: () => step() === 'new' && (props.full || refusedFull()),
+    full: () => (step() === 'new' || self() !== null) && (props.full || refusedFull()),
     look,
     prove,
     pick: (player: NamedPlayer | null) => {
       if (!player) {
         startNew(profile());
+        // Asked on the way to registering, with the list chosen: the name as typed registers.
+        void (mode() !== null && save());
         return;
       }
       // The looked-up surname is shortened, so only a match whose surname is the one typed may open it.
@@ -338,7 +421,7 @@ type Registration = ReturnType<typeof createRegistration>;
 
 /** What is still missing before the registration can go, for the line under a held-back button. */
 function missing(form: Registration, sanctioned: boolean): string | null {
-  const problems = profileErrors(form.profile(), sanctioned);
+  const problems = profileErrors(form.registrant(), sanctioned);
   if (problems.firstName || problems.lastName || problems.popId || problems.birthDate) {
     return sanctioned ? t('Fill in your Player ID, name and birth year') : t('Fill in your name');
   }
@@ -429,6 +512,20 @@ function YearField(props: { form: Registration; onEnter?: () => void; opens?: bo
   );
 }
 
+function PopField(props: { form: Registration; onEnter?: () => void }) {
+  return (
+    <Field id='reg-pop' label={t('Player ID')} tip={<PlayerIdTip />}>
+      <PlayerIdInput
+        id='reg-pop'
+        class='tm-input tm-reg-input'
+        value={props.form.profile().popId}
+        onValue={value => props.form.setField('popId', value)}
+        onKeyDown={onEnter(props.onEnter)}
+      />
+    </Field>
+  );
+}
+
 /** Step one: the Player ID, or at an unsanctioned event the name, and Continue. */
 function Lookup(props: { form: Registration; sanctioned: boolean; note?: string }) {
   const f = () => props.form;
@@ -446,15 +543,7 @@ function Lookup(props: { form: Registration; sanctioned: boolean; note?: string 
       <div class='tm-box-bar tm-reg-stack'>
         <Show when={props.note}>{note => <p class='tm-reg-note'>{note()}</p>}</Show>
         <Show when={props.sanctioned} fallback={<NameFields form={f()} onEnter={go} />}>
-          <Field id='reg-pop' label={t('Player ID')} tip={<PlayerIdTip />}>
-            <PlayerIdInput
-              id='reg-pop'
-              class='tm-input tm-reg-input'
-              value={f().profile().popId}
-              onValue={value => f().setField('popId', value)}
-              onKeyDown={onEnter(go)}
-            />
-          </Field>
+          <PopField form={f()} onEnter={go} />
         </Show>
         <button type='button' class='btn btn-primary tm-reg-wide' disabled={!ready() || f().busy()} onClick={go}>
           {t('Continue')}
@@ -649,7 +738,7 @@ function ModeOption(props: { form: Registration; value: DeckMode; label: string;
 }
 
 /** In person or digital, and the paste box for a digital list. */
-function DeckChoice(props: { form: Registration; closes: string | null }) {
+function DeckChoice(props: { form: Registration }) {
   const f = () => props.form;
   return (
     <div class='tm-box-bar tm-reg-stack'>
@@ -658,14 +747,8 @@ function DeckChoice(props: { form: Registration; closes: string | null }) {
         <ModeOption form={f()} value='paper' label={t('In person')} detail={t('Hand a paper decklist to staff')} />
         <ModeOption form={f()} value='digital' label={t('Digital')} detail={t('Paste your list from TCG Live')} />
       </fieldset>
-      <Show when={f().mode() === 'paper'}>
-        <p class='tm-reg-note'>{t('Hand your paper decklist to staff at check-in.')}</p>
-      </Show>
       <Show when={f().mode() === 'digital'}>
         <Paste form={f()} />
-      </Show>
-      <Show when={f().mode() && props.closes}>
-        {closes => <p class='tm-reg-note'>{t('Changes close at {start}.', { start: closes() })}</p>}
       </Show>
     </div>
   );
@@ -706,34 +789,109 @@ function Foot(props: { form: Registration; sanctioned: boolean; label: string; c
   );
 }
 
+/** Nobody new can register: what stands in for the fields and the list. */
+function Full() {
+  return (
+    <div class='tm-box-bar tm-reg-stack'>
+      <strong>{t('This event is full.')}</strong>
+      <p class='tm-reg-note'>{t('A spot opens if someone withdraws.')}</p>
+    </div>
+  );
+}
+
+/** What the head's button says: back to the account's own registration, or to the Player ID typed first. */
+function newBack(form: Registration, sanctioned: boolean): string | undefined {
+  if (form.other()) {
+    return t('Back');
+  }
+  return sanctioned ? t('Change ID') : undefined;
+}
+
+/**
+ * A signed-in account registering itself: titled with its name, which is
+ * what it registers under, and at a sanctioned event the Player ID and
+ * birth year it holds, a field standing in for each it lacks. Someone else?
+ * opens blank fields instead: registering as the account is the player's
+ * choice here, never taken from a name.
+ */
+function SelfRegistration(props: { form: Registration; reg: RegistrationProps; user: Me }) {
+  const f = () => props.form;
+  const sanctioned = () => props.reg.sanctioned;
+  const year = () => birthYear(props.user.birthDate ?? '');
+  const held = () => {
+    const born = year();
+    return [props.user.popId && t('Player ID {id}', { id: props.user.popId }), born && t('Born {year}', { year: born })]
+      .filter(Boolean)
+      .join(' · ');
+  };
+  return (
+    <section class='tm-box tm-reg'>
+      <div class='tm-box-bar tm-reg-head'>
+        <span class='tm-reg-who tm-reg-lines'>
+          <strong>
+            {props.user.firstName} {props.user.lastName}
+          </strong>
+          <Show when={sanctioned() && held()}>
+            <span class='muted tm-num'>{held()}</span>
+          </Show>
+        </span>
+        <button type='button' class='btn btn-ghost tm-small' onClick={() => f().elsewhere()}>
+          {t('Someone else?')}
+        </button>
+      </div>
+      <Show when={props.reg.note}>{note => <p class='tm-box-bar tm-reg-note'>{note()}</p>}</Show>
+      <Show when={!f().full()} fallback={<Full />}>
+        <Show when={sanctioned() && !props.user.popId}>
+          <div class='tm-box-bar tm-reg-stack'>
+            <PopField form={f()} />
+          </div>
+        </Show>
+        <Show when={sanctioned() && !year()}>
+          <div class='tm-box-bar tm-reg-stack'>
+            <YearField form={f()} season={props.reg.season} />
+          </div>
+        </Show>
+        <Show
+          when={!f().young()}
+          fallback={
+            <Show when={year()}>
+              <div class='tm-box-bar tm-reg-stack'>
+                <p class='tm-reg-note'>{t('Players under 13 register with staff at the event.')}</p>
+              </div>
+            </Show>
+          }
+        >
+          <DeckChoice form={f()} />
+          <Foot form={f()} sanctioned={sanctioned()} label={t('Register')} />
+        </Show>
+      </Show>
+    </section>
+  );
+}
+
 function NewRegistration(props: { form: Registration; reg: RegistrationProps }) {
   const f = () => props.form;
   return (
     <section class='tm-box tm-reg'>
       <Head
         form={f()}
-        sanctioned={props.reg.sanctioned}
+        sanctioned={props.reg.sanctioned && !f().other()}
         title={t('New registration')}
         menu={false}
-        back={props.reg.sanctioned ? t('Change ID') : undefined}
+        back={newBack(f(), props.reg.sanctioned)}
       />
-      <Show
-        when={!f().full()}
-        fallback={
-          <div class='tm-box-bar tm-reg-stack'>
-            <strong>{t('This event is full.')}</strong>
-            <p class='tm-reg-note'>{t('A spot opens if someone withdraws.')}</p>
-          </div>
-        }
-      >
+      <Show when={!f().full()} fallback={<Full />}>
         <div class='tm-box-bar tm-reg-stack'>
+          <Show when={props.reg.sanctioned && f().other()}>
+            <PopField form={f()} />
+          </Show>
           <NameFields form={f()} />
           <Show when={props.reg.sanctioned}>
             <YearField form={f()} season={props.reg.season} />
           </Show>
         </div>
         <Show when={!f().young()}>
-          <DeckChoice form={f()} closes={props.reg.closes} />
+          <DeckChoice form={f()} />
           <Foot form={f()} sanctioned={props.reg.sanctioned} label={t('Register')} />
         </Show>
       </Show>
@@ -792,20 +950,14 @@ function EditRegistration(props: { form: Registration; reg: RegistrationProps })
           </div>
         }
       >
-        <DeckChoice form={f()} closes={props.reg.closes} />
+        <DeckChoice form={f()} />
       </Show>
-      {/* The check-in time stays for a player who comes back to it, not only the moment they register. */}
-      <Show when={f().saved() === 'new' || props.reg.checkIn}>
+      <Show when={f().saved() === 'new'}>
         <div class='tm-box-bar tm-reg-stack'>
-          <Show when={f().saved() === 'new'}>
-            {/* Heard from the form's one status line (see announcement), so not read twice. */}
-            <strong class='tm-reg-done' aria-hidden='true'>
-              {t('You’re registered.')}
-            </strong>
-          </Show>
-          <Show when={props.reg.checkIn}>
-            {at => <p class='tm-reg-note'>{t('Check-in is at {time}.', { time: at() })}</p>}
-          </Show>
+          {/* Heard from the form's one status line (see announcement), so not read twice. */}
+          <strong class='tm-reg-done' aria-hidden='true'>
+            {t('You’re registered.')}
+          </strong>
         </div>
       </Show>
       <Show when={!f().young()}>
@@ -870,6 +1022,7 @@ export function RegistrationForm(props: RegistrationProps) {
         {announcement(form)}
       </p>
       <Switch>
+        <Match when={form.self()}>{user => <SelfRegistration form={form} reg={props} user={user()} />}</Match>
         <Match when={form.step() === 'lookup'}>
           <Lookup form={form} sanctioned={props.sanctioned} note={props.note} />
         </Match>

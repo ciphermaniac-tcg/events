@@ -38,8 +38,11 @@ interface Held {
   mode: 'digital' | 'paper';
 }
 
+/** The account signed in, as /api/me answers with it; null signed out. */
+type Account = { firstName: string; lastName: string; popId: string | null; birthDate: string | null } | null;
+
 /** An event taking registrations, with Avery Chen and the two Kims already in; `calls` records what the page sent. */
-async function mockEvent(page: Page, settings: Partial<TournamentSettings> = {}) {
+async function mockEvent(page: Page, settings: Partial<TournamentSettings> = {}, user: Account = null) {
   const sanctioned = settings.sanctioned ?? true;
   const people: Held[] = [
     { popId: '7', firstName: 'Avery', lastName: 'Chen', year: '1998', deck: DECK, mode: 'digital' },
@@ -125,7 +128,7 @@ async function mockEvent(page: Page, settings: Partial<TournamentSettings> = {})
     const request = route.request();
     const url = new URL(request.url());
     if (url.pathname === '/api/me') {
-      return route.fulfill({ json: { user: null, providers: [] } });
+      return route.fulfill({ json: { user: user && { id: 'u1', name: user.firstName, ...user }, providers: [] } });
     }
     if (url.pathname !== `/api/tournaments/${CODE}/decklists`) {
       return route.fulfill({ json: { ...published, viewer: { role: null, me: null, via: null, signedIn: false } } });
@@ -219,7 +222,6 @@ test('a registered Player ID asks its birth year, then opens the registration to
 
   await expect(page.locator('.tm-reg-who')).toContainText('Avery Chen');
   await expect(page.getByRole('textbox', { name: 'Decklist' })).toHaveValue(DECK);
-  await expect(page.getByText('Changes close at')).toBeVisible();
   const more = page.getByRole('button', { name: 'More' });
   await more.click();
   // The menu hangs from its button at its own width, not stretched across the page.
@@ -271,7 +273,9 @@ test('on a 320px phone, the withdraw question keeps both answers inside the box 
   expect((keep?.x ?? 0) + (keep?.width ?? 0)).toBeLessThanOrEqual((box?.x ?? 0) + (box?.width ?? 0));
 });
 
-test('any other Player ID registers, with a pasted list, and is told when check-in is @mobile', async ({ page }) => {
+test('any other Player ID registers, with a pasted list, and the Registered card says check-in is done @mobile', async ({
+  page
+}) => {
   const { calls } = await mockEvent(page, { checkInAt: '2099-10-24T10:00' });
   await page.goto(`/t/${CODE}?tab=decklist`);
   await page.getByRole('textbox', { name: 'Player ID' }).fill('1234567');
@@ -291,16 +295,19 @@ test('any other Player ID registers, with a pasted list, and is told when check-
   await page.getByRole('textbox', { name: 'Decklist' }).fill('60 Basic {G} Energy SVE 1');
   await register.click();
   await expect(page.getByRole('status')).toHaveText('You’re registered.');
-  await expect(page.getByText(/Check-in is at .*10:00/)).toBeVisible();
+  const card = page.getByRole('region', { name: 'Your registration' });
+  await expect(card).toContainText('Registered');
+  await expect(card).toContainText('Checked in');
+  await expect(card).toContainText('Nia Okafor · Masters');
   await expect(page.locator('.tm-reg-who')).toContainText('Nia Okafor');
   expect(calls.at(-1)?.body).toMatchObject({ mode: 'digital', deck: '60 Basic {G} Energy SVE 1' });
   // Focus follows the step that replaced the button pressed, rather than falling to the page.
   await expect(page.locator('.tm-reg-steps')).toBeFocused();
-  // The check-in time stays once the registration is changed, not only the moment it is made.
+  // A paper list waits for staff, which the card says once the change is saved.
   await page.getByText('In person').click();
   await page.getByRole('button', { name: 'Save changes' }).click();
   await expect(page.getByRole('status')).toHaveText('Changes saved.');
-  await expect(page.getByText(/Check-in is at .*10:00/)).toBeVisible();
+  await expect(card).toContainText('Hand your list to staff to check in');
 });
 
 test('a birth year under 13 says to register with staff as it is typed, before anything is filled in @mobile', async ({
@@ -483,4 +490,129 @@ test('a full event says so to a newcomer', async ({ page }) => {
   await expect(page.getByText('This event is full.')).toBeVisible();
   await expect(page.getByText('A spot opens if someone withdraws.')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Register' })).toHaveCount(0);
+});
+
+const SAGE = { firstName: 'Sage', lastName: 'Newfield', popId: '4183529', birthDate: '02/27/1994' };
+
+test('signed in, the box is the account’s own: its name, Player ID and birth year, and nothing to type @mobile', async ({
+  page
+}) => {
+  const { calls } = await mockEvent(page, {}, SAGE);
+  await page.goto(`/t/${CODE}?tab=decklist`);
+  const head = page.locator('.tm-reg-head');
+  await expect(head).toContainText('Sage Newfield');
+  await expect(head).toContainText('Player ID 4183529 · Born 1994');
+  await expect(page.getByRole('textbox', { name: 'Player ID' })).toHaveCount(0);
+  await expect(page.getByRole('textbox', { name: 'First name' })).toHaveCount(0);
+  await page.getByText('In person').click();
+  await page.getByRole('button', { name: 'Register' }).click();
+  await expect(page.getByRole('status')).toHaveText('You’re registered.');
+  expect(calls.at(-1)?.body).toMatchObject({ mode: 'paper', profile: SAGE });
+  const card = page.getByRole('region', { name: 'Your registration' });
+  await expect(card).toContainText('Hand your list to staff to check in');
+  await expect(card).toContainText('Sage Newfield · Masters');
+});
+
+test('signed in without a Player ID, the box asks for it under the head and Register waits for it', async ({
+  page
+}) => {
+  const { calls } = await mockEvent(page, {}, { ...SAGE, popId: null });
+  await page.goto(`/t/${CODE}?tab=decklist`);
+  await expect(page.locator('.tm-reg-head')).toContainText('Born 1994');
+  await expect(page.locator('.tm-reg-head')).not.toContainText('Player ID');
+  await page.getByText('In person').click();
+  const register = page.getByRole('button', { name: 'Register' });
+  await expect(register).toBeDisabled();
+  await page.getByRole('textbox', { name: 'Player ID' }).fill('5550001');
+  await register.click();
+  await expect(page.getByRole('status')).toHaveText('You’re registered.');
+  expect(calls.at(-1)?.body).toMatchObject({ profile: { ...SAGE, popId: '5550001' } });
+  // The ID went in with this registration only: saving it to the profile is offered, never required.
+  await expect(page.getByRole('button', { name: 'Save ID to my profile' })).toBeVisible();
+});
+
+test('signed in, Someone else? opens blank fields for another player, and Back returns to the account’s own', async ({
+  page
+}) => {
+  const { calls } = await mockEvent(page, {}, SAGE);
+  await page.goto(`/t/${CODE}?tab=decklist`);
+  await page.getByRole('button', { name: 'Someone else?' }).click();
+  await expect(page.getByText('New registration')).toBeVisible();
+  for (const name of ['Player ID', 'First name', 'Last name', 'Birth year']) {
+    await expect(page.getByRole('textbox', { name })).toHaveValue('');
+  }
+  await page.getByRole('button', { name: 'Back' }).click();
+  await expect(page.locator('.tm-reg-head')).toContainText('Sage Newfield');
+  await page.getByRole('button', { name: 'Someone else?' }).click();
+  await page.getByRole('textbox', { name: 'Player ID' }).fill('12345678');
+  await page.getByRole('textbox', { name: 'First name' }).fill('Nia');
+  await page.getByRole('textbox', { name: 'Last name' }).fill('Okafor');
+  await page.getByRole('textbox', { name: 'Birth year' }).fill('2001');
+  await page.getByText('In person').click();
+  await page.getByRole('button', { name: 'Register' }).click();
+  await expect(page.locator('.tm-reg-who')).toContainText('Nia Okafor');
+  expect(calls.at(-1)?.body).toMatchObject({
+    profile: { popId: '12345678', firstName: 'Nia', lastName: 'Okafor', birthDate: '02/27/2001' }
+  });
+});
+
+test('signed in at an unsanctioned event, a name a slip from a registered one is asked about before it registers', async ({
+  page
+}) => {
+  const { calls } = await mockEvent(page, { sanctioned: false }, { ...SAGE, firstName: 'Avry', lastName: 'Chen' });
+  await page.goto(`/t/${CODE}?tab=decklist`);
+  await page.getByText('In person').click();
+  await page.getByRole('button', { name: 'Register' }).click();
+  await expect(page.getByText('Did you mean Avery C.?')).toBeVisible();
+  expect(calls.filter(call => call.method === 'PUT')).toEqual([]);
+  // Registering the name as typed goes on with the list already chosen.
+  await page.getByRole('button', { name: 'No, register Avry Chen' }).click();
+  await expect(page.getByRole('status')).toHaveText('You’re registered.');
+  expect(calls.at(-1)).toMatchObject({
+    method: 'PUT',
+    body: { mode: 'paper', profile: { firstName: 'Avry', lastName: 'Chen' } }
+  });
+});
+
+test('signed in, Someone else? at an unsanctioned event asks about a near name, and the match keeps the list chosen', async ({
+  page
+}) => {
+  const { calls } = await mockEvent(page, { sanctioned: false }, SAGE);
+  await page.goto(`/t/${CODE}?tab=decklist`);
+  await page.getByRole('button', { name: 'Someone else?' }).click();
+  await page.getByRole('textbox', { name: 'First name' }).fill('Avry');
+  await page.getByRole('textbox', { name: 'Last name' }).fill('Chen');
+  await page.getByText('In person').click();
+  await page.getByRole('button', { name: 'Register' }).click();
+  await expect(page.getByText('Did you mean Avery C.?')).toBeVisible();
+  expect(calls.filter(call => call.method === 'PUT')).toEqual([]);
+  await page.getByRole('button', { name: 'Avery C.' }).click();
+  await expect(page.locator('.tm-reg-who')).toContainText('Avery Chen');
+  await expect(page.getByRole('radio', { name: /In person/ })).toBeChecked();
+  await page.getByRole('button', { name: 'Save changes' }).click();
+  await expect(page.getByRole('status')).toHaveText('Changes saved.');
+  expect(calls.at(-1)).toMatchObject({
+    method: 'PUT',
+    body: { mode: 'paper', was: { firstName: 'Avery', lastName: 'Chen' }, profile: { firstName: 'Avery' } }
+  });
+});
+
+test('signed in at an unsanctioned event, the account’s own box asks for no Player ID or birth year', async ({
+  page
+}) => {
+  const { calls } = await mockEvent(page, { sanctioned: false }, SAGE);
+  await page.goto(`/t/${CODE}?tab=decklist`);
+  const head = page.locator('.tm-reg-head');
+  await expect(head).toHaveText(/^Sage NewfieldSomeone else\?$/);
+  await page.getByText('In person').click();
+  await page.getByRole('button', { name: 'Register' }).click();
+  await expect(page.getByRole('status')).toHaveText('You’re registered.');
+  expect(calls.at(-1)?.body).toMatchObject({ profile: { firstName: 'Sage', lastName: 'Newfield' } });
+  await page.getByRole('button', { name: 'More' }).click();
+  await page.getByRole('button', { name: 'Register someone else' }).click();
+  await page
+    .getByRole('group', { name: 'Register someone else' })
+    .getByRole('button', { name: 'Register someone else' })
+    .click();
+  await expect(page.getByRole('region', { name: 'Your registration' })).toHaveCount(0);
 });

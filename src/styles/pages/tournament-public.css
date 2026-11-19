@@ -69,6 +69,10 @@
   font-size: var(--text-xl);
   font-weight: 800;
 }
+/* No clock yet: nothing to hold a place for, so what follows starts at the strip's edge. */
+.tm-you-clock:empty {
+  display: none;
+}
 /* The strip's table, pinned under the head on a phone once the strip has scrolled away. */
 .tm-you-pin {
   position: fixed;

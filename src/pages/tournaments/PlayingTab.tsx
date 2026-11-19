@@ -1,14 +1,17 @@
 /**
  * The dashboard's Playing tab: the account's events from its History (see
  * HistoryPage), split by where they stand. An event in progress leads, with
- * the round being played and the way to its page; then, always, the way into
- * an event by its code; then the events to come; then the latest results,
- * decks as sprites alone, with the way to the rest on /history.
+ * the round being played and the way to its page; with none, the next event
+ * to come does, with its check-in; then, always, the way into an event by its
+ * code; then the other events to come; then the latest results, decks as
+ * sprites alone, with the way to the rest on /history.
  */
 
 import { A } from '@solidjs/router';
 import { MAIN_SITE } from '../../lib/constants';
-import { t } from '../../lib/i18n';
+import { t, timeOfDay } from '../../lib/i18n';
+import { eventDay } from '../../lib/tournament/history';
+import { isWallClock } from '../../../shared/tournament/timeZone';
 import { createResource, For, type Resource, Show } from 'solid-js';
 import { type HistoryEntry, type OwnHistory } from '../../lib/tournament/api';
 import { loadEntry } from '../../lib/tournament/historyCopies';
@@ -63,6 +66,30 @@ function LiveEntry(props: { entry: HistoryEntry }) {
   );
 }
 
+/** The next event the account is in, before its first round: its day, when check-in is, and the way to its registration. */
+function NextEntry(props: { entry: HistoryEntry }) {
+  const day = () => eventDay(props.entry.startsAt, props.entry.startDate);
+  const checkIn = () => props.entry.checkInAt ?? '';
+  return (
+    <section class='tm-dash-live'>
+      <p class='tm-dash-live-event muted'>
+        {props.entry.name || props.entry.code}
+        <Show when={day()}>{text => <> · {text()}</>}</Show>
+      </p>
+      <p class='tm-dash-live-big'>
+        {isWallClock(checkIn()) ? t('Check-in {time}', { time: timeOfDay(checkIn()) }) : t('Registered')}
+      </p>
+      <A class='btn btn-primary' href={`/t/${props.entry.code}`}>
+        {t('Your registration')}
+      </A>
+    </section>
+  );
+}
+
+/** Events to come, soonest first; one with no start time set goes last. */
+const soonest = (a: HistoryEntry, b: HistoryEntry) =>
+  Number(!a.startsAt) - Number(!b.startsAt) || a.startsAt.localeCompare(b.startsAt);
+
 function Group(props: { title: string; entries: readonly HistoryEntry[]; more?: boolean }) {
   return (
     <Show when={props.entries.length > 0}>
@@ -113,9 +140,13 @@ export function PlayingTab(props: { history: Resource<OwnHistory>; onRetry: () =
   const entries = () => latestValue(props.history)?.entries;
   const byStatus = (status: HistoryEntry['status']) => (entries() ?? []).filter(entry => entry.status === status);
   const finished = () => byStatus('finished');
+  const upcoming = () => byStatus('upcoming').sort(soonest);
+  // With nothing being played, the next event leads, out of the list of the rest.
+  const next = () => (byStatus('live').length === 0 ? upcoming()[0] : undefined);
   return (
     <>
       <For each={byStatus('live')}>{entry => <LiveEntry entry={entry} />}</For>
+      <Show when={next()}>{entry => <NextEntry entry={entry()} />}</Show>
       {/* Shown whatever History holds, or while it loads or fails: a code needs none of it. */}
       <section class='tm-dash-section'>
         <div class='tm-dash-section-head'>
@@ -129,7 +160,7 @@ export function PlayingTab(props: { history: Resource<OwnHistory>; onRetry: () =
       >
         {list => (
           <Show when={list().length > 0} fallback={<Welcome />}>
-            <Group title={t('Coming up')} entries={byStatus('upcoming')} />
+            <Group title={t('Coming up')} entries={upcoming().filter(entry => entry !== next())} />
             <Group title={t('Results')} entries={finished().slice(0, RECENT)} more={finished().length > RECENT} />
           </Show>
         )}
