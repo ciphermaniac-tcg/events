@@ -10,7 +10,7 @@
  */
 
 import { A, useLocation } from '@solidjs/router';
-import { createSignal, type JSX, Match, Show, Switch } from 'solid-js';
+import { createResource, createSignal, type JSX, Match, Show, Switch } from 'solid-js';
 import { type AccountSetup, ApiError, call, errorText, json, type Me, setUpAccount } from '../../lib/tournament/api';
 import { latestValue } from '../../lib/resource';
 import { ownPath } from '../../lib/ownPath';
@@ -18,6 +18,7 @@ import { ErrorLine, Field } from './Field';
 import { t } from '../../lib/i18n';
 import { TournamentHero } from './Hero';
 import { session } from './session';
+import { Skeleton } from '@ciphermaniac/design/components/Skeleton';
 import '../../styles/pages/tournament-welcome.css';
 
 type Stage = 'asking' | 'sending' | 'refused' | 'expired';
@@ -115,6 +116,17 @@ function NewAccount() {
   const [birthDate, setBirthDate] = createSignal('');
   const [stage, setStage] = createSignal<Stage>('asking');
   const [error, setError] = createSignal<string | null>(null);
+  const fail = (err: unknown) => {
+    setStage(stageFor(err));
+    setError(errorText(err));
+  };
+  // Without a sign-up waiting, the form could only end at sign-in: that is asked for first.
+  const [waiting] = createResource(() =>
+    call('/api/auth/age').then(
+      () => true,
+      (err: unknown) => (err instanceof ApiError && err.status === 410 ? fail(err) : true)
+    )
+  );
 
   async function send(event: SubmitEvent) {
     event.preventDefault();
@@ -126,18 +138,17 @@ function NewAccount() {
       // A full load, so every part of the page reads the new session.
       window.location.assign(next);
     } catch (err) {
-      setStage(stageFor(err));
-      setError(errorText(err));
+      fail(err);
     }
   }
 
   return (
     <Page title={t('Set up your account')}>
-      <Switch>
+      <Switch fallback={<Skeleton height='240px' />}>
         <Match when={stage() === 'refused' || stage() === 'expired'}>
           <Answer stage={stage()} error={error()} />
         </Match>
-        <Match when={true}>
+        <Match when={waiting()}>
           <form class='tm-box-bar tm-welcome-form' onSubmit={event => void send(event)}>
             <SetupFields setup={setup()} onSetup={setSetup} />
             <Field id='welcome-birth' label={t('Birth date')}>

@@ -72,6 +72,15 @@ function readProfile(value: string): Profile | null {
   }
 }
 
+/** Whether a wait is still there for `token`, read without using it up: one lookup by its key. */
+export async function signupWaits(db: D1Like, token: string, now = Date.now()): Promise<boolean> {
+  const row = await db
+    .prepare('SELECT 1 AS waits FROM pending_signups WHERE token_hash = ? AND expires_at > ?')
+    .bind(await sha256(token), now)
+    .first<{ waits: number }>();
+  return row !== null;
+}
+
 /** Deletes every wait that ran out. Each sign-up, each age check and the idle sweep run it. */
 export const sweepSignups = (db: D1Like, now: number) =>
   db.prepare('DELETE FROM pending_signups WHERE expires_at <= ?').bind(now);

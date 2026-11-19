@@ -2,15 +2,15 @@
  * The age check a new sign-up waits on, against a mocked function: an adult
  * goes on to where sign-in started with the username and name given, a minor
  * is told accounts are for adults with no form left to try again, and a wait
- * that ran out offers sign-in. Signed in, the page is an older account's one
+ * that ran out, or none at all, offers sign-in. Signed in, the page is an older account's one
  * offer of a username and name, which Not now turns down.
  */
 
 import { expect, type Page } from '@playwright/test';
 import { test } from './network-guard';
 
-/** Answers the age check with `status` and `body`, and records what each ask sent. */
-async function mockAgeCheck(page: Page, status: number, body: unknown): Promise<unknown[]> {
+/** Answers the age check with `status` and `body`, and records what each ask sent; `waiting`: a sign-up waits. */
+async function mockAgeCheck(page: Page, status: number, body: unknown, waiting = true): Promise<unknown[]> {
   const sent: unknown[] = [];
   await page.route('**/api/**', async route => {
     const request = route.request();
@@ -18,6 +18,10 @@ async function mockAgeCheck(page: Page, status: number, body: unknown): Promise<
     if (pathname === '/api/auth/age' && request.method() === 'POST') {
       sent.push(request.postDataJSON());
       await route.fulfill({ status, json: body });
+    } else if (pathname === '/api/auth/age') {
+      await route.fulfill(
+        waiting ? { status: 204 } : { status: 410, json: { error: 'Please sign in again to continue.' } }
+      );
     } else if (pathname === '/api/me') {
       await route.fulfill({ json: { user: null, providers: ['google'] } });
     } else {
@@ -58,6 +62,14 @@ test('a wait that ran out offers sign-in again', async ({ page }) => {
   await page.getByRole('button', { name: 'Continue' }).click();
   await expect(page.getByText('Please sign in again to continue.')).toBeVisible();
   await expect(page.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/settings');
+});
+
+test('without a sign-up waiting, the page asks for sign-in before any form', async ({ page }) => {
+  await mockAgeCheck(page, 410, { error: 'Please sign in again to continue.' }, false);
+  await page.goto('/welcome');
+  await expect(page.getByText('Please sign in again to continue.')).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/settings');
+  await expect(page.getByLabel('Birth date')).toHaveCount(0);
 });
 
 test('an older account’s offer of a username and name can be turned down, and goes on', async ({ page }) => {

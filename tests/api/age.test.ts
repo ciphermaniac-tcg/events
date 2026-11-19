@@ -85,6 +85,20 @@ function checkAge(cookie: string, birthDate: string) {
   return hit(ageCheck.onRequestPost as Handler, '/api/auth/age', {}, { method: 'POST', cookie, body: { birthDate } });
 }
 
+test('the welcome page can tell whether a sign-up waits before asking for a birth date', async () => {
+  const waiting = await asGoogle('new', 'new@example.com', googleCallback);
+  const ask = (cookie?: string) => hit(ageCheck.onRequestGet as Handler, '/api/auth/age', {}, { cookie });
+  const held = cookieOf(waiting, 'cm_signup');
+  assert.equal((await ask(held)).status, 204);
+  assert.equal((await ask()).status, 410);
+  assert.equal(count('pending_signups'), 1, 'asking uses nothing up');
+  const stale = await ask('cm_signup=spent');
+  assert.equal(stale.status, 410, 'a cookie with no wait behind it asks for sign-in');
+  assert.equal(stale.headers.get('cache-control'), 'no-store');
+  raw().prepare('UPDATE pending_signups SET expires_at = 0').run();
+  assert.equal((await ask(held)).status, 410, 'a wait that ran out asks for sign-in');
+});
+
 test('a sign-up under 16 makes no account and keeps nothing the provider sent', async () => {
   const waiting = await asGoogle('kid', 'kid@example.com', googleCallback);
   assert.equal(waiting.headers.get('location'), '/welcome');
