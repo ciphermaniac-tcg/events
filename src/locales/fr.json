@@ -1633,5 +1633,6 @@
   "Add {n} minutes": {
     "one": "Ajouter {n} minute",
     "other": "Ajouter {n} minutes"
-  }
+  },
+  "Copy stream overlay link": "Copier le lien de l’overlay pour le stream"
 }

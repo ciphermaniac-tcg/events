@@ -16,7 +16,7 @@ function followButton(place: () => void, close: () => void) {
 export function OptionsMenu(props: {
   name: string;
   staff?: boolean;
-  /** Any item closes the menu; without it, only one marked data-closes-menu does. */
+  /** Any item closes the menu, unless marked data-keeps-menu; without it, only one marked data-closes-menu does. */
   closeOnSelect?: boolean;
   busy?: boolean;
   /** The trigger's look, name and face, when it is not the row's "more" dots (a split button's caret). */
@@ -85,7 +85,11 @@ export function OptionsMenu(props: {
       onClick={event => {
         event.stopPropagation();
         const item = (event.target as Element).closest('.tm-menu-item');
-        if (item && (props.closeOnSelect || item.hasAttribute('data-closes-menu'))) {
+        if (
+          item &&
+          !item.hasAttribute('data-keeps-menu') &&
+          (props.closeOnSelect || item.hasAttribute('data-closes-menu'))
+        ) {
           close();
         }
       }}

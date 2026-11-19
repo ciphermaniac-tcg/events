@@ -10,12 +10,13 @@ import { hasPlayed, hasStarted, podOf } from '../../../shared/tournament/rounds'
 import { type Player, playerName } from '../../../shared/tournament/types';
 import { type ReturnEffects, returnEffects } from '../../../shared/tournament/returns';
 import { isSanctioned } from '../../../shared/tournament/view';
-import { type Manage, releaseReporter } from '../../lib/tournament/api';
+import type { Manage } from '../../lib/tournament/api';
 import { t } from '../../lib/i18n';
 import { ConfirmAction } from './ConfirmAction';
 import { EditPlayerDialog } from './EditPlayer';
 import type { ManageState } from './manageState';
 import { OptionsMenu } from './OptionsMenu';
+import { mayRelease, ReleaseAction } from './TableMenu';
 
 /**
  * Static seating: a player who cannot move between tables keeps one. Saved
@@ -53,38 +54,6 @@ function FixedTableField(props: { state: ManageState; player: Player }) {
         onChange={e => void save(e)}
       />
     </label>
-  );
-}
-
-/**
- * Lets another device report for a player, as when they change phones or
- * someone else claimed them first, where players report. At an unsanctioned
- * event the same release undoes the Claim a signed-in account made on the
- * player, reporting or not, and there it reads as unlinking them. Staff are
- * not shown which players an account holds.
- */
-const reportsFor = (manage: Manage, player: Player) => manage.settings.playerReporting && player.droppedAfter === null;
-
-/** Whether ReleaseAction has anything to offer for the player. */
-const mayRelease = (manage: Manage, player: Player) => reportsFor(manage, player) || !isSanctioned(manage);
-
-function ReleaseAction(props: { state: ManageState; manage: Manage; player: Player }) {
-  const reporting = () => reportsFor(props.manage, props.player);
-  const name = () => playerName(props.player);
-  return (
-    <Show when={mayRelease(props.manage, props.player)}>
-      <ConfirmAction
-        label={reporting() ? t('Reset reporting') : t('Unlink account')}
-        class='tm-menu-item'
-        question={
-          reporting()
-            ? t('Let another device report for {name}?', { name: name() })
-            : t('Unlink {name} from their account?', { name: name() })
-        }
-        confirmLabel={reporting() ? t('Reset') : t('Unlink')}
-        onConfirm={() => void props.state.act(releaseReporter(props.manage.code, props.player.id))}
-      />
-    </Show>
   );
 }
 

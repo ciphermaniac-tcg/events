@@ -11,12 +11,13 @@
  */
 
 import { createSignal, For, onCleanup, onMount, Show } from 'solid-js';
-import type { Match, Outcome, Round } from '../../../shared/tournament/types';
+import type { Match, Outcome, Pod, Round } from '../../../shared/tournament/types';
 import { msg, t } from '../../lib/i18n';
 import { RESULT_WORDS, type SeatTag } from '../../lib/tournament/present';
 import { changeQuestion } from '../../lib/tournament/staff';
 import { DeckIcons } from './DeckIcons';
 import { OptionsMenu } from './OptionsMenu';
+import { SeatResets, StreamLink, type TableMenuOf } from './TableMenu';
 import { ExtensionClock } from './ExtensionClock';
 import { inertOutside, keepTabIn } from '../../lib/focusTrap';
 
@@ -61,6 +62,9 @@ export function ResultSheet(props: {
   onPick: (outcome: Outcome) => void;
   onClose: () => void;
   onTimeExtension?: () => void;
+  /** What the table's menu adds to its results (see TableMenu). */
+  menu: TableMenuOf;
+  pod: Pod;
 }) {
   const [ready, setReady] = createSignal(false);
   /** A change to a result that stands, waiting on its second press. */
@@ -168,13 +172,15 @@ export function ResultSheet(props: {
       >
         <div class='tm-sheet-top'>
           <strong>{t('Table {table}', { table: props.match.table })}</strong>
-          <Show when={props.onTimeExtension}>
-            <OptionsMenu name={t('table {table}', { table: props.match.table })} closeOnSelect>
+          <OptionsMenu name={t('table {table}', { table: props.match.table })} closeOnSelect>
+            <SeatResets {...props.menu} match={props.match} />
+            <Show when={props.onTimeExtension}>
               <button type='button' class='tm-menu-item' onClick={() => props.onTimeExtension?.()}>
                 {t('Time extension')}
               </button>
-            </OptionsMenu>
-          </Show>
+            </Show>
+            <StreamLink {...props.menu} pod={props.pod} table={props.match.table} />
+          </OptionsMenu>
           <span
             class='tm-result-label'
             classList={{ 'is-open': props.outcome === 'pending' }}

@@ -70,6 +70,7 @@ import { MatchTable } from './MatchTable';
 import { ChampionLine, ClockControls, DeleteRound, RepairControl } from './RoundControls';
 import { createResultEntry } from './resultEntry';
 import { type CorrectableCell, CorrectableResult, createRoundCorrections } from './Corrections';
+import { SeatResets, StreamLink, type TableMenuOf } from './TableMenu';
 
 // Decks are named now and then, not every round, so their picker loads when first asked for.
 const CutBracket = lazyPanel(() => import('./Bracket').then(m => ({ default: m.CutBracket })));
@@ -116,6 +117,8 @@ interface ResultProps {
   onOpen?: () => void;
   /** A past Swiss round's result, which can only be corrected (see Corrections.tsx); null otherwise. */
   past: CorrectableCell | null;
+  /** What the table's menu adds to its results (see TableMenu). */
+  menu: TableMenuOf;
 }
 
 /** What the row shows standing for the match: the result on its way, or the one that stands. */
@@ -280,23 +283,23 @@ function StandingResult(props: ResultProps) {
         <ResultSlot {...props} open={open()} />
       </Show>
       <span class='tm-result-acts' classList={{ 'is-locked': props.locked || Boolean(props.onOpen) }}>
-        <Show when={even() || props.onTimeExtension}>
-          <OptionsMenu name={t('table {table}', { table: props.match.table })} busy={props.locked} closeOnSelect>
-            <Show when={even()}>
-              <button type='button' class='tm-menu-item' onClick={() => props.onReport('tie')}>
-                {t('Tie')}
-              </button>
-              <button type='button' class='tm-menu-item' onClick={() => props.onReport('double-loss')}>
-                {t('Double loss')}
-              </button>
-            </Show>
-            <Show when={props.onTimeExtension}>
-              <button type='button' class='tm-menu-item' onClick={() => props.onTimeExtension?.()}>
-                {t('Time extension')}
-              </button>
-            </Show>
-          </OptionsMenu>
-        </Show>
+        <OptionsMenu name={t('table {table}', { table: props.match.table })} busy={props.locked} closeOnSelect>
+          <SeatResets {...props.menu} match={props.match} />
+          <Show when={even()}>
+            <button type='button' class='tm-menu-item' onClick={() => props.onReport('tie')}>
+              {t('Tie')}
+            </button>
+            <button type='button' class='tm-menu-item' onClick={() => props.onReport('double-loss')}>
+              {t('Double loss')}
+            </button>
+          </Show>
+          <Show when={props.onTimeExtension}>
+            <button type='button' class='tm-menu-item' onClick={() => props.onTimeExtension?.()}>
+              {t('Time extension')}
+            </button>
+          </Show>
+          <StreamLink {...props.menu} pod={props.pod} table={props.match.table} />
+        </OptionsMenu>
       </span>
     </div>
   );
@@ -506,6 +509,7 @@ function TableSheet(props: {
   onPick: (outcome: Outcome) => void;
   onClose: () => void;
   onTimeExtension?: () => void;
+  menu: TableMenuOf;
 }) {
   return (
     <Suspense>
@@ -521,6 +525,8 @@ function TableSheet(props: {
         onPick={outcome => props.onPick(outcome)}
         onClose={() => props.onClose()}
         onTimeExtension={props.onTimeExtension}
+        menu={props.menu}
+        pod={props.pod}
       />
     </Suspense>
   );
@@ -768,6 +774,28 @@ function createTables(
   return (match: Match) => tables().get(match) ?? tableState(match, round() as Round);
 }
 
+/** The dialogs a table's menu opens, over the round: its time extension. */
+function createTableDialogs(props: { state: ManageState; pod: Pod }, closeSheet: () => void) {
+  const [extension, setExtension] = createSignal<ExtensionSelection | null>(null);
+  onMount(() => warmChunks([TimeExtensionDialog.preload]));
+  return {
+    extend(match: Match, r: Round) {
+      closeSheet();
+      props.state.clearError();
+      setExtension({ pod: props.pod.category, round: r.number, match });
+    },
+    view: () => (
+      <Show when={extension()} keyed>
+        {selection => (
+          <Suspense>
+            <TimeExtensionDialog state={props.state} selection={selection} onClose={() => setExtension(null)} />
+          </Suspense>
+        )}
+      </Show>
+    )
+  };
+}
+
 export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod; locked?: boolean }) {
   const tom = () => props.manage.mode === 'tom';
   const ended = () => props.manage.settings.finished;
@@ -776,8 +804,6 @@ export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod
   const latest = () => latestRound(props.pod);
   const [picked, setPicked] = createSignal<number | null>(null);
   const [asking, setAsking] = createSignal<Asking | null>(null);
-  const [extension, setExtension] = createSignal<ExtensionSelection | null>(null);
-  onMount(() => warmChunks([TimeExtensionDialog.preload]));
   const entry = createResultEntry(
     () => props.state,
     () => props.pod
@@ -811,6 +837,7 @@ export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod
   const live = () => !props.locked && !tom() && timed() && !ended();
   // A TOM event's results are entered in TOM, so its rows open no sheet and take no presses.
   const { opens, inRow, openSheet, sheetMatch, closeSheet } = createRowSheet(() => locked() || tom());
+  const dialogs = createTableDialogs(props, closeSheet);
   // Only the table asked about, and the one asked before it, draw again as the question moves.
   const askingAt = createSelector(() => {
     const choice = asking();
@@ -827,11 +854,6 @@ export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod
     (r, m) => Boolean(entry.sentFor(r, m) ?? entry.failedFor(r, m)) || isAsking(m)
   );
   const canExtend = (match: Match) => !locked() && match.p2 !== null && isOpen(match);
-  function editExtension(match: Match, r: Round) {
-    closeSheet();
-    props.state.clearError();
-    setExtension({ pod: props.pod.category, round: r.number, match });
-  }
   // A new round, or another division, starts on its current round again; other changes keep the round shown.
   const turn = createMemo(() => `${props.pod.category} ${latest()?.number ?? 0}`);
   createEffect(on(turn, () => setPicked(null), { defer: true }));
@@ -942,8 +964,9 @@ export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod
                     onRecord={() => record(match)}
                     onAccept={outcome => send(match, outcome)}
                     onOpen={opens() ? () => openSheet(match) : undefined}
-                    onTimeExtension={canExtend(match) ? () => editExtension(match, r()) : undefined}
+                    onTimeExtension={canExtend(match) ? () => dialogs.extend(match, r()) : undefined}
                     past={fixes.cell(match, r())}
+                    menu={props}
                     onKeep={() => {
                       setAsking(null);
                       backToFilter();
@@ -1022,7 +1045,8 @@ export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod
                       send(picked, outcome, false);
                     }}
                     onClose={closeSheet}
-                    onTimeExtension={canExtend(match()) ? () => editExtension(match(), r()) : undefined}
+                    onTimeExtension={canExtend(match()) ? () => dialogs.extend(match(), r()) : undefined}
+                    menu={props}
                   />
                 )}
               </Show>
@@ -1031,13 +1055,7 @@ export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod
         }}
       </Show>
       {fixes.dialog(names, props.state)}
-      <Show when={extension()} keyed>
-        {selection => (
-          <Suspense>
-            <TimeExtensionDialog state={props.state} selection={selection} onClose={() => setExtension(null)} />
-          </Suspense>
-        )}
-      </Show>
+      {dialogs.view()}
     </div>
   );
 }

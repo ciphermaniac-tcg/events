@@ -2006,13 +2006,14 @@ test('result options stay behind the menu and preserve manual confirmation', asy
   const menu = page.getByRole('group', { name: 'More for table 1', exact: true });
   await expect(page.getByRole('button', { name: 'Tie', exact: true })).toHaveCount(0);
   await more.click();
-  await expect(menu.getByRole('button', { name: 'Tie', exact: true })).toBeFocused();
+  // The menu opens on its first control, the first seat's Unlink.
+  await expect(menu.getByRole('button').first()).toBeFocused();
   await page.keyboard.press('Escape');
   await expect(menu).toHaveCount(0);
   await expect(more).toBeFocused();
   // Focus moving out past the button closes it, as the account menu and the badge list do.
   await page.keyboard.press('Enter');
-  await expect(menu.getByRole('button', { name: 'Tie', exact: true })).toBeFocused();
+  await expect(menu.getByRole('button').first()).toBeFocused();
   await page.keyboard.press('Shift+Tab');
   await expect(more).toBeFocused();
   await expect(menu).toBeVisible();
@@ -2203,6 +2204,43 @@ test('table extensions use the match menu and support editing and removal @mobil
   expect(t.pods[0]!.rounds[0]!.timeLeft).toBe(-120);
 });
 
+test('a table menu resets a seat first and copies the table’s stream overlay link @mobile', async ({
+  page,
+  context
+}) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  const t = event(4, 0, true);
+  const match = firstMatch(t);
+  await mockConsole(page, t, settingsOf({ playerReporting: true }));
+  if ((page.viewportSize()?.width ?? 1000) <= 900) {
+    await page.locator('.tm-matches tbody tr:not(.tm-group-row)').first().click();
+  }
+  await page.getByRole('button', { name: `More for table ${match.table}`, exact: true }).click();
+  const seats = page.locator('.tm-menu-seats p');
+  const name = (id: string | null) => t.players.find(p => p.id === id)?.firstName ?? '';
+  // Seat one, then seat two, each with Reset.
+  await expect(seats).toHaveText([
+    new RegExp(`^${name(match.p1)} .*Reset$`),
+    new RegExp(`^${name(match.p2)} .*Reset$`)
+  ]);
+  const copy = page.getByRole('button', { name: 'Copy stream overlay link', exact: true });
+  await copy.click();
+  // The menu stays open to say the link was copied.
+  await expect(page.getByRole('button', { name: 'Copied', exact: true })).toBeVisible();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+    `${new URL(page.url()).origin}/t/${CODE}?stream=table&table=${match.table}`
+  );
+  const released = page.waitForRequest(
+    request => request.method() === 'DELETE' && request.url().includes(`/report?player=${match.p1}`)
+  );
+  await seats.first().getByRole('button', { name: 'Reset', exact: true }).click();
+  await page
+    .getByRole('group', { name: /Let another device report for/ })
+    .getByRole('button', { name: 'Reset' })
+    .click();
+  await released;
+});
+
 test('canceling or failing an extension keeps the result unchanged @mobile', async ({ page }) => {
   const t = event(4, 0, true);
   const { table } = t.pods[0]!.rounds[0]!.matches[0]!;
@@ -2274,7 +2312,8 @@ test('Escape closes the extension menu before the mobile result sheet @mobileOnl
   const sheet = page.getByRole('dialog', { name: 'Result, table 1', exact: true });
   const more = sheet.getByRole('button', { name: 'More for table 1', exact: true });
   await more.click();
-  await expect(sheet.getByRole('button', { name: 'Time extension', exact: true })).toBeFocused();
+  // The menu opens on its first seat's Unlink, ahead of the results.
+  await expect(sheet.getByRole('button', { name: 'Unlink', exact: true }).first()).toBeFocused();
   await page.keyboard.press('Escape');
   await expect(sheet).toBeVisible();
   await expect(more).toBeFocused();
