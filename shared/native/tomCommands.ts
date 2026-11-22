@@ -42,7 +42,8 @@ export interface TomStatus {
  * One result for TOM, as the parts of its match slip code and the code
  * itself, so the app can check the code against the event's layout and
  * refuse one that does not spell it: a bare code can read two ways in a pod
- * with flights. Outcome 1 is Player 1 winning, 2 Player 2, 3 a tie.
+ * with flights. Outcome 1 is Player 1 winning, 2 Player 2, 3 a tie. The
+ * app's helper enters it only when TOM's live pairings seat p1 and p2 there.
  */
 export interface SubmitEntry {
   /** TOM's category code for the pod. */
@@ -53,6 +54,9 @@ export interface SubmitEntry {
   table: number;
   outcome: 1 | 2 | 3;
   code: string;
+  /** TOM player IDs in seats 1 and 2. */
+  p1: string;
+  p2: string;
 }
 
 /**

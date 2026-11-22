@@ -66,8 +66,8 @@ export function slipEntry(slip: MatchSlip, outcome: SlipOutcome): SubmitEntry | 
   }
   const digit = OUTCOME_DIGITS[outcome];
   const data = `${lead(slip)}${String(slip.table).padStart(slip.width, '0')}${digit}`;
-  const { pod, flight, round, table } = slip;
-  return { pod, flight, round, table, outcome: digit, code: `${data}${checkDigit(data)}` };
+  const { pod, flight, round, table, p1, p2 } = slip;
+  return { pod, flight, round, table, outcome: digit, code: `${data}${checkDigit(data)}`, p1, p2 };
 }
 
 function tableWidth(highest: number): number {

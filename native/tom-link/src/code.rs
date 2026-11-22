@@ -30,6 +30,10 @@ pub struct Entry {
     /// 0 pending, 1 player 1 wins, 2 player 2 wins, 3 tie, 6 double loss.
     pub outcome: u8,
     pub code: String,
+    /// The TOM player IDs in seats 1 and 2: the helper enters the code only
+    /// when TOM's live pairings seat exactly these two at that table.
+    pub p1: String,
+    pub p2: String,
 }
 
 /// Returns why TOM must not be sent this entry, or `Ok` when it may be.
@@ -143,6 +147,8 @@ pub(crate) fn entry(
         table,
         outcome,
         code: code.to_owned(),
+        p1: "1".to_owned(),
+        p2: "2".to_owned(),
     }
 }
 
@@ -155,8 +161,8 @@ mod tests {
     #[test]
     fn reads_entries_as_the_webview_sends_them() {
         let sent = r#"[
-            {"pod":2,"flight":null,"round":1,"table":3,"outcome":1,"code":"210319"},
-            {"pod":2,"flight":2,"round":1,"table":30,"outcome":2,"code":"2213023"}
+            {"pod":2,"flight":null,"round":1,"table":3,"outcome":1,"code":"210319","p1":"1","p2":"2"},
+            {"pod":2,"flight":2,"round":1,"table":30,"outcome":2,"code":"2213023","p1":"1","p2":"2"}
         ]"#;
         let entries: Vec<Entry> = serde_json::from_str(sent).expect("the webview's entries");
         assert_eq!(

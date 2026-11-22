@@ -78,7 +78,9 @@ test('a single Masters pod prints pod, round, table, outcome and check digit', (
     round: 1,
     table: 1,
     outcome: 2,
-    code: '21121'
+    code: '21121',
+    p1: 'm1a',
+    p2: 'm1b'
   });
 });
 
@@ -100,7 +102,9 @@ test('a pod in two flights adds the first seat’s flight, and tables pad to the
     round: 1,
     table: 30,
     outcome: 2,
-    code: '2213023'
+    code: '2213023',
+    p1: 'm30a',
+    p2: 'm30b'
   });
   assert.equal(slipCode(slipAt(slips, 'junior', 1), 'tie'), '01131');
 });
