@@ -224,6 +224,26 @@ test("another site's post is refused without using the ticket, which the app's t
   assert.equal(own.headers.get('location'), '/settings');
 });
 
+test('a redeem that fails partway goes where any failed sign-in goes', async t => {
+  const ticket = await appTicket();
+  t.mock.method(console, 'error', () => undefined);
+  const db = env.TOURNAMENT_DB!;
+  env.TOURNAMENT_DB = new Proxy(db, {
+    get: (target, key) =>
+      key === 'prepare'
+        ? () => {
+            throw new Error('D1 is down');
+          }
+        : Reflect.get(target, key)
+  });
+  try {
+    const answer = await redeemWith({ ticket, verifier: VERIFIER });
+    assert.equal(answer.headers.get('location'), '/settings?signin=failed');
+  } finally {
+    env.TOURNAMENT_DB = db;
+  }
+});
+
 test('a redeem missing its ticket or verifier is refused', async () => {
   assert.equal((await redeemWith({ verifier: VERIFIER })).headers.get('location'), '/settings?signin=failed');
   assert.equal((await redeemWith({ ticket: 'abc' })).headers.get('location'), '/settings?signin=failed');
