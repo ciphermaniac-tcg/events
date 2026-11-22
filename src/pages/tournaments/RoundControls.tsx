@@ -115,10 +115,12 @@ export function ClockControls(props: { state: ManageState; pod: Pod; round: Roun
   };
   const [tomTrouble, setTomTrouble] = createSignal<string | null>(null);
   const send = (type: 'startClock' | 'stopClock') => {
-    void props.state.send({ type, pod: props.pod.category });
+    const { state, pod } = props;
+    const sent = state.send({ type, pod: pod.category });
     if (type === 'startClock') {
       setTomTrouble(null);
-      void startInTom(props.state, props.pod).then(setTomTrouble);
+      // TOM starts only once the site's own clock has.
+      void sent.then(ok => (ok ? startInTom(state, pod) : null)).then(setTomTrouble);
     }
   };
   const adjust = (seconds: number) => void props.state.send({ type: 'adjustClock', pod: props.pod.category, seconds });

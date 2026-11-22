@@ -3321,3 +3321,39 @@ test('a round paired as the organizer leaves the console changes nothing where t
   await page.evaluate(() => new Promise(requestAnimationFrame));
   await expect(page).toHaveURL('/?tab=organizing');
 });
+
+test('in the desktop app, TOM’s round starts only once the site has started the clock', async ({ page }) => {
+  await page.addInitScript(() => {
+    const calls: string[] = [];
+    Object.assign(window, {
+      __CM_TOM__: true,
+      __tomCalls: calls,
+      __TAURI_INTERNALS__: {
+        invoke: (command: string) => {
+          calls.push(command);
+          return Promise.resolve({ result: 'started' });
+        }
+      }
+    });
+  });
+  const t = event(8, 0, true);
+  await mockConsole(page, t, settingsOf({}));
+  const manage = { ...manageOf(CODE, t, { mode: 'tom', settings: settingsOf({}) }), reports: [], requests: [] };
+  await page.route(`**/api/tournaments/${CODE}/manage`, route =>
+    new URL(route.request().url()).searchParams.has('since')
+      ? route.fulfill({ status: 204 })
+      : route.fulfill({ json: manage })
+  );
+  let refuse = true;
+  await page.route(`**/api/tournaments/${CODE}/commands`, route =>
+    refuse ? route.fulfill({ status: 403, json: { error: 'Not allowed' } }) : route.fulfill({ json: manage })
+  );
+  await page.goto(`/host/${CODE}`);
+  const tomCalls = () => page.evaluate(() => (window as unknown as { __tomCalls: string[] }).__tomCalls);
+  await page.getByRole('button', { name: 'Start clock' }).first().click();
+  await expect(page.getByText('Not allowed')).toBeVisible();
+  expect(await tomCalls()).not.toContain('tom_start_round');
+  refuse = false;
+  await page.getByRole('button', { name: 'Start clock' }).first().click();
+  await expect.poll(tomCalls).toContain('tom_start_round');
+});
