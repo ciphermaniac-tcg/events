@@ -133,10 +133,11 @@ impl Bridge {
     /// Sends entries in order. Each is vetted against its own layout first;
     /// the batch stops at the first entry that is not accepted. Afterwards,
     /// whatever happened, TOM's slip form is closed again if the helper opened it.
-    pub fn submit(&mut self, entries: &[Entry]) -> Vec<SubmitResult> {
+    /// With a `tournament` name, TOM must have that tournament open, and only it.
+    pub fn submit(&mut self, entries: &[Entry], tournament: Option<&str>) -> Vec<SubmitResult> {
         match self.tom.as_mut() {
             Some(tom) => {
-                let results = results::submit_each(entries, |entry| tom.submit(entry));
+                let results = results::submit_each(entries, |entry| tom.submit(entry, tournament));
                 tom.finish();
                 results
             }
@@ -149,10 +150,11 @@ impl Bridge {
 
     /// Presses TOM's Start Round for a pod (TOM category code), or for the
     /// only pod when `category` is `None`. Already started counts as success.
-    pub fn start_round(&mut self, category: Option<u8>) -> StartResult {
+    /// With a `tournament` name, TOM must have that tournament open, and only it.
+    pub fn start_round(&mut self, category: Option<u8>, tournament: Option<&str>) -> StartResult {
         self.tom.as_mut().map_or_else(
             || StartResult::not_ready(NOT_LAUNCHED),
-            |tom| tom.start_round(category),
+            |tom| tom.start_round(category, tournament),
         )
     }
 
@@ -183,11 +185,11 @@ mod tests {
         let status = bridge.status();
         assert!(!status.ready && !status.launched);
         assert_eq!(status.reason.as_deref(), Some(NOT_LAUNCHED));
-        let results = bridge.submit(&[code::entry(2, None, 1, 1, 1, "21113")]);
+        let results = bridge.submit(&[code::entry(2, None, 1, 1, 1, "21113")], None);
         assert_eq!(results, [SubmitResult::not_ready("21113", NOT_LAUNCHED)]);
         assert_eq!(bridge.save(), SaveResult::not_ready(NOT_LAUNCHED));
         assert_eq!(
-            bridge.start_round(Some(2)),
+            bridge.start_round(Some(2), None),
             StartResult::not_ready(NOT_LAUNCHED)
         );
     }
@@ -213,7 +215,7 @@ mod tests {
                 tom_path: None,
                 tom: Some(tom),
             };
-            bridge.submit(&entries);
+            bridge.submit(&entries, None);
             assert_eq!(ops(&server.join().unwrap()), [r#""submit""#, r#""finish""#]);
             if let Some(tom) = bridge.tom.as_mut() {
                 tom.kill();

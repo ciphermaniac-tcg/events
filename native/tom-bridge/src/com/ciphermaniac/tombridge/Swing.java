@@ -170,16 +170,10 @@ final class Swing {
       return null;
    }
 
-   /** A plain (non-submenu) item with this text in any showing frame's menu bar. */
-   static JMenuItem menuItem(String text) {
-      for (Window window : showing()) {
-         JMenuBar bar = window instanceof JFrame frame ? frame.getJMenuBar() : null;
-         JMenuItem item = bar == null ? null : itemIn(bar, text);
-         if (item != null) {
-            return item;
-         }
-      }
-      return null;
+   /** A plain (non-submenu) item with this text in the frame's menu bar. */
+   static JMenuItem menuItem(JFrame frame, String text) {
+      JMenuBar bar = frame.getJMenuBar();
+      return bar == null ? null : itemIn(bar, text);
    }
 
    private static JMenuItem itemIn(JMenuBar bar, String text) {

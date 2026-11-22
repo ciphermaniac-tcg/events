@@ -31,7 +31,7 @@ test('inside the app the site calls the TOM commands through Tauri’s bridge', 
   assert.equal(inNativeApp(), true);
   const entry = { pod: 2, flight: null, round: 1, table: 1, outcome: 1 as const, code: '21113' };
   assert.deepEqual(await nativeTom().submit([entry]), [{ result: 'accepted', code: '21113' }]);
-  assert.deepEqual(calls, [['internals', 'tom_submit', { entries: [entry] }]]);
+  assert.deepEqual(calls, [['internals', 'tom_submit', { entries: [entry], tournament: undefined }]]);
 });
 
 test('starting a pod’s round in TOM names the pod by TOM’s category code and says why it did not start', async () => {
@@ -45,14 +45,14 @@ test('starting a pod’s round in TOM names the pod by TOM’s category code and
       }
     }
   };
-  assert.equal(await startTomRound('masters'), null);
-  assert.equal(await startTomRound('mixed'), 'TOM is not running');
+  assert.equal(await startTomRound('masters', 'Spring Cup'), null);
+  assert.equal(await startTomRound('mixed', 'Spring Cup'), 'TOM is not running');
   assert.deepEqual(calls, [
-    ['tom_start_round', { pod: 2 }],
-    ['tom_start_round', { pod: 10 }]
+    ['tom_start_round', { pod: 2, tournament: 'Spring Cup' }],
+    ['tom_start_round', { pod: 10, tournament: 'Spring Cup' }]
   ]);
   global.window = { __TAURI_INTERNALS__: { invoke: () => Promise.reject(new Error('IPC closed')) } };
-  assert.equal(await startTomRound('masters'), 'IPC closed');
+  assert.equal(await startTomRound('masters', 'Spring Cup'), 'IPC closed');
 });
 
 test('only the desktop app, which marks its window, has TOM; the Android app has the bridge alone', () => {

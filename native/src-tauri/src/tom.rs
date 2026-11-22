@@ -16,7 +16,9 @@
 //!   through `LaunchServices`, so TOM keeps its own Dock icon), finding it
 //!   first when no path is saved. Rejects with a sentence when it cannot.
 //! - `tom_status()` -> `Status`.
-//! - `tom_submit(entries: Entry[])` -> `SubmitResult[]`, one per entry, in order.
+//! - `tom_submit(entries: Entry[], tournament?: string)` -> `SubmitResult[]`,
+//!   one per entry, in order. With `tournament`, TOM must have that tournament
+//!   (by name) open and no other, or nothing is sent.
 //!   Each code must spell exactly its entry's layout (and never table 0) or it
 //!   is rejected unsent. The batch stops at the first entry that is not
 //!   accepted: every later one comes back `not_ready`, unsent.
@@ -25,9 +27,10 @@
 //!   helper opened it, and auto-save is unticked again if the helper ticked it.
 //! - `tom_save()` -> `SaveResult`.
 //! - `tom_open_panel()` -> `null`: shows the TOM panel, opening it if needed.
-//! - `tom_start_round(pod?: number)` -> `StartResult`. `pod` is TOM's category
-//!   code (0 Juniors, 1 Seniors, 2 Masters, 8 Juniors and Seniors, 9 Seniors
-//!   and Masters, 10 everyone); leave it out when the event has one pod.
+//! - `tom_start_round(pod?: number, tournament?: string)` -> `StartResult`.
+//!   `pod` is TOM's category code (0 Juniors, 1 Seniors, 2 Masters, 8 Juniors
+//!   and Seniors, 9 Seniors and Masters, 10 everyone); leave it out when the
+//!   event has one pod. `tournament` as for `tom_submit`.
 //!
 //! ```text
 //! Entry = {                        // computed from the .tdf TOM saved
@@ -213,8 +216,10 @@ pub async fn tom_status(tom: State<'_, Tom>) -> Result<Status, String> {
 pub async fn tom_submit(
     tom: State<'_, Tom>,
     entries: Vec<Entry>,
+    tournament: Option<String>,
 ) -> Result<Vec<SubmitResult>, String> {
-    tom.run(move |_, bridge| bridge.submit(&entries)).await
+    tom.run(move |_, bridge| bridge.submit(&entries, tournament.as_deref()))
+        .await
 }
 
 #[tauri::command]
@@ -223,8 +228,13 @@ pub async fn tom_save(tom: State<'_, Tom>) -> Result<SaveResult, String> {
 }
 
 #[tauri::command]
-pub async fn tom_start_round(tom: State<'_, Tom>, pod: Option<u8>) -> Result<StartResult, String> {
-    tom.run(move |_, bridge| bridge.start_round(pod)).await
+pub async fn tom_start_round(
+    tom: State<'_, Tom>,
+    pod: Option<u8>,
+    tournament: Option<String>,
+) -> Result<StartResult, String> {
+    tom.run(move |_, bridge| bridge.start_round(pod, tournament.as_deref()))
+        .await
 }
 
 #[tauri::command]

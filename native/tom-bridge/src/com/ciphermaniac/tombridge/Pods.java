@@ -73,13 +73,49 @@ final class Pods {
    private Pods() {
    }
 
+   /** The open tournament's window; null when none, or more than one, is open. */
    static JFrame mainFrame() {
+      List<JFrame> frames = tournamentFrames();
+      return frames.size() == 1 ? frames.get(0) : null;
+   }
+
+   private static List<JFrame> tournamentFrames() {
+      List<JFrame> frames = new ArrayList<>();
       for (Window window : Swing.showing()) {
          if (window instanceof JFrame frame && frame.getTitle() != null && frame.getTitle().contains(Tom.TOURNAMENT_MARK)) {
-            return frame;
+            frames.add(frame);
          }
       }
-      return null;
+      return frames;
+   }
+
+   /**
+    * The one open tournament's window, refused when it is not the expected
+    * tournament. TOM titles it after the tournament's name; null expects any.
+    */
+   static JFrame requireFrame(String expected) throws NotReady {
+      List<JFrame> frames = tournamentFrames();
+      List<String> titles = new ArrayList<>();
+      for (JFrame frame : frames) {
+         titles.add(frame.getTitle());
+      }
+      return frames.get(checkTitles(titles, expected));
+   }
+
+   /** Which title is the expected tournament's: the only one, and named as expected. */
+   static int checkTitles(List<String> titles, String expected) throws NotReady {
+      if (titles.isEmpty()) {
+         throw new NotReady("No tournament is open in TOM.");
+      }
+      if (titles.size() > 1) {
+         throw new NotReady("More than one tournament is open in TOM. Leave only this event open.");
+      }
+      String title = titles.get(0);
+      String open = title.substring(title.indexOf(Tom.TOURNAMENT_MARK) + Tom.TOURNAMENT_MARK.length()).strip();
+      if (expected != null && !expected.strip().equals(open)) {
+         throw new NotReady("TOM has \"" + open + "\" open, not this event.");
+      }
+      return 0;
    }
 
    /** The tab pane whose tabs are pods: each tab holds the pod's own round tabs. */
@@ -113,7 +149,10 @@ final class Pods {
       return out;
    }
 
-   /** The pod a category names; with one pod, the category may be left out. */
+   /**
+    * The pod a category names. With one pod, the category may be left out, or
+    * name a pod whose tab title TOM did not show in English.
+    */
    static Pod pick(List<Pod> pods, Integer category) throws NotReady {
       if (pods.isEmpty()) {
          throw new NotReady("No tournament is open in TOM.");
@@ -125,7 +164,7 @@ final class Pods {
          throw new NotReady("This event has " + pods.size() + " pods in TOM. Say which pod's round to start.");
       }
       for (Pod pod : pods) {
-         if (category.equals(pod.category()) || pods.size() == 1) {
+         if (category.equals(pod.category()) || (pod.category() == null && pods.size() == 1)) {
             return pod;
          }
       }

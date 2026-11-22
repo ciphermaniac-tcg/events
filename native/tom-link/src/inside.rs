@@ -112,13 +112,15 @@ impl Tom {
         }
     }
 
-    pub(crate) fn submit(&mut self, entry: &Entry) -> SubmitResult {
+    /// `tournament`: the name TOM must have open; the helper refuses another.
+    pub(crate) fn submit(&mut self, entry: &Entry, tournament: Option<&str>) -> SubmitResult {
         let code = entry.code.as_str();
-        let fields = [
+        let mut fields = vec![
             ("code", code.to_owned()),
             ("pod", entry.pod.to_string()),
             ("round", entry.round.to_string()),
         ];
+        fields.extend(tournament.map(|name| ("tournament", name.to_owned())));
         match self.outcome("submit", &fields) {
             Outcome::Accepted => SubmitResult::accepted(code),
             Outcome::Rejected { message } => SubmitResult::rejected(code, message),
@@ -141,11 +143,16 @@ impl Tom {
         }
     }
 
-    pub(crate) fn start_round(&mut self, category: Option<u8>) -> StartResult {
-        let fields: Vec<_> = category
+    pub(crate) fn start_round(
+        &mut self,
+        category: Option<u8>,
+        tournament: Option<&str>,
+    ) -> StartResult {
+        let mut fields: Vec<_> = category
             .map(|category| ("category", category.to_string()))
             .into_iter()
             .collect();
+        fields.extend(tournament.map(|name| ("tournament", name.to_owned())));
         match self.outcome("start_round", &fields) {
             Outcome::Started => StartResult::Started,
             Outcome::AlreadyStarted => StartResult::AlreadyStarted,
@@ -584,14 +591,14 @@ pub(crate) mod tests {
         let entry = crate::code::entry(2, None, 1, 1, 1, "21113");
         let mut hung_up = tom_answering(None);
         assert!(matches!(
-            hung_up.submit(&entry),
+            hung_up.submit(&entry, None),
             SubmitResult::Uncertain { .. }
         ));
         let mut unsure = tom_answering(Some(
             r#"{"result":"uncertain","reason":"TOM stopped responding."}"#,
         ));
         assert_eq!(
-            unsure.submit(&entry),
+            unsure.submit(&entry, None),
             SubmitResult::uncertain("21113", "TOM stopped responding.")
         );
         for mut tom in [hung_up, unsure] {
@@ -609,10 +616,15 @@ pub(crate) mod tests {
             helper: Some(helper),
         };
         let entry = crate::code::entry(2, None, 3, 1, 1, "23119");
-        assert_eq!(tom.submit(&entry), SubmitResult::accepted("23119"));
+        assert_eq!(
+            tom.submit(&entry, Some("Spring Cup")),
+            SubmitResult::accepted("23119")
+        );
         let seen: serde_json::Value = serde_json::from_str(&server.join().unwrap()[0]).unwrap();
-        let expected =
-            json!({ "token": token, "op": "submit", "code": "23119", "pod": "2", "round": "3" });
+        let expected = json!({
+            "token": token, "op": "submit", "code": "23119", "pod": "2", "round": "3",
+            "tournament": "Spring Cup"
+        });
         assert_eq!(seen, expected);
         tom.kill();
     }

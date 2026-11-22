@@ -69,7 +69,10 @@ export function NativeSend(props: { event: string; tournament: Tournament; pendi
   async function send(items: readonly Item[]) {
     setSending(true);
     try {
-      const results = await tom.submit(items.map(item => item.entry));
+      const results = await tom.submit(
+        items.map(item => item.entry),
+        props.tournament.info.name
+      );
       keep(recorded(current(), items, results));
       setSaid(summary(results, items.length));
     } catch (err) {
