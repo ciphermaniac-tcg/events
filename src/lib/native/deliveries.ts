@@ -24,12 +24,14 @@ export interface Delivery {
   state: 'accepted' | 'uncertain' | 'contradicted';
 }
 
-/** By pod code, round and table. */
+/** By pod code, round, table and seats, so a re-paired table is a new match. */
 export type Deliveries = Record<string, Delivery>;
 
 /** A result ready to send, with what TOM's file held for its match. */
 export interface Item {
   entry: SubmitEntry;
+  /** Its match's key in Deliveries. */
+  key: string;
   sent: Outcome;
   before: Outcome;
 }
@@ -46,7 +48,8 @@ interface Result {
 /** A result sent again only on its own. */
 export type Held = Item & { state: 'uncertain' | 'contradicted' };
 
-const keyOf = (match: { pod: number; round: number; table: number }) => `${match.pod}:${match.round}:${match.table}`;
+const keyOf = (match: { pod: number; round: number; table: number; p1: string; p2: string | null }) =>
+  `${match.pod}:${match.round}:${match.table}:${match.p1}:${match.p2}`;
 
 /**
  * What TOM's saved file says of each delivery: one it shows as sent, or
@@ -79,12 +82,13 @@ export function plan(
   const held: Held[] = [];
   for (const result of pending) {
     const entry = resultEntry(slips, result);
-    const slip = entry && slips.find(s => keyOf(s) === keyOf(entry));
-    if (!entry || !slip || slip.outcome === result.outcome) {
+    const key = entry && keyOf({ ...entry, p1: result.p1, p2: result.p2 });
+    const slip = key && slips.find(s => keyOf(s) === key);
+    if (!key || !slip || slip.outcome === result.outcome) {
       continue;
     }
-    const item = { entry, sent: result.outcome, before: slip.outcome };
-    const delivery = deliveries[keyOf(entry)];
+    const item = { entry, key, sent: result.outcome, before: slip.outcome };
+    const delivery = deliveries[key];
     if (delivery?.sent !== result.outcome) {
       fresh.push(item);
     } else if (delivery.state !== 'accepted') {
@@ -96,8 +100,9 @@ export function plan(
 
 /**
  * Deliveries after a send. TOM taking an item, or its fate being unknown,
- * is recorded; refused or unsent items are free to go again. Without
- * results (the call itself failed), every item's fate is unknown.
+ * is recorded; refused or unsent items are free to go again, except one
+ * already held for that result, which stays held. Without results (the call
+ * itself failed), every item's fate is unknown.
  */
 export function recorded(
   deliveries: Deliveries,
@@ -106,12 +111,11 @@ export function recorded(
 ): Deliveries {
   const next = { ...deliveries };
   items.forEach((item, i) => {
-    const key = keyOf(item.entry);
     const result = results ? results[i]?.result : 'uncertain';
     if (result === 'accepted' || result === 'uncertain') {
-      next[key] = { sent: item.sent, before: item.before, state: result };
-    } else {
-      delete next[key];
+      next[item.key] = { sent: item.sent, before: item.before, state: result };
+    } else if (next[item.key]?.sent !== item.sent) {
+      delete next[item.key];
     }
   });
   return next;
