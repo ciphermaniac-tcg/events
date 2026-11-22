@@ -1514,6 +1514,43 @@ test('a TOM console says when TOM last saved, how often once it has seen, and wh
   await expect(saved(page)).toHaveClass(/is-late/);
 });
 
+/** The desktop app's TOM bridge, with TOM not launched: every result comes back unsent. */
+const desktopTomClosed = (page: Page) =>
+  page.addInitScript(() =>
+    Object.assign(window, {
+      __CM_TOM__: true,
+      __TAURI_INTERNALS__: {
+        invoke: (_command: string, args?: { entries?: { code: string }[] }) =>
+          Promise.resolve(
+            (args?.entries ?? []).map(entry => ({ result: 'not_ready', code: entry.code, reason: 'TOM is closed.' }))
+          )
+      }
+    })
+  );
+
+test('in the desktop app, double losses TOM has no slip code for can still be written to the .tdf', async ({
+  page
+}) => {
+  await desktopTomClosed(page);
+  const pending = openPending().map(result => ({ ...result, outcome: 'double-loss' as const }));
+  const manage = { ...tomManage(), pending };
+  await tomConsole(page, () => ({ status: 200, json: { ...manage, version: 5, revision: 'next' } }), { manage });
+  await expect(page.getByRole('button', { name: 'Write 2 results to .tdf' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /to TOM$/ })).toHaveCount(0);
+});
+
+test('in the desktop app, results that could not reach TOM can still be written to the .tdf', async ({ page }) => {
+  await desktopTomClosed(page);
+  const manage = { ...tomManage(), pending: openPending() };
+  await tomConsole(page, () => ({ status: 200, json: { ...manage, version: 5, revision: 'next' } }), { manage });
+  const write = page.getByRole('button', { name: 'Write 2 results to .tdf' });
+  await expect(write).toHaveCount(0);
+  await page.getByRole('button', { name: 'Send 2 results to TOM' }).click();
+  await page.getByRole('group', { name: 'Send results to TOM' }).getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'TOM is closed.' })).toBeVisible();
+  await expect(write).toBeVisible();
+});
+
 test('a TOM console writes results into the file only once TOM is closed, and holds them until TOM saves them', async ({
   page
 }) => {

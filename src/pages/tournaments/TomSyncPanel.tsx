@@ -669,7 +669,9 @@ export function TomStatus(props: { link: TomLink }) {
     <span class='tm-next-acts tm-tom-status'>
       <Show when={link().pending() > 0 && link().state() !== 'reconnect'}>
         <Show when={hasTom()} fallback={<WriteResults link={link()} />}>
-          <NativeSend event={link().event()} tournament={link().tournament()} pending={link().results()} />
+          <NativeSend event={link().event()} tournament={link().tournament()} pending={link().results()}>
+            <WriteResults link={link()} />
+          </NativeSend>
         </Show>
       </Show>
       <Saved link={link()} lost={link().state() === 'reconnect'} />

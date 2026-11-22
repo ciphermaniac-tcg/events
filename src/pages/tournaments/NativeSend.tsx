@@ -5,11 +5,13 @@
  * here until a save of TOM's has them, as after a write. A result TOM took
  * is not sent again meanwhile, and one TOM may or may not have, or that its
  * file shows otherwise, is sent again only on its own (see deliveries.ts).
+ * The file export (children) stays offered when a pending result has no
+ * code TOM takes, such as a double loss, or TOM could not be reached.
  */
 
-import { createMemo, createSignal, For, Show } from 'solid-js';
+import { createMemo, createSignal, For, type JSX, Show } from 'solid-js';
 import type { SubmitResult } from '../../../shared/native/tomCommands';
-import { matchSlips } from '../../../shared/tournament/slipCodes';
+import { matchSlips, resultEntry } from '../../../shared/tournament/slipCodes';
 import type { Tournament } from '../../../shared/tournament/types';
 import type { PendingResult } from '../../../shared/tournament/view';
 import { nativeTom } from '../../lib/native/bridge';
@@ -48,7 +50,12 @@ function summary(results: readonly SubmitResult[], total: number): string {
   return `${sent} · ${t('{n} not sent: {why}', { n: total - taken, why })}`;
 }
 
-export function NativeSend(props: { event: string; tournament: Tournament; pending: readonly PendingResult[] }) {
+export function NativeSend(props: {
+  event: string;
+  tournament: Tournament;
+  pending: readonly PendingResult[];
+  children: JSX.Element;
+}) {
   const tom = nativeTom();
   const [asking, setAsking] = createSignal(false);
   const [said, setSaid] = createSignal('');
@@ -59,6 +66,9 @@ export function NativeSend(props: { event: string; tournament: Tournament; pendi
   const current = createMemo(() => settled(deliveries(), slips()));
   const work = createMemo(() => plan(slips(), props.pending, current()));
   const count = () => work().fresh.length + work().held.length;
+  const sent = () => Object.values(current()).some(delivery => delivery.state === 'accepted');
+  const [unreached, setUnreached] = createSignal(false);
+  const unsendable = () => unreached() || props.pending.some(result => !resultEntry(slips(), result));
   const fail = (err: unknown) => setSaid(errorText(err));
 
   const keep = (next: Deliveries) => {
@@ -75,69 +85,76 @@ export function NativeSend(props: { event: string; tournament: Tournament; pendi
       );
       keep(recorded(current(), items, results));
       setSaid(summary(results, items.length));
+      setUnreached(results.some(result => result.result === 'not_ready'));
     } catch (err) {
       keep(recorded(current(), items));
       fail(err);
+      setUnreached(true);
     } finally {
       setSending(false);
     }
   }
 
   return (
-    <span class='tm-write'>
-      <button
-        type='button'
-        class='btn btn-secondary'
-        aria-expanded={asking()}
-        disabled={count() === 0 && !asking()}
-        onClick={() => setAsking(!asking())}
-      >
-        {count() ? tn(count(), 'Send {n} result to TOM', 'Send {n} results to TOM') : t('Sent to TOM')}
-      </button>
-      <Show when={asking()}>
-        <div
-          class='tm-write-ask'
-          role='group'
-          aria-label={t('Send results to TOM')}
-          onKeyDown={event => event.key === 'Escape' && setAsking(false)}
-        >
-          <Show when={said()}>
-            <p role='status'>{said()}</p>
-          </Show>
-          <For each={work().held}>
-            {item => (
-              <p>
-                {t('Round {round} table {table}: {why}', {
-                  round: item.entry.round,
-                  table: item.entry.table,
-                  why: t(HELD[item.state])
-                })}{' '}
+    <>
+      <Show when={count() > 0 || sent() || asking()}>
+        <span class='tm-write'>
+          <button
+            type='button'
+            class='btn btn-secondary'
+            aria-expanded={asking()}
+            disabled={count() === 0 && !asking()}
+            onClick={() => setAsking(!asking())}
+          >
+            {count() ? tn(count(), 'Send {n} result to TOM', 'Send {n} results to TOM') : t('Sent to TOM')}
+          </button>
+          <Show when={asking()}>
+            <div
+              class='tm-write-ask'
+              role='group'
+              aria-label={t('Send results to TOM')}
+              onKeyDown={event => event.key === 'Escape' && setAsking(false)}
+            >
+              <Show when={said()}>
+                <p role='status'>{said()}</p>
+              </Show>
+              <For each={work().held}>
+                {item => (
+                  <p>
+                    {t('Round {round} table {table}: {why}', {
+                      round: item.entry.round,
+                      table: item.entry.table,
+                      why: t(HELD[item.state])
+                    })}{' '}
+                    <button
+                      type='button'
+                      class='btn btn-ghost tm-small'
+                      disabled={sending()}
+                      onClick={() => void send([item])}
+                    >
+                      {t('Send again')}
+                    </button>
+                  </p>
+                )}
+              </For>
+              <span class='tm-write-acts'>
+                <button type='button' class='btn btn-ghost tm-small' onClick={() => setAsking(false)}>
+                  {t('Close')}
+                </button>
                 <button
                   type='button'
-                  class='btn btn-ghost tm-small'
-                  disabled={sending()}
-                  onClick={() => void send([item])}
+                  class='btn btn-primary tm-small'
+                  disabled={sending() || work().fresh.length === 0}
+                  onClick={() => void send(work().fresh)}
                 >
-                  {t('Send again')}
+                  {t('Send')}
                 </button>
-              </p>
-            )}
-          </For>
-          <span class='tm-write-acts'>
-            <button type='button' class='btn btn-ghost tm-small' onClick={() => setAsking(false)}>
-              {t('Close')}
-            </button>
-            <button
-              type='button'
-              class='btn btn-primary tm-small'
-              disabled={sending() || work().fresh.length === 0}
-              onClick={() => void send(work().fresh)}
-            >
-              {t('Send')}
-            </button>
-          </span>
-        </div>
+              </span>
+            </div>
+          </Show>
+        </span>
       </Show>
-    </span>
+      <Show when={unsendable()}>{props.children}</Show>
+    </>
   );
 }
