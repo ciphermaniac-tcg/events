@@ -3,7 +3,7 @@
 # =============================================================================
 # Builds the Tauri app for macOS, Windows and Android (native-build.yml) and
 # uploads the installers as workflow artifacts. A native-v* tag also drafts a
-# GitHub prerelease.
+# GitHub release, which the app's updater sees once it is published.
 #
 # Optional repository secrets:
 #   TAURI_SIGNING_PRIVATE_KEY, TAURI_SIGNING_PRIVATE_KEY_PASSWORD
@@ -96,11 +96,12 @@ jobs:
               }
             }' > latest.json
           rm ./*.sig
-      - name: Draft the prerelease
+      # Not a prerelease: the updater reads /releases/latest, which skips
+      # prereleases. The draft still waits to be published by hand.
+      - name: Draft the release
         run: |
           gh release create "$TAG" dist-native/* \
             --repo "$GITHUB_REPOSITORY" \
             --draft \
-            --prerelease \
             --title "Ciphermaniac Events ${TAG#native-v}" \
             --generate-notes
