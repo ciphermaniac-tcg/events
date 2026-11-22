@@ -55,30 +55,28 @@ impl Process {
     }
 }
 
-/// The helper and the `JAVA_TOOL_OPTIONS` that load it, when `jar` is a
-/// non-empty file; otherwise TOM starts plain.
-fn prepare(jar: &Path) -> Result<Option<(Helper, OsString)>, String> {
+/// The helper and the `JAVA_TOOL_OPTIONS` that load it. Without the jar TOM
+/// is not started at all: nothing could reach it.
+fn prepare(jar: &Path) -> Result<(Helper, OsString), String> {
     if !fs::metadata(jar).is_ok_and(|meta| meta.is_file() && meta.len() > 0) {
-        return Ok(None);
+        return Err("This app is missing its TOM helper. Reinstall the app.".into());
     }
     let helper = Helper::create()?;
     let options = helper.tool_options(jar, std::env::var_os(JAVA_TOOL_OPTIONS))?;
-    Ok(Some((helper, options)))
+    Ok((helper, options))
 }
 
 impl Tom {
-    /// Starts TOM as a child process, with the helper when the jar is there.
+    /// Starts TOM as a child process, with the helper.
     pub(crate) fn spawn(mut command: Command, jar: &Path) -> Result<Self, String> {
-        let prepared = prepare(jar)?;
-        if let Some((_, options)) = &prepared {
-            command.env(JAVA_TOOL_OPTIONS, options);
-        }
+        let (helper, options) = prepare(jar)?;
+        command.env(JAVA_TOOL_OPTIONS, options);
         let child = command
             .spawn()
             .map_err(|error| format!("TOM could not be started: {error}"))?;
         Ok(Self {
             process: Process::Child(child),
-            helper: prepared.map(|(helper, _)| helper),
+            helper: Some(helper),
         })
     }
 
@@ -86,18 +84,14 @@ impl Tom {
     /// and identity; `program` is the launcher inside it, for liveness checks.
     #[cfg(target_os = "macos")]
     pub(crate) fn open_app(app: &Path, program: &Path, jar: &Path) -> Result<Self, String> {
-        let prepared = prepare(jar)?;
-        let environment: Vec<(&str, &std::ffi::OsStr)> = prepared
-            .iter()
-            .map(|(_, options)| (JAVA_TOOL_OPTIONS, options.as_os_str()))
-            .collect();
-        let pid = crate::macos_app::open(app, &environment)?;
+        let (helper, options) = prepare(jar)?;
+        let pid = crate::macos_app::open(app, &[(JAVA_TOOL_OPTIONS, options.as_os_str())])?;
         Ok(Self {
             process: Process::App {
                 pid,
                 program: program.to_path_buf(),
             },
-            helper: prepared.map(|(helper, _)| helper),
+            helper: Some(helper),
         })
     }
 
@@ -663,11 +657,13 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn launches_without_the_helper_when_the_jar_is_missing() {
-        let mut command = Command::new("true");
-        command.env(JAVA_TOOL_OPTIONS, "");
-        let mut tom = Tom::spawn(command, Path::new("/nonexistent/tom-bridge.jar")).unwrap();
-        assert!(tom.helper.is_none());
-        tom.kill();
+    fn does_not_launch_tom_without_the_helper() {
+        let error = Tom::spawn(
+            Command::new("true"),
+            Path::new("/nonexistent/tom-bridge.jar"),
+        )
+        .err()
+        .unwrap();
+        assert!(error.contains("missing its TOM helper"));
     }
 }

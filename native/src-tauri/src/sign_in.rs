@@ -276,10 +276,9 @@ fn follow_link<R: Runtime>(app: &AppHandle<R>, link: &Url) {
     if let Err(err) = window.navigate(home) {
         log::warn!("could not finish signing in: {err}");
     }
+    // Also when it was closed to the Dock or minimized.
     #[cfg(desktop)]
-    if let Err(err) = window.set_focus() {
-        log::debug!("could not bring the app forward: {err}");
-    }
+    shell::reveal_main_window(app);
 }
 
 /// The link that launched the app, looked at once the main window has
