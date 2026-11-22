@@ -23,10 +23,16 @@ pub fn detect() -> Vec<PathBuf> {
 /// into the program to run.
 ///
 /// # Errors
-/// When the path holds no TOM launcher.
+/// When the path holds no TOM launcher, or is a file not named like TOM.
 pub fn resolve(path: &Path) -> Result<PathBuf, String> {
     if path.is_file() {
-        return Ok(path.to_path_buf());
+        let app = bundle_of(path);
+        let named = app.as_deref().unwrap_or(path).file_name();
+        return if named.is_some_and(|name| names_tom(&name.to_string_lossy())) {
+            Ok(path.to_path_buf())
+        } else {
+            Err(format!("{} is not a TOM program.", path.display()))
+        };
     }
     if !path.is_dir() {
         return Err(format!("{} does not exist.", path.display()));
@@ -41,7 +47,6 @@ pub fn resolve(path: &Path) -> Result<PathBuf, String> {
 
 /// The `.app` a macOS launcher lives in (`X.app/Contents/MacOS/X`), so it
 /// can be opened through `LaunchServices` instead of exec'd.
-#[cfg(any(target_os = "macos", test))]
 pub(crate) fn bundle_of(program: &Path) -> Option<PathBuf> {
     let macos = program
         .parent()
@@ -82,8 +87,7 @@ pub(crate) fn scan(root: &Path) -> Vec<PathBuf> {
         .flatten()
         .filter_map(|entry| {
             let name = entry.file_name().to_string_lossy().into_owned();
-            let full = name.contains(FULL_NAME);
-            (full || name.contains(SHORT_NAME)).then(|| (full, entry.path()))
+            names_tom(&name).then(|| (name.contains(FULL_NAME), entry.path()))
         })
         .filter(|(_, path)| path.is_dir())
         .filter_map(|(full, path)| resolve(&path).ok().map(|program| (full, program)))
@@ -112,9 +116,13 @@ fn folder_program(dir: &Path) -> Option<PathBuf> {
             let exe = Path::new(name)
                 .extension()
                 .is_some_and(|ext| ext.eq_ignore_ascii_case("exe"));
-            exe && (name.contains(FULL_NAME) || name.contains(SHORT_NAME))
+            exe && names_tom(name)
         }))
     })
+}
+
+fn names_tom(name: &str) -> bool {
+    name.contains(FULL_NAME) || name.contains(SHORT_NAME)
 }
 
 fn files(dir: &Path, keep: impl Fn(&str) -> bool) -> Vec<PathBuf> {
@@ -193,8 +201,12 @@ mod tests {
     #[test]
     fn resolves_a_chosen_program_or_explains_why_not() {
         let dir = TestDir::new();
-        let program = dir.file("anywhere/launcher");
+        let program = dir.file("anywhere/TOM.exe");
         assert_eq!(resolve(&program), Ok(program.clone()));
+        let bundled = dir.file("TOM 1.86.app/Contents/MacOS/launcher");
+        assert_eq!(resolve(&bundled), Ok(bundled.clone()));
+        let other = dir.file("Downloads/x.exe");
+        assert!(resolve(&other).unwrap_err().contains("not a TOM program"));
         assert!(
             resolve(&dir.path().join("missing"))
                 .unwrap_err()
