@@ -89,12 +89,16 @@ export function tomCommands(invoke: Invoke) {
     /** Starts TOM with the helper loaded; rejects with a sentence when it cannot. */
     launch: () => invoke<TomStatus>('tom_launch'),
     status: () => invoke<TomStatus>('tom_status'),
-    /** A result per entry, in the order sent. */
-    submit: (entries: readonly SubmitEntry[]) => invoke<SubmitResult[]>('tom_submit', { entries }),
+    /**
+     * A result per entry, in the order sent. With `tournament` (the event's
+     * name, as TOM titles its window), TOM must have that event open, alone.
+     */
+    submit: (entries: readonly SubmitEntry[], tournament?: string) =>
+      invoke<SubmitResult[]>('tom_submit', { entries, tournament }),
     save: () => invoke<SaveResult>('tom_save'),
     /** Shows the TOM panel, opening it if needed: the app opens without it, as most events never use TOM. */
     openPanel: () => invoke<void>('tom_open_panel'),
-    /** Starts a pod's current round in TOM; an event with one pod may leave the pod out. */
-    startRound: (pod?: number) => invoke<StartRoundResult>('tom_start_round', pod === undefined ? {} : { pod })
+    /** Starts a pod's current round in TOM; an event with one pod may leave the pod out. `tournament` as for submit. */
+    startRound: (pod?: number, tournament?: string) => invoke<StartRoundResult>('tom_start_round', { pod, tournament })
   };
 }

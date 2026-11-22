@@ -233,7 +233,7 @@ fn late_slip() -> Entry {
 
 /// Submits a batch and checks TOM's slip form was closed again afterwards.
 fn submit(bridge: &mut Bridge, entries: &[Entry]) -> Vec<SubmitResult> {
-    let results = bridge.submit(entries);
+    let results = bridge.submit(entries, None);
     let status = bridge.status();
     assert!(
         !status.slip_dialog_open,
@@ -285,8 +285,11 @@ fn inside_mode(bridge: &mut Bridge, slips: &[(u32, u32, Vec<String>)]) {
 
 fn start_round_is_idempotent(bridge: &mut Bridge) {
     assert!(bridge.status().pods[0].started);
-    assert_eq!(bridge.start_round(Some(2)), StartResult::AlreadyStarted);
-    assert_eq!(bridge.start_round(None), StartResult::AlreadyStarted);
+    assert_eq!(
+        bridge.start_round(Some(2), None),
+        StartResult::AlreadyStarted
+    );
+    assert_eq!(bridge.start_round(None, None), StartResult::AlreadyStarted);
 }
 
 /// A batch that stops at a rejection, then the next batch still lands.

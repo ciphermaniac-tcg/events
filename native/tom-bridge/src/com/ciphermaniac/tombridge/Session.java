@@ -78,7 +78,8 @@ final class Session implements Runnable {
 
    private String submit(Map<String, String> request) {
       try {
-         return tom.submit(request.getOrDefault("code", ""), number(request, "pod"), number(request, "round"));
+         String code = request.getOrDefault("code", "");
+         return tom.submit(code, number(request, "pod"), number(request, "round"), request.get("tournament"));
       } catch (NumberFormatException e) {
          return new Json.Obj().str("error", "invalid pod or round").toString();
       }
@@ -86,7 +87,7 @@ final class Session implements Runnable {
 
    private String startRound(Map<String, String> request) {
       try {
-         return tom.startRound(number(request, "category"));
+         return tom.startRound(number(request, "category"), request.get("tournament"));
       } catch (NumberFormatException e) {
          return new Json.Obj().str("error", "invalid category").toString();
       }

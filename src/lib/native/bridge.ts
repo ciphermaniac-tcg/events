@@ -9,11 +9,12 @@ import { categoryCode } from '../../../shared/tournament/tdf';
 import type { PodCategory } from '../../../shared/tournament/types';
 /**
  * Starts a pod's round in TOM along with the site's clock, so TOM takes the
- * pod's results. Says why when TOM's round did not start; null when it runs.
+ * pod's results, refused unless TOM has `tournament` (the event's name) open.
+ * Says why when TOM's round did not start; null when it runs.
  */
-export async function startTomRound(category: PodCategory): Promise<string | null> {
+export async function startTomRound(category: PodCategory, tournament: string): Promise<string | null> {
   try {
-    return startRoundTrouble(await nativeTom().startRound(Number(categoryCode(category))));
+    return startRoundTrouble(await nativeTom().startRound(Number(categoryCode(category)), tournament));
   } catch (err) {
     return err instanceof Error ? err.message : String(err);
   }

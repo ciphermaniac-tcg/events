@@ -69,15 +69,18 @@ final class Tom {
       }
    }
 
-   /** `pod` and `round` say which round the code is for; without them no round is started. */
-   synchronized String submit(String code, Integer pod, Integer round) {
+   /**
+    * `pod` and `round` say which round the code is for; without them no round
+    * is started. `tournament` is the name TOM must have open; null takes any.
+    */
+   synchronized String submit(String code, Integer pod, Integer round, String tournament) {
       if (!code.matches(CODE_PATTERN)) {
          return new Json.Obj().str("error", "invalid code").toString();
       }
       cancelPendingFinish();
       try {
-         startPodOf(pod, round);
-         openSlipDialog();
+         startPodOf(pod, round, tournament);
+         openSlipDialog(tournament);
          return enterAndObserve(code);
       } catch (NotReady e) {
          return notReady(e.getMessage());
@@ -171,9 +174,9 @@ final class Tom {
       }
    }
 
-   synchronized String startRound(Integer category) {
+   synchronized String startRound(Integer category, String tournament) {
       try {
-         String result = startPod(category) ? "started" : "already_started";
+         String result = startPod(category, tournament) ? "started" : "already_started";
          return new Json.Obj().str("result", result).toString();
       } catch (NotReady e) {
          return notReady(e.getMessage());
@@ -181,8 +184,8 @@ final class Tom {
    }
 
    /** Starts a pod's paired round; false when it had already started. */
-   private boolean startPod(Integer category) throws NotReady {
-      Starting starting = Swing.onEdt(() -> clickStart(category));
+   private boolean startPod(Integer category, String tournament) throws NotReady {
+      Starting starting = Swing.onEdt(() -> clickStart(category, tournament));
       if (starting == null) {
          return false;
       }
@@ -190,10 +193,9 @@ final class Tom {
       return true;
    }
 
-   private static Starting clickStart(Integer category) throws NotReady {
-      requireIdle(true);
-      JFrame frame = Pods.mainFrame();
-      JTabbedPane pane = frame == null ? null : Pods.podPane(frame);
+   private static Starting clickStart(Integer category, String tournament) throws NotReady {
+      JFrame frame = requireIdle(true, tournament);
+      JTabbedPane pane = Pods.podPane(frame);
       if (pane == null) {
          throw new NotReady("TOM's pod tabs were not found.");
       }
@@ -251,9 +253,9 @@ final class Tom {
     * TOM only takes results for a started round, so start the code's pod
     * first when TOM shows its round paired but not started.
     */
-   private void startPodOf(Integer category, Integer round) throws NotReady {
+   private void startPodOf(Integer category, Integer round, String tournament) throws NotReady {
       if (category != null && round != null && Swing.onEdt(() -> awaitingStart(category, round))) {
-         startPod(category);
+         startPod(category, tournament);
       }
    }
 
@@ -302,7 +304,8 @@ final class Tom {
       return null;
    }
 
-   private static void requireIdle(boolean allowSlip) throws NotReady {
+   /** TOM's tournament window, when nothing blocks it and it holds the expected tournament. */
+   private static JFrame requireIdle(boolean allowSlip, String tournament) throws NotReady {
       Dialog dialog = blocker(allowSlip);
       if (dialog != null && ERROR.equals(dialog.getTitle())) {
          throw new NotReady("TOM is showing an error: " + Swing.message(dialog) + " Close it, then try again.");
@@ -310,13 +313,11 @@ final class Tom {
       if (dialog != null) {
          throw new NotReady("TOM has the \"" + Swing.title(dialog) + "\" window open. Close it, then try again.");
       }
-      if (!tournamentOpen()) {
-         throw new NotReady("No tournament is open in TOM.");
-      }
+      return Pods.requireFrame(tournament);
    }
 
-   private static void clickMenu(String text) throws NotReady {
-      JMenuItem item = Swing.menuItem(text);
+   private static void clickMenu(JFrame frame, String text) throws NotReady {
+      JMenuItem item = Swing.menuItem(frame, text);
       if (item == null) {
          throw new NotReady("TOM's \"" + text + "\" menu item was not found.");
       }
@@ -324,19 +325,19 @@ final class Tom {
       SwingUtilities.invokeLater(() -> item.doClick(0));
    }
 
-   private static boolean startOpening() throws NotReady {
-      requireIdle(true);
+   private static boolean startOpening(String tournament) throws NotReady {
+      JFrame frame = requireIdle(true, tournament);
       if (Swing.dialog(SLIP) != null) {
          return false;
       }
-      clickMenu(SLIP);
+      clickMenu(frame, SLIP);
       return true;
    }
 
-   private void openSlipDialog() throws NotReady {
+   private void openSlipDialog(String tournament) throws NotReady {
       // Armed before the click, so the form is hidden from its first show.
       stealth.arm(true);
-      if (!Swing.onEdt(Tom::startOpening)) {
+      if (!Swing.onEdt(() -> startOpening(tournament))) {
          stealth.arm(openedSlip);
          return;
       }
@@ -448,8 +449,7 @@ final class Tom {
    }
 
    private static Void clickSave() throws NotReady {
-      requireIdle(true);
-      clickMenu("Save");
+      clickMenu(requireIdle(true, null), "Save");
       return null;
    }
 

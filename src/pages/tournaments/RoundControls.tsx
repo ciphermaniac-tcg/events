@@ -94,11 +94,12 @@ function ClockSetter(props: { round: Round; onSet: (seconds: number) => void; on
  * not start, and null when it runs or there is no TOM to start.
  */
 async function startInTom(state: ManageState, pod: Pod): Promise<string | null> {
-  if (!drivesTom(state.data()?.mode)) {
+  const data = state.data();
+  if (!data || !drivesTom(data.mode)) {
     return null;
   }
   const { startTomRound } = await import('../../lib/native/bridge');
-  return startTomRound(pod.category);
+  return startTomRound(pod.category, data.tournament.info.name);
 }
 
 /**

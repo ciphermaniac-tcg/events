@@ -14,6 +14,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -124,6 +125,33 @@ public final class BridgeTest {
       expectUncertain(null, 900, "the slip form closed");
       expectUncertain("9", 900, "someone typed in the field");
       expectUncertain("21113", 3500, "TOM never handled the code");
+   }
+
+   private static void expectNotReady(Callable<?> call, String why) throws Exception {
+      try {
+         call.call();
+         check(false, "went ahead although " + why);
+      } catch (NotReady expected) {
+         // refused, as it should be
+      }
+   }
+
+   static void testOnlyTheExpectedTournamentAloneIsDriven() throws Exception {
+      String title = "Tournament Operations Manager (1.86.0) - Tournament: Spring Cup";
+      check(Pods.checkTitles(List.of(title), "Spring Cup") == 0, "the expected tournament was refused");
+      check(Pods.checkTitles(List.of(title), null) == 0, "no expectation should take the open tournament");
+      expectNotReady(() -> Pods.checkTitles(List.of(title), "Fall Cup"), "TOM has another event open");
+      expectNotReady(() -> Pods.checkTitles(List.of(title, title), "Spring Cup"), "two tournaments are open");
+      expectNotReady(() -> Pods.checkTitles(List.of(), null), "no tournament is open");
+   }
+
+   static void testASinglePodOfAnotherCategoryIsRefused() throws Exception {
+      Pods.Pod juniors = new Pods.Pod(0, 0, 1, Pods.State.PAIRED);
+      Pods.Pod unknown = new Pods.Pod(0, null, 1, Pods.State.PAIRED);
+      check(Pods.pick(List.of(juniors), 0) == juniors, "the named pod was refused");
+      check(Pods.pick(List.of(juniors), null) == juniors, "the only pod was refused");
+      check(Pods.pick(List.of(unknown), 2) == unknown, "an unnamed only pod was refused");
+      expectNotReady(() -> Pods.pick(List.of(juniors), 2), "the only pod is Juniors, not Masters");
    }
 
    private static final String TOKEN = "0123456789abcdef0123456789abcdef";
