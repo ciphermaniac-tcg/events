@@ -62,16 +62,10 @@ function followStorage(): void {
 export function initTheme(): void {
   paint(mode());
   window.addEventListener(APP_MODE_EVENT, followStorage);
-  if (typeof matchMedia !== 'function') {
-    return;
+  // With no choice stored, an OS change is followed as at load.
+  if (typeof matchMedia === 'function') {
+    matchMedia(DARK_QUERY).addEventListener('change', followStorage);
   }
-  matchMedia(DARK_QUERY).addEventListener('change', event => {
-    if (storedMode()) {
-      return;
-    }
-    setModeSignal(event.matches ? 'dark' : 'light');
-    paint(mode());
-  });
 }
 
 /**

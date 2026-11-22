@@ -344,11 +344,6 @@ body.tm-stream-mode {
   letter-spacing: 0.25px;
   white-space: nowrap;
 }
-@media (hover: hover) {
-  .tm-sso:hover {
-    text-decoration: none;
-  }
-}
 .tm-sso svg {
   flex: none;
   width: 18px;
@@ -359,20 +354,10 @@ body.tm-stream-mode {
   color: #1f1f1f;
   border: 1px solid #747775;
 }
-@media (hover: hover) {
-  .tm-sso-google:hover {
-    background: color-mix(in srgb, #303030 8%, #fff);
-  }
-}
 body[data-mode='dark'] .tm-sso-google {
   background: #131314;
   color: #e3e3e3;
   border-color: #8e918f;
-}
-@media (hover: hover) {
-  body[data-mode='dark'] .tm-sso-google:hover {
-    background: color-mix(in srgb, #e3e3e3 8%, #131314);
-  }
 }
 @media (prefers-color-scheme: dark) {
   body:not([data-mode]) .tm-sso-google {
@@ -387,6 +372,15 @@ body[data-mode='dark'] .tm-sso-google {
   border: 1px solid #5865f2;
 }
 @media (hover: hover) {
+  .tm-sso:hover {
+    text-decoration: none;
+  }
+  .tm-sso-google:hover {
+    background: color-mix(in srgb, #303030 8%, #fff);
+  }
+  body[data-mode='dark'] .tm-sso-google:hover {
+    background: color-mix(in srgb, #e3e3e3 8%, #131314);
+  }
   .tm-sso-discord:hover {
     background: #4752c4;
     border-color: #4752c4;
