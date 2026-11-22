@@ -299,9 +299,7 @@ fn go_to<R: Runtime>(app: &AppHandle<R>, path: &str) {
     let Some(window) = app.get_webview_window(shell::MAIN_WINDOW) else {
         return;
     };
-    let on_site = window
-        .url()
-        .is_ok_and(|url| url.host_str().is_some_and(shell::is_site_host));
+    let on_site = window.url().is_ok_and(|url| shell::is_site(&url));
     let done = if on_site {
         window.eval(follow_script(path))
     } else if let Some(page) = shell::home_url(app).and_then(|home| home.join(path).ok()) {
