@@ -193,8 +193,9 @@ final class Tom {
       return true;
    }
 
+   /** Never behind the slip form: it is modal, so the main window is not TOM's to act on. */
    private static Starting clickStart(Integer category, String tournament) throws NotReady {
-      JFrame frame = requireIdle(true, tournament);
+      JFrame frame = requireIdle(false, tournament);
       JTabbedPane pane = Pods.podPane(frame);
       if (pane == null) {
          throw new NotReady("TOM's pod tabs were not found.");
@@ -255,6 +256,10 @@ final class Tom {
     */
    private void startPodOf(Integer category, Integer round, String tournament) throws NotReady {
       if (category != null && round != null && Swing.onEdt(() -> awaitingStart(category, round))) {
+         if (openedSlip) {
+            // Ours, from an earlier code in the batch: close it so the round can start.
+            finish();
+         }
          startPod(category, tournament);
       }
    }
@@ -415,15 +420,16 @@ final class Tom {
 
    /**
     * Accepted only on positive evidence: the form is still open and TOM has
-    * emptied its field, with no Error after the settle time. False means keep
+    * emptied its field, with no Error for the settle time since it was first
+    * seen empty (`emptyFor`). `elapsed` counts from Enter. False means keep
     * watching; anything else TOM may or may not have taken.
     */
-   static boolean judge(String text, String code, long elapsed) throws NotReady {
+   static boolean judge(String text, String code, long elapsed, long emptyFor) throws NotReady {
       if (text == null) {
          throw new NotReady(SLIP + " closed before TOM's answer could be seen.");
       }
       if (text.isEmpty()) {
-         return elapsed >= SETTLE_MS;
+         return emptyFor >= SETTLE_MS;
       }
       if (!text.equals(code)) {
          throw new NotReady("Something else was typed into TOM's Result Code field while the code was entered.");
@@ -436,13 +442,17 @@ final class Tom {
 
    private String awaitOutcome(String code) throws NotReady {
       long start = System.currentTimeMillis();
+      long emptySince = -1;
       while (true) {
          Swing.sleep(POLL_MS);
          Field seen = Swing.onEdt(Tom::observe);
          if (seen.error() != null) {
             return new Json.Obj().str("result", "rejected").str("message", seen.error()).toString();
          }
-         if (judge(seen.text(), code, System.currentTimeMillis() - start)) {
+         long now = System.currentTimeMillis();
+         boolean empty = seen.text() != null && seen.text().isEmpty();
+         emptySince = !empty ? -1 : emptySince < 0 ? now : emptySince;
+         if (judge(seen.text(), code, now - start, empty ? now - emptySince : 0)) {
             return new Json.Obj().str("result", "accepted").toString();
          }
       }
