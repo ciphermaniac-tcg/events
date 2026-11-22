@@ -120,19 +120,27 @@ pub fn peek(dir: &Path, attempt: &str) -> Option<String> {
     if !is_attempt(attempt) {
         return None;
     }
-    let path = dir.join(attempt);
-    let meta = fs::symlink_metadata(&path).ok()?;
+    read_fresh(&dir.join(attempt))
+}
+
+fn read_fresh(path: &Path) -> Option<String> {
+    let meta = fs::symlink_metadata(path).ok()?;
     (meta.is_file() && is_fresh(&meta))
-        .then(|| fs::read_to_string(&path).ok())
+        .then(|| fs::read_to_string(path).ok())
         .flatten()
 }
 
 /// Takes the verifier of `attempt` out of `dir`, once, as `peek` finds it.
+/// It is moved aside before it is read, so of two takes at once only one
+/// gets it.
 pub fn take(dir: &Path, attempt: &str) -> Option<String> {
-    let verifier = peek(dir, attempt);
-    if is_attempt(attempt) {
-        remove(&dir.join(attempt));
+    if !is_attempt(attempt) {
+        return None;
     }
+    let taken = dir.join(format!("{attempt}.taken"));
+    fs::rename(dir.join(attempt), &taken).ok()?;
+    let verifier = read_fresh(&taken);
+    remove(&taken);
     verifier
 }
 
@@ -160,6 +168,25 @@ pub(crate) mod tests {
         keep(&dir, FIRST, "first").unwrap();
         assert_eq!(take(&dir, FIRST).as_deref(), Some("first"));
         assert_eq!(take(&dir, FIRST), None);
+    }
+
+    #[test]
+    fn of_two_takes_at_once_only_one_gets_the_verifier() {
+        let dir = scratch("race").join("sign-in");
+        for _ in 0..50 {
+            keep(&dir, FIRST, "first").unwrap();
+            let takers: Vec<_> = (0..2)
+                .map(|_| {
+                    let dir = dir.clone();
+                    std::thread::spawn(move || take(&dir, FIRST))
+                })
+                .collect();
+            let got = takers
+                .into_iter()
+                .filter_map(|taker| taker.join().unwrap())
+                .count();
+            assert_eq!(got, 1);
+        }
     }
 
     #[test]

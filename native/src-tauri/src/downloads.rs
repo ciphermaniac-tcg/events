@@ -38,15 +38,17 @@ struct Waiting {
 unsafe impl Send for Waiting {}
 
 impl Waiting {
-    /// Saves where the dialog says, or cancels when it was dismissed.
+    /// Saves where the dialog says, or cancels when it was dismissed. The
+    /// download is let go however that went, so it never hangs.
     fn finish(self, path: Option<&Path>) -> Result<()> {
         // SAFETY: WebView2 calls on the UI thread (see `Send` above).
         unsafe {
-            match path {
-                Some(path) => self.args.SetResultFilePath(&HSTRING::from(path))?,
-                None => self.args.SetCancel(true)?,
-            }
-            self.deferral.Complete()
+            let answered = match path {
+                Some(path) => self.args.SetResultFilePath(&HSTRING::from(path)),
+                None => self.args.SetCancel(true),
+            };
+            let completed = self.deferral.Complete();
+            answered.and(completed)
         }
     }
 }
