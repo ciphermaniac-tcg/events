@@ -41,7 +41,12 @@ export async function onRequestPost({ request, env }: Context): Promise<Response
     return failed();
   }
   const { ticket, verifier } = await readForm(request);
-  const session = await sessionHash(request);
-  const signIn = ticket && verifier ? await redeemTicket(db, { ticket, verifier, session }) : null;
-  return signIn ? finishSignIn(db, request, signIn.profile, signIn) : failed();
+  try {
+    const session = await sessionHash(request);
+    const signIn = ticket && verifier ? await redeemTicket(db, { ticket, verifier, session }) : null;
+    return signIn ? await finishSignIn(db, request, signIn.profile, signIn) : failed();
+  } catch (error) {
+    console.error('App sign-in failed', error instanceof Error ? error.message : 'Unknown error');
+    return failed();
+  }
 }
