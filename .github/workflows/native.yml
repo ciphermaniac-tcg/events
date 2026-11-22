@@ -1,9 +1,11 @@
 # =============================================================================
 # Native app builds
 # =============================================================================
-# Builds the Tauri app for macOS, Windows and Android (native-build.yml) and
-# uploads the installers as workflow artifacts. A native-v* tag also drafts a
-# GitHub release, which the app's updater sees once it is published.
+# Checks the native code (Rust tests and Clippy, the TOM bridge's tests) on
+# pull requests and pushes that touch native/. Pushes also build the Tauri app
+# for macOS, Windows and Android (native-build.yml) and upload the installers
+# as workflow artifacts. A native-v* tag also drafts a GitHub release, which
+# the app's updater sees once it is published.
 #
 # Optional repository secrets:
 #   TAURI_SIGNING_PRIVATE_KEY, TAURI_SIGNING_PRIVATE_KEY_PASSWORD
@@ -16,9 +18,13 @@ name: Native
 
 on:
   workflow_dispatch:
+  pull_request:
+    paths: ['native/**', '.github/workflows/native*.yml']
+  # Path filters do not apply to tag pushes, so every native-v* tag builds.
   push:
-    branches: [feat/native]
+    branches: [main, feat/native]
     tags: ['native-v*']
+    paths: ['native/**', '.github/workflows/native*.yml']
 
 permissions:
   contents: read
@@ -35,7 +41,34 @@ env:
   HAS_UPDATER_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY != '' }}
 
 jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install the Linux libraries Tauri builds against
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends \
+            libwebkit2gtk-4.1-dev libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+      - run: rustup component add clippy
+      - name: tom-link
+        working-directory: native/tom-link
+        run: |
+          cargo test
+          cargo clippy --all-targets -- -D warnings
+      - name: src-tauri
+        working-directory: native/src-tauri
+        run: cargo clippy --all-targets -- -D warnings
+      - name: TOM bridge
+        run: node native/tom-bridge/build.mjs --test
+
   build:
+    if: github.event_name != 'pull_request'
     uses: ./.github/workflows/native-build.yml
     secrets: inherit
 
