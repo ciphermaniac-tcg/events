@@ -238,7 +238,7 @@ mod desktop {
     /// Whether a page that finished loading takes the current choice: a page
     /// of the site in a window with the page script.
     pub(super) fn takes_appearance(label: &str, url: &Url) -> bool {
-        SITE_WINDOWS.contains(&label) && url.host_str().is_some_and(shell::is_site_host)
+        SITE_WINDOWS.contains(&label) && shell::is_site(url)
     }
 
     /// Gives a site page that finished loading the current choice.

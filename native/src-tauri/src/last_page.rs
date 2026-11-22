@@ -15,8 +15,7 @@ const SKIPPED_PREFIXES: &[&str] = &["/api/", "/welcome"];
 
 /// Whether a page of the site is one to reopen at the next launch.
 fn worth_reopening(url: &Url) -> bool {
-    url.scheme() == "https"
-        && url.host_str().is_some_and(shell::is_site_host)
+    shell::is_site(url)
         && !SKIPPED_PREFIXES
             .iter()
             .any(|prefix| url.path().starts_with(prefix))

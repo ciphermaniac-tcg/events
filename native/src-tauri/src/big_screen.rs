@@ -50,25 +50,14 @@ fn window_title(page_title: &str) -> String {
     }
 }
 
-/// Whether a local server may stand in for the site: in a debug build only.
-const LOCAL_SITE: bool = cfg!(debug_assertions);
-
-/// Whether `url` is on the site itself, over HTTPS on its own port, or with
-/// `local` a local server standing in for it.
-fn is_site_origin(url: &Url, local: bool) -> bool {
-    let live =
-        url.scheme() == "https" && url.host_str() == Some(shell::SITE_HOST) && url.port().is_none();
-    live || (local && url.host_str().is_some_and(shell::is_site_host))
-}
-
 /// Whether `url` is an event's big screen on the site; its stream view
 /// (`&stream`) is not.
 pub fn is_big_screen(url: &Url) -> bool {
-    is_screen_at(url, LOCAL_SITE)
+    is_screen_at(url, shell::LOCAL_SITE)
 }
 
 fn is_screen_at(url: &Url, local: bool) -> bool {
-    is_site_origin(url, local)
+    shell::is_site_at(url, local)
         && url.path().starts_with("/t/")
         && url
             .query_pairs()

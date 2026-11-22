@@ -27,8 +27,13 @@ const IN_APP_HOSTS: &[&str] = &[
     "challenges.cloudflare.com",
     "hcaptcha.com",
 ];
-const IN_APP_HOST_SUFFIXES: &[&str] = &[".protect.clerk.com", ".hcaptcha.com", ".localhost"];
+const IN_APP_HOST_SUFFIXES: &[&str] = &[".protect.clerk.com", ".hcaptcha.com"];
+/// The app's own pages on Windows, such as the TOM panel.
+const APP_HOST: &str = "tauri.localhost";
 const LOCAL_HOSTS: &[&str] = &["localhost", "127.0.0.1"];
+/// Whether a local server may stand in for the site, over plain HTTP too: in
+/// a debug build only.
+pub const LOCAL_SITE: bool = cfg!(debug_assertions);
 /// Discord sign-in works in a webview, so its OAuth pages stay in the app
 /// and the session lands in the app's cookies.
 const DISCORD_SIGN_IN_PATHS: &[&str] = &["/oauth2/", "/login"];
@@ -41,17 +46,30 @@ fn is_hand_off(url: &Url) -> bool {
     matches!(url.scheme(), "mailto" | "tel" | "sms")
 }
 
+fn is_local_host(host: &str) -> bool {
+    LOCAL_HOSTS.contains(&host) || host.ends_with(".localhost")
+}
+
 fn is_in_app_host(host: &str) -> bool {
     IN_APP_HOSTS.contains(&host)
-        || LOCAL_HOSTS.contains(&host)
         || IN_APP_HOST_SUFFIXES
             .iter()
             .any(|suffix| host.ends_with(suffix))
 }
 
-/// The site itself, or a local server standing in for it.
-pub fn is_site_host(host: &str) -> bool {
-    host == SITE_HOST || LOCAL_HOSTS.contains(&host)
+/// Whether `url` is on the site itself: over HTTPS on its own port, or with
+/// `local` (a debug build) a local server standing in for it.
+pub fn is_site_at(url: &Url, local: bool) -> bool {
+    let live = url.scheme() == "https" && url.host_str() == Some(SITE_HOST) && url.port().is_none();
+    live || (local
+        && url
+            .host_str()
+            .is_some_and(|host| LOCAL_HOSTS.contains(&host)))
+}
+
+/// Whether `url` is on the site, as this build allows (see [`is_site_at`]).
+pub fn is_site(url: &Url) -> bool {
+    is_site_at(url, LOCAL_SITE)
 }
 
 fn is_discord_sign_in(host: &str, path: &str) -> bool {
@@ -62,11 +80,22 @@ fn is_discord_sign_in(host: &str, path: &str) -> bool {
 /// Schemes the webview handles itself (about:, data:, blob:, the app's own
 /// protocols) stay; mail and phone links go to the system.
 fn stays_in_app(url: &Url) -> bool {
+    stays_at(url, LOCAL_SITE)
+}
+
+/// [`stays_in_app`], where `local` lets local servers and plain HTTP stay.
+fn stays_at(url: &Url, local: bool) -> bool {
     if !is_web(url) {
         return !is_hand_off(url);
     }
-    url.host_str()
-        .is_none_or(|host| is_in_app_host(host) || is_discord_sign_in(host, url.path()))
+    let Some(host) = url.host_str() else {
+        return true;
+    };
+    if host == APP_HOST || (local && is_local_host(host)) {
+        return true;
+    }
+    (local || url.scheme() == "https")
+        && (is_in_app_host(host) || is_discord_sign_in(host, url.path()))
 }
 
 /// Opens `url` in the system browser, from a thread of its own: Android
@@ -395,7 +424,7 @@ fn follow_new_window<R: Runtime>(app: &AppHandle<R>, url: &Url) {
 
 #[cfg(test)]
 mod tests {
-    use super::{Load, recovery, stays_in_app, window_title};
+    use super::{Load, is_site_at, recovery, stays_at, stays_in_app, window_title};
     use tauri::Url;
 
     fn stays(url: &str) -> bool {
@@ -422,6 +451,34 @@ mod tests {
         assert!(!stays("https://limitlesstcg.com/"));
         assert!(!stays("https://events.ciphermaniac.com.evil.example/"));
         assert!(!stays("mailto:someone@example.com"));
+    }
+
+    #[test]
+    fn a_release_build_keeps_only_https_and_its_own_pages() {
+        let release = |url: &str| stays_at(&Url::parse(url).unwrap(), false);
+        assert!(release("https://events.ciphermaniac.com/host"));
+        assert!(release("http://tauri.localhost/index.html"));
+        assert!(!release("http://events.ciphermaniac.com/host"));
+        assert!(!release("http://localhost:4321/"));
+        assert!(!release("http://127.0.0.1:8788/"));
+        assert!(!release("http://other.localhost/"));
+        let debug = |url: &str| stays_at(&Url::parse(url).unwrap(), true);
+        assert!(debug("http://localhost:4321/"));
+        assert!(debug("http://other.localhost/"));
+    }
+
+    #[test]
+    fn a_release_build_takes_only_the_live_https_site_as_the_site() {
+        let release = |url: &str| is_site_at(&Url::parse(url).unwrap(), false);
+        assert!(release("https://events.ciphermaniac.com/settings"));
+        assert!(release("https://events.ciphermaniac.com:443/"));
+        assert!(!release("http://events.ciphermaniac.com/"));
+        assert!(!release("https://events.ciphermaniac.com:8443/"));
+        assert!(!release("http://127.0.0.1:8788/"));
+        assert!(!release("http://localhost/"));
+        let debug = |url: &str| is_site_at(&Url::parse(url).unwrap(), true);
+        assert!(debug("http://localhost:4321/"));
+        assert!(!debug("https://example.com/"));
     }
 
     #[test]

@@ -50,7 +50,7 @@ struct Redeem {
 static PENDING: Mutex<Option<Redeem>> = Mutex::new(None);
 
 fn is_browser_login(url: &Url) -> bool {
-    url.host_str().is_some_and(shell::is_site_host)
+    shell::is_site(url)
         && url
             .path()
             .strip_prefix(LOGIN_PATH)
@@ -101,10 +101,12 @@ fn link_parts(link: &Url) -> Option<(String, String)> {
 
 /// Posts the redeem form from the page it runs in, which lands where the
 /// sign-in started.
-fn submit_script(redeem: &Redeem) -> String {
+fn submit_script(redeem: &Redeem, origin: &str) -> String {
     let fields = serde_json::json!({ "ticket": redeem.ticket, "verifier": redeem.verifier });
+    let origin = serde_json::Value::from(origin);
     format!(
-        "(() => {{ const form = document.createElement('form'); form.method = 'post'; \
+        "(() => {{ if (location.origin !== {origin}) return; \
+         const form = document.createElement('form'); form.method = 'post'; \
          form.action = '{REDEEM_PATH}'; \
          for (const [name, value] of Object.entries({fields})) {{ \
          const input = document.createElement('input'); input.type = 'hidden'; \
@@ -244,15 +246,17 @@ fn hold<R: Runtime>(app: &AppHandle<R>, link: &Url) -> bool {
     true
 }
 
-/// Posts the held ticket once the main window has loaded a page of the site.
+/// Posts the held ticket once the main window has loaded a page of the site,
+/// and only from that origin: the script checks the page it runs in again.
 fn submit_pending<R: Runtime>(webview: &Webview<R>, url: &Url) {
-    if !url.host_str().is_some_and(shell::is_site_host) {
+    if webview.label() != shell::MAIN_WINDOW || !shell::is_site(url) {
         return;
     }
     let Some(redeem) = PENDING.lock().ok().and_then(|mut pending| pending.take()) else {
         return;
     };
-    if let Err(err) = webview.eval(submit_script(&redeem)) {
+    let origin = url.origin().ascii_serialization();
+    if let Err(err) = webview.eval(submit_script(&redeem, &origin)) {
         log::warn!("could not finish signing in: {err}");
     }
 }
@@ -407,10 +411,17 @@ mod tests {
 
     #[test]
     fn posts_the_ticket_as_a_form_with_its_fields_quoted() {
-        let script = submit_script(&Redeem {
-            ticket: "abc".into(),
-            verifier: "it's\"<x>".into(),
-        });
+        let script = submit_script(
+            &Redeem {
+                ticket: "abc".into(),
+                verifier: "it's\"<x>".into(),
+            },
+            "https://events.ciphermaniac.com",
+        );
+        assert!(
+            script
+                .contains(r#"if (location.origin !== "https://events.ciphermaniac.com") return;"#)
+        );
         assert!(script.contains("form.action = '/api/auth/redeem'"));
         assert!(script.contains(r#"{"ticket":"abc","verifier":"it's\"<x>"}"#));
     }
