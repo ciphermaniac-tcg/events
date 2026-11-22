@@ -20,7 +20,9 @@
 //!   one per entry, in order. With `tournament`, TOM must have that tournament
 //!   (by name) open and no other, or nothing is sent.
 //!   Each code must spell exactly its entry's layout (and never table 0) or it
-//!   is rejected unsent. The batch stops at the first entry that is not
+//!   is rejected unsent. Nor is it sent unless TOM's live pairings read the
+//!   code as that entry's match with `p1` and `p2` in its seats (`not_ready`
+//!   otherwise). The batch stops at the first entry that is not
 //!   accepted: every later one comes back `not_ready`, unsent.
 //!   A pod's paired round is started first when an entry is for it. When the
 //!   batch ends, however it ends, Speed Match Slip Entry is closed again if the
@@ -39,7 +41,9 @@
 //!   round: number,                 // as TOM numbers it (top cut keeps counting)
 //!   table: number,                 // never 0
 //!   outcome: number,               // 0 pending, 1 P1 wins, 2 P2 wins, 3 tie, 6 double loss
-//!   code: string                   // the slip code those parts make
+//!   code: string,                  // the slip code those parts make
+//!   p1: string,                    // TOM player IDs in seats 1 and 2
+//!   p2: string
 //! }
 //! Status = {
 //!   tomPath: string | null,        // the TOM program that tom_launch starts

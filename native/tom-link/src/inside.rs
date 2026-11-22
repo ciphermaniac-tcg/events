@@ -107,13 +107,19 @@ impl Tom {
     }
 
     /// `tournament`: the name TOM must have open; the helper refuses another.
+    /// The helper also refuses unless TOM's live pairings read the code as the
+    /// entry's match, seating its two players.
     pub(crate) fn submit(&mut self, entry: &Entry, tournament: Option<&str>) -> SubmitResult {
         let code = entry.code.as_str();
         let mut fields = vec![
             ("code", code.to_owned()),
             ("pod", entry.pod.to_string()),
             ("round", entry.round.to_string()),
+            ("table", entry.table.to_string()),
+            ("p1", entry.p1.clone()),
+            ("p2", entry.p2.clone()),
         ];
+        fields.extend(entry.flight.map(|flight| ("flight", flight.to_string())));
         fields.extend(tournament.map(|name| ("tournament", name.to_owned())));
         match self.outcome("submit", &fields) {
             Outcome::Accepted => SubmitResult::accepted(code),
@@ -601,7 +607,7 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn names_the_round_a_code_is_for() {
+    fn names_the_match_a_code_is_for() {
         let helper = Helper::create().unwrap();
         let token = helper.token.clone();
         let server = fake_helper(&helper, &[r#"{"result":"accepted"}"#]);
@@ -617,7 +623,7 @@ pub(crate) mod tests {
         let seen: serde_json::Value = serde_json::from_str(&server.join().unwrap()[0]).unwrap();
         let expected = json!({
             "token": token, "op": "submit", "code": "23119", "pod": "2", "round": "3",
-            "tournament": "Spring Cup"
+            "table": "1", "p1": "1", "p2": "2", "tournament": "Spring Cup"
         });
         assert_eq!(seen, expected);
         tom.kill();

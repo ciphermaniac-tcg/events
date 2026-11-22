@@ -98,8 +98,8 @@ impl Env {
         command
     }
 
-    /// `(table, outcome, [p1 code, p2 code, tie code])` for round 1, from the saved file.
-    fn slips(&self) -> Vec<(u32, u32, Vec<String>)> {
+    /// The current round's slips, from the saved file.
+    fn slips(&self) -> Vec<Slip> {
         let output = Command::new(&self.java)
             .args(["-cp", &self.classpath(), "SlipCodes"])
             .arg(self.work.join("event.tdf"))
@@ -110,15 +110,24 @@ impl Env {
             .lines()
             .map(|line| {
                 let fields: Vec<&str> = line.split_whitespace().collect();
-                let codes = fields[6..9].iter().map(|code| (*code).to_owned()).collect();
-                (
-                    fields[2].parse().unwrap(),
-                    fields[3].parse().unwrap(),
-                    codes,
-                )
+                Slip {
+                    table: fields[2].parse().unwrap(),
+                    outcome: fields[3].parse().unwrap(),
+                    seats: [fields[4].to_owned(), fields[5].to_owned()],
+                    codes: fields[6..9].iter().map(|code| (*code).to_owned()).collect(),
+                }
             })
             .collect()
     }
+}
+
+/// One match slip: table, the outcome the file holds, both seats' player IDs,
+/// and the codes for Player 1, Player 2 and a tie.
+struct Slip {
+    table: u32,
+    outcome: u32,
+    seats: [String; 2],
+    codes: Vec<String>,
 }
 
 /// Kills TOM and the display when the test ends, pass or fail.
@@ -205,17 +214,17 @@ fn launch(env: &Env) -> Bridge {
     bridge
 }
 
-/// A Masters entry for the current round, with the code TOM's own file gives for it.
-fn code(slips: &[(u32, u32, Vec<String>)], table: u16, outcome: u8) -> Entry {
+/// A Masters entry for the current round, with the code and seats TOM's own file gives for it.
+fn code(slips: &[Slip], table: u16, outcome: u8) -> Entry {
     let slip = slips
         .iter()
-        .find(|slip| slip.0 == u32::from(table))
+        .find(|slip| slip.table == u32::from(table))
         .unwrap();
-    let code = slip.2[usize::from(outcome - 1)].clone();
-    entry(ROUND, table, outcome, &code)
+    let code = slip.codes[usize::from(outcome - 1)].clone();
+    entry(ROUND, table, outcome, &code, &slip.seats)
 }
 
-fn entry(round: u8, table: u16, outcome: u8, code: &str) -> Entry {
+fn entry(round: u8, table: u16, outcome: u8, code: &str, seats: &[String; 2]) -> Entry {
     Entry {
         pod: 2,
         flight: None,
@@ -223,12 +232,21 @@ fn entry(round: u8, table: u16, outcome: u8, code: &str) -> Entry {
         table,
         outcome,
         code: code.to_owned(),
+        p1: seats[0].clone(),
+        p2: seats[1].clone(),
     }
 }
 
 /// A slip from round 1 reported late: well-formed, but not the current round.
 fn late_slip() -> Entry {
-    entry(1, 1, 1, "21113")
+    entry(1, 1, 1, "21113", &["1".into(), "2".into()])
+}
+
+/// The right code for a table, but the players of another event of the same name.
+fn other_players(slips: &[Slip], table: u16) -> Entry {
+    let mut entry = code(slips, table, 1);
+    entry.p1 = "9999990".into();
+    entry
 }
 
 /// Submits a batch and checks TOM's slip form was closed again afterwards.
@@ -252,6 +270,10 @@ fn rejected_with(results: &[SubmitResult], text: &str) -> bool {
     matches!(results, [SubmitResult::Rejected { message, .. }] if message.contains(text))
 }
 
+fn refused_with(results: &[SubmitResult], text: &str) -> bool {
+    matches!(results, [SubmitResult::NotReady { reason, .. }] if reason.contains(text))
+}
+
 /// A late round-1 slip must not start round 2.
 fn late_slip_starts_nothing(bridge: &mut Bridge) {
     let pods = bridge.status().pods;
@@ -267,18 +289,23 @@ fn late_slip_starts_nothing(bridge: &mut Bridge) {
     assert!(!bridge.status().pods[0].started);
 }
 
-fn inside_mode(bridge: &mut Bridge, slips: &[(u32, u32, Vec<String>)]) {
+fn inside_mode(bridge: &mut Bridge, slips: &[Slip]) {
     // The round is not started yet: submit starts it, then enters the codes.
     let entries = [code(slips, 1, 1), code(slips, 2, 2)];
     let results = submit(bridge, &entries);
     println!("inside: {results:?}");
     assert_eq!(results, [accepted(&entries[0]), accepted(&entries[1])]);
-    assert!(rejected_with(
+    // TOM's live pairings decide: a late slip and a same-name event's players never go in.
+    assert!(refused_with(
         &submit(bridge, &[late_slip()]),
-        "two codes in a row"
+        "not the match the site has"
+    ));
+    assert!(refused_with(
+        &submit(bridge, &[other_players(slips, 6)]),
+        "not the match the site has"
     ));
     assert!(rejected_with(
-        &submit(bridge, &[entry(ROUND, 0, 1, "22012")]),
+        &submit(bridge, &[entry(ROUND, 0, 1, "22012", &slips[0].seats)]),
         "table 0"
     ));
 }
@@ -293,12 +320,12 @@ fn start_round_is_idempotent(bridge: &mut Bridge) {
 }
 
 /// A batch that stops at a rejection, then the next batch still lands.
-fn later_batches(bridge: &mut Bridge, slips: &[(u32, u32, Vec<String>)]) {
+fn later_batches(bridge: &mut Bridge, slips: &[Slip]) {
     let entries = [code(slips, 3, 1), late_slip(), code(slips, 4, 3)];
     let results = submit(bridge, &entries);
     println!("stopping batch: {results:?}");
     assert_eq!(results[0], accepted(&entries[0]));
-    assert!(matches!(&results[1], SubmitResult::Rejected { .. }));
+    assert!(matches!(&results[1], SubmitResult::NotReady { .. }));
     assert!(matches!(&results[2], SubmitResult::NotReady { .. }));
     let entries = [code(slips, 4, 3), code(slips, 5, 2)];
     assert_eq!(
@@ -333,6 +360,10 @@ fn results_land_in_the_saved_tdf() {
     later_batches(&mut bridge, &slips);
 
     assert_eq!(bridge.save(), SaveResult::Saved);
-    let outcomes: Vec<(u32, u32)> = env.slips().iter().map(|slip| (slip.0, slip.1)).collect();
+    let outcomes: Vec<(u32, u32)> = env
+        .slips()
+        .iter()
+        .map(|slip| (slip.table, slip.outcome))
+        .collect();
     assert_eq!(outcomes, [(1, 1), (2, 2), (3, 1), (4, 3), (5, 2), (6, 0)]);
 }

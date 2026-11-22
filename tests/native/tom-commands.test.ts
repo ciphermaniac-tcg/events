@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { type Invoke, startRoundTrouble, tomCommands } from '../../shared/native/tomCommands';
 
-const ENTRY = { pod: 2, flight: null, round: 1, table: 1, outcome: 1 as const, code: '21113' };
+const ENTRY = { pod: 2, flight: null, round: 1, table: 1, outcome: 1 as const, code: '21113', p1: '1', p2: '2' };
 
 function recording(answer: unknown = null) {
   const calls: [string, Record<string, unknown> | undefined][] = [];

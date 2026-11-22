@@ -29,7 +29,7 @@ test('inside the app the site calls the TOM commands through Tauri’s bridge', 
   };
   global.window = { __TAURI_INTERNALS__: internals };
   assert.equal(inNativeApp(), true);
-  const entry = { pod: 2, flight: null, round: 1, table: 1, outcome: 1 as const, code: '21113' };
+  const entry = { pod: 2, flight: null, round: 1, table: 1, outcome: 1 as const, code: '21113', p1: '1', p2: '2' };
   assert.deepEqual(await nativeTom().submit([entry]), [{ result: 'accepted', code: '21113' }]);
   assert.deepEqual(calls, [['internals', 'tom_submit', { entries: [entry], tournament: undefined }]]);
 });

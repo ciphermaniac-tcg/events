@@ -70,18 +70,19 @@ final class Tom {
    }
 
    /**
-    * `pod` and `round` say which round the code is for; without them no round
-    * is started. `tournament` is the name TOM must have open; null takes any.
+    * `want` is the match the code is for, as the site has it; the code goes in
+    * only if TOM's live pairings read it as that match. `tournament` is the
+    * name TOM must have open; null takes any.
     */
-   synchronized String submit(String code, Integer pod, Integer round, String tournament) {
+   synchronized String submit(String code, Live.Slip want, String tournament) {
       if (!code.matches(CODE_PATTERN)) {
          return new Json.Obj().str("error", "invalid code").toString();
       }
       cancelPendingFinish();
       try {
-         startPodOf(pod, round, tournament);
+         startPodOf(want.pod(), want.round(), tournament);
          openSlipDialog(tournament);
-         return enterAndObserve(code);
+         return enterAndObserve(code, want, tournament);
       } catch (NotReady e) {
          return notReady(e.getMessage());
       } finally {
@@ -150,9 +151,9 @@ final class Tom {
    }
 
    /** Once the code may be in TOM's field, a lost answer is uncertain, not "not ready". */
-   private String enterAndObserve(String code) {
+   private String enterAndObserve(String code, Live.Slip want, String tournament) {
       try {
-         tickedAutosave |= Swing.onEdt(() -> enter(code));
+         tickedAutosave |= Swing.onEdt(() -> enter(code, want, tournament));
       } catch (Uncertain e) {
          return uncertain(e.getMessage());
       } catch (NotReady e) {
@@ -376,12 +377,21 @@ final class Tom {
       return message.isEmpty() ? "TOM showed an error." : message;
    }
 
-   /** Returns whether auto-save had to be ticked. */
-   private static Boolean enter(String code) throws NotReady {
+   /**
+    * Returns whether auto-save had to be ticked. The live pairings are checked
+    * in this same event-thread task, so TOM cannot re-pair between the check
+    * and the code going in.
+    */
+   private static Boolean enter(String code, Live.Slip want, String tournament) throws NotReady {
+      JFrame frame = Pods.requireFrame(tournament);
       Dialog slip = Swing.dialog(SLIP);
       if (slip == null) {
          throw new NotReady(SLIP + " closed before the code was sent.");
       }
+      if (slip.getOwner() != frame) {
+         throw new NotReady(SLIP + " belongs to another TOM window. Close it, then try again.");
+      }
+      Live.confirm(Live.read(frame, code), want, code);
       AbstractButton autosave = Swing.button(slip, text -> text.startsWith(AUTOSAVE));
       if (autosave == null) {
          throw new NotReady("The \"" + AUTOSAVE + "\" option was not found in " + SLIP + ".");

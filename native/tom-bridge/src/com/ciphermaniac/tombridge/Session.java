@@ -79,10 +79,21 @@ final class Session implements Runnable {
    private String submit(Map<String, String> request) {
       try {
          String code = request.getOrDefault("code", "");
-         return tom.submit(code, number(request, "pod"), number(request, "round"), request.get("tournament"));
+         return tom.submit(code, slip(request), request.get("tournament"));
       } catch (NumberFormatException e) {
-         return new Json.Obj().str("error", "invalid pod or round").toString();
+         return new Json.Obj().str("error", "invalid entry").toString();
       }
+   }
+
+   /** The match a code is for. Pod, round and table are required; without both seats nothing matches. */
+   private static Live.Slip slip(Map<String, String> request) {
+      return new Live.Slip(
+         Integer.parseInt(request.get("pod")),
+         number(request, "flight"),
+         Integer.parseInt(request.get("round")),
+         Integer.parseInt(request.get("table")),
+         request.get("p1"),
+         request.get("p2"));
    }
 
    private String startRound(Map<String, String> request) {
