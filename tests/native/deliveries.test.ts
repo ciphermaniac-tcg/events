@@ -83,7 +83,7 @@ test('sending again after a stopped batch sends only what never went, holding th
 test('a save of TOM’s settles what it took, or holds it back when the file says otherwise', () => {
   const sent = afterFirstSend();
   const confirmed = slipsWith(['p1', 'pending', 'pending']);
-  assert.deepEqual(Object.keys(settled(sent, confirmed)), ['2:1:2'], 'the file shows what was sent');
+  assert.deepEqual(Object.keys(settled(sent, confirmed)), ['2:1:2:a2:b2'], 'the file shows what was sent');
   assert.deepEqual(tables(plan(confirmed, PENDING, settled(sent, confirmed)).fresh), [3], 'and TOM has it');
   const corrected = slipsWith(['p2', 'pending', 'pending']);
   const { held } = plan(corrected, PENDING, settled(sent, corrected));
@@ -106,6 +106,29 @@ test('an uncertain result goes again only on its own, and a result changed on th
   assert.deepEqual(plan(slips, PENDING, resent).held, []);
   const changed = [result(1, 'p1'), result(2, 'tie'), result(3, 'tie')];
   assert.deepEqual(tables(plan(slips, changed, sent).fresh), [2, 3]);
+});
+
+test('a held result whose retry TOM refuses or never gets stays held', () => {
+  const slips = slipsWith(['pending', 'pending', 'pending']);
+  const sent = afterFirstSend();
+  const [uncertain] = plan(slips, PENDING, sent).held;
+  for (const answer of ['not_ready', 'rejected'] as const) {
+    const retry: SubmitResult =
+      answer === 'rejected'
+        ? { result: answer, code: uncertain!.entry.code, message: 'Error' }
+        : { result: answer, code: uncertain!.entry.code, reason: 'TOM has closed.' };
+    const after = plan(slips, PENDING, recorded(sent, [uncertain!], [retry]));
+    assert.deepEqual(tables(after.fresh), [3], `the ${answer} retry is not sent with the next batch`);
+    assert.deepEqual(tables(after.held), [2]);
+  }
+});
+
+test('a table re-paired with other players is a new match, sent as usual', () => {
+  const slips = slipsWith(['pending', 'pending', 'pending']);
+  const sent = afterFirstSend();
+  const repaired = slips.map(slip => (slip.table === 1 ? { ...slip, p1: 'c1', p2: 'd1' } : slip));
+  const pending = [{ ...result(1, 'p1'), p1: 'c1', p2: 'd1' }];
+  assert.deepEqual(tables(plan(repaired, pending, settled(sent, repaired)).fresh), [1]);
 });
 
 test('a send that fails outright leaves every result in it uncertain', () => {
