@@ -13,6 +13,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
@@ -107,6 +108,30 @@ public final class BridgeTest {
          return "done";
       }, 100, 2000);
       check("done".equals(answer), answer);
+   }
+
+   /** A check and its action share one task: nothing queued runs between them, and the caller need not wait for the action. */
+   static void testANextStepRunsInTheCheckingTaskAfterTheCallerHasItsAnswer() throws Exception {
+      List<String> order = Collections.synchronizedList(new ArrayList<>());
+      CountDownLatch release = new CountDownLatch(1);
+      AtomicBoolean acted = new AtomicBoolean();
+      String answer = Swing.onEdtThen(() -> {
+         SwingUtilities.invokeLater(() -> order.add("queued input"));
+         return new Swing.Then<>("checked", () -> {
+            order.add("action");
+            try {
+               release.await(5, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+               Thread.currentThread().interrupt();
+            }
+            acted.set(true);
+         });
+      });
+      check("checked".equals(answer), answer);
+      check(!acted.get(), "the caller waited for the action");
+      release.countDown();
+      drainEdt();
+      check(order.equals(List.of("action", "queued input")), "queued input ran between the check and its action: " + order);
    }
 
    private static void expectUncertain(String text, long elapsed, String why) {

@@ -36,9 +36,22 @@ final class Swing {
    private Swing() {
    }
 
+   /**
+    * What an event-thread task found, and what it does next in the same
+    * task, once its caller has that answer: `next` may open a modal dialog,
+    * which would hold the task, so the caller must not wait for it.
+    */
+   record Then<T>(T value, Runnable next) {
+   }
+
    /** Runs on the event thread and waits, without ever hanging the caller. */
    static <T> T onEdt(Callable<T> task) throws NotReady {
       return onEdt(task, EDT_TIMEOUT_MS, EDT_GRACE_MS);
+   }
+
+   /** As onEdt, then runs the task's `next`, if any, in that same task. */
+   static <T> T onEdtThen(Callable<Then<T>> task) throws NotReady {
+      return run(task, EDT_TIMEOUT_MS, EDT_GRACE_MS);
    }
 
    /**
@@ -48,16 +61,26 @@ final class Swing {
     * unknown and the caller hears Uncertain.
     */
    static <T> T onEdt(Callable<T> task, long timeout, long grace) throws NotReady {
+      return run(() -> new Then<>(task.call(), null), timeout, grace);
+   }
+
+   private static <T> T run(Callable<Then<T>> task, long timeout, long grace) throws NotReady {
       CompletableFuture<T> result = new CompletableFuture<>();
       AtomicInteger state = new AtomicInteger(PENDING);
       SwingUtilities.invokeLater(() -> {
          if (!state.compareAndSet(PENDING, RUNNING)) {
             return;
          }
+         Then<T> then;
          try {
-            result.complete(task.call());
+            then = task.call();
          } catch (Throwable t) {
             result.completeExceptionally(t);
+            return;
+         }
+         result.complete(then.value());
+         if (then.next() != null) {
+            then.next().run();
          }
       });
       try {

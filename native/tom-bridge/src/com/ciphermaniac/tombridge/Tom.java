@@ -162,7 +162,7 @@ final class Tom {
    private String enterAndObserve(String code, Live.Slip want, Live.Event event) {
       Boolean ticked;
       try {
-         ticked = Swing.onEdt(() -> enter(code, want, event));
+         ticked = Swing.onEdtThen(() -> enter(code, want, event));
       } catch (Uncertain e) {
          return uncertain(e.getMessage());
       } catch (NotReady e) {
@@ -200,7 +200,7 @@ final class Tom {
 
    /** Starts a pod's paired round; false when it had already started. */
    private boolean startPod(Integer category, Integer round, Live.Event event, Check check) throws NotReady {
-      Starting starting = Swing.onEdt(() -> clickStart(category, round, event, check));
+      Starting starting = Swing.onEdtThen(() -> clickStart(category, round, event, check));
       if (starting == null) {
          return false;
       }
@@ -210,9 +210,10 @@ final class Tom {
 
    /**
     * Never behind the slip form: it is modal, so the main window is not TOM's
-    * to act on. The round is checked in this same task, right before the click.
+    * to act on. Everything is checked in this same task as the click, so no
+    * queued input can change what is pressed in between.
     */
-   private static Starting clickStart(Integer category, Integer round, Live.Event event, Check check)
+   private static Swing.Then<Starting> clickStart(Integer category, Integer round, Live.Event event, Check check)
       throws NotReady {
       JFrame frame = requireIdle(false, event);
       JTabbedPane pane = Pods.podPane(frame);
@@ -221,7 +222,7 @@ final class Tom {
       }
       Pods.Pod pod = Pods.onRound(Pods.pick(Pods.read(pane), category), round);
       if (pod.state().started()) {
-         return null;
+         return new Swing.Then<>(null, null);
       }
       if (pod.state() != Pods.State.PAIRED) {
          throw new NotReady(Pods.notStartable(pod.state()));
@@ -235,8 +236,7 @@ final class Tom {
          pane.setSelectedIndex(previous);
          throw e;
       }
-      SwingUtilities.invokeLater(() -> start.doClick(0));
-      return new Starting(pod.index(), previous);
+      return new Swing.Then<>(new Starting(pod.index(), previous), () -> start.doClick(0));
    }
 
    /** Puts the operator's pod tab back however the start ends. */
@@ -419,11 +419,11 @@ final class Tom {
 
    /**
     * Returns whether auto-save had to be ticked, or null when TOM already
-    * holds the result, so nothing was typed. The live pairings are checked
-    * in this same event-thread task, so TOM cannot re-pair between the check
-    * and the code going in.
+    * holds the result, so nothing is typed. The live pairings are checked,
+    * the code set and Enter pressed in this same event-thread task, so
+    * neither TOM nor queued input can change the field or the match between.
     */
-   private static Boolean enter(String code, Live.Slip want, Live.Event event) throws NotReady {
+   private static Swing.Then<Boolean> enter(String code, Live.Slip want, Live.Event event) throws NotReady {
       JFrame frame = Live.frame(event);
       Dialog slip = Swing.dialog(SLIP);
       if (slip == null) {
@@ -433,7 +433,7 @@ final class Tom {
          throw new NotReady(SLIP + " belongs to another TOM window. Close it, then try again.");
       }
       if (Live.confirm(Live.read(frame, code), want, code)) {
-         return null;
+         return new Swing.Then<>(null, null);
       }
       AbstractButton autosave = Swing.button(slip, text -> text.startsWith(AUTOSAVE));
       if (autosave == null) {
@@ -448,9 +448,8 @@ final class Tom {
          throw new NotReady("The Result Code field was not found in " + SLIP + ".");
       }
       field.setText(code);
-      // TOM may answer with a modal Error dialog, so press Enter after this task returns.
-      SwingUtilities.invokeLater(() -> pressEnter(field));
-      return ticking;
+      // TOM may answer with a modal Error dialog, whose loop holds this task: the caller has its answer first.
+      return new Swing.Then<>(ticking, () -> pressEnter(field));
    }
 
    /** TOM acts on the release of Enter, so send both halves. */
