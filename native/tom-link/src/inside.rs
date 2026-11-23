@@ -108,7 +108,8 @@ impl Tom {
 
     /// `tournament`: the name TOM must have open; the helper refuses another.
     /// The helper also refuses unless TOM's live pairings read the code as the
-    /// entry's match, seating its two players.
+    /// entry's match, seating its two players, and holding no other result.
+    /// When TOM already holds the entry's result, it is accepted untyped.
     pub(crate) fn submit(&mut self, entry: &Entry, tournament: Option<&str>) -> SubmitResult {
         let code = entry.code.as_str();
         let mut fields = vec![
@@ -116,6 +117,7 @@ impl Tom {
             ("pod", entry.pod.to_string()),
             ("round", entry.round.to_string()),
             ("table", entry.table.to_string()),
+            ("outcome", entry.outcome.to_string()),
             ("p1", entry.p1.clone()),
             ("p2", entry.p2.clone()),
         ];
@@ -626,7 +628,7 @@ pub(crate) mod tests {
         let seen: serde_json::Value = serde_json::from_str(&server.join().unwrap()[0]).unwrap();
         let expected = json!({
             "token": token, "op": "submit", "code": "23119", "pod": "2", "round": "3",
-            "table": "1", "p1": "1", "p2": "2", "tournament": "Spring Cup"
+            "table": "1", "outcome": "1", "p1": "1", "p2": "2", "tournament": "Spring Cup"
         });
         assert_eq!(seen, expected);
         tom.kill();

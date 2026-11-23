@@ -290,7 +290,7 @@ fn mismatches_start_nothing(bridge: &mut Bridge, slips: &[Slip]) {
     assert!(!bridge.status().pods[0].started);
     let results = submit(bridge, &[other_players(slips, 6)]);
     println!("other players before the round: {results:?}");
-    assert!(refused_with(&results, "not the match the site has"));
+    assert!(refused_with(&results, "different players than the site"));
     assert!(!bridge.status().pods[0].started);
 }
 
@@ -301,17 +301,24 @@ fn inside_mode(bridge: &mut Bridge, slips: &[Slip]) {
     println!("inside: {results:?}");
     assert_eq!(results, [accepted(&entries[0]), accepted(&entries[1])]);
     // TOM's live pairings decide: a late slip and a same-name event's players never go in.
-    assert!(refused_with(
-        &submit(bridge, &[late_slip()]),
-        "not the match the site has"
-    ));
+    assert!(refused_with(&submit(bridge, &[late_slip()]), "not round 1"));
     assert!(refused_with(
         &submit(bridge, &[other_players(slips, 6)]),
-        "not the match the site has"
+        "different players than the site"
     ));
     assert!(rejected_with(
         &submit(bridge, &[entry(ROUND, 0, 1, "22012", &slips[0].seats)]),
         "table 0"
+    ));
+    // Same seats: the result TOM holds is taken as sent, another is never typed over it.
+    let again = code(slips, 1, 1);
+    assert_eq!(
+        submit(bridge, std::slice::from_ref(&again)),
+        [accepted(&again)]
+    );
+    assert!(refused_with(
+        &submit(bridge, &[code(slips, 1, 2)]),
+        "already has a different result"
     ));
 }
 

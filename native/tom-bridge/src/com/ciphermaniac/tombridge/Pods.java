@@ -174,9 +174,13 @@ final class Pods {
    /** The pod, refused when it is not on `round`; null takes any round. */
    static Pod onRound(Pod pod, Integer round) throws NotReady {
       if (round != null && pod.round() != round) {
-         throw new NotReady("TOM has round " + pod.round() + " in this pod, not round " + round + ".");
+         throw otherRound(pod.round(), round);
       }
       return pod;
+   }
+
+   static NotReady otherRound(int open, int wanted) {
+      return new NotReady("TOM has round " + open + " in this pod, not round " + wanted + ".");
    }
 
    static String notStartable(State state) {

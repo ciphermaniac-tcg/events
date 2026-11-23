@@ -162,13 +162,20 @@ public final class BridgeTest {
       expectNotReady(() -> Pods.onRound(second, 1), "the site started round 1 and TOM has round 2 paired");
    }
 
-   /** Masters alone, round 1, without flights: table 10 seats players 101 and 102, table 7 players 5 and 8. */
-   private static Live.Layout masters(int flightDigits, Integer flight, int round) {
+   /**
+    * Masters alone, round 1, without flights: table 10 seats players 101 and
+    * 102, table 7 players 5 and 8, with `outcome7` at table 7 (0 pending).
+    */
+   private static Live.Layout masters(int flightDigits, Integer flight, int round, int outcome7) {
       List<Live.Match> matches = List.of(
-         new Live.Match(flight, 0, 99, null),
-         new Live.Match(flight, 7, 5, 8),
-         new Live.Match(flight, 10, 101, 102));
+         new Live.Match(flight, 0, 99, null, 4),
+         new Live.Match(flight, 7, 5, 8, outcome7),
+         new Live.Match(flight, 10, 101, 102, 0));
       return new Live.Layout(1, 2, flightDigits, round, matches);
+   }
+
+   private static Live.Layout masters(int flightDigits, Integer flight, int round) {
+      return masters(flightDigits, flight, round, 0);
    }
 
    private static void expectRefused(Live.Layout live, Live.Slip want, String code, String why) throws Exception {
@@ -179,26 +186,36 @@ public final class BridgeTest {
    }
 
    static void testACodeGoesInOnlyOnTheLiveMatchTheSiteMeans() throws Exception {
-      Live.confirm(masters(0, null, 1), new Live.Slip(2, null, 1, 10, "101", "102"), "211014");
-      Live.confirm(masters(0, null, 1), new Live.Slip(2, null, 1, 7, "5", "8"), "21717");
-      Live.confirm(masters(1, 1, 1), new Live.Slip(2, 1, 1, 10, "101", "102"), "2111011");
+      check(!Live.confirm(masters(0, null, 1), new Live.Slip(2, null, 1, 10, 1, "101", "102"), "211014"), "table 10");
+      check(!Live.confirm(masters(0, null, 1), new Live.Slip(2, null, 1, 7, 1, "5", "8"), "21717"), "table 7");
+      check(!Live.confirm(masters(1, 1, 1), new Live.Slip(2, 1, 1, 10, 1, "101", "102"), "2111011"), "flight 1");
+   }
+
+   static void testAResultTomAlreadyHoldsIsNotEnteredAgain() throws Exception {
+      Live.Slip p1Wins = new Live.Slip(2, null, 1, 7, 1, "5", "8");
+      check(Live.confirm(masters(0, null, 1, 1), p1Wins, "21717"), "TOM already has player 1 winning at table 7");
+   }
+
+   static void testADifferentResultInTomIsNeverOverwritten() throws Exception {
+      Live.Slip p1Wins = new Live.Slip(2, null, 1, 7, 1, "5", "8");
+      expectRefused(masters(0, null, 1, 3), p1Wins, "21717", "a judge entered a tie at table 7 in TOM");
    }
 
    static void testAnEventOfTheSameNameWithOtherPlayersIsRefused() throws Exception {
-      Live.Slip lastWeek = new Live.Slip(2, null, 1, 10, "201", "202");
+      Live.Slip lastWeek = new Live.Slip(2, null, 1, 10, 1, "201", "202");
       expectRefused(masters(0, null, 1), lastWeek, "211014", "TOM's table 10 seats other players");
    }
 
    static void testARePairedTableIsRefused() throws Exception {
-      expectRefused(masters(0, null, 1), new Live.Slip(2, null, 1, 7, "5", "9"), "21717", "table 7 was re-paired");
-      expectRefused(masters(0, null, 1), new Live.Slip(2, null, 1, 7, "8", "5"), "21717", "the seats were swapped");
-      expectRefused(masters(0, null, 2), new Live.Slip(2, null, 1, 7, "5", "8"), "21717", "TOM is on round 2");
+      expectRefused(masters(0, null, 1), new Live.Slip(2, null, 1, 7, 1, "5", "9"), "21717", "table 7 was re-paired");
+      expectRefused(masters(0, null, 1), new Live.Slip(2, null, 1, 7, 1, "8", "5"), "21717", "the seats were swapped");
+      expectRefused(masters(0, null, 2), new Live.Slip(2, null, 1, 7, 1, "5", "8"), "21717", "TOM is on round 2");
    }
 
    static void testACodeThatTomWouldReadAsTableZeroIsRefused() throws Exception {
       // 211014 is round 1 table 10 without flights; with a flight digit TOM
       // reads flight 1, round 1, table 0, where the bye sits.
-      Live.Slip unflighted = new Live.Slip(2, null, 1, 10, "101", "102");
+      Live.Slip unflighted = new Live.Slip(2, null, 1, 10, 1, "101", "102");
       expectRefused(masters(1, 1, 1), unflighted, "211014", "TOM now reads a flight digit");
       check(Live.target(masters(1, 1, 1), "211014") == null, "TOM's reading landed on table 0");
    }

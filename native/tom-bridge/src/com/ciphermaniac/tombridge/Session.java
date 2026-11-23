@@ -85,13 +85,14 @@ final class Session implements Runnable {
       }
    }
 
-   /** The match a code is for. Pod, round and table are required; without both seats nothing matches. */
+   /** The match a code is for. Pod, round, table and outcome are required; without both seats nothing matches. */
    private static Live.Slip slip(Map<String, String> request) {
       return new Live.Slip(
          Integer.parseInt(request.get("pod")),
          number(request, "flight"),
          Integer.parseInt(request.get("round")),
          Integer.parseInt(request.get("table")),
+         Integer.parseInt(request.get("outcome")),
          request.get("p1"),
          request.get("p2"));
    }

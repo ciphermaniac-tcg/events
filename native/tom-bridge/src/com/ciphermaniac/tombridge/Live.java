@@ -21,12 +21,15 @@ final class Live {
    private static final int TOP_CUT = 1;
    private static final int DAY_TWO = 3;
 
-   /** What a code is meant to enter: its slip's parts and both seats' TOM player IDs. */
-   record Slip(int pod, Integer flight, int round, int table, String p1, String p2) {
+   /** What a code is meant to enter: its slip's parts, its outcome digit and both seats' TOM player IDs. */
+   record Slip(int pod, Integer flight, int round, int table, int outcome, String p1, String p2) {
    }
 
-   /** One match of the pod's current round; `flight` is null when TOM gives it none, `p2` for a bye. */
-   record Match(Integer flight, int table, int p1, Integer p2) {
+   /**
+    * One match of the pod's current round; `flight` is null when TOM gives it
+    * none, `p2` for a bye. `outcome` is TOM's, 0 while pending.
+    */
+   record Match(Integer flight, int table, int p1, Integer p2, int outcome) {
    }
 
    /** How TOM reads a code now: digits for the pod and flight, the pod it names, its current round. */
@@ -39,21 +42,28 @@ final class Live {
    /**
     * Refuses unless TOM, as it is now, reads `code` as exactly the match
     * `want` names: same pod, flight, round and table, holding the same two
-    * players in the same seats.
+    * players in the same seats, with no other result. True when TOM already
+    * holds `want`'s result there, so there is nothing to enter.
     */
-   static void confirm(Layout live, Slip want, String code) throws NotReady {
+   static boolean confirm(Layout live, Slip want, String code) throws NotReady {
+      if (live.round() != want.round()) {
+         throw Pods.otherRound(live.round(), want.round());
+      }
       Match match = target(live, code);
       boolean same = match != null
          && live.pod() == want.pod()
          && Objects.equals(live.flightDigits() == 0 ? null : match.flight(), want.flight())
-         && live.round() == want.round()
          && match.table() == want.table()
          && seat(want.p1(), match.p1())
          && seat(want.p2(), match.p2());
+      String where = "Round " + want.round() + " table " + want.table();
       if (!same) {
-         throw new NotReady("Round " + want.round() + " table " + want.table()
-            + " in TOM is not the match the site has. Wait for the site to update, then send again.");
+         throw new NotReady(where + " in TOM has different players than the site.");
       }
+      if (match.outcome() != 0 && match.outcome() != want.outcome()) {
+         throw new NotReady(where + " already has a different result in TOM.");
+      }
+      return match.outcome() == want.outcome();
    }
 
    private static boolean seat(String want, Integer id) {
@@ -145,7 +155,8 @@ final class Live {
          flight == null ? null : number(flight, "getNumber"),
          number(match, "getTableNumber"),
          number(call(match, "getPlayer1"), "getId"),
-         p2 == null ? null : number(p2, "getId"));
+         p2 == null ? null : number(p2, "getId"),
+         number(match, "getOutcome"));
    }
 
    private static int number(Object target, String method) throws ReflectiveOperationException {
