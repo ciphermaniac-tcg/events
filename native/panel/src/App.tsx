@@ -15,7 +15,7 @@ import { createTomState } from './tomState';
 export function App() {
   const tom = createTomState();
   const file = createTdfState();
-  const log = createLog();
+  const log = createLog(() => file.tournament()?.info.name);
   return (
     <main class='tp'>
       <h1>TOM Link</h1>
