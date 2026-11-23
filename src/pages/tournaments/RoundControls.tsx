@@ -93,13 +93,13 @@ function ClockSetter(props: { round: Round; onSet: (seconds: number) => void; on
  * answers; TOM's own timer counts for nothing. Says why when TOM's round did
  * not start, and null when it runs or there is no TOM to start.
  */
-async function startInTom(state: ManageState, pod: Pod): Promise<string | null> {
+async function startInTom(state: ManageState, pod: Pod, round: number): Promise<string | null> {
   const data = state.data();
   if (!data || !drivesTom(data.mode)) {
     return null;
   }
   const { startTomRound } = await import('../../lib/native/bridge');
-  return startTomRound(pod.category, data.tournament.info.name);
+  return startTomRound(pod.category, data.tournament.info.name, round);
 }
 
 /**
@@ -116,11 +116,12 @@ export function ClockControls(props: { state: ManageState; pod: Pod; round: Roun
   const [tomTrouble, setTomTrouble] = createSignal<string | null>(null);
   const send = (type: 'startClock' | 'stopClock') => {
     const { state, pod } = props;
+    const round = props.round.number;
     const sent = state.send({ type, pod: pod.category });
     if (type === 'startClock') {
       setTomTrouble(null);
-      // TOM starts only once the site's own clock has.
-      void sent.then(ok => (ok ? startInTom(state, pod) : null)).then(setTomTrouble);
+      // TOM starts only once the site's own clock has, and only on the round that clock is for.
+      void sent.then(ok => (ok ? startInTom(state, pod, round) : null)).then(setTomTrouble);
     }
   };
   const adjust = (seconds: number) => void props.state.send({ type: 'adjustClock', pod: props.pod.category, seconds });

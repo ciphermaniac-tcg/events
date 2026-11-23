@@ -102,7 +102,11 @@ export function tomCommands(invoke: Invoke) {
     save: () => invoke<SaveResult>('tom_save'),
     /** Shows the TOM panel, opening it if needed: the app opens without it, as most events never use TOM. */
     openPanel: () => invoke<void>('tom_open_panel'),
-    /** Starts a pod's current round in TOM; an event with one pod may leave the pod out. `tournament` as for submit. */
-    startRound: (pod?: number, tournament?: string) => invoke<StartRoundResult>('tom_start_round', { pod, tournament })
+    /**
+     * Starts a pod's current round in TOM; an event with one pod may leave the
+     * pod out. With `round`, TOM's pod must be on it. `tournament` as for submit.
+     */
+    startRound: (pod?: number, tournament?: string, round?: number) =>
+      invoke<StartRoundResult>('tom_start_round', { pod, round, tournament })
   };
 }

@@ -155,6 +155,13 @@ public final class BridgeTest {
       expectNotReady(() -> Pods.pick(List.of(juniors), 2), "the only pod is Juniors, not Masters");
    }
 
+   static void testStartRoundRefusesAPodOnAnotherRound() throws Exception {
+      Pods.Pod second = new Pods.Pod(0, 2, 2, Pods.State.PAIRED);
+      check(Pods.onRound(second, 2) == second, "the pod's own round was refused");
+      check(Pods.onRound(second, null) == second, "no round should take the pod's");
+      expectNotReady(() -> Pods.onRound(second, 1), "the site started round 1 and TOM has round 2 paired");
+   }
+
    /** Masters alone, round 1, without flights: table 10 seats players 101 and 102, table 7 players 5 and 8. */
    private static Live.Layout masters(int flightDigits, Integer flight, int round) {
       List<Live.Match> matches = List.of(

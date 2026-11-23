@@ -175,9 +175,10 @@ final class Tom {
       }
    }
 
-   synchronized String startRound(Integer category, String tournament) {
+   /** `round`, when given, is the round the site started: TOM's pod must be on it. */
+   synchronized String startRound(Integer category, Integer round, String tournament) {
       try {
-         String result = startPod(category, tournament) ? "started" : "already_started";
+         String result = startPod(category, round, tournament) ? "started" : "already_started";
          return new Json.Obj().str("result", result).toString();
       } catch (NotReady e) {
          return notReady(e.getMessage());
@@ -185,8 +186,8 @@ final class Tom {
    }
 
    /** Starts a pod's paired round; false when it had already started. */
-   private boolean startPod(Integer category, String tournament) throws NotReady {
-      Starting starting = Swing.onEdt(() -> clickStart(category, tournament));
+   private boolean startPod(Integer category, Integer round, String tournament) throws NotReady {
+      Starting starting = Swing.onEdt(() -> clickStart(category, round, tournament));
       if (starting == null) {
          return false;
       }
@@ -194,14 +195,17 @@ final class Tom {
       return true;
    }
 
-   /** Never behind the slip form: it is modal, so the main window is not TOM's to act on. */
-   private static Starting clickStart(Integer category, String tournament) throws NotReady {
+   /**
+    * Never behind the slip form: it is modal, so the main window is not TOM's
+    * to act on. The round is checked in this same task, right before the click.
+    */
+   private static Starting clickStart(Integer category, Integer round, String tournament) throws NotReady {
       JFrame frame = requireIdle(false, tournament);
       JTabbedPane pane = Pods.podPane(frame);
       if (pane == null) {
          throw new NotReady("TOM's pod tabs were not found.");
       }
-      Pods.Pod pod = Pods.pick(Pods.read(pane), category);
+      Pods.Pod pod = Pods.onRound(Pods.pick(Pods.read(pane), category), round);
       if (pod.state().started()) {
          return null;
       }
@@ -261,7 +265,7 @@ final class Tom {
             // Ours, from an earlier code in the batch: close it so the round can start.
             finish();
          }
-         startPod(category, tournament);
+         startPod(category, round, tournament);
       }
    }
 

@@ -87,10 +87,10 @@ export function createLog() {
           return items.map((_, i) => describe(results[i]));
         }
       ),
-    /** Starts a pod's round in TOM, named by its category code. */
-    startRound: (pod: number, what: string) =>
+    /** Starts a pod's round in TOM, named by its category code; TOM's pod must be on `round`. */
+    startRound: (pod: number, round: number, what: string) =>
       one([{ code: '', what }], async () => {
-        const result = await tom.startRound(pod);
+        const result = await tom.startRound(pod, undefined, round);
         const trouble = startRoundTrouble(result);
         return [{ result: trouble ?? (result.result === 'started' ? 'Started' : 'Already started'), ok: !trouble }];
       }),

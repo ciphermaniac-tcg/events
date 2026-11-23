@@ -23,7 +23,7 @@ test('each command goes to the Rust command of its name, with its arguments name
   await tom.status();
   await tom.submit([ENTRY], 'Spring Cup');
   await tom.save();
-  await tom.startRound(2, 'Spring Cup');
+  await tom.startRound(2, 'Spring Cup', 3);
   await tom.startRound();
   await tom.openPanel();
   assert.deepEqual(calls, [
@@ -33,8 +33,8 @@ test('each command goes to the Rust command of its name, with its arguments name
     ['tom_status', undefined],
     ['tom_submit', { entries: [ENTRY], tournament: 'Spring Cup' }],
     ['tom_save', undefined],
-    ['tom_start_round', { pod: 2, tournament: 'Spring Cup' }],
-    ['tom_start_round', { pod: undefined, tournament: undefined }],
+    ['tom_start_round', { pod: 2, round: 3, tournament: 'Spring Cup' }],
+    ['tom_start_round', { pod: undefined, round: undefined, tournament: undefined }],
     ['tom_open_panel', undefined]
   ]);
 });

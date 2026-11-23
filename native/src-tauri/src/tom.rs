@@ -29,10 +29,11 @@
 //!   helper opened it, and auto-save is unticked again if the helper ticked it.
 //! - `tom_save()` -> `SaveResult`.
 //! - `tom_open_panel()` -> `null`: shows the TOM panel, opening it if needed.
-//! - `tom_start_round(pod?: number, tournament?: string)` -> `StartResult`.
-//!   `pod` is TOM's category code (0 Juniors, 1 Seniors, 2 Masters, 8 Juniors
-//!   and Seniors, 9 Seniors and Masters, 10 everyone); leave it out when the
-//!   event has one pod. `tournament` as for `tom_submit`.
+//! - `tom_start_round(pod?: number, round?: number, tournament?: string)` ->
+//!   `StartResult`. `pod` is TOM's category code (0 Juniors, 1 Seniors, 2
+//!   Masters, 8 Juniors and Seniors, 9 Seniors and Masters, 10 everyone); leave
+//!   it out when the event has one pod. With `round`, TOM's pod must be on that
+//!   round or nothing is pressed. `tournament` as for `tom_submit`.
 //!
 //! ```text
 //! Entry = {                        // computed from the .tdf TOM saved
@@ -235,9 +236,10 @@ pub async fn tom_save(tom: State<'_, Tom>) -> Result<SaveResult, String> {
 pub async fn tom_start_round(
     tom: State<'_, Tom>,
     pod: Option<u8>,
+    round: Option<u8>,
     tournament: Option<String>,
 ) -> Result<StartResult, String> {
-    tom.run(move |_, bridge| bridge.start_round(pod, tournament.as_deref()))
+    tom.run(move |_, bridge| bridge.start_round(pod, round, tournament.as_deref()))
         .await
 }
 
