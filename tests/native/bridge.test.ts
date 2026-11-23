@@ -45,14 +45,14 @@ test('starting a pod’s round in TOM names the pod by TOM’s category code and
       }
     }
   };
-  assert.equal(await startTomRound('masters', 'Spring Cup'), null);
-  assert.equal(await startTomRound('mixed', 'Spring Cup'), 'TOM is not running');
+  assert.equal(await startTomRound('masters', 'Spring Cup', 3), null);
+  assert.equal(await startTomRound('mixed', 'Spring Cup', 1), 'TOM is not running');
   assert.deepEqual(calls, [
-    ['tom_start_round', { pod: 2, tournament: 'Spring Cup' }],
-    ['tom_start_round', { pod: 10, tournament: 'Spring Cup' }]
+    ['tom_start_round', { pod: 2, round: 3, tournament: 'Spring Cup' }],
+    ['tom_start_round', { pod: 10, round: 1, tournament: 'Spring Cup' }]
   ]);
   global.window = { __TAURI_INTERNALS__: { invoke: () => Promise.reject(new Error('IPC closed')) } };
-  assert.equal(await startTomRound('masters', 'Spring Cup'), 'IPC closed');
+  assert.equal(await startTomRound('masters', 'Spring Cup', 3), 'IPC closed');
 });
 
 test('only the desktop app, which marks its window, has TOM; the Android app has the bridge alone', () => {

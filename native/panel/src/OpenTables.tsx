@@ -58,14 +58,14 @@ function StartRounds(props: { tournament: Tournament; log: Log }) {
     <div class='tp-acts tp-starts'>
       <For each={pods()}>
         {pod => {
-          const what = () =>
-            `${pods().length > 1 ? `${POD_LABELS[pod.category]} ` : ''}round ${pod.rounds.at(-1)?.number ?? ''}`;
+          const round = () => pod.rounds.at(-1)?.number ?? 0;
+          const what = () => `${pods().length > 1 ? `${POD_LABELS[pod.category]} ` : ''}round ${round()}`;
           return (
             <button
               type='button'
               class='btn btn-secondary'
               disabled={props.log.busy()}
-              onClick={() => void props.log.startRound(Number(categoryCode(pod.category)), `Start ${what()}`)}
+              onClick={() => void props.log.startRound(Number(categoryCode(pod.category)), round(), `Start ${what()}`)}
             >
               Start {what()}
             </button>

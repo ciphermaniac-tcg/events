@@ -143,15 +143,18 @@ impl Tom {
         }
     }
 
+    /// `round`: the round TOM's pod must be on; the helper refuses another.
     pub(crate) fn start_round(
         &mut self,
         category: Option<u8>,
+        round: Option<u8>,
         tournament: Option<&str>,
     ) -> StartResult {
         let mut fields: Vec<_> = category
             .map(|category| ("category", category.to_string()))
             .into_iter()
             .collect();
+        fields.extend(round.map(|round| ("round", round.to_string())));
         fields.extend(tournament.map(|name| ("tournament", name.to_owned())));
         match self.outcome("start_round", &fields) {
             Outcome::Started => StartResult::Started,

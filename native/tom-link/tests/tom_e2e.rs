@@ -313,10 +313,19 @@ fn inside_mode(bridge: &mut Bridge, slips: &[Slip]) {
 fn start_round_is_idempotent(bridge: &mut Bridge) {
     assert!(bridge.status().pods[0].started);
     assert_eq!(
-        bridge.start_round(Some(2), None),
+        bridge.start_round(Some(2), Some(ROUND), None),
         StartResult::AlreadyStarted
     );
-    assert_eq!(bridge.start_round(None, None), StartResult::AlreadyStarted);
+    assert_eq!(
+        bridge.start_round(None, None, None),
+        StartResult::AlreadyStarted
+    );
+    // The site's clock was for round 1, but TOM is on round 2.
+    let stale = bridge.start_round(Some(2), Some(1), None);
+    assert!(
+        matches!(&stale, StartResult::NotReady { reason } if reason.contains("not round 1")),
+        "{stale:?}"
+    );
 }
 
 /// A batch that stops at a rejection, then the next batch still lands.

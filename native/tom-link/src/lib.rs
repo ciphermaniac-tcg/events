@@ -150,11 +150,17 @@ impl Bridge {
 
     /// Presses TOM's Start Round for a pod (TOM category code), or for the
     /// only pod when `category` is `None`. Already started counts as success.
-    /// With a `tournament` name, TOM must have that tournament open, and only it.
-    pub fn start_round(&mut self, category: Option<u8>, tournament: Option<&str>) -> StartResult {
+    /// With a `round`, TOM's pod must be on that round; with a `tournament`
+    /// name, TOM must have that tournament open, and only it.
+    pub fn start_round(
+        &mut self,
+        category: Option<u8>,
+        round: Option<u8>,
+        tournament: Option<&str>,
+    ) -> StartResult {
         self.tom.as_mut().map_or_else(
             || StartResult::not_ready(NOT_LAUNCHED),
-            |tom| tom.start_round(category, tournament),
+            |tom| tom.start_round(category, round, tournament),
         )
     }
 
@@ -189,7 +195,7 @@ mod tests {
         assert_eq!(results, [SubmitResult::not_ready("21113", NOT_LAUNCHED)]);
         assert_eq!(bridge.save(), SaveResult::not_ready(NOT_LAUNCHED));
         assert_eq!(
-            bridge.start_round(Some(2), None),
+            bridge.start_round(Some(2), None, None),
             StartResult::not_ready(NOT_LAUNCHED)
         );
     }

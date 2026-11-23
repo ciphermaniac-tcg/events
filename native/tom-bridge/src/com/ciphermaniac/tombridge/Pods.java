@@ -171,6 +171,14 @@ final class Pods {
       throw new NotReady("TOM has no pod for category " + category + ".");
    }
 
+   /** The pod, refused when it is not on `round`; null takes any round. */
+   static Pod onRound(Pod pod, Integer round) throws NotReady {
+      if (round != null && pod.round() != round) {
+         throw new NotReady("TOM has round " + pod.round() + " in this pod, not round " + round + ".");
+      }
+      return pod;
+   }
+
    static String notStartable(State state) {
       return switch (state) {
          case REPAIR -> "TOM has unpaired players in this pod. Pair them in TOM first.";

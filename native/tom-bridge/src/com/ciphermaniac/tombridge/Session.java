@@ -98,9 +98,9 @@ final class Session implements Runnable {
 
    private String startRound(Map<String, String> request) {
       try {
-         return tom.startRound(number(request, "category"), request.get("tournament"));
+         return tom.startRound(number(request, "category"), number(request, "round"), request.get("tournament"));
       } catch (NumberFormatException e) {
-         return new Json.Obj().str("error", "invalid category").toString();
+         return new Json.Obj().str("error", "invalid category or round").toString();
       }
    }
 
