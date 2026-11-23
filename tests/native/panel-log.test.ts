@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-test('the panel sends results and Start Round with the picked file’s event name', async () => {
+test('the panel sends results and Start Round with the picked file’s event name and ID', async () => {
   const calls: [string, unknown][] = [];
   Object.assign(globalThis, {
     window: {
@@ -16,12 +16,12 @@ test('the panel sends results and Start Round with the picked file’s event nam
     }
   });
   const { createLog } = await import('../../native/panel/src/log');
-  const log = createLog(() => 'Spring Cup');
+  const log = createLog(() => ({ name: 'Spring Cup', sanctionId: '26-10-000001' }));
   const entry = { pod: 2, flight: null, round: 1, table: 1, outcome: 1 as const, code: '21113', p1: '1', p2: '2' };
   await log.send([{ entry, what: 'table 1' }]);
   await log.startRound(2, 1, 'Start round 1');
   assert.deepEqual(calls, [
-    ['tom_submit', { entries: [entry], tournament: 'Spring Cup' }],
-    ['tom_start_round', { pod: 2, round: 1, tournament: 'Spring Cup' }]
+    ['tom_submit', { entries: [entry], tournament: 'Spring Cup', tournamentId: '26-10-000001' }],
+    ['tom_start_round', { pod: 2, round: 1, tournament: 'Spring Cup', tournamentId: '26-10-000001' }]
   ]);
 });

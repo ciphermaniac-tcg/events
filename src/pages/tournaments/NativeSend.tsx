@@ -82,7 +82,7 @@ export function NativeSend(props: {
     try {
       const results = await tom.submit(
         items.map(item => item.entry),
-        props.tournament.info.name
+        props.tournament.info
       );
       keep(recorded(current(), items, results));
       setSaid(summary(results, items.length));

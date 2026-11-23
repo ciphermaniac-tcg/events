@@ -4,17 +4,17 @@
  * @tauri-apps/api, so it adds no dependency and loads only inside the app.
  */
 
-import { type Invoke, startRoundTrouble, tomCommands } from '../../../shared/native/tomCommands';
+import { type Invoke, startRoundTrouble, tomCommands, type TomEvent } from '../../../shared/native/tomCommands';
 import { categoryCode } from '../../../shared/tournament/tdf';
 import type { PodCategory } from '../../../shared/tournament/types';
 /**
  * Starts a pod's round in TOM along with the site's clock, so TOM takes the
- * pod's results, refused unless TOM has `tournament` (the event's name) open
- * with the pod on `round`. Says why when TOM's round did not start; null when it runs.
+ * pod's results, refused unless TOM has `event` open with the pod on
+ * `round`. Says why when TOM's round did not start; null when it runs.
  */
-export async function startTomRound(category: PodCategory, tournament: string, round: number): Promise<string | null> {
+export async function startTomRound(category: PodCategory, event: TomEvent, round: number): Promise<string | null> {
   try {
-    return startRoundTrouble(await nativeTom().startRound(Number(categoryCode(category)), tournament, round));
+    return startRoundTrouble(await nativeTom().startRound(Number(categoryCode(category)), event, round));
   } catch (err) {
     return err instanceof Error ? err.message : String(err);
   }

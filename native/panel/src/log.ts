@@ -5,7 +5,12 @@
  */
 
 import { createSignal } from 'solid-js';
-import { startRoundTrouble, type SubmitEntry, type SubmitResult } from '../../../shared/native/tomCommands';
+import {
+  startRoundTrouble,
+  type SubmitEntry,
+  type SubmitResult,
+  type TomEvent
+} from '../../../shared/native/tomCommands';
 import { errorText, tom } from './tom';
 
 const KEPT = 30;
@@ -49,8 +54,8 @@ function describe(result: SubmitResult | undefined): Outcome {
   return result.result === 'accepted' ? { result: 'Accepted', ok: true } : { result: trouble(result), ok: false };
 }
 
-/** `tournament`: the picked file's event name, which TOM must have open, alone. */
-export function createLog(tournament: () => string | undefined) {
+/** `tournament`: the picked file's event, which TOM must have open, alone. */
+export function createLog(tournament: () => TomEvent | undefined) {
   const [entries, setEntries] = createSignal<LogEntry[]>([]);
   const [busy, setBusy] = createSignal(false);
   let next = 0;

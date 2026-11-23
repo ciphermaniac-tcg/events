@@ -30,6 +30,23 @@ const NOT_LAUNCHED: &str = "Launch TOM from here to send it results.";
 /// The helper can only be added as TOM starts, never to a running TOM.
 const ALREADY_OPEN: &str = "TOM is already open without the helper, which can only be added as TOM starts. Quit TOM, then launch it from here.";
 
+/// The event TOM must have open, alone: by name, as TOM titles its window,
+/// and by TOM's tournament ID when the site has one. `None` takes any.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct Event<'a> {
+    pub name: Option<&'a str>,
+    pub id: Option<&'a str>,
+}
+
+impl Event<'_> {
+    /// As the helper reads them.
+    fn fields(self) -> impl Iterator<Item = (&'static str, String)> {
+        let name = self.name.map(|name| ("tournament", name.to_owned()));
+        name.into_iter()
+            .chain(self.id.map(|id| ("tournament_id", id.to_owned())))
+    }
+}
+
 /// The desktop app's handle on TOM.
 pub struct Bridge {
     tom_path: Option<PathBuf>,
@@ -133,11 +150,11 @@ impl Bridge {
     /// Sends entries in order. Each is vetted against its own layout first;
     /// the batch stops at the first entry that is not accepted. Afterwards,
     /// whatever happened, TOM's slip form is closed again if the helper opened it.
-    /// With a `tournament` name, TOM must have that tournament open, and only it.
-    pub fn submit(&mut self, entries: &[Entry], tournament: Option<&str>) -> Vec<SubmitResult> {
+    /// TOM must have `event` open, and only it.
+    pub fn submit(&mut self, entries: &[Entry], event: Event) -> Vec<SubmitResult> {
         match self.tom.as_mut() {
             Some(tom) => {
-                let results = results::submit_each(entries, |entry| tom.submit(entry, tournament));
+                let results = results::submit_each(entries, |entry| tom.submit(entry, event));
                 tom.finish();
                 results
             }
@@ -150,17 +167,17 @@ impl Bridge {
 
     /// Presses TOM's Start Round for a pod (TOM category code), or for the
     /// only pod when `category` is `None`. Already started counts as success.
-    /// With a `round`, TOM's pod must be on that round; with a `tournament`
-    /// name, TOM must have that tournament open, and only it.
+    /// With a `round`, TOM's pod must be on that round; TOM must have `event`
+    /// open, and only it.
     pub fn start_round(
         &mut self,
         category: Option<u8>,
         round: Option<u8>,
-        tournament: Option<&str>,
+        event: Event,
     ) -> StartResult {
         self.tom.as_mut().map_or_else(
             || StartResult::not_ready(NOT_LAUNCHED),
-            |tom| tom.start_round(category, round, tournament),
+            |tom| tom.start_round(category, round, event),
         )
     }
 
@@ -191,11 +208,11 @@ mod tests {
         let status = bridge.status();
         assert!(!status.ready && !status.launched);
         assert_eq!(status.reason.as_deref(), Some(NOT_LAUNCHED));
-        let results = bridge.submit(&[code::entry(2, None, 1, 1, 1, "21113")], None);
+        let results = bridge.submit(&[code::entry(2, None, 1, 1, 1, "21113")], Event::default());
         assert_eq!(results, [SubmitResult::not_ready("21113", NOT_LAUNCHED)]);
         assert_eq!(bridge.save(), SaveResult::not_ready(NOT_LAUNCHED));
         assert_eq!(
-            bridge.start_round(Some(2), None, None),
+            bridge.start_round(Some(2), None, Event::default()),
             StartResult::not_ready(NOT_LAUNCHED)
         );
     }
@@ -221,7 +238,7 @@ mod tests {
                 tom_path: None,
                 tom: Some(tom),
             };
-            bridge.submit(&entries, None);
+            bridge.submit(&entries, Event::default());
             assert_eq!(ops(&server.join().unwrap()), [r#""submit""#, r#""finish""#]);
             if let Some(tom) = bridge.tom.as_mut() {
                 tom.kill();

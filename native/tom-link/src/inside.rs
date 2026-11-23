@@ -17,6 +17,7 @@ use serde::Deserialize;
 use serde::de::DeserializeOwned;
 use serde_json::json;
 
+use crate::Event;
 use crate::code::Entry;
 use crate::results::{PodStatus, SaveResult, StartResult, SubmitResult, TomView};
 
@@ -106,11 +107,11 @@ impl Tom {
         }
     }
 
-    /// `tournament`: the name TOM must have open; the helper refuses another.
+    /// `event`: what TOM must have open; the helper refuses another.
     /// The helper also refuses unless TOM's live pairings read the code as the
     /// entry's match, seating its two players, and holding no other result.
     /// When TOM already holds the entry's result, it is accepted untyped.
-    pub(crate) fn submit(&mut self, entry: &Entry, tournament: Option<&str>) -> SubmitResult {
+    pub(crate) fn submit(&mut self, entry: &Entry, event: Event) -> SubmitResult {
         let code = entry.code.as_str();
         let mut fields = vec![
             ("code", code.to_owned()),
@@ -122,7 +123,7 @@ impl Tom {
             ("p2", entry.p2.clone()),
         ];
         fields.extend(entry.flight.map(|flight| ("flight", flight.to_string())));
-        fields.extend(tournament.map(|name| ("tournament", name.to_owned())));
+        fields.extend(event.fields());
         match self.outcome("submit", &fields) {
             Outcome::Accepted => SubmitResult::accepted(code),
             Outcome::Rejected { message } => SubmitResult::rejected(code, message),
@@ -150,14 +151,14 @@ impl Tom {
         &mut self,
         category: Option<u8>,
         round: Option<u8>,
-        tournament: Option<&str>,
+        event: Event,
     ) -> StartResult {
         let mut fields: Vec<_> = category
             .map(|category| ("category", category.to_string()))
             .into_iter()
             .collect();
         fields.extend(round.map(|round| ("round", round.to_string())));
-        fields.extend(tournament.map(|name| ("tournament", name.to_owned())));
+        fields.extend(event.fields());
         match self.outcome("start_round", &fields) {
             Outcome::Started => StartResult::Started,
             Outcome::AlreadyStarted => StartResult::AlreadyStarted,
@@ -596,14 +597,14 @@ pub(crate) mod tests {
         let entry = crate::code::entry(2, None, 1, 1, 1, "21113");
         let mut hung_up = tom_answering(None);
         assert!(matches!(
-            hung_up.submit(&entry, None),
+            hung_up.submit(&entry, Event::default()),
             SubmitResult::Uncertain { .. }
         ));
         let mut unsure = tom_answering(Some(
             r#"{"result":"uncertain","reason":"TOM stopped responding."}"#,
         ));
         assert_eq!(
-            unsure.submit(&entry, None),
+            unsure.submit(&entry, Event::default()),
             SubmitResult::uncertain("21113", "TOM stopped responding.")
         );
         for mut tom in [hung_up, unsure] {
@@ -622,13 +623,20 @@ pub(crate) mod tests {
         };
         let entry = crate::code::entry(2, None, 3, 1, 1, "23119");
         assert_eq!(
-            tom.submit(&entry, Some("Spring Cup")),
+            tom.submit(
+                &entry,
+                Event {
+                    name: Some("Spring Cup"),
+                    id: Some("26-10-000001")
+                }
+            ),
             SubmitResult::accepted("23119")
         );
         let seen: serde_json::Value = serde_json::from_str(&server.join().unwrap()[0]).unwrap();
         let expected = json!({
             "token": token, "op": "submit", "code": "23119", "pod": "2", "round": "3",
-            "table": "1", "outcome": "1", "p1": "1", "p2": "2", "tournament": "Spring Cup"
+            "table": "1", "outcome": "1", "p1": "1", "p2": "2", "tournament": "Spring Cup",
+            "tournament_id": "26-10-000001"
         });
         assert_eq!(seen, expected);
         tom.kill();

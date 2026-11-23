@@ -15,7 +15,7 @@ use std::process::{Child, Command, Stdio};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use tom_link::{Bridge, Entry, SaveResult, StartResult, SubmitResult};
+use tom_link::{Bridge, Entry, Event, SaveResult, StartResult, SubmitResult};
 
 const DISPLAY: &str = ":93";
 const LOGIN: &str = "1234567";
@@ -24,6 +24,16 @@ const MASTERS: &str = "12";
 /// Round 1 is played; round 2 is paired with its pairings viewed, not started.
 const PLAYED: &str = "1";
 const ROUND: u8 = 2;
+/// The harness's event, by name and tournament ID.
+const EVENT: Event = Event {
+    name: Some("Harness Cup"),
+    id: Some("26-10-000001"),
+};
+/// Another event of the same name, told apart only by its ID.
+const LAST_WEEK: Event = Event {
+    name: Some("Harness Cup"),
+    id: Some("26-10-000002"),
+};
 
 struct Env {
     tom_tdf: PathBuf,
@@ -251,7 +261,7 @@ fn other_players(slips: &[Slip], table: u16) -> Entry {
 
 /// Submits a batch and checks TOM's slip form was closed again afterwards.
 fn submit(bridge: &mut Bridge, entries: &[Entry]) -> Vec<SubmitResult> {
-    let results = bridge.submit(entries, None);
+    let results = bridge.submit(entries, EVENT);
     let status = bridge.status();
     assert!(
         !status.slip_dialog_open,
@@ -294,6 +304,19 @@ fn mismatches_start_nothing(bridge: &mut Bridge, slips: &[Slip]) {
     assert!(!bridge.status().pods[0].started);
 }
 
+/// Same name, another ID: neither a slip nor Start Round touches TOM.
+fn another_event_starts_nothing(bridge: &mut Bridge, slips: &[Slip]) {
+    let results = bridge.submit(&[code(slips, 1, 1)], LAST_WEEK);
+    println!("another event's slip: {results:?}");
+    assert!(refused_with(&results, "not this event"));
+    let start = bridge.start_round(Some(2), Some(ROUND), LAST_WEEK);
+    assert!(
+        matches!(&start, StartResult::NotReady { reason } if reason.contains("not this event")),
+        "{start:?}"
+    );
+    assert!(!bridge.status().pods[0].started);
+}
+
 fn inside_mode(bridge: &mut Bridge, slips: &[Slip]) {
     // The round is not started yet: submit starts it, then enters the codes.
     let entries = [code(slips, 1, 1), code(slips, 2, 2)];
@@ -325,15 +348,15 @@ fn inside_mode(bridge: &mut Bridge, slips: &[Slip]) {
 fn start_round_is_idempotent(bridge: &mut Bridge) {
     assert!(bridge.status().pods[0].started);
     assert_eq!(
-        bridge.start_round(Some(2), Some(ROUND), None),
+        bridge.start_round(Some(2), Some(ROUND), EVENT),
         StartResult::AlreadyStarted
     );
     assert_eq!(
-        bridge.start_round(None, None, None),
+        bridge.start_round(None, None, EVENT),
         StartResult::AlreadyStarted
     );
     // The site's clock was for round 1, but TOM is on round 2.
-    let stale = bridge.start_round(Some(2), Some(1), None);
+    let stale = bridge.start_round(Some(2), Some(1), EVENT);
     assert!(
         matches!(&stale, StartResult::NotReady { reason } if reason.contains("not round 1")),
         "{stale:?}"
@@ -376,6 +399,7 @@ fn results_land_in_the_saved_tdf() {
     );
     let slips = env.slips();
     mismatches_start_nothing(&mut bridge, &slips);
+    another_event_starts_nothing(&mut bridge, &slips);
     inside_mode(&mut bridge, &slips);
     start_round_is_idempotent(&mut bridge);
     later_batches(&mut bridge, &slips);
