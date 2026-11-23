@@ -6,7 +6,8 @@
  * is not sent again meanwhile, and one TOM may or may not have, or that its
  * file shows otherwise, is sent again only on its own (see deliveries.ts).
  * The file export (children) stays offered when a pending result has no
- * code TOM takes, such as a double loss, or TOM could not be reached.
+ * code TOM takes, such as a double loss, or TOM could not be reached or
+ * refused a code.
  */
 
 import { createMemo, createSignal, For, type JSX, Show } from 'solid-js';
@@ -67,8 +68,8 @@ export function NativeSend(props: {
   const work = createMemo(() => plan(slips(), props.pending, current()));
   const count = () => work().fresh.length + work().held.length;
   const sent = () => Object.values(current()).some(delivery => delivery.state === 'accepted');
-  const [unreached, setUnreached] = createSignal(false);
-  const unsendable = () => unreached() || props.pending.some(result => !resultEntry(slips(), result));
+  const [untaken, setUntaken] = createSignal(false);
+  const unsendable = () => untaken() || props.pending.some(result => !resultEntry(slips(), result));
   const fail = (err: unknown) => setSaid(errorText(err));
 
   const keep = (next: Deliveries) => {
@@ -85,11 +86,11 @@ export function NativeSend(props: {
       );
       keep(recorded(current(), items, results));
       setSaid(summary(results, items.length));
-      setUnreached(results.some(result => result.result === 'not_ready'));
+      setUntaken(results.some(result => result.result === 'rejected' || result.result === 'not_ready'));
     } catch (err) {
       keep(recorded(current(), items));
       fail(err);
-      setUnreached(true);
+      setUntaken(true);
     } finally {
       setSending(false);
     }

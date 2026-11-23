@@ -1514,18 +1514,24 @@ test('a TOM console says when TOM last saved, how often once it has seen, and wh
   await expect(saved(page)).toHaveClass(/is-late/);
 });
 
-/** The desktop app's TOM bridge, with TOM not launched: every result comes back unsent. */
-const desktopTomClosed = (page: Page) =>
-  page.addInitScript(() =>
-    Object.assign(window, {
-      __CM_TOM__: true,
-      __TAURI_INTERNALS__: {
-        invoke: (_command: string, args?: { entries?: { code: string }[] }) =>
-          Promise.resolve(
-            (args?.entries ?? []).map(entry => ({ result: 'not_ready', code: entry.code, reason: 'TOM is closed.' }))
-          )
-      }
-    })
+/** The desktop app's TOM bridge: every result comes back unsent, as with TOM not launched, or refused by TOM when `rejecting`. */
+const desktopTomClosed = (page: Page, rejecting = false) =>
+  page.addInitScript(
+    rejects =>
+      Object.assign(window, {
+        __CM_TOM__: true,
+        __TAURI_INTERNALS__: {
+          invoke: (_command: string, args?: { entries?: { code: string }[] }) =>
+            Promise.resolve(
+              (args?.entries ?? []).map(entry =>
+                rejects
+                  ? { result: 'rejected', code: entry.code, message: 'TOM refused it.' }
+                  : { result: 'not_ready', code: entry.code, reason: 'TOM is closed.' }
+              )
+            )
+        }
+      }),
+    rejecting
   );
 
 test('in the desktop app, double losses TOM has no slip code for can still be written to the .tdf', async ({
@@ -1548,6 +1554,18 @@ test('in the desktop app, results that could not reach TOM can still be written 
   await page.getByRole('button', { name: 'Send 2 results to TOM' }).click();
   await page.getByRole('group', { name: 'Send results to TOM' }).getByRole('button', { name: 'Send' }).click();
   await expect(page.getByRole('status').filter({ hasText: 'TOM is closed.' })).toBeVisible();
+  await expect(write).toBeVisible();
+});
+
+test('in the desktop app, a result TOM refused can still be written to the .tdf', async ({ page }) => {
+  await desktopTomClosed(page, true);
+  const manage = { ...tomManage(), pending: openPending().slice(0, 1) };
+  await tomConsole(page, () => ({ status: 200, json: { ...manage, version: 5, revision: 'next' } }), { manage });
+  const write = page.getByRole('button', { name: 'Write 1 result to .tdf' });
+  await expect(write).toHaveCount(0);
+  await page.getByRole('button', { name: 'Send 1 result to TOM' }).click();
+  await page.getByRole('group', { name: 'Send results to TOM' }).getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'TOM refused it.' })).toBeVisible();
   await expect(write).toBeVisible();
 });
 
