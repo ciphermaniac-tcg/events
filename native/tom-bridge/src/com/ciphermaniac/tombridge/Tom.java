@@ -224,20 +224,33 @@ final class Tom {
       return new Starting(pod.index(), previous);
    }
 
+   /** Puts the operator's pod tab back however the start ends. */
    private void awaitStarted(Starting starting) throws NotReady {
-      long deadline = System.currentTimeMillis() + START_TIMEOUT_MS;
-      while (System.currentTimeMillis() < deadline) {
-         Swing.sleep(POLL_MS);
-         Seen seen = Swing.onEdt(() -> new Seen(podStarted(starting.index()), dismissError()));
-         if (seen.error() != null) {
-            throw new NotReady(seen.error());
+      try {
+         long deadline = System.currentTimeMillis() + START_TIMEOUT_MS;
+         while (System.currentTimeMillis() < deadline) {
+            Swing.sleep(POLL_MS);
+            Seen seen = Swing.onEdt(() -> new Seen(podStarted(starting.index()), dismissError()));
+            if (seen.error() != null) {
+               throw new NotReady(seen.error());
+            }
+            if (seen.present()) {
+               return;
+            }
          }
-         if (seen.present()) {
-            Swing.onEdt(() -> showTab(starting.previous()));
-            return;
-         }
+         throw new NotReady("TOM did not start the round.");
+      } finally {
+         restoreTab(starting.previous());
       }
-      throw new NotReady("TOM did not start the round.");
+   }
+
+   /** Best effort: failing to show a tab again must not hide how the start went. */
+   private static void restoreTab(int index) {
+      try {
+         Swing.onEdt(() -> showTab(index));
+      } catch (NotReady e) {
+         Bridge.log("could not show the pod tab again: " + e.getMessage());
+      }
    }
 
    private static boolean podStarted(int index) {
@@ -347,7 +360,14 @@ final class Tom {
    private void openSlipDialog(String tournament) throws NotReady {
       // Armed before the click, so the form is hidden from its first show.
       stealth.arm(true);
-      if (!Swing.onEdt(() -> startOpening(tournament))) {
+      boolean opening;
+      try {
+         opening = Swing.onEdt(() -> startOpening(tournament));
+      } catch (NotReady e) {
+         stealth.arm(openedSlip);
+         throw e;
+      }
+      if (!opening) {
          stealth.arm(openedSlip);
          return;
       }
