@@ -3326,7 +3326,7 @@ test('in the desktop app, TOM’s round starts only once the site has started th
   await page.addInitScript(() => {
     const calls: string[] = [];
     Object.assign(window, {
-      __CM_TOM__: true,
+      __CM_TOM__: 2,
       __tomCalls: calls,
       __TAURI_INTERNALS__: {
         invoke: (command: string) => {

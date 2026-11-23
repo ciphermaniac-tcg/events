@@ -1519,7 +1519,7 @@ const desktopTomClosed = (page: Page, rejecting = false) =>
   page.addInitScript(
     rejects =>
       Object.assign(window, {
-        __CM_TOM__: true,
+        __CM_TOM__: 2,
         __TAURI_INTERNALS__: {
           invoke: (_command: string, args?: { entries?: { code: string }[] }) =>
             Promise.resolve(

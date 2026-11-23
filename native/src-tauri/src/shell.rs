@@ -278,9 +278,11 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
 
 /// Tells the site, before any of its scripts run, that this window can reach
 /// TOM (the `tom_*` commands exist only on desktop). Read by `hasTom` in the
-/// site's src/lib/native/detect.ts.
+/// site's src/lib/native/detect.ts. 2: the helper checks the event, the live
+/// match and TOM's own result before it writes; a build that set `true`
+/// checks none of them, so the site leaves it the file workflow.
 #[cfg(desktop)]
-const TOM_FLAG_SCRIPT: &str = "window.__CM_TOM__ = true;";
+const TOM_FLAG_SCRIPT: &str = "window.__CM_TOM__ = 2;";
 
 /// Builds the main window from its tauri.conf.json entry (`create: false`)
 /// so it can also catch `target="_blank"` links and `window.open` on desktop,
