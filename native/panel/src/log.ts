@@ -49,7 +49,8 @@ function describe(result: SubmitResult | undefined): Outcome {
   return result.result === 'accepted' ? { result: 'Accepted', ok: true } : { result: trouble(result), ok: false };
 }
 
-export function createLog() {
+/** `tournament`: the picked file's event name, which TOM must have open, alone. */
+export function createLog(tournament: () => string | undefined) {
   const [entries, setEntries] = createSignal<LogEntry[]>([]);
   const [busy, setBusy] = createSignal(false);
   let next = 0;
@@ -83,14 +84,17 @@ export function createLog() {
       one(
         items.map(({ entry, what }) => ({ code: entry.code, what })),
         async () => {
-          const results = await tom.submit(items.map(item => item.entry));
+          const results = await tom.submit(
+            items.map(item => item.entry),
+            tournament()
+          );
           return items.map((_, i) => describe(results[i]));
         }
       ),
     /** Starts a pod's round in TOM, named by its category code; TOM's pod must be on `round`. */
     startRound: (pod: number, round: number, what: string) =>
       one([{ code: '', what }], async () => {
-        const result = await tom.startRound(pod, undefined, round);
+        const result = await tom.startRound(pod, tournament(), round);
         const trouble = startRoundTrouble(result);
         return [{ result: trouble ?? (result.result === 'started' ? 'Started' : 'Already started'), ok: !trouble }];
       }),
