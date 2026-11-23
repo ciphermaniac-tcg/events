@@ -61,6 +61,13 @@ final class Tom {
    private record Starting(int index, int previous) {
    }
 
+   /** What must hold in TOM's window, checked in the same task, right before Start Round is pressed. */
+   private interface Check {
+      Check NONE = frame -> { };
+
+      void run(JFrame frame) throws NotReady;
+   }
+
    synchronized String status() {
       try {
          return Swing.onEdt(Tom::describe);
@@ -80,7 +87,7 @@ final class Tom {
       }
       cancelPendingFinish();
       try {
-         startPodOf(want.pod(), want.round(), tournament);
+         startPodOf(code, want, tournament);
          openSlipDialog(tournament);
          return enterAndObserve(code, want, tournament);
       } catch (NotReady e) {
@@ -178,7 +185,7 @@ final class Tom {
    /** `round`, when given, is the round the site started: TOM's pod must be on it. */
    synchronized String startRound(Integer category, Integer round, String tournament) {
       try {
-         String result = startPod(category, round, tournament) ? "started" : "already_started";
+         String result = startPod(category, round, tournament, Check.NONE) ? "started" : "already_started";
          return new Json.Obj().str("result", result).toString();
       } catch (NotReady e) {
          return notReady(e.getMessage());
@@ -186,8 +193,8 @@ final class Tom {
    }
 
    /** Starts a pod's paired round; false when it had already started. */
-   private boolean startPod(Integer category, Integer round, String tournament) throws NotReady {
-      Starting starting = Swing.onEdt(() -> clickStart(category, round, tournament));
+   private boolean startPod(Integer category, Integer round, String tournament, Check check) throws NotReady {
+      Starting starting = Swing.onEdt(() -> clickStart(category, round, tournament, check));
       if (starting == null) {
          return false;
       }
@@ -199,7 +206,8 @@ final class Tom {
     * Never behind the slip form: it is modal, so the main window is not TOM's
     * to act on. The round is checked in this same task, right before the click.
     */
-   private static Starting clickStart(Integer category, Integer round, String tournament) throws NotReady {
+   private static Starting clickStart(Integer category, Integer round, String tournament, Check check)
+      throws NotReady {
       JFrame frame = requireIdle(false, tournament);
       JTabbedPane pane = Pods.podPane(frame);
       if (pane == null) {
@@ -212,6 +220,7 @@ final class Tom {
       if (pod.state() != Pods.State.PAIRED) {
          throw new NotReady(Pods.notStartable(pod.state()));
       }
+      check.run(frame);
       int previous = pane.getSelectedIndex();
       AbstractButton start;
       try {
@@ -270,15 +279,16 @@ final class Tom {
 
    /**
     * TOM only takes results for a started round, so start the code's pod
-    * first when TOM shows its round paired but not started.
+    * first when TOM shows its round paired but not started, and only when
+    * its live pairings already seat the code's match as the site has it.
     */
-   private void startPodOf(Integer category, Integer round, String tournament) throws NotReady {
-      if (category != null && round != null && Swing.onEdt(() -> awaitingStart(category, round))) {
+   private void startPodOf(String code, Live.Slip want, String tournament) throws NotReady {
+      if (Swing.onEdt(() -> awaitingStart(want.pod(), want.round()))) {
          if (openedSlip) {
             // Ours, from an earlier code in the batch: close it so the round can start.
             finish();
          }
-         startPod(category, round, tournament);
+         startPod(want.pod(), want.round(), tournament, frame -> Live.confirm(Live.read(frame, code), want, code));
       }
    }
 

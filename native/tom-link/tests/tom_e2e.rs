@@ -274,8 +274,9 @@ fn refused_with(results: &[SubmitResult], text: &str) -> bool {
     matches!(results, [SubmitResult::NotReady { reason, .. }] if reason.contains(text))
 }
 
-/// A late round-1 slip must not start round 2.
-fn late_slip_starts_nothing(bridge: &mut Bridge) {
+/// A late round-1 slip must not start round 2, nor a slip for other players
+/// at a paired table.
+fn mismatches_start_nothing(bridge: &mut Bridge, slips: &[Slip]) {
     let pods = bridge.status().pods;
     assert_eq!(
         (pods.len(), pods[0].category, pods[0].round, pods[0].started),
@@ -286,6 +287,10 @@ fn late_slip_starts_nothing(bridge: &mut Bridge) {
     assert!(
         matches!(&results[..], [SubmitResult::NotReady { reason, .. }] if reason.contains("round must be started"))
     );
+    assert!(!bridge.status().pods[0].started);
+    let results = submit(bridge, &[other_players(slips, 6)]);
+    println!("other players before the round: {results:?}");
+    assert!(refused_with(&results, "not the match the site has"));
     assert!(!bridge.status().pods[0].started);
 }
 
@@ -363,7 +368,7 @@ fn results_land_in_the_saved_tdf() {
         "{stderr}"
     );
     let slips = env.slips();
-    late_slip_starts_nothing(&mut bridge);
+    mismatches_start_nothing(&mut bridge, &slips);
     inside_mode(&mut bridge, &slips);
     start_round_is_idempotent(&mut bridge);
     later_batches(&mut bridge, &slips);
