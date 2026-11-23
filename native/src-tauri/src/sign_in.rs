@@ -185,36 +185,53 @@ fn bind_script(challenge: &str, login: &Url) -> String {
     )
 }
 
+/// What `open_in_browser` made of a navigation.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum Login {
+    /// Not a login that leaves the webview.
+    NotOne,
+    /// Kept out of the webview: sent to the browser, or dropped when it could not be.
+    Opened,
+    /// Left to the page, which fetches the link's binding and then navigates
+    /// again, so the page must not be taken anywhere meanwhile.
+    Binding,
+}
+
 /// Starts an attempt for a login that has to leave the webview: a link
 /// first fetches its binding in the page, anything else opens straight away.
-fn start_attempt<R: Runtime>(webview: &Webview<R>, url: &Url) {
+fn start_attempt<R: Runtime>(webview: &Webview<R>, url: &Url) -> Login {
     let app = webview.app_handle();
     let (Some(verifier), Some(attempt)) = (random_hex::<32>(), random_hex::<16>()) else {
         log::warn!("no randomness for a sign-in verifier");
-        return;
+        return Login::Opened;
     };
     if let Err(err) = keep_verifier(app, &attempt, &verifier) {
         log::warn!("could not keep the sign-in verifier: {err}");
-        return;
+        return Login::Opened;
     }
     let challenge = challenge_of(&verifier);
     let Some(login) = browser_login(url, &challenge, &attempt) else {
-        return;
+        return Login::Opened;
     };
     if !is_link(url) {
         shell::open_sign_in(webview, &login);
-    } else if let Err(err) = webview.eval(bind_script(&challenge, &login)) {
-        log::warn!("could not bind the link to this session: {err}");
+        return Login::Opened;
+    }
+    match webview.eval(bind_script(&challenge, &login)) {
+        Ok(()) => Login::Binding,
+        Err(err) => {
+            log::warn!("could not bind the link to this session: {err}");
+            Login::Opened
+        }
     }
 }
 
 /// Sends a login that has to leave the webview to the browser. One
 /// naming an attempt that is waiting goes as that attempt (a link coming back
-/// with its binding); any other starts a new one. False when `url` is no
-/// such login.
-pub fn open_in_browser<R: Runtime>(webview: &Webview<R>, url: &Url) -> bool {
+/// with its binding); any other starts a new one.
+pub fn open_in_browser<R: Runtime>(webview: &Webview<R>, url: &Url) -> Login {
     if !is_browser_login(url) {
-        return false;
+        return Login::NotOne;
     }
     let app = webview.app_handle();
     match waiting_attempt(app, url) {
@@ -222,10 +239,10 @@ pub fn open_in_browser<R: Runtime>(webview: &Webview<R>, url: &Url) -> bool {
             if let Some(login) = browser_login(url, &challenge_of(&verifier), &attempt) {
                 shell::open_sign_in(webview, &login);
             }
+            Login::Opened
         }
         None => start_attempt(webview, url),
     }
-    true
 }
 
 /// Takes out the verifier of the attempt an app link names and keeps it with

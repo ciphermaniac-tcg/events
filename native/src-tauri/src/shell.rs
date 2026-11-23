@@ -247,9 +247,14 @@ fn recover<R: Runtime>(webview: &Webview<R>) {
 /// opened outside instead.
 fn follow<R: Runtime>(webview: &Webview<R>, url: &Url) -> bool {
     let app = webview.app_handle();
-    if sign_in::open_in_browser(webview, url) {
-        recover(webview);
-        return false;
+    match sign_in::open_in_browser(webview, url) {
+        // The page's own binding fetch would die with a recovery navigation.
+        sign_in::Login::Binding => return false,
+        sign_in::Login::Opened => {
+            recover(webview);
+            return false;
+        }
+        sign_in::Login::NotOne => {}
     }
     if stays_in_app(url) {
         return true;
