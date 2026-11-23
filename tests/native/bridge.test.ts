@@ -63,14 +63,16 @@ test('only the desktop app, which marks its window, has TOM; the Android app has
   global.window = { __TAURI_INTERNALS__: {} };
   assert.equal(inNativeApp(), true);
   assert.equal(hasTom(), false, 'Android');
-  global.window = { __TAURI_INTERNALS__: {}, __CM_TOM__: true };
+  global.window = { __TAURI_INTERNALS__: {}, __CM_TOM__: 2 };
   assert.equal(hasTom(), true, 'desktop');
-  global.window = { __CM_TOM__: true };
+  global.window = { __CM_TOM__: 2 };
   assert.equal(hasTom(), false, 'a flag without the app');
+  global.window = { __TAURI_INTERNALS__: {}, __CM_TOM__: true };
+  assert.equal(hasTom(), false, 'an older desktop build, which sends without checking TOM');
 });
 
 test('the console drives TOM only for an event run in TOM, never one the site runs itself', () => {
-  global.window = { __TAURI_INTERNALS__: {}, __CM_TOM__: true };
+  global.window = { __TAURI_INTERNALS__: {}, __CM_TOM__: 2 };
   assert.equal(drivesTom('tom'), true);
   assert.equal(drivesTom('swiss'), false, 'a Swiss event on the site has no TOM at all');
   assert.equal(drivesTom(undefined), false, 'before the event is loaded');

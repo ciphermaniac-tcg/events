@@ -2,12 +2,13 @@
  * What became of each result the site sent to TOM, until TOM's saved file
  * settles it.
  *
- * TOM overwrites a result without asking, and the app sends whatever it is
- * given. So a result TOM took is not sent again until a save of TOM's shows
- * it, and one whose fate is unknown ('uncertain'), or that TOM's file shows
+ * A result TOM took is not sent again until a save of TOM's shows it, and
+ * one whose fate is unknown ('uncertain'), or that TOM's file shows
  * differently once saved ('contradicted': a judge may have corrected it in
- * TOM), goes again only when someone sends that one on purpose. A result
- * changed on the site since it was sent is a new result and goes as usual.
+ * TOM), goes again only when someone sends that one on purpose. The app never
+ * types over a different result TOM already holds, so a correction made on
+ * the site after TOM took a result is refused there and stays for the .tdf
+ * write or a fix in TOM.
  *
  * Kept per event in localStorage, so a reload does not forget what was sent.
  */
