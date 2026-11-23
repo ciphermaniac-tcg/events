@@ -82,6 +82,18 @@ export type StartRoundResult =
 export const startRoundTrouble = (result: StartRoundResult): string | null =>
   result.result === 'not_ready' ? result.reason : null;
 
+/**
+ * The event TOM must have open, alone: its name as TOM titles its window and,
+ * when it has one, its sanction ID, which TOM's live data must hold too.
+ */
+export interface TomEvent {
+  name: string;
+  /** '' when the event has none. */
+  sanctionId: string;
+}
+
+const eventArgs = (event?: TomEvent) => ({ tournament: event?.name, tournamentId: event?.sanctionId || undefined });
+
 /** Tauri's invoke, or anything with its shape. */
 export type Invoke = <T>(command: string, args?: Record<string, unknown>) => Promise<T>;
 
@@ -94,20 +106,17 @@ export function tomCommands(invoke: Invoke) {
     /** Starts TOM with the helper loaded; rejects with a sentence when it cannot. */
     launch: () => invoke<TomStatus>('tom_launch'),
     status: () => invoke<TomStatus>('tom_status'),
-    /**
-     * A result per entry, in the order sent. With `tournament` (the event's
-     * name, as TOM titles its window), TOM must have that event open, alone.
-     */
-    submit: (entries: readonly SubmitEntry[], tournament?: string) =>
-      invoke<SubmitResult[]>('tom_submit', { entries, tournament }),
+    /** A result per entry, in the order sent. With `event`, TOM must have that event open, alone. */
+    submit: (entries: readonly SubmitEntry[], event?: TomEvent) =>
+      invoke<SubmitResult[]>('tom_submit', { entries, ...eventArgs(event) }),
     save: () => invoke<SaveResult>('tom_save'),
     /** Shows the TOM panel, opening it if needed: the app opens without it, as most events never use TOM. */
     openPanel: () => invoke<void>('tom_open_panel'),
     /**
      * Starts a pod's current round in TOM; an event with one pod may leave the
-     * pod out. With `round`, TOM's pod must be on it. `tournament` as for submit.
+     * pod out. With `round`, TOM's pod must be on it. `event` as for submit.
      */
-    startRound: (pod?: number, tournament?: string, round?: number) =>
-      invoke<StartRoundResult>('tom_start_round', { pod, round, tournament })
+    startRound: (pod?: number, event?: TomEvent, round?: number) =>
+      invoke<StartRoundResult>('tom_start_round', { pod, round, ...eventArgs(event) })
   };
 }

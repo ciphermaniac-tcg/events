@@ -99,7 +99,7 @@ async function startInTom(state: ManageState, pod: Pod, round: number): Promise<
     return null;
   }
   const { startTomRound } = await import('../../lib/native/bridge');
-  return startTomRound(pod.category, data.tournament.info.name, round);
+  return startTomRound(pod.category, data.tournament.info, round);
 }
 
 /**

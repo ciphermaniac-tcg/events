@@ -36,7 +36,45 @@ final class Live {
    record Layout(int podDigits, int pod, int flightDigits, int round, List<Match> matches) {
    }
 
+   /**
+    * The event a request is for: `name` as TOM titles its window and `id`,
+    * its tournament ID, when the site has one. Null takes any.
+    */
+   record Event(String name, String id) {
+      static final Event ANY = new Event(null, null);
+   }
+
    private Live() {
+   }
+
+   /** TOM's one tournament window, refused unless it holds `event`. Event thread only. */
+   static JFrame frame(Event event) throws NotReady {
+      JFrame frame = Pods.requireFrame(event.name());
+      if (event.id() != null) {
+         requireId(frame, event.id());
+      }
+      return frame;
+   }
+
+   private static void requireId(JFrame frame, String id) throws NotReady {
+      String openId;
+      String openName;
+      try {
+         Object data = call(tournamentOf(frame), "getData");
+         openId = (String) call(data, "getTournamentId");
+         openName = (String) call(data, "getName");
+      } catch (ReflectiveOperationException | RuntimeException e) {
+         Bridge.log("open event unreadable: " + e);
+         throw new NotReady("The app could not read which event TOM has open, so nothing was sent.");
+      }
+      sameEvent(id, openId, openName);
+   }
+
+   /** Refuses unless TOM's open event, `openName`, has the tournament ID `id`. */
+   static void sameEvent(String id, String openId, String openName) throws NotReady {
+      if (openId == null || !id.strip().equals(openId.strip())) {
+         throw new NotReady("TOM has \"" + openName + "\" open, not this event.");
+      }
    }
 
    /**

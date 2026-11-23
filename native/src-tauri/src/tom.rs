@@ -16,9 +16,10 @@
 //!   through `LaunchServices`, so TOM keeps its own Dock icon), finding it
 //!   first when no path is saved. Rejects with a sentence when it cannot.
 //! - `tom_status()` -> `Status`.
-//! - `tom_submit(entries: Entry[], tournament?: string)` -> `SubmitResult[]`,
-//!   one per entry, in order. With `tournament`, TOM must have that tournament
-//!   (by name) open and no other, or nothing is sent.
+//! - `tom_submit(entries: Entry[], tournament?: string, tournamentId?: string)`
+//!   -> `SubmitResult[]`, one per entry, in order. With `tournament`, TOM must
+//!   have that tournament (by name) open and no other, or nothing is sent;
+//!   with `tournamentId` (the sanction ID), TOM's live data must hold it too.
 //!   Each code must spell exactly its entry's layout (and never table 0) or it
 //!   is rejected unsent. Nor is it sent unless TOM's live pairings read the
 //!   code as that entry's match with `p1` and `p2` in its seats and no other
@@ -31,11 +32,12 @@
 //!   helper opened it, and auto-save is unticked again if the helper ticked it.
 //! - `tom_save()` -> `SaveResult`.
 //! - `tom_open_panel()` -> `null`: shows the TOM panel, opening it if needed.
-//! - `tom_start_round(pod?: number, round?: number, tournament?: string)` ->
+//! - `tom_start_round(pod?, round?, tournament?, tournamentId?)` ->
 //!   `StartResult`. `pod` is TOM's category code (0 Juniors, 1 Seniors, 2
 //!   Masters, 8 Juniors and Seniors, 9 Seniors and Masters, 10 everyone); leave
 //!   it out when the event has one pod. With `round`, TOM's pod must be on that
-//!   round or nothing is pressed. `tournament` as for `tom_submit`.
+//!   round or nothing is pressed. `tournament` and `tournamentId` as for
+//!   `tom_submit`.
 //!
 //! ```text
 //! Entry = {                        // computed from the .tdf TOM saved
@@ -78,7 +80,7 @@ use serde::{Deserialize, Serialize};
 use tauri::menu::MenuItem;
 use tauri::path::BaseDirectory;
 use tauri::{AppHandle, Manager, Runtime, State, WebviewUrl, WebviewWindowBuilder};
-use tom_link::{Bridge, Entry, SaveResult, StartResult, Status, SubmitResult};
+use tom_link::{Bridge, Entry, Event, SaveResult, StartResult, Status, SubmitResult};
 
 const CONFIG_FILE: &str = "tom.json";
 const HELPER_JAR: &str = "resources/tom-bridge.jar";
@@ -224,9 +226,16 @@ pub async fn tom_submit(
     tom: State<'_, Tom>,
     entries: Vec<Entry>,
     tournament: Option<String>,
+    tournament_id: Option<String>,
 ) -> Result<Vec<SubmitResult>, String> {
-    tom.run(move |_, bridge| bridge.submit(&entries, tournament.as_deref()))
-        .await
+    tom.run(move |_, bridge| {
+        let event = Event {
+            name: tournament.as_deref(),
+            id: tournament_id.as_deref(),
+        };
+        bridge.submit(&entries, event)
+    })
+    .await
 }
 
 #[tauri::command]
@@ -240,9 +249,16 @@ pub async fn tom_start_round(
     pod: Option<u8>,
     round: Option<u8>,
     tournament: Option<String>,
+    tournament_id: Option<String>,
 ) -> Result<StartResult, String> {
-    tom.run(move |_, bridge| bridge.start_round(pod, round, tournament.as_deref()))
-        .await
+    tom.run(move |_, bridge| {
+        let event = Event {
+            name: tournament.as_deref(),
+            id: tournament_id.as_deref(),
+        };
+        bridge.start_round(pod, round, event)
+    })
+    .await
 }
 
 #[tauri::command]

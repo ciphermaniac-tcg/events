@@ -79,7 +79,7 @@ final class Session implements Runnable {
    private String submit(Map<String, String> request) {
       try {
          String code = request.getOrDefault("code", "");
-         return tom.submit(code, slip(request), request.get("tournament"));
+         return tom.submit(code, slip(request), event(request));
       } catch (NumberFormatException e) {
          return new Json.Obj().str("error", "invalid entry").toString();
       }
@@ -99,10 +99,16 @@ final class Session implements Runnable {
 
    private String startRound(Map<String, String> request) {
       try {
-         return tom.startRound(number(request, "category"), number(request, "round"), request.get("tournament"));
+         return tom.startRound(number(request, "category"), number(request, "round"), event(request));
       } catch (NumberFormatException e) {
          return new Json.Obj().str("error", "invalid category or round").toString();
       }
+   }
+
+   /** The event TOM must have open; a blank ID is none. */
+   private static Live.Event event(Map<String, String> request) {
+      String id = request.get("tournament_id");
+      return new Live.Event(request.get("tournament"), id == null || id.isBlank() ? null : id);
    }
 
    /** An optional whole-number field, sent as a string. */

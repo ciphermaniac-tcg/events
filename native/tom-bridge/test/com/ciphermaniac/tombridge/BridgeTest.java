@@ -155,6 +155,19 @@ public final class BridgeTest {
       expectNotReady(() -> Pods.pick(List.of(juniors), 2), "the only pod is Juniors, not Masters");
    }
 
+   static void testAnEventOfTheSameNameWithAnotherIdIsRefused() throws Exception {
+      Live.sameEvent("26-10-000001", "26-10-000001", "Friday League");
+      Live.sameEvent("26-10-000001 ", "26-10-000001", "Friday League");
+      expectNotReady(() -> {
+         Live.sameEvent("26-10-000001", "26-10-000002", "Friday League");
+         return null;
+      }, "last week's Friday League has another tournament ID");
+      expectNotReady(() -> {
+         Live.sameEvent("26-10-000001", null, "Friday League");
+         return null;
+      }, "TOM's event has no tournament ID");
+   }
+
    static void testStartRoundRefusesAPodOnAnotherRound() throws Exception {
       Pods.Pod second = new Pods.Pod(0, 2, 2, Pods.State.PAIRED);
       check(Pods.onRound(second, 2) == second, "the pod's own round was refused");

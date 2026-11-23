@@ -79,18 +79,18 @@ final class Tom {
 
    /**
     * `want` is the match the code is for, as the site has it; the code goes in
-    * only if TOM's live pairings read it as that match. `tournament` is the
-    * name TOM must have open; null takes any.
+    * only if TOM's live pairings read it as that match. `event` is the one
+    * TOM must have open.
     */
-   synchronized String submit(String code, Live.Slip want, String tournament) {
+   synchronized String submit(String code, Live.Slip want, Live.Event event) {
       if (!code.matches(CODE_PATTERN)) {
          return new Json.Obj().str("error", "invalid code").toString();
       }
       cancelPendingFinish();
       try {
-         startPodOf(code, want, tournament);
-         openSlipDialog(tournament);
-         return enterAndObserve(code, want, tournament);
+         startPodOf(code, want, event);
+         openSlipDialog(event);
+         return enterAndObserve(code, want, event);
       } catch (NotReady e) {
          return notReady(e.getMessage());
       } finally {
@@ -159,10 +159,10 @@ final class Tom {
    }
 
    /** Once the code may be in TOM's field, a lost answer is uncertain, not "not ready". */
-   private String enterAndObserve(String code, Live.Slip want, String tournament) {
+   private String enterAndObserve(String code, Live.Slip want, Live.Event event) {
       Boolean ticked;
       try {
-         ticked = Swing.onEdt(() -> enter(code, want, tournament));
+         ticked = Swing.onEdt(() -> enter(code, want, event));
       } catch (Uncertain e) {
          return uncertain(e.getMessage());
       } catch (NotReady e) {
@@ -189,9 +189,9 @@ final class Tom {
    }
 
    /** `round`, when given, is the round the site started: TOM's pod must be on it. */
-   synchronized String startRound(Integer category, Integer round, String tournament) {
+   synchronized String startRound(Integer category, Integer round, Live.Event event) {
       try {
-         String result = startPod(category, round, tournament, Check.NONE) ? "started" : "already_started";
+         String result = startPod(category, round, event, Check.NONE) ? "started" : "already_started";
          return new Json.Obj().str("result", result).toString();
       } catch (NotReady e) {
          return notReady(e.getMessage());
@@ -199,8 +199,8 @@ final class Tom {
    }
 
    /** Starts a pod's paired round; false when it had already started. */
-   private boolean startPod(Integer category, Integer round, String tournament, Check check) throws NotReady {
-      Starting starting = Swing.onEdt(() -> clickStart(category, round, tournament, check));
+   private boolean startPod(Integer category, Integer round, Live.Event event, Check check) throws NotReady {
+      Starting starting = Swing.onEdt(() -> clickStart(category, round, event, check));
       if (starting == null) {
          return false;
       }
@@ -212,9 +212,9 @@ final class Tom {
     * Never behind the slip form: it is modal, so the main window is not TOM's
     * to act on. The round is checked in this same task, right before the click.
     */
-   private static Starting clickStart(Integer category, Integer round, String tournament, Check check)
+   private static Starting clickStart(Integer category, Integer round, Live.Event event, Check check)
       throws NotReady {
-      JFrame frame = requireIdle(false, tournament);
+      JFrame frame = requireIdle(false, event);
       JTabbedPane pane = Pods.podPane(frame);
       if (pane == null) {
          throw new NotReady("TOM's pod tabs were not found.");
@@ -288,13 +288,13 @@ final class Tom {
     * first when TOM shows its round paired but not started, and only when
     * its live pairings already seat the code's match as the site has it.
     */
-   private void startPodOf(String code, Live.Slip want, String tournament) throws NotReady {
+   private void startPodOf(String code, Live.Slip want, Live.Event event) throws NotReady {
       if (Swing.onEdt(() -> awaitingStart(want.pod(), want.round()))) {
          if (openedSlip) {
             // Ours, from an earlier code in the batch: close it so the round can start.
             finish();
          }
-         startPod(want.pod(), want.round(), tournament, frame -> Live.confirm(Live.read(frame, code), want, code));
+         startPod(want.pod(), want.round(), event, frame -> Live.confirm(Live.read(frame, code), want, code));
       }
    }
 
@@ -343,8 +343,8 @@ final class Tom {
       return null;
    }
 
-   /** TOM's tournament window, when nothing blocks it and it holds the expected tournament. */
-   private static JFrame requireIdle(boolean allowSlip, String tournament) throws NotReady {
+   /** TOM's tournament window, when nothing blocks it and it holds `event`. */
+   private static JFrame requireIdle(boolean allowSlip, Live.Event event) throws NotReady {
       Dialog dialog = blocker(allowSlip);
       if (dialog != null && ERROR.equals(dialog.getTitle())) {
          throw new NotReady("TOM is showing an error: " + Swing.message(dialog) + " Close it, then try again.");
@@ -352,7 +352,7 @@ final class Tom {
       if (dialog != null) {
          throw new NotReady("TOM has the \"" + Swing.title(dialog) + "\" window open. Close it, then try again.");
       }
-      return Pods.requireFrame(tournament);
+      return Live.frame(event);
    }
 
    private static void clickMenu(JFrame frame, String text) throws NotReady {
@@ -364,8 +364,8 @@ final class Tom {
       SwingUtilities.invokeLater(() -> item.doClick(0));
    }
 
-   private static boolean startOpening(String tournament) throws NotReady {
-      JFrame frame = requireIdle(true, tournament);
+   private static boolean startOpening(Live.Event event) throws NotReady {
+      JFrame frame = requireIdle(true, event);
       if (Swing.dialog(SLIP) != null) {
          return false;
       }
@@ -373,12 +373,12 @@ final class Tom {
       return true;
    }
 
-   private void openSlipDialog(String tournament) throws NotReady {
+   private void openSlipDialog(Live.Event event) throws NotReady {
       // Armed before the click, so the form is hidden from its first show.
       stealth.arm(true);
       boolean opening;
       try {
-         opening = Swing.onEdt(() -> startOpening(tournament));
+         opening = Swing.onEdt(() -> startOpening(event));
       } catch (NotReady e) {
          stealth.arm(openedSlip);
          throw e;
@@ -423,8 +423,8 @@ final class Tom {
     * in this same event-thread task, so TOM cannot re-pair between the check
     * and the code going in.
     */
-   private static Boolean enter(String code, Live.Slip want, String tournament) throws NotReady {
-      JFrame frame = Pods.requireFrame(tournament);
+   private static Boolean enter(String code, Live.Slip want, Live.Event event) throws NotReady {
+      JFrame frame = Live.frame(event);
       Dialog slip = Swing.dialog(SLIP);
       if (slip == null) {
          throw new NotReady(SLIP + " closed before the code was sent.");
@@ -512,7 +512,7 @@ final class Tom {
    }
 
    private static Void clickSave() throws NotReady {
-      clickMenu(requireIdle(true, null), "Save");
+      clickMenu(requireIdle(true, Live.Event.ANY), "Save");
       return null;
    }
 
