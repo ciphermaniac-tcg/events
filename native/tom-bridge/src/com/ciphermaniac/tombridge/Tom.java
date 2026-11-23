@@ -36,6 +36,7 @@ final class Tom {
    private static final long CLOSE_TIMEOUT_MS = 3000;
    /** If the app never says a batch is over, the form closes this long after the last code. */
    private static final long IDLE_FINISH_MS = 2000;
+   private static final String ACCEPTED = new Json.Obj().str("result", "accepted").toString();
 
    /** The slip form was opened by us, not the operator, so it is ours to close. */
    private boolean openedSlip;
@@ -159,13 +160,18 @@ final class Tom {
 
    /** Once the code may be in TOM's field, a lost answer is uncertain, not "not ready". */
    private String enterAndObserve(String code, Live.Slip want, String tournament) {
+      Boolean ticked;
       try {
-         tickedAutosave |= Swing.onEdt(() -> enter(code, want, tournament));
+         ticked = Swing.onEdt(() -> enter(code, want, tournament));
       } catch (Uncertain e) {
          return uncertain(e.getMessage());
       } catch (NotReady e) {
          return notReady(e.getMessage());
       }
+      if (ticked == null) {
+         return ACCEPTED;
+      }
+      tickedAutosave |= ticked;
       try {
          return awaitOutcome(code);
       } catch (NotReady e) {
@@ -412,7 +418,8 @@ final class Tom {
    }
 
    /**
-    * Returns whether auto-save had to be ticked. The live pairings are checked
+    * Returns whether auto-save had to be ticked, or null when TOM already
+    * holds the result, so nothing was typed. The live pairings are checked
     * in this same event-thread task, so TOM cannot re-pair between the check
     * and the code going in.
     */
@@ -425,7 +432,9 @@ final class Tom {
       if (slip.getOwner() != frame) {
          throw new NotReady(SLIP + " belongs to another TOM window. Close it, then try again.");
       }
-      Live.confirm(Live.read(frame, code), want, code);
+      if (Live.confirm(Live.read(frame, code), want, code)) {
+         return null;
+      }
       AbstractButton autosave = Swing.button(slip, text -> text.startsWith(AUTOSAVE));
       if (autosave == null) {
          throw new NotReady("The \"" + AUTOSAVE + "\" option was not found in " + SLIP + ".");
@@ -497,7 +506,7 @@ final class Tom {
          boolean empty = seen.text() != null && seen.text().isEmpty();
          emptySince = !empty ? -1 : emptySince < 0 ? now : emptySince;
          if (judge(seen.text(), code, now - start, empty ? now - emptySince : 0)) {
-            return new Json.Obj().str("result", "accepted").toString();
+            return ACCEPTED;
          }
       }
    }

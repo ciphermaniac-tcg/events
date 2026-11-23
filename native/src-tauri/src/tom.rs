@@ -21,10 +21,12 @@
 //!   (by name) open and no other, or nothing is sent.
 //!   Each code must spell exactly its entry's layout (and never table 0) or it
 //!   is rejected unsent. Nor is it sent unless TOM's live pairings read the
-//!   code as that entry's match with `p1` and `p2` in its seats (`not_ready`
-//!   otherwise). The batch stops at the first entry that is not
+//!   code as that entry's match with `p1` and `p2` in its seats and no other
+//!   result (`not_ready` otherwise); one TOM already holds is `accepted`
+//!   untyped. The batch stops at the first entry that is not
 //!   accepted: every later one comes back `not_ready`, unsent.
-//!   A pod's paired round is started first when an entry is for it. When the
+//!   A pod's paired round is started first when an entry is for it, after
+//!   the same live check. When the
 //!   batch ends, however it ends, Speed Match Slip Entry is closed again if the
 //!   helper opened it, and auto-save is unticked again if the helper ticked it.
 //! - `tom_save()` -> `SaveResult`.

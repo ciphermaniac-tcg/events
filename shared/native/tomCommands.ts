@@ -43,7 +43,8 @@ export interface TomStatus {
  * itself, so the app can check the code against the event's layout and
  * refuse one that does not spell it: a bare code can read two ways in a pod
  * with flights. Outcome 1 is Player 1 winning, 2 Player 2, 3 a tie. The
- * app's helper enters it only when TOM's live pairings seat p1 and p2 there.
+ * app's helper enters it only when TOM's live pairings seat p1 and p2 there
+ * with no other result; one TOM already holds comes back accepted untyped.
  */
 export interface SubmitEntry {
   /** TOM's category code for the pod. */
