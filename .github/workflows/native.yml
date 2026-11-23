@@ -63,7 +63,9 @@ jobs:
           cargo clippy --all-targets -- -D warnings
       - name: src-tauri
         working-directory: native/src-tauri
-        run: cargo clippy --all-targets -- -D warnings
+        run: |
+          cargo test
+          cargo clippy --all-targets -- -D warnings
       - name: TOM bridge
         run: node native/tom-bridge/build.mjs --test
 
@@ -74,7 +76,7 @@ jobs:
 
   release:
     if: startsWith(github.ref, 'refs/tags/native-v')
-    needs: build
+    needs: [check, build]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
