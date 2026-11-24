@@ -483,6 +483,27 @@ test('a profile’s badges fit one line and move into overflow before wrapping @
   expect(errors).toEqual([]);
 });
 
+test('an organizer who has played nothing opens on Organizing, its status in plain words', async ({ page }) => {
+  await mockAccount(page, null);
+  const hosted = {
+    code: 'HOST01',
+    name: 'Hosted Cup',
+    startDate: '10/03/2026',
+    startsAt: '',
+    format: 'Standard',
+    status: 'finished',
+    role: 'organized'
+  };
+  await page.route('**/api/profiles/**', route =>
+    route.fulfill({ json: { name: 'Sam Store', handle: 'sam', avatar: null, entries: [], activity: [hosted] } })
+  );
+  await page.goto('/u/sam');
+  const organizing = page.getByRole('tabpanel', { name: 'Organizing' });
+  await expect(organizing).toContainText('Hosted Cup');
+  await expect(organizing.locator('.tm-flag')).toHaveCount(0);
+  await expect(organizing.getByRole('cell', { name: 'Finished' })).toBeVisible();
+});
+
 test('profile tabs show organizer activity and icon-only social links @mobile', async ({ page }) => {
   const errors = await mockAccount(page, null);
   await publishCopies(page);
