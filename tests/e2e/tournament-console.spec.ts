@@ -231,6 +231,27 @@ test('a past round’s names read as text, not as buttons that do nothing', asyn
   await expect(page.locator('.tm-matches button.tm-seat-link')).toHaveCount(0);
 });
 
+test('the Penalties tab names a top cut’s rounds as Pairings does', async ({ page }) => {
+  await mockConsole(
+    page,
+    runCommands(event(16, 5, false), { type: 'startTopCut', pod: 'masters', size: 4 }),
+    settingsOf({})
+  );
+  await page.route(`**/api/tournaments/${CODE}/penalty-notes`, route =>
+    route.fulfill({ json: { entries: [], judges: [] } })
+  );
+  await page.getByRole('tab', { name: 'Penalties' }).click();
+  await expect(page.locator('select.tm-penalty-round option')).toHaveText([
+    'All rounds',
+    'Semifinals',
+    'Round 5',
+    'Round 4',
+    'Round 3',
+    'Round 2',
+    'Round 1'
+  ]);
+});
+
 test('a late player added before the round starts is seated by a re-pair, and after it is not offered one', async ({
   page
 }) => {
