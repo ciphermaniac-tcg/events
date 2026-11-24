@@ -194,8 +194,8 @@ function ApplicationRow(props: {
 
 const EMPTY: Record<ApplicationStatus, string> = {
   pending: msg('No pending applications.'),
-  approved: msg('No approved applications'),
-  rejected: msg('No rejected applications')
+  approved: msg('No approved applications.'),
+  rejected: msg('No rejected applications.')
 };
 
 export function AdminApplications() {
@@ -217,13 +217,9 @@ export function AdminApplications() {
           ariaLabel={t('Status')}
         />
         <span class='tm-grow' />
-        {/* Decided in place, an Application leaves the count of those still in the queue. */}
-        <Show when={resolved(list)}>
-          {apps => (
-            <span class='muted tm-num'>
-              {COUNTS[status()](apps().filter(application => application.status === status()).length)}
-            </span>
-          )}
+        {/* Decided in place, an Application leaves the count of those still in the queue; none left, no count. */}
+        <Show when={resolved(list)?.filter(application => application.status === status()).length}>
+          {count => <span class='muted tm-num'>{COUNTS[status()](count())}</span>}
         </Show>
       </div>
       <Show
