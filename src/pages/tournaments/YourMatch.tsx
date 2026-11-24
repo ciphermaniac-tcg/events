@@ -37,13 +37,10 @@ import { type PlayerResult, REPORT_WINDOW_MS } from '../../../shared/tournament/
 import { isBye, matchPoints, recordLabel, sideResult } from '../../../shared/tournament/standings';
 import { hasStarted, podOf, withSwiss } from '../../../shared/tournament/rounds';
 import type { Pod, Round, Match as TableMatch } from '../../../shared/tournament/types';
-import { isSanctioned, type PublishedView, type TournamentView } from '../../../shared/tournament/view';
+import { type PublishedView, type TournamentView } from '../../../shared/tournament/view';
 import { ApiError, type Decklist, errorText, reportAsPlayer, type SignInOffer } from '../../lib/tournament/api';
-import { marksFor } from '../../../shared/tournament/checkins';
-import { divisionFor, eventSeason } from '../../../shared/tournament/divisions';
 import {
   currentMatchOf,
-  divisionHeading,
   namesById,
   playerDivision,
   podStandings,
@@ -759,35 +756,22 @@ function WhoLine(props: Props & { me: string; division: string; record: string |
 }
 
 /**
- * Where check-in stands for a registration, as far as the page can say: a
- * paper list waits for staff, and a digital one with nothing else asked of it
- * (no fee, no TOM) is all its player has to do.
+ * Where a registration stands before round 1: checked in once staff have
+ * ticked all check-in asks of the player, else registered, with what a paper
+ * list still waits on.
  */
-function checkInLine(view: TournamentView, list: Decklist): string {
-  if (list.mode === 'paper') {
-    return t('Hand your list to staff to check in');
+function checkInLine(list: Decklist): string {
+  if (list.checkedIn) {
+    return t('Checked in');
   }
-  return marksFor(view, undefined).length === 0 ? t('Checked in') : '';
+  return list.mode === 'paper' ? `${t('Registered')} · ${t('Hand your list to staff to check in')}` : t('Registered');
 }
 
-/** Before round 1, the registration this device or account holds, over the tabs: that it is in, check-in, and whose. */
-export function RegisteredCard(props: { view: TournamentView; list: Decklist }) {
-  const division = () =>
-    isSanctioned(props.view)
-      ? ` · ${divisionHeading(divisionFor(props.list.birthDate, eventSeason(props.view.tournament)))}`
-      : '';
+/** Before round 1, the registration this device or account holds, over the tabs, as one line. */
+export function RegisteredCard(props: { list: Decklist }) {
   return (
     <section class='tm-box tm-you' aria-label={t('Your registration')}>
-      <div class='tm-you-top'>
-        <span class='tm-you-big'>{t('Registered')}</span>
-        <span class='tm-you-mid'>{checkInLine(props.view, props.list)}</span>
-      </div>
-      <div class='tm-you-who'>
-        <span class='muted'>
-          {props.list.firstName} {props.list.lastName}
-          {division()}
-        </span>
-      </div>
+      <p class='tm-you-line'>{checkInLine(props.list)}</p>
     </section>
   );
 }

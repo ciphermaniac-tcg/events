@@ -101,6 +101,8 @@ async function mockEvent(page: Page, settings: Partial<TournamentSettings> = {},
     submittedAt: 0,
     problems: [],
     registered: true,
+    // The event asks no fee: a digital list is all check-in asks, and a paper one waits for staff.
+    checkedIn: held.mode === 'digital',
     fromList: true,
     locked: true
   });
@@ -314,11 +316,9 @@ test('any other Player ID registers, with a pasted list, and the Registered card
   // The count under the event's name has them in it.
   await expect(hero).toContainText('5 players');
   const card = page.getByRole('region', { name: 'Your registration' });
-  await expect(card).toContainText('Registered');
-  await expect(card).toContainText('Checked in');
+  await expect(card).toHaveText('Checked in');
   // The card says it, so the form does not say it again.
   await expect(page.getByText('You’re registered.', { exact: true })).toHaveCount(1);
-  await expect(card).toContainText('Nia Okafor · Masters');
   await expect(page.locator('.tm-reg-who')).toContainText('Nia Okafor');
   expect(calls.at(-1)?.body).toMatchObject({ mode: 'digital', deck: '60 Basic {G} Energy SVE 1' });
   // Focus follows the step that replaced the button pressed, rather than falling to the page.
@@ -327,7 +327,7 @@ test('any other Player ID registers, with a pasted list, and the Registered card
   await page.getByText('In person').click();
   await page.getByRole('button', { name: 'Save changes' }).click();
   await expect(page.getByRole('status')).toHaveText('Changes saved.');
-  await expect(card).toContainText('Hand your list to staff to check in');
+  await expect(card).toHaveText('Registered · Hand your list to staff to check in');
 });
 
 test('a birth year under 13 says to register with staff as it is typed, before anything is filled in @mobile', async ({
@@ -564,8 +564,7 @@ test('signed in, the box is the account’s own: its name, Player ID and birth y
   await expect(page.getByRole('status')).toHaveText('You’re registered.');
   expect(calls.at(-1)?.body).toMatchObject({ mode: 'paper', profile: SAGE });
   const card = page.getByRole('region', { name: 'Your registration' });
-  await expect(card).toContainText('Hand your list to staff to check in');
-  await expect(card).toContainText('Sage Newfield · Masters');
+  await expect(card).toHaveText('Registered · Hand your list to staff to check in');
 });
 
 test('signed in without a Player ID, the box asks for it under the head and Register waits for it', async ({

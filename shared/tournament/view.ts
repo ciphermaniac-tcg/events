@@ -628,6 +628,8 @@ export interface Decklist extends PlayerProfile {
   problems: string[];
   /** Whether the player is on the event's player list yet. */
   registered: boolean;
+  /** Whether everything check-in asks of the player is done (see checkins.ts). */
+  checkedIn: boolean;
   /** Submitting this list is what added the player to the event. */
   fromList: boolean;
   /** The player joined after round 1, so their list locks with the round after it (see enteredLate). */
