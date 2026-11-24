@@ -180,6 +180,8 @@ export function EventSetup(props: {
   const dayTaken = () => limited() && props.communityDays.includes(day());
   const cannotCreate = () =>
     [props.busy, needsName(), dayTaken(), needsPlayTools() && !playToolsConfirmed()].some(Boolean);
+  // A name or the Play! Tools box left empty is the browser's to point at, so Create waits only on the rest.
+  const held = () => props.busy || dayTaken();
 
   /** A listing fills what it says; Not listed here leaves what was typed and drops only the sanction ID. */
   function pick(next: Listing | null) {
@@ -312,7 +314,7 @@ export function EventSetup(props: {
             day={day()}
             needsName={needsName()}
             unconfirmed={needsPlayTools() === true && !playToolsConfirmed()}
-            cannotCreate={cannotCreate()}
+            cannotCreate={held()}
             onCancel={props.onCancel}
           />
         }
@@ -459,6 +461,7 @@ function SetupName(props: { swiss: boolean; name: string; tdfName?: string; onIn
             maxLength={120}
             placeholder={t('Event name')}
             aria-label={t('Event name')}
+            required
             value={props.name}
             ref={el => {
               // Not on a phone, where focus would open the keyboard over the form.
