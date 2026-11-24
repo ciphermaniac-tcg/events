@@ -1,10 +1,10 @@
 /**
  * The account card the Users tab opens over its list, as a dialog: who the
  * account is, its POP ID and the stores it runs, and what an Admin may do to
- * it. Move to account… finds the account to give the POP ID to among the
+ * it. Move Player ID… finds the account to give the POP ID to among the
  * accounts listed by what is typed, or past them by the exact POP ID, email
  * or account ID typed, then asks in a dialog naming both, and opens the
- * card of the account that holds it now; Clear asks in place. History
+ * card of the account that holds it now; Clear Player ID asks in place. History
  * follows the POP ID. A Community organizer is revoked or reinstated, and a
  * store's Manager taken out of the store, as on the Organizers tab.
  */
@@ -210,11 +210,11 @@ function Actions(props: { user: AdminUser; update: Update; moving: boolean; onMo
             <>
               <Show when={!props.moving}>
                 <button type='button' class='btn btn-secondary tm-small' onClick={() => props.onMove()}>
-                  {t('Move to account…')}
+                  {t('Move Player ID…')}
                 </button>
               </Show>
               <ConfirmAction
-                label={t('Clear')}
+                label={t('Clear Player ID')}
                 question={t('Clear {popId} from {name}?', { popId: popId(), name: u().name })}
                 danger
                 disabled={action.busy()}
