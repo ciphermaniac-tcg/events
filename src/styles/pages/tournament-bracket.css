@@ -170,10 +170,3 @@
   min-width: 1.5em;
   font-size: 0.6em;
 }
-.tm-bracket.is-screen .is-win .tm-mark {
-  padding: 0.1em 0.3em;
-  border: 1px solid var(--accent);
-  border-radius: var(--radius-sm);
-  background: var(--accent-fill);
-  color: var(--accent-fg);
-}
