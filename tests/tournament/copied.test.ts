@@ -4,6 +4,10 @@ import { createRoot } from 'solid-js';
 
 import { createCopied } from '../../src/pages/tournaments/copied.ts';
 
+/** The page's one live region, as the browser would hold it. */
+const region = { textContent: '', className: '', setAttribute: () => undefined };
+Object.assign(globalThis, { document: { createElement: () => region, body: { append: () => undefined } } });
+
 const original = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
 afterEach(() => {
   if (original) {
@@ -30,8 +34,10 @@ test('a copy reads as copied for a moment, then clears', async () => {
     await copy('link');
     assert.deepEqual(written, ['link']);
     assert.equal(copied(), true);
+    assert.equal(region.textContent, 'Copied');
     mock.timers.tick(1500);
     assert.equal(copied(), false);
+    assert.equal(region.textContent, '');
     dispose();
   });
   mock.timers.reset();
