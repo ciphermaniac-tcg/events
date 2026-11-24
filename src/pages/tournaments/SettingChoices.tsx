@@ -17,7 +17,7 @@ export const ALWAYS_SANCTIONED: readonly EventType[] = ['cup', 'challenge'];
 const CAPS = Array.from({ length: SETTINGS_LIMITS.roundCap }, (_, i) => i + 1);
 
 const DECKLIST_OPTIONS: { value: DecklistMode; label: string }[] = [
-  { value: 'off', label: msg('Disabled') },
+  { value: 'off', label: msg('Off') },
   { value: 'closed', label: msg('Closed') },
   { value: 'open', label: msg('Open') }
 ];

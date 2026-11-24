@@ -657,7 +657,7 @@ test('Settings: the public profile switch shows its link, and a Player ID clash 
   await expect(page.getByRole('link', { name: 'Admin' })).toHaveCount(0);
   const profile = page.getByRole('radiogroup', { name: 'Public profile' });
   await expect(page.getByRole('radiogroup', { name: 'Name shown' })).toHaveCount(0);
-  await profile.getByRole('radio', { name: 'Enabled' }).click();
+  await profile.getByRole('radio', { name: 'On' }).click();
   await expect(page.getByRole('link', { name: /\/u\/mary$/ })).toHaveAttribute('href', '/u/mary');
   await expect(page.getByRole('button', { name: 'Copy' })).toBeVisible();
   expect(sent.find(s => s.method === 'PATCH')?.body).toEqual({ publicProfile: true });
@@ -666,7 +666,7 @@ test('Settings: the public profile switch shows its link, and a Player ID clash 
   await shown.getByRole('radio', { name: 'Username' }).click();
   await expect(shown.getByRole('radio', { name: 'Username' })).toHaveAttribute('aria-checked', 'true');
   expect(sent.filter(s => s.method === 'PATCH').at(-1)?.body).toEqual({ profileName: 'handle' });
-  await profile.getByRole('radio', { name: 'Disabled' }).click();
+  await profile.getByRole('radio', { name: 'Off' }).click();
   await expect(page.getByRole('button', { name: 'Copy' })).toHaveCount(0);
   await page.getByRole('navigation', { name: 'Settings' }).getByRole('link', { name: 'Player profile' }).click();
   await page.getByRole('button', { name: 'Save profile' }).click();
@@ -798,7 +798,7 @@ test('Settings: the username is checked as it is typed, saved lowercased, and re
   await expect(page.getByRole('alert')).toHaveText('That username is taken');
   const nav = page.getByRole('navigation', { name: 'Settings' });
   await nav.getByRole('link', { name: 'History' }).click();
-  await page.getByRole('radiogroup', { name: 'Public profile' }).getByRole('radio', { name: 'Enabled' }).click();
+  await page.getByRole('radiogroup', { name: 'Public profile' }).getByRole('radio', { name: 'On' }).click();
   await nav.getByRole('link', { name: 'Username' }).click();
   await input.fill('Mary.J');
   await expect(page.getByRole('alert')).toHaveCount(0);
