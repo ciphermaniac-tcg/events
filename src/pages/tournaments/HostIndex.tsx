@@ -235,7 +235,7 @@ function LiveEvent(props: { event: TournamentSummary; first: boolean }) {
     return current
       ? eventStatus(
           current.tournament,
-          { pending: current.pending, finished: false, firstRound: null, roundCap: roundCapOf(current) },
+          { pending: current.pending, finished: false, roundCap: roundCapOf(current) },
           Date.now()
         ).join(' · ')
       : t('Running');

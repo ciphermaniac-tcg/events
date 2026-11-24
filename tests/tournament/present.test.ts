@@ -639,27 +639,23 @@ test('the cut line says what split the last player in from the first one out', (
 test('the public status names registration, the round in play, or how the event finished', () => {
   const registering = { ...CHALLENGE, pods: CHALLENGE.pods.map(p => ({ ...p, rounds: [] })) };
   const players = registering.players.filter(p => p.droppedAfter === null).length;
-  assert.deepEqual(eventStatus(registering, { pending: [], finished: false, firstRound: '11:00 AM', roundCap: 0 }, 0), [
-    'Registration',
-    `${players} players`,
-    'Round 1 at 11:00 AM'
-  ]);
-  assert.deepEqual(eventStatus(registering, { pending: [], finished: false, firstRound: null, roundCap: 0 }, 0), [
+  // The start is in the page's heading, so the status leaves it out.
+  assert.deepEqual(eventStatus(registering, { pending: [], finished: false, roundCap: 0 }, 0), [
     'Registration',
     `${players} players`
   ]);
-  // Ended before round 1: finished, with no first round left to promise.
-  assert.deepEqual(eventStatus(registering, { pending: [], finished: true, firstRound: '11:00 AM', roundCap: 0 }, 0), [
+  // Ended before round 1: finished.
+  assert.deepEqual(eventStatus(registering, { pending: [], finished: true, roundCap: 0 }, 0), [
     'Finished',
     `${players} players`
   ]);
   // TOM decides a TOM event's rounds, so its round is named alone.
-  const live = eventStatus(CHALLENGE, { pending: [], finished: false, firstRound: null, roundCap: null }, 0);
+  const live = eventStatus(CHALLENGE, { pending: [], finished: false, roundCap: null }, 0);
   assert.equal(live[0], roundLabel(pod.rounds.at(-1) as Round, pod));
   const swiss = pod.rounds.filter(r => r.kind === 'swiss').length;
   const final: Round = { ...(pod.rounds.at(-1) as Round), number: pod.rounds.length + 1, kind: 'elimination' };
   const cut = { ...CHALLENGE, pods: [{ ...pod, cut: 8, rounds: [...pod.rounds, final] }] };
-  const finished = { pending: [], finished: true, firstRound: null, roundCap: 0 };
+  const finished = { pending: [], finished: true, roundCap: 0 };
   assert.deepEqual(eventStatus(cut, finished, 0), ['Finished', `${swiss} round${swiss === 1 ? '' : 's'}`, 'Top 8']);
   // The cut is chosen when play starts; an event that ended without playing it has no top cut to name.
   const chosen = { ...CHALLENGE, pods: [{ ...pod, cut: 8 }] };
@@ -671,7 +667,7 @@ test('with divisions on rounds of their own, the status names the division it de
   const juniors = { ...pod, category: 'junior' as const, rounds: [{ ...latest, number: 1 }] };
   const masters = { ...pod, category: 'masters' as const };
   const split = { ...CHALLENGE, pods: [juniors, masters] };
-  const event = { pending: [], finished: false, firstRound: null, roundCap: null };
+  const event = { pending: [], finished: false, roundCap: null };
   assert.deepEqual(eventStatus(split, event, 0).slice(0, 2), ['Juniors', 'Round 1'], 'nobody preferred: the first');
   assert.deepEqual(eventStatus(split, { ...event, prefer: [null, 'masters'] }, 0).slice(0, 2), ['Masters', 'Round 2']);
   assert.deepEqual(
