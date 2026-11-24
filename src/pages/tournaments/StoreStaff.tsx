@@ -12,7 +12,7 @@ import { createResource, createSignal, For, Show } from 'solid-js';
 import type { GivenRole, StoreRole } from '../../../shared/accounts/stores';
 import type { StoreInvite, StoreMember } from '../../../shared/accounts/types';
 import { errorText } from '../../lib/tournament/api';
-import { t } from '../../lib/i18n';
+import { msg, t } from '../../lib/i18n';
 import { dayOf } from '../../lib/tournament/applications';
 import { createCopied } from './copied';
 import {
@@ -30,6 +30,7 @@ import { Skeleton } from '@ciphermaniac/design/components/Skeleton';
 import { OptionsMenu } from './OptionsMenu';
 import { ConfirmAction, ConfirmDialog } from './ConfirmAction';
 import { ErrorLine } from './Field';
+import { SettingInfo } from './SettingInfo';
 import { refreshSession, session } from './session';
 import { createAction } from './action';
 
@@ -40,13 +41,7 @@ const inviteLabel = (role: GivenRole) => (role === 'manager' ? t('Manager invite
  * One open link: as what it lets someone in and until when, and Withdraw. One
  * made since the page opened also shows its address, which no reread gives back, with Copy.
  */
-function InviteRow(props: {
-  invite: StoreInvite;
-  link: string | null;
-  store: string;
-  busy: boolean;
-  onWithdraw: () => void;
-}) {
+function InviteRow(props: { invite: StoreInvite; link: string | null; busy: boolean; onWithdraw: () => void }) {
   const { copied, copy } = createCopied();
   return (
     <div class='tm-box-bar tm-store-invite'>
@@ -69,21 +64,7 @@ function InviteRow(props: {
                 {copied() ? t('Copied') : t('Copy')}
               </button>
             </span>
-            <span class='muted tm-invite-hint'>
-              {props.invite.role === 'manager'
-                ? t(
-                    'One person can join {store} as a manager with this link. It won’t show again after you leave this page.',
-                    {
-                      store: props.store
-                    }
-                  )
-                : t(
-                    'One person can join {store} as staff with this link. It won’t show again after you leave this page.',
-                    {
-                      store: props.store
-                    }
-                  )}
-            </span>
+            <span class='muted tm-invite-hint'>{t('Single-use link. Copy it now; it won’t be shown again.')}</span>
           </div>
         )}
       </Show>
@@ -214,7 +195,7 @@ function MemberRow(props: {
   );
 }
 
-export function StoreStaff(props: { storeId: string; storeName: string }) {
+export function StoreStaff(props: { storeId: string }) {
   const navigate = useNavigate();
   const [people, { mutate, refetch }] = createResource(() => props.storeId, fetchPeople);
   const action = createAction();
@@ -292,7 +273,16 @@ export function StoreStaff(props: { storeId: string; storeName: string }) {
                 <thead>
                   <tr>
                     <th>{t('Name')}</th>
-                    <th>{t('Role')}</th>
+                    <th>
+                      <span class='tm-label-row'>
+                        {t('Role')}
+                        <SettingInfo
+                          text={msg(
+                            'Staff run the store’s events. Managers also edit the store, its staff and league nights.'
+                          )}
+                        />
+                      </span>
+                    </th>
                     <th class='tm-wide-col'>{t('Player ID')}</th>
                     <th>
                       <span class='sr-only'>{t('Actions')}</span>
@@ -319,7 +309,6 @@ export function StoreStaff(props: { storeId: string; storeName: string }) {
               {open => (
                 <InviteRow
                   invite={open}
-                  store={props.storeName}
                   link={made()[open.id] ?? null}
                   busy={action.busy()}
                   onWithdraw={() => withdraw(open.id)}
@@ -330,12 +319,14 @@ export function StoreStaff(props: { storeId: string; storeName: string }) {
               <button type='button' class='btn btn-secondary' disabled={action.busy()} onClick={() => invite('staff')}>
                 {t('Invite staff')}
               </button>
-              <button type='button' class='btn btn-ghost' disabled={action.busy()} onClick={() => invite('manager')}>
-                {t('Invite a manager')}
+              <button
+                type='button'
+                class='btn btn-secondary'
+                disabled={action.busy()}
+                onClick={() => invite('manager')}
+              >
+                {t('Invite manager')}
               </button>
-              <span class='muted'>
-                {t('Staff run the store’s events. Managers also edit the store, its staff and league nights.')}
-              </span>
             </div>
           </div>
         )}
