@@ -2080,7 +2080,7 @@ for (const size of [
     // A landscape phone is wider than the phone layout but still a finger's tap.
     if (await page.evaluate(() => matchMedia('(pointer: coarse)').matches)) {
       const taps = await page
-        .locator('.tm-sheet-foot .btn, .tm-you-signin')
+        .locator('.tm-sheet-foot .btn')
         .evaluateAll(els => els.map(el => el.getBoundingClientRect().height));
       expect(taps.length).toBeGreaterThan(0);
       expect(taps.every(height => height >= 44)).toBe(true);
@@ -2161,9 +2161,9 @@ for (const denied of ['local', 'both'] as const) {
     await page.getByLabel('Last name', { exact: true }).fill('Perker');
     await page.getByRole('button', { name: 'Find my match' }).click();
     await expect(page.getByRole('button', { name: 'Show table' })).toHaveCount(2);
-    // The count and the need for a first name are announced, and each choice is named for its player and table.
+    // The count is announced, with no call to narrow a list this short, and each choice is named for its player and table.
     const status = page.getByRole('status').filter({ hasText: 'matching player' });
-    await expect(status).toHaveText('2 matching players. Add a first name to narrow the list.');
+    await expect(status).toHaveText('2 matching players');
     const choices = page.getByRole('group', { name: 'Choose your player' }).getByRole('button');
     await expect(choices.filter({ hasText: 'Show table' })).toHaveCount(2);
     await expect(choices.and(page.getByRole('button', { name: /^Show table for Peter P\., Table \d+$/ }))).toHaveCount(

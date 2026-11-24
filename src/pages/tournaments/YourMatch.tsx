@@ -17,28 +17,15 @@
 
 import { ordinal } from '../../lib/format';
 import { msg, t, tn } from '../../lib/i18n';
-import {
-  createEffect,
-  createMemo,
-  createSignal,
-  For,
-  Match,
-  on,
-  onCleanup,
-  onMount,
-  Show,
-  Suspense,
-  Switch
-} from 'solid-js';
+import { createEffect, createMemo, createSignal, For, Match, on, onCleanup, onMount, Show, Switch } from 'solid-js';
 import { createMedia } from '../../lib/media';
-import { lazyPanel } from './lazyPanel';
 import type { PlayerClaim } from '../../../shared/tournament/identify';
 import { type PlayerResult, REPORT_WINDOW_MS } from '../../../shared/tournament/reports';
 import { isBye, matchPoints, recordLabel, sideResult } from '../../../shared/tournament/standings';
 import { hasStarted, podOf, withSwiss } from '../../../shared/tournament/rounds';
 import type { Pod, Round, Match as TableMatch } from '../../../shared/tournament/types';
 import { type PublishedView, type TournamentView } from '../../../shared/tournament/view';
-import { ApiError, type Decklist, errorText, reportAsPlayer, type SignInOffer } from '../../lib/tournament/api';
+import { ApiError, type Decklist, errorText, reportAsPlayer } from '../../lib/tournament/api';
 import {
   currentMatchOf,
   namesById,
@@ -58,9 +45,6 @@ import { createNow } from './now';
 import { DeckIcons } from './DeckIcons';
 import { PlayerRequests } from './PlayerRequests';
 import { pendingSuggestion, SuggestedPlayer } from './SuggestedPlayer';
-
-// Loaded on asking: most players never sign in from here, and Settings has these already.
-const SignIn = lazyPanel(() => import('./SignIn').then(m => ({ default: m.SignIn })));
 
 const SAID: Record<PlayerResult, string> = { win: msg('You won'), loss: msg('You lost'), tie: msg('You tied') };
 
@@ -102,10 +86,6 @@ interface Props {
   pins?: boolean;
   onView: (view: PublishedView) => void;
   onPlayer?: (id: string) => void;
-  /** Whether an account is signed in, which the page's copy of the event cannot say until the API answers. */
-  signedIn: boolean;
-  /** The sign-ins the server offers, for a player who is signed out. */
-  offer: SignInOffer;
   /** Ends the signed-in account's Claim on the player, then forgets it on this device. */
   onUnlink: () => Promise<void>;
   /** Asks the server again who the viewer is: a report was refused, so who the page thinks they are may be out of date. */
@@ -116,25 +96,6 @@ interface Found {
   pod: Pod;
   round: Round;
   match: TableMatch;
-}
-
-/** Sign-in, asked for in place: a link until pressed, then the providers, coming back to the event. */
-function SignInHere(props: { code: string; offer: SignInOffer }) {
-  const [open, setOpen] = createSignal(false);
-  return (
-    <Show
-      when={open()}
-      fallback={
-        <button type='button' class='tm-link-inline tm-you-signin' onClick={() => setOpen(true)}>
-          {t('Sign in')}
-        </button>
-      }
-    >
-      <Suspense>
-        <SignIn offer={props.offer} next={`/t/${props.code}`} />
-      </Suspense>
-    </Show>
-  );
 }
 
 /**
@@ -175,9 +136,6 @@ function WhichPlayer(props: Props) {
               lookup
               onFound={props.onIdentified}
             />
-            <Show when={!props.signedIn}>
-              <SignInHere code={props.view.code} offer={props.offer} />
-            </Show>
           </>
         }
       >

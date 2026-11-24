@@ -198,21 +198,6 @@
     justify-content: center;
   }
 }
-/* Sign-in, a link set under the question, so the form stays the box's one step. */
-.tm-you-signin {
-  position: relative;
-  justify-self: start;
-  padding: 0;
-  border: 0;
-  background: none;
-  font: inherit;
-  font-size: var(--text-base);
-  font-weight: 600;
-  text-decoration: underline;
-  text-decoration-color: color-mix(in srgb, currentColor 40%, transparent);
-  text-underline-offset: 3px;
-  cursor: pointer;
-}
 .tm-identify {
   display: flex;
   flex-wrap: wrap;
@@ -327,8 +312,7 @@
 @media (max-width: 640px), (pointer: coarse) {
   .tm-you-end .btn,
   .tm-you-who .btn,
-  .tm-identify .btn,
-  .tm-you-signin {
+  .tm-identify .btn {
     min-height: 44px;
   }
   .tm-registered .tm-seat-link {
