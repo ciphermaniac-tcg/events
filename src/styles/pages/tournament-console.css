@@ -1396,10 +1396,11 @@
 .tm-console .tm-box {
   border-color: var(--rule);
 }
-.tm-console .tm-input,
-.tm-console .tm-select,
-.tm-console .tm-textarea,
-.tm-console .search {
+/* Disabled and read-only fields keep their own look (tournament.css). */
+.tm-console .tm-input:not(:disabled, [readonly]),
+.tm-console .tm-select:not(:disabled),
+.tm-console .tm-textarea:not(:disabled, [readonly]),
+.tm-console .search:not(:disabled, [readonly]) {
   background: var(--bg) !important;
   border-color: var(--border) !important;
 }
