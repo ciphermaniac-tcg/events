@@ -74,16 +74,18 @@ const SHOWN: Intl.DateTimeFormatOptions = {
   minute: '2-digit'
 };
 
-const shown = (at: number, timeZone: string, named: boolean) =>
-  new Intl.DateTimeFormat(undefined, { ...SHOWN, timeZone, ...(named ? { timeZoneName: 'short' } : {}) }).format(at);
+const shown = (at: number, timeZone: string, named: boolean, tag: string) =>
+  new Intl.DateTimeFormat(tag, { ...SHOWN, timeZone, ...(named ? { timeZoneName: 'short' } : {}) }).format(at);
 
 /**
  * `local` in the event's zone, and in `viewer`'s when its clock reads
- * differently then; without an event zone, the time as written.
+ * differently then; without an event zone, the time as written. Written in
+ * `tag`, the language the page is shown in.
  */
 export function eventTimes(
   local: string,
   zone: string,
+  tag: string,
   viewer = Intl.DateTimeFormat().resolvedOptions().timeZone
 ): { event: string; yours: string | null } {
   // A value stored before times were checked shows as written rather than as a wrong or failing date.
@@ -91,12 +93,12 @@ export function eventTimes(
     return { event: local, yours: null };
   }
   if (!zone) {
-    return { event: shown(Date.parse(`${local}:00Z`), 'UTC', false), yours: null };
+    return { event: shown(Date.parse(`${local}:00Z`), 'UTC', false, tag), yours: null };
   }
   const at = zonedInstant(local, zone);
   return {
-    event: shown(at, zone, true),
-    yours: wallClock(at, viewer) === wallClock(at, zone) ? null : shown(at, viewer, true)
+    event: shown(at, zone, true, tag),
+    yours: wallClock(at, viewer) === wallClock(at, zone) ? null : shown(at, viewer, true, tag)
   };
 }
 

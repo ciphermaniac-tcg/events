@@ -100,7 +100,7 @@ import { ErrorState } from '@ciphermaniac/design/components/ErrorState';
 import { EMPTY_LIVE_DATA, type LiveData, liveFailure, staleSince } from '../../lib/tournament/liveData';
 import { LiveDataStatus } from './LiveDataStatus';
 import { MAIN_SITE } from '../../lib/constants';
-import { msg, t, timeOfDay, tn, tx } from '../../lib/i18n';
+import { intlLocale, msg, t, timeOfDay, tn, tx } from '../../lib/i18n';
 import { keepEventCopy, readEventCopy } from '../../lib/tournament/eventCopies';
 import { DAY_MS } from '../../../shared/tournament/limits';
 
@@ -946,7 +946,7 @@ function EventSkeleton() {
 
 /** A time the organizer set (the start, which is when registration changes close, or check-in) as players read it; null when none is set. */
 const timeShown = (local: string, zone: string): string | null =>
-  isWallClock(local) ? eventTimes(local, zone).event : null;
+  isWallClock(local) ? eventTimes(local, zone, intlLocale()).event : null;
 
 /** Whether the event's own list is at its cap, so the page says so before anyone types. */
 const rosterFull = (view: TournamentView): boolean =>
@@ -960,7 +960,7 @@ const rosterFull = (view: TournamentView): boolean =>
  */
 function eventDate({ startsAt, timeZone }: TournamentSettings, startDate: string): string {
   if (startsAt && timeZone) {
-    return eventTimes(startsAt, timeZone).event;
+    return eventTimes(startsAt, timeZone, intlLocale()).event;
   }
   const day = eventDay(startsAt, startDate);
   return startsAt ? `${day} · ${firstRoundTime(startsAt) ?? ''}` : day;

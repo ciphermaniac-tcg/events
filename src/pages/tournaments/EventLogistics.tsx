@@ -9,7 +9,7 @@ import { A } from '@solidjs/router';
 import { For, Show } from 'solid-js';
 import { eventTimes } from '../../../shared/tournament/eventTime';
 import type { TournamentSettings } from '../../../shared/tournament/view';
-import { t } from '../../lib/i18n';
+import { intlLocale, t } from '../../lib/i18n';
 
 type Shown = Pick<TournamentSettings, 'timeZone' | 'checkInAt' | 'startsAt' | 'venue' | 'address'>;
 
@@ -21,7 +21,9 @@ export function EventLogistics(props: { settings: Shown; store?: string | null }
         [t('Check-in'), props.settings.checkInAt],
         [t('Starts'), props.settings.startsAt]
       ] as const
-    ).flatMap(([label, local]) => (local ? [{ label, ...eventTimes(local, props.settings.timeZone) }] : []));
+    ).flatMap(([label, local]) =>
+      local ? [{ label, ...eventTimes(local, props.settings.timeZone, intlLocale()) }] : []
+    );
   const place = () => props.settings.venue || props.settings.address;
   // The start alone is in the page's heading already; it earns a row where it reads differently here.
   const shown = () => place() || props.settings.checkInAt || times().some(time => time.yours);
