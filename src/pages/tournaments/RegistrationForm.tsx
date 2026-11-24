@@ -22,7 +22,7 @@ import { type DeckSection, parseDecklist } from '../../../shared/tournament/deck
 import { isPopId, type PlayerProfile, profileErrors } from '../../../shared/tournament/profile';
 import type { Decklist, DeckMode, MyRegistration, NamedPlayer } from '../../../shared/tournament/view';
 import { birthYear, divisionFor } from '../../../shared/tournament/divisions';
-import type { Division } from '../../../shared/tournament/types';
+import { DIVISION_LABELS } from '../../../shared/tournament/types';
 import {
   ApiError,
   errorText,
@@ -65,13 +65,6 @@ export interface RegistrationProps {
   /** The registration this device now holds, once one is sent or let go (null), for the page's Registered card. */
   onHeld?: (list: Decklist | null) => void;
 }
-
-/** The division a birth year places the player in, said under the field as it is typed. */
-const DIVISION_NAMES: Record<Division, string> = {
-  junior: msg('Junior Division'),
-  senior: msg('Seniors Division'),
-  masters: msg('Masters Division')
-};
 
 type Step = 'lookup' | 'prove' | 'pick' | 'new' | 'edit' | 'withdrawn';
 
@@ -545,7 +538,7 @@ function YearField(props: { form: Registration; onEnter?: () => void; opens?: bo
   const division = () => {
     const { birthDate } = props.form.profile();
     return props.season && /^\d{4}$/.test(birthYearOf(birthDate)) && !error()
-      ? t(DIVISION_NAMES[divisionFor(birthDate, props.season)])
+      ? t(DIVISION_LABELS[divisionFor(birthDate, props.season)])
       : null;
   };
   return (
