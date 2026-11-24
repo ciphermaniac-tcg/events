@@ -75,10 +75,6 @@
   "All results": "Alle Ergebnisse",
   "All rounds": "Alle Runden",
   "All tables": "Alle Tische",
-  "all {n} matches in": {
-    "one": "{n} Match fertig",
-    "other": "alle {n} Matches fertig"
-  },
   "all {n} tables in": {
     "one": "{n} Tisch fertig",
     "other": "alle {n} Tische fertig"
@@ -359,7 +355,6 @@
   "Fee": "Startgeld",
   "Feedback": "Feedback",
   "Final": "Finale",
-  "final played": "Finale gespielt",
   "Find a player": "Spieler suchen",
   "Find a table or player": "Tisch oder Spieler suchen",
   "Find a user": "Benutzer suchen",

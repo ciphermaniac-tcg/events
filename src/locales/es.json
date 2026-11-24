@@ -79,10 +79,6 @@
   "All results": "Todos los resultados",
   "All rounds": "Todas las rondas",
   "All tables": "Todas las mesas",
-  "all {n} matches in": {
-    "one": "{n} encuentro registrado",
-    "other": "los {n} encuentros registrados"
-  },
   "all {n} tables in": {
     "one": "{n} mesa registrada",
     "other": "las {n} mesas registradas"
@@ -379,7 +375,6 @@
   "Feedback": "Comentarios",
   "Contact us": "Escríbenos",
   "Final": "Final",
-  "final played": "final jugada",
   "Find a player": "Buscar jugador",
   "Find a table or player": "Buscar una mesa o un jugador",
   "Find a user": "Buscar un usuario",
