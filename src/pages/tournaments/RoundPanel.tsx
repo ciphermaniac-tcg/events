@@ -56,7 +56,6 @@ import {
   roundLabel,
   shownDecks,
   shownOutcome,
-  STATUS_LABELS,
   unseated
 } from '../../lib/tournament/present';
 import { changeQuestion, outcomeLabel, outcomeNoun, recordsBefore, staffReport } from '../../lib/tournament/staff';
@@ -258,7 +257,7 @@ function StandingResult(props: ResultProps) {
         classList={{ 'is-open': open(), 'is-reported': Boolean(report()), 'is-problem': report()?.problem }}
         title={report()?.detail}
       >
-        {open() ? (report()?.label ?? t('In progress')) : t(RESULT_WORDS[shown().outcome] ?? '')}
+        {open() ? report()?.label : t(RESULT_WORDS[shown().outcome] ?? '')}
         <Show when={report()}>{r => <span class='sr-only'>. {r().detail}</span>}</Show>
         <Show when={shown().unconfirmed}>
           <span class='tm-result-sub'> {t('not in TOM yet')}</span>
@@ -444,11 +443,7 @@ function RoundBar(props: RoundBarProps) {
     <div class='tm-box-bar'>
       <RoundStepper pod={props.pod} selected={props.round.number} onSelect={props.onPick} />
       <span class='muted tm-num tm-round-state'>
-        {t('{status} · {done} of {total} in', {
-          status: t(STATUS_LABELS[props.round.status]),
-          done: props.played - props.open,
-          total: props.played
-        })}
+        {t('{done} of {total} in', { done: props.played - props.open, total: props.played })}
       </span>
       {props.views}
       <span class='tm-grow' />

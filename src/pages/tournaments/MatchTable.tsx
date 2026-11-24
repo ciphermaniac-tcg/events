@@ -1,8 +1,9 @@
 /**
  * A round's tables, for players and staff alike. Each row is the table, the
  * two players with the record they brought into the round, and a mark by
- * whoever won. The public page adds whether each table is still playing, on
- * desktop, and on every screen leads with the tables in progress. Staff get the result controls: a player's name is the button that
+ * whoever won; an open table has no mark yet. The public page leads with the
+ * tables in progress, and while a table has extra time a desktop Status
+ * column counts it down. Staff get the result controls: a player's name is the button that
  * reports them as the winner, which is one press at the table (and a second
  * to confirm, or a double click on an open table, see RoundPanel).
  *
@@ -50,7 +51,7 @@ export interface MatchTableProps {
   extra?: (match: Match) => JSX.Element;
   /** Staff only: a player’s report, used for the pending result mark. */
   tag?: (match: Match, id: string) => SeatTag | null;
-  /** The public page: a Status column saying which tables are still playing, on desktop. */
+  /** The public page: the viewer's own row flagged, and each open table's extra time, with its clock on desktop. */
   status?: boolean;
   /** The result waiting for staff to confirm it, previewed in its row. */
   confirming?: { table: number; p1: string; outcome: Outcome } | null;
@@ -165,25 +166,6 @@ function SeatCell(props: CellProps & { seat: 1 | 2; records: Map<string, string>
   );
 }
 
-/**
- * Whether a table is still playing, for whoever is watching the room: the
- * marks beside the names already say who won. A bye or a missed round has
- * nothing to play.
- */
-function StatusCell(props: CellProps) {
-  const outcome = () => props.shownOf(props.match).outcome;
-  return (
-    <td class='tm-status-col'>
-      <Show when={props.match.p2 !== null}>
-        <Show when={outcome() === 'pending'} fallback={<span class='muted-cell'>{t('Done')}</span>}>
-          <strong>{t('In progress')}</strong>
-          <ExtensionClock match={props.match} round={props.round} playing />
-        </Show>
-      </Show>
-    </td>
-  );
-}
-
 /** A table's extra time under its number, where a phone hides the Status column. */
 function PhoneExtension(props: { minutes: number }) {
   return (
@@ -263,7 +245,10 @@ export function MatchTable(props: MatchTableProps) {
   const shownOf = (match: Match) => shown().get(match) ?? shownOutcome(match, props.pod, props.round, props.pending);
   const records = createMemo(() => recordsSoFar(props.pod, props.round, match => shownOf(match).outcome));
   const hasDecks = () => Object.keys(props.decks).length > 0;
-  const columns = () => 3 + (props.extra || props.status ? 1 : 0);
+  const extended = (match: Match) => shownOf(match).outcome === 'pending' && match.timeExtension;
+  // The public page's Status column, only while an open table has extra time to count down.
+  const timed = () => props.status && !props.extra && props.matches.some(extended);
+  const columns = () => 3 + (props.extra || timed() ? 1 : 0);
   const mine = (match: Match) => props.me != null && (match.p1 === props.me || match.p2 === props.me);
   return (
     <div
@@ -291,7 +276,7 @@ export function MatchTable(props: MatchTableProps) {
                 {t('Result')}
               </th>
             </Show>
-            <Show when={props.status && !props.extra}>
+            <Show when={timed()}>
               <th scope='col' class='tm-status-col'>
                 {t('Status')}
               </th>
@@ -338,7 +323,7 @@ export function MatchTable(props: MatchTableProps) {
                         data-label={match.table ? t('Table') : t('Bye')}
                       >
                         <span class='tm-table-num'>{match.table || '—'}</span>
-                        <Show when={props.status && shownOf(match).outcome === 'pending' && match.timeExtension}>
+                        <Show when={props.status && extended(match)}>
                           {extension => <PhoneExtension minutes={extension().seconds / 60} />}
                         </Show>
                       </td>
@@ -359,8 +344,12 @@ export function MatchTable(props: MatchTableProps) {
                         records={records()}
                       />
                       <Show when={props.extra}>{extra => <td class='tm-extra-col'>{extra()(match)}</td>}</Show>
-                      <Show when={props.status && !props.extra}>
-                        <StatusCell {...props} match={match} shownOf={shownOf} isConfirming={isConfirming} />
+                      <Show when={timed()}>
+                        <td class='tm-status-col'>
+                          <Show when={extended(match)}>
+                            <ExtensionClock match={match} round={props.round} playing />
+                          </Show>
+                        </td>
                       </Show>
                     </tr>
                   )}
