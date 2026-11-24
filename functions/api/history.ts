@@ -4,7 +4,7 @@
  * read with its events.
  */
 
-import { historyOf } from '../lib/accounts/history.js';
+import { historyEntriesOf } from '../lib/accounts/history.js';
 import { coalescedRead } from '../../shared/coalesce.js';
 import { type JsonRepresentation, jsonRepresentation, revalidatedJson } from '../lib/api/revalidation.js';
 import { jsonError } from '../lib/api/responses.js';
@@ -23,8 +23,8 @@ export async function onRequestGet({ request, env }: Context): Promise<Response>
     return jsonError('Sign in first', 401);
   }
   const history = await readHistory(db, session, async () => {
-    const found = await historyOf(db, { session, now: Date.now() });
-    return found ? jsonRepresentation({ entries: found.entries, activity: found.activity }) : null;
+    const found = await historyEntriesOf(db, { session, now: Date.now() });
+    return found ? jsonRepresentation(found) : null;
   });
   return history ? revalidatedJson(request, history) : jsonError('Sign in first', 401);
 }
