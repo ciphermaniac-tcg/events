@@ -28,7 +28,7 @@ import {
 } from '../../../shared/tournament/rounds';
 
 import type { Pod, PodCategory } from '../../../shared/tournament/types';
-import { notCheckedIn } from '../../../shared/tournament/checkins';
+import { notCheckedIn, openMarks } from '../../../shared/tournament/checkins';
 import { Segmented } from '@ciphermaniac/design/components/Segmented';
 import { TabPanel, Tabs } from '@ciphermaniac/design/components/Tabs';
 import { Icon } from '@ciphermaniac/design/components/Icon';
@@ -166,6 +166,21 @@ const WaitingStep = (props: { label: string }) => (
   </button>
 );
 
+/** What still holds round 1 back, by check, "3 not paid, 1 list not received.", or null; the site asks only these two. */
+function openChecks(manage: Manage): string | null {
+  const checkins = manage.checkins ?? {};
+  const marks = notCheckedIn(manage, manage.tournament.players, checkins).flatMap(player =>
+    openMarks(manage, checkins[player.id])
+  );
+  const paid = marks.filter(mark => mark === 'paid').length;
+  const lists = marks.length - paid;
+  const parts = [
+    paid && t('{n} not paid', { n: paid }),
+    lists && tn(lists, '{n} list not received', '{n} lists not received')
+  ];
+  return marks.length > 0 ? `${parts.filter(Boolean).join(', ')}.` : null;
+}
+
 /** Why round 1 cannot pair yet, as the server would refuse it (see pairingRefusal), or null. */
 function firstRoundBlock(manage: Manage, active: number): string | null {
   if (active < 2) {
@@ -174,11 +189,7 @@ function firstRoundBlock(manage: Manage, active: number): string | null {
   if (eventStarted(manage.tournament)) {
     return null;
   }
-  const open = notCheckedIn(manage, manage.tournament.players, manage.checkins ?? {}).length;
-  if (open === 0) {
-    return null;
-  }
-  return open === 1 ? t('1 player isn’t checked in.') : t('{n} players aren’t checked in.', { n: open });
+  return openChecks(manage);
 }
 
 /**
