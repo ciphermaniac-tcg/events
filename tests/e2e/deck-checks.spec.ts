@@ -111,12 +111,24 @@ async function mockConsole(page: Page, tournament: Tournament, held: Promise<voi
   return writes;
 }
 
+test('while a late entrant may still send a list, submission reads open and keeps its page', async ({ page }) => {
+  await mockConsole(
+    page,
+    runCommands(pairedEvent(), { type: 'addPlayer', player: { firstName: 'Late', lastName: 'Test' } })
+  );
+  await page.getByRole('tab', { name: 'Decklists' }).click();
+  await expect(page.getByText('Submission open')).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Submit decklist page' })).toBeVisible();
+});
+
 test('an opened list records, edits and removes its player’s deck checks once round 1 is paired', async ({ page }) => {
   const t = pairedEvent();
   const playerId = t.players.find(player => player.firstName === 'Player1')?.id;
   const writes = await mockConsole(page, t);
   await page.getByRole('tab', { name: 'Decklists' }).click();
-  await expect(page.getByText('Locked after round 1')).toBeVisible();
+  await expect(page.getByText('Submission closed')).toBeVisible();
+  // Nobody can send a list now, so the console no longer points at the page for it.
+  await expect(page.getByRole('link', { name: 'Submit decklist page' })).toHaveCount(0);
   const row = page.locator('.tm-lists tbody tr').first();
   await expect(row).toContainText('Not checked');
 

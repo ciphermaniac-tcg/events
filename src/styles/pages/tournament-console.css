@@ -1191,14 +1191,11 @@
   .tm-console .tm-lists .tm-list-sprite {
     grid-row: span 3;
   }
-  /* With archetypes off there is no deck to show, so the name starts the row. */
-  .tm-console .tm-lists tr:has(> .tm-list-sprite:empty) {
+  /* With archetypes off there is no deck column, so the name starts the row. */
+  .tm-console .tm-lists tr:not(.tm-expansion, :has(> .tm-list-sprite)) {
     grid-template-columns: minmax(0, 1fr);
   }
-  .tm-console .tm-lists .tm-list-sprite:empty {
-    display: none;
-  }
-  .tm-console .tm-lists tr:has(> .tm-list-sprite:empty) > .tm-extra-col {
+  .tm-console .tm-lists tr:not(:has(> .tm-list-sprite)) > .tm-extra-col {
     grid-column: 1;
   }
   .tm-console .tm-lists .tm-list-when {
