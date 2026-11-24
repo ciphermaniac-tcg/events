@@ -1765,7 +1765,7 @@ test('the big screen hides the site’s head from the first paint, and leaving i
     document.body.append(link);
   });
   await page.getByRole('link', { name: 'Privacy', exact: true }).click();
-  await expect(page.getByRole('heading', { level: 1, name: 'Privacy Policy' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'Privacy policy' })).toBeVisible();
   await expect(page.locator('.site-head')).toBeVisible();
 });
 

@@ -13,16 +13,16 @@ const CONTACT = 'howdy@ciphermaniac.com';
 
 export function TermsPage() {
   onMount(() => {
-    document.title = pageTitle('Terms of Service');
+    document.title = pageTitle('Terms of service');
   });
   return (
     <div class='tm-page tm-narrow tm-legal-page' lang='en'>
-      <TournamentHero title='Terms of Service' meta='Last updated October 12, 2026' />
+      <TournamentHero title='Terms of service' meta='Last updated October 12, 2026' />
       <EnglishOnly />
       <div class='prose tm-legal'>
         <p>
           Ciphermaniac Events is a service for running Pokémon Trading Card Game tournaments. By using it, you agree to
-          these terms. Please also read our <A href='/privacy'>Privacy Policy</A>, which explains what information we
+          these terms. Please also read our <A href='/privacy'>Privacy policy</A>, which explains what information we
           keep and how we use it.
         </p>
 
@@ -60,7 +60,7 @@ export function TermsPage() {
         <h2 class='tm-subhead'>Ending your use</h2>
         <p>
           You can stop using the service and delete your account at any time from the{' '}
-          <A href='/settings?section=data'>My Data</A> page. Event records stay as described in our Privacy Policy. We
+          <A href='/settings?section=data'>Your data</A> page. Event records stay as described in our Privacy policy. We
           may end or change the service, and we will give notice on the site when we reasonably can.
         </p>
 
