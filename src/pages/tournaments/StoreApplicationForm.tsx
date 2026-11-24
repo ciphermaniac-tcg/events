@@ -386,7 +386,7 @@ export function StoreApplicationForm(props: {
             onTimeZone={setTimeZone}
           />
           {/* As store settings group them: the phone and email players never see. */}
-          <h2 class='tm-subhead tm-apply-head'>{t('Private, for Ciphermaniac admins')}</h2>
+          <h2 class='tm-subhead tm-apply-head'>{t('Admin contact')}</h2>
           <StoreFields
             id='apply-store'
             part='contact'
