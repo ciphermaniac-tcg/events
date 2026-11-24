@@ -67,6 +67,18 @@ async function mockPublic(page: Page, t: Tournament) {
   });
 }
 
+test('on a phone the bracket opens scrolled to the latest round paired @mobileOnly', async ({ page }) => {
+  const t = quarterfinalsPlayed();
+  await mockPublic(page, runCommands(t, { type: 'pairRound', pod: 'masters' }));
+  await page.goto(`/t/${CODE}?view=bracket`);
+  const bracket = page.getByRole('region', { name: 'Top cut bracket' });
+  const semis = bracket.locator('.tm-bracket-col').nth(1);
+  await expect(semis.locator('.tm-bracket-meta').first()).toHaveText(/^Table /);
+  await expect.poll(() => bracket.evaluate(el => el.scrollLeft)).toBeGreaterThan(0);
+  const [box, col] = await Promise.all([bracket.boundingBox(), semis.boundingBox()]);
+  expect(col!.x).toBeGreaterThanOrEqual(box!.x);
+});
+
 test('the public page shows the top cut as a table, or as a bracket kept in its address @mobile', async ({ page }) => {
   await mockPublic(page, quarterfinalsPlayed());
   await page.goto(`/t/${CODE}`);
@@ -79,7 +91,8 @@ test('the public page shows the top cut as a table, or as a bracket kept in its 
   // The quarterfinal winners are through to semifinals not paired yet: seeds 1 and 4, 2 and 3.
   const semis = bracket.locator('.tm-bracket-col').nth(1);
   await expect(semis.locator('.tm-bracket-seed')).toHaveText(['1', '5', '3', '7']);
-  await expect(semis.getByRole('group', { name: 'Not paired yet' })).toHaveCount(2);
+  // Not paired yet, a slot stays blank.
+  await expect(semis.locator('.tm-bracket-meta')).toHaveText(['', '']);
   await expect(page.locator('.tm-matches')).toHaveCount(0);
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow, 'the bracket scrolls inside its box, not the page').toBeLessThanOrEqual(0);
