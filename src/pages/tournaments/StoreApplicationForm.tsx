@@ -360,6 +360,18 @@ export function StoreApplicationForm(props: {
           <h2 class='tm-subhead tm-apply-head'>{t('Store')}</h2>
           <StoreFields
             id='apply-store'
+            part='shown'
+            details={details()}
+            timeZone={timeZone()}
+            checked={checked()}
+            onChange={setDetails}
+            onTimeZone={setTimeZone}
+          />
+          {/* As store settings group them: the phone and email players never see. */}
+          <h2 class='tm-subhead tm-apply-head'>{t('Private, for Ciphermaniac admins')}</h2>
+          <StoreFields
+            id='apply-store'
+            part='contact'
             details={details()}
             timeZone={timeZone()}
             checked={checked()}

@@ -362,6 +362,13 @@ test('a store application starts from the league, prefilled, and sends what the 
   await expect(page.getByLabel('Address')).toHaveValue('4522 Fredericksburg Rd Suite B64');
   await expect(page.getByLabel('City')).toHaveValue('San Antonio');
   await expect(page.getByLabel('Postal code')).toHaveValue('78201');
+  // The phone and email sit apart, under who sees them, as in store settings.
+  await expect(page.locator('.tm-apply-head')).toHaveText([
+    'Store',
+    'Private, for Ciphermaniac admins',
+    'League nights',
+    'For the admin'
+  ]);
   await page.getByRole('button', { name: 'Send application' }).click();
   // Each problem sits under its own field, and focus goes to the first, not to a line under Send.
   const why = page.getByLabel('Why are you applying for this store?');
