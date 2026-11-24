@@ -567,6 +567,8 @@ test('signed in, Someone else? opens blank fields for another player, and Back r
   expect(calls.at(-1)?.body).toMatchObject({
     profile: { popId: '12345678', firstName: 'Nia', lastName: 'Okafor', birthDate: '02/27/2001' }
   });
+  // Someone else's Player ID is never offered to the account.
+  await expect(page.getByRole('button', { name: 'Save ID to my profile' })).toHaveCount(0);
 });
 
 test('signed in at an unsanctioned event, a name a slip from a registered one is asked about before it registers', async ({
