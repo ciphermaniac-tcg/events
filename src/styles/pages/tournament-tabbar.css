@@ -25,8 +25,9 @@
   body:has(.tm-tabbar) {
     padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
   }
-  /* One height whatever the labels, so the room the page leaves for it is always right:
-     a label too long for its share of the width is cut short rather than wrapped or pushed off screen.
+  /* One height whatever the labels, so the room the page leaves for it is always right, unless the
+     phone's text size needs more: a label too long for its share of the width is cut short rather
+     than wrapped or pushed off screen.
      Labels small whatever the surface, as a phone's own tab bar sets them, so the console's six
      ("Standings", "Penalties") fit whole on a 320px screen; the icon above carries the tab. */
   .tm-tabbar :is(button, a) {
@@ -37,7 +38,7 @@
     align-items: center;
     gap: 3px;
     min-width: 0;
-    height: calc(var(--tabbar-h) - 1px);
+    min-height: calc(var(--tabbar-h) - 1px);
     padding: var(--space-2) 1px 10px;
     border: 0;
     background: none;
