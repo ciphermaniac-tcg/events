@@ -177,12 +177,12 @@ export function ResultSheet(props: {
             <SeatResets {...props.menu} match={props.match} />
             <Show when={props.onTimeExtension}>
               <button type='button' class='tm-menu-item' onClick={() => props.onTimeExtension?.()}>
-                {t('Time extension')}
+                {t('Time extension')}…
               </button>
             </Show>
             <Show when={props.onPenalty}>
               <button type='button' class='tm-menu-item' onClick={() => props.onPenalty?.()}>
-                {t('Penalty')}
+                {t('Penalty')}…
               </button>
             </Show>
             <StreamLink {...props.menu} pod={props.pod} table={props.match.table} />

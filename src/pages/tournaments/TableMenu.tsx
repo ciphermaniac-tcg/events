@@ -35,7 +35,7 @@ export function ReleaseAction(props: { state: ManageState; manage: Manage; playe
   return (
     <Show when={mayRelease(props.manage, props.player)}>
       <ConfirmAction
-        label={props.short ? answer() : full()}
+        label={props.short ? answer() : `${full()}…`}
         class={props.short ? 'btn btn-ghost tm-small' : 'tm-menu-item'}
         question={
           reporting()

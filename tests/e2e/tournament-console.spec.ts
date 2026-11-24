@@ -1093,12 +1093,12 @@ test('drop and disqualify each say what follows them', async ({ page }) => {
   const sent = await mockConsole(page, event(4, 1, false), settingsOf({}));
   await page.getByRole('tab', { name: 'Players', exact: true }).click();
   await page.getByRole('button', { name: 'More for Player1 Test' }).click();
-  await page.getByRole('button', { name: 'Drop', exact: true }).click();
+  await page.getByRole('button', { name: 'Drop…', exact: true }).click();
   const drop = page.getByRole('group', {
     name: 'Drop Player1 Test? You can reinstate them until the next round is paired.'
   });
   await drop.getByRole('button', { name: 'Keep' }).click();
-  await page.getByRole('button', { name: 'Disqualify', exact: true }).click();
+  await page.getByRole('button', { name: 'Disqualify…', exact: true }).click();
   const disqualify = page.getByRole('group', {
     name: 'Disqualify Player1 Test? It goes in the event file. Write the penalty note under Penalties.'
   });
@@ -2152,7 +2152,7 @@ async function openExtension(page: Page, table: number) {
       .click();
   }
   await page.getByRole('button', { name: `More for table ${table}`, exact: true }).click();
-  await page.getByRole('button', { name: 'Time extension', exact: true }).click();
+  await page.getByRole('button', { name: 'Time extension…', exact: true }).click();
   return page.getByRole('dialog', { name: `Time extension, table ${table}`, exact: true });
 }
 
@@ -2258,7 +2258,7 @@ test('a penalty from a table’s menu notes it for the seat picked and records a
     await page.locator('.tm-matches tbody tr:not(.tm-group-row)').first().click();
   }
   await page.getByRole('button', { name: `More for table ${match.table}`, exact: true }).click();
-  await page.getByRole('button', { name: 'Penalty', exact: true }).click();
+  await page.getByRole('button', { name: 'Penalty…', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: `Penalty, table ${match.table}`, exact: true });
   const second = t.players.find(p => p.id === match.p2);
   await dialog.getByRole('radio', { name: `${second?.firstName} ${second?.lastName}` }).click();
@@ -2290,7 +2290,7 @@ test('a penalty on its way holds its seat, and its loss lands only on a table st
     return route.fulfill({ json: { entries: [], judges: [{ id: 'u1', name: 'morgan' }] } });
   });
   await page.getByRole('button', { name: `More for table ${match.table}`, exact: true }).click();
-  await page.getByRole('button', { name: 'Penalty', exact: true }).click();
+  await page.getByRole('button', { name: 'Penalty…', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: `Penalty, table ${match.table}`, exact: true });
   const [first, second] = [match.p1, match.p2].map(id => t.players.find(p => p.id === id)!);
   await dialog.getByLabel('Penalty', { exact: true }).selectOption('match-loss');
@@ -2392,7 +2392,7 @@ test('Escape closes the extension menu before the mobile result sheet @mobileOnl
   await page.keyboard.press('Escape');
   await expect(sheet).toBeVisible();
   await expect(more).toBeFocused();
-  await expect(sheet.getByRole('button', { name: 'Time extension', exact: true })).toHaveCount(0);
+  await expect(sheet.getByRole('button', { name: 'Time extension…', exact: true })).toHaveCount(0);
   await page.keyboard.press('Escape');
   await expect(sheet).toHaveCount(0);
 });
@@ -3120,7 +3120,7 @@ test('a player’s sheet opens from standings and the roster, with their table, 
   await expect(sheet).toBeVisible();
   // The roster's actions keep their question; Escape backs out of it, and the menu, before it closes the sheet.
   await sheet.getByRole('button', { name: 'Actions for Player1 Test' }).click();
-  await sheet.getByRole('button', { name: 'Drop', exact: true }).click();
+  await sheet.getByRole('button', { name: 'Drop…', exact: true }).click();
   await expect(sheet.getByRole('group', { name: /^Drop Player1 Test\?/ })).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(sheet.getByRole('group', { name: /^Drop Player1 Test\?/ })).toHaveCount(0);
@@ -3131,7 +3131,7 @@ test('a player’s sheet opens from standings and the roster, with their table, 
 
   // A row's menu opens it too, and hands focus back to the name it stands for.
   await page.getByRole('button', { name: 'More for Player1 Test' }).click();
-  await page.getByRole('button', { name: 'Details', exact: true }).click();
+  await page.getByRole('button', { name: 'Details…', exact: true }).click();
   await expect(sheet).toBeVisible();
   await sheet.getByRole('button', { name: 'Close', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Test, Player1', exact: true })).toBeFocused();

@@ -357,7 +357,7 @@ test('a refused withdrawal for a player under 13 is announced', async ({ page })
     route.fulfill({ status: 403, json: { error: 'Registration is closed.' } })
   );
   await page.getByRole('button', { name: 'More' }).click();
-  await page.getByRole('button', { name: 'Withdraw', exact: true }).click();
+  await page.getByRole('button', { name: 'Withdraw…', exact: true }).click();
   await page.getByRole('group', { name: 'Withdraw' }).getByRole('button', { name: 'Withdraw' }).click();
   await expect(page.getByRole('alert')).toHaveText('Registration is closed.');
 });
