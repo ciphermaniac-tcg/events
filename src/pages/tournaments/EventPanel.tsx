@@ -513,7 +513,10 @@ function RulesBox(props: { form: SettingsForm; manage: Manage }) {
         />
       </SettingRow>
       <Show when={value().playerReporting && swiss()}>
-        <SettingRow label={t('Agreeing reports count')} info={<SettingInfo text={SETTING_INFO.agreedReportsSettle} />}>
+        <SettingRow
+          label={t('Auto-confirm matching reports')}
+          info={<SettingInfo text={SETTING_INFO.agreedReportsSettle} />}
+        >
           <Toggle
             label={t('Agreeing reports count')}
             value={value().agreedReportsSettle}
