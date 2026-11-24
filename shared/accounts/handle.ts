@@ -58,7 +58,7 @@ export function handleProblem(handle: string, { reserved = true } = {}): string 
     return msg('Start and end with a letter or number');
   }
   if (/[._-]{2}/.test(handle)) {
-    return msg('Put a letter or number between separators');
+    return msg('Don’t put two periods, dashes or underscores in a row.');
   }
   return reserved && RESERVED.has(handleKey(handle)) ? msg('That username is reserved') : null;
 }

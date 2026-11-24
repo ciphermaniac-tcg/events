@@ -71,7 +71,7 @@ const nightsProblem = (nights: readonly LeagueNight[], exceptions: readonly Nigh
     return t('Give each league night a start time');
   }
   return exceptions.some(item => !item.date || item.time === '')
-    ? t('Give each date a day, and a time if it moved')
+    ? t('Pick a date, and a start time if it moved.')
     : null;
 };
 
@@ -233,7 +233,7 @@ function DetailsSection(props: {
           onTimeZone={setTimeZone}
         />
       </div>
-      <h2 class='tm-subhead tm-box-head'>{t('Private, for Ciphermaniac admins')}</h2>
+      <h2 class='tm-subhead tm-box-head'>{t('Admin contact')}</h2>
       <div class='tm-box tm-store-pane'>
         <StoreFields
           id='store-field'
@@ -325,7 +325,7 @@ function Settings(props: { id: string }) {
             <>
               <TournamentHero title={answer().store.name} />
               <p class='tm-store-refused'>
-                <span>{t('Only this store’s managers can change it.')}</span>{' '}
+                <span>{t('Only this store’s managers can edit settings.')}</span>{' '}
                 <A href={`/stores/${answer().store.id}`}>{t('Store page')}</A>
               </p>
             </>

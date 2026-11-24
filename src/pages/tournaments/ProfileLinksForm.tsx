@@ -18,11 +18,16 @@ function LinksForm(props: { links: ProfileLinks }) {
   const action = createAction();
   const [touched, setTouched] = createSignal(false);
   const problem = (key: (typeof PROFILE_LINKS)[number]) =>
-    touched() && !validProfileLink(key, (links()[key] ?? '').trim()) ? t('Enter a valid HTTPS profile URL') : undefined;
+    touched() && !validProfileLink(key, (links()[key] ?? '').trim())
+      ? t('Enter the https:// link to your {site} profile', { site: t(PROFILE_LINK_LABELS[key]) })
+      : undefined;
   async function save(event: SubmitEvent) {
     event.preventDefault();
     setTouched(true);
-    if (PROFILE_LINKS.some(key => problem(key))) {
+    // The errors are drawn under their fields by now, and the first one takes focus from Save.
+    const invalid = PROFILE_LINKS.find(key => problem(key));
+    if (invalid) {
+      document.getElementById(`profile-link-${invalid}`)?.focus();
       return;
     }
     const asked = links();
@@ -32,7 +37,7 @@ function LinksForm(props: { links: ProfileLinks }) {
     }
   }
   return (
-    <form onSubmit={event => void save(event)} class='tm-profile-links-form'>
+    <form onSubmit={event => void save(event)} class='tm-profile-links-form' noValidate>
       <For each={PROFILE_LINKS}>
         {key => (
           <Field id={`profile-link-${key}`} label={t(PROFILE_LINK_LABELS[key])} error={problem(key)}>
