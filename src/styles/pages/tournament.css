@@ -583,6 +583,14 @@ body[data-mode='dark'] .tm-sso-google {
 .tm-box .search {
   background: var(--bg);
 }
+/* A read-only field is a value to copy: no fill, a pale edge, still focusable. */
+:is(.tm-input, .search)[readonly] {
+  background: transparent;
+  border-color: var(--rule);
+}
+.tm-input::placeholder {
+  color: var(--muted);
+}
 @media (hover: hover) {
   .tm-input:hover,
   .tm-select:hover {
@@ -612,6 +620,13 @@ body[data-mode='dark'] :is(.tm-input, .tm-select) {
 }
 .tm-input[aria-invalid='true'] {
   border-color: var(--negative);
+}
+/* A field nobody can type in, as in watching mode: no fill, a pale edge, muted text. */
+:is(.tm-input, .tm-select, .search):disabled {
+  color: var(--muted);
+  background: transparent;
+  border-color: var(--rule);
+  cursor: not-allowed;
 }
 .tm-textarea {
   min-height: 96px;
@@ -1730,6 +1745,9 @@ tr.is-in .tm-place {
 .tm-settings-body .tm-box .tm-input,
 .tm-settings-body .tm-box .tm-select {
   background: var(--field);
+}
+.tm-settings-body .tm-box :is(.tm-input[readonly], .tm-input:disabled, .tm-select:disabled) {
+  background: transparent;
 }
 /* Off the box, Save leads its row as every other section's does, its note after it. */
 .tm-settings-body .tm-set-foot {
