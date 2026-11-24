@@ -151,7 +151,7 @@ export function LogisticsRows(props: {
                   props.onFill?.();
                 }}
               >
-                {t('{minutes} minutes before · {time}', { minutes: CHECK_IN_LEAD_MINUTES, time: hourOf(at()) })}
+                {t('Use {time}, {minutes} minutes before', { minutes: CHECK_IN_LEAD_MINUTES, time: hourOf(at()) })}
               </button>
             </span>
           )}
