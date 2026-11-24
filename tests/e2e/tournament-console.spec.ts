@@ -269,9 +269,12 @@ test('a re-pair with nothing reported has no results to keep', async ({ page }) 
 test('the organizer is told what staff can do, and staff that their settings reach everyone', async ({ page }) => {
   await mockConsole(page, event(8, 1, false), settingsOf({}));
   await page.getByRole('tab', { name: 'Settings', exact: true }).click();
-  await expect(page.getByText('Staff can enter results, manage players and change settings.')).toBeVisible();
-  // A store's event: its owner and managers all organize it.
-  await expect(page.getByText('Only the store’s owner and managers can invite or remove staff')).toBeVisible();
+  // In the invite link's info tip; a store's event is organized by its owner and managers all.
+  await expect(
+    page.getByRole('button', {
+      name: /^Staff can enter results, manage players and change settings\. Only the store’s owner and managers can invite or remove staff/
+    })
+  ).toBeVisible();
   await expect(page.getByText('Settings saved here change the event for everyone.')).toHaveCount(0);
   await page.getByRole('button', { name: 'New link' }).click();
   const rotate = page.getByRole('dialog', { name: 'Make a new link and remove current staff?' });
@@ -286,21 +289,20 @@ test('the organizer is told what staff can do, and staff that their settings rea
 });
 
 test('once round 1 is paired, settings say when a change takes effect', async ({ page }) => {
+  const typeTip = page.getByRole('button', {
+    name: 'Changes the top cut still to come. Rounds played stay as they are.'
+  });
   await mockConsole(page, event(8, 0, false), settingsOf({}));
   await page.getByRole('tab', { name: 'Settings', exact: true }).click();
   await expect(page.locator('.tm-event-panel')).toBeVisible();
-  await expect(page.getByText('The next step follows the new count.')).toHaveCount(0);
+  await expect(typeTip).toHaveCount(0);
   await page.unrouteAll();
   await mockConsole(page, event(8, 0, true), settingsOf({}));
   await page.getByRole('tab', { name: 'Settings', exact: true }).click();
-  for (const note of [
-    'Changes the top cut still to come. Rounds played stay as they are.',
-    'The next step follows the new count.',
-    'Applies to open tables at once.',
-    'Players can’t send lists once round 1 is paired.'
-  ]) {
-    await expect(page.getByText(note)).toBeVisible();
-  }
+  await expect(typeTip).toBeVisible();
+  await expect(page.getByText('Players can’t send lists once round 1 is paired.')).toBeVisible();
+  // The rows whose change needs no saying carry no line under them.
+  await expect(page.locator('.tm-set-label small')).toHaveCount(1);
 });
 
 test('staff are offered no archetype choice that shows decks sooner than the event does', async ({ page }) => {
@@ -320,7 +322,7 @@ test('deleting an event with players counts what goes and waits for its code to 
     return route.fulfill({ status: 204 });
   });
   await page.getByRole('tab', { name: 'Settings', exact: true }).click();
-  await page.getByRole('button', { name: 'Delete event' }).click();
+  await page.getByRole('button', { name: 'Delete', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Delete Friday League?' });
   await expect(dialog).toContainText('This permanently deletes 8 players, 1 round and all decklists.');
   const remove = dialog.getByRole('button', { name: 'Delete', exact: true });
@@ -354,7 +356,7 @@ test('deleting a TOM event before its file comes in counts the players registere
   await page.route(`**/api/tournaments/${CODE}/decklists`, route => route.fulfill({ json: { decklists, mine: null } }));
   await page.reload();
   await page.getByRole('tab', { name: 'Settings', exact: true }).click();
-  await page.getByRole('button', { name: 'Delete event' }).click();
+  await page.getByRole('button', { name: 'Delete', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Delete Friday League?' });
   await expect(dialog).toContainText('This permanently deletes 3 players and all decklists.');
   await expect(dialog.getByLabel('Type SWISS2 to confirm')).toBeVisible();
@@ -363,7 +365,7 @@ test('deleting a TOM event before its file comes in counts the players registere
 test('an event nobody has joined is deleted with a question asked in place', async ({ page }) => {
   await mockConsole(page, emptyTournament({ name: 'Friday League' }), settingsOf({}));
   await page.getByRole('tab', { name: 'Settings', exact: true }).click();
-  await page.getByRole('button', { name: 'Delete event' }).click();
+  await page.getByRole('button', { name: 'Delete', exact: true }).click();
   await expect(page.getByRole('group', { name: 'Delete Friday League?' })).toBeVisible();
   await expect(page.getByRole('dialog')).toHaveCount(0);
 });
@@ -1507,7 +1509,6 @@ test('a sanctioned event downloads its .tdf, named for the version it copies', a
   await mockConsole(page, event(4, 1, false), settingsOf({ sanctioned: true }));
   await page.getByRole('tab', { name: 'Settings' }).click();
   const row = page.locator('.tm-set-row', { hasText: 'Play! Pokémon file' });
-  await expect(row.getByText('Version 3')).toBeVisible();
   const download = page.waitForEvent('download');
   await row.getByRole('button', { name: 'Download .tdf' }).click();
   expect((await download).suggestedFilename()).toBe('Friday League v3.tdf');
