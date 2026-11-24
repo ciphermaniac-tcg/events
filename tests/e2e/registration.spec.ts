@@ -449,7 +449,7 @@ test('at an unsanctioned event, registering someone else asks first when the dev
   const confirm = page.getByRole('group', { name: 'Register someone else' });
   await page.getByRole('button', { name: 'More' }).click();
   await page.getByRole('button', { name: 'Register someone else' }).click();
-  await expect(confirm).toContainText('You won’t be able to change Nia Okafor’s registration from this phone.');
+  await expect(confirm).toContainText('You won’t be able to change Nia Okafor’s registration from this device.');
   await confirm.getByRole('button', { name: 'Cancel' }).click();
   await expect(confirm).toHaveCount(0);
   expect(await page.evaluate(code => localStorage.getItem(`cm-decklist:${code}`), CODE)).toContain('device-token');
@@ -458,6 +458,21 @@ test('at an unsanctioned event, registering someone else asks first when the dev
   await page.getByRole('button', { name: 'Register someone else' }).click();
   await confirm.getByRole('button', { name: 'Register someone else' }).click();
   await expect(page.getByRole('textbox', { name: 'First name' })).toHaveValue('');
+});
+
+test('signed in, registering someone else after your own opens blank fields at once', async ({ page }) => {
+  await mockEvent(page, { sanctioned: false }, SAGE);
+  await page.goto(`/t/${CODE}?tab=decklist`);
+  await page.getByText('In person').click();
+  await page.getByRole('button', { name: 'Register' }).click();
+  await expect(page.locator('.tm-reg-who')).toContainText('Sage Newfield');
+  await page.getByRole('button', { name: 'More' }).click();
+  await page.getByRole('button', { name: 'Register someone else' }).click();
+  const confirm = page.getByRole('group', { name: 'Register someone else' });
+  await confirm.getByRole('button', { name: 'Register someone else' }).click();
+  await expect(page.getByText('New registration')).toBeVisible();
+  await expect(page.getByRole('textbox', { name: 'First name' })).toHaveValue('');
+  await expect(page.getByRole('button', { name: 'Someone else?' })).toHaveCount(0);
 });
 
 test('with storage full, a registration still goes in, and stays this page’s to change', async ({ page }) => {

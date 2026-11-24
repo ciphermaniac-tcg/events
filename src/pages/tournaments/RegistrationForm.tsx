@@ -321,8 +321,12 @@ function createRegistration(props: RegistrationProps) {
     return props.sanctioned && step() === 'edit' && mine && user.popId !== profile().popId;
   };
 
-  /** Someone else on this device: forget whose registration it held, and start again. */
-  function notYou() {
+  /**
+   * Someone else on this device: forget whose registration it held, and start
+   * again. `fresh`, for someone else asked for from the menu: a signed-in
+   * account goes straight to blank fields (see elsewhere), past its own.
+   */
+  function notYou(fresh = false) {
     remember(props.code, null);
     hold(null);
     heldYear = '';
@@ -336,8 +340,8 @@ function createRegistration(props: RegistrationProps) {
     setWithdrawing(false);
     setOwn(false);
     setLeaving(false);
-    setOther(false);
-    setStep('lookup');
+    setOther(fresh && account() !== null);
+    setStep(other() ? 'new' : 'lookup');
   }
 
   /** Someone else, from the account's own registration: blank fields, the Player ID among them at a sanctioned event. */
@@ -358,7 +362,7 @@ function createRegistration(props: RegistrationProps) {
       setWithdrawing(false);
       setLeaving(true);
     } else {
-      notYou();
+      notYou(true);
     }
   }
 
@@ -933,8 +937,8 @@ function EditRegistration(props: { form: Registration; reg: RegistrationProps })
       </Show>
       <Show when={f().leaving()}>
         <div class='tm-box-bar tm-row-actions tm-confirm' role='group' aria-label={t('Register someone else')}>
-          <span>{t('You won’t be able to change {name}’s registration from this phone.', { name: name() })}</span>
-          <button type='button' class='btn btn-secondary tm-small' onClick={() => f().notYou()}>
+          <span>{t('You won’t be able to change {name}’s registration from this device.', { name: name() })}</span>
+          <button type='button' class='btn btn-secondary tm-small' onClick={() => f().notYou(true)}>
             {t('Register someone else')}
           </button>
           <button type='button' class='btn btn-ghost tm-small' onClick={() => f().setLeaving(false)}>

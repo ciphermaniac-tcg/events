@@ -831,6 +831,11 @@ body[data-mode='dark'] :is(.tm-input, .tm-select) {
   align-items: center;
   white-space: nowrap;
 }
+/* Across a box, a long question wraps at any width rather than running out of the box. */
+.tm-box-bar.tm-confirm {
+  flex-wrap: wrap;
+  white-space: normal;
+}
 /* On a phone, a question asked in a row or a box wraps its answers under it
    rather than running them out of the box. */
 @media (max-width: 640px) {
