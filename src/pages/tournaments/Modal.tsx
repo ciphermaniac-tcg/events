@@ -2,14 +2,17 @@ import { createEffect, type JSX } from 'solid-js';
 
 /**
  * A native modal dialog, shown while `open`: the page behind it is inert,
- * focus moves in and comes back, and Escape closes it through `onClose`.
- * `bar` goes after the title, at the end of its bar.
+ * focus moves in and comes back, the page behind holds still, and Escape
+ * closes it through `onClose`. `bar` goes after the title, at the end of its
+ * bar. A `basic` dialog, with nothing typed in it and no answer that destroys
+ * anything, also closes on a tap outside it.
  */
 export function Modal(props: {
   open: boolean;
   title: string;
   class?: string;
   bar?: JSX.Element;
+  basic?: boolean;
   onClose: () => void;
   children: JSX.Element;
 }) {
@@ -26,6 +29,7 @@ export function Modal(props: {
       ref={el => (dialog = el)}
       class={props.class ? `tm-modal ${props.class}` : 'tm-modal'}
       aria-label={props.title}
+      closedby={props.basic ? 'any' : undefined}
       // The close event lands a task after the dialog closes; one opened again by then stays open.
       onClose={() => {
         if (!dialog?.open) {

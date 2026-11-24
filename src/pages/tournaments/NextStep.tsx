@@ -139,7 +139,7 @@ function CutDialog(props: {
     void props.state.send(props.divided && which ? { ...cut, division: which } : cut);
   }
   return (
-    <Modal open={props.open} title={t('Start the top cut')} class='tm-cut-dialog' onClose={props.onClose}>
+    <Modal basic open={props.open} title={t('Start the top cut')} class='tm-cut-dialog' onClose={props.onClose}>
       <div class='tm-box-bar tm-modal-body'>
         <div class='tm-cut-row'>
           <span class='tm-cut-label'>{t('Cut to')}</span>
