@@ -409,6 +409,24 @@ body.tm-home-mode main.page {
   gap: 6px;
   min-width: 0;
 }
+/* A seat's name ends in an ellipsis rather than being cut mid-letter. A seat too narrow for a
+   name and its record drops the record, as a phone does. */
+.tm-hc-pairs .tm-hc-seat {
+  display: flex;
+  container-type: inline-size;
+}
+.tm-hc-pairs .tm-hc-seat > span:not(.tm-hc-mark, .tm-hc-record, .tm-deck) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tm-hc-record {
+  flex: none;
+}
+@container (max-width: 240px) {
+  .tm-hc-pairs .tm-hc-record {
+    display: none;
+  }
+}
 .tm-hc-mark {
   flex: none;
   width: 14px;
@@ -736,14 +754,6 @@ body.tm-home-mode main.page {
   }
   .tm-hc-pairs th:last-child {
     width: 60px;
-  }
-  .tm-hc-pairs .tm-hc-seat {
-    display: flex;
-    max-width: 100%;
-  }
-  .tm-hc-pairs .tm-hc-seat > span:not(.tm-hc-mark) {
-    overflow: hidden;
-    text-overflow: ellipsis;
   }
   .tm-hc-table th,
   .tm-hc-table td {
