@@ -71,7 +71,7 @@ const AFTER: Record<WipePart, string[]> = {
 
 /** What deleting costs. */
 const DELETE_AFTER = [
-  msg('Everything above is wiped, and your sign-ins and sessions go'),
+  msg('Your profile, username and history are wiped, and your sign-ins and sessions go'),
   msg('Events you ran stay for their players, without your name')
 ];
 
