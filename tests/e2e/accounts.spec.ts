@@ -1402,7 +1402,9 @@ test('signed out, the question offers sign-in that comes back to the event', asy
   );
 });
 
-test('a signed-in player saves the POP ID their decklist went in under to their account', async ({ page }) => {
+test('a list this device held before is not offered to the signed-in account of the same name, and its token stays', async ({
+  page
+}) => {
   const code = 'DECKS1';
   const t = run(emptyTournament({ name: 'Cup' }));
   const keys = assignKeys(t, {});
@@ -1430,7 +1432,6 @@ test('a signed-in player saves the POP ID their decklist went in under to their 
     fromList: true,
     locked: true
   };
-  const saved: unknown[] = [];
   const reads: URLSearchParams[] = [];
   await page.addInitScript(
     ([key, value]) => {
@@ -1446,13 +1447,6 @@ test('a signed-in player saves the POP ID their decklist went in under to their 
   await page.route('**/api/**', route => {
     const request = route.request();
     const { pathname } = new URL(request.url());
-    if (pathname === '/api/me' && request.method() === 'PUT') {
-      saved.push(request.postDataJSON());
-      // Saved once; by the second try another account has taken the Player ID.
-      return saved.length > 1
-        ? route.fulfill({ status: 409, json: { error: 'This Player ID is on another account.', popIdTaken: true } })
-        : route.fulfill({ json: { user: { ...ME, ...profile } } });
-    }
     if (pathname === '/api/me') {
       return route.fulfill({ json: { user: { ...ME, popId: null }, providers: [] } });
     }
@@ -1467,24 +1461,16 @@ test('a signed-in player saves the POP ID their decklist went in under to their 
     .poll(() => page.evaluate(key => localStorage.getItem(key), `cm-decklist:${code}`))
     .toBe(JSON.stringify({ token: 'kept' }));
   expect(await page.evaluate(key => sessionStorage.getItem(key), `cm-decklist:${code}`)).toBe(JSON.stringify(profile));
-  await page.getByRole('button', { name: 'Save ID to my profile' }).click();
-  await expect(page.locator('.tm-decklist-foot')).toContainText('Saved');
+  // Holding the list proves it was sent from here, not that it is the account holder's.
+  await expect(page.locator('.tm-reg-who')).toContainText('Mary Jackson');
   await expect(page.getByRole('button', { name: 'Save ID to my profile' })).toHaveCount(0);
-  expect(saved).toEqual([profile]);
   await page.evaluate(() => sessionStorage.clear());
   await page.reload();
-  await expect(page.getByRole('button', { name: 'Save ID to my profile' })).toBeVisible();
+  await expect(page.locator('.tm-reg-who')).toContainText('Mary Jackson');
   expect(reads.at(-1)?.get('token')).toBe('kept');
   expect(reads.at(-1)?.get('popId')).toBeFalsy();
   expect(await page.evaluate(key => localStorage.getItem(key), `cm-decklist:${code}`)).toBe(
     JSON.stringify({ token: 'kept' })
-  );
-  await page.getByRole('button', { name: 'Save ID to my profile' }).click();
-  const alert = page.getByRole('alert');
-  await expect(alert).toContainText('This Player ID is on another account.');
-  await expect(alert.getByRole('link', { name: 'Contact us' })).toHaveAttribute(
-    'href',
-    'https://ciphermaniac.com/feedback'
   );
 });
 
