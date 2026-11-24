@@ -59,7 +59,7 @@ function LinksForm(props: { links: ProfileLinks }) {
       </For>
       <div class='tm-profile-form-actions'>
         <button type='submit' class='btn btn-primary' disabled={action.busy()}>
-          {action.busy() ? t('Saving…') : t('Save links')}
+          {action.busy() ? t('Saving…') : t('Save')}
         </button>
         <Show when={action.saved()}>
           <span role='status' class='muted'>
