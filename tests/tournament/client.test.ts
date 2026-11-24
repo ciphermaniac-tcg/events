@@ -166,8 +166,8 @@ test('API and published polling time out, reject stalled reads, and can poll aga
     controller.abort(new DOMException('Timed out', 'TimeoutError'));
     await assert.rejects(pending, { name: 'TimeoutError' });
     timeout.mock.restore();
-    answer(200, { version: 4 });
-    assert.deepEqual(await read(), { version: 4 });
+    answer(200, { version: 4, settings: { registration: true } });
+    assert.deepEqual(await read(), { version: 4, settings: { registration: true } });
   }
 });
 
@@ -306,15 +306,33 @@ test('an error that says more than a message keeps the rest', async () => {
 });
 
 test('reads the published view from the data origin, and a missing one as null', async () => {
-  answer(200, { code: 'ABC', version: 3 });
-  assert.deepEqual(await fetchPublished('ABC'), { code: 'ABC', version: 3 });
+  answer(200, { code: 'ABC', version: 3, settings: { registration: false, decklists: 'off' } });
+  assert.deepEqual(await fetchPublished('ABC'), {
+    code: 'ABC',
+    version: 3,
+    settings: { registration: false, decklists: 'off' }
+  });
   assert.match(sent[0]?.url ?? '', /\/tournaments\/v1\/ABC\.json$/);
   answer(404, { error: 'missing' });
   assert.equal(await fetchPublished('ABC'), null);
 });
 
+test('a view published before registration was a setting registers players exactly while it takes lists', async () => {
+  for (const [decklists, registration] of [
+    ['closed', true],
+    ['open', true],
+    ['off', false]
+  ] as const) {
+    answer(200, { code: 'ABC', version: 3, settings: { decklists } });
+    assert.equal((await fetchPublished('ABC'))?.settings.registration, registration);
+  }
+});
+
+/** An event's published file, as the data origin answers with it. */
+const PUBLISHED = { code: 'ABC', version: 3, settings: { registration: true } };
+
 test('the read the page started is asked for by the URL the app would read, not by its code alone', async () => {
-  answer(200, { code: 'ABC', version: 3 });
+  answer(200, PUBLISHED);
   const asked: string[] = [];
   Object.assign(globalThis, {
     cmE: (url: string) => {
@@ -331,9 +349,9 @@ test('the read the page started is asked for by the URL the app would read, not 
 });
 
 test('a published view asked for ahead of its page is read once, and only for that event', async () => {
-  answer(200, { code: 'ABC', version: 3 });
+  answer(200, PUBLISHED);
   preloadPublished('ABC');
-  assert.deepEqual(await fetchPublished('ABC'), { code: 'ABC', version: 3 });
+  assert.deepEqual(await fetchPublished('ABC'), PUBLISHED);
   assert.equal(sent.length, 1, 'the page takes the read already under way');
   await fetchPublished('ABC');
   assert.equal(sent.length, 2, 'and reads afresh from then on');
@@ -347,7 +365,7 @@ test('a published view asked for ahead of its page is read once, and only for th
 });
 
 test('an event asked for again while its read is fresh is read once, and a stale read is not taken', async t => {
-  answer(200, { code: 'ABC', version: 3 });
+  answer(200, PUBLISHED);
   const now = t.mock.method(Date, 'now', () => 1_000);
   preloadPublished('ABC');
   preloadPublished('ABC');
@@ -373,13 +391,13 @@ test('a read started ahead is taken however long it is under way', async t => {
   let release = () => {};
   globalThis.fetch = (() =>
     new Promise<Response>(resolve => {
-      release = () => resolve(Response.json({ code: 'ABC', version: 3 }));
+      release = () => resolve(Response.json(PUBLISHED));
     })) as unknown as typeof fetch;
   preloadPublished('ABC');
   now.mock.mockImplementation(() => 60_000);
   const read = fetchPublished('ABC');
   release();
-  assert.deepEqual(await read, { code: 'ABC', version: 3 });
+  assert.deepEqual(await read, PUBLISHED);
 });
 
 test('a console copy asked for ahead of its page is read once, and only for that event', async () => {
@@ -408,7 +426,7 @@ test('History is the account’s own, and a finished event’s copy may come fro
   const caches: (RequestCache | undefined)[] = [];
   globalThis.fetch = (async (_url: string, init: RequestInit = {}) => {
     caches.push(init.cache);
-    return Response.json({ code: 'ABC' });
+    return Response.json(PUBLISHED);
   }) as typeof fetch;
   await fetchPublished('ABC', 'default');
   await fetchPublished('ABC');

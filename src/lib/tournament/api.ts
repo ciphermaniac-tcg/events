@@ -257,18 +257,30 @@ const base = (code: string) => `/api/tournaments/${encodeURIComponent(code)}`;
  * page reading an event that no longer changes may let the browser's cache
  * answer (`cache: 'default'`).
  */
-export function fetchPublished(code: string, cache: RequestCache = 'no-cache'): Promise<PublishedView | null> {
+export function fetchPublished(code: string, cache?: RequestCache): Promise<PublishedView | null> {
   return early.take(code) ?? readPublished(code, cache);
 }
 
 /** Hands over, once, the read index.html started for this URL before this code loaded, if still fresh. */
 type EarlyRead = { cmE?: (url: string) => Promise<Response> | null };
 
+/** A view as a file holds it: one published before registration was a setting of its own has none. */
+type PublishedFile = Omit<PublishedView, 'settings'> & {
+  settings: Omit<TournamentSettings, 'registration'> & Partial<Pick<TournamentSettings, 'registration'>>;
+};
+
 async function readPublished(code: string, cache: RequestCache = 'no-cache'): Promise<PublishedView | null> {
   const url = `${EVENTS_DATA_ORIGIN}/${publishedViewKey(code)}`;
   const response = await ((globalThis as EarlyRead).cmE?.(url) ??
     fetch(url, { cache, signal: AbortSignal.timeout(15_000) }));
-  return response.ok ? ((await response.json()) as PublishedView) : null;
+  if (!response.ok) {
+    return null;
+  }
+  const view = (await response.json()) as PublishedFile;
+  const { settings } = view;
+  // Read as storedSettings reads a stored event: registration was on exactly while it took lists.
+  settings.registration ??= settings.decklists !== 'off';
+  return view as PublishedView;
 }
 
 /** How long a read started ahead stays worth taking once answered: a page opened later reads afresh. */

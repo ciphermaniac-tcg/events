@@ -128,6 +128,7 @@ export function EventSetup(props: {
   const [archetypes] = field<DeckVisibility>('archetypes', 'off', (value): value is DeckVisibility =>
     ['off', 'always', 'after'].includes(String(value))
   );
+  const [registration] = field('registration', true, isBoolean);
   const [decklists] = field<DecklistMode>('decklists', 'off', (value): value is DecklistMode =>
     ['off', 'open', 'closed'].includes(String(value))
   );
@@ -229,6 +230,7 @@ export function EventSetup(props: {
         ...logistics(),
         entryFee: entryFee(),
         deckVisibility: archetypes(),
+        registration: registration(),
         decklists: decklists(),
         playerReporting: reporting(),
         ...(swiss() ? { sanctioned: sanctioned(), roundCap: cap() } : {})
@@ -300,11 +302,19 @@ export function EventSetup(props: {
               onChange={(key, value) => (key === 'venue' ? setVenue(value) : setAddress(value))}
             />
           </Show>
-          <SettingRow label={t('Entry fee')} for='setup-fee'>
-            <FeeField id='setup-fee' country='' value={entryFee()} onChange={setEntryFee} />
-          </SettingRow>
         </Show>
       </div>
+      {/* Grouped as Settings groups it (see EventPanel's Registration box); the rest of that box is Settings' to ask. */}
+      <Show when={!tomPairs()}>
+        <section>
+          <h3 class='tm-subhead tm-box-head'>{t('Registration')}</h3>
+          <div class='tm-box'>
+            <SettingRow label={t('Entry fee')} for='setup-fee'>
+              <FeeField id='setup-fee' country='' value={entryFee()} onChange={setEntryFee} />
+            </SettingRow>
+          </div>
+        </section>
+      </Show>
       <Show
         when={tomPairs()}
         fallback={

@@ -1360,6 +1360,38 @@ test('a setting saves as it is left, with no Save to press', async ({ page }) =>
   await expect.poll(() => sent.saved.at(-1)).toEqual({ playerReporting: true });
 });
 
+test('Registration has its own box, and Decklists shows only while players register online @mobile', async ({
+  page
+}) => {
+  const sent = await mockConsole(page, event(4, 0, false), settingsOf({}));
+  await page.getByRole('tab', { name: 'Settings' }).click();
+  const panel = page.getByRole('tabpanel', { name: 'Settings' });
+  await expect(panel.locator('h2').nth(0)).toHaveText('Event');
+  await expect(panel.locator('h2').nth(1)).toHaveText('Registration');
+  await expect(panel.locator('h2').nth(2)).toHaveText('Rules');
+  const rows = (title: string) =>
+    panel.locator('section', { has: page.getByRole('heading', { name: title, exact: true }) }).locator('.tm-set-name');
+  const all = ['Online registration', 'Entry fee', 'Player cap', 'Decklists'];
+  await expect(rows('Registration')).toHaveText(all.map(label => new RegExp(`^${label}`)));
+  for (const label of all) {
+    await expect(rows('Event').filter({ hasText: label })).toHaveCount(0);
+    await expect(rows('Rules').filter({ hasText: label })).toHaveCount(0);
+  }
+  // A new event registers players online, and takes no lists until asked to.
+  const online = page.getByRole('radiogroup', { name: 'Online registration' });
+  await expect(online.getByRole('radio', { name: 'On' })).toBeChecked();
+  const lists = page.getByRole('radiogroup', { name: 'Decklists' });
+  await expect(lists.getByRole('radio', { name: 'Off' })).toBeChecked();
+  await lists.getByRole('radio', { name: 'Closed' }).click();
+  await expect.poll(() => sent.saved.at(-1)).toEqual({ decklists: 'closed' });
+  await online.getByRole('radio', { name: 'Off' }).click();
+  await expect.poll(() => sent.saved.at(-1)).toEqual({ registration: false });
+  await expect(lists).toHaveCount(0);
+  await expect(rows('Registration')).toHaveCount(3);
+  await online.getByRole('radio', { name: 'On' }).click();
+  await expect(lists).toBeVisible();
+});
+
 test('a number left out of its range says the range under it and is not saved until fixed', async ({ page }) => {
   const sent = await mockConsole(page, event(4, 0, true), settingsOf({}));
   await page.getByRole('tab', { name: 'Settings' }).click();
@@ -2909,7 +2941,9 @@ test('a check column counts only the players it is asked of', async ({ page }) =
   const t = event(4, 0, false);
   await mockConsole(page, t, settingsOf({ entryFee: 10 }));
   const paper = { [t.players[0]!.id]: { paper: true as const } };
-  const manage = manageOf(CODE, t, { settings: settingsOf({ entryFee: 10 }), checkins: paper, requests: [] });
+  // Decklists off asks nobody for a list, whatever a registration said.
+  const settings = settingsOf({ entryFee: 10 });
+  const manage = manageOf(CODE, t, { settings, checkins: paper, requests: [] });
   await page.route(`**/api/tournaments/${CODE}/manage*`, route =>
     new URL(route.request().url()).searchParams.has('since')
       ? route.fulfill({ status: 204 })
@@ -2917,6 +2951,9 @@ test('a check column counts only the players it is asked of', async ({ page }) =
   );
   await page.reload();
   const heads = page.locator('.tm-roster thead .tm-check-col');
+  await expect(heads).toHaveText(['Paid0/4']);
+  manage.settings = { ...settings, decklists: 'closed' };
+  await page.reload();
   await expect(heads).toHaveText(['Paid0/4', 'List received0/1']);
 });
 

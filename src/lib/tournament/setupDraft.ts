@@ -89,6 +89,7 @@ export function runAgainFields(event: Pick<Manage, 'tournament' | 'settings' | '
     roundTime: String(info.roundTime),
     reporting: settings.playerReporting,
     archetypes: settings.deckVisibility,
+    registration: settings.registration,
     decklists: settings.decklists,
     roundCap: settings.roundCap,
     eventType: eventTypeOf(event.tournament)

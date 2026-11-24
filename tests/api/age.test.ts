@@ -532,13 +532,17 @@ const decks = () =>
     ])
   );
 
-test('once an event is over, a player who may be under 18 sends no list, even one racing the end', async () => {
+test('once an event is over, nobody sends a list, and a player who may be under 18 none racing the end', async () => {
   const owner = await signIn('Organizer', 'organizer');
   const code = await eventWith(owner, [TEEN, ADULT]);
   await settle(code, owner, { finished: true });
-  const late = await submit(code, '950', TEEN);
-  assert.deepEqual([late.status, late.json.error], [403, 'This event is over.']);
-  assert.equal((await submit(code, '951', ADULT)).status, 200, 'an adult’s list still comes in');
+  for (const [popId, year] of [
+    ['950', TEEN],
+    ['951', ADULT]
+  ] as const) {
+    const late = await submit(code, popId, year);
+    assert.deepEqual([late.status, late.json.error], [403, 'This event is over.']);
+  }
 
   const open = await eventWith(owner, [TEEN]);
   const db = env.TOURNAMENT_DB as ReturnType<typeof sqliteD1>;

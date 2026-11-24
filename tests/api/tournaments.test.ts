@@ -1835,7 +1835,7 @@ test('a full event still counts a newcomer’s tries, and a locked Player ID hea
   assert.deepEqual([locked.status, locked.json.error], [429, 'Too many tries. Ask staff for help.']);
 });
 
-test('a submitter is checked again as the event stands when written: added meanwhile, or closed meanwhile', async () => {
+test('a submitter is checked again as the event stands when written: added meanwhile, or ended meanwhile', async () => {
   const owner = await signIn('Organizer', 'organizer');
   const inner = env.TOURNAMENT_DB as ReturnType<typeof sqliteD1>;
   const code = await newSwiss(owner);
@@ -1861,7 +1861,14 @@ test('a submitter is checked again as the event stands when written: added meanw
       )
       .run(later);
   });
-  assert.equal((await submitAs(later, ada)).json.registration, 'not-added', 'the event closed while the list was sent');
+  const ended = await submitAs(later, ada);
+  assert.deepEqual(
+    [ended.status, ended.json.error],
+    [403, 'This event is over.'],
+    'the event ended as the list was sent'
+  );
+  const kept = inner.raw.prepare('SELECT count(*) AS n FROM decklists WHERE code = ?').get(later) as { n: number };
+  assert.equal(kept.n, 0, 'and the list is taken back');
 });
 
 test('closed decklists still register a submitter', async () => {
@@ -1877,7 +1884,7 @@ test('a submitter is only added to an open Swiss event, and an unsanctioned one 
   const code = await newSwiss(owner);
   await settle(code, owner, { decklists: 'open', finished: true });
   const closed = await submitAs(code, { popId: '5151', firstName: 'Ada', lastName: 'Byron', birthDate: '02/27/1990' });
-  assert.deepEqual([closed.status, closed.json.registration], [200, 'not-added'], 'a closed event takes nobody new');
+  assert.deepEqual([closed.status, closed.json.error], [403, 'This event is over.'], 'an ended event takes nobody');
 
   const casual = await newSwiss(owner);
   await settle(casual, owner, { decklists: 'open', sanctioned: false });
@@ -1969,8 +1976,9 @@ test('a list for a player on the event’s list takes their birth year, and an u
   assert.deepEqual([own.status, own.json.registration], [200, 'matched'], 'the year is what counts, not the day');
 
   const unlisted = { popId: '8080', firstName: 'Ira', lastName: 'Vance', birthDate: '02/27/2003' };
-  await settle(code, owner, { finished: true });
-  assert.equal((await submitAs(code, unlisted)).json.registration, 'not-added', 'so only the list knows the year');
+  assert.equal((await submitAs(code, unlisted)).json.registration, 'added');
+  // Staff take them off the event's list, so only their list knows the year.
+  assert.equal((await send(code, owner, { type: 'removePlayer', id: '8080' })).status, 200);
   await hit(decklists.onRequestPatch as Handler, '/decklists?popId=8080', at(code), { method: 'PATCH', cookie: owner });
   const takeover = await submitAs(code, { ...unlisted, birthDate: '02/27/2004' });
   assert.equal(takeover.status, 403, 'a list is not taken over under another birth year');
@@ -2050,9 +2058,11 @@ test('guesses landing all at once are admitted five at most, so a burst cannot o
 test('a burst of lists cannot outrun the lockout to take over an unlocked list by its year', async () => {
   const owner = await signIn('Organizer', 'organizer');
   const code = await newSwiss(owner);
-  await settle(code, owner, { decklists: 'open', finished: true });
+  await settle(code, owner, { decklists: 'open' });
   const unlisted = { popId: '8080', firstName: 'Ira', lastName: 'Vance', birthDate: '02/27/2003' };
-  assert.equal((await submitAs(code, unlisted)).json.registration, 'not-added');
+  assert.equal((await submitAs(code, unlisted)).json.registration, 'added');
+  // Off the event's list, only their list knows the year.
+  assert.equal((await send(code, owner, { type: 'removePlayer', id: '8080' })).status, 200);
   await hit(decklists.onRequestPatch as Handler, '/decklists?popId=8080', at(code), { method: 'PATCH', cookie: owner });
   const answers = await Promise.all(
     burstOf('2003').map(year => submitAs(code, { ...unlisted, birthDate: `02/27/${year}` }))

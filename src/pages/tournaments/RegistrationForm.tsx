@@ -52,8 +52,10 @@ export interface RegistrationProps {
   full: boolean;
   /** The registration this device or account already holds, once read; it opens straight away. */
   mine: Decklist | null;
-  /** Whether a registration may be withdrawn now: only before round 1 is paired (see decklistsOpen). */
+  /** Whether a registration may be withdrawn now: only before round 1 is paired (see canRegister). */
   withdrawable: boolean;
+  /** Whether the event takes decklists; when not, a registration carries none and is not asked for one. */
+  lists: boolean;
   /** A line over the first step, saying who the form is still open to. */
   note?: string;
   /** The season the event is in, which places a birth year in its division. */
@@ -161,7 +163,9 @@ function createRegistration(props: RegistrationProps) {
   const [kept, setKept] = createSignal<NamedPlayer | null>(held);
   /** The birth year the registration was opened or last saved with, which a correction proves the Player ID by. */
   let heldYear = birthYearOf(held?.birthDate ?? '');
-  const [mode, setMode] = createSignal<DeckMode | null>(held?.mode ?? null);
+  const [chosen, setMode] = createSignal<DeckMode | null>(held?.mode ?? null);
+  // With no lists taken there is nothing to choose: the registration goes as one with no list sent.
+  const mode = () => (props.lists ? chosen() : 'paper');
   const [deck, setDeck] = createSignal(held?.deck ?? '');
   const [matches, setMatches] = createSignal<NamedPlayer[]>([]);
   const [naming, setNaming] = createSignal(false);
@@ -411,6 +415,7 @@ function createRegistration(props: RegistrationProps) {
     withdrawing,
     setWithdrawing,
     withdrawable: () => props.withdrawable,
+    lists: () => props.lists,
     leaving,
     setLeaving,
     someoneElse,
@@ -788,20 +793,22 @@ function ModeOption(props: { form: Registration; value: DeckMode; label: string 
   );
 }
 
-/** In person or digital, and the paste box for a digital list. */
+/** In person or digital, and the paste box for a digital list; nothing at an event that takes no lists. */
 function DeckChoice(props: { form: Registration }) {
   const f = () => props.form;
   return (
-    <div class='tm-box-bar tm-reg-stack'>
-      <fieldset class='tm-reg-options'>
-        <legend class='tm-label'>{t('Decklist')}</legend>
-        <ModeOption form={f()} value='paper' label={t('In person')} />
-        <ModeOption form={f()} value='digital' label={t('Digital')} />
-      </fieldset>
-      <Show when={f().mode() === 'digital'}>
-        <Paste form={f()} />
-      </Show>
-    </div>
+    <Show when={f().lists()}>
+      <div class='tm-box-bar tm-reg-stack'>
+        <fieldset class='tm-reg-options'>
+          <legend class='tm-label'>{t('Decklist')}</legend>
+          <ModeOption form={f()} value='paper' label={t('In person')} />
+          <ModeOption form={f()} value='digital' label={t('Digital')} />
+        </fieldset>
+        <Show when={f().mode() === 'digital'}>
+          <Paste form={f()} />
+        </Show>
+      </div>
+    </Show>
   );
 }
 
