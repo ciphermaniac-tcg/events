@@ -27,9 +27,10 @@ import { publicRequests } from '../../../shared/tournament/requests.js';
 import { jsonError, jsonResponse, noContent, PRIVATE } from '../api/responses.js';
 import { type Context, param, sameOrigin } from '../auth/env.js';
 import type { User } from '../auth/session.js';
-import { type Guard, rowsChanged } from '../d1.js';
+import { both, either, firstRow, type Guard, rowsChanged } from '../d1.js';
 import type { D1Like, D1Statement } from '../types.js';
 import { type Asker, askerStands } from './roles.js';
+import { stillAdmin } from '../auth/admin.js';
 import { shownDecks } from './decks.js';
 import { isCode } from '../../../shared/tournament/eventCode.js';
 import {
@@ -99,31 +100,128 @@ function staffOnly(access: Access, watch: boolean): StaffAccess | Response {
   return watch && isAdmin(user.role) ? { ...access, role: 'staff', hash, watching: true } : jsonError(NOT_STAFF, 403);
 }
 
-/** As `open`, for what only staff, or a site Admin watching, may read. */
-export async function openForStaffRead(context: Context<'code'>): Promise<StaffAccess | Response> {
-  const access = await open(context);
-  return access instanceof Response ? access : staffOnly(access, true);
+/**
+ * Reads a staff route sends in the batch that opens the event, each held to
+ * `guard`: the asker's standing as the route checks it, in SQL, so the reads
+ * find nothing for anyone the route refuses.
+ */
+export type StaffReads = (db: D1Like, code: string, guard: Guard) => D1Statement[];
+
+/**
+ * Who a staff route lets in, as one SQL standing over the event's row (see
+ * roles.ts), and what it tells anyone else signed in. A route whose reads go
+ * along decides by this standing alone: it is read in the batch beside the
+ * reads it holds, so who is let in and what the reads find cannot part ways.
+ */
+interface Rule {
+  standing: (code: string, hash: string, now: number) => Guard;
+  refusal: (access: Access) => Response;
+}
+
+/** `reads` held to the rule's standing, after the standing itself; nothing at all without a session. */
+const heldTo = (reads: StaffReads, rule: Rule): OpenOptions => ({
+  along: (db, code, session) => {
+    if (!session) {
+      return [];
+    }
+    const guard = rule.standing(code, session.hash, session.now);
+    return [db.prepare(`SELECT ${guard.sql} AS admitted`).bind(...guard.values), ...reads(db, code, guard)];
+  }
+});
+
+/** The access as the rule admits it, from the standing read first among its reads. */
+function admitted(access: Access, rule: Rule): StaffAccess | Response {
+  const [standing, ...along] = access.along;
+  const { role, hash, user } = access;
+  if (!user || !hash) {
+    return jsonError(SIGN_IN, 401);
+  }
+  if (!firstRow<{ admitted: number }>(standing)?.admitted) {
+    return rule.refusal(access);
+  }
+  return role ? { ...access, along, role, hash } : { ...access, along, role: 'staff', hash, watching: true };
+}
+
+/**
+ * The event opened for a staff route: by `check` as before when it sends no
+ * reads, by the rule's standing when it does. A batch that fails over the
+ * reads does not answer a refused asker with the error: the standing is read
+ * again alone, and only an asker it lets in hears the error.
+ */
+async function openChecked(
+  context: Context<'code'>,
+  reads: StaffReads | undefined,
+  rule: Rule,
+  check: (access: Access) => StaffAccess | Response
+): Promise<StaffAccess | Response> {
+  const decided = (access: Access | Response, decide: (access: Access) => StaffAccess | Response) =>
+    access instanceof Response ? access : decide(access);
+  if (!reads) {
+    return decided(await open(context), check);
+  }
+  try {
+    return decided(await open(context, heldTo(reads, rule)), access => admitted(access, rule));
+  } catch (error) {
+    const alone = decided(
+      await open(
+        context,
+        heldTo(() => [], rule)
+      ),
+      access => admitted(access, rule)
+    );
+    if (alone instanceof Response) {
+      return alone;
+    }
+    throw error;
+  }
+}
+
+/** On the event's staff, as `staffOnly` asks of a staff change. */
+const onItsStaff = (code: string, hash: string, now: number) => askerStands(code, { hash, role: 'staff' }, now);
+
+/** The event is there: what the Admin arm of a read asks, since an Admin's standing names no event. */
+const eventThere = (code: string): Guard => ({
+  sql: 'EXISTS (SELECT 1 FROM tournaments WHERE code = ?)',
+  values: [code]
+});
+
+const NOT_ITS_STAFF = () => jsonError(NOT_STAFF, 403);
+
+/** As `open`, for what only staff, or a site Admin watching, may read; `reads` go along (see StaffReads). */
+export function openForStaffRead(context: Context<'code'>, reads?: StaffReads): Promise<StaffAccess | Response> {
+  const rule: Rule = {
+    standing: (code, hash, now) => either(onItsStaff(code, hash, now), both(eventThere(code), stillAdmin(hash, now))),
+    refusal: NOT_ITS_STAFF
+  };
+  return openChecked(context, reads, rule, access => staffOnly(access, true));
 }
 
 /** As `open`, for a change only staff may make: an Admin watching makes none. */
-export async function openForStaff(context: Context<'code'>): Promise<StaffAccess | Response> {
+export async function openForStaff(context: Context<'code'>, reads?: StaffReads): Promise<StaffAccess | Response> {
   if (!sameOrigin(context.request)) {
     return jsonError('Forbidden', 403);
   }
-  const access = await open(context);
-  return access instanceof Response ? access : staffOnly(access, false);
+  const rule: Rule = { standing: onItsStaff, refusal: NOT_ITS_STAFF };
+  return openChecked(context, reads, rule, access => staffOnly(access, false));
 }
 
 /** As `openForStaff`, for what only the organizer may do; `refusal` tells anyone else so. */
 export async function openForOwner(
   context: Context<'code'>,
-  refusal = msg('Only the organizer can do that')
+  refusal = msg('Only the organizer can do that'),
+  reads?: StaffReads
 ): Promise<StaffAccess | Response> {
-  const access = await openForStaff(context);
-  if (access instanceof Response) {
-    return access;
+  if (!sameOrigin(context.request)) {
+    return jsonError('Forbidden', 403);
   }
-  return access.role === 'owner' ? access : jsonError(refusal, 403);
+  const rule: Rule = {
+    standing: (code, hash, now) => askerStands(code, { hash, role: 'owner' }, now),
+    refusal: access => (access.role ? jsonError(refusal, 403) : jsonError(NOT_STAFF, 403))
+  };
+  return openChecked(context, reads, rule, access => {
+    const staff = staffOnly(access, false);
+    return staff instanceof Response || staff.role === 'owner' ? staff : jsonError(refusal, 403);
+  });
 }
 
 /** Who asks, as a staff change checks them again where it lands (see roles.ts). */

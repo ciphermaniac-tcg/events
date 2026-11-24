@@ -20,8 +20,9 @@ import { openStore, type StoreAccess } from '../../../lib/stores/access.js';
 import {
   createInvite,
   handOver,
-  listInvites,
   listMembers,
+  peopleOf,
+  peopleQueries,
   removeMember,
   setMemberRole,
   withdrawInvite
@@ -33,17 +34,12 @@ const OWNER_STAYS = msg('The owner stays until they hand the store to someone el
 
 const roleOf = (value: unknown): GivenRole | null => GIVEN_ROLES.find(role => role === value) ?? null;
 
-async function people(access: StoreAccess): Promise<Response> {
-  const [members, invites] = await Promise.all([
-    listMembers(access.db, access.store.id),
-    listInvites(access.db, access.store.id)
-  ]);
-  return privateJson({ members, invites });
-}
+const people = async (access: StoreAccess) =>
+  privateJson(peopleOf(await access.db.batch(peopleQueries(access.db, access.store.id))));
 
 export async function onRequestGet(context: Context<'id'>): Promise<Response> {
-  const access = await openStore(context, 'manager');
-  return access instanceof Response ? access : people(access);
+  const access = await openStore(context, 'manager', peopleQueries);
+  return access instanceof Response ? access : privateJson(peopleOf(access.along));
 }
 
 export async function onRequestPost(context: Context<'id'>): Promise<Response> {

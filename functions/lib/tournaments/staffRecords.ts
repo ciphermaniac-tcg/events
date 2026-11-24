@@ -20,7 +20,7 @@
 import { readJsonObject } from '../api/body.js';
 import { jsonError } from '../api/responses.js';
 import type { Context } from '../auth/env.js';
-import { rowsChanged } from '../d1.js';
+import { type Guard, keyHeldTo, rows, rowsChanged } from '../d1.js';
 import type { D1Like, D1Statement } from '../types.js';
 import { displayNameSql } from '../accounts/handles.js';
 import {
@@ -82,17 +82,18 @@ interface RecordKind<Input extends RecordInput, Entry> {
  * The event's staff accounts: its organizer when no store runs it, everyone
  * in the store that does, and everyone the invite link let in.
  */
-const STAFF_SQL =
+const staffSql = (code: string) =>
+  `WITH event AS MATERIALIZED (SELECT ${code} AS code) ` +
   `SELECT u.id AS id, ${displayNameSql('u')} AS name FROM users u WHERE u.id IN (` +
-  'SELECT owner_id FROM tournaments WHERE code = ?1 AND store_id IS NULL ' +
-  'UNION SELECT m.user_id FROM tournaments t JOIN store_members m ON m.store_id = t.store_id WHERE t.code = ?1 ' +
-  'UNION SELECT user_id FROM staff WHERE code = ?1) ORDER BY name';
+  'SELECT owner_id FROM tournaments WHERE code = (SELECT code FROM event) AND store_id IS NULL ' +
+  'UNION SELECT m.user_id FROM tournaments t JOIN store_members m ON m.store_id = t.store_id ' +
+  'WHERE t.code = (SELECT code FROM event) ' +
+  'UNION SELECT user_id FROM staff WHERE code = (SELECT code FROM event)) ORDER BY name';
 
-export const staffAccountsQuery = (db: D1Like, code: string) => db.prepare(STAFF_SQL).bind(code);
-
-export async function staffAccounts(access: Access): Promise<StaffAccount[]> {
-  const { results } = await staffAccountsQuery(access.db, access.row.code).all<StaffAccount>();
-  return results;
+/** The event's staff accounts, by name; none unless `guard` holds, which is read once. */
+export function staffAccountsQuery(db: D1Like, code: string, guard?: Guard): D1Statement {
+  const key = keyHeldTo(code, guard);
+  return db.prepare(staffSql(key.sql)).bind(...key.values);
 }
 
 /**
@@ -115,12 +116,12 @@ type Shape = Pick<RecordKind<RecordInput, unknown>, 'table' | 'person' | 'verdic
 const columnsOf = ({ person, verdict }: Shape) =>
   `player_id, player_name, round, ${person}_id, ${person}_name, ${verdict}, notes`;
 
-const entriesSql = ({ table, person, verdict }: Shape) =>
+const entriesSql = ({ table, person, verdict }: Shape, code: string) =>
   `SELECT d.id, d.player_id, d.player_name, d.round, d.${person}_id AS person_id, ` +
   `d.${person}_name AS person_name, d.${verdict} AS verdict, d.notes, d.recorded_at, d.replaces, d.removed, ` +
   `(SELECT ${displayNameSql('c')} FROM users c WHERE c.id = d.${person}_id) AS person_account, ` +
   `(SELECT ${displayNameSql('r')} FROM users r WHERE r.id = d.recorded_by) AS recorder ` +
-  `FROM ${table} d WHERE d.code = ?1 AND (?2 IS NULL OR d.player_id = ?2) ORDER BY d.recorded_at, d.id`;
+  `FROM ${table} d WHERE d.code = ${code} AND (? IS NULL OR d.player_id = ?) ORDER BY d.recorded_at, d.id`;
 
 /** The record and the event's staff accounts, and whether the write ahead of them landed. */
 interface Read {
@@ -129,21 +130,31 @@ interface Read {
   staff: StaffAccount[];
 }
 
-/**
- * The entries (every one, or `player`'s) and the event's staff accounts, in
- * one batch: after `write`, when there is one, so they read as it left them.
- */
-async function readRecord(kind: Shape, access: Access, player: string | null, write?: D1Statement): Promise<Read> {
-  const { db, row } = access;
-  const reads = [db.prepare(entriesSql(kind)).bind(row.code, player), staffAccountsQuery(db, row.code)];
-  const results = await db.batch(write ? [write, ...reads] : reads);
-  const [entries, staff] = results.slice(write ? 1 : 0).map(result => result.results ?? []);
-  return {
-    written: !write || rowsChanged(results[0]) === 1,
-    entries: (entries ?? []) as RecordRow[],
-    staff: (staff ?? []) as StaffAccount[]
-  };
+/** Every entry and the event's staff accounts, in one batch after `write`, so they read as it left them. */
+async function readRecord(kind: Shape, access: Access, write: D1Statement): Promise<Read> {
+  const [result, ...reads] = await access.db.batch([write, ...recordReads(kind, access.db, access.row.code)]);
+  return readOf(rowsChanged(result) === 1, reads);
 }
+
+/** The entries (every one, or `player`'s) and the event's staff accounts (see `readOf`); none unless `guard` holds. */
+function recordReads(
+  kind: Shape,
+  db: D1Like,
+  code: string,
+  { player = null, guard }: { player?: string | null; guard?: Guard } = {}
+): D1Statement[] {
+  const key = keyHeldTo(code, guard);
+  return [
+    db.prepare(entriesSql(kind, key.sql)).bind(...key.values, player, player),
+    staffAccountsQuery(db, code, guard)
+  ];
+}
+
+const readOf = (written: boolean, [entries, staff]: { results?: unknown[] }[]): Read => ({
+  written,
+  entries: rows<RecordRow>(entries),
+  staff: rows<StaffAccount>(staff)
+});
 
 const answerRecord = (kind: Shape, read: Read) =>
   privateJson({ entries: read.entries.map(kind.entry), [kind.staffKey]: read.staff });
@@ -237,12 +248,11 @@ function missedAppend<Input extends RecordInput>(
 export function recordRoutes<Input extends RecordInput, Entry>(kind: RecordKind<Input, Entry>) {
   return {
     async onRequestGet(context: Context<'code'>): Promise<Response> {
-      const access = await openForStaffRead(context);
-      if (access instanceof Response) {
-        return access;
-      }
       const player = new URL(context.request.url).searchParams.get('player') || null;
-      return answerRecord(kind, await readRecord(kind, access, player));
+      const access = await openForStaffRead(context, (db, code, guard) =>
+        recordReads(kind, db, code, { player, guard })
+      );
+      return access instanceof Response ? access : answerRecord(kind, readOf(true, access.along));
     },
 
     async onRequestPost(context: Context<'code'>): Promise<Response> {
@@ -258,7 +268,7 @@ export function recordRoutes<Input extends RecordInput, Entry>(kind: RecordKind<
       if (problem) {
         return jsonError(problem, 400);
       }
-      const read = await readRecord(kind, access, null, append(kind, access, input));
+      const read = await readRecord(kind, access, append(kind, access, input));
       return read.written ? answerRecord(kind, read) : missedAppend(kind, access, input, read);
     },
 
@@ -268,7 +278,7 @@ export function recordRoutes<Input extends RecordInput, Entry>(kind: RecordKind<
         return access;
       }
       const id = new URL(context.request.url).searchParams.get('id') ?? '';
-      const read = await readRecord(kind, access, null, strike(kind, access, id));
+      const read = await readRecord(kind, access, strike(kind, access, id));
       if (read.written) {
         return answerRecord(kind, read);
       }

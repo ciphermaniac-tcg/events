@@ -21,6 +21,21 @@ export interface Guard {
   values: unknown[];
 }
 
+/**
+ * A lookup key that is `value` while `guard` holds and NULL otherwise. A
+ * read keyed on it finds no row for anyone the guard refuses, and visits
+ * none, since SQLite works the key out before it seeks. Without a guard it
+ * is just `value`.
+ */
+export const keyHeldTo = (value: unknown, guard?: Guard): Guard =>
+  guard ? { sql: `(SELECT ? WHERE ${guard.sql})`, values: [value, ...guard.values] } : { sql: '?', values: [value] };
+
+/** Either condition, `first`'s values bound ahead of `second`'s. */
+export const either = (first: Guard, second: Guard): Guard => ({
+  sql: `(${first.sql}) OR (${second.sql})`,
+  values: [...first.values, ...second.values]
+});
+
 /** Both conditions, `first`'s values bound ahead of `second`'s. */
 export const both = (first: Guard, second: Guard): Guard => ({
   sql: `(${first.sql}) AND (${second.sql})`,

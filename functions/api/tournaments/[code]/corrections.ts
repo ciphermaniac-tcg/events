@@ -21,8 +21,9 @@ import { jsonError } from '../../../lib/api/responses.js';
 import type { Context } from '../../../lib/auth/env.js';
 import { type Access, askerOf, openForStaff, openForStaffRead, privateJson } from '../../../lib/tournaments/access.js';
 import { answerStaff } from '../../../lib/tournaments/answers.js';
-import { loadCorrections } from '../../../lib/tournaments/corrections.js';
-import { headJudgeOf } from '../../../lib/tournaments/headJudge.js';
+import { correctionsOf, correctionsQuery } from '../../../lib/tournaments/corrections.js';
+import { headJudgeOf, staffContextOf } from '../../../lib/tournaments/headJudge.js';
+import { staffAccountsQuery } from '../../../lib/tournaments/staffRecords.js';
 import { commandChanges } from '../../../lib/tournaments/results.js';
 import { type Changes, type TournamentRow, tryChange } from '../../../lib/tournaments/store.js';
 import type { Command } from '../../../../shared/tournament/commands.js';
@@ -63,15 +64,19 @@ function repaired(row: TournamentRow, pod: PodCategory, localTime: string): Tour
 }
 
 export async function onRequestGet(context: Context<'code'>): Promise<Response> {
-  const access = await openForStaffRead(context);
+  const access = await openForStaffRead(context, (db, code, guard) => [
+    correctionsQuery(db, code, guard),
+    staffAccountsQuery(db, code, guard)
+  ]);
   if (access instanceof Response) {
     return access;
   }
-  const [corrections, headJudge] = await Promise.all([
-    loadCorrections(access.db, access.row.code),
-    headJudgeOf(access)
-  ]);
-  return privateJson({ corrections, headJudge, approver: approverRole(access, headJudge) });
+  const { headJudge } = staffContextOf(access, access.along[1]);
+  return privateJson({
+    corrections: correctionsOf(access.along[0]),
+    headJudge,
+    approver: approverRole(access, headJudge)
+  });
 }
 
 export async function onRequestPost(context: Context<'code'>): Promise<Response> {
