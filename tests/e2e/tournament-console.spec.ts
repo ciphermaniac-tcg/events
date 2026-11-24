@@ -163,6 +163,45 @@ test('a double click on a player records their win without asking', async ({ pag
   await expect(page.getByRole('button', { name: 'Record' })).toHaveCount(0);
 });
 
+test('Pairings with tables open first looks again four seconds after the event arrives, not half a minute', async ({
+  page
+}) => {
+  const looks: string[] = [];
+  page.on('request', request => {
+    if (request.url().includes('/manage?since=')) {
+      looks.push(request.url());
+    }
+  });
+  await page.clock.install();
+  await mockConsole(page, event(8, 0, true), settingsOf({}));
+  await expect(page.getByRole('button', { name: 'Report Player' }).first()).toBeVisible();
+  await page.clock.fastForward(5_000);
+  await expect.poll(() => looks.length).toBe(1);
+});
+
+test('a new copy of the event while a look is under way starts no second look beside it', async ({ page }) => {
+  await page.clock.install();
+  const sent = await mockConsole(page, event(8, 0, true), settingsOf({}), [], true);
+  const held = deferred<void>();
+  let looks = 0;
+  await page.route('**/manage?since=*', async route => {
+    looks += 1;
+    await held.promise;
+    await route.fulfill({ status: 204 });
+  });
+  await expect(page.getByRole('button', { name: 'Report Player' }).first()).toBeVisible();
+  await page.clock.fastForward(5_000);
+  await expect.poll(() => looks).toBe(1);
+  // A result recorded while that look waits on its answer brings a new copy of the event.
+  await page.getByRole('button', { name: 'Report Player' }).first().dblclick();
+  await expect.poll(() => sent.length).toBe(1);
+  await page.clock.fastForward(5_000);
+  await page.clock.fastForward(5_000);
+  await page.waitForTimeout(500);
+  expect(looks).toBe(1);
+  held.resolve();
+});
+
 test('a late player added before the round starts is seated by a re-pair, and after it is not offered one', async ({
   page
 }) => {

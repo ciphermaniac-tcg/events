@@ -658,27 +658,35 @@ export function ManageEvent(props: { code: string }) {
     untrack(() => void (invite ? join(code, invite) : state.load()));
   });
 
-  onMount(() => {
-    // One look at a time, waiting longer after each that fails, and at once when the tab is back in view.
-    const polls = schedulePolls(
-      () => (state.data() && !state.busy() ? state.load() : Promise.resolve(true)),
-      () => document.hidden,
-      () => pollEvery(state.data(), params.tab)
-    );
-    const forget = lookOnReturn(polls);
-    // Another tab waits longer between looks: coming back to Pairings looks at once rather than after that wait.
-    createEffect(
-      on(
-        () => params.tab,
-        () => polls.soon(),
-        { defer: true }
-      )
-    );
-    onCleanup(() => {
-      polls.stop();
-      forget();
-    });
-  });
+  // Looks start once the event is in, since what it shows sets the first wait: 4 s on Pairings, not 30.
+  // A memo, so a new copy of the event leaves the one schedule it has alone.
+  const loaded = createMemo(() => state.data() !== null);
+  createEffect(
+    on(loaded, ready => {
+      if (!ready) {
+        return;
+      }
+      // One look at a time, waiting longer after each that fails, and at once when the tab is back in view.
+      const polls = schedulePolls(
+        () => (state.busy() ? Promise.resolve(true) : state.load()),
+        () => document.hidden,
+        () => pollEvery(state.data(), params.tab)
+      );
+      const forget = lookOnReturn(polls);
+      // Another tab waits longer between looks: coming back to Pairings looks at once rather than after that wait.
+      createEffect(
+        on(
+          () => params.tab,
+          () => polls.soon(),
+          { defer: true }
+        )
+      );
+      onCleanup(() => {
+        polls.stop();
+        forget();
+      });
+    })
+  );
 
   createEffect(() => {
     document.title = pageTitle(state.data()?.tournament.info.name ?? props.code);
