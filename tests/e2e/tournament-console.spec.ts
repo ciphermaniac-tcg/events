@@ -2644,6 +2644,21 @@ test('a long check-in line is counted, filtered on the roster, and dropped all a
   await expect(gate.getByRole('button', { name: /^Drop all/ })).toBeEnabled();
 });
 
+test('a check column counts only the players it is asked of', async ({ page }) => {
+  const t = event(4, 0, false);
+  await mockConsole(page, t, settingsOf({ entryFee: 10 }));
+  const paper = { [t.players[0]!.id]: { paper: true as const } };
+  const manage = manageOf(CODE, t, { settings: settingsOf({ entryFee: 10 }), checkins: paper, requests: [] });
+  await page.route(`**/api/tournaments/${CODE}/manage*`, route =>
+    new URL(route.request().url()).searchParams.has('since')
+      ? route.fulfill({ status: 204 })
+      : route.fulfill({ json: manage })
+  );
+  await page.reload();
+  const heads = page.locator('.tm-roster thead .tm-check-col');
+  await expect(heads).toHaveText(['Paid0/4', 'List received0/1']);
+});
+
 test('a check-in tick the server refuses goes back to unticked', async ({ page }) => {
   await mockConsole(page, event(3, 0, false), settingsOf({ entryFee: 10 }));
   await page.route(`**/api/tournaments/${CODE}/checkins`, route =>
