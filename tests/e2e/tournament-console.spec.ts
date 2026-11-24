@@ -2198,7 +2198,9 @@ test('result options stay behind the menu and preserve manual confirmation', asy
   }
 });
 
-test('organizer pairing rows stay compact and keep separate yellow player hover in both themes', async ({ page }) => {
+test('organizer pairing rows stay compact, and a result’s second press asks in ink on no fill in both themes', async ({
+  page
+}) => {
   await mockConsole(page, event(8, 1, true), settingsOf({}));
   const winner = page.getByRole('button', { name: /^Report Player/ }).first();
   const row = page.locator('.tm-matches tbody tr', { has: winner });
@@ -2223,11 +2225,20 @@ test('organizer pairing rows stay compact and keep separate yellow player hover 
       .first()
       .evaluate(el => getComputedStyle(el).backgroundColor);
     expect(playerFill).not.toBe(rowFill);
-    await expect(row.locator('.tm-result.is-asking')).toHaveCSS('background-color', 'rgb(255, 219, 88)');
-    // The question reads in the fill's own ink in either theme, never the page's light dark-mode text.
-    await expect(row.locator('.tm-result.is-asking .tm-result-label')).toHaveCSS('color', 'rgb(33, 27, 11)');
-    // Cancel too, with the pointer still on the row whose hover lifts its ghost buttons to page ink.
-    await expect(page.getByRole('button', { name: 'Cancel', exact: true })).toHaveCSS('color', 'rgb(33, 27, 11)');
+    await expect(row.locator('.tm-result.is-asking')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+    // The question reads in the page's own ink in either theme.
+    const ink = await page.locator('.tm-console').evaluate(el => getComputedStyle(el).getPropertyValue('--fg').trim());
+    const label = row.locator('.tm-result.is-asking .tm-result-label');
+    expect(
+      await label.evaluate((el, fg) => {
+        const probe = document.createElement('span');
+        probe.style.color = fg;
+        document.body.append(probe);
+        const want = getComputedStyle(probe).color;
+        probe.remove();
+        return getComputedStyle(el).color === want;
+      }, ink)
+    ).toBe(true);
     await page.getByRole('button', { name: 'Cancel', exact: true }).click();
   }
 });
