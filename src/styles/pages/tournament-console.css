@@ -1502,12 +1502,13 @@
   }
 }
 /* A table menu's seats come first, each with its Reset, ruled off from the results under them. */
+/* Between the results and the overlay link, ruled off from both. */
 .tm-menu-seats {
   display: grid;
   gap: 2px;
-  margin-bottom: var(--space-1);
-  padding: var(--space-1) 10px var(--space-2);
-  border-bottom: 1px solid var(--rule);
+  margin-block: var(--space-1);
+  padding: var(--space-2) 10px;
+  border-block: 1px solid var(--rule);
   font-size: var(--text-base);
 }
 .tm-menu-seats p {

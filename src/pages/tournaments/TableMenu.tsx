@@ -1,8 +1,8 @@
 /**
  * What a table's menu adds to its results (see RoundPanel and ResultSheet):
- * first each seat, with the way to free it for another device or account
- * (see ReleaseAction), then after the results the link to the table's stream
- * overlay (see StreamOverlay), copied in place.
+ * after the results each seat, with the way to free it for another device or
+ * account (see ReleaseAction), then the link to the table's stream overlay
+ * (see StreamOverlay), copied in place.
  */
 
 import { For, Show } from 'solid-js';
@@ -19,12 +19,14 @@ import type { ManageState } from './manageState';
  * someone else claimed them first, where players report. At an unsanctioned
  * event the same release undoes the Claim a signed-in account made on the
  * player, reporting or not, and there it reads as unlinking them. Staff are
- * not shown which players an account holds.
+ * not shown which players an account holds, so a reset waits until the
+ * player has reported.
  */
 const reportsFor = (manage: Manage, player: Player) => manage.settings.playerReporting && player.droppedAfter === null;
 
 /** Whether ReleaseAction has anything to offer for the player. */
-export const mayRelease = (manage: Manage, player: Player) => reportsFor(manage, player) || !isSanctioned(manage);
+export const mayRelease = (manage: Manage, player: Player) =>
+  reportsFor(manage, player) ? manage.reports.some(report => report.by === player.id) : !isSanctioned(manage);
 
 /** `short`: the small button a table's menu puts beside each seat's name. */
 export function ReleaseAction(props: { state: ManageState; manage: Manage; player: Player; short?: boolean }) {

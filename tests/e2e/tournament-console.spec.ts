@@ -1678,15 +1678,15 @@ test('the big screen marks who won each finished table', async ({ page }) => {
 
 test('on a phone a roster question asked from the row menu stays on screen', async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 740 });
-  await mockConsole(page, event(4, 0, false), settingsOf({ playerReporting: true }));
+  await mockConsole(page, event(4, 0, false), settingsOf({ playerReporting: false }));
   // A phone's tabs sit in the bar along the bottom.
   await page.getByRole('tablist', { name: 'Event sections' }).getByRole('tab', { name: 'Players' }).click();
   await page
     .getByRole('button', { name: /^More for / })
     .first()
     .click();
-  await page.getByRole('button', { name: 'Reset reporting' }).first().click();
-  const question = page.getByRole('group', { name: /Let another device report for/ });
+  await page.getByRole('button', { name: 'Unlink account' }).first().click();
+  const question = page.getByRole('group', { name: /from their account\?$/ });
   await expect(question).toBeVisible();
   const asked = await question.boundingBox();
   expect(asked?.x ?? -1).toBeGreaterThanOrEqual(0);
@@ -2395,25 +2395,27 @@ test('table extensions use the match menu and support editing and removal @mobil
   expect(t.pods[0]!.rounds[0]!.timeLeft).toBe(-120);
 });
 
-test('a table menu resets a seat first and copies the table’s stream overlay link @mobile', async ({
+test('a table menu resets a seat that has reported, after the results, and copies the table’s stream overlay link @mobile', async ({
   page,
   context
 }) => {
   await context.grantPermissions(['clipboard-read', 'clipboard-write']);
   const t = event(4, 0, true);
   const match = firstMatch(t);
-  await mockConsole(page, t, settingsOf({ playerReporting: true }));
+  await mockConsole(page, t, settingsOf({ playerReporting: true }), [reportOf(match, match.p1, 'p1')]);
   if ((page.viewportSize()?.width ?? 1000) <= 900) {
     await page.locator('.tm-matches tbody tr:not(.tm-group-row)').first().click();
   }
   await page.getByRole('button', { name: `More for table ${match.table}`, exact: true }).click();
   const seats = page.locator('.tm-menu-seats p');
   const name = (id: string | null) => t.players.find(p => p.id === id)?.firstName ?? '';
-  // Seat one, then seat two, each with Reset reporting.
-  await expect(seats).toHaveText([
-    new RegExp(`^${name(match.p1)} .*Reset reporting$`),
-    new RegExp(`^${name(match.p2)} .*Reset reporting$`)
-  ]);
+  // Only the seat that reported can be reset, and it follows the results.
+  await expect(seats).toHaveText([new RegExp(`^${name(match.p1)} .*Reset reporting$`)]);
+  expect(
+    await page
+      .getByRole('button', { name: 'Penalty…', exact: true })
+      .evaluate(item => Boolean(item.compareDocumentPosition(document.querySelector('.tm-menu-seats')!) & 4))
+  ).toBe(true);
   const copy = page.getByRole('button', { name: 'Copy stream overlay link', exact: true });
   await copy.click();
   // The menu stays open to say the link was copied.
@@ -2578,8 +2580,8 @@ test('Escape closes the extension menu before the mobile result sheet @mobileOnl
   const sheet = page.getByRole('dialog', { name: 'Result, table 1', exact: true });
   const more = sheet.getByRole('button', { name: 'More for table 1', exact: true });
   await more.click();
-  // The menu opens on its first seat's Unlink account, ahead of the results.
-  await expect(sheet.getByRole('button', { name: 'Unlink account', exact: true }).first()).toBeFocused();
+  // The menu opens on its first item, the seats' Unlink account coming after it.
+  await expect(sheet.getByRole('button', { name: 'Time extension…', exact: true })).toBeFocused();
   await page.keyboard.press('Escape');
   await expect(sheet).toBeVisible();
   await expect(more).toBeFocused();
