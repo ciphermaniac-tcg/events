@@ -25,3 +25,5 @@ export const EVENTS_DATA_ORIGIN: string =
 
 /** The main site, which the nav and footer link back out to. */
 export const MAIN_SITE = 'https://ciphermaniac.com';
+/** The main site's feedback page: the way to us for anything the site can't settle itself. */
+export const FEEDBACK = `${MAIN_SITE}/feedback`;

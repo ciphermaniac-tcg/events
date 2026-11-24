@@ -96,9 +96,10 @@ import '../../styles/pages/tournament-public.css';
 import { pageTitle } from '../../lib/title';
 import { RoundStepper } from './RoundStepper';
 import { ErrorState } from '@ciphermaniac/design/components/ErrorState';
+import { EventNotFound } from './EventNotFound';
+import { ReportProblem } from '../../components/ReportProblem';
 import { EMPTY_LIVE_DATA, type LiveData, liveFailure, staleSince } from '../../lib/tournament/liveData';
 import { LiveDataStatus } from './LiveDataStatus';
-import { MAIN_SITE } from '../../lib/constants';
 import { msg, t, timeOfDay, tn, tx } from '../../lib/i18n';
 import { keepEventCopy, readEventCopy } from '../../lib/tournament/eventCopies';
 import { DAY_MS } from '../../../shared/tournament/limits';
@@ -1116,28 +1117,9 @@ export function PublicEvent(props: { code: string; session: Session | undefined 
       fallback={
         // A stream overlay stays clear over the game while it loads, or retries a load that failed.
         <Show when={!stream && view.error} fallback={stream ? null : <EventSkeleton />}>
-          <Show
-            when={!missing(view.error)}
-            fallback={
-              <ErrorState
-                code={props.code}
-                title={t('Event not found')}
-                line={t(
-                  'There’s no event with the code {code}. Check the code with your organizer, or look for the event by name.',
-                  { code: props.code }
-                )}
-              >
-                <a href={`${MAIN_SITE}/tools/event-locator`} class='btn btn-primary'>
-                  {t('Find an event')}
-                </a>
-                <A href='/' class='btn btn-secondary'>
-                  {t('Go home')}
-                </A>
-              </ErrorState>
-            }
-          >
+          <Show when={!missing(view.error)} fallback={<EventNotFound code={props.code} />}>
             <ErrorState
-              code={props.code}
+              code=''
               title={t('Couldn’t load this event')}
               line={t('Something went wrong on our side or with your connection. Try again in a moment.')}
             >
@@ -1147,6 +1129,7 @@ export function PublicEvent(props: { code: string; session: Session | undefined 
               <A href='/' class='btn btn-secondary'>
                 {t('Go home')}
               </A>
+              <ReportProblem />
             </ErrorState>
           </Show>
         </Show>

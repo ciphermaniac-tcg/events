@@ -11,20 +11,14 @@ export function NotFoundPage() {
     document.title = pageTitle(t('Page not found'));
   });
   return (
-    <ErrorState
-      code='404'
-      title={t('Page not found')}
-      line={t(
-        'This address doesn’t match anything on Ciphermaniac Events. It may have moved, or the link may be mistyped.'
-      )}
-    >
-      {/* Most who land here followed a mistyped event link. */}
-      <a href={`${MAIN_SITE}/tools/event-locator`} class='btn btn-primary'>
-        {t('Find an event')}
-      </a>
-      <A href='/' class='btn btn-secondary'>
+    <ErrorState code='' title={t('Page not found')} line={t('This page doesn’t exist.')}>
+      <A href='/' class='btn btn-primary'>
         {t('Go home')}
       </A>
+      {/* Most who land here followed a mistyped event link. */}
+      <a href={`${MAIN_SITE}/tools/event-locator`} class='btn btn-secondary'>
+        {t('Find an event')}
+      </a>
     </ErrorState>
   );
 }

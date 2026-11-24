@@ -5,6 +5,7 @@ import { Skeleton } from '@ciphermaniac/design/components/Skeleton';
 import { t } from '../../lib/i18n';
 import { latestValue } from '../../lib/resource';
 import { ApiError, errorText, type Session } from '../../lib/tournament/api';
+import { ReportProblem } from '../../components/ReportProblem';
 import { refreshSession, session } from './session';
 
 /** Until the account is read: loading, or, when the read failed, the page's error with the ways on. */
@@ -20,7 +21,7 @@ function SessionFallback() {
       }
     >
       <div role='alert'>
-        <ErrorState code={t('Error')} title={t('Couldn’t load this page')} line={errorText(session.error)}>
+        <ErrorState code='' title={t('Couldn’t load this page')} line={errorText(session.error)}>
           <button type='button' class='btn btn-primary' onClick={() => void refreshSession()}>
             {t('Try again')}
           </button>
@@ -29,6 +30,7 @@ function SessionFallback() {
               {t('Go home')}
             </A>
           </Show>
+          <ReportProblem />
         </ErrorState>
       </div>
     </Show>
@@ -40,15 +42,9 @@ export function StoreLoadError(props: { error: unknown; onRetry: () => void }) {
   const missing = () => props.error instanceof ApiError && props.error.status === 404;
   return (
     <ErrorState
-      code={t('Store')}
+      code=''
       title={missing() ? t('Store not found') : t('Couldn’t load this store')}
-      line={
-        missing()
-          ? t(
-              'This address doesn’t match anything on Ciphermaniac Events. It may have moved, or the link may be mistyped.'
-            )
-          : errorText(props.error)
-      }
+      line={missing() ? t('This page doesn’t exist.') : errorText(props.error)}
     >
       <Show when={!missing()}>
         <button type='button' class='btn btn-primary' onClick={() => props.onRetry()}>
@@ -58,6 +54,9 @@ export function StoreLoadError(props: { error: unknown; onRetry: () => void }) {
       <A href='/' class={missing() ? 'btn btn-primary' : 'btn btn-secondary'}>
         {t('Go home')}
       </A>
+      <Show when={!missing()}>
+        <ReportProblem />
+      </Show>
     </ErrorState>
   );
 }
