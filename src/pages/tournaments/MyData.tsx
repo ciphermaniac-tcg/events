@@ -365,7 +365,7 @@ function DeleteDialog(props: { open: boolean; handle: string; onClose: () => voi
         <button
           type='button'
           class='btn btn-secondary tm-danger'
-          disabled={held() || typed() !== props.handle || busy()}
+          disabled={held() || typed().trim().toLowerCase() !== props.handle || busy()}
           onClick={() => void remove()}
         >
           {t('Delete account')}

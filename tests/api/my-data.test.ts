@@ -103,6 +103,8 @@ test('the export is the account’s data as a Markdown file, and nothing secret'
   assert.match(file.text, /^# Your data on Ciphermaniac\n/u);
   assert.match(file.text, /- POP ID: 901\n/u);
   assert.match(file.text, /- First name: Pat\n/u);
+  assert.match(file.text, /- Birth year: \d{4}\n/u);
+  assert.ok(!file.text.includes('02/27'), 'the placeholder day is never shown as a birth date');
   assert.match(file.text, /- Username: player\n/u);
   assert.match(file.text, /- Public profile: no\n/u);
   assert.match(file.text, /## Sign-ins\n\n- Provider: dev\n/u);

@@ -107,7 +107,7 @@ const QUERIED: Queried[] = [
   {
     title: 'Player profile',
     part: 'profile',
-    sql: 'SELECT pop_id, first_name, last_name, birth_date FROM users WHERE id = ?1'
+    sql: 'SELECT pop_id, first_name, last_name, substr(birth_date, -4) AS birth_year FROM users WHERE id = ?1'
   },
   { title: 'Username', part: 'username', sql: 'SELECT handle AS username FROM users WHERE id = ?1' },
   { title: 'Profile links', part: 'profile', sql: 'SELECT links FROM profile_preferences WHERE user_id = ?1' },
@@ -128,7 +128,7 @@ const QUERIED: Queried[] = [
     part: 'events',
     heading: eventName,
     sql:
-      `SELECT ${EVENT}, x.code, x.pop_id, x.first_name, x.last_name, x.birth_date, x.archetype, x.submitted_at, ` +
+      `SELECT ${EVENT}, x.code, x.pop_id, x.first_name, x.last_name, substr(x.birth_date, -4) AS birth_year, x.archetype, x.submitted_at, ` +
       'x.deck FROM decklists x WHERE x.account = ?1 ' +
       'ORDER BY x.submitted_at'
   },
