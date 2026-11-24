@@ -10,8 +10,9 @@
 import assert from 'node:assert/strict';
 import test, { afterEach, beforeEach } from 'node:test';
 import { createRoot, createSignal } from 'solid-js';
+import type { Decklist } from '../../src/lib/tournament/api.ts';
 
-import { createMyList } from '../../src/pages/tournaments/myList.ts';
+import { createListRereads, createMyList } from '../../src/pages/tournaments/myList.ts';
 import { remember } from '../../src/pages/tournaments/decklistMemory.ts';
 
 function storage(): Storage {
@@ -109,6 +110,36 @@ test('a read that fails says so, and a retry reads again', async () => {
     list.retry();
     await settled();
     assert.equal(list.state(), 'known');
+    dispose();
+  });
+});
+
+test('each new version reads the registration again for the page to hold, and none with nothing to read it by', async () => {
+  answer(200);
+  await createRoot(async dispose => {
+    const [version, setVersion] = createSignal<number | false>(1);
+    let held: Decklist | null | undefined;
+    const hold = (list: Decklist | null) => {
+      held = list;
+    };
+    const list = createMyList(
+      'REGIST',
+      () => null,
+      () => false
+    );
+    createListRereads(list, version, () => held, hold);
+    setVersion(2);
+    await settled();
+    assert.deepEqual(asked, [], 'no token kept and no account: nothing to ask by');
+    assert.equal(held, undefined);
+    remember('REGIST', { profile: null, token: 'device-token' });
+    setVersion(3);
+    await settled();
+    assert.match(asked[0] ?? '', /token=device-token/);
+    assert.deepEqual(held, LIST);
+    setVersion(false);
+    await settled();
+    assert.equal(asked.length, 1, 'once round 1 is paired, no version matters');
     dispose();
   });
 });

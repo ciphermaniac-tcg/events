@@ -41,6 +41,7 @@
 
 import { isAdmin } from '../../../../shared/accounts/roles.js';
 import { archetypeOfList } from '../../../../shared/tournament/archetypes.js';
+import { openMarks, standing } from '../../../../shared/tournament/checkins.js';
 import { decklistOpenFor, enteredLate } from '../../../../shared/tournament/lateLists.js';
 import { MAX_DECKLIST_CHARS, parseDecklist } from '../../../../shared/tournament/decklist.js';
 import { decklistMatcher, fullNameKey, nameKey, similarlyNamed } from '../../../../shared/tournament/identify.js';
@@ -114,7 +115,7 @@ interface DecklistRow {
 }
 
 /** A list as stored, before it is checked against the roster (see presenter). */
-type Stored = Omit<Decklist, 'problems' | 'registered' | 'fromList' | 'late' | 'editable'>;
+type Stored = Omit<Decklist, 'problems' | 'registered' | 'openChecks' | 'fromList' | 'late' | 'editable'>;
 
 const deckMode = (value: unknown): DeckMode | null => (value === 'paper' || value === 'digital' ? value : null);
 
@@ -147,6 +148,7 @@ function presenter(row: TournamentRow) {
       // A minor's cards are deleted once the event ends (see store.ts), leaving nothing to check.
       problems: list.deck ? parseDecklist(list.deck).problems : [],
       registered: player !== undefined,
+      openChecks: player ? openMarks(row, standing(row, row.checkins, player.id)) : [],
       fromList: player?.fromList === true,
       late: enteredLate(row.tournament, player?.id ?? null),
       editable: decklistOpenFor(row, player?.id ?? null)

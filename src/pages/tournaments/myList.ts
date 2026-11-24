@@ -5,7 +5,7 @@
  * kept none reads the account's own, and no token.
  */
 
-import { createMemo, createResource } from 'solid-js';
+import { type Accessor, createEffect, createMemo, createResource, on } from 'solid-js';
 import type { PlayerProfile } from '../../../shared/tournament/profile';
 import { type Decklist, lookUpRegistration } from '../../lib/tournament/api';
 import { latestValue } from '../../lib/resource';
@@ -40,7 +40,34 @@ export function createMyList(code: string, owner: () => ListOwner | null, wanted
     }
     return mine.state === 'ready' || mine.state === 'refreshing' ? 'known' : 'loading';
   };
-  return { state, retry: () => void refetch(), current: () => latestValue(mine) ?? null };
+  // A fresh read for the page to hold, apart from the one the form opened on; undefined with nothing to read it by.
+  const reread = async () => {
+    const by = owner();
+    return recall(code) || by ? loadMine([code, by]) : undefined;
+  };
+  return { state, retry: () => void refetch(), current: () => latestValue(mine) ?? null, reread };
 }
 
 export type MyList = ReturnType<typeof createMyList>;
+
+/**
+ * Staff ticking check-in makes a new version of the event, so each new
+ * `version` (false while none matters) reads the registration again for the
+ * page to hold.
+ */
+export function createListRereads(
+  list: MyList,
+  version: Accessor<number | false>,
+  held: Accessor<Decklist | null | undefined>,
+  hold: (list: Decklist | null) => void
+) {
+  async function reread() {
+    const before = held();
+    const fresh = await list.reread().catch(() => undefined);
+    // A save from the form while reading is newer than the read.
+    if (fresh !== undefined && held() === before) {
+      hold(fresh);
+    }
+  }
+  createEffect(on(createMemo(version), at => at !== false && void reread(), { defer: true }));
+}
