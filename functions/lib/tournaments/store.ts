@@ -850,12 +850,13 @@ export async function joinStaff(db: D1Like, code: string, userId: string, token:
 export async function listStaff(db: D1Like, code: string): Promise<StaffMember[]> {
   const { results } = await db
     .prepare(
-      `SELECT staff.user_id AS id, ${displayNameSql('users')} AS name, staff.joined_at AS joined_at FROM staff ` +
+      `SELECT staff.user_id AS id, ${displayNameSql('users')} AS name, users.handle AS handle, ` +
+        'staff.joined_at AS joined_at FROM staff ' +
         'LEFT JOIN users ON users.id = staff.user_id WHERE staff.code = ? ORDER BY staff.joined_at'
     )
     .bind(code)
-    .all<{ id: string; name: string | null; joined_at: number | null }>();
-  return results.map(row => ({ id: row.id, name: row.name ?? 'Unknown', joinedAt: row.joined_at }));
+    .all<{ id: string; name: string | null; handle: string | null; joined_at: number | null }>();
+  return results.map(row => ({ id: row.id, name: row.name ?? 'Unknown', handle: row.handle, joinedAt: row.joined_at }));
 }
 
 /** Whether the asker, as organizer, took `userId` off the event's staff. */
