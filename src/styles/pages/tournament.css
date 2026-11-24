@@ -601,13 +601,6 @@ body[data-mode='dark'] .tm-sso-google {
     border-color var(--ms-fast) var(--ease-base),
     box-shadow var(--ms-fast) var(--ease-base);
 }
-/* Fields stand off whatever they sit on: on the page they take the lighter --field,
-   inside a white box the page's grey, as a recessed well. */
-.tm-box .tm-input,
-.tm-box .tm-select,
-.tm-box .search {
-  background: var(--bg);
-}
 @media (hover: hover) {
   .tm-input:hover,
   .tm-select:hover {
@@ -1774,10 +1767,6 @@ tr.is-in .tm-place {
 .tm-settings-body .tm-box > .tm-box-bar,
 .tm-settings-body .tm-box > .tm-set-row {
   padding-inline: 0;
-}
-.tm-settings-body .tm-box .tm-input,
-.tm-settings-body .tm-box .tm-select {
-  background: var(--field);
 }
 /* Off the box, Save leads its row as every other section's does, its note after it. */
 .tm-settings-body .tm-set-foot {

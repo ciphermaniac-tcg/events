@@ -45,6 +45,12 @@ test('an adult’s birth date goes on to where sign-in started', async ({ page }
   expect(sent).toEqual([{ handle: 'gato.club', firstName: 'Thiago', lastName: '', birthDate: '1990-06-15' }]);
 });
 
+test('the setup form’s empty fields take the white field fill, not a read-only grey', async ({ page }) => {
+  await mockAgeCheck(page, 200, { next: '/history' });
+  await page.goto('/welcome');
+  await expect(page.getByLabel('Username')).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+});
+
 test('a minor is told accounts are for adults, with nothing left to try again', async ({ page }) => {
   await mockAgeCheck(page, 403, { error: 'Ciphermaniac accounts are for people 16 and older.', minor: true });
   await page.goto('/welcome');
