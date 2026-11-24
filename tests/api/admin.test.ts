@@ -309,18 +309,18 @@ test('approving makes the store with the applicant its Owner, and records who de
   );
 });
 
-test('approving an organizer makes them a Manager, and a judge Staff, of a store with no Owner yet', async () => {
+test('approving an organizer or a judge makes them the new store’s Owner, their reason kept for the Admin', async () => {
   const admin = await signIn('Admin', 'admin');
   const organizer = await applied('Organizer', '110', { relationship: 'organizer' });
   const judge = await applied('Judge', '111', { relationship: 'judge' });
   assert.equal((await decision(admin, organizer.id, { decision: 'approve' })).status, 200);
-  assert.equal((await decision(admin, judge.id, { decision: 'approve' })).status, 200);
+  const approved = await decision(admin, judge.id, { decision: 'approve' });
+  assert.equal(approved.json.application.store.relationship, 'judge');
   const [managed] = await storesOf(organizer.cookie);
   const [judged] = await storesOf(judge.cookie);
-  assert.deepEqual([managed?.role, managed?.leagueId], ['manager', '77110']);
-  assert.deepEqual([judged?.role, judged?.leagueId], ['staff', '77111']);
-  assert.equal(raw().prepare("SELECT COUNT(*) AS n FROM store_members WHERE role = 'owner'").get()?.n, 0);
-  assert.equal((await createEvent(judge.cookie, { store: judged!.id })).status, 201, 'Staff run the store’s events');
+  assert.deepEqual([managed?.role, managed?.leagueId], ['owner', '77110']);
+  assert.deepEqual([judged?.role, judged?.leagueId], ['owner', '77111']);
+  assert.equal((await createEvent(judge.cookie, { store: judged!.id })).status, 201);
 });
 
 test('rejecting makes no store, and leaves the role as it was', async () => {
@@ -365,7 +365,14 @@ test('a league that already has a store is shown as taken and cannot be approved
     raw().prepare('SELECT status FROM applications WHERE id = ?').get(sent.json.application.id)?.status,
     'pending'
   );
-  assert.equal(raw().prepare('SELECT COUNT(*) AS n FROM store_members').get()?.n, 1);
+  assert.deepEqual(
+    raw()
+      .prepare('SELECT user_id AS id, role FROM store_members')
+      .all()
+      .map(row => ({ ...row })),
+    [{ id: await idOf(first.cookie), role: 'owner' }],
+    'the store keeps its Owner, and the rival joins nothing'
+  );
 });
 
 test('an Application from before stores can only be rejected', async () => {
