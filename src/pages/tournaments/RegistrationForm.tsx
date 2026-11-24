@@ -125,6 +125,35 @@ const savedAs = (editing: boolean, list: Decklist, open: boolean): Saved => {
   return open && list.registered ? 'carded' : 'new';
 };
 
+/**
+ * "Save ID to my profile": the account taking the registration's Player ID,
+ * and nothing else of it; refused when another account holds it. Offered only
+ * on a registration the form sent as the account (`offered`), under its name,
+ * while its Player ID is not this one yet. A registration the device held
+ * before proves no more than that it was sent from here, so a reload offers
+ * nothing. An account without a birth year has none to save it with.
+ */
+function createAccountSave(form: {
+  offered: () => boolean;
+  profile: () => PlayerProfile;
+  run: (task: () => Promise<void>) => Promise<void>;
+}) {
+  const [accountSaved, setAccountSaved] = createSignal(false);
+  const offerSave = () => {
+    const user = account();
+    const named = user?.birthDate && nameKey(form.profile()) === nameKey(asAccount(user, form.profile()));
+    return form.offered() && Boolean(named) && user?.popId !== form.profile().popId;
+  };
+  async function saveToAccountTask() {
+    if (offerSave()) {
+      const { user } = await saveProfile({ ...asAccount(account(), form.profile()), popId: form.profile().popId });
+      setSession(prev => (prev ? { ...prev, user } : prev));
+      setAccountSaved(true);
+    }
+  }
+  return { offerSave, accountSaved, saveToAccount: () => form.run(saveToAccountTask) };
+}
+
 /** The registration's state and what it can do, apart from how it is drawn. */
 function createRegistration(props: RegistrationProps) {
   // eslint-disable-next-line solid/reactivity -- the form opens on the registration the page read once
@@ -159,6 +188,8 @@ function createRegistration(props: RegistrationProps) {
   const token = () => recall(props.code)?.token ?? '';
   // Someone else was asked for, in place of the signed-in account's own registration.
   const [other, setOther] = createSignal(false);
+  // Whether the registration shown was sent by this form as the account's own (see offerSave).
+  const [madeAsAccount, setMadeAsAccount] = createSignal(false);
   /**
    * Registering as the account, which the player chose by not asking for
    * someone else: its name, and its Player ID and birth year where it has
@@ -274,6 +305,7 @@ function createRegistration(props: RegistrationProps) {
   async function saveTask() {
     const before = recall(props.code);
     const sent = registrant();
+    const asSelf = self() !== null;
     const own = before?.token ?? crypto.randomUUID();
     // Kept before the list goes, so a list that lands without its answer is still this device's to change.
     remember(props.code, { profile: sent, token: own });
@@ -296,6 +328,7 @@ function createRegistration(props: RegistrationProps) {
       setNaming(false);
       setOwn(true);
       setChanged(false);
+      setMadeAsAccount(made => made || asSelf);
       setStep('edit');
     } catch (err) {
       // The server refused it, so nothing landed: the device keeps what it had. No answer (status 0) may still have landed.
@@ -317,20 +350,11 @@ function createRegistration(props: RegistrationProps) {
   }
   const withdraw = () => run(withdrawTask);
 
-  // The account taking the registration's Player ID, and nothing else of it; refused when another account holds it.
-  const [accountSaved, setAccountSaved] = createSignal(false);
-  async function saveToAccountTask() {
-    const { user } = await saveProfile({ ...asAccount(account(), profile()), popId: profile().popId });
-    setSession(prev => (prev ? { ...prev, user } : prev));
-    setAccountSaved(true);
-  }
-  const saveToAccount = () => run(saveToAccountTask);
-  /** Offered only on the account's own registration, under its name, while its Player ID is not this one yet. */
-  const offerSave = () => {
-    const user = account();
-    const mine = user !== null && !other() && nameKey(profile()) === nameKey(asAccount(user, profile()));
-    return props.sanctioned && step() === 'edit' && mine && user.popId !== profile().popId;
-  };
+  const { offerSave, accountSaved, saveToAccount } = createAccountSave({
+    offered: () => props.sanctioned && step() === 'edit' && madeAsAccount(),
+    profile,
+    run
+  });
 
   /**
    * Someone else on this device: forget whose registration it held, and start
@@ -351,6 +375,7 @@ function createRegistration(props: RegistrationProps) {
     setWithdrawing(false);
     setOwn(false);
     setLeaving(false);
+    setMadeAsAccount(false);
     setOther(fresh && account() !== null);
     setStep(other() ? 'new' : 'lookup');
   }
@@ -359,6 +384,7 @@ function createRegistration(props: RegistrationProps) {
   function elsewhere() {
     setProfile(emptyProfile());
     setError(null);
+    setMadeAsAccount(false);
     setOther(true);
     setStep('new');
   }

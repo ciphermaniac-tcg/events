@@ -89,6 +89,7 @@ async function mockEvent(page: Page, settings: Partial<TournamentSettings> = {},
   const calls: { method: string; query: Record<string, string>; body: Record<string, unknown> | null }[] = [];
   // The event as the API has it: a registration adds its player, in a new version.
   let event = published;
+  let sent: ReturnType<typeof listOf> | null = null;
   const listOf = (held: Held) => ({
     popId: sanctioned ? held.popId : '',
     firstName: held.firstName,
@@ -145,14 +146,15 @@ async function mockEvent(page: Page, settings: Partial<TournamentSettings> = {},
         player: { firstName: profile.firstName, lastName: profile.lastName }
       });
       event = { ...published, version: 2, tournament: publicTournament(joined, assignKeys(joined, {}), !sanctioned) };
+      sent = listOf({
+        ...profile,
+        year: profile.birthDate.slice(-4),
+        deck: String(body?.deck),
+        mode: body?.mode as 'paper'
+      });
       return route.fulfill({
         json: {
-          decklist: listOf({
-            ...profile,
-            year: profile.birthDate.slice(-4),
-            deck: String(body?.deck),
-            mode: body?.mode as 'paper'
-          }),
+          decklist: sent,
           registration: 'added',
           token: 'device-token-0000001'
         }
@@ -170,6 +172,10 @@ async function mockEvent(page: Page, settings: Partial<TournamentSettings> = {},
           mine: null
         }
       });
+    }
+    // The device's own registration, found again by its token.
+    if (sent && query.token === 'device-token-0000001' && query.popId === sent.popId) {
+      return route.fulfill({ json: { known: true, player: sent, mine: sent } });
     }
     const held = people.find(p => p.popId === query.popId);
     if (!held || !query.birthYear) {
@@ -579,7 +585,48 @@ test('signed in without a Player ID, the box asks for it under the head and Regi
   await expect(page.getByRole('status')).toHaveText('You’re registered.');
   expect(calls.at(-1)?.body).toMatchObject({ profile: { ...SAGE, popId: '5550001' } });
   // The ID went in with this registration only: saving it to the profile is offered, never required.
-  await expect(page.getByRole('button', { name: 'Save ID to my profile' })).toBeVisible();
+  const saves: unknown[] = [];
+  await page.route('**/api/me', route => {
+    saves.push(route.request().postDataJSON());
+    // Refused once, as when another account holds the Player ID.
+    return saves.length === 1
+      ? route.fulfill({ status: 409, json: { error: 'This Player ID is on another account.', popIdTaken: true } })
+      : route.fulfill({ json: { user: { id: 'u1', name: 'Sage', ...SAGE, popId: '5550001' } } });
+  });
+  const save = page.getByRole('button', { name: 'Save ID to my profile' });
+  await save.click();
+  const alert = page.getByRole('alert');
+  await expect(alert).toContainText('This Player ID is on another account.');
+  await expect(alert.getByRole('link', { name: 'Contact us' })).toHaveAttribute(
+    'href',
+    'https://ciphermaniac.com/feedback'
+  );
+  await save.click();
+  // Only the Player ID is the registration's; the name and birth year stay the account's.
+  await expect
+    .poll(() => saves)
+    .toEqual([
+      { ...SAGE, popId: '5550001' },
+      { ...SAGE, popId: '5550001' }
+    ]);
+});
+
+test('signed in, a namesake registered for someone else is not offered to the account after a reload', async ({
+  page
+}) => {
+  await mockEvent(page, {}, { ...SAGE, popId: null });
+  await page.goto(`/t/${CODE}?tab=decklist`);
+  await page.getByRole('button', { name: 'Someone else?' }).click();
+  await page.getByRole('textbox', { name: 'Player ID' }).fill('9990001');
+  await page.getByRole('textbox', { name: 'First name' }).fill('Sage');
+  await page.getByRole('textbox', { name: 'Last name' }).fill('Newfield');
+  await page.getByRole('textbox', { name: 'Birth year' }).fill('2001');
+  await page.getByText('In person').click();
+  await page.getByRole('button', { name: 'Register' }).click();
+  await expect(page.getByRole('status')).toHaveText('You’re registered.');
+  await page.reload();
+  await expect(page.locator('.tm-reg-who')).toContainText('Sage Newfield');
+  await expect(page.getByRole('button', { name: 'Save ID to my profile' })).toHaveCount(0);
 });
 
 test('signed in, Someone else? opens blank fields for another player, and Back returns to the account’s own', async ({
