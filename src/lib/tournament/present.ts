@@ -301,9 +301,6 @@ export function roundStatus(progress: PodProgress, finished: boolean, rounds: nu
   if (!round) {
     return t('Registration');
   }
-  if (progress.champion && open === 0) {
-    return t('{round}, final played', { round: progress.label });
-  }
   const name = roundOf({ ...progress, round }, rounds);
   return open === 0 ? t('{round} complete', { round: name }) : t('{round} in progress', { round: name });
 }
