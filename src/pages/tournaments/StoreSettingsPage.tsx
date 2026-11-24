@@ -196,7 +196,12 @@ function SectionNav(props: { current: Section; onPick: (section: Section) => voi
   // On a phone, where the list is a row of tabs, the open one is brought into the row.
   createEffect(() => {
     void props.current;
-    nav?.querySelector('.is-on')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    // Scrolled by hand: scrollIntoView would move where the first Tab press starts, past the skip link.
+    const on = nav?.querySelector('.is-on')?.getBoundingClientRect();
+    const strip = nav?.getBoundingClientRect();
+    if (nav && on && strip) {
+      nav.scrollLeft += Math.min(0, on.left - strip.left) || Math.max(0, on.right - strip.right);
+    }
   });
   return (
     <nav ref={nav} class='tm-side-nav' aria-label={t('Store settings')}>

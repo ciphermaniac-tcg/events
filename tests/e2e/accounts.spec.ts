@@ -674,6 +674,14 @@ test('Settings opens on the player profile, keeps its section in the address, an
   await expect(page.getByLabel('First name')).toHaveValue('Marianne');
 });
 
+test('the first Tab on Settings reaches the skip link, with a later section open', async ({ page }) => {
+  await mockSettings(page, ME);
+  await page.goto('/settings?section=data');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Your data');
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('link', { name: 'Skip to content' })).toBeFocused();
+});
+
 test('the player profile draws one rule above Save, not two', async ({ page }) => {
   await mockSettings(page, ME);
   await page.goto('/settings');
