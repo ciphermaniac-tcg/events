@@ -130,7 +130,12 @@ const PHASE_COUNTS: Record<Phase, (n: number) => string> = {
  * On a wide screen the console (or results) and public page show in the row
  * and Run again waits in its menu; on a phone all of them do.
  */
-function EventRow(props: { event: TournamentSummary; onRunAgain?: (event: TournamentSummary) => Promise<void> }) {
+function EventRow(props: {
+  event: TournamentSummary;
+  /** Whether the table names the software each event runs in: only while some event runs in TOM. */
+  tom: boolean;
+  onRunAgain?: (event: TournamentSummary) => Promise<void>;
+}) {
   const finished = () => props.event.finished;
   const name = () => props.event.name || props.event.code;
   const consoleHref = () => `/host/${props.event.code}${finished() ? '?tab=standings' : ''}`;
@@ -147,7 +152,9 @@ function EventRow(props: { event: TournamentSummary; onRunAgain?: (event: Tourna
       </td>
       <td class='muted-cell tm-host-status'>{t(PHASE_WORDS[phaseOf(props.event)])}</td>
       <td class='muted-cell tm-num tm-nowrap tm-host-when'>{startShown(props.event)}</td>
-      <td class='muted-cell tm-wide-col'>{props.event.mode === 'tom' ? 'TOM' : t('Swiss')}</td>
+      <Show when={props.tom}>
+        <td class='muted-cell tm-wide-col'>{props.event.mode === 'tom' ? 'TOM' : 'Ciphermaniac'}</td>
+      </Show>
       {/* The unit shows on a phone, where the column heads do not. */}
       <td class='num tm-host-players' data-unit={tn(props.event.players, 'player', 'players')}>
         {props.event.players}
@@ -188,6 +195,7 @@ function EventTable(props: {
   events: readonly TournamentSummary[];
   onRunAgain?: ((event: TournamentSummary) => Promise<void>) | undefined;
 }) {
+  const tom = () => props.events.some(event => event.mode === 'tom');
   return (
     <section class='tm-host-section'>
       <h2 class='tm-subhead tm-box-head'>{props.title}</h2>
@@ -199,7 +207,9 @@ function EventTable(props: {
                 <th>{t('Event')}</th>
                 <th>{t('Status')}</th>
                 <th class='tm-wide-col'>{t('Date')}</th>
-                <th class='tm-wide-col'>{t('Run in')}</th>
+                <Show when={tom()}>
+                  <th class='tm-wide-col'>{t('Run in')}</th>
+                </Show>
                 <th class='num'>{t('Players')}</th>
                 <th>
                   <span class='sr-only'>{t('Links')}</span>
@@ -211,6 +221,7 @@ function EventTable(props: {
                 {event => (
                   <EventRow
                     event={event}
+                    tom={tom()}
                     onRunAgain={event.finished && event.mode === 'swiss' ? props.onRunAgain : undefined}
                   />
                 )}
