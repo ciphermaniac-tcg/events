@@ -1064,6 +1064,7 @@ export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod
                   pod={props.pod}
                   pending={props.manage.pending}
                   names={names()}
+                  round={r().number}
                   fallback={roomTable()}
                 />
               </Show>

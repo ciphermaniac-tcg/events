@@ -128,6 +128,7 @@ export function PublicPairings(props: {
             names={props.names}
             me={props.me}
             onPlayer={props.onPlayer}
+            round={props.round?.number}
             fallback={table()}
           />
         </Show>
