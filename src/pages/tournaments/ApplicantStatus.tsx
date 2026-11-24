@@ -40,6 +40,13 @@ function stageDay(stage: ApplicantStage, application: MyApplication | null): str
     : null;
 }
 
+/** The line under the stage: the store and league the Application asks for, then its day. */
+function stageLine(stage: ApplicantStage, application: MyApplication | null): string | null {
+  const day = stageDay(stage, application);
+  const store = application?.store;
+  return day && store ? `${store.details.name} · ${t('League {id}', { id: store.leagueId })} · ${day}` : day;
+}
+
 /** Apply again: to the apply page's form, or, on that page, opening it in place. */
 function ApplyAgain(props: { onApply: (() => void) | undefined }) {
   return (
@@ -155,7 +162,7 @@ export function ApplicantStatus(props: {
           {words => (
             <span class='tm-applicant-stage'>
               <strong>{t(words())}</strong>
-              <Show when={stageDay(props.stage, props.application)}>
+              <Show when={stageLine(props.stage, props.application)}>
                 {day => <span class='muted tm-num'>{day()}</span>}
               </Show>
             </span>
