@@ -2125,6 +2125,10 @@ tr.is-in .tm-place {
 .tm-modal::backdrop {
   background: var(--scrim);
 }
+/* The page behind holds still while a dialog is open, as under a sheet. */
+:root:has(.tm-modal:modal) {
+  overflow: hidden;
+}
 .tm-modal .tm-box-bar {
   padding: var(--space-3) var(--space-4);
 }
