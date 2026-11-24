@@ -24,12 +24,12 @@ export function showBanner(): void {
   bar.setAttribute('aria-label', 'Demo');
 
   const note = document.createElement('p');
-  note.textContent = 'This is a demo. Its players and events are made up, and what you change stays in this browser.';
+  note.textContent = 'Demo mode. Sample players and events; changes stay in this browser.';
 
   const reset = button('Reset demo', 'btn btn-ghost');
   // Asked in place, as the site's own confirmations are: the question, then the verb.
   const question = document.createElement('span');
-  question.textContent = 'Start the demo over?';
+  question.textContent = 'Reset the demo?';
   const confirm = button('Reset', 'btn btn-secondary');
   const cancel = button('Cancel', 'btn btn-ghost');
   const asking = (on: boolean) => {
@@ -52,7 +52,7 @@ export function showBanner(): void {
   const back = document.createElement('a');
   back.className = 'btn btn-secondary';
   back.href = REAL_SITE;
-  back.textContent = 'Ciphermaniac Events';
+  back.textContent = 'Back to Ciphermaniac Events';
 
   const actions = document.createElement('div');
   actions.append(reset, question, confirm, cancel, back);
