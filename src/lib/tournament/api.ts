@@ -508,6 +508,8 @@ export const submitRegistration = (
     was?: Pick<PlayerProfile, 'firstName' | 'lastName'>;
     /** The birth year the registration had, when this save corrects it: what proves the Player ID. */
     wasYear?: string;
+    /** Not the signed-in account's own registration, so the account's name stays its own. */
+    someoneElse?: boolean;
   }
 ) =>
   call<{ decklist: Decklist; registration: Registration; token: string }>(

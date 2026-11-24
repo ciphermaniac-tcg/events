@@ -396,6 +396,29 @@ const listAccount = (code: string) =>
     }[]
   ).map(row => ({ ...row }));
 
+test('registering someone else leaves the account its own name, so the page never offers them as the account', async () => {
+  const { owner, code } = await casualEvent();
+  await settle(code, owner, { decklists: 'open' });
+  const kit = await signIn('Kit');
+  raw().prepare("UPDATE users SET first_name = 'Kit', last_name = 'Fenn' WHERE handle = 'kit'").run();
+  const register = (cookie: string, firstName: string, lastName: string, someoneElse?: true) =>
+    listCall(code, 'PUT', '', { cookie, body: { deck: DECK, profile: { firstName, lastName }, someoneElse } });
+  assert.equal((await register(kit, 'Kit', 'Fenn')).status, 200);
+  assert.equal((await register(kit, 'Moss', 'Fenn', true)).status, 200);
+  const account = (await hit(me.onRequestGet as Handler, '/api/me', {}, { cookie: kit })).json.user;
+  assert.deepEqual([account.firstName, account.lastName], ['Kit', 'Fenn']);
+  const { viewer } = await view(code, kit);
+  assert.deepEqual([viewer.me, viewer.suggest?.claim], [null, { firstName: 'Kit', lastName: 'Fenn' }]);
+
+  const ivy = await signIn('Ivy');
+  assert.equal((await register(ivy, 'Ivy', 'Rowan')).status, 200);
+  assert.deepEqual(
+    (await view(code, ivy)).viewer.suggest?.claim,
+    { firstName: 'Ivy', lastName: 'Rowan' },
+    'registering yourself still names the account'
+  );
+});
+
 test('a list sent by the account that is its player is the account’s, from any of its devices', async () => {
   const owner = await signIn('Organizer', 'organizer');
   const code = await newSwiss(owner);

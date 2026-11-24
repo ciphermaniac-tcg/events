@@ -563,6 +563,7 @@ test('signed in, the box is the account’s own: its name, Player ID and birth y
   await page.getByRole('button', { name: 'Register' }).click();
   await expect(page.getByRole('status')).toHaveText('You’re registered.');
   expect(calls.at(-1)?.body).toMatchObject({ mode: 'paper', profile: SAGE });
+  expect(calls.at(-1)?.body).toMatchObject({ someoneElse: false });
   const card = page.getByRole('region', { name: 'Your registration' });
   await expect(card).toContainText('Hand your list to staff to check in');
   await expect(card).toContainText('Sage Newfield · Masters');
@@ -611,10 +612,10 @@ test('signed in without a Player ID, the box asks for it under the head and Regi
     ]);
 });
 
-test('signed in, a namesake registered for someone else is not offered to the account after a reload', async ({
+test('signed in, a namesake registered for someone else says so, and is not offered to the account after a reload', async ({
   page
 }) => {
-  await mockEvent(page, {}, { ...SAGE, popId: null });
+  const { calls } = await mockEvent(page, {}, { ...SAGE, popId: null });
   await page.goto(`/t/${CODE}?tab=decklist`);
   await page.getByRole('button', { name: 'Someone else?' }).click();
   await page.getByRole('textbox', { name: 'Player ID' }).fill('9990001');
@@ -624,6 +625,8 @@ test('signed in, a namesake registered for someone else is not offered to the ac
   await page.getByText('In person').click();
   await page.getByRole('button', { name: 'Register' }).click();
   await expect(page.getByRole('status')).toHaveText('You’re registered.');
+  // The account keeps its own name: a registration for someone else is never the account's player.
+  expect(calls.at(-1)?.body).toMatchObject({ someoneElse: true });
   await page.reload();
   await expect(page.locator('.tm-reg-who')).toContainText('Sage Newfield');
   await expect(page.getByRole('button', { name: 'Save ID to my profile' })).toHaveCount(0);
