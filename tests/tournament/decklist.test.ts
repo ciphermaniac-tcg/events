@@ -56,11 +56,7 @@ test('reports the wrong size, too many copies and unread lines', () => {
   const deck = parseDecklist('5 Iono PAL 185\n3 Iono PAL 254\nsome note');
   assert.equal(deck.total, 8);
   assert.deepEqual(deck.unread, ['some note']);
-  assert.deepEqual(deck.problems, [
-    '8 cards (a deck is 60)',
-    '8 copies of Iono (the limit is 4)',
-    '1 line not read as a card'
-  ]);
+  assert.deepEqual(deck.problems, ['8 of 60 cards', '8 copies of Iono (the limit is 4)', '1 unrecognized line']);
 });
 
 test('basic energy is exempt from the copy limit', () => {

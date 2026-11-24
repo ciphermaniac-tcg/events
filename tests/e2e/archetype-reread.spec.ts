@@ -160,14 +160,14 @@ test('a paper list reads as not received until staff tick List received, with no
   const row = page.locator('.tm-lists tbody tr').first();
   for (const [state, text] of [
     [false, 'Not received'],
-    [true, 'Handed in on paper.']
+    [true, 'Paper list received']
   ] as const) {
     received = state;
     await page.goto(`/host/${CODE}`);
     await page.getByRole('tab', { name: 'Decklists' }).click();
     await expect(row.locator('.tm-list-check')).toHaveText(text);
     await row.getByRole('button', { name: 'View' }).click();
-    await expect(page.locator('.tm-expansion')).toHaveText(state ? 'Handed in on paper.' : 'Not received');
+    await expect(page.locator('.tm-expansion')).toHaveText(state ? 'Paper list received' : 'Not received');
   }
 });
 
@@ -193,5 +193,5 @@ test('a site registrant’s paper list reads as received once ticked, before the
   });
   await page.goto(`/host/${CODE}`);
   await page.getByRole('tab', { name: 'Decklists' }).click();
-  await expect(page.locator('.tm-lists tbody tr').first().locator('.tm-list-check')).toHaveText('Handed in on paper.');
+  await expect(page.locator('.tm-lists tbody tr').first().locator('.tm-list-check')).toHaveText('Paper list received');
 });
