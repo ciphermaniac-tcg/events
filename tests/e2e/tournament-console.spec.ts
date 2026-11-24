@@ -2911,18 +2911,23 @@ test('a drop confirmed from the pairing check leaves the pairing one press away'
   await expect.poll(() => sent.at(-1)).toMatchObject({ type: 'pairRound' });
 });
 
-test('a long check-in line is counted, filtered on the roster, and dropped all at once after asking', async ({
+test('a check-in line is counted as not paid, filtered on the roster, and dropped all at once after asking', async ({
   page
 }) => {
   const t = event(12, 0, false);
   const sent = await mockConsole(page, t, settingsOf({ entryFee: 10 }));
   const gate = page.locator('.tm-check-gate');
-  await expect(gate).toContainText('12 players aren’t checked in.');
-  // The roster lists them; the box above it only counts them.
+  await expect(gate.locator('strong')).toHaveText('12 not paid');
+  // The roster lists them; the box above it only counts them, and filters the roster to them.
   await expect(gate.getByRole('listitem')).toHaveCount(0);
   const show = page.getByRole('radiogroup', { name: 'Show' });
-  await show.getByRole('radio', { name: /Not checked in/ }).click();
+  // A search left in the box would hide some of them, so the shortcut clears it.
+  const search = page.getByRole('searchbox', { name: 'Search players' });
+  await search.fill('Player12');
+  await gate.getByRole('button', { name: 'Show unpaid' }).click();
   await expect(page).toHaveURL(/show=unchecked/);
+  await expect(search).toHaveValue('');
+  await expect(show.getByRole('radio', { name: /Not checked in/ })).toBeChecked();
   // Clicked, not checked: the row leaves the filter as soon as the tick is saved, so its ticked state may never be seen.
   await page.getByRole('checkbox', { name: 'Paid: Player1 Test' }).click();
   await expect(page.getByRole('checkbox', { name: 'Paid: Player1 Test' })).toHaveCount(0);
@@ -2994,24 +2999,8 @@ test('a check-in tick waits on its own answer, not every other box on the page',
   await first.check();
   await expect(first).toBeDisabled();
   await expect(page.getByRole('checkbox', { name: 'Paid: Player2 Test' })).toBeEnabled();
-  const third = page.locator('.tm-check-gate').getByRole('listitem').filter({ hasText: 'Player3 Test' });
-  await third.getByRole('button', { name: 'More for Player3 Test' }).click();
-  await expect(third.getByRole('button', { name: 'Mark paid' })).toBeEnabled();
   answer();
   await expect(first).toBeEnabled();
-});
-
-test('dropping a player from the check-in line asks first', async ({ page }) => {
-  const sent = await mockConsole(page, event(3, 0, false), settingsOf({ entryFee: 10 }));
-  const row = page.locator('.tm-check-gate').getByRole('listitem').filter({ hasText: 'Player2 Test' });
-  await row.getByRole('button', { name: 'More for Player2 Test' }).click();
-  await row.getByRole('button', { name: 'Drop' }).click();
-  expect(sent).toHaveLength(0);
-  await row
-    .getByRole('group', { name: 'Drop Player2 Test? You can reinstate them until the next round is paired.' })
-    .getByRole('button', { name: 'Drop' })
-    .click();
-  await expect.poll(() => sent.at(-1)).toMatchObject({ type: 'dropPlayer' });
 });
 
 test('staff are listed and picked by name, their username after it', async ({ page }) => {
@@ -3194,7 +3183,7 @@ test('an invite link joins the staff before the console reads the event', async 
   expect(order.filter(step => step === `GET /api/tournaments/${CODE}/manage`)).toHaveLength(1);
 });
 
-test('before round 1 staff tick who paid, and the console names who is still open @mobile', async ({ page }) => {
+test('before round 1 staff tick who paid, and the console counts who is still open @mobile', async ({ page }) => {
   await mockConsole(page, event(3, 0, false), settingsOf({ entryFee: 10, playerCap: 2 }));
   // Before round 1 the console opens on its players.
   await expect(page.getByRole('tabpanel', { name: 'Players' })).toBeVisible();
@@ -3206,21 +3195,13 @@ test('before round 1 staff tick who paid, and the console names who is still ope
   );
   expect(Math.abs((who ?? 0) - (menu ?? 0))).toBeLessThan(24);
   const open = page.locator('.tm-check-gate');
-  await expect(open).toContainText('3 players aren’t checked in.');
+  await expect(open).toContainText('3 not paid');
   await page.getByRole('checkbox', { name: 'Paid: Player1 Test' }).check();
-  await expect(open).toContainText('2 players aren’t checked in.');
-  // Each still open has what lets them go under their menu, as a roster row does, and the box keeps to its width.
+  await expect(open).toContainText('2 not paid');
+  // The box keeps to its width.
   expect(await open.evaluate(box => box.scrollWidth - box.clientWidth)).toBeLessThanOrEqual(0);
-  const first = open.getByRole('listitem').first();
-  const [end, dots] = await Promise.all([
-    first.evaluate(el => el.getBoundingClientRect().right),
-    first.getByRole('button', { name: /^More for / }).evaluate(el => el.getBoundingClientRect().right)
-  ]);
-  expect(Math.abs(end - dots)).toBeLessThan(2);
   for (const name of ['Player2 Test', 'Player3 Test']) {
-    const line = open.getByRole('listitem').filter({ hasText: name });
-    await line.getByRole('button', { name: `More for ${name}` }).click();
-    await line.getByRole('button', { name: 'Mark paid' }).click();
+    await page.getByRole('checkbox', { name: `Paid: ${name}` }).check();
   }
   await expect(page.getByText('Everyone is checked in.')).toBeVisible();
 });
