@@ -312,7 +312,6 @@ export function EventSetup(props: {
             limited={limited()}
             dayTaken={dayTaken()}
             day={day()}
-            needsName={needsName()}
             unconfirmed={needsPlayTools() === true && !playToolsConfirmed()}
             cannotCreate={held()}
             onCancel={props.onCancel}
@@ -397,22 +396,10 @@ function PlayToolsRow(props: { confirmed: boolean; onConfirm: (value: boolean) =
   );
 }
 
-/**
- * Why Create event can't be pressed yet, the first of what holds it back, or
- * null. A date taken says so above the foot.
- */
-function blockedReason(why: { needsName: boolean; unconfirmed: boolean }): string | null {
-  if (why.needsName) {
-    return t('Name the event to create it');
-  }
-  return why.unconfirmed ? t('Confirm the event is in Play! Tools to create it') : null;
-}
-
 function SetupFooter(props: {
   limited: boolean;
   dayTaken: boolean;
   day: string;
-  needsName: boolean;
   /** A sanctioned event not yet confirmed as created in Play! Tools. */
   unconfirmed: boolean;
   cannotCreate: boolean;
@@ -429,7 +416,10 @@ function SetupFooter(props: {
         </p>
       </Show>
       <div class='tm-setup-foot'>
-        <Show when={blockedReason(props)}>{reason => <span class='muted'>{reason()}</span>}</Show>
+        {/* An empty name is pointed at by the browser when Create is pressed; this is the one reason it can't say. */}
+        <Show when={props.unconfirmed}>
+          <span class='muted'>{t('Confirm the event is in Play! Tools to create it')}</span>
+        </Show>
         <button type='submit' class='btn btn-primary' disabled={props.cannotCreate}>
           {t('Create event')}
         </button>
