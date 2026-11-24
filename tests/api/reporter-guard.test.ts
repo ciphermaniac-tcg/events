@@ -15,7 +15,7 @@ import type { TournamentEnv } from '../../functions/lib/auth/env.ts';
 import { loadTournament } from '../../functions/lib/tournaments/store.ts';
 import { apiCalls, type Handler } from '../__utils__/apiCalls.ts';
 import { eventCalls } from '../__utils__/eventCalls.ts';
-import { racing, sqliteD1 } from '../__utils__/sqliteD1.ts';
+import { countingTrips, racing, sqliteD1 } from '../__utils__/sqliteD1.ts';
 import { resetRateLimiters } from '../../functions/lib/api/rateLimiter.ts';
 
 let env: TournamentEnv;
@@ -116,8 +116,15 @@ test('a report beaten to the event by another write is refused on the retry once
 test('a report beaten to the event by another write lands on the retry while its seat stands', async () => {
   const { code, reportAs } = await reporting();
   meanwhile(() => bump(code));
+  const counting = countingTrips(env.TOURNAMENT_DB as ReturnType<typeof racing>);
+  env.TOURNAMENT_DB = counting.db;
   const sent = await reportAs();
   assert.equal(sent.status, 200, JSON.stringify(sent.json));
+  assert.equal(
+    counting.trips(),
+    4,
+    'the event with the seat, the missed write, the event where the seat holds, the write'
+  );
   assert.deepEqual(await filed(code), { reports: 1, evidence: 1, requests: 0 });
 });
 

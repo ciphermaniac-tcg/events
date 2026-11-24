@@ -2575,7 +2575,7 @@ test('a staff action waits on the database twice, and an idle console poll once'
   assert.equal(strangers(), 1, 'a player with no session reads only the event');
 });
 
-test('a sanctioned player says who they are in two waits on the database and reports in three', async () => {
+test('a returning sanctioned player says who they are in one wait on the database and reports in two', async () => {
   const owner = await signIn('Organizer', 'organizer');
   const code = await newSwiss(owner);
   await addPlayers(code, owner, 4);
@@ -2585,9 +2585,26 @@ test('a sanctioned player says who they are in two waits on the database and rep
   const asks = { popId: '900', device: 'phone-900', reportToken: seat.json.reportToken };
   const trips = countTrips();
   assert.equal((await playerSays(code, asks)).status, 200);
-  assert.equal(trips(), 2, 'the event, then the try let in with the seat read');
+  assert.equal(trips(), 1, 'the event with the seat its token holds');
   assert.equal((await playerSays(code, { ...asks, result: 'win' })).status, 200);
-  assert.equal(trips(), 5, 'and one write');
+  assert.equal(trips(), 3, 'and one write');
+});
+
+test('a player holding their seat still clears the wrong years tried against their Player ID', async () => {
+  const owner = await signIn('Organizer', 'organizer');
+  const code = await newSwiss(owner);
+  await addPlayers(code, owner, 1);
+  await settle(code, owner, { playerReporting: true });
+  const seat = await playerSays(code, { popId: '900', device: 'phone-900' });
+  const guess = (birthYear: string) => playerSays(code, { popId: '900', birthYear, device: crypto.randomUUID() });
+  for (const year of ['1985', '1986']) {
+    assert.equal((await guess(year)).status, 404);
+  }
+  const held = { popId: '900', device: 'phone-900', reportToken: seat.json.reportToken };
+  assert.equal((await playerSays(code, held)).status, 200);
+  for (const year of ['1981', '1982', '1983', '1984']) {
+    assert.equal((await guess(year)).status, 404, 'the count started over');
+  }
 });
 
 test('the event list waits on the database once', async () => {

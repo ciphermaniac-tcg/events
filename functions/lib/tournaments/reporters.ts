@@ -54,6 +54,8 @@ export interface Asker {
   user: User | null;
   /** The try's admission (see attempts.ts), sent with the first read of the seat; refused, so is the asker. */
   admit?: D1Statement;
+  /** The seat as the event's own read found it (see readAlong), which may settle the standing without the admission. */
+  read?: SeatRead;
 }
 
 /** Why the asker's standing could not be had: the player left the event, or the event kept changing. */
@@ -68,6 +70,9 @@ interface ClaimRow {
   device: string;
   user_id: string | null;
 }
+
+/** A seat read with the event, and whether its Player ID has wrong tries counted or a lock on record. */
+export type SeatRead = ClaimRow & { tried: number };
 
 /**
  * One player's seat at one event as a request read the event: its version,
@@ -92,6 +97,16 @@ type Standing = Claim | Elsewhere | typeof STALE;
 const readSeat = ({ db, code, playerId }: Seat) =>
   db
     .prepare('SELECT token_hash, device, user_id, claimed_at FROM report_devices WHERE code = ? AND player_id = ?')
+    .bind(code, playerId);
+
+/** Player `playerId`'s seat at `code` as a SeatRead, for the event's own batch: no row when no one has claimed them. */
+export const readAlong = (db: D1Like, code: string, playerId: string) =>
+  db
+    .prepare(
+      'SELECT token_hash, device, user_id, claimed_at, EXISTS (SELECT 1 FROM identify_failures tries ' +
+        'WHERE tries.code = ?1 AND tries.pop_id = ?2 AND (tries.failures > 0 OR tries.locked_until > 0)) AS tried ' +
+        'FROM report_devices WHERE code = ?1 AND player_id = ?2'
+    )
     .bind(code, playerId);
 
 /** The player the seat's account holds here, read in a batch with a write so a race lost to it shows. */
@@ -159,7 +174,8 @@ export async function claimReporter(
   let current = row;
   for (let tries = 1; ; tries += 1) {
     const admit = tries === 1 && asker.admit ? [asker.admit] : [];
-    const standing = await standingAt(seatIn(db, current, playerId, asker), asker, admit);
+    const seat = seatIn(db, current, playerId, asker);
+    const standing = (tries === 1 && (await standingAlong(seat, asker))) || (await standingAt(seat, asker, admit));
     if (standing !== STALE) {
       return standing;
     }
@@ -172,6 +188,24 @@ export async function claimReporter(
     }
     current = fresh;
   }
+}
+
+/**
+ * The standing the seat read with the event settles: the asker already
+ * reports for the player, holding the seat or as the account it is linked
+ * to, and the Player ID has no wrong tries to reset, so the admission would
+ * only let them in. Null sends anyone else through the admission and a fresh
+ * read (standingAt), so a guess is always counted. Its write still lands
+ * only while the seat stands (seatHeld).
+ */
+async function standingAlong(seat: Seat, asker: Asker): Promise<Claim | null> {
+  const { read } = asker;
+  // An account the seat is not linked to may hold another player here, which only standingAt reads.
+  if (!read || read.tried || (seat.account !== null && read.user_id !== seat.account)) {
+    return null;
+  }
+  const standing = await standingFor(seat, read, asker);
+  return typeof standing === 'object' && 'reporter' in standing && standing.reporter ? standing : null;
 }
 
 /** With `admit`, the try is let in or refused in the same wait as the seat is read. */

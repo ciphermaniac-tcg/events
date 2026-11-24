@@ -34,6 +34,7 @@ import { readJsonObject } from '../../../lib/api/body.js';
 import { createRateLimiter, rateLimitAddress } from '../../../lib/api/rateLimiter.js';
 import { jsonError } from '../../../lib/api/responses.js';
 import { type Context, sameOrigin } from '../../../lib/auth/env.js';
+import { firstRow } from '../../../lib/d1.js';
 import {
   type Access,
   open,
@@ -50,8 +51,10 @@ import {
   type Claim,
   claimReporter,
   type Elsewhere,
+  readAlong,
   releaseReporter,
-  seatHeld
+  seatHeld,
+  type SeatRead
 } from '../../../lib/tournaments/reporters.js';
 import { reportEvidence } from '../../../lib/tournaments/reportHistory.js';
 import { playerRequestChanges } from '../../../lib/tournaments/requests.js';
@@ -185,21 +188,29 @@ function reportChanges(row: TournamentRow, filing: Filing): Changes | string {
  */
 const rateLimiter = createRateLimiter({ windowMs: 10 * 60 * 1000, maxRequests: 1200 });
 
-/** The event, when this request may ask of it; the refusal when it may not. */
-async function reachable(context: Context<'code'>): Promise<Access | Response> {
+/**
+ * The event and what the request asks, when it may ask of it; the refusal
+ * when it may not. The seat the body's Player ID names is read with the
+ * event, so a returning reporter waits on the database once before writing.
+ */
+async function reachable(context: Context<'code'>): Promise<{ access: Access; body: Body } | Response> {
   if (!sameOrigin(context.request)) {
     return jsonError('Forbidden', 403);
   }
   if (!rateLimiter.allows(rateLimitAddress(context.request))) {
     return jsonError('Too many reports from here. Try again shortly.', 429);
   }
-  return open(context);
+  const body: Body = (await readJsonObject(context.request, 1024)) ?? {};
+  const popId = claimOf(body).popId?.trim();
+  const access = await open(context, popId ? { along: (db, code) => [readAlong(db, code, popId)] } : {});
+  return access instanceof Response ? access : { access, body };
 }
 
 /** The player a claim names, with the admission of its try when that waits for the seat's read (see checkedClaim). */
 interface Found {
   id: string;
   admit?: D1Statement;
+  read?: SeatRead | null;
 }
 
 /** Who the request asks as: its device's token and ID, and who is signed in (see accountFor). */
@@ -207,7 +218,8 @@ const askerOf = (access: Access, body: Body, found: Found): Asker => ({
   held: body.reportToken,
   device: body.device,
   user: access.user,
-  ...(found.admit ? { admit: found.admit } : {})
+  ...(found.admit ? { admit: found.admit } : {}),
+  ...(found.read ? { read: found.read } : {})
 });
 
 /**
@@ -377,7 +389,7 @@ async function checkedClaim(access: Access, claim: PlayerClaim, expect: unknown)
   const attempt = popId && { db, code: row.code, popId, right: found.ok, now: Date.now() };
   // A try that goes on to the seat is let in with the seat's first read (see claimReporter): one wait, not two.
   if (chosen && attempt) {
-    return { id: found.id, admit: admission(attempt) };
+    return { id: found.id, admit: admission(attempt), read: firstRow<SeatRead>(access.along[0]) };
   }
   if (attempt && !(await admitTry(attempt))) {
     return jsonError(LOCKED_OUT, 429);
@@ -395,11 +407,11 @@ function under13(row: TournamentRow, id: string): boolean {
 }
 
 export async function onRequestPost(context: Context<'code'>): Promise<Response> {
-  const access = await reachable(context);
-  if (access instanceof Response) {
-    return access;
+  const asked = await reachable(context);
+  if (asked instanceof Response) {
+    return asked;
   }
-  const body: Body = (await readJsonObject(context.request, 1024)) ?? {};
+  const { access, body } = asked;
   const files = body.result !== undefined || body.withdraw === true;
   const refusal = files ? closedToReports(access.row.settings) : null;
   if (refusal) {

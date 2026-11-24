@@ -178,12 +178,16 @@ export interface Opened {
   claimed: string | null;
   /** The SHA-256 of the request's session token; null without one. */
   hash: string | null;
+  /** What the route's `along` reads found, in their order. */
+  along: { results?: unknown[] }[];
 }
 
 /** What a route asks of `openTournament` beyond the event and who is asking. */
 export interface OpenOptions {
   /** Read the asking account's Claim too, in the same batch. */
   claim?: boolean;
+  /** More reads of the event's own, sent in the same batch (see `Opened.along`). */
+  along?: (db: D1Like, code: string) => D1Statement[];
 }
 
 /**
@@ -199,22 +203,36 @@ export async function openTournament(
   options: OpenOptions = {}
 ): Promise<Opened | null> {
   const hash = await sessionHash(request);
-  if (!hash) {
-    const row = await loadTournament(db, code);
-    return row && { row, user: null, role: null, claimed: null, hash };
+  const along = options.along?.(db, code) ?? [];
+  if (hash) {
+    return openAs(db, code, hash, { ...options, along });
   }
-  return openAs(db, code, hash, options);
+  if (along.length === 0) {
+    const row = await loadTournament(db, code);
+    return row && { row, user: null, role: null, claimed: null, hash, along: [] };
+  }
+  const [event, ...found] = await db.batch([tournamentQuery(db, code), ...along]);
+  const raw = firstRow<RawRow>(event);
+  return raw && { row: fromRaw(raw), user: null, role: null, claimed: null, hash, along: found };
 }
 
-/** As `openTournament`, for the session under `hash`. */
-async function openAs(db: D1Like, code: string, hash: string, options: OpenOptions = {}): Promise<Opened | null> {
+/** As `openTournament`, for the session under `hash`, with the route's `along` reads after its own. */
+async function openAs(
+  db: D1Like,
+  code: string,
+  hash: string,
+  options: { claim?: boolean; along?: D1Statement[] } = {}
+): Promise<Opened | null> {
   const now = Date.now();
-  const [event, account, staff, claim] = await db.batch([
+  const asking = [
     tournamentQuery(db, code),
     sessionUserQuery(db, hash, now),
     roleQuery(db, code, hash, now),
     ...(options.claim ? [claimQuery(db, code, hash, now)] : [])
-  ]);
+  ];
+  const results = await db.batch([...asking, ...(options.along ?? [])]);
+  const [event, account, staff] = results;
+  const claim = options.claim ? results[3] : undefined;
   const raw = firstRow<RawRow>(event);
   if (!raw) {
     return null;
@@ -223,7 +241,7 @@ async function openAs(db: D1Like, code: string, hash: string, options: OpenOptio
   const user = found && userFromRow(found);
   const claimed = firstRow<{ player_id: string }>(claim)?.player_id ?? null;
   const role = (user && firstRow<{ role: Role | null }>(staff)?.role) ?? null;
-  return { row: fromRaw(raw), user, role, claimed, hash };
+  return { row: fromRaw(raw), user, role, claimed, hash, along: results.slice(asking.length) };
 }
 
 /** The role the session's account holds at the event (see roles.ts). */
@@ -698,11 +716,12 @@ export interface Held {
 export function mutateHeld(db: D1Like, read: TournamentRow, change: Change, held: Held): Promise<Mutation> {
   const writer = { role: null, standing: held.standing };
   return retried(db, { row: read, ...writer }, change, async () => {
-    if (!(await holds(db, read.code, held.standing))) {
-      return held.refusal;
-    }
-    const row = await loadTournament(db, read.code);
-    return row ? { row, ...writer } : { error: msg('No such tournament'), status: 404 };
+    // The event only where the standing still holds, in one read: no row is the refusal.
+    const raw = await db
+      .prepare(`SELECT * FROM tournaments WHERE code = ? AND ${held.standing.sql}`)
+      .bind(read.code, ...held.standing.values)
+      .first<RawRow>();
+    return raw ? { row: fromRaw(raw), ...writer } : held.refusal;
   });
 }
 
