@@ -126,7 +126,7 @@ function stageFor(err: unknown): Stage {
   return status === 403 ? 'refused' : status === 410 ? 'expired' : 'asking';
 }
 
-/** A new sign-up: username, name and the age check, which makes the account. */
+/** A new sign-up: the age check, which makes the account, then the username and name it may leave empty. */
 function NewAccount() {
   const [setup, setSetup] = createSignal<AccountSetup>({ handle: '', firstName: '', lastName: '' });
   const [birthDate, setBirthDate] = createSignal('');
@@ -166,7 +166,7 @@ function NewAccount() {
         </Match>
         <Match when={waiting()}>
           <form class='tm-box-bar tm-welcome-form' onSubmit={event => void send(event)}>
-            <SetupFields setup={setup()} onSetup={setSetup} />
+            {/* The one field the account needs leads; the rest follow under one word, to fill or leave. */}
             <Field id='welcome-birth' label={t('Birth date')}>
               <input
                 id='welcome-birth'
@@ -178,6 +178,12 @@ function NewAccount() {
                 onInput={event => setBirthDate(event.currentTarget.value)}
               />
             </Field>
+            <div class='tm-welcome-optional' role='group' aria-labelledby='welcome-optional'>
+              <p id='welcome-optional' class='tm-label'>
+                {t('Optional')}
+              </p>
+              <SetupFields setup={setup()} onSetup={setSetup} />
+            </div>
             <div class='tm-welcome-actions'>
               <button type='submit' class='btn btn-primary' disabled={stage() === 'sending'}>
                 {t('Continue')}
