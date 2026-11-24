@@ -101,6 +101,14 @@ test('an opponent whose deck is hidden keeps the name column, and a bye reads mu
   assert.equal(textOf(ops, '1').size, 14);
 });
 
+test('a long cut round name widens the round column rather than running off the image', () => {
+  const share: PlayerShare = { ...SHARE, rounds: [...SHARE.rounds, row({ label: 'Quarterfinals', cut: true })] };
+  const { ops } = headBarScene(share, measure, 'light');
+  const label = textOf(ops, 'Quarterfinals');
+  assert.ok(label.x - measure('Quarterfinals', label.size) >= 20, 'inside the image’s padding');
+  assert.ok(textOf(ops, 'Opponent').x > label.x, 'the opponents move over to make room');
+});
+
 test('with every deck hidden, no sprite is drawn and names start at the column', () => {
   const hidden: PlayerShare = {
     ...SHARE,
@@ -217,13 +225,13 @@ test('opponents carry their name, record and deck only where the page shows the 
   assert.equal(hidden?.deck, null);
 });
 
-test('top cut rounds are named by the players still in: Top 8, then the final', () => {
+test('top cut rounds are named as the console names them: Quarterfinals, then the Final', () => {
   const pod = withCut(swiss);
   const player = pod.rounds[3]!.matches[0]!.p1;
   const share = playerShare(sheet(pod, player));
   assert.deepEqual(
     share.rounds.filter(entry => entry.cut).map(entry => entry.label),
-    ['Top 8', 'Final']
+    ['Quarterfinals', 'Final']
   );
 });
 
