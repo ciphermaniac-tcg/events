@@ -1049,7 +1049,15 @@
 .tm-console .tm-penalty-form .tm-select {
   min-width: 0;
 }
-@media (max-width: 640px) {
+/* While Remove asks, its question and answers wrap in a cell of their own size rather than run past the log's edge. */
+.tm-console .tm-penalty-log:has(.tm-confirm) .tm-extra-col,
+.tm-console .tm-penalty-log:has(.tm-confirm) .tm-row-actions,
+.tm-console .tm-penalty-log:has(.tm-confirm) .tm-confirm-label {
+  width: auto;
+  flex-wrap: wrap;
+  white-space: normal;
+}
+@media (max-width: 900px) {
   .tm-console .tm-penalty-log,
   .tm-console .tm-penalty-log tbody,
   .tm-console .tm-penalty-log td {
