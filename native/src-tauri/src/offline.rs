@@ -3,7 +3,8 @@
 //! itself when the connection comes back.
 //!
 //! The page (offline.html) is a placeholder until this screen's design
-//! round. Windows and Linux catch the failed load here. macOS still shows
+//! round. Windows and Linux catch the failed load here, and Android in its
+//! activity (OfflinePage.kt), which takes the page from here. macOS still shows
 //! `WebKit`'s error page: the failure arrives only at the navigation delegate,
 //! which wry keeps for itself.
 
@@ -130,6 +131,32 @@ mod linux_hook {
             }
             unreachable
         });
+    }
+}
+
+#[cfg(target_os = "android")]
+mod android_hook {
+    use tauri::Url;
+    use tauri::wry::prelude::{JClass, JNIEnv, JString, jstring};
+
+    use super::{page, shows_for};
+
+    /// `OfflinePage.page` (OfflinePage.kt): the page for an address that
+    /// failed to load, or null when it keeps the webview's own.
+    #[unsafe(no_mangle)]
+    pub extern "system" fn Java_com_ciphermaniac_events_OfflinePage_page<'local>(
+        mut env: JNIEnv<'local>,
+        _class: JClass<'local>,
+        address: JString<'local>,
+    ) -> jstring {
+        let failed = env
+            .get_string(&address)
+            .ok()
+            .and_then(|address| Url::parse(&String::from(address)).ok())
+            .filter(shows_for);
+        failed
+            .and_then(|failed| env.new_string(page(&failed)).ok())
+            .map_or(std::ptr::null_mut(), JString::into_raw)
     }
 }
 

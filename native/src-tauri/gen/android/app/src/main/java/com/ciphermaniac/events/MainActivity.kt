@@ -60,6 +60,7 @@ class MainActivity : TauriActivity() {
     bars.attach()
     followFontScale(webView)
     back.attach(webView)
+    OfflinePage.attach(webView)
     PageBridge.attach(this, webView, ::onPageMessage)
   }
 

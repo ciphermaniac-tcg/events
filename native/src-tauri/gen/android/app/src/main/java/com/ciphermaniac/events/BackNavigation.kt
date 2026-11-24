@@ -49,10 +49,24 @@ class BackNavigation(private val activity: ComponentActivity) {
     view.evaluateJavascript(CLOSE_TOP_LAYER) { closed ->
       when {
         closed == "true" -> Unit
-        view.canGoBack() -> view.goBack()
+        goBack(view) -> Unit
         else -> leave()
       }
     }
+  }
+
+  /**
+   * Goes back to the last page at another address; false when there is
+   * none. That passes over a load that failed under the offline page
+   * (OfflinePage.kt), which would only fail again.
+   */
+  private fun goBack(view: WebView): Boolean {
+    val history = view.copyBackForwardList()
+    val url = view.url
+    val here = history.currentIndex
+    val previous = (here - 1 downTo 0).firstOrNull { history.getItemAtIndex(it).url != url } ?: return false
+    view.goBackOrForward(previous - here)
+    return true
   }
 
   /** What back does on the first page with nothing open: the system's own back. */
