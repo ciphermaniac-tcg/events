@@ -116,8 +116,6 @@
   "Approved by {who} at {time}, during round {round}": "Validée par {who} à {time}, pendant la ronde {round}",
   "Approving as {who}": "Validation par {who}",
   "Archetypes": "Archétypes",
-  "Ask staff": "Demander au staff",
-  "Ask staff to drop you?": "Demander au staff d’enregistrer ton abandon ?",
   "Asked": "Envoyée",
   "At least {n} characters": "Au moins {n} caractères",
   "Auto scroll": "Défilement auto",
@@ -138,7 +136,6 @@
   "Busy; try again": "Serveur occupé, réessaie",
   "Bye": "Bye",
   "Cancel": "Annuler",
-  "Cancel request": "Annuler la demande",
   "Cancelled": "Annulée",
   "Capped at {n} rounds": {
     "one": "{n} ronde maximum",
