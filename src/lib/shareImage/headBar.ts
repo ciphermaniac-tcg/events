@@ -118,6 +118,8 @@ interface Pen {
   readonly pal: Palette;
   /** The width the rows keep for sprites. */
   readonly slot: number;
+  /** How far the round column reaches past its usual width, for a cut round's name ("Quarterfinals"). */
+  readonly wide: number;
 }
 
 const text = (x: number, y: number, words: string, style: Style): TextOp => ({
@@ -195,8 +197,8 @@ function player(pen: Pen, share: PlayerShare, top: number): number {
 function figures(pen: Pen, share: PlayerShare, top: number): number {
   const { pal, measure } = pen;
   const stats: [string, string][] = [
-    [t('Record'), share.record],
-    [t('Points'), share.points],
+    [t('Swiss record'), share.record],
+    [t('Swiss points'), share.points],
     ['OWP', share.owp],
     ['OOWP', share.oowp]
   ];
@@ -215,8 +217,8 @@ function columnHead(pen: Pen, top: number): number {
   pen.ops.push(rect({ x: PAD, y: top, w: INNER, h: 1 }, pal.rule));
   const y = top + 21;
   const style: Style = { size: 11, weight: 600, color: pal.muted };
-  pen.ops.push(text(PAD + NUM_RIGHT, y, t('Round'), { ...style, align: 'right' }));
-  pen.ops.push(text(PAD + OPP_X, y, t('Opponent'), style));
+  pen.ops.push(text(PAD + NUM_RIGHT + pen.wide, y, t('Round'), { ...style, align: 'right' }));
+  pen.ops.push(text(PAD + OPP_X + pen.wide, y, t('Opponent'), style));
   pen.ops.push(text(PAD + INNER, y, t('Result'), { ...style, align: 'right' }));
   return top + 30;
 }
@@ -246,7 +248,7 @@ function round(pen: Pen, row: ShareRound, index: number, top: number): void {
   }
   const numSize = row.cut ? 12 : 14;
   pen.ops.push(
-    text(PAD + NUM_RIGHT, middle(top, ROW, numSize), row.label, {
+    text(PAD + NUM_RIGHT + pen.wide, middle(top, ROW, numSize), row.label, {
       size: numSize,
       weight: 400,
       color: pal.muted,
@@ -254,7 +256,7 @@ function round(pen: Pen, row: ShareRound, index: number, top: number): void {
       tnum: true
     })
   );
-  const left = PAD + OPP_X;
+  const left = PAD + OPP_X + pen.wide;
   sprites(pen, row.opponent?.deck ?? null, [left, top + (ROW - BOX) / 2], BOX);
   const markX = PAD + INNER - MARK;
   mark(pen, row, markX, top);
@@ -276,7 +278,8 @@ export function headBarScene(share: PlayerShare, measure: Measure, theme: ShareT
   const pal = theme === 'dark' ? DARK : LIGHT;
   // Room for two sprites on every row whenever any opponent's deck shows, so the names line up.
   const slot = share.rounds.some(row => row.opponent?.deck) ? deckWidth(2, BOX) + 8 : 0;
-  const pen: Pen = { ops: [], measure, pal, slot };
+  const labels = share.rounds.map(row => measure(row.label, row.cut ? 12 : 14, 400, true));
+  const pen: Pen = { ops: [], measure, pal, slot, wide: Math.max(0, ...labels.map(width => width - NUM_RIGHT)) };
   bar(pen, share);
   let y = player(pen, share, BAR + 20);
   y = columnHead(pen, figures(pen, share, y));
