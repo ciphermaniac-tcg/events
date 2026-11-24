@@ -33,7 +33,7 @@ import {
 import { createMedia } from '../../lib/media';
 import { lazyPanel } from './lazyPanel';
 import type { PlayerClaim } from '../../../shared/tournament/identify';
-import type { PlayerResult } from '../../../shared/tournament/reports';
+import { type PlayerResult, REPORT_WINDOW_MS } from '../../../shared/tournament/reports';
 import { isBye, matchPoints, recordLabel, sideResult } from '../../../shared/tournament/standings';
 import { hasStarted, podOf, withSwiss } from '../../../shared/tournament/rounds';
 import type { Pod, Round, Match as TableMatch } from '../../../shared/tournament/types';
@@ -90,13 +90,16 @@ const TAKE_BACK: Record<PlayerResult, string> = {
 
 const NOT_REPORTER = msg('Someone else is already reporting for this player. Ask staff if that’s wrong.');
 
+/** How long a report can be changed, which the notes name. */
+const WINDOW = { seconds: REPORT_WINDOW_MS / 1000 };
+
 const NOTES = {
   open: msg('Staff must accept your result.'),
-  reported: msg('Staff will accept it shortly. You can change it until then.'),
+  reported: msg('Staff will accept it shortly. You can change it for {seconds} seconds.'),
   /** Past the window to change it, the report only waits for staff. */
   locked: msg('Your report is locked in. Staff will accept it shortly.'),
   /** Where agreeing reports settle the match, the opponent's report is what it waits on. */
-  agrees: msg('It counts once your opponent reports the same. You can change it until then.'),
+  agrees: msg('It counts once your opponent reports the same. You can change it for {seconds} seconds.'),
   agreesLocked: msg('Your report is locked in. It counts once your opponent reports the same.'),
   disputed: msg('Your reports don’t match. If you pressed the wrong one, change it. Otherwise, find a judge.'),
   /** Once the report is locked there is nothing to change: only the judge is left. */
@@ -294,9 +297,9 @@ function ReportPanel(props: { report: Report; found: Found; settles: boolean }) 
       return t(state.locked ? NOTES.disputedLocked : NOTES.disputed);
     }
     if (props.settles) {
-      return t(state.locked ? NOTES.agreesLocked : NOTES.agrees);
+      return t(state.locked ? NOTES.agreesLocked : NOTES.agrees, WINDOW);
     }
-    return t(state.locked ? NOTES.locked : NOTES.reported);
+    return t(state.locked ? NOTES.locked : NOTES.reported, WINDOW);
   };
   const fixed = () => Boolean(s()?.locked || s()?.final);
   // The answer filed, pressed again, asks before it is taken back: a double tap must not undo a report.
