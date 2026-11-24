@@ -167,7 +167,8 @@ test('History lists the account’s events with place and record from each copy,
   await expect(rows).toHaveCount(2);
   const live = rows.filter({ hasText: 'Fixture Challenge & Friends' });
   await expect(live.locator('.tm-flag')).toHaveText('In progress');
-  await expect(live.locator('.tm-hist-place')).toHaveText('1st');
+  // One round in, a place is only a guess: it waits for the event to finish.
+  await expect(live.locator('.tm-hist-place')).toHaveText('—');
   await expect(live.locator('.tm-hist-record')).toHaveText('1-0-0');
   await expect(live.locator('.tm-hist-sub')).toContainText('Standard · Masters');
   const cup = rows.filter({ hasText: 'Fixture Cup' });
@@ -416,7 +417,7 @@ test('a public profile shows the name and History read-only, and an unknown addr
   // A player who never organized has no tabs: nothing leads to an empty one.
   await expect(page.locator('.tm-profile-hero .tm-status')).toHaveText('@mary.j');
   await expect(page.getByRole('tab')).toHaveCount(0);
-  await expect(rows.first().locator('.tm-hist-place')).toHaveText('1st');
+  await expect(rows.first().locator('.tm-hist-place')).toHaveText('—');
   await expect(page.locator('main').getByRole('button', { name: /Sign in|Save|Remove/ })).toHaveCount(0);
   await page.goto('/u/nobody');
   await expect(page.getByRole('heading', { name: /not found/ })).toBeVisible();

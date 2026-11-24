@@ -42,9 +42,9 @@ export function eventDay(startsAt: string, startDate: string): string {
 export interface PlayerFinish {
   /** Their division at a sanctioned event; null at an unsanctioned one, which plays as one. */
   division: Division | null;
-  /** Where they stand in their division, its top cut counted; null until their pod has played a round. */
+  /** Where they finished in their division, its top cut counted; null until the event is finished. */
   place: number | null;
-  /** Their Swiss record, as the standings show it; null with their place. */
+  /** Their Swiss record, as the standings show it; null until their pod has played a round. */
   record: MatchRecord | null;
   /** Their archetype, while the public may see it. */
   deck: string | null;
@@ -101,7 +101,8 @@ export function playerResult(view: PublishedView, key: string): PlayerFinish | n
   const row = pod?.rounds.length ? finishOf(view, pod, key) : undefined;
   return {
     ...shownOf(view, key),
-    place: row?.place ?? null,
+    // A place is earned once the event is over: one round in, 1st is only a guess.
+    place: view.settings.finished ? (row?.place ?? null) : null,
     record: row?.record ?? null,
     dropped: player.droppedAfter !== null,
     rounds: pod ? namedRounds(pod, key) : []
