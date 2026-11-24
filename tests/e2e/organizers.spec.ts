@@ -355,10 +355,7 @@ test('an approved account sees its store was approved, with the way to its event
 test('signed out, the apply page shows both ways in to read, and sign-in that comes back to it', async ({ page }) => {
   await mockApplicant(page, NONE, null);
   await page.goto('/apply');
-  await expect(page.locator('.tm-path-title')).toHaveText([
-    'I want to run a tournament for fun',
-    'I run an official Play! Pokémon store'
-  ]);
+  await expect(page.locator('.tm-path-title')).toHaveText(['Community events', 'Play! Pokémon store']);
   await expect(page.locator('.tm-paths').getByRole('button')).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Sign in with Google' })).toHaveAttribute('href', /next=%2Fapply/);
 });
