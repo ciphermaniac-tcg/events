@@ -29,6 +29,7 @@ import {
   For,
   type JSX,
   on,
+  onCleanup,
   onMount,
   Show,
   Suspense
@@ -69,7 +70,7 @@ import type { PenaltySelection } from './PenaltyDialog';
 import { RoundPicker, RoundStepper } from './RoundStepper';
 import { MatchTable } from './MatchTable';
 import { ChampionLine, ClockControls, DeleteRound, RepairControl } from './RoundControls';
-import { createResultEntry } from './resultEntry';
+import { createResultEntry, type ResultEntry } from './resultEntry';
 import { type CorrectableCell, CorrectableResult, createRoundCorrections } from './Corrections';
 import { SeatResets, StreamLink, type TableMenuOf } from './TableMenu';
 
@@ -838,6 +839,16 @@ function createTableDialogs(
   };
 }
 
+/** Back online, the console's line about the lost connection goes, and the results it couldn't send go again. */
+function createOnlineRetry(state: () => ManageState, entry: ResultEntry) {
+  const online = () => {
+    state().clearError();
+    void entry.resendLost();
+  };
+  addEventListener('online', online);
+  onCleanup(() => removeEventListener('online', online));
+}
+
 export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod; locked?: boolean }) {
   const tom = () => props.manage.mode === 'tom';
   const ended = () => props.manage.settings.finished;
@@ -850,6 +861,7 @@ export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod
     () => props.state,
     () => props.pod
   );
+  createOnlineRetry(() => props.state, entry);
   const [query, setQuery] = createSignal('');
   const [openOnly, setOpenOnly] = createSignal(false);
   let filterInput: HTMLInputElement | undefined;
