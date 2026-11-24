@@ -641,6 +641,23 @@ test('/host: the new event form is in the address, so a reload keeps it and Back
   await expect(page.getByRole('button', { name: 'Start an event' })).toBeVisible();
 });
 
+test('/host: on a phone the new event form leaves the keyboard closed until a field is pressed', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 800 });
+  await mockHost(page, { ...ME, role: 'community' });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Start an event' }).click();
+  const name = page.getByRole('textbox', { name: 'Event name' });
+  await expect(name).toBeVisible();
+  // Past the microtask a wider screen focuses it in.
+  await page.evaluate(
+    () =>
+      new Promise(resolve => {
+        setTimeout(resolve, 50);
+      })
+  );
+  expect(await name.evaluate(field => field === document.activeElement)).toBe(false);
+});
+
 test('/host: a hero with nothing for its meta line draws none, so its action sits level with the counts', async ({
   page
 }) => {
