@@ -329,6 +329,16 @@ test('an Admin revokes a Community organizer, asked first, and reinstates them; 
   ]);
 });
 
+test('stacked, an Organizers row with Revoke is as tall as one without', async ({ page }) => {
+  await page.setViewportSize({ width: 1024, height: 768 });
+  await mockAdmin(page);
+  await page.goto('/admin?tab=organizers');
+  const row = (name: RegExp) => page.getByRole('row', { name });
+  await expect(row(/Ada Lovelace/).getByRole('button', { name: 'Revoke' })).toBeVisible();
+  const height = (name: RegExp) => row(name).evaluate(el => el.getBoundingClientRect().height);
+  expect(await height(/Ada Lovelace/)).toBe(await height(/Reese/));
+});
+
 test('a store’s Manager is listed with the store and taken out of it, asked first; its Owner is not', async ({
   page
 }) => {
@@ -427,6 +437,7 @@ test('an Admin sees every event, a store’s and a community one, each opening i
   await expect(rows.nth(1)).toContainText('Sam Lee');
   await expect(rows.nth(1)).toContainText('Finished');
   await expect(rows.nth(1).getByRole('link', { name: 'Park Meetup' })).toHaveAttribute('href', '/t/def456');
+  await expect(rows.nth(1).getByRole('link', { name: 'Console' })).toHaveAttribute('href', '/host/def456');
 });
 
 test('an Admin sees every account, and finds one by what they type', async ({ page }) => {

@@ -30,9 +30,9 @@ function EventRow(props: { event: AdminEvent }) {
   return (
     <tr>
       <td>
-        <A href={`/t/${e().code}`}>{e().name || e().code}</A>
-        <span class='muted'> · </span>
-        <A href={`/host/${e().code}`}>{t('Console')}</A>
+        <A class='tm-event-name' href={`/t/${e().code}`}>
+          {e().name || e().code}
+        </A>
       </td>
       <td>
         <Show when={e().store} fallback={<span class='muted'>{e().owner}</span>}>
@@ -42,6 +42,11 @@ function EventRow(props: { event: AdminEvent }) {
       <td class='muted-cell tm-num tm-nowrap'>{dateOf(e().startDate)}</td>
       <td class='tm-nowrap'>{phaseOf(e())}</td>
       <td class='num'>{e().players}</td>
+      <td class='num'>
+        <A class='btn btn-ghost tm-small' href={`/host/${e().code}`}>
+          {t('Console')}
+        </A>
+      </td>
     </tr>
   );
 }
@@ -62,6 +67,9 @@ export function AdminEvents() {
                     <th>{t('Date')}</th>
                     <th>{t('Status')}</th>
                     <th class='num'>{t('Players')}</th>
+                    <th>
+                      <span class='sr-only'>{t('Actions')}</span>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
