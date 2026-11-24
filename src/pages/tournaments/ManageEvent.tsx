@@ -436,7 +436,7 @@ const defaultTab = (manage: Manage): Tab => (hasStarted(manage) ? 'round' : 'pla
 
 function Console(props: { state: ReturnType<typeof createManage>; manage: Manage }) {
   // In the URL, so a reload mid-event comes back to the same tab.
-  const [params, setParams] = useSearchParams<{ tab?: string }>();
+  const [params, setParams] = useSearchParams<{ tab?: string; show?: string }>();
   const tabs = () => tabsFor(props.manage);
   // The strip has the room to name each tab in full.
   const wideTabs = () =>
@@ -445,8 +445,9 @@ function Console(props: { state: ReturnType<typeof createManage>; manage: Manage
     tabs().some(option => option.value === params.tab && !option.locked)
       ? (params.tab as Tab)
       : defaultTab(props.manage);
+  // The roster's filter (?show=) is the Players tab's alone, so another tab leaves it behind.
   const setTab = (value: Tab) =>
-    setParams({ tab: value === defaultTab(props.manage) ? undefined : value }, { replace: true });
+    setParams({ tab: value === defaultTab(props.manage) ? undefined : value, show: undefined }, { replace: true });
   const [podChoice, setPodChoice] = createSignal<PodCategory | null>(null);
   // A failed deck check's penalty, which the Penalties tab begins its form with.
   const [penaltyStart, setPenaltyStart] = createSignal<PenaltyStart | null>(null);
