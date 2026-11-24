@@ -3569,7 +3569,7 @@ test('the plain reports are accepted in one go, each table named first, a disput
     new RegExp(`^Table ${a!.table} · .+ wins$`),
     new RegExp(`^Table ${b!.table} · .+ wins$`)
   ]);
-  await expect(dialog.getByRole('button')).toHaveText(['Keep', 'Accept 2']);
+  await expect(dialog.getByRole('button')).toHaveText(['Cancel', 'Accept 2']);
   await dialog.getByRole('button', { name: 'Accept 2' }).click();
   await expect
     .poll(() =>
