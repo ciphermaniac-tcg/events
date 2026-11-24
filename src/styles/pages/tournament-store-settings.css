@@ -60,10 +60,10 @@
 
 /* A date that differs: its day, which night when a weekday has two, off or moved, and a note. */
 .tm-night.tm-night-exception {
-  grid-template-columns: 150px 232px minmax(100px, 1fr) auto;
+  grid-template-columns: 150px 244px minmax(100px, 1fr) auto;
 }
 .tm-night.tm-night-exception.is-picked {
-  grid-template-columns: 150px minmax(0, 1.3fr) 232px minmax(0, 1fr) auto;
+  grid-template-columns: 150px minmax(0, 1.3fr) 244px minmax(0, 1fr) auto;
   min-width: 0;
 }
 /* Why a date will not save: under the row's fields, or under the date where they stack. */
@@ -78,8 +78,9 @@
 .tm-night-change .tm-select {
   width: auto;
 }
+/* As wide as a weekly night's Start, so a moved time shows whole. */
 .tm-night-change .tm-night-time {
-  width: 112px;
+  width: 124px;
 }
 
 @media (max-width: 640px) {
