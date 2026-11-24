@@ -237,7 +237,7 @@ export function HomeConsole(props: { run: SampleRun }) {
         <div>
           <p class='tm-hc-title'>Friday League</p>
           <p class='tm-hc-meta'>
-            <b>{t('Round {n}', { n: props.run.round() })}</b> · {SAMPLE_CODE} · {t('Swiss on this site')} ·{' '}
+            <b>{t('Round {n}', { n: props.run.round() })}</b> · {SAMPLE_CODE} ·{' '}
             {tn(props.run.players().length, '{n} player', '{n} players')}
           </p>
         </div>
