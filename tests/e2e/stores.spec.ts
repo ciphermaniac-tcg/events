@@ -6,6 +6,7 @@
  * link, and starting a store's event from its pokemon.com listings.
  */
 
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { expect, type Page } from '@playwright/test';
 import { test } from './network-guard';
@@ -218,10 +219,10 @@ async function mock(page: Page, options: Options = {}) {
     }
     if (key === 'POST /api/stores/store-1/members') {
       // The token's hash starts with the id the list gives it, as the server names a link.
-      invites = [
-        { id: '2f237cea451ff8f2', role: body?.invite as GivenRole, createdAt: 0, expiresAt: Date.UTC(2099, 9, 11) }
-      ];
-      return route.fulfill({ status: 201, json: { token: 'k3QwP9zXr2' } });
+      const token = `k3QwP9zXr${String(invites.length + 2)}`;
+      const id = createHash('sha256').update(token).digest('hex').slice(0, 16);
+      invites = [...invites, { id, role: body?.invite as GivenRole, createdAt: 0, expiresAt: Date.UTC(2099, 9, 11) }];
+      return route.fulfill({ status: 201, json: { token } });
     }
     if (key === 'PATCH /api/stores/store-1/members') {
       // Handing the store over makes the Owner before a Manager.
@@ -621,7 +622,7 @@ test('store settings opened at a section on a phone shows that section’s tab w
   expect(spill).toBe(0);
 });
 
-test('store settings: staff change role, invite links show once and withdraw', async ({ page }) => {
+test('store settings: staff change role, invite links show while the page is open and withdraw', async ({ page }) => {
   const asks = await mock(page, { user: MANAGER });
   await page.goto('/stores/store-1/settings?section=staff');
   const table = page.locator('.tm-store-staff');
@@ -647,9 +648,13 @@ test('store settings: staff change role, invite links show once and withdraw', a
   await page.getByRole('button', { name: 'Invite staff' }).click();
   const link = page.getByLabel('Staff invite link');
   await expect(link).toHaveValue(/\/stores\/join\?invite=k3QwP9zXr2$/);
-  expect(sentTo(asks, 'POST', '/api/stores/store-1/members')).toEqual([{ invite: 'staff' }]);
-  await page.locator('.tm-store-invite').getByRole('button', { name: 'Withdraw' }).click();
-  await expect(page.locator('.tm-store-invite')).toHaveCount(0);
+  // A second link made keeps the first one's address on show.
+  await page.getByRole('button', { name: 'Invite a manager' }).click();
+  await expect(page.getByLabel('Manager invite link')).toHaveValue(/\/stores\/join\?invite=k3QwP9zXr3$/);
+  await expect(link).toHaveValue(/\/stores\/join\?invite=k3QwP9zXr2$/);
+  expect(sentTo(asks, 'POST', '/api/stores/store-1/members')).toEqual([{ invite: 'staff' }, { invite: 'manager' }]);
+  await page.locator('.tm-store-invite').first().getByRole('button', { name: 'Withdraw' }).click();
+  await expect(page.locator('.tm-store-invite')).toHaveCount(1);
   expect(asks.filter(a => a.method === 'DELETE').map(a => a.query)).toEqual(['?invite=2f237cea451ff8f2']);
 
   await sam.getByRole('button', { name: 'More for Sam Ortiz' }).click();
