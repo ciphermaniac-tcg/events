@@ -545,6 +545,15 @@ body[data-mode='dark'] .tm-sso-google:hover {
   top: auto;
   bottom: 100%;
 }
+/* A link in a bubble stays focusable while the bubble is closed, so Tab from the marker reaches it rather
+   than the page, and the bubble shows while it has focus. */
+.info-tip-bubble:has(a) {
+  visibility: visible;
+}
+.info-tip-bubble:focus-within {
+  opacity: 1;
+  pointer-events: auto;
+}
 /* Beside a label at a form's start, it opens toward the end instead. */
 .info-tip.tm-tip-below.tm-tip-start .info-tip-bubble {
   right: auto;
