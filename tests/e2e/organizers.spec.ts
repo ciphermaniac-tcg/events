@@ -242,15 +242,41 @@ test('a pending Application shows where it stands instead of the form, and withd
   expect(asks.filter(a => a.method === 'DELETE').map(a => a.path)).toEqual(['/api/applications/mine']);
 });
 
+/** The store a sent Application asked for, as the account reads it back. */
+const APPLIED: MyApplication['store'] = {
+  leagueId: '6238620',
+  details: {
+    name: 'Combat Power Gaming',
+    address: '4522 Fredericksburg Rd',
+    city: 'San Antonio',
+    region: 'TX',
+    postal: '78201',
+    country: 'US',
+    website: '',
+    discord: '',
+    phone: '',
+    email: '',
+    details: ''
+  },
+  place: { lat: LEAGUE.lat, lon: LEAGUE.lon, timeZone: 'America/Chicago' },
+  timeZone: 'America/Chicago',
+  relationship: 'owner',
+  certified: true,
+  nights: [{ id: 'wed', weekday: 3, time: '19:30', name: 'Locals', fee: '$5' }]
+};
+
 test('after a rejection, the note shows and Apply again opens the form', async ({ page }) => {
   const asks = await mockApplicant(page, {
     ...NONE,
-    application: application('rejected', { note: 'Send your certificate, please.' })
+    application: application('rejected', { note: 'Send your certificate, please.', store: APPLIED })
   });
   await page.goto('/apply');
   const status = page.locator('.tm-applicant');
   await expect(status).toContainText('Not approved');
-  await expect(status).toContainText(/Decided /);
+  // It names the store and league it asked for, before its day.
+  await expect(status.locator('.tm-applicant-stage span')).toHaveText(
+    /^Combat Power Gaming · League 6238620 · Decided /
+  );
   await expect(status).toContainText('Send your certificate, please.');
   await expect(status).toContainText('Think this is a mistake?');
   await expect(page.getByRole('button', { name: 'Send application' })).toHaveCount(0);
