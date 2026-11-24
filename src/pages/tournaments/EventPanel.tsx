@@ -801,8 +801,8 @@ function deletedScope(manage: Manage, registrants: number): string | undefined {
   }
   const counted = tn(players, '{n} player', '{n} players');
   return rounds === 0
-    ? t('{players} and any decklists are deleted for good.', { players: counted })
-    : t('{players}, {rounds} of results, and any decklists are deleted for good.', {
+    ? t('This permanently deletes {players} and all decklists.', { players: counted })
+    : t('This permanently deletes {players}, {rounds} and all decklists.', {
         players: counted,
         rounds: tn(rounds, '{n} round', '{n} rounds')
       });
@@ -836,7 +836,7 @@ function DeleteEvent(props: { manage: Manage }) {
         <ConfirmAction
           class='btn btn-secondary tm-danger'
           label={t('Delete event')}
-          question={t('Delete {name} for good?', { name: props.manage.tournament.info.name })}
+          question={t('Delete {name}?', { name: props.manage.tournament.info.name })}
           scope={scope()}
           typed={scope() ? props.manage.code : undefined}
           confirmLabel={t('Delete')}
