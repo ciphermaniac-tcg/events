@@ -24,7 +24,7 @@ import { setupDraft } from '../../lib/tournament/setupDraft';
 import { SANCTIONED } from '../../../shared/tournament/structure';
 import { EVENT_TYPES, type EventType } from '../../../shared/tournament/types';
 import type { DecklistMode, DeckVisibility, TournamentSettings } from '../../../shared/tournament/view';
-import { LISTING_KINDS, listingFill } from '../../lib/tournament/stores';
+import { LISTING_KINDS, listingFill, shortDay } from '../../lib/tournament/stores';
 import { ErrorLine } from './Field';
 import { FormatSelect } from './FormatSelect';
 import { ListingPicker } from './ListingPicker';
@@ -423,7 +423,7 @@ function SetupFooter(props: {
           {t('One community event per date · up to {count} creations in 24 hours.', {
             count: CREATIONS_PER_DAY.community
           })}
-          <Show when={props.dayTaken}> {t('An event already uses {day}.', { day: props.day })}</Show>
+          <Show when={props.dayTaken}> {t('An event already uses {day}.', { day: shortDay(props.day) })}</Show>
         </p>
       </Show>
       <div class='tm-setup-foot'>
