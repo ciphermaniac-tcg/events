@@ -2,7 +2,8 @@
  * The admin page's Applications tab: the queue of pending ones, oldest
  * first, with a switch to the approved or rejected ones. Each shows the name
  * and POP ID it was sent with, the account as it is now, the store it asks
- * for, why, and the role approving gives the applicant in it, the
+ * for, why, and, while approving can still make it, that the applicant
+ * becomes its Owner, the
  * explanation, and a pending one takes Approve, or Reject with an optional
  * note to the applicant beside it. A decided one stays in place, showing the decision, until the list is read
  * again.
@@ -11,7 +12,6 @@
 import { useSearchParams } from '@solidjs/router';
 import { createResource, createSignal, For, Show } from 'solid-js';
 import { NOTE_MAX } from '../../../shared/accounts/applications';
-import { roleForRelationship } from '../../../shared/accounts/stores';
 import type { AdminApplication, ApplicationStatus } from '../../../shared/accounts/types';
 import { Segmented } from '@ciphermaniac/design/components/Segmented';
 import { Skeleton } from '@ciphermaniac/design/components/Skeleton';
@@ -162,7 +162,10 @@ function ApplicationRow(props: {
                   value={t('{store} · League {id}', { store: store().details.name, id: store().leagueId })}
                 />
                 <Fact label={t('Reason')} value={t(RELATIONSHIP_LABELS[store().relationship])} />
-                <Fact label={t('Joins as')} value={t(STORE_ROLE_WORDS[roleForRelationship(store().relationship)])} />
+                <Fact
+                  label={t('Joins as')}
+                  value={a().status === 'pending' && !a().leagueTaken ? t(STORE_ROLE_WORDS.owner) : null}
+                />
               </>
             )}
           </Show>
