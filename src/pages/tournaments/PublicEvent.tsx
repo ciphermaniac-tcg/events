@@ -604,7 +604,10 @@ function RegisteredList(props: {
       .sort((a, b) => a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName));
   return (
     <>
-      <p class='tm-box-bar muted'>{t('Pairings will show here once round 1 is paired.')}</p>
+      <p class='tm-box-bar muted'>
+        {props.view.settings.decklists === 'off' ? `${t('Register with the organizer.')} ` : ''}
+        {t('Pairings will show here once round 1 is paired.')}
+      </p>
       <ul class='tm-registered'>
         <For each={players()}>
           {player => (
