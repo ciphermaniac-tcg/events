@@ -1899,6 +1899,8 @@ test('an organizer who plays has both tabs, opens on the match being played, and
   await page.goto('/');
   const tabs = page.locator('.tm-dash-tabs');
   await expect(tabs.getByRole('tab')).toHaveText(['Playing1', 'Organizing']);
+  // The count is read with its meaning, not run into the tab's name.
+  await expect(tabs.getByRole('tab', { name: 'Playing · 1 live', exact: true })).toBeVisible();
   // The tabs name the page on a wide screen; the heading is there for assistive tech all the same.
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Playing');
   await expect(tabs.getByRole('tab', { name: /Playing/ })).toHaveAttribute('aria-selected', 'true');
