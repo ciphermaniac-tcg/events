@@ -1,6 +1,21 @@
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 import solid from 'vite-plugin-solid';
 import { resolve } from 'node:path';
+
+/**
+ * Where index.html's early read of an event goes: where the app reads it (src/lib/constants.ts), taken
+ * from the env Vite resolves for the app, `.env` files included, so a fixture build never asks production.
+ */
+function eventsDataOrigin(): Plugin {
+  let origin = '';
+  return {
+    name: 'events-data-origin',
+    configResolved({ env }) {
+      origin = String(env.VITE_EVENTS_DATA_ORIGIN || env.VITE_DATA_ORIGIN || 'https://events-data.ciphermaniac.com');
+    },
+    transformIndexHtml: html => html.replace('%EVENTS_DATA_ORIGIN%', origin)
+  };
+}
 
 /**
  * Ciphermaniac frontend — Vite + Solid.
@@ -10,7 +25,7 @@ import { resolve } from 'node:path';
  * The `functions/` directory is untouched — Pages picks it up alongside the static build.
  */
 export default defineConfig({
-  plugins: [solid()],
+  plugins: [solid(), eventsDataOrigin()],
   publicDir: 'static',
   build: {
     outDir: 'dist',

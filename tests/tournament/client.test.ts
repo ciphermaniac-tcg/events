@@ -313,6 +313,23 @@ test('reads the published view from the data origin, and a missing one as null',
   assert.equal(await fetchPublished('ABC'), null);
 });
 
+test('the read the page started is asked for by the URL the app would read, not by its code alone', async () => {
+  answer(200, { code: 'ABC', version: 3 });
+  const asked: string[] = [];
+  Object.assign(globalThis, {
+    cmE: (url: string) => {
+      asked.push(url);
+      return null;
+    }
+  });
+  try {
+    await fetchPublished('ABC');
+  } finally {
+    delete (globalThis as { cmE?: unknown }).cmE;
+  }
+  assert.deepEqual(asked, [sent[0]?.url]);
+});
+
 test('a published view asked for ahead of its page is read once, and only for that event', async () => {
   answer(200, { code: 'ABC', version: 3 });
   preloadPublished('ABC');

@@ -122,8 +122,8 @@ test('security policy blocks untrusted scripts and pins each bootstrap hash', ()
   assert.ok(!scripts.includes("'unsafe-inline'"));
   assert.ok(!scripts.includes("'unsafe-eval'"));
   const html = readFileSync(new URL('../../index.html', import.meta.url), 'utf8');
-  const bootstrap = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)];
-  assert.equal(bootstrap.length, 2);
+  const bootstrap = [...html.matchAll(/<script(?: data-origin="[^"]*")?>([\s\S]*?)<\/script>/g)];
+  assert.equal(bootstrap.length, 3);
   for (const [, script] of bootstrap) {
     const hash = createHash('sha256').update(script).digest('base64');
     assert.ok(scripts.includes(`'sha256-${hash}'`));

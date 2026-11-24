@@ -463,6 +463,66 @@ test('staff whose copy shows decks the public cannot see yet keep asking the API
   expect(asks).toBe(before + 1);
 });
 
+test('a published file that never answers gives way to the API after fifteen seconds', async ({ page }) => {
+  test.setTimeout(45_000);
+  await mockApi(page);
+  // The connection is taken and nothing comes back, as from a stalled edge or a captive portal.
+  await page.route(`**/tournaments/v1/${CODE}.json`, () => undefined);
+  await page.goto(`/t/${CODE}`);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Fixture Challenge & Friends', {
+    timeout: 25_000
+  });
+});
+
+test('a read the page started that answered over fifteen seconds before the app asks is read again', async ({
+  page
+}) => {
+  await page.clock.install();
+  await mockApi(page);
+  await publish(page, () => VIEW);
+  let reads = 0;
+  page.on('requestfinished', request => {
+    if (request.url().includes(`/tournaments/v1/${CODE}.json`)) {
+      reads += 1;
+    }
+  });
+  const entry = deferred<void>();
+  await page.route('**/assets/index-*.js', async route => {
+    await entry.promise;
+    await route.continue();
+  });
+  await page.goto(`/t/${CODE}`, { waitUntil: 'commit' });
+  await expect.poll(() => reads).toBe(1);
+  await page.clock.fastForward(16_000);
+  entry.resolve();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Fixture Challenge & Friends');
+  expect(reads).toBe(2);
+});
+
+test('an event link asks for the published file from the page itself, before the app code has run', async ({
+  page
+}) => {
+  await mockApi(page);
+  await publish(page, () => VIEW);
+  const order: string[] = [];
+  page.on('request', request => {
+    if (request.url().includes(`/tournaments/v1/${CODE}.json`)) {
+      order.push('published');
+    }
+  });
+  // The app's entry held back: only the page's own script can ask for the file meanwhile.
+  await page.route('**/assets/index-*.js', async route => {
+    await new Promise(resolve => {
+      setTimeout(resolve, 500);
+    });
+    order.push('entry');
+    await route.continue();
+  });
+  await page.goto(`/t/${CODE}`);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Fixture Challenge & Friends');
+  expect(order).toEqual(['published', 'entry']);
+});
+
 test('a player opening the page reads the published file, and asks the functions for no event', async ({ page }) => {
   await mockApi(page);
   await publish(page, () => VIEW);

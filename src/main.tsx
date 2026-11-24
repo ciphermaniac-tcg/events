@@ -24,7 +24,7 @@ installPreloadRecovery();
 
 const rootEl = document.getElementById('root');
 if (!rootEl) {
-  throw new Error('Missing #root element in index.html');
+  throw new Error('#root');
 }
 
 // Before render: an attribute swap after first paint is a visible flash.
