@@ -2952,6 +2952,13 @@ test('the roster filters by status, kept in the address, and lists names by last
     'aria-checked',
     'true'
   );
+  // Players pressed again, as it is, keeps its filter.
+  await page.getByRole('tab', { name: 'Players' }).click();
+  await expect(page).toHaveURL(/show=active/);
+  await expect(rows).toHaveCount(5);
+  await page.getByRole('tab', { name: 'Standings' }).click();
+  await expect(page).toHaveURL(/tab=standings/);
+  await expect(page).not.toHaveURL(/show=/);
 });
 
 test('before round 1 Remove waits in the row menu beside Drop', async ({ page }) => {
