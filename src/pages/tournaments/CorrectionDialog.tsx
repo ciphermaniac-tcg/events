@@ -55,7 +55,7 @@ function NextRound(props: {
       </Show>
       <ul class='tm-correction-lines'>
         <Show when={!props.repairable}>
-          <li>{t("Round {round}'s pairings stay as they are.", { round: next() })}</li>
+          <li>{t('Round {round}’s pairings stay as they are.', { round: next() })}</li>
         </Show>
         <For each={props.preview.next.filter(m => m.points[0] !== m.points[1])}>
           {m => (

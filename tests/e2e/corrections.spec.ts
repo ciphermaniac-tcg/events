@@ -221,7 +221,7 @@ test('once round 2’s clock has started, a correction keeps its pairings and of
   await page.getByRole('button', { name: 'Correct result' }).click();
   const dialog = page.getByRole('dialog', { name: 'Correct round 1, table 1' });
   await dialog.getByRole('radio', { name: `${loser} Test won` }).click();
-  await expect(dialog).toContainText("Round 2's pairings stay as they are.");
+  await expect(dialog).toContainText('Round 2’s pairings stay as they are.');
   await expect(dialog.getByRole('button', { name: /re-pair/ })).toHaveCount(0);
 });
 
@@ -235,7 +235,7 @@ test('once round 2 has a result in, a correction keeps its pairings and offers n
   await page.getByRole('button', { name: 'Correct result' }).click();
   const dialog = page.getByRole('dialog', { name: 'Correct round 1, table 1' });
   await dialog.getByRole('radio', { name: `${loser} Test won` }).click();
-  await expect(dialog).toContainText("Round 2's pairings stay as they are.");
+  await expect(dialog).toContainText('Round 2’s pairings stay as they are.');
   await expect(dialog.getByRole('button', { name: /re-pair/ })).toHaveCount(0);
   await dialog.getByLabel('Note').fill('Slip for table 1 has the wrong winner circled.');
   await dialog.getByRole('button', { name: 'Apply correction' }).click();

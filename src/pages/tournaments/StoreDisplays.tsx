@@ -3,7 +3,7 @@
  * the room it is for. A Manager gives the screen's size and how far back the
  * farthest player stands; the text size follows (roomScale) and can be
  * nudged from there. The preview draws the screen at that size. An event in
- * the store picks a preset from its Event tab and keeps its own copy, which
+ * the store picks a preset from its Settings tab and keeps its own copy, which
  * an edit here reaches until the event ends.
  */
 
@@ -309,7 +309,7 @@ export function StoreDisplays(props: { storeId: string }) {
       >
         <h2 class='tm-subhead tm-box-head tm-label-row' id='store-displays-head'>
           {t('Display presets')}
-          <SettingInfo text={msg('Pick one in an event’s console, Event tab.')} />
+          <SettingInfo text={msg('Pick one in an event’s console, Settings tab.')} />
         </h2>
         <ErrorLine message={read.error ? errorText(read.error) : null} />
         <Show when={presets().length}>

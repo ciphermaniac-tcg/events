@@ -47,7 +47,7 @@ export const SAMPLE_DECKS: Readonly<Record<string, SampleDeck>> = {
   'Macey Marlowe': deck('Lopunny Dudunsparce', 'lopunny-mega', 'dudunsparce'),
   'Cynthia Rodriguez': deck('Festival Lead', 'dipplin', 'thwackey'),
   'Jessie Espinoza': deck('Sharpedo Toxtricity', 'sharpedo-mega', 'toxtricity'),
-  'Kaycee Adams': deck("Cynthia's Garchomp", 'garchomp')
+  'Kaycee Adams': deck('Cynthia’s Garchomp', 'garchomp')
 };
 
 export interface SampleTable {
