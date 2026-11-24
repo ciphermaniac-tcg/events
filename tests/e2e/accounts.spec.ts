@@ -674,6 +674,13 @@ test('Settings opens on the player profile, keeps its section in the address, an
   await expect(page.getByLabel('First name')).toHaveValue('Marianne');
 });
 
+test('an account with no real name goes by its @username, shown once', async ({ page }) => {
+  await mockSettings(page, { ...ME, name: 'mary' });
+  await page.goto('/settings');
+  await expect(page.locator('.tm-settings-name')).toHaveText('@mary');
+  await expect(page.locator('.tm-settings-handle')).toHaveCount(0);
+});
+
 test('the first Tab on Settings reaches the skip link, with a later section open', async ({ page }) => {
   await mockSettings(page, ME);
   await page.goto('/settings?section=data');

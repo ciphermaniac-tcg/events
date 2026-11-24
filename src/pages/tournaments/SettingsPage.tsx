@@ -90,12 +90,16 @@ const APPLYING = '/apply?store';
 /** Who is signed in, at the head of the column: picture, name, username, and the accounts linked or offered. */
 function Identity(props: { user: Me; providers: readonly Provider[]; next: string }) {
   const offered = () => (['google', 'discord'] as const).filter(provider => props.providers.includes(provider));
+  const named = () => props.user.name !== props.user.handle;
   return (
     <div class='tm-settings-who'>
       <Avatar name={props.user.name} src={props.user.avatar} />
       <div>
-        <p class='tm-settings-name'>{props.user.name}</p>
-        <p class='tm-settings-handle muted'>@{props.user.handle}</p>
+        {/* The @username stands for the name until the account has a real one, and never shows twice. */}
+        <p class='tm-settings-name'>{named() ? props.user.name : `@${props.user.handle}`}</p>
+        <Show when={named()}>
+          <p class='tm-settings-handle muted'>@{props.user.handle}</p>
+        </Show>
       </div>
       <p class='tm-identity-links'>
         <For each={offered()}>
