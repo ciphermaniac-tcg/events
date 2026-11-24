@@ -58,8 +58,9 @@ export function setSession(update: Session | ((previous: Session | undefined) =>
 /** A successful logout is authoritative even if the next session read fails. */
 export async function leaveSession(): Promise<void> {
   await signOut();
-  // Which player this device was at each event, and the token it reported with, go with the account holder.
-  forgetBrowserMemory(/^cm-tournament-(me|report):/);
+  // Which player this device was at each event (me), what proved it (player) and the token it reported with (report) go
+  // with the account holder.
+  forgetBrowserMemory(/^cm-tournament-[mpr]/);
   clearSession();
 }
 
