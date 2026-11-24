@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
-import { keepBrowserMemory, readBrowserMemory } from '../../src/lib/tournament/browserMemory.ts';
+import { forgetBrowserMemory, keepBrowserMemory, readBrowserMemory } from '../../src/lib/tournament/browserMemory.ts';
 
 const originalLocal = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
 const originalSession = Object.getOwnPropertyDescriptor(globalThis, 'sessionStorage');
@@ -71,4 +71,23 @@ test('quota failures use session storage; denied session storage uses stable pag
   keepBrowserMemory('page-device', 'device', true);
   assert.equal(readBrowserMemory('page-player'), 'player');
   assert.equal(readBrowserMemory('page-device', true), 'device');
+});
+
+test('forgetting by prefix clears those keys from both storages and page memory, and keeps the rest', () => {
+  const local: Record<string, string> = {};
+  Object.defineProperties(local, {
+    getItem: { value: (key: string) => local[key] ?? null },
+    setItem: { value: (key: string, value: string) => (local[key] = value) },
+    removeItem: { value: (key: string) => Reflect.deleteProperty(local, key) }
+  });
+  Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: local });
+  session();
+  keepBrowserMemory('cm-tournament-me:ABC123', 'p1', true);
+  keepBrowserMemory('cm-tournament-report:ABC123', 'token', true);
+  keepBrowserMemory('cm-decklist:ABC123', 'list', true);
+  forgetBrowserMemory(/^cm-tournament-(me|report):/);
+  assert.deepEqual(Object.keys(local), ['cm-decklist:ABC123']);
+  assert.equal(readBrowserMemory('cm-tournament-me:ABC123', true), null);
+  assert.equal(readBrowserMemory('cm-tournament-report:ABC123', true), null);
+  assert.equal(readBrowserMemory('cm-decklist:ABC123', true), 'list');
 });
