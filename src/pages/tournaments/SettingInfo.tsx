@@ -16,6 +16,9 @@ export const SETTING_INFO = {
   archetypes: msg(
     'Allows organizer entry of player deck archetypes. “Shown once the event ends” shows archetypes at the time of final standings and “Shown during the event” shows archetypes once round 1 is paired.'
   ),
+  registration: msg(
+    'Allows players to register on the event’s page. A sanctioned event asks for their Player ID and birth year. Staff can add players by hand either way.'
+  ),
   decklists: msg(
     'Allows players to submit their decklists in TCGL format. “Open” shows them to anyone on the event’s page once round 1 is paired. “Closed” keeps them private.'
   ),
