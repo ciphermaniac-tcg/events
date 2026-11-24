@@ -114,7 +114,7 @@ function HolderRow(props: {
         <Show when={a().popId}>
           {popId => (
             <>
-              <span class='tm-phone-only'>{t('POP ID')} </span>
+              <span class='tm-phone-only'>{t('Player ID')} </span>
               {popId()}
             </>
           )}
@@ -160,7 +160,7 @@ export function AdminOrganizers() {
                   <tr>
                     <th>{t('Name')}</th>
                     <th>{t('Email')}</th>
-                    <th>{t('POP ID')}</th>
+                    <th>{t('Player ID')}</th>
                     <th>{t('Role')}</th>
                     <th>{t('Since')}</th>
                     <th class='num'>{t('Events')}</th>

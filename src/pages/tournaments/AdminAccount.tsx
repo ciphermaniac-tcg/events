@@ -169,7 +169,7 @@ function Facts(props: { user: AdminUser }) {
     <dl class='tm-app-facts'>
       <Fact label={t('Username')} value={u().handle && `@${u().handle}`} />
       <Fact label={t('Email')} value={u().email} />
-      <Fact label={t('POP ID')} value={u().popId ?? t('None')} />
+      <Fact label={t('Player ID')} value={u().popId ?? t('None')} />
       <For each={u().stores}>
         {store => (
           <div>
