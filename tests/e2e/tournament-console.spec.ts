@@ -2526,7 +2526,7 @@ test('a penalty from a table’s menu notes it for the seat picked and records a
   await dialog.getByRole('radio', { name: `${second?.firstName} ${second?.lastName}` }).click();
   // A Warning is only a note.
   await dialog.getByLabel('Penalty', { exact: true }).selectOption('warning');
-  await expect(dialog.getByRole('button', { name: 'Save note', exact: true })).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'Save penalty', exact: true })).toBeVisible();
   await dialog.getByLabel('Penalty', { exact: true }).selectOption('match-loss');
   await dialog.getByRole('button', { name: 'Save and record the loss', exact: true }).click();
   await expect(dialog).toHaveCount(0);

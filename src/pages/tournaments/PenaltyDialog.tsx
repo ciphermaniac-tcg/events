@@ -180,7 +180,7 @@ export function PenaltyDialog(props: {
             {t('Cancel')}
           </button>
           <button type='submit' class='btn btn-primary' disabled={saving()}>
-            {records() ? t('Save and record the loss') : t('Save note')}
+            {records() ? t('Save and record the loss') : t('Save penalty')}
           </button>
         </div>
       </form>
