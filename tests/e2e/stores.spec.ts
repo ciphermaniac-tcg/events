@@ -771,7 +771,7 @@ test('store settings ask before leaving with edits not saved, and keep them when
   await page.getByRole('link', { name: 'Store page' }).click();
   const dialog = page.getByRole('dialog', { name: 'Leave without saving?' });
   await expect(dialog).toContainText('Your changes will be lost.');
-  await dialog.getByRole('button', { name: 'Keep' }).click();
+  await dialog.getByRole('button', { name: 'Stay' }).click();
   await expect(page).toHaveURL(/\/stores\/store-1\/settings/);
   await expect(page.locator('.tm-night-time').first()).toHaveValue('18:45');
   await page.getByRole('link', { name: 'Store page' }).click();
@@ -794,7 +794,7 @@ test('store settings ask in view when left from another section, once for both, 
   await expect(dialog).toHaveCount(0);
   // Only the hidden League nights section has edits.
   await page.getByRole('link', { name: 'Store page' }).click();
-  await dialog.getByRole('button', { name: 'Keep' }).click();
+  await dialog.getByRole('button', { name: 'Stay' }).click();
   await page.getByLabel('Store name').fill('Combat Power Games');
   await page.getByRole('link', { name: 'Store page' }).click();
   await expect(dialog).toHaveCount(1);

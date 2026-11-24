@@ -819,6 +819,8 @@ function Foot(props: { form: Registration; sanctioned: boolean; label: string; c
   const unchanged = () => f().step() === 'edit' && !f().changed();
   const needs = () => missing(f(), props.sanctioned) ?? (unchanged() && !f().saved() ? t('No changes to send') : null);
   const held = () => f().busy() || f().mode() === null || unchanged() || needs() !== null;
+  // A first registration says so; a change to one already sent keeps the plainer question.
+  const editing = () => f().step() === 'edit';
   return (
     <div class='tm-box-bar tm-decklist-foot'>
       <Show
@@ -832,8 +834,13 @@ function Foot(props: { form: Registration; sanctioned: boolean; label: string; c
         <ConfirmAction
           class='btn btn-primary'
           label={props.label}
-          question={tn(problems(), 'Submit with {n} problem?', 'Submit with {n} problems?')}
-          confirmLabel={props.label}
+          question={
+            editing()
+              ? tn(problems(), 'Submit with {n} problem?', 'Submit with {n} problems?')
+              : tn(problems(), 'Register with {n} problem?', 'Register with {n} problems?')
+          }
+          confirmLabel={editing() ? props.label : t('Register anyway')}
+          keepLabel={t('Keep editing')}
           disabled={held()}
           onConfirm={() => void f().save()}
         />
