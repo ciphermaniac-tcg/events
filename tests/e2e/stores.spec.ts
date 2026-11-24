@@ -376,7 +376,7 @@ test('a store application starts from the league, prefilled, and sends what the 
   await expect(certified).not.toHaveAttribute('aria-invalid', 'true');
   await page.getByLabel('Website').fill('http://combatpower.example');
   await page.getByRole('button', { name: 'Send application' }).click();
-  await expect(page.getByText('Starts with https://')).toBeVisible();
+  await expect(page.getByText('Use https://, or leave the http:// off')).toBeVisible();
   // A link typed without its scheme is taken as https.
   await page.getByLabel('Website').fill('combatpower.example');
   await page.getByRole('button', { name: 'Add a league night' }).click();
