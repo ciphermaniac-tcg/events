@@ -27,7 +27,7 @@ import {
   roundComplete
 } from '../../../shared/tournament/rounds';
 
-import type { Pod, PodCategory } from '../../../shared/tournament/types';
+import type { Pod } from '../../../shared/tournament/types';
 import { notCheckedIn } from '../../../shared/tournament/checkins';
 import { Segmented } from '@ciphermaniac/design/components/Segmented';
 import { TabPanel, Tabs } from '@ciphermaniac/design/components/Tabs';
@@ -181,6 +181,13 @@ function firstRoundBlock(manage: Manage, active: number): string | null {
   return open === 1 ? t('1 player isn’t checked in.') : t('{n} players aren’t checked in.', { n: open });
 }
 
+/** Where the event pairs more than one pod, the step names the one it pairs: the pod picked under the tabs. */
+function forPod(step: NextStep, pod: Pod | undefined, pods: number): NextStep {
+  return 'label' in step && pod?.rounds.length && pods > 1
+    ? { ...step, label: t('{step} for {pod}', { step: step.label, pod: podLabel(pod) }) }
+    : step;
+}
+
 /**
  * The console's head, the same on every tab: the event, where its round
  * stands, and the step to take next. TOM pairs a TOM event's rounds, so
@@ -222,7 +229,9 @@ function Hero(props: { state: ManageState; manage: Manage; pod: Pod | undefined;
     return round && round.status !== 'finished' && !progress().champion && !finished() ? round : null;
   };
   const step = createMemo(() =>
-    props.tom ? ({ kind: 'none' } satisfies NextStep) : nextStep(progress(), finished(), plan())
+    props.tom
+      ? ({ kind: 'none' } satisfies NextStep)
+      : forPod(nextStep(progress(), finished(), plan()), props.pod, props.manage.tournament.pods.length)
   );
   /** The step, when it is of the kind asked for. */
   const stepOf = <K extends NextStep['kind']>(kind: K) => {
@@ -435,8 +444,8 @@ const tabsFor = (manage: Manage): TabOption[] =>
 const defaultTab = (manage: Manage): Tab => (hasStarted(manage) ? 'round' : 'players');
 
 function Console(props: { state: ReturnType<typeof createManage>; manage: Manage }) {
-  // In the URL, so a reload mid-event comes back to the same tab.
-  const [params, setParams] = useSearchParams<{ tab?: string }>();
+  // In the URL, so a reload mid-event comes back to the same tab and pod.
+  const [params, setParams] = useSearchParams<{ tab?: string; pod?: string }>();
   const tabs = () => tabsFor(props.manage);
   // The strip has the room to name each tab in full.
   const wideTabs = () =>
@@ -447,7 +456,6 @@ function Console(props: { state: ReturnType<typeof createManage>; manage: Manage
       : defaultTab(props.manage);
   const setTab = (value: Tab) =>
     setParams({ tab: value === defaultTab(props.manage) ? undefined : value }, { replace: true });
-  const [podChoice, setPodChoice] = createSignal<PodCategory | null>(null);
   // A failed deck check's penalty, which the Penalties tab begins its form with.
   const [penaltyStart, setPenaltyStart] = createSignal<PenaltyStart | null>(null);
   // The player whose sheet is open, from a name on the roster or standings; never from a pairing, whose names record results.
@@ -462,7 +470,7 @@ function Console(props: { state: ReturnType<typeof createManage>; manage: Manage
   const pods = () => props.manage.tournament.pods;
   // Until one is picked, the first pod still in play: a pod whose divisions have cut has nothing left to pair.
   const pod = createMemo(
-    () => pods().find(p => p.category === podChoice()) ?? livePods(props.manage.tournament)[0] ?? pods()[0]
+    () => pods().find(p => p.category === params.pod) ?? livePods(props.manage.tournament)[0] ?? pods()[0]
   );
   // A TOM event's file is linked for as long as the console is open, whatever the tab.
   // The other tabs, fetched while the venue's Wi-Fi holds rather than when one is opened.
@@ -527,7 +535,7 @@ function Console(props: { state: ReturnType<typeof createManage>; manage: Manage
           class='tm-pod-switch'
           options={pods().map(p => ({ value: p.category, label: podLabel(p) }))}
           selected={pod()?.category ?? 'masters'}
-          onSelect={setPodChoice}
+          onSelect={value => setParams({ pod: value }, { replace: true })}
           ariaLabel={t('Division')}
         />
       </Show>
