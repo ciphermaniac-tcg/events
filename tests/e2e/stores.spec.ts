@@ -248,12 +248,18 @@ async function mock(page: Page, options: Options = {}) {
     if (key === 'GET /api/stores/join') {
       return url.searchParams.get('invite') === 'good'
         ? route.fulfill({ json: { store: 'Combat Power Gaming', role: 'staff' } })
-        : route.fulfill({ status: 410, json: { error: 'This invite link was used or has run out' } });
+        : route.fulfill({
+            status: 410,
+            json: { error: 'This link was used or has expired. Ask the store for a new one.' }
+          });
     }
     if (key === 'POST /api/stores/join') {
       return body?.token === 'good'
         ? route.fulfill({ json: { storeId: 'store-1' } })
-        : route.fulfill({ status: 410, json: { error: 'This invite link was used or has run out' } });
+        : route.fulfill({
+            status: 410,
+            json: { error: 'This link was used or has expired. Ask the store for a new one.' }
+          });
     }
     if (key === 'GET /api/tournaments') {
       return route.fulfill({ json: { tournaments: [] } });
@@ -1009,7 +1015,10 @@ test('an invite link joins the store and goes on to its events; a used one says 
   expect(sentTo(asks, 'POST', '/api/stores/join')).toEqual([{ token: 'good' }]);
   await page.goto('/stores/join?invite=old');
   await expect(page.getByRole('heading', { level: 1, name: 'This invite didn’t work' })).toBeVisible();
-  await expect(page.locator('.error-state-line')).toHaveText('This invite link was used or has run out');
+  await expect(page).toHaveTitle(/^This invite didn’t work/);
+  await expect(page.locator('.error-state-line')).toHaveText(
+    'This link was used or has expired. Ask the store for a new one.'
+  );
   await page.goto('/stores/join');
   await expect(page.locator('.error-state-line')).toHaveText('This invite link is incomplete.');
   expect(sentTo(asks, 'POST', '/api/stores/join')).toHaveLength(2);
@@ -1043,6 +1052,7 @@ test('signed out, an invite link names its store and role, and sign-in comes bac
   await mock(page, { user: null });
   await page.goto('/stores/join?invite=good');
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Join Combat Power Gaming as staff');
+  await expect(page).toHaveTitle(/^Join Combat Power Gaming as staff/);
   await expect(page.getByText('Sign in to join.')).toBeVisible();
   await expect(page.getByRole('link', { name: 'Sign in with Google' })).toHaveAttribute(
     'href',
@@ -1050,7 +1060,9 @@ test('signed out, an invite link names its store and role, and sign-in comes bac
   );
   // A link already used says so before anyone signs in for it.
   await page.goto('/stores/join?invite=old');
-  await expect(page.locator('.error-state-line')).toHaveText('This invite link was used or has run out');
+  await expect(page.locator('.error-state-line')).toHaveText(
+    'This link was used or has expired. Ask the store for a new one.'
+  );
   await page.goto('/stores/join');
   await expect(page.locator('.error-state-line')).toHaveText('This invite link is incomplete.');
 });

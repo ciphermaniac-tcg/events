@@ -17,6 +17,7 @@ import { TournamentHero } from './Hero';
 import { refreshSession, session } from './session';
 import { SignIn } from './SignIn';
 import { ErrorState } from '@ciphermaniac/design/components/ErrorState';
+import { pageTitle } from '../../lib/title';
 
 export function StoreJoinPage() {
   const navigate = useNavigate();
@@ -39,6 +40,9 @@ export function StoreJoinPage() {
       ? t('Join {store} as a manager', { store: read.store })
       : t('Join {store} as staff', { store: read.store });
   };
+  createEffect(() => {
+    document.title = pageTitle(error() ? t('This invite didn’t work') : title());
+  });
   let tried = false;
   createEffect(() => {
     const token = params.invite;
