@@ -410,6 +410,30 @@ test('a store application starts from the league, prefilled, and sends what the 
   });
 });
 
+test('a store application in progress opens again as it was left after a reload, and is gone once sent', async ({
+  page
+}) => {
+  await mock(page);
+  await page.goto('/apply');
+  await lookUp(page);
+  await page.getByLabel('Why are you applying for this store?').selectOption('owner');
+  await page.getByRole('checkbox', { name: /certified/ }).check();
+  await page.getByLabel('Store name').fill('Combat Power Games');
+  await page.getByRole('button', { name: 'Add a league night' }).click();
+  await page.getByLabel('Note').fill('I own the store.');
+  await page.reload();
+  await expect(page.getByLabel('League ID or pokemon.com league page')).toHaveValue('6238620');
+  await expect(page.locator('.tm-apply-found')).toContainText('Combat Power Gaming');
+  await expect(page.getByLabel('Why are you applying for this store?')).toHaveValue('owner');
+  await expect(page.getByRole('checkbox', { name: /certified/ })).toBeChecked();
+  await expect(page.getByLabel('Store name')).toHaveValue('Combat Power Games');
+  await expect(page.getByLabel('League night 1 start')).toHaveValue('18:00');
+  await expect(page.getByLabel('Note')).toHaveValue('I own the store.');
+  await page.getByRole('button', { name: 'Send application' }).click();
+  await expect(page.locator('.tm-applicant')).toContainText('Application pending');
+  expect(await page.evaluate(() => sessionStorage.getItem('cm-store-application:acct-1'))).toBeNull();
+});
+
 test('typing another league after a lookup puts the form away until it is looked up', async ({ page }) => {
   await mock(page);
   await page.goto('/apply');

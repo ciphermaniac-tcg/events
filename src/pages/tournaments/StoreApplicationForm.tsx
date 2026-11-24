@@ -6,10 +6,11 @@
  * a store goes no further. Then why the applicant applies for the store, their
  * confirmation that they are certified, the store's details and weekly league
  * nights, and optionally a note. A refusal over the profile
- * or a pending Application rereads the account (`onStale`).
+ * or a pending Application rereads the account (`onStale`). What is typed
+ * is kept for the tab (`draftKey`), so a reload opens it again as it was left.
  */
 
-import { createSignal, For, Show } from 'solid-js';
+import { createEffect, createSignal, For, Show, untrack } from 'solid-js';
 import { EXPLANATION_MAX } from '../../../shared/accounts/applications';
 import {
   addressOf,
@@ -45,6 +46,43 @@ type Lookup =
   | { kind: 'unknown'; leagueId: string }
   | { kind: 'refused'; message: string };
 
+/** The lookup's league, once it is found or left to type: the form is open on it. */
+const leagueOf = (lookup: Lookup) => (lookup.kind === 'found' || lookup.kind === 'unknown' ? lookup : null);
+
+/** What is typed, as the tab keeps it (sessionStorage: it holds the store's private phone and email). */
+interface Draft {
+  lookup: Lookup;
+  details: StoreDetails;
+  timeZone: string;
+  relationship: Relationship | '';
+  certified: boolean;
+  nights: LeagueNight[];
+  explanation: string;
+}
+
+export const applicationDraftKey = (account: string) => `cm-store-application:${encodeURIComponent(account)}`;
+
+/** The draft kept under `key`; empty when there is none, or storage is off. */
+export function readApplicationDraft(key: string): Partial<Draft> {
+  try {
+    return (JSON.parse(sessionStorage.getItem(key) ?? '{}') as Partial<Draft> | null) ?? {};
+  } catch {
+    return {};
+  }
+}
+
+function keepDraft(key: string, draft: Draft | null) {
+  try {
+    if (draft) {
+      sessionStorage.setItem(key, JSON.stringify(draft));
+    } else {
+      sessionStorage.removeItem(key);
+    }
+  } catch {
+    // The form still works, kept only in memory.
+  }
+}
+
 /** What the locator found, as the applicant checks it against their store. */
 function Found(props: { league: LeagueFound }) {
   const details = () => detailsFromLeague(props.league);
@@ -61,7 +99,7 @@ function Found(props: { league: LeagueFound }) {
 
 /** The league field and its lookup; the answer goes to `onLookup`. */
 function LeagueField(props: { lookup: Lookup; onLookup: (lookup: Lookup) => void }) {
-  const [typed, setTyped] = createSignal('');
+  const [typed, setTyped] = createSignal(untrack(() => leagueOf(props.lookup)?.leagueId ?? ''));
   async function look() {
     const leagueId = readLeagueId(typed());
     if (!leagueId) {
@@ -90,8 +128,8 @@ function LeagueField(props: { lookup: Lookup; onLookup: (lookup: Lookup) => void
   /** Another league typed after a lookup puts the form away until that one is looked up. */
   function typing(value: string) {
     setTyped(readLeagueId(value) ?? value);
-    const current = props.lookup;
-    if ((current.kind === 'found' || current.kind === 'unknown') && readLeagueId(value) !== current.leagueId) {
+    const current = leagueOf(props.lookup);
+    if (current && readLeagueId(value) !== current.leagueId) {
       props.onLookup({ kind: 'idle' });
     }
   }
@@ -133,22 +171,38 @@ function LeagueField(props: { lookup: Lookup; onLookup: (lookup: Lookup) => void
   );
 }
 
-export function StoreApplicationForm(props: { onSent: (sent: MyApplication) => void; onStale: () => void }) {
-  const [lookup, setLookup] = createSignal<Lookup>({ kind: 'idle' });
-  const [details, setDetails] = createSignal<StoreDetails>(emptyDetails());
-  const [timeZone, setTimeZone] = createSignal(browserZone());
-  const [relationship, setRelationship] = createSignal<Relationship | ''>('');
-  const [certified, setCertified] = createSignal(false);
-  const [nights, setNights] = createSignal<LeagueNight[]>([]);
-  const [explanation, setExplanation] = createSignal('');
+export function StoreApplicationForm(props: {
+  draftKey: string;
+  onSent: (sent: MyApplication) => void;
+  onStale: () => void;
+}) {
+  const draft = untrack(() => readApplicationDraft(props.draftKey));
+  // A lookup that was on its way, or refused, starts over.
+  const [lookup, setLookup] = createSignal<Lookup>(
+    draft.lookup && leagueOf(draft.lookup) ? draft.lookup : { kind: 'idle' }
+  );
+  const [details, setDetails] = createSignal<StoreDetails>(draft.details ?? emptyDetails());
+  const [timeZone, setTimeZone] = createSignal(draft.timeZone ?? browserZone());
+  const [relationship, setRelationship] = createSignal<Relationship | ''>(draft.relationship ?? '');
+  const [certified, setCertified] = createSignal(draft.certified ?? false);
+  const [nights, setNights] = createSignal<LeagueNight[]>(draft.nights ?? []);
+  const [explanation, setExplanation] = createSignal(draft.explanation ?? '');
+  createEffect(() =>
+    keepDraft(props.draftKey, {
+      lookup: lookup(),
+      details: details(),
+      timeZone: timeZone(),
+      relationship: relationship(),
+      certified: certified(),
+      nights: nights(),
+      explanation: explanation()
+    })
+  );
   const [sending, setSending] = createSignal(false);
   const [checked, setChecked] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
 
-  const league = () => {
-    const current = lookup();
-    return current.kind === 'found' || current.kind === 'unknown' ? current : null;
-  };
+  const league = () => leagueOf(lookup());
   const known = () => {
     const current = lookup();
     return current.kind === 'found' ? current.league : null;
@@ -208,6 +262,7 @@ export function StoreApplicationForm(props: { onSent: (sent: MyApplication) => v
         },
         explanation().trim()
       );
+      keepDraft(props.draftKey, null);
       props.onSent(application);
     } catch (err) {
       setError(errorText(err));
