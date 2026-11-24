@@ -18,7 +18,9 @@ function LinksForm(props: { links: ProfileLinks }) {
   const action = createAction();
   const [touched, setTouched] = createSignal(false);
   const problem = (key: (typeof PROFILE_LINKS)[number]) =>
-    touched() && !validProfileLink(key, (links()[key] ?? '').trim()) ? t('Enter a valid HTTPS profile URL') : undefined;
+    touched() && !validProfileLink(key, (links()[key] ?? '').trim())
+      ? t('Enter a {site} link starting with https://', { site: t(PROFILE_LINK_LABELS[key]) })
+      : undefined;
   async function save(event: SubmitEvent) {
     event.preventDefault();
     setTouched(true);
@@ -32,7 +34,7 @@ function LinksForm(props: { links: ProfileLinks }) {
     }
   }
   return (
-    <form onSubmit={event => void save(event)} class='tm-profile-links-form'>
+    <form onSubmit={event => void save(event)} class='tm-profile-links-form' noValidate>
       <For each={PROFILE_LINKS}>
         {key => (
           <Field id={`profile-link-${key}`} label={t(PROFILE_LINK_LABELS[key])} error={problem(key)}>
