@@ -244,7 +244,7 @@ function PenaltySection(props: { seen: Seen }) {
         onRetry={() => void refetch()}
       >
         {() => (
-          <Show when={notes().length} fallback={<p class='muted'>{t('No penalty notes yet.')}</p>}>
+          <Show when={notes().length} fallback={<p class='muted'>{t('No penalties yet.')}</p>}>
             <ul class='tm-sheet-entries'>
               <For each={notes()}>
                 {note => (
