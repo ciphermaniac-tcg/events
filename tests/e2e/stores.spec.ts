@@ -701,6 +701,26 @@ test('store settings: staff change role, invite links show while the page is ope
   await expect(table.locator('tbody tr')).toHaveCount(2);
 });
 
+test('store settings: an invite link reads as a value to copy, with the pale edge of a field nobody types in', async ({
+  page
+}) => {
+  await mock(page, { user: MANAGER });
+  await page.goto('/stores/store-1/settings?section=staff');
+  await page.getByRole('button', { name: 'Invite staff' }).click();
+  const link = page.getByLabel('Staff invite link');
+  await link.blur();
+  await page.mouse.move(0, 0);
+  const [edge, rule] = await link.evaluate(field => {
+    const probe = document.createElement('span');
+    probe.style.borderColor = 'var(--rule)';
+    field.after(probe);
+    const colors = [getComputedStyle(field).borderTopColor, getComputedStyle(probe).borderTopColor];
+    probe.remove();
+    return colors;
+  });
+  expect(edge).toBe(rule);
+});
+
 test('store settings: a Manager can do nothing to the Owner’s row, or hand the store over', async ({ page }) => {
   await mock(page, { user: MANAGER });
   await page.goto('/stores/store-1/settings?section=staff');
