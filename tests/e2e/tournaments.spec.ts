@@ -612,8 +612,8 @@ test('sanctioned setup requires Play! Tools confirmation; local setup skips it @
   // Left empty, the name is the browser's to point at, so Create does not wait on it.
   await expect(create).toBeEnabled();
   await create.click();
-  await expect(page.getByRole('textbox', { name: 'Event name' })).toBeFocused();
-  await page.getByRole('textbox', { name: 'Event name' }).fill('Tuesday League');
+  await expect(page.getByRole('textbox', { name: 'Name', exact: true })).toBeFocused();
+  await page.getByRole('textbox', { name: 'Name', exact: true }).fill('Tuesday League');
   // A store that sanctions starts at a League Cup, which always is sanctioned.
   await expect(page.getByRole('combobox', { name: 'Event type', exact: true })).toHaveValue('cup');
   await expect(confirmation).not.toBeChecked();
@@ -626,8 +626,8 @@ test('sanctioned setup requires Play! Tools confirmation; local setup skips it @
   // Pressed unconfirmed, the browser points at the box.
   await create.click();
   await expect(confirmation).toBeFocused();
-  const reason = page.locator('.tm-setup-foot').getByText('Confirm the event is in Play! Tools to create it');
-  await expect(reason).toBeVisible();
+  // The box says what it needs, so no line under Create says it again.
+  await expect(page.locator('.tm-setup-foot .muted')).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Play! Tools', exact: true })).toHaveAttribute(
     'href',
     'https://play-tools.pokemon.com/'
@@ -641,9 +641,7 @@ test('sanctioned setup requires Play! Tools confirmation; local setup skips it @
   expect(submissions).toEqual([]);
   await confirmation.check();
   await expect(create).toBeEnabled();
-  await expect(reason).toHaveCount(0);
   await confirmation.uncheck();
-  await expect(reason).toBeVisible();
   await sanctioned.uncheck();
   await expect(confirmation).toHaveCount(0);
   await expect(create).toBeEnabled();
@@ -673,7 +671,7 @@ for (const [eventType, label] of [
     const submissions = await mockOrganizer(page);
     await page.goto('/');
     await page.getByRole('button', { name: 'Start an event' }).click();
-    await page.getByRole('textbox', { name: 'Event name' }).fill('Synthetic');
+    await page.getByRole('textbox', { name: 'Name', exact: true }).fill('Synthetic');
     const kinds = page.getByRole('combobox', { name: 'Event type', exact: true });
     await kinds.selectOption({ label });
     await expect(kinds).toHaveValue(eventType);
@@ -733,14 +731,14 @@ test('a sanctioned setup asks who pairs: TOM goes on from its file, and Cipherma
   await expect(page.getByRole('button', { name: /^Where rounds are paired and results are kept\./ })).toHaveCount(1);
   await pairing.getByRole('radio', { name: 'TOM', exact: true }).click();
   await expect(page.getByText('From the .tdf')).toBeVisible();
-  await expect(page.getByRole('textbox', { name: 'Event name' })).toHaveCount(0);
+  await expect(page.getByRole('textbox', { name: 'Name', exact: true })).toHaveCount(0);
   await expect(page.getByLabel('Format')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Create event' })).toHaveCount(0);
   await page.getByRole('button', { name: 'Link .tdf file' }).click();
   await expect(page.locator('.tm-setup-file')).toContainText('Fixture Challenge');
   await expect(pairing.getByRole('radio', { name: 'TOM', exact: true })).toHaveAttribute('aria-checked', 'true');
   await pairing.getByRole('radio', { name: 'Ciphermaniac', exact: true }).click();
-  await expect(page.getByRole('textbox', { name: 'Event name' })).toBeVisible();
+  await expect(page.getByRole('textbox', { name: 'Name', exact: true })).toBeVisible();
   await expect(pairing.getByRole('radio', { name: 'Ciphermaniac', exact: true })).toHaveAttribute(
     'aria-checked',
     'true'
@@ -758,7 +756,7 @@ test('a sanctioned setup narrowed past where TOM runs goes back to pairing here'
   await expect(page.getByRole('button', { name: 'Create event' })).toHaveCount(0);
   await page.setViewportSize({ width: 600, height: 800 });
   await expect(pairing).toHaveCount(0);
-  await expect(page.getByRole('textbox', { name: 'Event name' })).toBeVisible();
+  await expect(page.getByRole('textbox', { name: 'Name', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Create event' })).toBeVisible();
 });
 
@@ -1862,14 +1860,14 @@ test('setup recovers after cancel and reload @mobile', async ({ page }) => {
   const submissions = await mockOrganizer(page);
   await page.goto('/');
   await page.getByRole('button', { name: 'Start an event' }).click();
-  await page.getByRole('textbox', { name: 'Event name' }).fill('Recovered setup');
+  await page.getByRole('textbox', { name: 'Name', exact: true }).fill('Recovered setup');
   await page.getByRole('combobox', { name: 'Event type', exact: true }).selectOption('local');
   await page.locator('#setup-starts').fill('2026-10-18T12:00');
   await page.locator('#setup-fee').fill('12.5');
   await page.getByRole('button', { name: 'Cancel', exact: true }).click();
   await page.reload();
   await page.getByRole('button', { name: 'Start an event' }).click();
-  await expect(page.getByRole('textbox', { name: 'Event name' })).toHaveValue('Recovered setup');
+  await expect(page.getByRole('textbox', { name: 'Name', exact: true })).toHaveValue('Recovered setup');
   await expect(page.locator('#setup-starts')).toHaveValue('2026-10-18T12:00');
   await expect(page.locator('#setup-fee')).toHaveValue('12.5');
   await page.getByRole('button', { name: 'Create event' }).click();
@@ -1883,7 +1881,7 @@ test('setup offers each set’s Prerelease as a format', async ({ page }) => {
   const submissions = await mockOrganizer(page);
   await page.goto('/');
   await page.getByRole('button', { name: 'Start an event' }).click();
-  await page.getByRole('textbox', { name: 'Event name' }).fill('Delta Reign Prerelease');
+  await page.getByRole('textbox', { name: 'Name', exact: true }).fill('Delta Reign Prerelease');
   await page.getByRole('combobox', { name: 'Event type', exact: true }).selectOption('prerelease');
   const format = page.locator('#setup-format');
   await expect(format.locator('optgroup[label="Prerelease"] option').first()).toHaveText('Delta Reign Prerelease');
@@ -1925,13 +1923,14 @@ test('community setup shows an occupied date before creation @mobile', async ({ 
   );
   await page.goto('/');
   await page.getByRole('button', { name: 'Start an event' }).click();
-  await page.getByRole('textbox', { name: 'Event name' }).fill('Next event');
+  await page.getByRole('textbox', { name: 'Name', exact: true }).fill('Next event');
   await page.locator('#setup-starts').fill('2026-10-18T12:00');
-  await expect(page.getByText('One community event per date', { exact: false })).toBeVisible();
-  await expect(page.getByText('An event already uses Sun, Oct 18.', { exact: false })).toBeVisible();
+  await expect(page.getByRole('status')).toHaveText('You already have an event on Sun, Oct 18.');
   await expect(page.getByRole('button', { name: 'Create event' })).toBeDisabled();
   await page.locator('#setup-starts').fill('2026-10-19T12:00');
   await expect(page.getByRole('button', { name: 'Create event' })).toBeEnabled();
+  // Off a taken date the form says nothing of the limits.
+  await expect(page.locator('.tm-setup [role="status"]')).toHaveCount(0);
 });
 
 test('successful creation clears the setup draft', async ({ page }) => {
@@ -1943,13 +1942,13 @@ test('successful creation clears the setup draft', async ({ page }) => {
   );
   await page.goto('/');
   await page.getByRole('button', { name: 'Start an event' }).click();
-  await page.getByRole('textbox', { name: 'Event name' }).fill('Created event');
+  await page.getByRole('textbox', { name: 'Name', exact: true }).fill('Created event');
   await page.getByRole('combobox', { name: 'Event type', exact: true }).selectOption('local');
   await page.getByRole('button', { name: 'Create event' }).click();
   await expect(page).toHaveURL(new RegExp(`/host/${CODE}`));
   await page.goto('/');
   await page.getByRole('button', { name: 'Start an event' }).click();
-  await expect(page.getByRole('textbox', { name: 'Event name' })).toHaveValue('');
+  await expect(page.getByRole('textbox', { name: 'Name', exact: true })).toHaveValue('');
   await expect(page.getByRole('combobox', { name: 'Event type', exact: true })).toHaveValue('cup');
 });
 
@@ -2269,7 +2268,7 @@ test('a store’s setup starts in its zone and asks no venue: the store is where
   await expect(page.getByRole('combobox', { name: 'Time zone' })).toHaveCount(0);
   await expect(page.getByRole('textbox', { name: 'Venue' })).toHaveCount(0);
   await expect(page.getByRole('textbox', { name: 'Address' })).toHaveCount(0);
-  await page.getByRole('textbox', { name: 'Event name' }).fill('Sunday Cup');
+  await page.getByRole('textbox', { name: 'Name', exact: true }).fill('Sunday Cup');
   await page.getByRole('checkbox', { name: 'I’ve created this event in Play! Tools' }).check();
   await page.getByRole('button', { name: 'Create event' }).click();
   await expect(page.locator('.tm-error')).toHaveText('Fixture submission');
@@ -2289,7 +2288,7 @@ test('a community event’s setup asks an optional venue and address', async ({ 
   );
   await page.goto('/');
   await page.getByRole('button', { name: 'Start an event' }).click();
-  await page.getByRole('textbox', { name: 'Event name' }).fill('Thursday Night Local');
+  await page.getByRole('textbox', { name: 'Name', exact: true }).fill('Thursday Night Local');
   await expect(page.getByRole('checkbox', { name: 'Sanctioned', exact: true })).toHaveCount(0);
   await page.getByRole('textbox', { name: 'Venue' }).fill('Test Games');
   await page.getByRole('button', { name: 'Create event' }).click();
