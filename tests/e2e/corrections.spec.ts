@@ -121,7 +121,6 @@ test('the organizer corrects a round 1 result during round 2, after seeing what 
   const table1 = t.pods[0]!.rounds[0]!.matches.find(m => m.table === 1)!;
   const [winner, loser] = [table1.p1, table1.p2!].map(id => t.players.find(p => p.id === id)!.firstName);
   const sent = await mockConsole(page, t, 'organizer');
-  await expect(page.getByText('Round 1 can be corrected until round 3 is paired.')).toBeVisible();
 
   await page.getByRole('button', { name: 'More for table 1' }).click();
   await page.getByRole('button', { name: 'Correct result' }).click();
@@ -245,20 +244,17 @@ test('once round 2 has a result in, a correction keeps its pairings and offers n
   expect(sent.commands).toEqual([]);
 });
 
-test('staff who cannot approve are told who can, and get no correction to make', async ({ page }) => {
+test('staff who cannot approve get no correction to make', async ({ page }) => {
   await mockConsole(page, inRound2(), null);
-  await expect(
-    page.getByText('Round 1 can be corrected until round 3 is paired, by the organizer or head judge.')
-  ).toBeVisible();
+  await expect(page.locator('.tm-matches tbody tr').first()).toBeVisible();
   await expect(page.getByRole('button', { name: 'More for table 1' })).toHaveCount(0);
 });
 
-test('a round past the window says why it is locked', async ({ page }) => {
+test('a round past the window says it is locked in its bar, with no box above it', async ({ page }) => {
   await mockConsole(page, runCommands(reportAll(inRound2()), { type: 'pairRound', pod: 'masters' }), 'organizer');
   await page.getByRole('button', { name: 'Previous round' }).click();
-  await expect(
-    page.getByText('Round 1 can no longer be corrected. Its records locked when round 3 was paired.')
-  ).toBeVisible();
+  await expect(page.locator('.tm-round-state')).toHaveText('Complete · Locked');
+  await expect(page.locator('.tm-strip')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'More for table 1' })).toHaveCount(0);
 });
 
