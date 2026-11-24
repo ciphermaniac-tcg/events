@@ -156,6 +156,8 @@ test('the store application sends with the note, and asks for no file @mobile', 
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Run events');
   await openStoreForm(page);
   const send = page.getByRole('button', { name: 'Send application' });
+  // One filled button in the view: Send, with the community row's gone quiet.
+  await expect(page.locator('.btn-primary')).toHaveText(['Send application']);
   await expect(page.locator('input[type=file]')).toHaveCount(0);
   await page.getByLabel('Note').fill('I run the Thursday league.');
   await expect(page.locator('.tm-apply-count')).toHaveText('26 / 2000');
