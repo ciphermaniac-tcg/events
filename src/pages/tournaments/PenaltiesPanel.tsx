@@ -295,7 +295,7 @@ function NoteForm(props: FormProps) {
       </label>
       <span class='tm-row-actions tm-penalty-save'>
         <button type='submit' class='btn btn-primary' disabled={props.saving}>
-          {props.draft.replaces ? t('Save edit') : t('Save note')}
+          {props.draft.replaces ? t('Save edit') : t('Save penalty')}
         </button>
         <Show when={props.draft.replaces}>
           <button type='button' class='btn btn-ghost' onClick={() => props.onCancel()}>
@@ -304,7 +304,7 @@ function NoteForm(props: FormProps) {
         </Show>
       </span>
       <Show when={props.draft.penalty !== '' && DECIDING_PENALTIES.has(props.draft.penalty as Penalty)}>
-        <p class='muted tm-penalty-wide'>{t('A note only. Enter the result or disqualification yourself.')}</p>
+        <p class='muted tm-penalty-wide'>{t('Log only. Enter the match loss or disqualification separately.')}</p>
       </Show>
       <Show when={props.error}>
         {error => (
@@ -702,8 +702,7 @@ export function PenaltiesPanel(props: {
       <Show when={!props.manage.watching}>
         <section class='tm-box'>
           <div class='tm-box-bar'>
-            <strong>{draft().replaces ? t('Edit note') : t('Record a penalty')}</strong>
-            <span class='muted'>{t('Staff only')}</span>
+            <strong>{draft().replaces ? t('Edit note') : t('Add penalty')}</strong>
           </div>
           <div class='tm-box-bar'>
             <NoteForm
@@ -744,7 +743,7 @@ export function PenaltiesPanel(props: {
         <LogState
           failed={notes.failed()}
           loading={notes.loading()}
-          empty={lines().length ? null : notes.standing().length ? t('No notes match.') : t('No penalty notes yet.')}
+          empty={lines().length ? null : notes.standing().length ? t('No notes match.') : t('No penalties yet.')}
           onRetry={notes.retry}
         >
           <Log
