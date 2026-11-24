@@ -54,6 +54,23 @@ test('an Admin watching sees the console with its controls off', async ({ page }
   await expectControlsOff(page.locator('fieldset.tm-readonly'));
 });
 
+test('a watching Admin’s fields read as off: no fill, a pale edge, muted text', async ({ page }) => {
+  await watch(page, runCommands(emptyTournament({ name: 'Friday League' }), ...adds));
+  await page.getByRole('tab', { name: 'Settings' }).click();
+  const name = page.getByRole('textbox', { name: 'Event name' });
+  await expect(name).toBeDisabled();
+  const look = await name.evaluate(el => {
+    const style = getComputedStyle(el);
+    const probe = document.createElement('span');
+    probe.style.color = 'var(--muted)';
+    el.parentElement!.append(probe);
+    const muted = getComputedStyle(probe).color;
+    probe.remove();
+    return { fill: style.backgroundColor, cursor: style.cursor, text: style.color, muted };
+  });
+  expect(look).toMatchObject({ fill: 'rgba(0, 0, 0, 0)', cursor: 'not-allowed', text: look.muted });
+});
+
 test('an Admin watching on a phone sees the round clock and a late player, with nothing to press', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 800 });
   const late: Command = { type: 'addPlayer', player: { firstName: 'Late', lastName: 'Test' } };
