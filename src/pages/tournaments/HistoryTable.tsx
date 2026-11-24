@@ -7,7 +7,7 @@
 import { For, Show } from 'solid-js';
 import { isBye } from '../../../shared/tournament/standings';
 import type { Pod } from '../../../shared/tournament/types';
-import { matchHistory } from '../../lib/tournament/present';
+import { matchHistory, roundLabel } from '../../lib/tournament/present';
 import { t } from '../../lib/i18n';
 import { DeckIcons } from './DeckIcons';
 import { RoundMarks } from './RoundMarks';
@@ -22,6 +22,11 @@ export function HistoryTable(props: {
   onPlayer: (id: string) => void;
 }) {
   const history = () => matchHistory(props.pod, props.playerId);
+  // A top cut round by its name, as the console's round picker gives it.
+  const label = (number: number) => {
+    const round = props.pod.rounds.find(r => r.number === number);
+    return round?.kind === 'elimination' ? roundLabel(round, props.pod) : number;
+  };
   return (
     <div class='tm-box'>
       <table class='data tm-history'>
@@ -39,7 +44,7 @@ export function HistoryTable(props: {
           <For each={history()}>
             {row => (
               <tr>
-                <td class='num muted-cell tm-table-col'>{row.round}</td>
+                <td class='num muted-cell tm-table-col'>{label(row.round)}</td>
                 <td>
                   <Show
                     when={row.opponent}
