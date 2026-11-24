@@ -151,7 +151,8 @@ function NightsSection(props: {
       <h2 class='tm-subhead tm-box-head' id='store-nights-head'>
         {t('Every week')}
       </h2>
-      <div class='tm-box tm-store-pane'>
+      {/* Empty, the list's button sits under its heading, with no box around it alone. */}
+      <div class={nights().length > 0 ? 'tm-box tm-store-pane' : undefined}>
         <WeeklyNights
           nights={nights()}
           country={props.store.country}
@@ -160,7 +161,7 @@ function NightsSection(props: {
         />
       </div>
       <h2 class='tm-subhead tm-box-head'>{t('Off nights and changes')}</h2>
-      <div class='tm-box tm-store-pane'>
+      <div class={exceptions().length > 0 ? 'tm-box tm-store-pane' : undefined}>
         <NightExceptions exceptions={exceptions()} nights={nights()} today={today()} onChange={setExceptions} />
       </div>
       <SaveBar
@@ -342,12 +343,11 @@ function Settings(props: { id: string }) {
                   ·
                 </span>
                 <A href={`/stores/${answer().store.id}`}>{t('Store page')}</A>
+                <span class='tm-store-dot' aria-hidden='true'>
+                  ·
+                </span>
+                <A href={`/?${new URLSearchParams({ new: answer().store.id }).toString()}`}>{t('Start an event')}</A>
               </>
-            }
-            action={
-              <A class='btn btn-primary' href={`/?${new URLSearchParams({ new: answer().store.id }).toString()}`}>
-                {t('Start an event')}
-              </A>
             }
           />
           <div class='tm-side-layout'>
@@ -357,7 +357,7 @@ function Settings(props: { id: string }) {
                 <NightsSection store={answer().store} onSaved={store => saved(store)} onDirty={edit('nights')} />
               </Pane>
               <Pane of='staff' current={section()} opened={opened()}>
-                <StoreStaff storeId={answer().store.id} storeName={answer().store.name} />
+                <StoreStaff storeId={answer().store.id} />
               </Pane>
               <Pane of='displays' current={section()} opened={opened()}>
                 <StoreDisplays storeId={answer().store.id} />
