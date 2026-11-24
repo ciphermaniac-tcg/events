@@ -2406,6 +2406,48 @@ test('Escape closes the extension menu before the mobile result sheet @mobileOnl
   await expect(sheet).toHaveCount(0);
 });
 
+test('Back closes the extension menu, then the mobile result sheet, and stays on the page @mobileOnly', async ({
+  page
+}) => {
+  // Back on Android is a close request to the latest close watcher still open, as requestClose makes one.
+  await page.addInitScript(() => {
+    interface Watcher extends EventTarget {
+      requestClose(): void;
+      destroy(): void;
+    }
+    const scope = window as unknown as { CloseWatcher: new () => Watcher; back: () => void };
+    const live: Watcher[] = [];
+    const drop = (watcher: Watcher) => live.includes(watcher) && live.splice(live.indexOf(watcher), 1);
+    scope.CloseWatcher = class extends scope.CloseWatcher {
+      constructor() {
+        super();
+        live.push(this);
+        this.addEventListener('close', () => drop(this));
+      }
+      override destroy() {
+        drop(this);
+        super.destroy();
+      }
+    };
+    scope.back = () => live.at(-1)?.requestClose();
+  });
+  await mockConsole(page, event(4, 0, true), settingsOf({}));
+  const url = page.url();
+  await page.locator('.tm-matches tbody tr:not(.tm-group-row)').first().click();
+  const sheet = page.getByRole('dialog', { name: 'Result, table 1', exact: true });
+  const more = sheet.getByRole('button', { name: 'More for table 1', exact: true });
+  await more.click();
+  await expect(sheet.getByRole('button', { name: 'Time extension', exact: true })).toBeVisible();
+  const back = () => page.evaluate(() => (window as unknown as { back: () => void }).back());
+  await back();
+  await expect(sheet.getByRole('button', { name: 'Time extension', exact: true })).toHaveCount(0);
+  await expect(sheet).toBeVisible();
+  await expect(more).toBeFocused();
+  await back();
+  await expect(sheet).toHaveCount(0);
+  expect(page.url()).toBe(url);
+});
+
 for (const size of [
   { width: 320, height: 480 },
   { width: 750, height: 342 },

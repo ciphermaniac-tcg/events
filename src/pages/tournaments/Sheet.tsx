@@ -2,13 +2,14 @@
  * A player's sheet, as the public page and the console both open one: at the
  * side on desktop, from the bottom on a phone, over a scrim that closes it.
  * Focus goes into the sheet, stays there, and goes back to what opened it;
- * Escape closes it, once whatever the sheet opened over itself (a dialog, a
- * menu, a question asked in place) has had it. The page behind holds still
- * while it is open. The head names the player with a muted line under the
+ * Escape or Back closes it, once whatever the sheet opened over itself (a
+ * dialog, a menu, a question asked in place) has had it. The page behind holds
+ * still while it is open. The head names the player with a muted line under the
  * name; the body scrolls, and the foot, when there is one, stays put.
  */
 
 import { children, type JSX, onCleanup, onMount, Show } from 'solid-js';
+import { closeOnBack } from '../../lib/closeOnBack';
 import { inertOutside, keepTabIn } from '../../lib/focusTrap';
 import { t } from '../../lib/i18n';
 import '../../styles/pages/tournament-sheet.css';
@@ -52,6 +53,7 @@ export function Sheet(props: {
   onMount(() => {
     document.addEventListener('keydown', onKey);
     document.documentElement.style.overflow = 'hidden';
+    onCleanup(closeOnBack(() => props.onClose()));
     if (sheet) {
       live = inertOutside(sheet, scrim ? [scrim] : []);
     }

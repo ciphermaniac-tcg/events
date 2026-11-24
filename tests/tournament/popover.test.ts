@@ -41,6 +41,7 @@ function setup(firstControl: boolean) {
   const trigger = { focus: () => focused.push('trigger') };
   const doc = target({});
   Object.defineProperty(globalThis, 'document', { configurable: true, value: doc });
+  Object.defineProperty(globalThis, 'window', { configurable: true, value: globalThis });
   let closed = 0;
   const release = holdPopover({
     close: () => closed++,
@@ -122,5 +123,46 @@ test('letting go removes every listener it added', () => {
     assert.equal(popover.closed(), 0);
   } finally {
     Reflect.deleteProperty(globalThis, 'document');
+  }
+});
+
+test('Back closes it through a close watcher and hands focus back; Escape stays the popover’s own', async () => {
+  const watchers: { onclose: (() => void) | null; destroyed: boolean; destroy: () => void }[] = [];
+  Object.defineProperty(globalThis, 'CloseWatcher', {
+    configurable: true,
+    value: class {
+      onclose: (() => void) | null = null;
+      destroyed = false;
+      constructor() {
+        watchers.push(this);
+      }
+      destroy() {
+        this.destroyed = true;
+      }
+    }
+  });
+  try {
+    const popover = setup(true);
+    await settle();
+    watchers[0]?.onclose?.();
+    assert.equal(popover.closed(), 1);
+    assert.deepEqual(popover.focused, ['control', 'trigger']);
+    let cancelled = 0;
+    const escape = (target: object) => ({ key: 'Escape', target, preventDefault: () => cancelled++ });
+    popover.doc.fire('keydown', escape(popover.dialog));
+    assert.equal(cancelled, 0);
+    popover.doc.fire('keydown', escape(popover.inside));
+    assert.equal(cancelled, 1);
+    popover.release();
+    assert.equal(watchers[0]?.destroyed, true);
+    assert.equal(popover.doc.listeners.get('keydown')?.size, 0);
+    // The Android app closes layers from its own Back, so there no watcher is made.
+    Object.defineProperty(globalThis, '__cmBack', { configurable: true, value: () => false });
+    setup(true).release();
+    assert.equal(watchers.length, 1);
+  } finally {
+    Reflect.deleteProperty(globalThis, 'document');
+    Reflect.deleteProperty(globalThis, 'CloseWatcher');
+    Reflect.deleteProperty(globalThis, '__cmBack');
   }
 });
