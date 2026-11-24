@@ -2527,6 +2527,8 @@ test.describe('a viewer in another time zone', () => {
     await page.goto(`/t/${CODE}`);
     await expect(page.locator('.tm-logistics')).toContainText('11:30 AM');
     await expect(page.locator('.tm-logistics')).not.toContainText('Your time');
+    // The heading already says when it starts.
+    await expect(page.locator('.tm-logistics')).not.toContainText('Starts');
   });
 });
 

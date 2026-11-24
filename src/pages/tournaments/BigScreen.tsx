@@ -540,7 +540,6 @@ export function BigScreen(props: { view: TournamentView; liveData?: LiveData; on
       {
         pending: props.view.pending,
         finished: props.view.settings.finished,
-        firstRound: firstRoundTime(props.view.settings.startsAt),
         roundCap: roundCapOf(props.view),
         // The division the room most likely asks about: the clock nearest its end (see clockOrder).
         prefer: [leadDivision(pods(), props.view.pending, now())]
