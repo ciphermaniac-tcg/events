@@ -16,7 +16,7 @@ import { msg, t } from '../../lib/i18n';
 export const VISIBILITY_LABELS: Record<DeckVisibility, string> = {
   always: msg('Shown during the event'),
   after: msg('Shown once the event ends'),
-  off: msg('Disabled')
+  off: msg('Off')
 };
 
 /**
@@ -61,8 +61,8 @@ export function Toggle(props: {
   return (
     <Segmented
       options={[
-        { value: 'on', label: props.on ?? t('Enabled') },
-        { value: 'off', label: props.off ?? t('Disabled') }
+        { value: 'on', label: props.on ?? t('On') },
+        { value: 'off', label: props.off ?? t('Off') }
       ]}
       selected={props.value ? 'on' : 'off'}
       onSelect={value => props.onChange(value === 'on')}

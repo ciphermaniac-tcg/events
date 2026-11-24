@@ -42,6 +42,7 @@ import { ErrorLine, ResourceFallback } from './Field';
 import { emptyProfile, focusFirstProblem, ProfileFields } from './ProfileFields';
 import { session, setSession } from './session';
 import { SettingRow, Toggle } from './SettingControls';
+import { Segmented } from '@ciphermaniac/design/components/Segmented';
 import { SettingInfo } from './SettingInfo';
 import { SignIn } from './SignIn';
 import type { FormPage } from './PasswordForm';
@@ -393,10 +394,15 @@ function HistorySection(props: { user: Me }) {
           info={<SettingInfo text={t('Enables a public profile page to share your performance at events.')} />}
         >
           <span class='tm-set-inline' aria-busy={action.busy()}>
-            <Toggle
-              label={t('Public profile')}
-              value={props.user.publicProfile}
-              onChange={on => void change('publicProfile', () => setPublicProfile(on))}
+            {/* Off first: a profile is private until its account shares it. */}
+            <Segmented
+              options={[
+                { value: 'off', label: t('Off') },
+                { value: 'on', label: t('On') }
+              ]}
+              selected={props.user.publicProfile ? 'on' : 'off'}
+              onSelect={value => void change('publicProfile', () => setPublicProfile(value === 'on'))}
+              ariaLabel={t('Public profile')}
             />
           </span>
         </SettingRow>
