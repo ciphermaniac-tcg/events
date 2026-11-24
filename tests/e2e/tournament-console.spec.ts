@@ -2198,7 +2198,7 @@ test('a row’s menu opened just above a phone’s tab bar opens upward, clear o
 test('the console leads back to the dashboard’s Organizing tab, above the event’s name @mobile', async ({ page }) => {
   await mockConsole(page, event(8, 0, true), settingsOf({}));
   const trail = page.getByRole('navigation', { name: 'Breadcrumb' });
-  await expect(trail.getByRole('link', { name: 'Your events' })).toHaveAttribute('href', '/?tab=organizing');
+  await expect(trail.getByRole('link', { name: 'Home' })).toHaveAttribute('href', '/?tab=organizing');
   await expect(trail.locator('[aria-current="page"]')).toHaveText(
     await page.locator('.tm-console-hero h1').innerText()
   );
@@ -3611,7 +3611,7 @@ test('a round paired as the organizer leaves the console changes nothing where t
   });
   await page.getByRole('tab', { name: 'Settings', exact: true }).click();
   await page.getByRole('button', { name: 'Pair round 2' }).click();
-  await page.getByRole('link', { name: 'Your events' }).click();
+  await page.getByRole('navigation', { name: 'Breadcrumb' }).getByRole('link', { name: 'Home' }).click();
   await expect(page).toHaveURL('/?tab=organizing');
   const sent = page.waitForResponse(`**/api/tournaments/${CODE}/commands`);
   answer();
