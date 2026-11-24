@@ -55,6 +55,7 @@ import {
   shownDecks,
   shownOutcome,
   statusParts,
+  swissPaired,
   tableQuery,
   unseated
 } from '../../src/lib/tournament/present.ts';
@@ -857,4 +858,11 @@ test('says which other division a name search finds, and not when the shown one 
   assert.equal(foundElsewhere(pods, masters, names, 'nobody'), null);
   assert.equal(foundElsewhere(pods, masters, names, ' '), null);
   assert.equal(foundElsewhere(pods, masters, names, '12'), null);
+});
+
+test('a top cut is due once the last planned Swiss round is paired, not before', () => {
+  const event = { mode: 'swiss' as const, settings: { ...DEFAULT_SETTINGS, roundCap: 2 } };
+  assert.equal(swissPaired({ ...pod, rounds: pod.rounds.slice(0, 1) }, event, CHALLENGE), false);
+  assert.equal(swissPaired({ ...pod, rounds: pod.rounds.slice(0, 2) }, event, CHALLENGE), true);
+  assert.equal(swissPaired({ ...pod, rounds: [] }, event, CHALLENGE), false, 'nothing paired, nothing due');
 });
