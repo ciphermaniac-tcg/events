@@ -460,16 +460,24 @@ export const storeEventsQuery = (db: D1Like, storeId: string, pairedRounds: stri
     )
     .bind(storeId);
 
-/** A store's events on the site that have not ended, as its page lists them, from what `storeEventsQuery` found. */
+/** When an event starts, as text that sorts: its start time, or its MM/DD/YYYY day turned year first. */
+const startKey = (event: StoreEvent) => event.startsAt || event.startDate.replace(/^(\d+)\/(\d+)\/(\d+)$/u, '$3-$1-$2');
+
+/**
+ * A store's events on the site that have not ended, as its page lists them:
+ * soonest first, from what `storeEventsQuery` found.
+ */
 export function storeEvents(found: { results?: unknown[] } | undefined): StoreEvent[] {
-  return rows<StoreEventRow>(found).map(row => ({
-    code: row.code,
-    name: row.name ?? row.code,
-    startDate: startDateOf(row.starts_at ?? '', row.start_date ?? ''),
-    startsAt: row.starts_at ?? '',
-    sanctioned: row.mode === 'tom' || row.sanctioned !== 0,
-    status: row.rounds > 0 ? 'live' : 'upcoming'
-  }));
+  return rows<StoreEventRow>(found)
+    .map((row): StoreEvent => ({
+      code: row.code,
+      name: row.name ?? row.code,
+      startDate: startDateOf(row.starts_at ?? '', row.start_date ?? ''),
+      startsAt: row.starts_at ?? '',
+      sanctioned: row.mode === 'tom' || row.sanctioned !== 0,
+      status: row.rounds > 0 ? 'live' : 'upcoming'
+    }))
+    .sort((a, b) => startKey(a).localeCompare(startKey(b)));
 }
 
 interface PastEventRow {

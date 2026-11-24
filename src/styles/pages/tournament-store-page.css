@@ -188,10 +188,14 @@ body[data-mode='dark'] .tm-store-tile {
   font-size: var(--text-base);
 }
 .tm-storepage-history.is-past li {
-  grid-template-columns: 110px minmax(0, 1fr) 90px 180px;
+  grid-template-columns: 150px minmax(0, 1fr) 90px 180px;
 }
 .tm-storepage-history span {
   overflow-wrap: anywhere;
+}
+/* A date stays on one line, so both lists' names start at the same edge. */
+.tm-storepage-history .tm-num {
+  white-space: nowrap;
 }
 .tm-storepage-month {
   margin: var(--space-4) 0 2px;
