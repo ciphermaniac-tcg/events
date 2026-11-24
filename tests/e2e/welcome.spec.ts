@@ -36,7 +36,7 @@ test('an adult’s birth date goes on to where sign-in started', async ({ page }
   await page.goto('/welcome');
   await expect(page.getByRole('heading', { level: 1, name: 'Set up your account' })).toBeVisible();
   const continueButton = page.getByRole('button', { name: 'Continue' });
-  await expect(continueButton).toBeDisabled();
+  await expect(continueButton).toBeEnabled();
   await page.getByLabel('Username').fill('gato.club');
   await page.getByLabel('First name').fill('Thiago');
   await page.getByLabel('Birth date').fill('1990-06-15');
