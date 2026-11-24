@@ -1429,6 +1429,7 @@ test('a list this device held before is not offered to the signed-in account of 
     submittedAt: 0,
     problems: [],
     registered: true,
+    openChecks: [],
     fromList: true,
     locked: true
   };
@@ -1516,6 +1517,7 @@ async function mockOwnList(page: Page, sanctioned: boolean) {
     submittedAt: 0,
     problems: [],
     registered: true,
+    openChecks: [],
     fromList: true,
     locked: true
   });
@@ -1659,6 +1661,7 @@ async function mockKeptList(
     submittedAt: 0,
     problems: [],
     registered: true,
+    openChecks: [],
     fromList: false,
     locked: true
   };

@@ -111,21 +111,25 @@ export type SignInOffer = Pick<Session, 'providers' | 'clerkKey'>;
 
 type ListOwner = Pick<PlayerProfile, 'popId' | 'firstName' | 'lastName'>;
 
-/** What proves a list is the asker's: the device's token, or a sanctioned event's birth year. */
+/**
+ * What proves a list is the asker's: the device's token, or a sanctioned
+ * event's birth year. `own` asks for the asker's own list and nothing else, as
+ * the event page reads it.
+ */
 interface ListProof {
   token?: string;
   birthYear?: string;
+  own?: '1';
 }
 
 /** Who a list belongs to, as a query string: the Player ID, or the name at an unsanctioned event; then its proof. */
 function listOwner(profile: ListOwner, proof: ListProof = {}): string {
   // All three go: the server reads the Player ID at a sanctioned event and the name at any other.
   const query = new URLSearchParams({ popId: profile.popId, firstName: profile.firstName, lastName: profile.lastName });
-  if (proof.token) {
-    query.set('token', proof.token);
-  }
-  if (proof.birthYear) {
-    query.set('birthYear', proof.birthYear);
+  for (const [name, value] of Object.entries(proof) as [string, string | undefined][]) {
+    if (value) {
+      query.set(name, value);
+    }
   }
   return query.toString();
 }

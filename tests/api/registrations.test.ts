@@ -121,6 +121,32 @@ test('a distinct new name is still added, and an existing unambiguous name updat
   );
 });
 
+test('a list says which checks staff have yet to tick for its player', async () => {
+  const { owner, code } = await casualEvent();
+  await settle(code, owner, { entryFee: 5 });
+  const ada = { firstName: 'Ada', lastName: 'Byron' };
+  const sent = await register(code, ada, { mode: 'paper', deck: '' });
+  assert.deepEqual(sent.json.decklist.openChecks, ['paid', 'list'], 'a paper list waits for staff, and the fee');
+  assert.deepEqual((await register(code, { firstName: 'Grace', lastName: 'Hopper' })).json.decklist.openChecks, [
+    'paid'
+  ]);
+  const id = (await rosterOf(code, owner)).find(player => player.firstName === 'Ada')?.id;
+  const tick = (mark: string) =>
+    hit(checkins.onRequestPut as Handler, '/checkins', at(code), {
+      method: 'PUT',
+      cookie: owner,
+      body: { playerId: id, mark, on: true }
+    });
+  const open = async () => {
+    const lists = await hit(decklists.onRequestGet as Handler, '/decklists', at(code), { cookie: owner });
+    return lists.json.decklists.find((list: { firstName: string }) => list.firstName === 'Ada').openChecks;
+  };
+  assert.equal((await tick('list')).status, 200);
+  assert.deepEqual(await open(), ['paid'], 'the list in hand, the fee is all that is left');
+  await tick('paid');
+  assert.deepEqual(await open(), []);
+});
+
 test('only the device that owns an unsanctioned registration renames or withdraws it', async () => {
   const { owner, code } = await casualEvent();
   const sent = await register(code, { firstName: 'Grace', lastName: 'Hopper' });

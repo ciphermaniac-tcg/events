@@ -444,6 +444,33 @@ test('signed-in sanctioned lookups spend from the same allowance per event and a
   assert.equal((await lookup(code, clientQuery('4242'), '192.0.2.2', player)).status, 200, 'another address');
 });
 
+test('the page’s own reads spend no lookup allowance, and say nothing of a registration they do not own', async () => {
+  const { code, token } = await eventWithList();
+  for (let index = 0; index < 300; index++) {
+    const read = await lookup(code, clientQuery('4242', { token, own: '1' }), '192.0.2.1');
+    assert.equal(read.status, 200, `read ${index + 1}`);
+    assert.equal(read.json.mine?.firstName, 'Nia');
+  }
+  const byToken = await lookup(code, clientQuery('', { token, own: '1' }), '192.0.2.1');
+  assert.equal(byToken.json.mine?.firstName, 'Nia', 'the token alone finds it too');
+  assert.equal((await lookup(code, clientQuery('9999'), '192.0.2.1')).status, 200, 'a lookup still has its allowance');
+
+  // Someone else's Player ID, with a wrong token, a birth year or a signed-in account that isn't theirs, reads
+  // exactly as an ID nobody registered.
+  const player = await signIn('Player');
+  const reads = [
+    await lookup(code, clientQuery('4242', { own: '1' })),
+    await lookup(code, clientQuery('4242', { token: 'not-this-device-token', own: '1' })),
+    await lookup(code, clientQuery('4242', { birthYear: '2001', own: '1' })),
+    await lookup(code, clientQuery('4242', { own: '1' }), undefined, player),
+    await lookup(code, clientQuery('9999', { own: '1' }))
+  ];
+  for (const read of reads) {
+    assert.equal(read.headers.get('cache-control'), 'no-store');
+    assert.deepEqual(read.json, { decklists: [], known: false, mine: null });
+  }
+});
+
 test('staff and admins do not consume lookup attempts', async () => {
   const { code, owner } = await eventWithList();
   const helper = await signIn('Helper');
