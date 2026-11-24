@@ -13,5 +13,5 @@ const CLOSED: readonly { method?: string; path: RegExp }[] = [
 /** The answer to a call the demo does not take, worded for the page to show; null for any other call. */
 export function closedAnswer(method: string, path: string): Response | null {
   const closed = CLOSED.some(entry => (entry.method ?? method) === method && entry.path.test(path));
-  return closed ? Response.json({ error: 'This isn’t part of the demo.' }, { status: 403 }) : null;
+  return closed ? Response.json({ error: 'Not available in the demo.' }, { status: 403 }) : null;
 }
