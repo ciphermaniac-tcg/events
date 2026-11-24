@@ -344,7 +344,7 @@ test('a username is saved lowercased, and one that breaks the rules is refused w
     ['rosé', 'Use letters, numbers, periods, dashes and underscores'],
     ['.rose', 'Start and end with a letter or number'],
     ['rose-', 'Start and end with a letter or number'],
-    ['rose..matcha', 'Put a letter or number between separators'],
+    ['rose..matcha', 'Don’t put two periods, dashes or underscores in a row.'],
     ['ad.min', 'That username is reserved'],
     [42, 'Use 2 to 32 characters']
   ];

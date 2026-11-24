@@ -363,12 +363,7 @@ test('a store application starts from the league, prefilled, and sends what the 
   await expect(page.getByLabel('City')).toHaveValue('San Antonio');
   await expect(page.getByLabel('Postal code')).toHaveValue('78201');
   // The phone and email sit apart, under who sees them, as in store settings.
-  await expect(page.locator('.tm-apply-head')).toHaveText([
-    'Store',
-    'Private, for Ciphermaniac admins',
-    'League nights',
-    'For the admin'
-  ]);
+  await expect(page.locator('.tm-apply-head')).toHaveText(['Store', 'Admin contact', 'League nights', 'For the admin']);
   await page.getByRole('button', { name: 'Send application' }).click();
   // Each problem sits under its own field, and focus goes to the first, not to a line under Send.
   const why = page.getByLabel('Why are you applying for this store?');
@@ -810,7 +805,7 @@ test('store settings: details save with the store’s place kept', async ({ page
   await expect(page.getByLabel('Phone')).toHaveValue('(210) 555-0100');
   // Phone and email sit apart, under who sees them.
   const form = page.locator('form[aria-labelledby="store-details-head"]');
-  await expect(form.locator('.tm-box-head')).toHaveText(['Details', 'Private, for Ciphermaniac admins']);
+  await expect(form.locator('.tm-box-head')).toHaveText(['Details', 'Admin contact']);
   await expect(form.locator('.tm-box').nth(1).getByRole('textbox')).toHaveCount(2);
   // A save refused leaves focus on the first field to fix.
   await page.getByLabel('Store name').fill('');
@@ -840,7 +835,7 @@ test('store settings: details save with the store’s place kept', async ({ page
 test('store settings: staff who are not managers are sent to the store page', async ({ page }) => {
   await mock(page, { user: { ...ME, stores: [{ ...MY_STORE, role: 'staff' }] }, role: 'staff' });
   await page.goto('/stores/store-1/settings');
-  await expect(page.getByText('Only this store’s managers can change it.')).toBeVisible();
+  await expect(page.getByText('Only this store’s managers can edit settings.')).toBeVisible();
   await expect(page.getByRole('link', { name: 'Store page' })).toHaveAttribute('href', '/stores/store-1');
   await expect(page.getByRole('link', { name: 'Store page' })).toHaveCSS('text-decoration-line', 'underline');
   await expect(page.getByRole('navigation', { name: 'Store settings' })).toHaveCount(0);
