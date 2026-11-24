@@ -10,7 +10,7 @@ import { createSignal, For, Show } from 'solid-js';
 import type { PlayerClaim } from '../../../shared/tournament/identify';
 import { isSanctioned, type PublishedView, type TournamentView } from '../../../shared/tournament/view';
 import { ApiError, errorText, identifyPlayer, type LookupCandidate, lookupPlayer } from '../../lib/tournament/api';
-import { currentMatchOf, divisionHeading } from '../../lib/tournament/present';
+import { currentMatchOf, playerDivision } from '../../lib/tournament/present';
 import { ErrorLine, Field } from './Field';
 import { BirthYearInput, PlayerIdInput } from './ProfileFields';
 import { t, tn } from '../../lib/i18n';
@@ -200,8 +200,10 @@ function LookupForm(props: IdentifyProps) {
     const found = tn(count, '{n} matching player', '{n} matching players');
     return count > 1 && !first().trim() ? `${found}. ${t('Add a first name to narrow the list.')}` : found;
   };
-  const details = (candidate: LookupCandidate) =>
-    [divisionHeading(answer()?.view.divisions[candidate.key] ?? null), table(candidate.key)].filter(Boolean);
+  const details = (candidate: LookupCandidate) => {
+    const found = answer();
+    return [found ? playerDivision(found.view, candidate.key) : '', table(candidate.key)].filter(Boolean);
+  };
   function confirm(candidate: LookupCandidate) {
     const found = answer();
     if (found) {

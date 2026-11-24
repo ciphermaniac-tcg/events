@@ -56,8 +56,10 @@ import {
 } from '../../../shared/tournament/types';
 import {
   decksEnabled,
+  isSanctioned,
   pendingFor,
   type PendingResult,
+  type PublishedView,
   type TournamentMode,
   type TournamentSettings
 } from '../../../shared/tournament/view';
@@ -491,6 +493,10 @@ export function finalResults(tournament: Tournament, divisionOf: (id: string) =>
 export function divisionHeading(division: Division | null): string {
   return division ? t(DIVISION_LABELS[division]) : '';
 }
+
+/** A player's division on the page; none at an event that isn't sanctioned, which plays everyone as one. */
+export const playerDivision = (view: PublishedView, key: string): string =>
+  isSanctioned(view) ? divisionHeading(view.divisions[key] ?? null) : '';
 
 export interface HistoryRow {
   round: number;

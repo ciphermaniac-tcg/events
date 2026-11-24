@@ -10,7 +10,7 @@ import { createSignal, Show } from 'solid-js';
 import type { TournamentView } from '../../../shared/tournament/view';
 import { keepBrowserMemory, readBrowserMemory } from '../../lib/tournament/browserMemory';
 import { ApiError, errorText, identifyPlayer } from '../../lib/tournament/api';
-import { currentMatchOf, divisionHeading, namesById } from '../../lib/tournament/present';
+import { currentMatchOf, namesById, playerDivision } from '../../lib/tournament/present';
 import { t } from '../../lib/i18n';
 import { ErrorLine } from './Field';
 import type { Identified } from './Identify';
@@ -21,7 +21,7 @@ const declinedKey = (code: string) => `cm-tournament-not-me:${code}`;
 function whereNow(view: TournamentView, key: string): string {
   const match = currentMatchOf(view.tournament, key);
   const table = match && (match.match.p2 === null ? t('Bye') : t('Table {table}', { table: match.match.table }));
-  return [divisionHeading(view.divisions[key] ?? null), table].filter(Boolean).join(' · ');
+  return [playerDivision(view, key), table].filter(Boolean).join(' · ');
 }
 
 /** The suggestion still to ask about: none once this device said No to that player. */
