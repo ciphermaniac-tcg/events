@@ -915,6 +915,32 @@ test('before round 1 the public page lists everyone registered @mobile', async (
   expect(await page.locator('.tm-hero').innerText()).not.toMatch(/players[\s\S]*players/);
 });
 
+test('before round 1 with nobody registered, the page has nothing to search and says who to register with', async ({
+  page
+}) => {
+  const empty = {
+    ...VIEW.tournament,
+    players: [],
+    pods: VIEW.tournament.pods.map(pod => ({ ...pod, playerIds: [], rounds: [] }))
+  };
+  await mockApi(page, { ...VIEW, tournament: empty });
+  await page.goto(`/t/${CODE}`);
+  await expect(page.getByText('Register with the organizer.')).toBeVisible();
+  await expect(page.getByPlaceholder('Player or table')).toHaveCount(0);
+});
+
+test('an event ended before round 1 no longer says who to register with', async ({ page }) => {
+  const empty = {
+    ...VIEW.tournament,
+    players: [],
+    pods: VIEW.tournament.pods.map(pod => ({ ...pod, playerIds: [], rounds: [] }))
+  };
+  await mockApi(page, { ...VIEW, tournament: empty, settings: { ...VIEW.settings, finished: true } });
+  await page.goto(`/t/${CODE}`);
+  await expect(page.locator('.tm-hero')).toContainText('Finished');
+  await expect(page.getByText('Register with the organizer.')).toHaveCount(0);
+});
+
 test('the player sheet keeps Tab inside it until it closes', async ({ page }) => {
   await mockApi(page);
   await page.goto(`/t/${CODE}`);
