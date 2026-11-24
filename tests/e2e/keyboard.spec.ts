@@ -20,7 +20,7 @@ test.beforeEach(async ({ page }) => {
 
 test('the first Tab reaches the skip link, which moves focus to the content', async ({ page }) => {
   await page.goto('/privacy');
-  await expect(page.getByRole('heading', { level: 1, name: 'Privacy Policy' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'Privacy policy' })).toBeVisible();
   const skip = page.getByRole('link', { name: 'Skip to content' });
   await expect(skip).not.toBeInViewport();
   await page.keyboard.press('Tab');
@@ -35,11 +35,11 @@ test('the first Tab reaches the skip link, which moves focus to the content', as
 
 test('a new page starts focus on its content', async ({ page }) => {
   await page.goto('/privacy');
-  await expect(page.getByRole('heading', { level: 1, name: 'Privacy Policy' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'Privacy policy' })).toBeVisible();
   const terms = page.getByRole('navigation', { name: 'Footer' }).getByRole('link', { name: 'Terms' });
   await terms.focus();
   await page.keyboard.press('Enter');
-  await expect(page.getByRole('heading', { level: 1, name: 'Terms of Service' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'Terms of service' })).toBeVisible();
   await expect(page.getByRole('main')).toBeFocused();
 });
 
