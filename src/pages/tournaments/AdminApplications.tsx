@@ -151,7 +151,7 @@ function ApplicationRow(props: {
           <Show when={DECIDED[a().status]}>{word => <span class='tm-flag'>{t(word())}</span>}</Show>
         </h3>
         <dl class='tm-app-facts'>
-          <Fact label={t('POP ID')} value={a().applied.popId} />
+          <Fact label={t('Player ID')} value={a().applied.popId} />
           <Fact label={t('Account')} value={a().account.name} />
           <Fact label={t('Email')} value={a().account.email} />
           <Show when={a().store}>
