@@ -869,13 +869,20 @@ test('a store page shows where it is, its league nights, its upcoming events and
   await expect(past.getByRole('heading', { level: 3 })).toHaveText('September 2026');
   await expect(past.locator('li')).toContainText(['Wed, Sep 30']);
   await expect(past.locator('li')).toContainText(['22 players']);
-  await expect(past.locator('li')).toContainText(['Ash Ket.']);
+  await expect(past.locator('li')).toContainText(['Won by Ash Ket.']);
   await expect(page.getByRole('link', { name: 'Store settings' })).toHaveCount(0);
   // Nothing runs past the page's own width, the event lists included (the page clips what does).
   const spill = await page.locator('.tm-storepage').evaluate(el => el.scrollWidth - el.clientWidth);
   expect(spill).toBeLessThanOrEqual(0);
   const sunday = await nights.locator('li').first().boundingBox();
   expect((sunday?.x ?? 0) + (sunday?.width ?? 0)).toBeLessThanOrEqual(page.viewportSize()?.width ?? 0);
+});
+
+test('a store page with no league nights and no dates ahead leaves the section out', async ({ page }) => {
+  await mock(page, { store: { ...STORE, nights: [], exceptions: [] } });
+  await page.goto('/stores/store-1');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Combat Power Gaming');
+  await expect(page.locator('.tm-storepage-nights')).toHaveCount(0);
 });
 
 test('a store whose id reads as an auth page is still its own page', async ({ page }) => {
@@ -983,7 +990,8 @@ test('a manager sees the way to the store’s settings from its page', async ({ 
 });
 
 test('a store page’s title sits under its way back where the store settings’ title does', async ({ page }) => {
-  await mock(page, { user: MANAGER });
+  // An unsanctioned store, whose page keeps a meta line under the title as its settings do.
+  await mock(page, { user: MANAGER, store: { ...STORE, leagueId: null } });
   // From the way back's top: its box may stand taller than its line of text.
   const drop = async (path: string) => {
     await page.goto(path);
@@ -994,8 +1002,8 @@ test('a store page’s title sits under its way back where the store settings’
   expect(await drop('/stores/store-1')).toBe(await drop('/stores/store-1/settings'));
 });
 
-test('a store page’s League line sits as far under its title as an event’s first line does', async ({ page }) => {
-  await mock(page, { user: MANAGER });
+test('a store page’s Unsanctioned line sits as far under its title as an event’s first line does', async ({ page }) => {
+  await mock(page, { user: MANAGER, store: { ...STORE, leagueId: null } });
   await page.goto('/stores/store-1');
   const title = await page.getByRole('heading', { level: 1 }).boundingBox();
   const meta = await page.locator('.tm-hero .hero-meta').boundingBox();
