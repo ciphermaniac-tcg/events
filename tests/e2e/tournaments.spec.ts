@@ -2949,6 +2949,39 @@ const openTable = (view: TournamentView = VIEW) => {
 const knownAs = (page: Page, key: string) =>
   page.addInitScript(([code, me]) => localStorage.setItem(`cm-tournament-me:${code}`, me ?? ''), [CODE, key]);
 
+test('signing out in one tab lets go of the player and their report in another tab of the event', async ({ page }) => {
+  const view: TournamentView = { ...VIEW, settings: { ...VIEW.settings, playerReporting: true } };
+  const open = openTable(view);
+  const signedIn = async (tab: Page) => {
+    await mockApi(tab, view);
+    await tab.route('**/api/me', route => route.fulfill({ json: organizerMe() }));
+    await tab.route('**/api/auth/logout', route => route.fulfill({ status: 204 }));
+  };
+  // This device reports for the player: which player, the token, and in each tab the proof.
+  await page.context().addInitScript(
+    ([code, me]) => {
+      if (!sessionStorage.getItem('seeded')) {
+        sessionStorage.setItem('seeded', '1');
+        localStorage.setItem(`cm-tournament-me:${code}`, me ?? '');
+        localStorage.setItem(`cm-tournament-report:${code}`, 'device-token-0000001');
+        sessionStorage.setItem(`cm-tournament-player:${code}`, JSON.stringify({ lastName: 'Test' }));
+      }
+    },
+    [CODE, open.p1]
+  );
+  await signedIn(page);
+  await page.goto(`/t/${CODE}`);
+  const other = await page.context().newPage();
+  await signedIn(other);
+  await other.goto(`/t/${CODE}`);
+  await expect(other.getByRole('button', { name: 'Report result' })).toBeVisible();
+  await page.getByRole('button', { name: 'Account' }).click();
+  await page.getByRole('button', { name: 'Sign out', exact: true }).click();
+  await expect(other.getByRole('button', { name: 'Report result' })).toHaveCount(0);
+  await expect(other.locator('.tm-you-big')).toHaveCount(0);
+  expect(await other.evaluate(code => sessionStorage.getItem(`cm-tournament-player:${code}`), CODE)).toBeNull();
+});
+
 test('a table given extra time says so on its player’s strip and in the pairings @mobile', async ({
   page,
   isMobile

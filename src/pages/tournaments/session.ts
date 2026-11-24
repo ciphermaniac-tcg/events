@@ -60,7 +60,7 @@ export async function leaveSession(): Promise<void> {
   await signOut();
   // Which player this device was at each event (me), what proved it (player) and the token it reported with (report) go
   // with the account holder.
-  forgetBrowserMemory(/^cm-tournament-[mpr]/);
+  forgetBrowserMemory(/^cm-tournament-(me|player|report):/);
   // A store application begun in this tab holds the store's private phone and email.
   forgetBrowserMemory(/^cm-store-application:/);
   clearSession();
