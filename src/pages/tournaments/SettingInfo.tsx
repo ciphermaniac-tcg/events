@@ -9,16 +9,12 @@ import { InfoTip } from '@ciphermaniac/design/components/InfoTip';
 import { msg, t } from '../../lib/i18n';
 
 export const SETTING_INFO = {
-  playerReporting: msg('When enabled, allows players to report the results of their match via their personal devices.'),
+  playerReporting: msg('Let players report results from their phones.'),
   agreedReportsSettle: msg(
-    'When both players report the same result from two devices, it counts without staff. A device doesn’t prove who is reporting, so anyone who knows both names could settle a match. A lone report, a dispute, or two reports from one device still wait for staff.'
+    'Matching reports from two devices record automatically. Lone reports and disputes still wait for staff.'
   ),
-  archetypes: msg(
-    'Allows organizer entry of player deck archetypes. “Shown once the event ends” shows archetypes at the time of final standings and “Shown during the event” shows archetypes once round 1 is paired.'
-  ),
-  decklists: msg(
-    'Allows players to submit their decklists in TCGL format. “Open” shows them to anyone on the event’s page once round 1 is paired. “Closed” keeps them private.'
-  ),
+  archetypes: msg('Show player decks once round 1 is paired, or only in final standings.'),
+  decklists: msg('Accept PTCGL lists. Open lists are public once round 1 is paired; closed lists stay staff-only.'),
   pairing: msg(
     'Where rounds are paired and results are kept. With TOM, you pair and enter results in TOM as usual, and Ciphermaniac shows them to players. With Ciphermaniac, you pair and enter results here, then download the .tdf when the event ends.'
   )
@@ -27,14 +23,13 @@ export const SETTING_INFO = {
 /** Player reporting's note, which at a sanctioned event also says where its results go. */
 export const reportingInfo = (sanctioned: boolean) =>
   sanctioned
-    ? msg(
-        'When enabled, allows players to report the results of their match via their personal devices. Mobile results write to the .tdf the same way manually entered results do.'
-      )
+    ? msg('Let players report results from their phones. Results export to .tdf as usual.')
     : SETTING_INFO.playerReporting;
 
 export function SettingInfo(props: { text: string }) {
   return (
-    <InfoTip marker='i' label={t(props.text)}>
+    // Below its marker, so a row near the top of the page does not open it under the head bar.
+    <InfoTip marker='i' class='tm-tip-below tm-tip-start' label={t(props.text)}>
       {t(props.text)}
     </InfoTip>
   );
