@@ -36,7 +36,7 @@ test('a username is 2 to 32 letters, digits and separators, with letters or digi
     ['.rose', 'Start and end with a letter or number'],
     ['rose_', 'Start and end with a letter or number'],
     ['..', 'Start and end with a letter or number'],
-    ['rose.-matcha', 'Put a letter or number between separators'],
+    ['rose.-matcha', 'Don’t put two periods, dashes or underscores in a row.'],
     ['admin', 'That username is reserved'],
     ['cipher-maniac', 'That username is reserved']
   ];
