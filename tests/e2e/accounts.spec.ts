@@ -1335,7 +1335,7 @@ test('a report filed stays on the strip after a reload, and pressing it again as
   await page.goto(`/t/${code}`);
   await page.getByRole('button', { name: 'Report result' }).click();
   await page.getByRole('button', { name: 'I won' }).click();
-  await expect(page.getByRole('status').filter({ hasText: 'You reported a win' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'I won' })).toHaveAttribute('aria-pressed', 'true');
   await page.reload();
   const strip = page.locator('.tm-you-top');
   await expect(strip).toContainText('Reported a win');
@@ -1345,14 +1345,14 @@ test('a report filed stays on the strip after a reload, and pressing it again as
   await expect(won).toHaveAttribute('aria-pressed', 'true');
   // A second press of the answer filed is a question, not a withdrawal.
   await won.click();
-  const ask = page.getByRole('group', { name: 'Take back' });
-  await expect(ask).toContainText('Take back your win?');
-  await ask.getByRole('button', { name: 'Keep it' }).click();
+  const ask = page.getByRole('group', { name: 'Clear your report?' });
+  await expect(ask).toContainText('Clear your report?');
+  await ask.getByRole('button', { name: 'Keep' }).click();
   await expect(ask).toHaveCount(0);
   await expect(won).toHaveAttribute('aria-pressed', 'true');
   expect(asks.filter(a => (a.body as { withdraw?: boolean } | null)?.withdraw)).toEqual([]);
   await won.click();
-  await ask.getByRole('button', { name: 'Take back' }).click();
+  await ask.getByRole('button', { name: 'Clear', exact: true }).click();
   await expect(won).toHaveAttribute('aria-pressed', 'false');
   expect(asks.filter(a => (a.body as { withdraw?: boolean } | null)?.withdraw)).toHaveLength(1);
 });
