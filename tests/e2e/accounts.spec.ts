@@ -1397,14 +1397,12 @@ test('on a device that never asked, an account that holds its player’s seat by
   await expect(page.getByText('Someone else is already reporting')).toHaveCount(0);
 });
 
-test('signed out, the question offers sign-in that comes back to the event', async ({ page }) => {
+test('signed out, the question leaves sign-in to the head bar', async ({ page }) => {
   const { code } = await mockEvent(page, roundOne(false), { sanctioned: false, user: null });
   await page.goto(`/t/${code}`);
-  await page.getByRole('button', { name: 'Sign in' }).click();
-  await expect(page.getByRole('link', { name: 'Sign in with Google' })).toHaveAttribute(
-    'href',
-    `/api/auth/login/google?next=%2Ft%2F${code}`
-  );
+  const question = page.locator('.tm-you', { has: page.getByRole('heading', { name: 'Which player are you?' }) });
+  await expect(question.getByRole('button', { name: 'Find my match' })).toBeVisible();
+  await expect(question.getByRole('button', { name: 'Sign in' })).toHaveCount(0);
 });
 
 test('a list this device held before is not offered to the signed-in account of the same name, and its token stays', async ({
