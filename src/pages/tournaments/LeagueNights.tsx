@@ -197,11 +197,14 @@ function ExceptionRow(props: {
   exception: NightException;
   nights: readonly LeagueNight[];
   n: number;
+  /** The store's today: a date before it is dropped as the list saves, so the row says so. */
+  today: string;
   onChange: (exception: NightException) => void;
   onRemove: () => void;
 }) {
   const n = () => ({ n: props.n });
   const set = (change: Partial<NightException>) => props.onChange({ ...props.exception, ...change });
+  const past = () => props.exception.date !== '' && props.exception.date < props.today;
   return (
     <li class='tm-night tm-night-exception' classList={{ 'is-picked': !oneNightADay(props.nights) }}>
       <Cell label={t('Date')}>
@@ -209,7 +212,10 @@ function ExceptionRow(props: {
           class='tm-input tm-night-date'
           type='date'
           required
+          min={props.today}
           aria-label={t('Date {n} day', n())}
+          aria-invalid={past() ? 'true' : undefined}
+          aria-describedby={past() ? `night-date-${props.n}-past` : undefined}
           value={props.exception.date}
           onInput={e => set({ date: e.currentTarget.value })}
         />
@@ -270,6 +276,11 @@ function ExceptionRow(props: {
       >
         {t('Remove')}
       </button>
+      <Show when={past()}>
+        <span class='tm-error' id={`night-date-${props.n}-past`}>
+          {t('That date has passed. Pick today or a later date.')}
+        </span>
+      </Show>
     </li>
   );
 }
@@ -296,6 +307,7 @@ export function NightExceptions(props: {
                 exception={exception()}
                 nights={props.nights}
                 n={i + 1}
+                today={props.today}
                 onChange={next => props.onChange(replaceAt(props.exceptions, i, next))}
                 onRemove={() => props.onChange(removeAt(props.exceptions, i))}
               />
