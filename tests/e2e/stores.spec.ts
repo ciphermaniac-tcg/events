@@ -768,6 +768,11 @@ test('store settings: details save with the store’s place kept', async ({ page
   const form = page.locator('form[aria-labelledby="store-details-head"]');
   await expect(form.locator('.tm-box-head')).toHaveText(['Details', 'Private, for Ciphermaniac admins']);
   await expect(form.locator('.tm-box').nth(1).getByRole('textbox')).toHaveCount(2);
+  // A save refused leaves focus on the first field to fix.
+  await page.getByLabel('Store name').fill('');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByLabel('Store name')).toBeFocused();
+  await expect(page.getByLabel('Store name')).toHaveAccessibleDescription('Enter the store’s name');
   await page.getByLabel('Store name').fill('Combat Power Games');
   await page.getByLabel('Discord').fill('discord.gg/combatpower2');
   await page.getByLabel('About the store').fill('Open late.');

@@ -185,6 +185,8 @@ function DetailsSection(props: {
     event.preventDefault();
     setChecked(true);
     if (Object.keys(detailsProblems(details())).length > 0) {
+      // As the store application does: focus goes to the first field to fix.
+      (event.currentTarget as HTMLFormElement).querySelector<HTMLElement>('[aria-invalid="true"]')?.focus();
       return;
     }
     const { store: opening, onSaved } = props;
