@@ -203,7 +203,8 @@ function LookupForm(props: IdentifyProps) {
       return '';
     }
     const found = tn(count, '{n} matching player', '{n} matching players');
-    return count > 1 && !first().trim() ? `${found}. ${t('Add a first name to narrow the list.')}` : found;
+    // A short list is read at a glance; only a long one is worth narrowing.
+    return count > 5 && !first().trim() ? `${found}. ${t('Add a first name to narrow the list.')}` : found;
   };
   const details = (candidate: LookupCandidate) => {
     const found = answer();
