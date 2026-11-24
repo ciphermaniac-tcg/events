@@ -181,7 +181,8 @@ function ListSection(props: { seen: Seen }) {
     code => fetchDecklists(code).then(result => result.decklists)
   );
   const playerOf = createMemo(() => decklistMatcher(manage().tournament, isSanctioned(manage())));
-  const deck = (list: Decklist | undefined) => manage().decks[id()] ?? list?.archetype ?? t('Unclassified');
+  // Unclassified only once there is a list to classify.
+  const deck = (list: Decklist | undefined) => manage().decks[id()] ?? list?.archetype ?? (list && t('Unclassified'));
   return (
     <Section title={t('Decklist')}>
       <Loaded
@@ -194,10 +195,12 @@ function ListSection(props: { seen: Seen }) {
           const list = () => all().find(entry => playerOf()(entry) === id());
           return (
             <>
-              <Show when={decksEnabled(manage().settings)}>
-                <p>
-                  <strong>{deck(list())}</strong>
-                </p>
+              <Show when={decksEnabled(manage().settings) && deck(list())}>
+                {name => (
+                  <p>
+                    <strong>{name()}</strong>
+                  </p>
+                )}
               </Show>
               <Show when={list()} fallback={<p class='muted'>{t('No list yet')}</p>}>
                 {found => <ListLine list={found()} />}
