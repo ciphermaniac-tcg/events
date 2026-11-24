@@ -37,7 +37,7 @@ test('opens signed in on the sample event, and pairs a round for real @mobile', 
   await expect(page.getByRole('cell', { name: 'Demo Games League Challenge', exact: true })).toBeVisible();
   await page.getByRole('link', { name: 'Demo Games League Challenge' }).click();
   await page.getByRole('button', { name: 'Pair round 1' }).click();
-  await expect(page.getByText('Round 1 of 5 in progress')).toBeVisible();
+  await expect(page.getByText('Round 1 of 5 paired')).toBeVisible();
   await expect(page.locator('tbody tr')).toHaveCount(8);
   expect(out).toEqual([]);
 });
@@ -57,9 +57,9 @@ test('what you do stays across a reload, and Reset starts over', async ({ page }
   await watched(page);
   await openConsole(page);
   await page.getByRole('button', { name: 'Pair round 1' }).click();
-  await expect(page.getByText('Round 1 of 5 in progress')).toBeVisible();
+  await expect(page.getByText('Round 1 of 5 paired')).toBeVisible();
   await page.reload();
-  await expect(page.getByText('Round 1 of 5 in progress')).toBeVisible();
+  await expect(page.getByText('Round 1 of 5 paired')).toBeVisible();
 
   const bar = page.getByRole('region', { name: 'Demo' });
   await bar.getByRole('button', { name: 'Reset demo' }).click();
@@ -79,7 +79,7 @@ test('the big screen in another tab follows what the console does', async ({ con
   await screen.goto(`/t/${code}?screen=1`);
   await expect(screen.locator('.tm-screen-table')).toHaveCount(0);
   await page.getByRole('button', { name: 'Pair round 1' }).click();
-  await expect(page.getByText('Round 1 of 5 in progress')).toBeVisible();
+  await expect(page.getByText('Round 1 of 5 paired')).toBeVisible();
   await expect(screen.locator('.tm-screen-table').first()).toBeVisible({ timeout: 10_000 });
 
   // Reset in the console's tab starts the screen over too.

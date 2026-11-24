@@ -702,7 +702,7 @@ test('after the planned rounds the step is the top cut, set in a dialog, with an
   await expect(dialog).toBeHidden();
   await expect.poll(() => sent.at(-1)).toEqual({ type: 'startTopCut', pod: 'masters', size: 8 });
   // The round line names the cut alone, with no suffix about cuts under way.
-  await expect(page.locator('.tm-meta-lead')).toContainText('Quarterfinals in progress');
+  await expect(page.locator('.tm-meta-lead')).toContainText('Quarterfinals paired');
   await expect(page.locator('.tm-meta-lead')).not.toContainText('top cuts under way');
 });
 
@@ -1852,7 +1852,7 @@ test('the round stepper walks the rounds either side of the picker, and the cloc
   await expect(round).toHaveValue('2');
   await expect(page.locator('.tm-console-hero').getByRole('group', { name: 'Round clock' })).toBeVisible();
   await expect(page.locator('.tm-box').getByRole('group', { name: 'Round clock' })).toHaveCount(0);
-  await expect(page.locator('.tm-meta-lead')).toContainText('Round 3 of 3 in progress');
+  await expect(page.locator('.tm-meta-lead')).toContainText('Round 3 of 3 paired');
 });
 
 test('900px and under a table opens a sheet of its results, and a press there records at once', async ({ page }) => {
