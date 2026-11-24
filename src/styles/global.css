@@ -70,3 +70,17 @@ main.page:has(.skeleton) + .site-footer {
   visibility: hidden;
   transition-delay: 0s;
 }
+
+/* Printed, a page keeps its title, summary and table; the site's chrome, its
+   tabs and the search a table is filtered by stay on screen (the footer and
+   the trail are left out where they are drawn). */
+@media print {
+  body {
+    background: none;
+  }
+  .head-bar,
+  .tabs,
+  :is(.tm-box-bar, .tm-standings-bar):has(.search) {
+    display: none !important;
+  }
+}
