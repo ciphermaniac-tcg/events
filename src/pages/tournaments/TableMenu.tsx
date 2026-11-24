@@ -1,8 +1,8 @@
 /**
  * What a table's menu adds to its results (see RoundPanel and ResultSheet):
- * first each seat, with the way to free it for another device or account
- * (see ReleaseAction), then after the results the link to the table's stream
- * overlay (see StreamOverlay), copied in place.
+ * after the results each seat, with the way to free it for another device or
+ * account (see ReleaseAction), then the link to the table's stream overlay
+ * (see StreamOverlay), copied in place.
  */
 
 import { For, Show } from 'solid-js';

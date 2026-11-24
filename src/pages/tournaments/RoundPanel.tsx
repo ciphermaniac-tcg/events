@@ -288,7 +288,6 @@ function StandingResult(props: ResultProps) {
       </Show>
       <span class='tm-result-acts' classList={{ 'is-locked': props.locked || Boolean(props.onOpen) }}>
         <OptionsMenu name={t('table {table}', { table: props.match.table })} busy={props.locked} closeOnSelect>
-          <SeatResets {...props.menu} match={props.match} />
           <Show when={even()}>
             <button type='button' class='tm-menu-item' onClick={() => props.onReport('tie')}>
               {t('Tie')}
@@ -307,6 +306,7 @@ function StandingResult(props: ResultProps) {
               {t('Penalty')}…
             </button>
           </Show>
+          <SeatResets {...props.menu} match={props.match} />
           <StreamLink {...props.menu} pod={props.pod} table={props.match.table} />
         </OptionsMenu>
       </span>
