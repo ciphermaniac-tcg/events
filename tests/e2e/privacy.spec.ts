@@ -57,7 +57,9 @@ test('the policy’s My Data link opens Your data and Export', async ({ page }) 
   await page.goto('/privacy');
   await page.getByRole('link', { name: 'My Data' }).click();
   await expect(page).toHaveURL(/\/settings\?section=data$/);
-  await expect(page.getByRole('button', { name: 'Your data' })).toHaveAttribute('aria-current', 'page');
+  await expect(
+    page.getByRole('navigation', { name: 'Settings' }).getByRole('link', { name: 'Your data' })
+  ).toHaveAttribute('aria-current', 'page');
   await expect(page.getByRole('heading', { level: 1, name: 'Your data' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Export data' })).toBeVisible();
 });

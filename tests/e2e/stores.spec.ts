@@ -462,7 +462,7 @@ test('store settings: league nights and the dates that differ save together', as
   await page.goto('/stores/store-1/settings');
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Combat Power Gaming');
   const nav = page.getByRole('navigation', { name: 'Store settings' });
-  await expect(nav.getByRole('button', { name: 'League nights' })).toHaveAttribute('aria-current', 'page');
+  await expect(nav.getByRole('link', { name: 'League nights' })).toHaveAttribute('aria-current', 'page');
   // In the order of the week: Sunday's night first.
   await expect(page.getByLabel('League night 1 day')).toHaveValue('0');
   // A fee saved as "$5" shows its amount behind the store's currency symbol, and saves back unchanged.
@@ -612,7 +612,7 @@ test('store settings opened at a section on a phone shows that section’s tab w
   await mock(page, { user: MANAGER });
   await page.goto('/stores/store-1/settings?section=displays');
   const nav = page.getByRole('navigation', { name: 'Store settings' });
-  await expect(nav.getByRole('button', { name: 'Displays' })).toHaveAttribute('aria-current', 'page');
+  await expect(nav.getByRole('link', { name: 'Displays' })).toHaveAttribute('aria-current', 'page');
   const spill = await nav.evaluate(row => {
     const strip = row.getBoundingClientRect();
     const open = row.querySelector('[aria-current="page"]')!.getBoundingClientRect();
@@ -699,19 +699,19 @@ test('store settings keep unsaved edits while another section is open', async ({
   await page.goto('/stores/store-1/settings');
   const nav = page.getByRole('navigation', { name: 'Store settings' });
   await page.locator('.tm-night-time').first().fill('18:45');
-  await nav.getByRole('button', { name: 'Details' }).click();
+  await nav.getByRole('link', { name: 'Details' }).click();
   await page.getByLabel('Store name').fill('Combat Power Games');
-  await nav.getByRole('button', { name: 'Staff' }).click();
-  await nav.getByRole('button', { name: 'Details' }).click();
+  await nav.getByRole('link', { name: 'Staff' }).click();
+  await nav.getByRole('link', { name: 'Details' }).click();
   await expect(page.getByLabel('Store name')).toHaveValue('Combat Power Games');
-  await nav.getByRole('button', { name: 'League nights' }).click();
+  await nav.getByRole('link', { name: 'League nights' }).click();
   await expect(page.locator('.tm-night-time').first()).toHaveValue('18:45');
 });
 
 test('store settings: details save with the store’s place kept', async ({ page }) => {
   const asks = await mock(page, { user: MANAGER });
   await page.goto('/stores/store-1/settings');
-  await page.getByRole('navigation', { name: 'Store settings' }).getByRole('button', { name: 'Details' }).click();
+  await page.getByRole('navigation', { name: 'Store settings' }).getByRole('link', { name: 'Details' }).click();
   await expect(page).toHaveURL(/section=details/);
   await expect(page.getByLabel('Phone')).toHaveValue('(210) 555-0100');
   // Phone and email sit apart, under who sees them.
@@ -752,8 +752,8 @@ test('store settings on a phone: the sections are tabs, and nothing scrolls side
   await page.goto('/stores/store-1/settings');
   const nav = page.getByRole('navigation', { name: 'Store settings' });
   const [first, last] = await Promise.all([
-    nav.getByRole('button', { name: 'League nights' }).boundingBox(),
-    nav.getByRole('button', { name: 'Details' }).boundingBox()
+    nav.getByRole('link', { name: 'League nights' }).boundingBox(),
+    nav.getByRole('link', { name: 'Details' }).boundingBox()
   ]);
   expect(Math.abs((first?.y ?? 0) - (last?.y ?? 1))).toBeLessThan(2);
   expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);

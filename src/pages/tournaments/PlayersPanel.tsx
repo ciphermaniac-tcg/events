@@ -56,6 +56,7 @@ function AddPlayer(props: { state: ManageState; code: string; sanctioned: boolea
   const [taken, setTaken] = createSignal('');
   const popTaken = () => popId() !== '' && popId() === taken();
   const duplicate = () => t('That Player ID is already registered');
+  const popError = () => (popInvalid() ? t('A Player ID is up to ten digits') : popTaken() && duplicate());
   function refused() {
     if (props.state.error() === duplicate()) {
       props.state.clearError();
@@ -122,7 +123,7 @@ function AddPlayer(props: { state: ManageState; code: string; sanctioned: boolea
               ref={popInput}
               class='tm-input'
               inputmode='numeric'
-              aria-invalid={popInvalid() || popTaken() || undefined}
+              aria-invalid={Boolean(popError()) || undefined}
               value={popId()}
               onInput={e => setPopId(e.currentTarget.value.trim())}
             />
@@ -151,9 +152,7 @@ function AddPlayer(props: { state: ManageState; code: string; sanctioned: boolea
       <Show when={!identified() && (first().trim() || last().trim())}>
         <p class='tm-box-bar muted'>{t('Player ID and birth year are needed at a sanctioned event')}</p>
       </Show>
-      <Show when={popInvalid() ? t('A Player ID is up to ten digits') : popTaken() && duplicate()}>
-        {message => <p class='tm-box-bar tm-error'>{message()}</p>}
-      </Show>
+      <Show when={popError()}>{message => <p class='tm-box-bar tm-error'>{message()}</p>}</Show>
     </form>
   );
 }
