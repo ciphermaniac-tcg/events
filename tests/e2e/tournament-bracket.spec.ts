@@ -151,13 +151,21 @@ test('the console looks at the top cut as a bracket, and enters results in the t
   await expect(page.locator('.tm-matches tbody tr')).toHaveCount(4);
 });
 
-test('on a phone the console’s Table and Bracket switch spans the box as the tables’ switch under it does @mobileOnly', async ({
+test('on a phone the console’s Table and Bracket switch spans the box, with no In progress filter in the cut @mobileOnly', async ({
   page
 }) => {
   await mockConsole(page, quarterfinalsPlayed());
   await page.goto(`/host/${CODE}`);
-  const width = (name: string) =>
-    page.getByRole('radiogroup', { name, exact: true }).evaluate(el => el.getBoundingClientRect().width);
-  await expect(page.getByRole('radio', { name: 'Bracket' })).toBeVisible();
-  expect(await width('Show matches as')).toBe(await width('Show'));
+  const views = page.getByRole('radiogroup', { name: 'Show matches as', exact: true });
+  await expect(views).toBeVisible();
+  const [width, room] = await views.evaluate(el => {
+    const bar = el.parentElement!;
+    const style = getComputedStyle(bar);
+    return [
+      el.getBoundingClientRect().width,
+      bar.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)
+    ];
+  });
+  expect(width).toBe(room);
+  await expect(page.getByRole('radiogroup', { name: 'Show', exact: true })).toHaveCount(0);
 });
