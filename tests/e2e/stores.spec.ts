@@ -1060,7 +1060,6 @@ test('signed out, an invite link names its store and role, and sign-in comes bac
   await page.goto('/stores/join?invite=good');
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Join Combat Power Gaming as staff');
   await expect(page).toHaveTitle(/^Join Combat Power Gaming as staff/);
-  await expect(page.getByText('Sign in to join.')).toBeVisible();
   await expect(page.getByRole('link', { name: 'Sign in with Google' })).toHaveAttribute(
     'href',
     /next=%2Fstores%2Fjoin%3Finvite%3Dgood/

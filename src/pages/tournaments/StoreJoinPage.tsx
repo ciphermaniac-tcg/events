@@ -75,7 +75,6 @@ export function StoreJoinPage() {
                 when={s().user}
                 fallback={
                   <section class='tm-box'>
-                    <p class='tm-box-bar'>{t('Sign in to join.')}</p>
                     <div class='tm-box-bar'>
                       <SignIn
                         offer={s()}
