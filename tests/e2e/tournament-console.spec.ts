@@ -2361,10 +2361,10 @@ test('a table menu resets a seat first and copies the table’s stream overlay l
   await page.getByRole('button', { name: `More for table ${match.table}`, exact: true }).click();
   const seats = page.locator('.tm-menu-seats p');
   const name = (id: string | null) => t.players.find(p => p.id === id)?.firstName ?? '';
-  // Seat one, then seat two, each with Reset.
+  // Seat one, then seat two, each with Reset reporting.
   await expect(seats).toHaveText([
-    new RegExp(`^${name(match.p1)} .*Reset$`),
-    new RegExp(`^${name(match.p2)} .*Reset$`)
+    new RegExp(`^${name(match.p1)} .*Reset reporting$`),
+    new RegExp(`^${name(match.p2)} .*Reset reporting$`)
   ]);
   const copy = page.getByRole('button', { name: 'Copy stream overlay link', exact: true });
   await copy.click();
@@ -2376,7 +2376,7 @@ test('a table menu resets a seat first and copies the table’s stream overlay l
   const released = page.waitForRequest(
     request => request.method() === 'DELETE' && request.url().includes(`/report?player=${match.p1}`)
   );
-  await seats.first().getByRole('button', { name: 'Reset', exact: true }).click();
+  await seats.first().getByRole('button', { name: 'Reset reporting', exact: true }).click();
   await page
     .getByRole('group', { name: /Let another device report for/ })
     .getByRole('button', { name: 'Reset' })
@@ -2530,8 +2530,8 @@ test('Escape closes the extension menu before the mobile result sheet @mobileOnl
   const sheet = page.getByRole('dialog', { name: 'Result, table 1', exact: true });
   const more = sheet.getByRole('button', { name: 'More for table 1', exact: true });
   await more.click();
-  // The menu opens on its first seat's Unlink, ahead of the results.
-  await expect(sheet.getByRole('button', { name: 'Unlink', exact: true }).first()).toBeFocused();
+  // The menu opens on its first seat's Unlink account, ahead of the results.
+  await expect(sheet.getByRole('button', { name: 'Unlink account', exact: true }).first()).toBeFocused();
   await page.keyboard.press('Escape');
   await expect(sheet).toBeVisible();
   await expect(more).toBeFocused();
