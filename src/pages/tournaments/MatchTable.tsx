@@ -228,21 +228,23 @@ const matchKey = (match: Pick<Match, 'table' | 'p1'>) => `${match.table}|${match
  */
 function createHeldGroups(props: MatchTableProps) {
   const [held, setHeld] = createSignal<ReadonlyMap<string, boolean> | null>(null);
+  // With the round, since the next one, paired under the pointer, can seat the same player first at the same table.
+  const key = (match: Match) => `${props.round.number}|${matchKey(match)}`;
   const shown = createMemo(() => {
     const live = props.inProgress;
     const groups = held();
     if (!live || !groups) {
       return grouped(props.matches, live);
     }
-    const moved = props.matches.some(match => groups.get(matchKey(match)) === !live(match));
-    return grouped(props.matches, match => groups.get(matchKey(match)) ?? live(match), !moved);
+    const moved = props.matches.some(match => groups.get(key(match)) === !live(match));
+    return grouped(props.matches, match => groups.get(key(match)) ?? live(match), !moved);
   });
   return {
     shown,
     hold: (event: PointerEvent) => {
       const live = props.inProgress;
       if (live && event.pointerType === 'mouse') {
-        setHeld(new Map(props.matches.map(match => [matchKey(match), live(match)])));
+        setHeld(new Map(props.matches.map(match => [key(match), live(match)])));
       }
     },
     release: () => setHeld(null)

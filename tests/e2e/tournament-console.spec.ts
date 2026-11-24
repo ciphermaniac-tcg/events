@@ -668,6 +668,14 @@ test('a table entered with the mouse keeps its place until the pointer leaves th
   await expect(page.locator('.tm-group-row')).toHaveText(['In progress · 2', 'Done · 2']);
 });
 
+test('a round paired with the pointer on the tables lists its tables in order', async ({ page }) => {
+  await mockConsole(page, event(8, 1, false), settingsOf({}), [], true);
+  await page.locator('.tm-matches tbody').hover();
+  await page.getByRole('button', { name: 'Pair round 2' }).press('Enter');
+  await expect(page.getByRole('combobox', { name: 'Round' })).toHaveValue('2');
+  await expect(page.locator('.tm-matches td.tm-table-col')).toHaveText(['1', '2', '3', '4']);
+});
+
 test('after the planned rounds the step is the top cut, set in a dialog, with another round and the end behind it', async ({
   page
 }) => {
