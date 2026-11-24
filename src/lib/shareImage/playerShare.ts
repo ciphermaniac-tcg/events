@@ -12,7 +12,7 @@ import type { TournamentView } from '../../../shared/tournament/view';
 import { ordinal } from '../format';
 import { t } from '../i18n';
 import { eventDay } from '../tournament/history';
-import { bracketSize, type HistoryRow, markText, matchHistory } from '../tournament/present';
+import { type HistoryRow, markText, matchHistory, roundLabel } from '../tournament/present';
 import type { PlayerShare, ShareDeck, ShareMark, ShareRound } from './headBar';
 
 /** What the sheet shows, as PlayerSheet has it. */
@@ -37,8 +37,8 @@ function deckOf(data: SheetData, playerId: string): ShareDeck | null {
 }
 
 /**
- * A top cut round as a narrow column writes it: "Top 8" by the players still
- * in, "Final", and the match for third as "3rd", which fits where its name would not.
+ * A top cut round by the name the console gives it ("Semifinals", "Final"),
+ * and the match for third as "3rd".
  */
 function cutLabel(pod: Pod, number: number, playerId: string): string {
   const round = pod.rounds.find(entry => entry.number === number);
@@ -46,8 +46,7 @@ function cutLabel(pod: Pod, number: number, playerId: string): string {
   if (third && (third.p1 === playerId || third.p2 === playerId)) {
     return ordinal(3);
   }
-  const players = round ? bracketSize(pod, round) * 2 : 2;
-  return players <= 2 ? t('Final') : t('Top {n}', { n: players });
+  return round ? roundLabel(round, pod) : t('Final');
 }
 
 function shareRound(data: SheetData, row: HistoryRow & { mark: ShareMark }): ShareRound {
