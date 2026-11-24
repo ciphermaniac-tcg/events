@@ -8,6 +8,7 @@
  * again.
  */
 
+import { useSearchParams } from '@solidjs/router';
 import { createResource, createSignal, For, Show } from 'solid-js';
 import { NOTE_MAX } from '../../../shared/accounts/applications';
 import { roleForRelationship } from '../../../shared/accounts/stores';
@@ -195,7 +196,9 @@ const EMPTY: Record<ApplicationStatus, string> = {
 };
 
 export function AdminApplications() {
-  const [status, setStatus] = createSignal<ApplicationStatus>('pending');
+  // The filter lives in the address, so a reload, Back and a shared link keep it.
+  const [params, setParams] = useSearchParams<{ status?: string }>();
+  const status = (): ApplicationStatus => STATUSES.find(option => option.value === params.status)?.value ?? 'pending';
   const [list, { refetch, mutate }] = createResource(status, wanted =>
     fetchApplications(wanted).then(answer => answer.applications)
   );
@@ -207,7 +210,7 @@ export function AdminApplications() {
         <Segmented
           options={STATUSES.map(option => ({ ...option, label: t(option.label) }))}
           selected={status()}
-          onSelect={setStatus}
+          onSelect={value => setParams({ status: value === 'pending' ? undefined : value }, { replace: true })}
           ariaLabel={t('Status')}
         />
         <span class='tm-grow' />
