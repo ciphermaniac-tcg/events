@@ -1,9 +1,10 @@
 /**
  * The round shown, as a picker between the rounds before and after it: the
- * console's round bar and the public page's pairings share it.
+ * console's round bar and the public page's pairings share it. Neither shows
+ * until a second round gives it a choice.
  */
 
-import { For } from 'solid-js';
+import { For, Show } from 'solid-js';
 import { Icon } from '@ciphermaniac/design/components/Icon';
 import type { Pod } from '../../../shared/tournament/types';
 import { t } from '../../lib/i18n';
@@ -11,15 +12,17 @@ import { roundLabel } from '../../lib/tournament/present';
 
 export function RoundPicker(props: { pod: Pod; selected: number; onSelect: (n: number) => void }) {
   return (
-    <select class='tm-select' aria-label={t('Round')} onChange={e => props.onSelect(Number(e.currentTarget.value))}>
-      <For each={props.pod.rounds}>
-        {round => (
-          <option value={round.number} selected={round.number === props.selected}>
-            {roundLabel(round, props.pod)}
-          </option>
-        )}
-      </For>
-    </select>
+    <Show when={props.pod.rounds.length > 1}>
+      <select class='tm-select' aria-label={t('Round')} onChange={e => props.onSelect(Number(e.currentTarget.value))}>
+        <For each={props.pod.rounds}>
+          {round => (
+            <option value={round.number} selected={round.number === props.selected}>
+              {roundLabel(round, props.pod)}
+            </option>
+          )}
+        </For>
+      </select>
+    </Show>
   );
 }
 
@@ -33,26 +36,28 @@ export function RoundStepper(props: { pod: Pod; selected: number; onSelect: (n: 
     }
   };
   return (
-    <span class='tm-stepper'>
-      <button
-        type='button'
-        class='btn btn-secondary'
-        aria-label={t('Previous round')}
-        disabled={index() <= 0}
-        onClick={() => step(-1)}
-      >
-        <Icon name='chevron-left' />
-      </button>
-      <RoundPicker pod={props.pod} selected={props.selected} onSelect={props.onSelect} />
-      <button
-        type='button'
-        class='btn btn-secondary'
-        aria-label={t('Next round')}
-        disabled={index() >= props.pod.rounds.length - 1}
-        onClick={() => step(1)}
-      >
-        <Icon name='chevron-right' />
-      </button>
-    </span>
+    <Show when={props.pod.rounds.length > 1}>
+      <span class='tm-stepper'>
+        <button
+          type='button'
+          class='btn btn-secondary'
+          aria-label={t('Previous round')}
+          disabled={index() <= 0}
+          onClick={() => step(-1)}
+        >
+          <Icon name='chevron-left' />
+        </button>
+        <RoundPicker pod={props.pod} selected={props.selected} onSelect={props.onSelect} />
+        <button
+          type='button'
+          class='btn btn-secondary'
+          aria-label={t('Next round')}
+          disabled={index() >= props.pod.rounds.length - 1}
+          onClick={() => step(1)}
+        >
+          <Icon name='chevron-right' />
+        </button>
+      </span>
+    </Show>
   );
 }

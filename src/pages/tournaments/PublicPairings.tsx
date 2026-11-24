@@ -53,15 +53,18 @@ export function PublicPairings(props: {
   const asTable = createMemo(() => shown() === 'table');
   const withRounds = createMemo(() => props.round !== undefined && asTable());
   const [filter, setFilter] = createSignal<SpectateFilter>(NO_FILTER);
+  // In progress narrows nothing once the event is finished or in its top cut.
+  const live = () => !props.view.settings.finished && props.round?.kind !== 'elimination';
   // Kept as a list of names, so a new copy of the event with the same decks leaves the select alone.
   const decks = createMemo(() => (props.round ? roundDecks(props.round.matches, props.view.decks) : []), [], {
     equals: (a, b) => a.join('\n') === b.join('\n')
   });
-  /** The filter as it can apply: following nobody, or a deck nobody plays this round, shows every table. */
+  /** The filter as it can apply: following nobody, In progress with nothing live, or a deck nobody plays this round, shows every table. */
   const applied = createMemo((): SpectateFilter => {
     const { showing, deck } = filter();
+    const idle = (showing === 'following' && props.following.size === 0) || (showing === 'playing' && !live());
     return {
-      showing: showing === 'following' && props.following.size === 0 ? 'all' : showing,
+      showing: idle ? 'all' : showing,
       deck: deck !== null && decks().includes(deck) ? deck : null
     };
   });
@@ -104,7 +107,13 @@ export function PublicPairings(props: {
       <div class='tm-box-bar tm-pairings-bar'>
         {props.bar(withRounds(), asTable())}
         <Show when={props.round && asTable()}>
-          <SpectateBar filter={applied()} decks={decks()} following={props.following.size} onFilter={setFilter} />
+          <SpectateBar
+            filter={applied()}
+            decks={decks()}
+            following={props.following.size}
+            live={live()}
+            onFilter={setFilter}
+          />
         </Show>
         <Show when={cut()}>
           <Segmented options={matchViews()} selected={shown()} onSelect={choose} ariaLabel={t('Show matches as')} />
