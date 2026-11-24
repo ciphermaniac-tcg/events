@@ -92,6 +92,24 @@ function statements(db: D1Like, whose: Whose): D1Statement[] {
           `(SELECT links FROM profile_preferences WHERE user_id = u.id) AS links FROM ${from} WHERE ${where}`
       )
       .bind(...values),
+    ...playedStatements(db, from, where, values),
+    // The events it ran or staffed to the end; staffing an event of its own is running it.
+    db
+      .prepare(
+        `SELECT (SELECT count(*) FROM tournaments t WHERE t.owner_id = u.id AND +${FINISHED}) AS organized, ` +
+          `(SELECT count(*) FROM staff f JOIN tournaments t ON t.code = f.code WHERE f.user_id = u.id ` +
+          `AND t.owner_id <> u.id AND +${FINISHED}) AS staffed FROM ${from} WHERE ${where}`
+      )
+      .bind(...values),
+    db
+      .prepare(`SELECT a.badge, a.count FROM ${from} JOIN account_badges a ON a.user_id = u.id WHERE ${where}`)
+      .bind(...values),
+    organizerStatement(db, from, where, values)
+  ];
+}
+
+function playedStatements(db: D1Like, from: string, where: string, values: unknown[]): D1Statement[] {
+  return [
     // By POP ID: the index holds sanctioned events only.
     db
       .prepare(
@@ -106,19 +124,7 @@ function statements(db: D1Like, whose: Whose): D1Statement[] {
           `JOIN tournaments t ON t.code = d.code WHERE ${where} AND ${NOT_HIDDEN} ` +
           `AND t.mode = 'swiss' AND json_extract(t.settings, '$.sanctioned') IS 0 ${NEWEST}`
       )
-      .bind(...values),
-    // The events it ran or staffed to the end; staffing an event of its own is running it.
-    db
-      .prepare(
-        `SELECT (SELECT count(*) FROM tournaments t WHERE t.owner_id = u.id AND +${FINISHED}) AS organized, ` +
-          `(SELECT count(*) FROM staff f JOIN tournaments t ON t.code = f.code WHERE f.user_id = u.id ` +
-          `AND t.owner_id <> u.id AND +${FINISHED}) AS staffed FROM ${from} WHERE ${where}`
-      )
-      .bind(...values),
-    db
-      .prepare(`SELECT a.badge, a.count FROM ${from} JOIN account_badges a ON a.user_id = u.id WHERE ${where}`)
-      .bind(...values),
-    organizerStatement(db, from, where, values)
+      .bind(...values)
   ];
 }
 
@@ -241,4 +247,20 @@ export async function historyOf(db: D1Like, whose: Whose): Promise<PublicProfile
     links: readProfileLinks(JSON.parse(found.links ?? '{}')) ?? {},
     activity: organizerEntries(activity)
   };
+}
+
+/** The signed-in History screen needs entries and organizer activity. */
+export async function historyEntriesOf(db: D1Like, whose: { session: string; now: number }) {
+  const { from, where, values } = accountSql(whose);
+  const [account, byPopId, byClaim, activity] = await db.batch([
+    db.prepare(`SELECT 1 FROM ${from} WHERE ${where}`).bind(...values),
+    ...playedStatements(db, from, where, values),
+    organizerStatement(db, from, where, values)
+  ]);
+  return firstRow(account)
+    ? {
+        entries: merged([...((byPopId?.results ?? []) as EntryRow[]), ...((byClaim?.results ?? []) as EntryRow[])]),
+        activity: organizerEntries(activity)
+      }
+    : null;
 }

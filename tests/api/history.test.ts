@@ -540,13 +540,15 @@ test('past 500 events, History keeps the newest by last change, by POP ID and by
   assert.ok(!codes.includes('P00000') && !codes.includes('C00000'));
 });
 
-test('History needs a signed-in account, and is one wait on the database', async () => {
+test('History needs a signed-in account, and is one wait on the database that reads no badges', async () => {
   assert.equal((await historyOf()).status, 401);
   assert.equal((await historyOf('cm_session=forged')).status, 401);
   const player = await signIn('Player');
-  const { trips } = watch();
+  const { seen, trips } = watch();
   assert.equal((await historyOf(player)).status, 200);
   assert.equal(trips(), 1);
+  assert.equal(seen.length, 4, 'the account, its events by POP ID and by Claim, and the events it ran or staffed');
+  assert.ok(!seen.some(sql => sql.includes('account_badges')));
 });
 
 const profileAt = (handle: string) => hit(profiles.onRequestGet as Handler, `/api/profiles/${handle}`, { handle });
