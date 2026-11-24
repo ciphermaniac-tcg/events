@@ -654,7 +654,7 @@ test('/host: Run again opens the setup on a finished event’s answers, named, w
   await row.getByRole('button', { name: 'More for Thursday Locals' }).click();
   await page.getByRole('button', { name: 'Run again' }).click();
   await expect(page.getByText('From Thursday Locals · Sep 24')).toBeVisible();
-  await expect(page.getByRole('textbox', { name: 'Event name' })).toHaveValue('Thursday Locals');
+  await expect(page.getByRole('textbox', { name: 'Name', exact: true })).toHaveValue('Thursday Locals');
   const draft = await page.evaluate(() =>
     Object.entries(localStorage).find(([key]) => key.startsWith('cm-event-setup:') && key.includes(':swiss:'))
   );
@@ -708,7 +708,7 @@ test('/host: an Organizer whose access goes while the page is open is refused, a
   const asks = await mockHost(page, { ...ME, role: 'community' });
   await page.goto('/');
   await page.getByRole('button', { name: 'Start an event' }).click();
-  await page.getByRole('textbox', { name: 'Event name' }).fill('Tuesday League');
+  await page.getByRole('textbox', { name: 'Name', exact: true }).fill('Tuesday League');
   await page.getByRole('button', { name: 'Create event' }).click();
   await expect(page.locator('.tm-error')).toHaveText('Only organizers can start events');
   await expect(page.locator('.tm-applicant-line')).toContainText('Organizer access removed');
@@ -724,9 +724,9 @@ test('/host: the new event form is in the address, so a reload keeps it and Back
   await page.getByRole('button', { name: 'Start an event' }).click();
   await expect(page).toHaveURL(/[?&]new=swiss/);
   await page.reload();
-  await expect(page.getByRole('textbox', { name: 'Event name' })).toBeVisible();
+  await expect(page.getByRole('textbox', { name: 'Name', exact: true })).toBeVisible();
   await page.goBack();
-  await expect(page.getByRole('textbox', { name: 'Event name' })).toHaveCount(0);
+  await expect(page.getByRole('textbox', { name: 'Name', exact: true })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Start an event' })).toBeVisible();
 });
 
@@ -735,7 +735,7 @@ test('/host: on a phone the new event form leaves the keyboard closed until a fi
   await mockHost(page, { ...ME, role: 'community' });
   await page.goto('/');
   await page.getByRole('button', { name: 'Start an event' }).click();
-  const name = page.getByRole('textbox', { name: 'Event name' });
+  const name = page.getByRole('textbox', { name: 'Name', exact: true });
   await expect(name).toBeVisible();
   // Past the microtask a wider screen focuses it in.
   await page.evaluate(
@@ -792,7 +792,7 @@ test('the new event setup leaves player reporting, archetypes and decklists to S
   await mockHost(page, { ...ME, role: 'community' });
   await page.goto('/');
   await page.getByRole('button', { name: 'Start an event' }).click();
-  await expect(page.getByRole('textbox', { name: 'Event name' })).toBeVisible();
+  await expect(page.getByRole('textbox', { name: 'Name', exact: true })).toBeVisible();
   for (const setting of ['Mobile result reporting', 'Archetypes', 'Decklists']) {
     await expect(page.locator('.tm-set-row', { hasText: setting })).toHaveCount(0);
   }
