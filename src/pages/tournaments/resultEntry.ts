@@ -83,6 +83,8 @@ export interface ResultEntry {
   /** Several results, each sent once the one before is answered, all for the pod they were entered in. */
   sendAll: (round: Round, results: readonly { match: Match; outcome: Outcome }[]) => Promise<void>;
   retry: (round: Round, match: Match) => Promise<void>;
+  /** Retries every result not taken, as when the connection comes back. */
+  retryAll: () => void;
   discard: (round: Round, match: Match) => void;
 }
 
@@ -206,8 +208,7 @@ export function createResultEntry(state: () => ManageState, pod: () => Pod): Res
   }
 
   /** Reads the event again, then sends the failed result, for the match it was entered for, only if it is still to send. */
-  async function retry(round: Round, match: Match) {
-    const key = matchKey(round, match);
+  async function retry(key: string) {
     const result = failed().get(key);
     if (!result) {
       return;
@@ -240,7 +241,8 @@ export function createResultEntry(state: () => ManageState, pod: () => Pod): Res
         await sendEntered(result);
       }
     },
-    retry,
+    retry: (round, match) => retry(matchKey(round, match)),
+    retryAll: () => [...failed().keys()].forEach(key => void retry(key)),
     discard: (round, match) => setFailed(results => without(results, matchKey(round, match)))
   };
 }

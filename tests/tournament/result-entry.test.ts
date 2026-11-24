@@ -225,6 +225,26 @@ test('a retry whose read fails keeps the result as not saved, and one paired ane
   assert.match(fake.said[0] ?? '', /has changed since/);
 });
 
+test('retrying them all sends each result not taken again, once each', async () => {
+  const fake = fakeConsole(() => ({ tournament: paired, pending: [] }));
+  const entry = createResultEntry(
+    () => fake.state,
+    () => pod
+  );
+  const second = round.matches[1]!;
+  entry.send(round, table, 'p1');
+  entry.send(round, second, 'p2');
+  await settle();
+  fake.sends.forEach(s => s.answer(false));
+  await settle();
+  entry.retryAll();
+  fake.reads.slice(2).forEach(read => read(true));
+  await settle();
+  assert.deepEqual(outcomes(fake), ['p1', 'p2', 'p1', 'p2']);
+  assert.equal(entry.failedFor(round, table), undefined);
+  assert.equal(entry.failedFor(round, second), undefined);
+});
+
 const expected = (fake: ReturnType<typeof fakeConsole>) =>
   fake.sends.map(s => (s.command as { expected?: string }).expected);
 
