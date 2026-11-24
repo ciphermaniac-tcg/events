@@ -794,8 +794,6 @@ function EventBody(props: {
           pins={PINS_MATCH.has(tab())}
           onView={props.onView}
           onPlayer={setOpen}
-          signedIn={Boolean(props.session?.user)}
-          offer={props.session ?? { providers: [] }}
           onUnlink={unlink}
           onStale={() => {
             recheck();
