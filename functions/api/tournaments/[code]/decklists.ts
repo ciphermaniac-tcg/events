@@ -23,15 +23,16 @@
  * answers with whose registration it is and its list, as does the device
  * token or the account that owns one.
  * PUT — registers or changes a registration while submission is open:
- * { profile, mode, deck, was?, token?, localTime? }. A paper registration
+ * { profile, mode, deck, was?, token?, someoneElse?, localTime? }. A paper registration
  * sends no deck. `was` renames an unsanctioned registration from the names
  * it had. A registrant who is not on the event's player list is added to it
  * (a Swiss event still open, with room under its cap), marked as added from a
  * list; the answer says whether they were added, matched or not added, and
  * carries the device's token. A player under 13 is refused (see
  * shared/accounts/age.ts). A signed-in submitter's name refreshes their
- * account's when the list is under the account's own Player ID; a list never
- * sets an account's Player ID or birth year.
+ * account's when the list is under the account's own Player ID, unless the
+ * form says it registers someone else; a list never sets an account's Player
+ * ID or birth year.
  * DELETE — withdraws the registration under the details in the query
  * (popId and birthYear, or the names and the token), while submission is
  * open: the list goes, and so does the player from an event the site runs.
@@ -442,6 +443,8 @@ interface Submission {
   wasYear: string | null;
   /** The token the device holds for an earlier list under these details, if any. */
   held: unknown;
+  /** The form says the list is not the signed-in account's own, which only ever keeps the account's name out of it. */
+  someoneElse: boolean;
   localTime: unknown;
 }
 
@@ -555,9 +558,13 @@ async function readSubmission(request: Request, sanctioned: boolean): Promise<Su
     was: readWas(value.was, sanctioned),
     wasYear: sanctioned && typeof value.wasYear === 'string' && /^\d{4}$/.test(value.wasYear) ? value.wasYear : null,
     held: value.token,
+    someoneElse: value.someoneElse === true,
     localTime: value.localTime
   };
 }
+
+/** The account whose name a list may refresh: the sender's, unless the form says the list is someone else's. */
+const accountNamed = (access: Access, submission: Submission) => (submission.someoneElse ? null : access.user);
 
 /**
  * Saves a signed-in submitter's details to their account, so pages that know
@@ -566,8 +573,9 @@ async function readSubmission(request: Request, sanctioned: boolean): Promise<Su
  * and a list sent for a friend from your own phone must not give your account
  * theirs. The account page saves a POP ID, where one account holds each. An
  * unsanctioned event asked only for the name, so the Player ID and birth year
- * already there stay. It only runs after the list upsert changes a row, in the
- * same batch.
+ * already there stay, and a name alone proves nobody: a list the form says is
+ * someone else's names no account. It only runs after the list upsert changes
+ * a row, in the same batch.
  */
 function saveToAccount(access: Access, userId: string, profile: PlayerProfile) {
   const sanctioned = isSanctioned(access.row);
@@ -649,7 +657,8 @@ async function store(
       sanctioned ? 1 : 0,
       held
     );
-  const named = access.user ? [saveToAccount(access, access.user.id, profile)] : [];
+  const owner = accountNamed(access, submission);
+  const named = owner ? [saveToAccount(access, owner.id, profile)] : [];
   // Right after the try's admission, changes() is whether it let the try in: refused, no list lands.
   const results = await access.db.batch([...admit, insert, ...named, ...after]);
   if (admit.length > 0 && !firstRow(results[0])) {

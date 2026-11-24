@@ -316,6 +316,8 @@ function createRegistration(props: RegistrationProps) {
         mode: mode() ?? 'digital',
         deck: mode() === 'paper' ? '' : deck(),
         token: own,
+        // One this form did not send as the account says so: the account's name stays its own (see decklists.ts).
+        someoneElse: !(asSelf || madeAsAccount()),
         ...(was && !props.sanctioned ? { was } : {}),
         ...yearCorrection(sent)
       });
