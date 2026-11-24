@@ -60,6 +60,18 @@ export function admission({ db, code, popId, right, now }: Try): D1Statement {
   return db.prepare(sql).bind(...values);
 }
 
+/**
+ * Takes back the row a try wrote when its event is gone: sent after the
+ * admission in the same batch, so no row outlives an event deleted meanwhile.
+ */
+export function droppedWithEvent(db: D1Like, code: string, popId: string): D1Statement {
+  return db
+    .prepare(
+      'DELETE FROM identify_failures WHERE code = ?1 AND pop_id = ?2 AND NOT EXISTS (SELECT 1 FROM tournaments WHERE code = ?1)'
+    )
+    .bind(code, popId);
+}
+
 /** Lets in a right year by resetting unlocked failures, or a wrong one by counting it. */
 export async function admitTry(attempt: Try): Promise<boolean> {
   return (await admission(attempt).first<{ failures: number }>()) !== null;

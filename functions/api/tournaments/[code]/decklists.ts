@@ -62,7 +62,8 @@ import { createRateLimiter, rateLimitAddress } from '../../../lib/api/rateLimite
 import { jsonError, noContent } from '../../../lib/api/responses.js';
 import { type Context, sameOrigin } from '../../../lib/auth/env.js';
 import { sha256 } from '../../../lib/auth/session.js';
-import { rowsChanged } from '../../../lib/d1.js';
+import { firstRow, rowsChanged } from '../../../lib/d1.js';
+import type { D1Statement } from '../../../lib/types.js';
 import {
   type Access,
   codeOf,
@@ -73,7 +74,14 @@ import {
   staffWrites
 } from '../../../lib/tournaments/access.js';
 import { archetypeRules } from '../../../lib/tournaments/archetypeRules.js';
-import { admitTry, clearFailures, forgive, LOCKED_OUT } from '../../../lib/tournaments/attempts.js';
+import {
+  admission,
+  admitTry,
+  clearFailures,
+  droppedWithEvent,
+  forgive,
+  LOCKED_OUT
+} from '../../../lib/tournaments/attempts.js';
 import { publishAfter } from '../../../lib/tournaments/publish.js';
 import {
   FULL,
@@ -443,21 +451,29 @@ const LOCKED = msg('This list was sent from another device. Send it from that de
 /** A list from a player who may be under 18, once the event is over: its cards were deleted as it ended (store.ts). */
 const OVER_FOR_MINORS = msg('This event is over.');
 
-/** What follows a submission the guard let in, once its store has run: whether it landed. */
+/**
+ * A submission the guard let through: the try's admission, which the store
+ * sends with the list so the list lands only where it lets the try in, what
+ * goes last in that batch, and what follows once the store has run: whether
+ * it landed.
+ */
 interface Admitted {
+  admit: D1Statement[];
+  after: D1Statement[];
   stored: (landed: boolean) => Promise<void>;
 }
 
-const NOTHING_COUNTED: Admitted = { stored: async () => undefined };
+const NOTHING_COUNTED: Admitted = { admit: [], after: [], stored: async () => undefined };
 
 /**
  * The wrong-year guard for a submission at a sanctioned event (see
  * lib/tournaments/attempts.ts), or the refusal. Each try is let in or refused
  * by one statement, so lists landing at once are taken one at a time. A
  * Player ID on the event's list is judged against its birth date there (none
- * on it fits nothing, until staff add one). One that is not can only be
- * judged by the store, against a list kept under it, so the try counts before
- * the store runs and is forgiven when the list lands.
+ * on it fits nothing, until staff add one): a wrong year is counted and
+ * refused here, a right one let in with the store. One that is not can only
+ * be judged by the store, against a list kept under it, so the try counts in
+ * the store's batch, ahead of the list, and is forgiven when the list lands.
  */
 async function guardSubmission(
   access: Access,
@@ -480,13 +496,16 @@ async function guardSubmission(
   const listed = row.tournament.players.some(candidate => candidate.id === profile.popId);
   // A correction proves the Player ID with the year it corrects.
   const right = listed && provesId(row, profile.popId, wasYear ?? String(year ?? ''), null);
-  if (!(await admitTry({ db, code: row.code, popId: profile.popId, right, now }))) {
-    return jsonError(LOCKED_OUT, 429);
+  const attempt = { db, code: row.code, popId: profile.popId, right, now };
+  if (listed && !right) {
+    return (await admitTry(attempt)) ? jsonError(WRONG_YEAR, 403) : jsonError(LOCKED_OUT, 429);
   }
+  const tried = { admit: [admission(attempt)], after: [droppedWithEvent(db, row.code, profile.popId)] };
   if (listed) {
-    return right ? NOTHING_COUNTED : jsonError(WRONG_YEAR, 403);
+    return { ...NOTHING_COUNTED, ...tried };
   }
   return {
+    ...tried,
     stored: async landed => {
       if (landed) {
         await forgive(db, row.code, profile.popId, now);
@@ -584,9 +603,9 @@ const REPLACES =
 async function store(
   access: Access,
   submission: Submission,
-  write: { tokenHash: string; now: number; window: ListWindow }
-): Promise<boolean> {
-  const { tokenHash, now, window } = write;
+  write: { tokenHash: string; now: number; window: ListWindow } & Pick<Admitted, 'admit' | 'after'>
+): Promise<boolean | Response> {
+  const { tokenHash, now, window, admit, after } = write;
   const { profile, deck } = submission;
   const sanctioned = isSanctioned(access.row);
   // The guard proved the birth year against the event's own list for a player on it.
@@ -600,7 +619,7 @@ async function store(
     .prepare(
       `INSERT INTO decklists (code, user_id, pop_id, first_name, last_name, birth_date, deck, deck_mode, archetype, submitted_at, owner_token, account) SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ${account.sql} ` +
         `WHERE (? = 0 OR NOT EXISTS (SELECT 1 FROM tournaments WHERE code = ? AND coalesce(json_extract(settings, '$.finished'), 0) = 1)) ` +
-        `AND ${STILL_TAKING} ` +
+        `AND ${STILL_TAKING} ${admit.length > 0 ? 'AND changes() > 0 ' : ''}` +
         `ON CONFLICT (code, user_id) DO UPDATE SET ` +
         `pop_id = excluded.pop_id, first_name = excluded.first_name, last_name = excluded.last_name, ` +
         `birth_date = excluded.birth_date, deck = excluded.deck, deck_mode = excluded.deck_mode, ` +
@@ -631,9 +650,13 @@ async function store(
       held
     );
   const named = access.user ? [saveToAccount(access, access.user.id, profile)] : [];
-  const [stored] = await access.db.batch([insert, ...named]);
+  // Right after the try's admission, changes() is whether it let the try in: refused, no list lands.
+  const results = await access.db.batch([...admit, insert, ...named, ...after]);
+  if (admit.length > 0 && !firstRow(results[0])) {
+    return jsonError(LOCKED_OUT, 429);
+  }
   // The upsert changes no row when the list there is not the sender's, so its count is the answer.
-  return rowsChanged(stored) > 0;
+  return rowsChanged(results[admit.length]) > 0;
 }
 
 /**
@@ -796,18 +819,19 @@ async function openForPlayer(context: Context<'code'>): Promise<Access | Respons
 const submitter = (row: TournamentRow, submission: Submission) =>
   rosterPlayer(row, submission.was ?? submission.profile)?.id ?? null;
 
-/** Whether the submission is someone new to the event: not on its list, and with no list in under their details. */
-async function isNewcomer(access: Access, submission: Submission): Promise<boolean> {
-  const named = submission.was ?? submission.profile;
-  if (rosterPlayer(access.row, named) !== undefined) {
-    return false;
-  }
-  return (await listUnder(access, identityKey(named, isSanctioned(access.row)))) === null;
-}
+/** For a submitter off the event's list, whether they are new to it: no list in under their details. */
+const isNewcomer = async (access: Access, submission: Submission): Promise<boolean> =>
+  (await listUnder(access, identityKey(submission.was ?? submission.profile, isSanctioned(access.row)))) === null;
 
 /** Why the submission cannot go ahead before its list is stored, or null: the event is full, or a rename is not theirs. */
 async function beforeStore(access: Access, submission: Submission, window: ListWindow): Promise<Response | null> {
-  if ((await isNewcomer(access, submission)) && (await isFull(access.db, access.row))) {
+  // The event's list first, in memory; then fullness, free at a Swiss event and a read of the lists at a TOM
+  // one; and only at a full event the submitter's own list.
+  if (
+    submitter(access.row, submission) === null &&
+    (await isFull(access.db, access.row)) &&
+    (await isNewcomer(access, submission))
+  ) {
     return fullRefusal();
   }
   const { was, profile } = submission;
@@ -829,13 +853,14 @@ async function submit(
   context: Context<'code'>,
   access: Access,
   submission: Submission,
-  window: ListWindow
+  write: { window: ListWindow } & Pick<Admitted, 'admit' | 'after'>
 ): Promise<Response> {
   const now = Date.now();
   // The device's own token stays its token, so a retry after a lost answer still owns the list.
   const token = deviceToken(submission.held) ?? crypto.randomUUID();
-  if (!(await store(access, submission, { tokenHash: await sha256(token), now, window }))) {
-    return refusedWrite(access, submitter(access.row, submission));
+  const stored = await store(access, submission, { tokenHash: await sha256(token), now, ...write });
+  if (stored !== true) {
+    return stored || refusedWrite(access, submitter(access.row, submission));
   }
   const { profile, deck, mode, archetype, was, wasYear, localTime } = submission;
   const kept = await enter(context, access, submission, {
@@ -880,8 +905,10 @@ export async function onRequestPut(context: Context<'code'>): Promise<Response> 
   }
   const refused = await beforeStore(access, read, window);
   if (refused) {
+    // The try still counts, and a Player ID refused for it hears that first.
+    const admitted = guard.admit.length === 0 || firstRow((await access.db.batch([...guard.admit, ...guard.after]))[0]);
     await guard.stored(false);
-    return refused;
+    return admitted ? refused : jsonError(LOCKED_OUT, 429);
   }
   // The list's archetype is read from its cards (see shared/tournament/archetypes.ts); with archetypes off, none is kept.
   const archetype =
@@ -889,7 +916,7 @@ export async function onRequestPut(context: Context<'code'>): Promise<Response> 
       ? archetypeOfList(read.deck, await archetypeRules())
       : null;
   const submission = { ...read, archetype };
-  const answer = await submit(context, access, submission, window);
+  const answer = await submit(context, access, submission, { window, admit: guard.admit, after: guard.after });
   await guard.stored(answer.ok);
   return answer;
 }

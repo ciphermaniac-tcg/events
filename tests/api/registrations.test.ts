@@ -19,7 +19,7 @@ import { emptyTournament } from '../../shared/tournament/create.ts';
 import type { Player, Tournament } from '../../shared/tournament/types.ts';
 import { apiSuite, type Handler } from '../__utils__/apiCalls.ts';
 import { at, eventCalls } from '../__utils__/eventCalls.ts';
-import { racing, sqliteD1 } from '../__utils__/sqliteD1.ts';
+import { countingTrips, racing, sqliteD1 } from '../__utils__/sqliteD1.ts';
 
 const { env, hit, signIn } = apiSuite();
 const { newEvent, newSwiss, send, settle } = eventCalls(hit);
@@ -231,6 +231,32 @@ test('at a TOM event a registration TOM has not taken in counts toward the cap, 
   assert.equal(cleared.status, 409, 'whoever TOM’s file lists stays in TOM');
   const held = await hit(manage.onRequestGet as Handler, '/manage', at(code), { cookie: owner });
   assert.deepEqual(held.json.checkins, { '4242': { tom: true } });
+});
+
+test('a player on a capped TOM event’s list sends theirs in three waits, reading no other list', async () => {
+  const owner = await signIn('Organizer', 'organizer');
+  const code = await newEvent(owner, { mode: 'tom', tournament: tomFile(['7200001']) });
+  await settle(code, owner, { decklists: 'open', playerCap: 2 });
+  const inner = env.TOURNAMENT_DB as ReturnType<typeof sqliteD1>;
+  const seen: string[] = [];
+  const counting = countingTrips({
+    ...inner,
+    prepare: sql => {
+      seen.push(sql);
+      return inner.prepare(sql);
+    }
+  });
+  env.TOURNAMENT_DB = counting.db;
+  const sent = await register(code, {
+    popId: '7200001',
+    firstName: 'Tom',
+    lastName: '7200001',
+    birthDate: '02/27/1990'
+  });
+  env.TOURNAMENT_DB = inner;
+  assert.equal(sent.status, 200, JSON.stringify(sent.json));
+  assert.equal(counting.trips(), 3, 'the event, the try with the list, and the event’s write');
+  assert.ok(!seen.some(sql => sql.startsWith('SELECT pop_id FROM decklists')), 'the event’s lists are not counted');
 });
 
 test('a pasted list is named by its cards, a paper one is not, and the name staff give wins', async () => {

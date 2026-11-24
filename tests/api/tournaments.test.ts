@@ -1104,6 +1104,21 @@ test('deleting an event clears its identify failures', async () => {
   assert.equal(raw.prepare('SELECT count(*) AS n FROM identify_failures WHERE code = ?').get(code)?.n, 0);
 });
 
+test('a list sent as its event is deleted leaves no try behind', async () => {
+  const owner = await signIn('Organizer', 'organizer');
+  const code = await newSwiss(owner);
+  await settle(code, owner, { decklists: 'open' });
+  const inner = env.TOURNAMENT_DB as ReturnType<typeof sqliteD1>;
+  env.TOURNAMENT_DB = racing(inner, 'INSERT INTO decklists', () => {
+    inner.raw.prepare('DELETE FROM identify_failures WHERE code = ?').run(code);
+    inner.raw.prepare('DELETE FROM tournaments WHERE code = ?').run(code);
+  });
+  const sent = await submitAs(code, { popId: '4243', firstName: 'Nia', lastName: 'Okafor', birthDate: '02/27/2001' });
+  env.TOURNAMENT_DB = inner;
+  assert.notEqual(sent.status, 200);
+  assert.equal(inner.raw.prepare('SELECT count(*) AS n FROM identify_failures WHERE code = ?').get(code)?.n, 0);
+});
+
 afterEach(() => {
   mainSite.restore();
   mock.timers.reset();
@@ -1255,8 +1270,10 @@ test('a signed-in list lands and names its account in one wait on the database, 
   const code = await newSwiss(owner);
   await settle(code, owner, { decklists: 'open' });
   const lin = { popId: '6161', firstName: 'Lin', lastName: 'Park', birthDate: '02/27/2001' };
-  assert.equal((await submitAs(code, lin)).status, 200, 'sent first from a device signed out');
   const player = await signIn('Player');
+  const registering = countTrips();
+  assert.equal((await submitAs(code, lin)).status, 200, 'sent first from a device signed out');
+  assert.equal(registering(), 4, 'the event, the try with the list, the event’s write, and the try forgiven');
   await hit(me.onRequestPut as Handler, '/api/me', {}, { method: 'PUT', cookie: player, body: lin });
   const sendList = (profile: typeof lin) =>
     hit(decklists.onRequestPut as Handler, '/decklists', at(code), {
@@ -1271,7 +1288,7 @@ test('a signed-in list lands and names its account in one wait on the database, 
   assert.equal(await firstName(), 'Lin', 'so the account keeps its name');
   const trips = countTrips();
   assert.equal((await sendList({ ...lin, firstName: 'Linda' })).status, 200);
-  assert.equal(trips(), 4, 'the event and who asks, the try, the list with the account, and the event’s write');
+  assert.equal(trips(), 3, 'the event and who asks, the try with the list and the account, and the event’s write');
   assert.equal(await firstName(), 'Linda');
 });
 
@@ -1804,6 +1821,20 @@ test('a full event takes no newcomer, while those registered still change theirs
   assert.equal(staffLists.json.decklists.length, 1, 'the refused list was not kept');
 });
 
+test('a full event still counts a newcomer’s tries, and a locked Player ID hears so before it hears full', async () => {
+  const owner = await signIn('Organizer', 'organizer');
+  const code = await newSwiss(owner);
+  await settle(code, owner, { decklists: 'open', playerCap: 1 });
+  const nia = { popId: '4242', firstName: 'Nia', lastName: 'Okafor', birthDate: '02/27/2001' };
+  assert.equal((await submitAs(code, nia)).json.registration, 'added');
+  const late = { ...nia, popId: '4243' };
+  for (let tries = 0; tries < FREE_TRIES; tries += 1) {
+    assert.equal((await submitAs(code, late)).json.error, 'This event is full.');
+  }
+  const locked = await submitAs(code, late);
+  assert.deepEqual([locked.status, locked.json.error], [429, 'Too many tries. Ask staff for help.']);
+});
+
 test('a submitter is checked again as the event stands when written: added meanwhile, or closed meanwhile', async () => {
   const owner = await signIn('Organizer', 'organizer');
   const inner = env.TOURNAMENT_DB as ReturnType<typeof sqliteD1>;
@@ -2032,6 +2063,9 @@ test('a burst of lists cannot outrun the lockout to take over an unlocked list b
     answers.every(answer => answer.status !== 200),
     'the right year, last in the burst, takes nothing over'
   );
+  const { raw } = env.TOURNAMENT_DB as ReturnType<typeof sqliteD1>;
+  const list = raw.prepare("SELECT owner_token FROM decklists WHERE code = ? AND pop_id = '8080'").get(code);
+  assert.equal(list?.owner_token, null, 'the unlocked list is still nobody’s');
 });
 
 test('five wrong birth years refuse a Player ID a while, doubling, until the right year or staff', async () => {
@@ -2057,6 +2091,8 @@ test('five wrong birth years refuse a Player ID a while, doubling, until the rig
   assert.equal((await guess('1990')).status, 429);
   const list = { popId: '900', firstName: 'Player', lastName: '0', birthDate: '02/27/1990' };
   assert.equal((await submitAs(code, list)).status, 429, 'decklists count and refuse the same');
+  const { raw } = env.TOURNAMENT_DB as ReturnType<typeof sqliteD1>;
+  assert.equal(raw.prepare("SELECT 1 FROM decklists WHERE pop_id = '900'").get(), undefined, 'and keep no list');
   assert.equal((await playerSays(code, { popId: '901', device: 'phone-901' })).status, 200, 'other players are not');
 
   mock.timers.tick(60_000);
