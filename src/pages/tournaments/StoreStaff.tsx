@@ -28,7 +28,7 @@ import {
 import { latestValue } from '../../lib/resource';
 import { Skeleton } from '@ciphermaniac/design/components/Skeleton';
 import { OptionsMenu } from './OptionsMenu';
-import { ConfirmAction } from './ConfirmAction';
+import { ConfirmAction, ConfirmDialog } from './ConfirmAction';
 import { ErrorLine } from './Field';
 import { refreshSession, session } from './session';
 import { createAction } from './action';
@@ -94,17 +94,27 @@ function InviteRow(props: {
   );
 }
 
-/** The Owner's way to hand the store to this person, asked in a dialog: only the new Owner can hand it back. */
-function HandOver(props: { member: StoreMember; busy: boolean; onHandOver: () => void }) {
+/**
+ * The Owner's way to hand the store to this person, asked in a dialog: only
+ * the new Owner can hand it back. The dialog sits outside the row's menu, which
+ * closes as it opens.
+ */
+function HandOver(props: {
+  member: StoreMember;
+  open: boolean;
+  busy: boolean;
+  onHandOver: () => void;
+  onClose: () => void;
+}) {
   return (
-    <ConfirmAction
-      class='btn btn-ghost tm-small'
-      label={t('Make owner')}
+    <ConfirmDialog
+      open={props.open}
       question={t('Make {name} the owner?', { name: props.member.name })}
       scope={t('You become a manager, and only {name} can hand the store back.', { name: props.member.name })}
       confirmLabel={t('Make owner')}
-      disabled={props.busy}
+      busy={props.busy}
       onConfirm={() => props.onHandOver()}
+      onClose={() => props.onClose()}
     />
   );
 }
@@ -149,6 +159,8 @@ function MemberRow(props: {
   onRole: (role: StoreRole) => void;
   onRemove: () => void;
 }) {
+  const [handing, setHanding] = createSignal(false);
+  let cell: HTMLTableCellElement | undefined;
   return (
     <tr>
       <td>
@@ -159,11 +171,19 @@ function MemberRow(props: {
       </td>
       <td>{t(STORE_ROLE_WORDS[props.member.role])}</td>
       <td class='muted-cell tm-wide-col'>{props.member.hasPopId ? t('On file') : t('None')}</td>
-      <td class='tm-extra-col'>
+      <td ref={cell} class='tm-extra-col'>
         <Show when={props.member.role !== 'owner'}>
           <OptionsMenu name={props.member.name} busy={props.busy} staff>
             <Show when={props.owner}>
-              <HandOver member={props.member} busy={props.busy} onHandOver={() => props.onRole('owner')} />
+              <button
+                type='button'
+                class='btn btn-ghost tm-small'
+                data-closes-menu
+                disabled={props.busy}
+                onClick={() => setHanding(true)}
+              >
+                {t('Make owner')}
+              </button>
             </Show>
             <RoleChange member={props.member} you={props.you} busy={props.busy} onRole={props.onRole} />
             <ConfirmAction
@@ -177,6 +197,17 @@ function MemberRow(props: {
               onConfirm={() => props.onRemove()}
             />
           </OptionsMenu>
+          <HandOver
+            member={props.member}
+            open={handing()}
+            busy={props.busy}
+            onHandOver={() => props.onRole('owner')}
+            onClose={() => {
+              setHanding(false);
+              // Back to the row's menu button, as the menu that opened the dialog is gone.
+              cell?.querySelector<HTMLElement>('.tm-more > button')?.focus();
+            }}
+          />
         </Show>
       </td>
     </tr>

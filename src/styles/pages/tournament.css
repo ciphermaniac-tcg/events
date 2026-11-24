@@ -2116,8 +2116,9 @@ tr.is-in .tm-place {
 .tm-modal {
   width: min(480px, calc(100vw - 32px));
   padding: 0;
-  /* A dialog opened from a table cell takes none of the cell's alignment. */
+  /* A dialog opened from a table cell takes none of the cell's alignment or its nowrap. */
   text-align: start;
+  white-space: normal;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--surface);

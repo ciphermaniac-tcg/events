@@ -719,6 +719,14 @@ test('store settings: the Owner hands the store over, asked first, and stays on 
   await sam.getByRole('button', { name: 'Make owner' }).click();
   const dialog = page.getByRole('dialog', { name: 'Make Sam Ortiz the owner?' });
   await expect(dialog).toContainText('You become a manager, and only Sam Ortiz can hand the store back.');
+  // One layer at a time: the menu that opened the dialog closes behind it, and Keep goes back to its button.
+  await expect(page.locator('.tm-staff-options')).toHaveCount(0);
+  // Its words wrap inside it, though it sits in the row's nowrap cell.
+  await expect(dialog.locator('p')).toHaveCSS('white-space', 'normal');
+  await dialog.getByRole('button', { name: 'Keep' }).click();
+  await expect(sam.getByRole('button', { name: 'More for Sam Ortiz' })).toBeFocused();
+  await sam.getByRole('button', { name: 'More for Sam Ortiz' }).click();
+  await sam.getByRole('button', { name: 'Make owner' }).click();
   expect(sentTo(asks, 'PATCH', '/api/stores/store-1/members')).toEqual([]);
   await dialog.getByRole('button', { name: 'Make owner' }).click();
   await expect(sam.locator('td').nth(1)).toHaveText('Owner');
