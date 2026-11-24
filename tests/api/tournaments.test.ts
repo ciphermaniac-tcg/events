@@ -1204,7 +1204,11 @@ test('an event starts with the settings its setup chose', async () => {
   assert.equal(made.settings.format, 'Expanded');
   assert.equal(made.settings.finished, false, 'an event does not start closed');
   assert.equal(made.settings.idle, false, 'an event does not start idle');
-  assert.equal(made.settings.deckVisibility, 'off');
+  assert.equal(
+    made.settings.deckVisibility,
+    'after',
+    'archetypes show once a new event ends, unless it says otherwise'
+  );
   assert.equal(made.settings.decklists, 'off');
   assert.equal(made.settings.roundCap, 3, 'a league that plays three rounds');
   const bad = await hit(

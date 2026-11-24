@@ -118,9 +118,12 @@ function swissFrom(body: Body): Tournament | null {
   return name ? emptyTournament(info) : null;
 }
 
-/** The settings a new event starts with; closing it is not something it starts as. */
+/**
+ * The settings a new event starts with: archetypes shown once it ends, unless
+ * it says otherwise. Closing it is not something it starts as.
+ */
 function initialSettings(body: Body): TournamentSettings | null {
-  const settings = readSettings(body.settings ?? {}, DEFAULT_SETTINGS);
+  const settings = readSettings(body.settings ?? {}, { ...DEFAULT_SETTINGS, deckVisibility: 'after' });
   return settings && { ...settings, finished: false, idle: false };
 }
 
