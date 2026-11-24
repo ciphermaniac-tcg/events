@@ -10,8 +10,9 @@
 import assert from 'node:assert/strict';
 import test, { afterEach, beforeEach } from 'node:test';
 import { createRoot, createSignal } from 'solid-js';
+import type { Decklist } from '../../src/lib/tournament/api.ts';
 
-import { createMyList } from '../../src/pages/tournaments/myList.ts';
+import { createListRereads, createMyList } from '../../src/pages/tournaments/myList.ts';
 import { remember } from '../../src/pages/tournaments/decklistMemory.ts';
 
 function storage(): Storage {
@@ -111,4 +112,138 @@ test('a read that fails says so, and a retry reads again', async () => {
     assert.equal(list.state(), 'known');
     dispose();
   });
+});
+
+/** A page that can be hidden and shown again, and a clock that only moves when told. */
+function shownAgain() {
+  const page = Object.assign(new EventTarget(), { hidden: false });
+  const realNow = Date.now;
+  let now = 1_000_000;
+  Object.assign(globalThis, { document: page });
+  Date.now = () => now;
+  return {
+    show: (after = 0) => {
+      now += after;
+      page.hidden = false;
+      page.dispatchEvent(new Event('visibilitychange'));
+    },
+    hide: () => {
+      page.hidden = true;
+      page.dispatchEvent(new Event('visibilitychange'));
+    },
+    restore: () => {
+      Date.now = realNow;
+    }
+  };
+}
+
+/** A hold for the page's newest read, and what it holds. */
+function holder() {
+  const box: { held: Decklist | null | undefined } = { held: undefined };
+  return { box, held: () => box.held, hold: (list: Decklist | null | undefined) => void (box.held = list) };
+}
+
+test('back in view before round 1 the page reads the registration again, at most every 30 seconds', async () => {
+  answer(200);
+  const page = shownAgain();
+  await createRoot(async dispose => {
+    const [started, setStarted] = createSignal(false);
+    const { box, held, hold } = holder();
+    const list = createMyList(
+      'REGIST',
+      () => null,
+      () => false
+    );
+    createListRereads(list, started, held, hold);
+    page.show();
+    await settled();
+    assert.deepEqual(asked, [], 'no token kept and no account: nothing to ask by');
+    remember('REGIST', { profile: null, token: 'device-token' });
+    page.show(30_000);
+    await settled();
+    assert.equal(asked.length, 1);
+    assert.match(asked[0] ?? '', /token=device-token/);
+    assert.deepEqual(box.held, LIST);
+    page.hide();
+    page.show(10_000);
+    await settled();
+    assert.equal(asked.length, 1, 'shown again within 30 seconds, it reads nothing');
+    setStarted(true);
+    page.show(30_000);
+    await settled();
+    assert.equal(asked.length, 1, 'once round 1 is paired, it reads nothing');
+    dispose();
+  });
+  page.restore();
+});
+
+test('the newest read wins: an older answer arriving later, or one for an owner since changed, is dropped', async () => {
+  const answers: ((list: object) => void)[] = [];
+  globalThis.fetch = (async (url: string) => {
+    asked.push(url);
+    const list = await new Promise<object>(resolve => {
+      answers.push(resolve);
+    });
+    return Response.json({ known: true, mine: list });
+  }) as typeof fetch;
+  const page = shownAgain();
+  await createRoot(async dispose => {
+    const [owner, setOwner] = createSignal<{ popId: string; firstName: string; lastName: string } | null>({
+      popId: '7',
+      firstName: '',
+      lastName: ''
+    });
+    const { box, held, hold } = holder();
+    const list = createMyList('REGIST', owner, () => false);
+    createListRereads(list, () => false, held, hold);
+    page.show();
+    page.show(30_000);
+    await settled();
+    assert.equal(asked.length, 2);
+    const paid = { ...LIST, openChecks: [] };
+    answers[1]?.(paid);
+    await settled();
+    answers[0]?.({ ...LIST, openChecks: ['paid'] });
+    await settled();
+    assert.deepEqual(box.held, paid, 'the older answer leaves the newer one standing');
+
+    page.show(30_000);
+    await settled();
+    setOwner(null);
+    answers[2]?.({ ...LIST, firstName: 'Someone' });
+    await settled();
+    assert.equal(box.held, undefined, 'a read for the owner before is no longer the page’s');
+    dispose();
+  });
+  page.restore();
+});
+
+test('a read held for an account goes when the account changes; a device’s own, read by its token, stays', async () => {
+  answer(200);
+  const page = shownAgain();
+  await createRoot(async dispose => {
+    const [owner, setOwner] = createSignal<{ popId: string; firstName: string; lastName: string } | null>({
+      popId: '7',
+      firstName: '',
+      lastName: ''
+    });
+    const { box, held, hold } = holder();
+    const list = createMyList('ACCT01', owner, () => false);
+    createListRereads(list, () => false, held, hold);
+    page.show();
+    await settled();
+    assert.deepEqual(box.held, LIST);
+    assert.match(asked[0] ?? '', /own=1/, 'the page asks for its own list only');
+    setOwner({ popId: '8', firstName: '', lastName: '' });
+    assert.equal(box.held, undefined, 'the page shows the new account’s, as read for it');
+
+    remember('ACCT01', { profile: null, token: 'device-token' });
+    page.show(30_000);
+    await settled();
+    assert.deepEqual(box.held, LIST);
+    setOwner(null);
+    assert.deepEqual(box.held, LIST, 'the device’s own list is the device’s whoever is signed in');
+    dispose();
+  });
+  page.restore();
 });
