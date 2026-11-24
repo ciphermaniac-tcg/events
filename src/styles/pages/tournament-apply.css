@@ -7,10 +7,12 @@
 .tm-applicant .tm-box-bar {
   min-height: 56px;
 }
+/* The stage pushes its step to the right; with no stage the step starts the line under the heading. */
 .tm-applicant-stage {
   display: grid;
   gap: 2px;
   min-width: 0;
+  margin-right: auto;
 }
 .tm-applicant-stage strong {
   font-size: var(--text-base);
@@ -21,7 +23,6 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
-  margin-left: auto;
 }
 /* Withdraw's question wraps under its words on a phone rather than running off the box. */
 .tm-applicant .tm-confirm {
@@ -53,8 +54,8 @@
   font-weight: 600;
 }
 @media (max-width: 640px) {
-  .tm-applicant-step {
-    margin-left: 0;
+  .tm-applicant-stage {
+    margin-right: 0;
   }
   /* Under the heading on a phone, where the account stands starts the line as the page's text does. */
   .tm-applicant-line {
