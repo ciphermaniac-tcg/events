@@ -75,10 +75,10 @@ function ClockSetter(props: { round: Round; onSet: (seconds: number) => void; on
         {change() === null ? (typed().trim() ? t('Type minutes, or m:ss.') : '') : changeWords(change()!)}
       </span>
       <span class='tm-clock-setter-acts'>
-        <button type='submit' class='btn btn-secondary tm-small' disabled={change() === null}>
+        <button type='submit' class='btn btn-secondary' disabled={change() === null}>
           {t('Set')}
         </button>
-        <button type='button' class='btn btn-ghost tm-small' onClick={() => props.onClose()}>
+        <button type='button' class='btn btn-ghost' onClick={() => props.onClose()}>
           {t('Cancel')}
         </button>
       </span>

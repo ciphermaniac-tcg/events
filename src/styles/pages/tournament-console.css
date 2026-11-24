@@ -116,7 +116,9 @@
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
+/* Sized by the clock above it rather than widening it: its own line wraps instead. */
 .tm-clock-setter {
+  contain: inline-size;
   display: flex;
   flex: 1 0 100%;
   flex-wrap: wrap;
@@ -939,6 +941,12 @@
 }
 .tm-console .tm-check-field .segmented {
   justify-self: start;
+}
+/* Its buttons sit inside the toggle's padding, so the toggle stands as tall as the selects beside it. */
+@media (pointer: fine) {
+  .tm-console .tm-check-field .segmented button {
+    min-height: 36px;
+  }
 }
 .tm-console .tm-list-deck-check {
   white-space: nowrap;
