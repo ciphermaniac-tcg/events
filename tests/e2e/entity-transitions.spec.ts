@@ -83,6 +83,7 @@ test('a missing profile never lends its error to the next profile @mobile', asyn
   });
   await page.goto('/u/missing');
   await expect(page.getByRole('heading', { name: 'Profile not found' })).toBeVisible();
+  await expect(page).toHaveTitle('Profile not found — Ciphermaniac Events');
   await navigate(page, '/u/next');
   await expect(page.locator('main .skeleton')).toBeVisible();
   await expect(page.locator('main .error-state')).toHaveCount(0);
