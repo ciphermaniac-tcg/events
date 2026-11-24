@@ -319,8 +319,7 @@ function statusPod(playing: Pod[], prefer: readonly (PodCategory | null | undefi
 
 /**
  * Where the event stands, for the public page and the big screen: who is
- * registered and when round 1 starts, the round in play, or how it finished.
- * `firstRound` is the start time already formatted, or null when unset.
+ * registered, the round in play, or how it finished.
  * Divisions playing rounds of their own lead with the division's name, and
  * describe the first of `prefer` that plays one: the viewer's, say.
  */
@@ -329,7 +328,6 @@ export function eventStatus(
   event: {
     pending: readonly PendingResult[];
     finished: boolean;
-    firstRound: string | null;
     /** The event's round cap (see TournamentSettings), or null where TOM decides the rounds. */
     roundCap: number | null;
     prefer?: readonly (PodCategory | null | undefined)[];
@@ -342,9 +340,7 @@ export function eventStatus(
   const pod = statusPod(playing, event.prefer ?? []);
   if (!pod) {
     const players = tournament.players.filter(player => player.droppedAfter === null).length;
-    // Staff can end an event before round 1; it then has no start to promise.
-    const start = event.firstRound && !event.finished ? [t('Round 1 at {time}', { time: event.firstRound })] : [];
-    return [event.finished ? t('Finished') : t('Registration'), tn(players, '{n} player', '{n} players'), ...start];
+    return [event.finished ? t('Finished') : t('Registration'), tn(players, '{n} player', '{n} players')];
   }
   if (event.finished) {
     const swiss = pod.rounds.filter(round => round.kind === 'swiss').length;

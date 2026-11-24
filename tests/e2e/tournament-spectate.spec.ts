@@ -223,23 +223,18 @@ test('a paused stream clock says so in words', async ({ page }) => {
   await expect(page.locator('.tm-stream-clock')).toHaveText('Paused · 17:05');
 });
 
-test('mid-round the hero leaves out when the event last changed, which the clock already answers', async ({ page }) => {
-  const updatedAt = Date.UTC(2026, 9, 3, 15, 41);
-  await mockApi(page, { ...VIEW, updatedAt });
-  await page.goto(`/t/${CODE}`);
-  await expect(page.locator('.tm-public .tm-status')).toBeVisible();
-  await expect(page.getByText(/^Updated /)).toHaveCount(0);
+test('between rounds the hero still leaves out when the event last changed', async ({ page }) => {
   const pod = VIEW.tournament.pods[0]!;
   const latest = pod.rounds.at(-1)!;
   const decided = { ...latest, matches: latest.matches.map(m => (m.p2 ? { ...m, outcome: 'p1' as const } : m)) };
-  await page.unroute('**/api/**');
   await mockApi(page, {
     ...VIEW,
-    updatedAt,
+    updatedAt: Date.UTC(2026, 9, 3, 15, 41),
     tournament: { ...VIEW.tournament, pods: [{ ...pod, rounds: [...pod.rounds.slice(0, -1), decided] }] }
   });
-  await page.reload();
-  await expect(page.getByText(/^Updated /)).toHaveCount(1);
+  await page.goto(`/t/${CODE}`);
+  await expect(page.locator('.tm-public .tm-status')).toBeVisible();
+  await expect(page.getByText(/^Updated /)).toHaveCount(0);
 });
 
 test('In progress, once every table has a result, says so instead of leaving a bare head', async ({ page }) => {
