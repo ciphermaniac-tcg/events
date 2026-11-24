@@ -9,8 +9,18 @@
  */
 
 import { SessionGate, StoreLoadError } from './SessionGate';
-import { A, useSearchParams } from '@solidjs/router';
-import { createEffect, createMemo, createResource, createSignal, For, type JSX, Show, untrack } from 'solid-js';
+import { A, type BeforeLeaveEventArgs, useBeforeLeave, useSearchParams } from '@solidjs/router';
+import {
+  createEffect,
+  createMemo,
+  createResource,
+  createSignal,
+  For,
+  type JSX,
+  onCleanup,
+  Show,
+  untrack
+} from 'solid-js';
 import {
   dateIn,
   type LeagueNight,
@@ -39,6 +49,7 @@ import { StoreFields } from './StoreFields';
 import { StoreDisplays } from './StoreDisplays';
 import { createAction } from './action';
 import { SaveBar } from './StoreSave';
+import { ConfirmDialog } from './ConfirmAction';
 import { StoreStaff } from './StoreStaff';
 import '../../styles/pages/tournament-store-settings.css';
 import { pageTitle } from '../../lib/title';
@@ -64,13 +75,56 @@ const nightsProblem = (nights: readonly LeagueNight[], exceptions: readonly Nigh
     : null;
 };
 
-function NightsSection(props: { store: PublicStore; onSaved: (store: PublicStore) => void }) {
+/**
+ * Whether a leave goes to another page, rather than to another section of
+ * this one (`?section=`). The browser's Back and Forward come as a number,
+ * asked once the address has already moved to where they go.
+ */
+const leavesPage = (event: BeforeLeaveEventArgs) =>
+  new URL(typeof event.to === 'number' ? location.href : event.to, location.href).pathname !== event.from.pathname;
+
+/** While a section has edits not yet saved, leaving the page asks first in a dialog, and closing the tab as the browser does. */
+function LeaveGuard(props: { dirty: boolean }) {
+  const [leave, setLeave] = createSignal<(() => void) | null>(null);
+  const unload = (event: BeforeUnloadEvent) => {
+    if (props.dirty) {
+      event.preventDefault();
+    }
+  };
+  window.addEventListener('beforeunload', unload);
+  onCleanup(() => window.removeEventListener('beforeunload', unload));
+  useBeforeLeave(event => {
+    if (props.dirty && leavesPage(event)) {
+      event.preventDefault();
+      setLeave(() => () => event.retry(true));
+    }
+  });
+  return (
+    <ConfirmDialog
+      open={leave() !== null}
+      question={t('Leave without saving?')}
+      scope={t('Your changes will be lost.')}
+      confirmLabel={t('Leave')}
+      danger
+      onConfirm={() => leave()?.()}
+      onClose={() => setLeave(null)}
+    />
+  );
+}
+
+function NightsSection(props: {
+  store: PublicStore;
+  onSaved: (store: PublicStore) => void;
+  onDirty: (dirty: boolean) => void;
+}) {
   // Edits of a copy of the nights the page opened with, until they are saved.
   const [nights, setNights] = createSignal<LeagueNight[]>(untrack(() => byWeek(props.store.nights)));
   const [exceptions, setExceptions] = createSignal<NightException[]>(untrack(() => [...props.store.exceptions]));
   const save = createAction();
   const dirty = () =>
     JSON.stringify([nights(), exceptions()]) !== JSON.stringify([byWeek(props.store.nights), props.store.exceptions]);
+  // For the page's one LeaveGuard.
+  createEffect(() => props.onDirty(dirty()));
   const today = () => dateIn(props.store.timeZone, Date.now());
   /** A date that named a night now removed applies to every night that day, rather than to none the server knows. */
   function changeNights(next: LeagueNight[]) {
@@ -124,6 +178,7 @@ function DetailsSection(props: {
   store: PublicStore;
   contact: { phone: string; email: string };
   onSaved: (store: PublicStore, contact: { phone: string; email: string }) => void;
+  onDirty: (dirty: boolean) => void;
 }) {
   const opened = (): StoreDetails => {
     const { name, address, city, region, postal, country, website, discord, details } = props.store;
@@ -135,6 +190,8 @@ function DetailsSection(props: {
   const save = createAction();
   const dirty = () =>
     timeZone() !== props.store.timeZone || JSON.stringify(cleanDetails(details())) !== JSON.stringify(opened());
+  // For the page's one LeaveGuard.
+  createEffect(() => props.onDirty(dirty()));
   function submit(event: Event) {
     event.preventDefault();
     setChecked(true);
@@ -246,6 +303,9 @@ function Settings(props: { id: string }) {
   });
   const saved = (store: PublicStore, contact?: { phone: string; email: string }) =>
     mutate(prev => prev && { ...prev, store, ...(contact ? { contact } : {}) });
+  // One guard for the page, outside the hidden sections, so its question never opens where it cannot be seen.
+  const [edited, setEdited] = createSignal({ nights: false, details: false });
+  const edit = (part: 'nights' | 'details') => (dirty: boolean) => setEdited(prev => ({ ...prev, [part]: dirty }));
   return (
     <Show
       when={current()}
@@ -292,7 +352,7 @@ function Settings(props: { id: string }) {
             <SectionNav current={section()} />
             <div class='tm-side-content'>
               <Pane of='nights' current={section()} opened={opened()}>
-                <NightsSection store={answer().store} onSaved={store => saved(store)} />
+                <NightsSection store={answer().store} onSaved={store => saved(store)} onDirty={edit('nights')} />
               </Pane>
               <Pane of='staff' current={section()} opened={opened()}>
                 <StoreStaff storeId={answer().store.id} storeName={answer().store.name} />
@@ -305,10 +365,12 @@ function Settings(props: { id: string }) {
                   store={answer().store}
                   contact={answer().contact ?? { phone: '', email: '' }}
                   onSaved={saved}
+                  onDirty={edit('details')}
                 />
               </Pane>
             </div>
           </div>
+          <LeaveGuard dirty={edited().nights || edited().details} />
         </Show>
       )}
     </Show>

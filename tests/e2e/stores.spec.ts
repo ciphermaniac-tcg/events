@@ -713,6 +713,44 @@ test('store settings keep unsaved edits while another section is open', async ({
   await expect(page.locator('.tm-night-time').first()).toHaveValue('18:45');
 });
 
+test('store settings ask before leaving with edits not saved, and keep them when kept', async ({ page }) => {
+  await mock(page, { user: MANAGER });
+  await page.goto('/stores/store-1/settings');
+  await page.locator('.tm-night-time').first().fill('18:45');
+  await page.getByRole('link', { name: 'Store page' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Leave without saving?' });
+  await expect(dialog).toContainText('Your changes will be lost.');
+  await dialog.getByRole('button', { name: 'Keep' }).click();
+  await expect(page).toHaveURL(/\/stores\/store-1\/settings/);
+  await expect(page.locator('.tm-night-time').first()).toHaveValue('18:45');
+  await page.getByRole('link', { name: 'Store page' }).click();
+  await dialog.getByRole('button', { name: 'Leave' }).click();
+  await expect(page).toHaveURL(/\/stores\/store-1$/);
+});
+
+test('store settings ask in view when left from another section, once for both, and Back between sections asks nothing @mobile', async ({
+  page
+}) => {
+  await mock(page, { user: MANAGER });
+  await page.goto('/stores/store-1/settings');
+  const nav = page.getByRole('navigation', { name: 'Store settings' });
+  await page.locator('.tm-night-time').first().fill('18:45');
+  await nav.getByRole('link', { name: 'Details' }).click();
+  await page.goBack();
+  await expect(page).toHaveURL(/\/stores\/store-1\/settings$/);
+  await page.goForward();
+  const dialog = page.getByRole('dialog', { name: 'Leave without saving?' });
+  await expect(dialog).toHaveCount(0);
+  // Only the hidden League nights section has edits.
+  await page.getByRole('link', { name: 'Store page' }).click();
+  await dialog.getByRole('button', { name: 'Keep' }).click();
+  await page.getByLabel('Store name').fill('Combat Power Games');
+  await page.getByRole('link', { name: 'Store page' }).click();
+  await expect(dialog).toHaveCount(1);
+  await dialog.getByRole('button', { name: 'Leave' }).click();
+  await expect(page).toHaveURL(/\/stores\/store-1$/);
+});
+
 test('store settings: details save with the store’s place kept', async ({ page }) => {
   const asks = await mock(page, { user: MANAGER });
   await page.goto('/stores/store-1/settings');
