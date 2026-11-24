@@ -362,7 +362,7 @@ test('an Admin opens an account from Users, moves its POP ID to one found by nam
   await expect(card).toContainText(MARY.id);
   await expect(card.getByRole('link', { name: 'Combat Power Gaming' })).toBeVisible();
   await expect(card.getByRole('button', { name: 'Remove from store' })).toBeVisible();
-  await card.getByRole('button', { name: 'Move to account…' }).click();
+  await card.getByRole('button', { name: 'Move Player ID…' }).click();
   const search = card.getByRole('searchbox', { name: 'Move 7200001 to' });
   await expect(search).toBeFocused();
   await search.fill('nobody');
@@ -374,12 +374,12 @@ test('an Admin opens an account from Users, moves its POP ID to one found by nam
   await move.getByRole('button', { name: 'Move' }).click();
   const ben = page.getByRole('dialog', { name: 'Ben Ortiz' });
   await expect(ben).toContainText('7200001');
-  await ben.getByRole('button', { name: 'Clear' }).click();
+  await ben.getByRole('button', { name: 'Clear Player ID' }).click();
   await ben
     .getByRole('group', { name: 'Clear 7200001 from Ben Ortiz?' })
-    .getByRole('button', { name: 'Clear' })
+    .getByRole('button', { name: 'Clear Player ID' })
     .click();
-  await expect(ben.getByRole('button', { name: 'Clear' })).toHaveCount(0);
+  await expect(ben.getByRole('button', { name: 'Clear Player ID' })).toHaveCount(0);
   await ben.getByRole('button', { name: 'Close' }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(page.locator('.tm-admin-users')).not.toContainText('7200001');
@@ -396,7 +396,7 @@ test('the Move search finds an account past the newest ones by its exact email, 
   await page.goto('/admin?tab=users');
   await page.getByRole('row', { name: /Mary/ }).click();
   const card = page.getByRole('dialog', { name: 'Mary' });
-  await card.getByRole('button', { name: 'Move to account…' }).click();
+  await card.getByRole('button', { name: 'Move Player ID…' }).click();
   await card.getByRole('searchbox', { name: 'Move 7200001 to' }).fill(OLDER.email);
   await card.getByRole('row').filter({ hasText: 'Dana Wells' }).getByRole('button', { name: 'Move' }).click();
   await page.getByRole('dialog', { name: 'Move 7200001 to Dana Wells?' }).getByRole('button', { name: 'Move' }).click();
