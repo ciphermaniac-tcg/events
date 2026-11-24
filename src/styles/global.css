@@ -21,6 +21,10 @@ html {
     scroll-padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
   }
 }
+/* A tap acts at once: a double tap on a control does not zoom the page. */
+:is(a, button, input, select, textarea, label, summary) {
+  touch-action: manipulation;
+}
 :root,
 ::backdrop {
   --scrim: color-mix(in srgb, #000 45%, transparent);

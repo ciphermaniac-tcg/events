@@ -2123,6 +2123,7 @@ tr.is-in .tm-place {
   background: var(--surface);
   box-shadow: var(--shadow-float);
   color: var(--fg);
+  overscroll-behavior: contain;
 }
 .tm-modal::backdrop {
   background: var(--scrim);
