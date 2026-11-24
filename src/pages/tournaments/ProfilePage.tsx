@@ -22,11 +22,15 @@ import { ErrorState } from '@ciphermaniac/design/components/ErrorState';
 
 const missing = (error: unknown) => error instanceof ApiError && error.status === 404;
 
+/** The profile's name, or its @username when it shows no real name, so the username never shows twice. */
+const heading = (p: { name: string; handle: string }) => (p.name === p.handle ? `@${p.handle}` : p.name);
+
 export function ProfilePage(props: { handle: string }) {
   const [profile, { refetch }] = createResource(() => props.handle, fetchProfile);
   const shown = () => resolved(profile);
   createEffect(() => {
-    const name = shown()?.name;
+    const found = shown();
+    const name = found && heading(found);
     if (name) {
       document.title = pageTitle(name);
     } else if (profile.error) {
@@ -68,13 +72,15 @@ export function ProfilePage(props: { handle: string }) {
         >
           {p => (
             <>
-              <Trail here={p().name} />
+              <Trail here={heading(p())} />
               <section class='tm-hero tm-profile-hero'>
                 <Avatar name={p().name} src={p().avatar} />
                 <div class='tm-hero-text'>
                   <div class='tm-profile-name'>
-                    <h1>{p().name}</h1>
-                    <p class='tm-status muted'>@{p().handle}</p>
+                    <h1>{heading(p())}</h1>
+                    <Show when={p().name !== p().handle}>
+                      <p class='tm-status muted'>@{p().handle}</p>
+                    </Show>
                   </div>
                   <Badges badges={p().badges ?? []} />
                   <ProfileLinks links={p().links ?? {}} />
