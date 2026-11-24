@@ -674,6 +674,19 @@ test('a result at another table leaves an open Report result and what was typed 
   await expect(id).toHaveValue('12345');
 });
 
+test('a printed standings page keeps its title and table, and leaves the site’s chrome off', async ({ page }) => {
+  await mockApi(page);
+  await page.goto(`/t/${CODE}?tab=standings`);
+  await expect(page.locator('.tm-standings').first()).toBeVisible();
+  await page.emulateMedia({ media: 'print' });
+  await expect(page.locator('.head-bar')).toBeHidden();
+  await expect(page.locator('.site-footer')).toBeHidden();
+  await expect(page.getByRole('tablist', { name: 'Event sections' })).toBeHidden();
+  await expect(page.getByRole('searchbox', { name: 'Find a player' })).toBeHidden();
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+  await expect(page.locator('.tm-standings').first()).toBeVisible();
+});
+
 test('a result coming in re-ranks the standings in place', async ({ page }) => {
   let view = VIEW;
   await mockApi(page);
