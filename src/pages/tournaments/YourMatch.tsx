@@ -37,7 +37,7 @@ import type { PlayerResult } from '../../../shared/tournament/reports';
 import { isBye, matchPoints, recordLabel, sideResult } from '../../../shared/tournament/standings';
 import { hasStarted, podOf, withSwiss } from '../../../shared/tournament/rounds';
 import type { Pod, Round, Match as TableMatch } from '../../../shared/tournament/types';
-import { type PublishedView, type TournamentView } from '../../../shared/tournament/view';
+import { isSanctioned, type PublishedView, type TournamentView } from '../../../shared/tournament/view';
 import { ApiError, type Decklist, errorText, reportAsPlayer, type SignInOffer } from '../../lib/tournament/api';
 import { marksFor } from '../../../shared/tournament/checkins';
 import { divisionFor, eventSeason } from '../../../shared/tournament/divisions';
@@ -46,6 +46,7 @@ import {
   divisionHeading,
   firstRoundTime,
   namesById,
+  playerDivision,
   podStandings,
   recordsSoFar,
   reportState,
@@ -585,7 +586,7 @@ function MatchBox(props: Props & { me: string; askAs: PlayerClaim | null }) {
   };
   /** A looked-up player asked to report: the exact claim comes first. */
   const confirming = () => open() && !props.claim && found() !== null;
-  const division = () => divisionHeading(props.view.divisions[props.me] ?? null);
+  const division = () => playerDivision(props.view, props.me);
   const record = () => {
     const f = found();
     return f ? ownRecord(props.view, f, props.me) : null;
@@ -771,7 +772,10 @@ function checkInLine(view: TournamentView, list: Decklist): string {
 
 /** Before round 1, the registration this device or account holds, over the tabs: that it is in, check-in, and whose. */
 export function RegisteredCard(props: { view: TournamentView; list: Decklist }) {
-  const division = () => divisionHeading(divisionFor(props.list.birthDate, eventSeason(props.view.tournament)));
+  const division = () =>
+    isSanctioned(props.view)
+      ? ` · ${divisionHeading(divisionFor(props.list.birthDate, eventSeason(props.view.tournament)))}`
+      : '';
   return (
     <section class='tm-box tm-you' aria-label={t('Your registration')}>
       <div class='tm-you-top'>
@@ -780,7 +784,8 @@ export function RegisteredCard(props: { view: TournamentView; list: Decklist }) 
       </div>
       <div class='tm-you-who'>
         <span class='muted'>
-          {props.list.firstName} {props.list.lastName} · {division()}
+          {props.list.firstName} {props.list.lastName}
+          {division()}
         </span>
       </div>
     </section>

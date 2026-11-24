@@ -2359,11 +2359,11 @@ for (const denied of ['local', 'both'] as const) {
     await expect(status).toHaveText('2 matching players. Add a first name to narrow the list.');
     const choices = page.getByRole('group', { name: 'Choose your player' }).getByRole('button');
     await expect(choices.filter({ hasText: 'Show table' })).toHaveCount(2);
+    await expect(choices.and(page.getByRole('button', { name: /^Show table for Peter P\., Table \d+$/ }))).toHaveCount(
+      1
+    );
     await expect(
-      choices.and(page.getByRole('button', { name: /^Show table for Peter P\., Masters, Table \d+$/ }))
-    ).toHaveCount(1);
-    await expect(
-      choices.and(page.getByRole('button', { name: /^Show table for Patricia P\., Masters, Table \d+$/ }))
+      choices.and(page.getByRole('button', { name: /^Show table for Patricia P\., Table \d+$/ }))
     ).toHaveCount(1);
     await expect(page.locator('.tm-you-who')).toHaveCount(0);
     await page.getByLabel('First name', { exact: true }).fill('Piter');

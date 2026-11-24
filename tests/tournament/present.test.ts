@@ -18,7 +18,13 @@ import { recommendedStructure } from '../../shared/tournament/structure.ts';
 import { parseTdf } from '../../shared/tournament/tdf.ts';
 import type { PlayerReport } from '../../shared/tournament/reports.ts';
 import type { EventType, Match, Pod, Round, Tournament } from '../../shared/tournament/types.ts';
-import { applyPending, assignKeys, DEFAULT_SETTINGS, publicTournament } from '../../shared/tournament/view.ts';
+import {
+  applyPending,
+  assignKeys,
+  DEFAULT_SETTINGS,
+  publicTournament,
+  type PublishedView
+} from '../../shared/tournament/view.ts';
 import { tdfFilename, tdfText } from '../../src/lib/tournament/exportTdf.ts';
 import { ordinal } from '../../src/lib/format.ts';
 import {
@@ -34,6 +40,7 @@ import {
   matchHistory,
   namesById,
   plannedRounds,
+  playerDivision,
   podLabel,
   podProgress,
   podStandings,
@@ -145,6 +152,10 @@ test('a combined pod is ranked per division', () => {
   );
   assert.equal(divisionHeading('junior'), 'Juniors');
   assert.equal(divisionHeading(null), '');
+  const view = { mode: 'swiss', settings: { ...DEFAULT_SETTINGS, sanctioned: true }, divisions: { k: 'junior' } };
+  assert.equal(playerDivision(view as unknown as PublishedView, 'k'), 'Juniors');
+  const unsanctioned = { ...view, settings: { ...DEFAULT_SETTINGS, sanctioned: false } };
+  assert.equal(playerDivision(unsanctioned as unknown as PublishedView, 'k'), '', 'one division where none is played');
   const single: Pod = { ...pod, category: 'masters' };
   assert.equal(podStandings(CHALLENGE, single, () => 'masters')[0]?.division, null);
   const everyone = podStandings(CHALLENGE, pod, () => 'masters');

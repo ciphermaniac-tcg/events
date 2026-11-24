@@ -70,11 +70,11 @@ import {
 } from '../../lib/tournament/viewPoll';
 import { dayLabel, eventDay, playerResult } from '../../lib/tournament/history';
 import {
-  divisionHeading,
   eventStatus,
   firstRoundTime,
   foundElsewhere,
   namesById,
+  playerDivision,
   podLabel,
   podProgress,
   roundCapOf
@@ -560,7 +560,7 @@ function OpenPlayer(props: {
 }) {
   // Every round they played, their division's top cut included, as one pod (see playerPod).
   const pod = createMemo(() => playerPod(props.view.tournament, props.id) ?? props.fallback);
-  const division = () => divisionHeading(props.view.divisions[props.id] ?? null);
+  const division = () => playerDivision(props.view, props.id);
   // Memos: the sheet reads these once per row of the player's history, and ranking a pod is a pass over its every match.
   const standings = createMemo(() => {
     const p = pod();
@@ -571,9 +571,10 @@ function OpenPlayer(props: {
   // The place History gives the same player (see playerResult).
   const place = createMemo(() => {
     const at = playerResult(props.view, props.id)?.place;
-    return at
-      ? t('{place} in {division}', { place: ordinal(at), division: division() })
-      : `${division()} · ${t('Registered')}`;
+    if (at) {
+      return division() ? t('{place} in {division}', { place: ordinal(at), division: division() }) : ordinal(at);
+    }
+    return [division(), t('Registered')].filter(Boolean).join(' · ');
   });
   return (
     <Show when={pod()}>
