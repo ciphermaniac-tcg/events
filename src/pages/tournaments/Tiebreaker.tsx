@@ -8,8 +8,8 @@ import { InfoTip } from '@ciphermaniac/design/components/InfoTip';
 import { msg, t } from '../../lib/i18n';
 
 const MEANS = {
-  OWP: msg('The win percentage of the opponents you’ve faced, used for tiebreakers.'),
-  OOWP: msg('The win percentage of your opponent’s opponents, used for tiebreakers.')
+  OWP: msg('Average win percentage of your opponents.'),
+  OOWP: msg('Average win percentage of your opponents’ opponents.')
 } as const;
 
 export function Tiebreaker(props: { name: keyof typeof MEANS }) {
