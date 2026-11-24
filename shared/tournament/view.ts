@@ -601,6 +601,8 @@ export interface Manage {
 export interface StaffMember {
   id: string;
   name: string;
+  /** Their username, shown after the name; null on an account made before usernames. */
+  handle: string | null;
   /** When they joined through the invite link; null for anyone who joined before that was kept. */
   joinedAt: number | null;
 }

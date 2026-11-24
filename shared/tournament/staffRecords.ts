@@ -35,6 +35,8 @@ export type StaffMember = { id: string } | { name: string };
 export interface StaffAccount {
   id: string;
   name: string;
+  /** Their username, shown after the name where staff are picked from; null on an account made before usernames. */
+  handle?: string | null;
 }
 
 export const STAFF_NAME_LIMIT = 60;

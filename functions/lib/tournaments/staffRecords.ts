@@ -83,7 +83,7 @@ interface RecordKind<Input extends RecordInput, Entry> {
  * in the store that does, and everyone the invite link let in.
  */
 const STAFF_SQL =
-  `SELECT u.id AS id, ${displayNameSql('u')} AS name FROM users u WHERE u.id IN (` +
+  `SELECT u.id AS id, ${displayNameSql('u')} AS name, u.handle AS handle FROM users u WHERE u.id IN (` +
   'SELECT owner_id FROM tournaments WHERE code = ?1 AND store_id IS NULL ' +
   'UNION SELECT m.user_id FROM tournaments t JOIN store_members m ON m.store_id = t.store_id WHERE t.code = ?1 ' +
   'UNION SELECT user_id FROM staff WHERE code = ?1) ORDER BY name';

@@ -2724,6 +2724,24 @@ test('dropping a player from the check-in line asks first', async ({ page }) => 
   await expect.poll(() => sent.at(-1)).toMatchObject({ type: 'dropPlayer' });
 });
 
+test('staff are listed and picked by name, their username after it', async ({ page }) => {
+  await mockConsole(page, event(8, 0, true), settingsOf({}));
+  const judge = { id: 'u9', name: 'Sam Judge', handle: 'sam-j' };
+  await page.route(`**/api/tournaments/${CODE}/staff*`, route =>
+    route.fulfill({ json: { staff: [{ ...judge, joinedAt: null }] } })
+  );
+  await page.route(`**/api/tournaments/${CODE}/head-judge`, route =>
+    route.fulfill({ json: { headJudge: null, staff: [judge, { id: 'u2', name: 'kim', handle: 'kim' }] } })
+  );
+  await page.getByRole('tab', { name: 'Settings' }).click();
+  await expect(page.locator('.tm-staff-list > li > span:first-child')).toHaveText([
+    'Organizer @organizer · organizer',
+    'Sam Judge @sam-j'
+  ]);
+  // An account with no name but its username shows it once.
+  await expect(page.locator('#head-judge option')).toHaveText(['None', 'Sam Judge @sam-j', 'kim']);
+});
+
 test('a staff removal that fails says so in the staff list', async ({ page }) => {
   await mockConsole(page, event(8, 0, true), settingsOf({}));
   await page.route(`**/api/tournaments/${CODE}/staff*`, route =>
@@ -2860,6 +2878,8 @@ test('an invite link joins the staff before the console reads the event', async 
   await expect
     .poll(() => order.slice(0, 2))
     .toEqual([`POST /api/tournaments/${CODE}/staff`, `GET /api/tournaments/${CODE}/manage`]);
+  // Once it let them in, the link's token leaves the address.
+  await expect(page).toHaveURL(new RegExp(`/host/${CODE}$`));
 });
 
 test('before round 1 staff tick who paid, and the console names who is still open @mobile', async ({ page }) => {

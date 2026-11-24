@@ -645,7 +645,7 @@ function pollEvery(manage: Manage | null, tab: string | undefined): number {
 }
 
 export function ManageEvent(props: { code: string }) {
-  const [params] = useSearchParams<{ invite?: string; tab?: string }>();
+  const [params, setParams] = useSearchParams<{ invite?: string; tab?: string }>();
   const state = createManage(() => props.code);
   const [joinError, setJoinError] = createSignal<string | null>(null);
   const user = () => latestValue(session)?.user;
@@ -657,10 +657,19 @@ export function ManageEvent(props: { code: string }) {
     }
   });
 
-  /** An invite link joins the staff first, which takes the account; the event is then read as staff. */
+  /**
+   * An invite link joins the staff first, which takes the account; the event is then read as staff,
+   * and the link's token leaves the address once it let them in.
+   */
   async function join(code: string, invite: string) {
-    await joinStaff(code, invite).catch((err: unknown) => setJoinError(errorText(err)));
+    const joined = await joinStaff(code, invite).then(
+      () => true,
+      (err: unknown) => setJoinError(errorText(err))
+    );
     await state.load();
+    if (joined === true) {
+      setParams({ invite: undefined }, { replace: true });
+    }
   }
 
   // Without an invite the event is read at once, beside the account: the server says who may.

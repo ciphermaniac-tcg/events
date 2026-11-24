@@ -636,7 +636,7 @@ function HeadJudge(props: { manage: Manage; removals: number }) {
         >
           <option value=''>{t('None')}</option>
           <For each={latestValue(choice)?.staff ?? []}>
-            {member => <option value={member.id}>{member.name}</option>}
+            {member => <option value={member.id}>{named(member)}</option>}
           </For>
         </select>
         <ErrorLine message={error()} />
@@ -644,6 +644,22 @@ function HeadJudge(props: { manage: Manage; removals: number }) {
     </SettingRow>
   );
 }
+
+type Account = { name: string; handle?: string | null };
+
+/** The username said after a staff account's name, where it is not the name already. */
+const handleOf = (account: Account) => (account.handle && account.handle !== account.name ? account.handle : null);
+
+/** A staff account as the organizer knows it, as a choice's words: the name, then the username. */
+const named = (account: Account) => (handleOf(account) ? `${account.name} @${handleOf(account)}` : account.name);
+
+/** A staff account in the list: the name, then the username, quieter. */
+const Named = (props: { account: Account }) => (
+  <>
+    {props.account.name}
+    <Show when={handleOf(props.account)}>{handle => <span class='muted'> @{handle()}</span>}</Show>
+  </>
+);
 
 const joinedOn = (at: number) => new Date(at).toLocaleDateString(intlLocale(), { month: 'short', day: 'numeric' });
 
@@ -660,7 +676,7 @@ function StaffList(props: { manage: Manage; onRemove: () => void }) {
     () => fetchStaff(props.manage.code).then(result => result.staff)
   );
   // Only the organizer sees this list, so the organizer is whoever is signed in.
-  const organizer = () => latestValue(session)?.user?.name;
+  const organizer = () => latestValue(session)?.user;
   // Said under the list, beside the row that failed, rather than dropped.
   const [failed, setFailed] = createSignal<string | null>(null);
   async function remove(id: string) {
@@ -677,10 +693,10 @@ function StaffList(props: { manage: Manage; onRemove: () => void }) {
     <SettingRow label={t('On staff')}>
       <ul class='tm-staff-list'>
         <Show when={organizer()}>
-          {name => (
+          {user => (
             <li>
               <span>
-                {name()}
+                <Named account={user()} />
                 <span class='muted'> · {t('organizer')}</span>
               </span>
             </li>
@@ -690,7 +706,7 @@ function StaffList(props: { manage: Manage; onRemove: () => void }) {
           {member => (
             <li>
               <span>
-                {member.name}
+                <Named account={member} />
                 <Show when={member.joinedAt}>
                   {at => <span class='muted'> · {t('joined {date}', { date: joinedOn(at()) })}</span>}
                 </Show>
