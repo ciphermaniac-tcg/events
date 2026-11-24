@@ -192,12 +192,13 @@ async function mockEvent(page: Page, settings: Partial<TournamentSettings> = {},
   return { calls };
 }
 
-test('before round 1 the page is the registration tab alone, and asks nobody who they are', async ({ page }) => {
+test('before round 1 the page is the registration alone, with no tab bar of one, and asks nobody who they are', async ({
+  page
+}) => {
   await mockEvent(page);
   await page.goto(`/t/${CODE}`);
-  await expect(page.getByRole('tab', { name: 'Register' })).toBeVisible();
-  await expect(page.getByRole('tab', { name: 'Pairings' })).toHaveCount(0);
-  await expect(page.getByRole('tab', { name: 'Standings' })).toHaveCount(0);
+  await expect(page.getByRole('textbox', { name: 'Player ID' })).toBeVisible();
+  await expect(page.getByRole('tablist')).toHaveCount(0);
   await expect(page.getByText('Which player are you?')).toHaveCount(0);
 });
 
@@ -299,14 +300,14 @@ test('any other Player ID registers, with a pasted list, and the Registered card
   await page.getByRole('button', { name: 'Change ID' }).click();
   await page.getByRole('textbox', { name: 'Player ID' }).fill('12345678');
   await page.getByRole('button', { name: 'Continue' }).click();
-  await expect(page.getByText('New registration')).toBeVisible();
+  await expect(page.getByRole('group', { name: 'Decklist' })).toBeVisible();
   await page.getByRole('textbox', { name: 'First name' }).fill('Nia');
   await page.getByRole('textbox', { name: 'Last name' }).fill('Okafor');
   await page.getByRole('textbox', { name: 'Birth year' }).fill('2001');
   const register = page.getByRole('button', { name: 'Register' });
   await expect(register).toBeDisabled();
   await page.getByText('Digital').click();
-  await expect(page.getByText('Paste a decklist')).toBeVisible();
+  await expect(register).toBeDisabled();
   await page.getByRole('textbox', { name: 'Decklist' }).fill('60 Basic {G} Energy SVE 1');
   const hero = page.locator('.tm-hero');
   await expect(hero).toContainText('4 players');
@@ -417,7 +418,7 @@ test('at an unsanctioned event a name a slip away is asked about, never opened, 
   await expect(page.getByText('Did you mean Avery C.?')).toBeVisible();
   await expect(page.locator('.tm-reg-who')).toHaveCount(0);
   await page.getByRole('button', { name: 'No, register Avry Chen' }).click();
-  await expect(page.getByText('New registration')).toBeVisible();
+  await expect(page.getByRole('group', { name: 'Decklist' })).toBeVisible();
   await expect(page.getByRole('textbox', { name: 'First name' })).toHaveValue('Avry');
 
   await page.getByRole('button', { name: 'Not you?' }).click();
@@ -451,7 +452,7 @@ test('at an unsanctioned event a name a slip away is asked about, never opened, 
   await lookUp('Alex', 'Kim');
   await expect(page.getByText('Which one are you?')).toBeVisible();
   await page.getByRole('button', { name: 'None of these' }).click();
-  await expect(page.getByText('New registration')).toBeVisible();
+  await expect(page.getByRole('group', { name: 'Decklist' })).toBeVisible();
   await expect(page.getByRole('textbox', { name: 'First name' })).toHaveValue('Alex');
 });
 
@@ -491,7 +492,7 @@ test('signed in, registering someone else after your own opens blank fields at o
   await page.getByRole('button', { name: 'Register someone else' }).click();
   const confirm = page.getByRole('group', { name: 'Register someone else' });
   await confirm.getByRole('button', { name: 'Register someone else' }).click();
-  await expect(page.getByText('New registration')).toBeVisible();
+  await expect(page.getByRole('group', { name: 'Decklist' })).toBeVisible();
   await expect(page.getByRole('textbox', { name: 'First name' })).toHaveValue('');
   await expect(page.getByRole('button', { name: 'Someone else?' })).toHaveCount(0);
 });
@@ -634,7 +635,7 @@ test('signed in, Someone else? opens blank fields for another player, and Back r
   const { calls } = await mockEvent(page, {}, SAGE);
   await page.goto(`/t/${CODE}?tab=decklist`);
   await page.getByRole('button', { name: 'Someone else?' }).click();
-  await expect(page.getByText('New registration')).toBeVisible();
+  await expect(page.getByRole('group', { name: 'Decklist' })).toBeVisible();
   for (const name of ['Player ID', 'First name', 'Last name', 'Birth year']) {
     await expect(page.getByRole('textbox', { name })).toHaveValue('');
   }
