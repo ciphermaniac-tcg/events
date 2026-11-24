@@ -2384,6 +2384,7 @@ for (const denied of ['local', 'both'] as const) {
     await expect(page.locator('.tm-you-big')).toContainText('Table');
     await expect(page.locator('.tm-you-who')).toContainText('Peter P.');
     await expect(page.getByRole('button', { name: 'Report result' })).toHaveCount(0);
+    await expect(page.locator('.tm-you-end')).toContainText('Report your result to staff');
     if (denied === 'local') {
       await page.reload();
       await expect(page.locator('.tm-you-who')).toContainText('Peter P.');
