@@ -162,14 +162,52 @@ async function sendDraft<T extends object>(
  * says why above the tabs; the next save tries them again. An edit a
  * colleague overtook is dropped rather than sent over theirs, and the tabs
  * say the event changed. Check-in after the start is not sent until one of
- * them moves.
+ * them moves. Nothing is sent while a number field is out of its range;
+ * the field says the range it takes until it is back in it.
  */
 interface SettingsForm {
   info: <K extends keyof EventFields>(key: K) => EventFields[K];
   setInfo: <K extends keyof EventFields>(key: K, value: EventFields[K]) => void;
   value: () => PlayerSettings;
   set: <K extends keyof PlayerSettings>(key: K, value: PlayerSettings[K]) => void;
+  /** The error under number field `id` while its edit is out of its range, as of the last save. */
+  rangeError: (id: string) => string | undefined;
+  /** Saves, once every number edited is in its range. */
   save: () => void;
+}
+
+/** The minutes a Swiss or top cut round of `type` may run at this event. */
+function minuteRange(manage: Manage, type: EventType) {
+  const { minimum, maximum } = eventTimeLimits(type);
+  return { min: isSanctioned(manage) ? Math.max(SANCTIONED.minutes, minimum) : minimum, max: maximum };
+}
+
+/** Whether top cut minutes are not asked: a Local or Prerelease has none of its own, unless TOM runs it as a Cup. */
+const finalsFixed = (manage: Manage, type: EventType) =>
+  ['local', 'prerelease'].includes(type) && manage.tournament.settings?.type !== 3;
+
+interface NumberField {
+  id: string;
+  key: keyof EventFields | keyof PlayerSettings;
+  min: number;
+  max: number;
+  /** The smallest step it takes: whole numbers unless said. */
+  step?: number;
+}
+
+/** Whether `value` is one `field` takes, as its input's own min, max and step check it. */
+const fits = (value: number, { min, max, step = 1 }: NumberField) =>
+  value >= min && value <= max && Number.isInteger(Math.round((value / step) * 1e6) / 1e6);
+
+/** The settings' number fields, with the ranges they take at this event. */
+function numberFields(manage: Manage, type: EventType): NumberField[] {
+  const minutes = minuteRange(manage, type);
+  return [
+    { id: 'info-round', key: 'roundTime', ...minutes },
+    { id: 'info-finals', key: 'finalsRoundTime', ...minutes },
+    { id: 'set-cap', key: 'playerCap', min: 0, max: SETTINGS_LIMITS.playerCap },
+    { id: 'set-fee', key: 'entryFee', min: 0, max: SETTINGS_LIMITS.entryFee, step: 0.01 }
+  ];
 }
 
 function createSettingsForm(state: ManageState, manage: () => Manage): SettingsForm {
@@ -192,12 +230,42 @@ function createSettingsForm(state: ManageState, manage: () => Manage): SettingsF
     }
     return sendDraft(draft, saved(), changes => state.run(() => saveSettings(code, changes)));
   }
+  /**
+   * Each number edited out of its field's range, by field id, with the range
+   * it takes. A top cut's minutes that are no longer asked are dropped
+   * rather than sent or held against the rest.
+   */
+  function outOfRange(): Record<string, string> {
+    const type = details.value('eventType', savedInfo());
+    if (finalsFixed(manage(), type)) {
+      details.set('finalsRoundTime', savedInfo().finalsRoundTime, savedInfo());
+    }
+    const edits: Record<string, unknown> = { ...details.changes(savedInfo()), ...draft.changes(saved()) };
+    const out = numberFields(manage(), type).filter(field => {
+      const edit = edits[field.key];
+      return typeof edit === 'number' && !fits(edit, field);
+    });
+    return Object.fromEntries(
+      out.map(field => [field.id, t('Enter a number from {min} to {max}.', { min: field.min, max: field.max })])
+    );
+  }
+  const [marks, setMarks] = createSignal<Record<string, string>>({});
   async function send() {
+    const out = outOfRange();
+    if (Object.keys(out).length > 0) {
+      setMarks(out);
+      return;
+    }
     // Both boxes drop what a colleague overtook, before either sends.
     const overtaken = [details.overtaken(savedInfo()), draft.overtaken(saved())].includes(true);
     if ((await sendBoxes()) && overtaken) {
       state.fail(t('The event changed since you looked. Look again and try once more.'));
     }
+  }
+  // Checked again as the save's turn comes, against the edits as they are then.
+  function save() {
+    setMarks(outOfRange());
+    queueSave(code, send);
   }
   // A Prerelease's stored short round time is raised as the tab opens, and saved with the next change.
   untrack(() => {
@@ -210,7 +278,8 @@ function createSettingsForm(state: ManageState, manage: () => Manage): SettingsF
     setInfo: (key, next) => details.set(key, next, savedInfo()),
     value,
     set: (key, next) => draft.set(key, next, saved()),
-    save: () => queueSave(code, send)
+    rangeError: id => marks()[id],
+    save
   };
 }
 
@@ -273,8 +342,10 @@ function EventBox(props: { form: SettingsForm; manage: Manage }) {
           id='set-fee'
           country={props.manage.tournament.info.country}
           value={value().entryFee}
+          invalid={Boolean(props.form.rangeError('set-fee'))}
           onChange={fee => props.form.set('entryFee', fee)}
         />
+        <ErrorLine message={props.form.rangeError('set-fee')} />
       </SettingRow>
       <SettingRow label={t('Player cap')} for='set-cap' note={capNote(value().playerCap, registered())}>
         <input
@@ -284,9 +355,11 @@ function EventBox(props: { form: SettingsForm; manage: Manage }) {
           inputMode='numeric'
           min={0}
           max={SETTINGS_LIMITS.playerCap}
+          aria-invalid={Boolean(props.form.rangeError('set-cap')) || undefined}
           value={value().playerCap || ''}
           onInput={e => props.form.set('playerCap', Math.trunc(fieldNumber(e.currentTarget)))}
         />
+        <ErrorLine message={props.form.rangeError('set-cap')} />
       </SettingRow>
       <SettingRow label={t('Event description')} for='set-details'>
         <textarea
@@ -334,9 +407,7 @@ function EventTypeRow(props: { form: SettingsForm; manage: Manage }) {
 
 /** How a Swiss event's rounds run: how long each is and how many Swiss rounds it plans. */
 function RoundRows(props: { form: SettingsForm; manage: Manage }) {
-  const timeLimits = () => eventTimeLimits(props.form.info('eventType'));
-  const minMinutes = () =>
-    isSanctioned(props.manage) ? Math.max(SANCTIONED.minutes, timeLimits().minimum) : timeLimits().minimum;
+  const minutes = () => minuteRange(props.manage, props.form.info('eventType'));
   return (
     <>
       <SettingRow
@@ -357,26 +428,29 @@ function RoundRows(props: { form: SettingsForm; manage: Manage }) {
           id='info-round'
           class='tm-input tm-set-minutes'
           type='number'
-          min={minMinutes()}
-          max={timeLimits().maximum}
+          required
+          min={minutes().min}
+          max={minutes().max}
+          aria-invalid={Boolean(props.form.rangeError('info-round')) || undefined}
           value={props.form.info('roundTime')}
           onInput={e => props.form.setInfo('roundTime', Number(e.currentTarget.value))}
         />
+        <ErrorLine message={props.form.rangeError('info-round')} />
       </SettingRow>
       <SettingRow label={t('Top cut round minutes')} for='info-finals'>
         <input
           id='info-finals'
-          disabled={
-            ['local', 'prerelease'].includes(props.form.info('eventType')) &&
-            props.manage.tournament.settings?.type !== 3
-          }
+          disabled={finalsFixed(props.manage, props.form.info('eventType'))}
           class='tm-input tm-set-minutes'
           type='number'
-          min={minMinutes()}
-          max={timeLimits().maximum}
+          required
+          min={minutes().min}
+          max={minutes().max}
+          aria-invalid={Boolean(props.form.rangeError('info-finals')) || undefined}
           value={props.form.info('finalsRoundTime')}
           onInput={e => props.form.setInfo('finalsRoundTime', Number(e.currentTarget.value))}
         />
+        <ErrorLine message={props.form.rangeError('info-finals')} />
       </SettingRow>
     </>
   );
