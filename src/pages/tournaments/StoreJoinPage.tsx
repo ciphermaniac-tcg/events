@@ -94,7 +94,7 @@ export function StoreJoinPage() {
         }
       >
         {message => (
-          <ErrorState code={t('Invite')} title={t('This invite didn’t work')} line={message()}>
+          <ErrorState code='' title={t('This invite didn’t work')} line={message()}>
             <A href='/' class='btn btn-primary'>
               {t('Go home')}
             </A>

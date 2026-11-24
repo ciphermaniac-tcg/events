@@ -11,6 +11,7 @@ import { Skeleton } from '@ciphermaniac/design/components/Skeleton';
 import { ApiError, fetchProfile } from '../../lib/tournament/api';
 import { resolved } from '../../lib/resource';
 import { Avatar } from './Avatar';
+import { ReportProblem } from '../../components/ReportProblem';
 import { Badges } from './Badges';
 import { Trail } from './Trail';
 import { ProfileHistory } from './ProfileHistory';
@@ -38,9 +39,9 @@ export function ProfilePage(props: { handle: string }) {
         when={!missing(profile.error)}
         fallback={
           <ErrorState
-            code={`@${props.handle}`}
+            code=''
             title={t('Profile not found')}
-            line={t('No one here goes by @{handle}, or their profile is private.', { handle: props.handle })}
+            line={t('No public profile for @{handle}.', { handle: props.handle })}
           >
             <A href='/' class='btn btn-primary'>
               {t('Go home')}
@@ -53,13 +54,14 @@ export function ProfilePage(props: { handle: string }) {
           fallback={
             <Show when={profile.error} fallback={<Skeleton width='280px' height='28px' />}>
               <ErrorState
-                code={`@${props.handle}`}
+                code=''
                 title={t('Couldn’t load this profile')}
                 line={t('Something went wrong on our side or with your connection. Try again in a moment.')}
               >
                 <button type='button' class='btn btn-primary' onClick={() => void refetch()}>
                   {t('Try again')}
                 </button>
+                <ReportProblem />
               </ErrorState>
             </Show>
           }

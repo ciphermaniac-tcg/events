@@ -8,6 +8,7 @@ import { useScrollRestoration } from './lib/scrollRestore';
 import { isRecoveringPreload } from './lib/preloadRecovery';
 import { t } from './lib/i18n';
 import { pageTitle } from './lib/title';
+import { ReportProblem } from './components/ReportProblem';
 
 /**
  * Fallback while a lazy route chunk downloads on a cold load (page data never
@@ -37,7 +38,7 @@ function PageError(props: { error: unknown; onRetry: () => void }) {
   return (
     <div role='alert'>
       <ErrorState
-        code={t('Error')}
+        code=''
         title={t('Something went wrong')}
         line={t('This page hit an error. Trying again usually fixes it.')}
       >
@@ -50,6 +51,7 @@ function PageError(props: { error: unknown; onRetry: () => void }) {
             {t('Go home')}
           </a>
         </Show>
+        <ReportProblem />
       </ErrorState>
     </div>
   );

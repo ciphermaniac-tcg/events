@@ -390,5 +390,21 @@ test('an initial console network failure offers retry without suggesting a diffe
   await expect(page.getByRole('heading', { name: 'Couldn’t load this event' })).toBeVisible();
   await expect(page.getByText('Connection unavailable. Try again.', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Try again', exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Report a problem' })).toHaveAttribute(
+    'href',
+    'https://ciphermaniac.com/feedback'
+  );
   await expect(page.getByRole('button', { name: 'Switch account' })).toHaveCount(0);
+});
+
+test('a console code that matches no event reads as the public page’s not found', async ({ page }) => {
+  await page.route('**/api/tournaments/FIRST/manage*', route =>
+    route.fulfill({ status: 404, json: { error: 'No such tournament' } })
+  );
+  await page.goto('/host/FIRST');
+  await expect(page.getByRole('heading', { name: 'Event not found' })).toBeVisible();
+  await expect(page.getByText('No event has code FIRST. Check the code with your organizer.')).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Go home' })).toHaveClass(/btn-primary/);
+  await expect(page.getByRole('link', { name: 'Report a problem' })).toHaveCount(0);
+  await expect(page.locator('.error-state-code')).toBeHidden();
 });
