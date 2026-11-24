@@ -1346,10 +1346,6 @@
     "one": "{n} solicitud de abandono pendiente",
     "other": "{n} solicitudes de abandono pendientes"
   },
-  "{n} drops": {
-    "one": "{n} abandono",
-    "other": "{n} abandonos"
-  },
   "{n} events": {
     "one": "{n} evento",
     "other": "{n} eventos"

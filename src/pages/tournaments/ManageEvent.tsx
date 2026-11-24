@@ -436,7 +436,11 @@ function withRequests(option: TabOption, manage: Manage): TabOption {
   const drops = (manage.requests ?? []).filter(request => request.status === 'open').length;
   // A phone's bar has room for one number by the tab's icon; the tab's name still says what it counts.
   return option.value === 'players' && drops
-    ? { ...option, count: drops, name: [option.label, tn(drops, '{n} drop', '{n} drops')].join(' · ') }
+    ? {
+        ...option,
+        count: drops,
+        name: [option.label, tn(drops, '{n} drop request waiting', '{n} drop requests waiting')].join(' · ')
+      }
     : option;
 }
 
