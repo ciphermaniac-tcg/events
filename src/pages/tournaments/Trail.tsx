@@ -6,7 +6,7 @@ import { session } from './session';
 import { t } from '../../lib/i18n';
 
 /**
- * The way back above a tournament page's title: "Your events / <the page>",
+ * The way back above a tournament page's title: "Home / <the page>",
  * the first part opening the dashboard on the tab the page belongs to (or
  * the dashboard's own choice when it belongs to none). Signed out there are
  * no events of one's own to go back to, so it draws nothing.
@@ -16,7 +16,7 @@ export function Trail(props: { here: string; tab?: Tab | undefined }) {
   return (
     <Show when={latestValue(session)?.user}>
       <nav class='tm-trail' aria-label={t('Breadcrumb')}>
-        <A href={href()}>{t('Your events')}</A>
+        <A href={href()}>{t('Home')}</A>
         <span class='tm-trail-sep' aria-hidden='true'>
           /
         </span>
