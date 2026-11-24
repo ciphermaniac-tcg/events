@@ -592,6 +592,23 @@ test('/host: an account that is not an Organizer starts no event, applies instea
   await expect(page.getByText('1 finished', { exact: true })).toBeVisible();
 });
 
+test('/host: the events table says where each event runs only once one runs in TOM', async ({ page }) => {
+  await mockHost(page, { ...ME, role: 'community' });
+  await page.goto('/');
+  const table = page.locator('.tm-host-table');
+  await expect(table.getByRole('link', { name: 'Thursday Locals' })).toBeVisible();
+  await expect(table.getByRole('columnheader', { name: 'Run in' })).toHaveCount(0);
+  const other = await page.context().newPage();
+  await mockHost(other, { ...ME, role: 'community' });
+  const tom = { ...SUMMARY, code: 'TOMEV1', name: 'Autumn Regional', mode: 'tom' };
+  await other.route('**/api/tournaments', route => route.fulfill({ json: { tournaments: [SUMMARY, tom] } }));
+  await other.goto('/');
+  const both = other.locator('.tm-host-table');
+  await expect(both.getByRole('columnheader', { name: 'Run in' })).toBeVisible();
+  await expect(both.getByRole('row', { name: /Thursday Locals/ })).toContainText('Ciphermaniac');
+  await expect(both.getByRole('row', { name: /Autumn Regional/ })).toContainText('TOM');
+});
+
 test('/host: on a phone, an event row keeps its links on screen without scrolling sideways @mobile', async ({
   page
 }) => {
