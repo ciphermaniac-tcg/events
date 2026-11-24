@@ -1213,6 +1213,26 @@ test('a sanctioned event adds a player only with their Player ID and birth year'
     .toMatchObject({ type: 'addPlayer', player: { id: '4242', birthDate: '02/27/2001' } });
 });
 
+test('a Player ID already on the roster is marked on its field, which takes focus', async ({ page }) => {
+  await mockConsole(page, event(4, 0, false), settingsOf({ sanctioned: true }));
+  await page.route(`**/api/tournaments/${CODE}/commands`, route =>
+    route.fulfill({ status: 400, json: { error: 'That Player ID is already registered' } })
+  );
+  const form = page.getByRole('form', { name: 'Add a player' });
+  await form.getByLabel('First name').fill('Sam');
+  await form.getByLabel('Last name').fill('Lee');
+  await form.getByLabel('Player ID').fill('4242');
+  await form.getByLabel('Birth year').fill('2001');
+  await form.getByRole('button', { name: 'Add player' }).click();
+  const id = form.getByLabel('Player ID');
+  await expect(id).toBeFocused();
+  await expect(id).toHaveAttribute('aria-invalid', 'true');
+  await expect(page.getByText('That Player ID is already registered')).toHaveCount(1);
+  await id.fill('4243');
+  await expect(id).not.toHaveAttribute('aria-invalid');
+  await expect(page.getByText('That Player ID is already registered')).toHaveCount(0);
+});
+
 test('a setting saves as it is left, with no Save to press', async ({ page }) => {
   const sent = await mockConsole(page, event(4, 0, true), settingsOf({}));
   await page.getByRole('tab', { name: 'Settings' }).click();
