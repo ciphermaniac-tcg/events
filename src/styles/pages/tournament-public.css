@@ -121,6 +121,13 @@
   padding: var(--space-3) 14px;
   border-top: 1px solid var(--rule);
 }
+/* The drop request is a button as wide as its label; Cancel request stands apart from the time it follows. */
+.tm-you-requests {
+  justify-items: start;
+}
+.tm-you-request .btn {
+  margin-left: var(--space-3);
+}
 .tm-you-answers {
   display: flex;
   flex-wrap: wrap;

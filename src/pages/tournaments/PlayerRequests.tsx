@@ -100,6 +100,7 @@ export function PlayerRequests(props: {
                   class='btn btn-secondary tm-small'
                   question={t('Ask staff to drop you?')}
                   confirmLabel={t('Ask staff')}
+                  keepLabel={t('Keep playing')}
                   onConfirm={() => void send(entry.kind)}
                 />
               </Show>
