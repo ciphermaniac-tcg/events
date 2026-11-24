@@ -43,6 +43,10 @@
   width: auto;
   font: inherit;
 }
+/* The opponent's sprites stand apart from their name. */
+.tm-you-mid .tm-deck {
+  margin-right: 6px;
+}
 /* Its padding is a hit area, not space: the dot after the name sits where the words end. */
 .tm-you-who .tm-seat-link {
   margin-right: calc(-1 * var(--space-2));
@@ -59,7 +63,6 @@
   .tm-you-mid .tm-seat-link {
     display: inline-flex;
     align-items: center;
-    gap: var(--space-1);
     min-height: 44px;
     vertical-align: middle;
   }
