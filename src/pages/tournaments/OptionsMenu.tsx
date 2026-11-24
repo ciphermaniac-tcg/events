@@ -84,7 +84,7 @@ export function OptionsMenu(props: {
       classList={{ 'tm-staff-more': props.staff }}
       onClick={event => {
         event.stopPropagation();
-        const item = (event.target as Element).closest('.tm-menu-item');
+        const item = (event.target as Element).closest('.tm-menu-item, [data-closes-menu]');
         if (
           item &&
           !item.hasAttribute('data-keeps-menu') &&
