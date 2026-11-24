@@ -29,7 +29,7 @@ import { ErrorLine, ResourceFallback } from './Field';
 import { TournamentHero } from './Hero';
 import { refreshSession } from './session';
 import { SignedOutBox } from './SignIn';
-import { StoreApplicationForm } from './StoreApplicationForm';
+import { applicationDraftKey, readApplicationDraft, StoreApplicationForm } from './StoreApplicationForm';
 import '../../styles/pages/tournament-store-apply.css';
 import { pageTitle } from '../../lib/title';
 import { createAction } from './action';
@@ -192,8 +192,11 @@ function Applying(props: { user: Me }) {
   // `store`: back from Settings, where the store application sent the account for what it needs.
   const [params] = useSearchParams<{ again?: string; store?: string }>();
   const [state, { refetch, mutate }] = createResource(fetchApplication);
+  const draftKey = untrack(() => applicationDraftKey(props.user.id));
+  // An application begun in this tab opens again as it was left, as Apply again from it would.
+  const drafted = Object.keys(readApplicationDraft(draftKey)).length > 0;
   // Settings' Apply again opens the rows as the page opens, at the store, which is what was applied for.
-  const [again, setAgain] = createSignal(params.again !== undefined);
+  const [again, setAgain] = createSignal(params.again !== undefined || drafted);
   const [storeOpen, setStoreOpen] = createSignal(untrack(again) || params.store !== undefined);
   const current = () => latestValue(state);
   createSessionCatchUp(
@@ -229,6 +232,7 @@ function Applying(props: { user: Me }) {
             <Show when={storeOpen()}>
               <Show when={s().eligible.profile && s().eligible.email} fallback={<StoreNeeds eligible={s().eligible} />}>
                 <StoreApplicationForm
+                  draftKey={draftKey}
                   onSent={sent}
                   onStale={() => {
                     void refetch();
