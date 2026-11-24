@@ -117,37 +117,31 @@ function Group(props: { title: string; entries: readonly HistoryEntry[]; more?: 
   );
 }
 
-/** A new account's tab, before its first event: the way to play, then the way to run events. */
-function Welcome() {
+/** A new account's tab, before its first event: the ways worth taking, less the ones already taken. */
+function Welcome(props: { hasId: boolean; runs: boolean }) {
   return (
     <section class='tm-welcome'>
-      <h2 class='tm-welcome-title'>{t('Welcome to Ciphermaniac')}</h2>
-      <ol class='tm-welcome-steps'>
-        <li>
-          <strong>{t('Find an event')}</strong>
-          <span class='muted'>{t('Search for tournaments near you.')}</span>
-          <a href={`${MAIN_SITE}/tools/event-locator`}>{t('Find events')}</a>
-        </li>
-        <li>
-          <strong>{t('Add your Player ID')}</strong>
-          <span class='muted'>{t('Your Play! Pokémon ID connects your results at participating events to you.')}</span>
-          <A href='/settings'>{t('Settings')}</A>
-        </li>
-        <li>
-          <strong>{t('Play')}</strong>
-          <span class='muted'>{t('During a participating event, this page shows your table and opponent.')}</span>
-        </li>
-      </ol>
-      <p class='tm-welcome-run'>
-        <strong>{t('Running events?')}</strong>{' '}
-        <span class='muted'>{t('Organize sanctioned or unsanctioned events with our tournament manager.')}</span>{' '}
-        <A href='/apply'>{t('Apply here')}</A>
+      <p class='muted tm-empty'>{t('No events yet.')}</p>
+      <p class='tm-welcome-links'>
+        <a href={`${MAIN_SITE}/tools/event-locator`}>{t('Find an event')}</a>
+        <Show when={!props.hasId}>
+          <A href='/settings'>{t('Add your Player ID')}</A>
+        </Show>
+        <Show when={!props.runs}>
+          <A href='/apply'>{t('Run events')}</A>
+        </Show>
       </p>
     </section>
   );
 }
 
-export function PlayingTab(props: { history: Resource<OwnHistory>; onRetry: () => void }) {
+/** `hasId`: the account holds a Player ID. `runs`: it may run events, or has asked to. */
+export function PlayingTab(props: {
+  history: Resource<OwnHistory>;
+  onRetry: () => void;
+  hasId: boolean;
+  runs: boolean;
+}) {
   const entries = () => latestValue(props.history)?.entries;
   const byStatus = (status: HistoryEntry['status']) => (entries() ?? []).filter(entry => entry.status === status);
   const finished = () => byStatus('finished');
@@ -170,7 +164,7 @@ export function PlayingTab(props: { history: Resource<OwnHistory>; onRetry: () =
         fallback={<ResourceFallback resource={props.history} onRetry={() => props.onRetry()} small />}
       >
         {list => (
-          <Show when={list().length > 0} fallback={<Welcome />}>
+          <Show when={list().length > 0} fallback={<Welcome hasId={props.hasId} runs={props.runs} />}>
             <Group title={t('Coming up')} entries={upcoming().filter(entry => entry !== next())} toCome />
             <Group title={t('Results')} entries={finished().slice(0, RECENT)} more={finished().length > RECENT} />
           </Show>

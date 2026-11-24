@@ -1831,26 +1831,29 @@ test('with nothing being played, the next event the player is in leads the Playi
   await expect(coming.getByRole('columnheader', { name: 'Place' })).toHaveCount(0);
 });
 
-test('a player with no events yet is welcomed with the way to play, then the way to run events @mobile', async ({
+test('a player with no events yet sees the ways worth taking, less what the account already has @mobile', async ({
   page
 }) => {
-  const errors = await mockDashboard(page, ME);
+  const errors = await mockDashboard(page, { ...ME, popId: null });
   await page.route('**/api/history', route => route.fulfill({ json: { entries: [] } }));
   await page.goto('/');
   const welcome = page.locator('.tm-welcome');
-  await expect(welcome.getByRole('heading', { level: 2 })).toHaveText('Welcome to Ciphermaniac');
-  await expect(welcome.locator('.tm-welcome-steps li strong')).toHaveText([
-    'Find an event',
-    'Add your Player ID',
-    'Play'
-  ]);
-  await expect(welcome.getByRole('link', { name: 'Find events' })).toHaveAttribute(
+  await expect(welcome.locator('.tm-empty')).toHaveText('No events yet.');
+  await expect(welcome.getByRole('link')).toHaveText(['Find an event', 'Add your Player ID', 'Run events']);
+  await expect(welcome.getByRole('link', { name: 'Find an event' })).toHaveAttribute(
     'href',
     'https://ciphermaniac.com/tools/event-locator'
   );
-  await expect(welcome.getByRole('link', { name: 'Settings' })).toHaveAttribute('href', '/settings');
-  await expect(welcome.getByRole('link', { name: 'Apply here' })).toHaveAttribute('href', '/apply');
+  await expect(welcome.getByRole('link', { name: 'Add your Player ID' })).toHaveAttribute('href', '/settings');
+  await expect(welcome.getByRole('link', { name: 'Run events' })).toHaveAttribute('href', '/apply');
   expect(errors).toEqual([]);
+});
+
+test('a new player who already has a Player ID is not asked for one', async ({ page }) => {
+  await mockDashboard(page, ME);
+  await page.route('**/api/history', route => route.fulfill({ json: { entries: [] } }));
+  await page.goto('/');
+  await expect(page.locator('.tm-welcome').getByRole('link')).toHaveText(['Find an event', 'Run events']);
 });
 
 test('the dashboard’s account menu holds the account’s pages, and the way to apply only for a player', async ({
