@@ -5,9 +5,10 @@
  * kept none reads the account's own, and no token.
  */
 
-import { createMemo, createResource } from 'solid-js';
+import { type Accessor, createEffect, createMemo, createResource, on, onCleanup } from 'solid-js';
 import type { PlayerProfile } from '../../../shared/tournament/profile';
 import { type Decklist, lookUpRegistration } from '../../lib/tournament/api';
+import { askOnReturn } from '../../lib/tournament/viewPoll';
 import { latestValue } from '../../lib/resource';
 import { emptyProfile } from './ProfileFields';
 import { recall } from './decklistMemory';
@@ -40,7 +41,50 @@ export function createMyList(code: string, owner: () => ListOwner | null, wanted
     }
     return mine.state === 'ready' || mine.state === 'refreshing' ? 'known' : 'loading';
   };
-  return { state, retry: () => void refetch(), current: () => latestValue(mine) ?? null };
+  // A fresh read for the page to hold, apart from the one the form opened on; undefined with nothing to read it by.
+  const reread = async () => {
+    const by = owner();
+    return recall(code) || by ? loadMine([code, by]) : undefined;
+  };
+  return { state, retry: () => void refetch(), current: () => latestValue(mine) ?? null, reread, owner };
 }
 
 export type MyList = ReturnType<typeof createMyList>;
+
+/** How long a page back in view waits after reading the registration before it reads it again. */
+const REREAD_MS = 30_000;
+
+/**
+ * Staff tick check-in without publishing the event, so no poll hears of it:
+ * until round 1 is paired (`started`), each time the page is back in view it
+ * reads the registration again for the page to hold, at most once every 30
+ * seconds. The newest read wins: one asked before another, one for an owner
+ * since changed, or one a save from the form overtook is dropped.
+ */
+export function createListRereads(
+  list: MyList,
+  started: Accessor<boolean>,
+  held: Accessor<Decklist | null | undefined>,
+  hold: (list: Decklist | null) => void
+) {
+  let asked = 0;
+  async function reread() {
+    asked += 1;
+    const ask = asked;
+    const before = held();
+    const fresh = await list.reread().catch(() => undefined);
+    if (fresh !== undefined && ask === asked && held() === before) {
+      hold(fresh);
+    }
+  }
+  createEffect(
+    on(
+      list.owner,
+      () => {
+        asked += 1;
+      },
+      { defer: true }
+    )
+  );
+  onCleanup(askOnReturn(() => !started() && void reread(), Date.now, REREAD_MS));
+}

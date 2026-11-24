@@ -41,6 +41,11 @@ interface Held {
 /** The account signed in, as /api/me answers with it; null signed out. */
 type Account = { firstName: string; lastName: string; popId: string | null; birthDate: string | null } | null;
 
+type Call = { method: string; query: Record<string, string>; body: Record<string, unknown> | null };
+
+/** The last registration sent or withdrawn: lookups come between, as the page reads its registration again. */
+const lastWrite = (calls: Call[]) => calls.filter(call => call.method !== 'GET').at(-1);
+
 /** An event taking registrations, with Avery Chen and the two Kims already in; `calls` records what the page sent. */
 async function mockEvent(page: Page, settings: Partial<TournamentSettings> = {}, user: Account = null) {
   const sanctioned = settings.sanctioned ?? true;
@@ -86,7 +91,7 @@ async function mockEvent(page: Page, settings: Partial<TournamentSettings> = {},
       ...settings
     }
   };
-  const calls: { method: string; query: Record<string, string>; body: Record<string, unknown> | null }[] = [];
+  const calls: Call[] = [];
   // The event as the API has it: a registration adds its player, in a new version.
   let event = published;
   let sent: ReturnType<typeof listOf> | null = null;
@@ -101,6 +106,8 @@ async function mockEvent(page: Page, settings: Partial<TournamentSettings> = {},
     submittedAt: 0,
     problems: [],
     registered: true,
+    // What check-in asks: the fee if the event has one, and a paper list from staff.
+    openChecks: [...((settings.entryFee ?? 0) > 0 ? ['paid'] : []), ...(held.mode === 'paper' ? ['list'] : [])],
     fromList: true,
     locked: true
   });
@@ -187,7 +194,13 @@ async function mockEvent(page: Page, settings: Partial<TournamentSettings> = {},
         })
       : route.fulfill({ status: 403, json: { error: 'That birth year doesn’t match this Player ID.' } });
   });
-  return { calls };
+  /** Staff tick a check of the list this page sent: check-in publishes nothing, so the event's file stands. */
+  const tick = (mark: string) => {
+    if (sent) {
+      sent = { ...sent, openChecks: sent.openChecks.filter(open => open !== mark) };
+    }
+  };
+  return { calls, tick };
 }
 
 test('before round 1 the page is the registration tab alone, and asks nobody who they are', async ({ page }) => {
@@ -265,7 +278,7 @@ test('a registered Player ID asks its birth year, then opens the registration to
   await page.getByRole('button', { name: 'Withdraw' }).click();
   await page.getByRole('group', { name: 'Withdraw' }).getByRole('button', { name: 'Withdraw' }).click();
   await expect(page.getByRole('status')).toHaveText('You’ve withdrawn.');
-  expect(calls.at(-1)).toMatchObject({ method: 'DELETE', query: { popId: '7', birthYear: '2000' } });
+  expect(lastWrite(calls)).toMatchObject({ method: 'DELETE', query: { popId: '7', birthYear: '2000' } });
 });
 
 test('on a 320px phone, the withdraw question keeps both answers inside the box @mobileOnly', async ({ page }) => {
@@ -314,20 +327,48 @@ test('any other Player ID registers, with a pasted list, and the Registered card
   // The count under the event's name has them in it.
   await expect(hero).toContainText('5 players');
   const card = page.getByRole('region', { name: 'Your registration' });
-  await expect(card).toContainText('Registered');
-  await expect(card).toContainText('Checked in');
+  await expect(card).toHaveText('Checked in');
   // The card says it, so the form does not say it again.
   await expect(page.getByText('You’re registered.', { exact: true })).toHaveCount(1);
-  await expect(card).toContainText('Nia Okafor · Masters');
   await expect(page.locator('.tm-reg-who')).toContainText('Nia Okafor');
-  expect(calls.at(-1)?.body).toMatchObject({ mode: 'digital', deck: '60 Basic {G} Energy SVE 1' });
+  expect(lastWrite(calls)?.body).toMatchObject({ mode: 'digital', deck: '60 Basic {G} Energy SVE 1' });
   // Focus follows the step that replaced the button pressed, rather than falling to the page.
   await expect(page.locator('.tm-reg-steps')).toBeFocused();
   // A paper list waits for staff, which the card says once the change is saved.
   await page.getByText('In person').click();
   await page.getByRole('button', { name: 'Save changes' }).click();
   await expect(page.getByRole('status')).toHaveText('Changes saved.');
-  await expect(card).toContainText('Hand your list to staff to check in');
+  await expect(card).toHaveText('Registered · Hand your list to staff to check in');
+});
+
+test('the Registered card follows check-in as staff tick it, once the page is back in view @mobile', async ({
+  page
+}) => {
+  const { calls, tick } = await mockEvent(page, { entryFee: 10 });
+  await page.clock.install();
+  await page.goto(`/t/${CODE}?tab=decklist`);
+  await page.getByRole('textbox', { name: 'Player ID' }).fill('12345678');
+  await page.getByRole('button', { name: 'Continue' }).click();
+  await page.getByRole('textbox', { name: 'First name' }).fill('Nia');
+  await page.getByRole('textbox', { name: 'Last name' }).fill('Okafor');
+  await page.getByRole('textbox', { name: 'Birth year' }).fill('2001');
+  await page.getByText('In person').click();
+  await page.getByRole('button', { name: 'Register' }).click();
+  const card = page.getByRole('region', { name: 'Your registration' });
+  // Back in view, the page reads its registration again, once every 30 seconds at most.
+  const look = async (mark: string) => {
+    const before = calls.length;
+    tick(mark);
+    await page.clock.fastForward(30_000);
+    await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+    await expect.poll(() => calls.slice(before).some(call => call.query.token !== undefined)).toBe(true);
+  };
+  // With the fee still to pay, the paper list is not all check-in waits on, before or after staff have it.
+  await expect(card).toHaveText('Registered');
+  await look('list');
+  await expect(card).toHaveText('Registered');
+  await look('paid');
+  await expect(card).toHaveText('Checked in');
 });
 
 test('a birth year under 13 says to register with staff as it is typed, before anything is filled in @mobile', async ({
@@ -562,10 +603,9 @@ test('signed in, the box is the account’s own: its name, Player ID and birth y
   await page.getByText('In person').click();
   await page.getByRole('button', { name: 'Register' }).click();
   await expect(page.getByRole('status')).toHaveText('You’re registered.');
-  expect(calls.at(-1)?.body).toMatchObject({ mode: 'paper', profile: SAGE });
+  expect(lastWrite(calls)?.body).toMatchObject({ mode: 'paper', profile: SAGE });
   const card = page.getByRole('region', { name: 'Your registration' });
-  await expect(card).toContainText('Hand your list to staff to check in');
-  await expect(card).toContainText('Sage Newfield · Masters');
+  await expect(card).toHaveText('Registered · Hand your list to staff to check in');
 });
 
 test('signed in without a Player ID, the box asks for it under the head and Register waits for it', async ({
@@ -583,7 +623,7 @@ test('signed in without a Player ID, the box asks for it under the head and Regi
   await page.getByRole('textbox', { name: 'Player ID' }).fill('5550001');
   await register.click();
   await expect(page.getByRole('status')).toHaveText('You’re registered.');
-  expect(calls.at(-1)?.body).toMatchObject({ profile: { ...SAGE, popId: '5550001' } });
+  expect(lastWrite(calls)?.body).toMatchObject({ profile: { ...SAGE, popId: '5550001' } });
   // The ID went in with this registration only: saving it to the profile is offered, never required.
   const saves: unknown[] = [];
   await page.route('**/api/me', route => {
@@ -649,7 +689,7 @@ test('signed in, Someone else? opens blank fields for another player, and Back r
   await page.getByText('In person').click();
   await page.getByRole('button', { name: 'Register' }).click();
   await expect(page.locator('.tm-reg-who')).toContainText('Nia Okafor');
-  expect(calls.at(-1)?.body).toMatchObject({
+  expect(lastWrite(calls)?.body).toMatchObject({
     profile: { popId: '12345678', firstName: 'Nia', lastName: 'Okafor', birthDate: '02/27/2001' }
   });
   // Someone else's Player ID is never offered to the account.
@@ -668,7 +708,7 @@ test('signed in at an unsanctioned event, a name a slip from a registered one is
   // Registering the name as typed goes on with the list already chosen.
   await page.getByRole('button', { name: 'No, register Avry Chen' }).click();
   await expect(page.getByRole('status')).toHaveText('You’re registered.');
-  expect(calls.at(-1)).toMatchObject({
+  expect(lastWrite(calls)).toMatchObject({
     method: 'PUT',
     body: { mode: 'paper', profile: { firstName: 'Avry', lastName: 'Chen' } }
   });
@@ -691,7 +731,7 @@ test('signed in, Someone else? at an unsanctioned event asks about a near name, 
   await expect(page.getByRole('radio', { name: /In person/ })).toBeChecked();
   await page.getByRole('button', { name: 'Save changes' }).click();
   await expect(page.getByRole('status')).toHaveText('Changes saved.');
-  expect(calls.at(-1)).toMatchObject({
+  expect(lastWrite(calls)).toMatchObject({
     method: 'PUT',
     body: { mode: 'paper', was: { firstName: 'Avery', lastName: 'Chen' }, profile: { firstName: 'Avery' } }
   });
@@ -707,7 +747,7 @@ test('signed in at an unsanctioned event, the account’s own box asks for no Pl
   await page.getByText('In person').click();
   await page.getByRole('button', { name: 'Register' }).click();
   await expect(page.getByRole('status')).toHaveText('You’re registered.');
-  expect(calls.at(-1)?.body).toMatchObject({ profile: { firstName: 'Sage', lastName: 'Newfield' } });
+  expect(lastWrite(calls)?.body).toMatchObject({ profile: { firstName: 'Sage', lastName: 'Newfield' } });
   await page.getByRole('button', { name: 'More' }).click();
   await page.getByRole('button', { name: 'Register someone else' }).click();
   await page
