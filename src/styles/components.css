@@ -375,3 +375,10 @@
 .tm-code-form .tm-error {
   flex-basis: 100%;
 }
+
+/* Left off a printed page with the rest of the site's chrome (see global.css). */
+@media print {
+  .site-footer {
+    display: none;
+  }
+}
