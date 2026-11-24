@@ -36,7 +36,14 @@ export const fieldNumber = (input: HTMLInputElement) =>
   Number.isFinite(input.valueAsNumber) ? input.valueAsNumber : 0;
 
 /** The entry fee, behind the symbol of the currency the event's country uses. */
-export function FeeField(props: { id: string; country: string; value: number; onChange: (value: number) => void }) {
+export function FeeField(props: {
+  id: string;
+  country: string;
+  value: number;
+  /** Out of its range, as the form that holds it found it. */
+  invalid?: boolean;
+  onChange: (value: number) => void;
+}) {
   const symbol = () => currencySymbol(props.country) ?? '$';
   return (
     <span class='tm-night-fee'>
@@ -52,6 +59,7 @@ export function FeeField(props: { id: string; country: string; value: number; on
         min={0}
         step={0.01}
         max={SETTINGS_LIMITS.entryFee}
+        aria-invalid={props.invalid || undefined}
         value={props.value || ''}
         onInput={e => props.onChange(fieldNumber(e.currentTarget))}
       />
