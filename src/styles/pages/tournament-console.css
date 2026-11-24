@@ -18,13 +18,6 @@
 .tm-box-bar .tm-clock-group {
   margin-left: 0;
 }
-/* Both classes, so the strip keeps its side padding over .tm-champion's own. */
-.tm-strip.tm-champion {
-  padding: 10px 14px;
-}
-.tm-strip .tm-champion-name {
-  font-size: var(--text-lg);
-}
 /* The clock is one control, drawn as one: the time, then its three actions,
    in the round stepper's bordered strip (live.css .round-step). */
 .tm-clock-group {
