@@ -1161,6 +1161,25 @@ test('a phone keyboard offers Done on the add form’s last field, whichever fie
   await expect(form.getByLabel('Birth year')).toHaveAttribute('enterkeyhint', 'done');
 });
 
+test('the add form and the edit dialog capitalise each word of a name on a phone keyboard', async ({ page }) => {
+  await mockConsole(page, event(4, 0, false), settingsOf({}));
+  const form = page.getByRole('form', { name: 'Add a player' });
+  await page.getByRole('tab', { name: 'Players', exact: true }).click();
+  await page
+    .getByRole('button', { name: /^More for / })
+    .first()
+    .click();
+  await page
+    .getByRole('group', { name: /^More for / })
+    .getByRole('button', { name: 'Edit' })
+    .click();
+  const dialog = page.getByRole('dialog', { name: 'Edit player' });
+  for (const box of [form, dialog]) {
+    await expect(box.getByLabel('First name')).toHaveAttribute('autocapitalize', 'words');
+    await expect(box.getByLabel('Last name')).toHaveAttribute('autocapitalize', 'words');
+  }
+});
+
 test('a sanctioned event adds a player only with their Player ID and birth year', async ({ page }) => {
   const sent = await mockConsole(page, event(4, 0, false), settingsOf({ sanctioned: true }));
   const form = page.getByRole('form', { name: 'Add a player' });

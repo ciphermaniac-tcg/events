@@ -114,6 +114,7 @@ function ClaimForm(props: IdentifyProps) {
               ref={el => focusOpening(el)}
               class='tm-input'
               autocomplete='family-name'
+              autocapitalize='words'
               value={value()}
               onInput={e => setValue(e.currentTarget.value)}
             />
@@ -133,6 +134,7 @@ function ClaimForm(props: IdentifyProps) {
             id={`${props.idPrefix}-first`}
             class='tm-input'
             autocomplete='given-name'
+            autocapitalize='words'
             value={first()}
             onInput={e => setFirst(e.currentTarget.value)}
           />
@@ -215,6 +217,7 @@ function LookupForm(props: IdentifyProps) {
           id={`${props.idPrefix}-last`}
           class='tm-input'
           autocomplete='family-name'
+          autocapitalize='words'
           value={last()}
           onInput={event => {
             setLast(event.currentTarget.value);
@@ -231,6 +234,7 @@ function LookupForm(props: IdentifyProps) {
             id={`${props.idPrefix}-first`}
             class='tm-input'
             autocomplete='given-name'
+            autocapitalize='words'
             value={first()}
             onInput={event => {
               setFirst(event.currentTarget.value);

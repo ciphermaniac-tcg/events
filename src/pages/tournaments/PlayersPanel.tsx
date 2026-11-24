@@ -94,6 +94,7 @@ function AddPlayer(props: { state: ManageState; code: string; sanctioned: boolea
           <input
             id='add-last'
             class='tm-input'
+            autocapitalize='words'
             // The last field without a sanctioned event's two: Enter adds the player.
             enterkeyhint={props.sanctioned ? undefined : 'done'}
             value={last()}

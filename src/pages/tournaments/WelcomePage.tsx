@@ -58,6 +58,7 @@ function SetupFields(props: { setup: AccountSetup; onSetup: (setup: AccountSetup
           id='welcome-first'
           class='tm-input tm-welcome-name'
           autocomplete='given-name'
+          autocapitalize='words'
           value={props.setup.firstName}
           onInput={set('firstName')}
         />
@@ -67,6 +68,7 @@ function SetupFields(props: { setup: AccountSetup; onSetup: (setup: AccountSetup
           id='welcome-last'
           class='tm-input tm-welcome-name'
           autocomplete='family-name'
+          autocapitalize='words'
           value={props.setup.lastName}
           onInput={set('lastName')}
         />
