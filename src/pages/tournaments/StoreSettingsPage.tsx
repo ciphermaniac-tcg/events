@@ -9,8 +9,18 @@
  */
 
 import { SessionGate, StoreLoadError } from './SessionGate';
-import { A, useSearchParams } from '@solidjs/router';
-import { createEffect, createMemo, createResource, createSignal, For, type JSX, Show, untrack } from 'solid-js';
+import { A, type BeforeLeaveEventArgs, useBeforeLeave, useSearchParams } from '@solidjs/router';
+import {
+  createEffect,
+  createMemo,
+  createResource,
+  createSignal,
+  For,
+  type JSX,
+  onCleanup,
+  Show,
+  untrack
+} from 'solid-js';
 import {
   dateIn,
   type LeagueNight,
@@ -39,6 +49,7 @@ import { StoreFields } from './StoreFields';
 import { StoreDisplays } from './StoreDisplays';
 import { createAction } from './action';
 import { SaveBar } from './StoreSave';
+import { ConfirmDialog } from './ConfirmAction';
 import { StoreStaff } from './StoreStaff';
 import '../../styles/pages/tournament-store-settings.css';
 import { pageTitle } from '../../lib/title';
@@ -63,6 +74,40 @@ const nightsProblem = (nights: readonly LeagueNight[], exceptions: readonly Nigh
     ? t('Give each date a day, and a time if it moved')
     : null;
 };
+
+/** Whether a leave goes to another page, rather than to another section of this one (`?section=`). */
+const leavesPage = (event: BeforeLeaveEventArgs) =>
+  typeof event.to === 'number' || new URL(event.to, location.href).pathname !== event.from.pathname;
+
+/** While a section has edits not yet saved, leaving the page asks first in a dialog, and closing the tab as the browser does. */
+function LeaveGuard(props: { dirty: boolean }) {
+  const [leave, setLeave] = createSignal<(() => void) | null>(null);
+  const unload = (event: BeforeUnloadEvent) => {
+    if (props.dirty) {
+      event.preventDefault();
+    }
+  };
+  window.addEventListener('beforeunload', unload);
+  onCleanup(() => window.removeEventListener('beforeunload', unload));
+  useBeforeLeave(event => {
+    // Another section with edits of its own may have asked already.
+    if (props.dirty && !event.defaultPrevented && leavesPage(event)) {
+      event.preventDefault();
+      setLeave(() => () => event.retry(true));
+    }
+  });
+  return (
+    <ConfirmDialog
+      open={leave() !== null}
+      question={t('Leave without saving?')}
+      scope={t('Your changes will be lost.')}
+      confirmLabel={t('Leave')}
+      danger
+      onConfirm={() => leave()?.()}
+      onClose={() => setLeave(null)}
+    />
+  );
+}
 
 function NightsSection(props: { store: PublicStore; onSaved: (store: PublicStore) => void }) {
   // Edits of a copy of the nights the page opened with, until they are saved.
@@ -116,6 +161,7 @@ function NightsSection(props: { store: PublicStore; onSaved: (store: PublicStore
         error={save.error()}
         reason={nightsProblem(nights(), exceptions())}
       />
+      <LeaveGuard dirty={dirty()} />
     </form>
   );
 }
@@ -186,6 +232,7 @@ function DetailsSection(props: {
         />
       </div>
       <SaveBar dirty={dirty()} busy={save.busy()} saved={save.saved()} error={save.error()} />
+      <LeaveGuard dirty={dirty()} />
     </form>
   );
 }

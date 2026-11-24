@@ -713,6 +713,21 @@ test('store settings keep unsaved edits while another section is open', async ({
   await expect(page.locator('.tm-night-time').first()).toHaveValue('18:45');
 });
 
+test('store settings ask before leaving with edits not saved, and keep them when kept', async ({ page }) => {
+  await mock(page, { user: MANAGER });
+  await page.goto('/stores/store-1/settings');
+  await page.locator('.tm-night-time').first().fill('18:45');
+  await page.getByRole('link', { name: 'Store page' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Leave without saving?' });
+  await expect(dialog).toContainText('Your changes will be lost.');
+  await dialog.getByRole('button', { name: 'Keep' }).click();
+  await expect(page).toHaveURL(/\/stores\/store-1\/settings/);
+  await expect(page.locator('.tm-night-time').first()).toHaveValue('18:45');
+  await page.getByRole('link', { name: 'Store page' }).click();
+  await dialog.getByRole('button', { name: 'Leave' }).click();
+  await expect(page).toHaveURL(/\/stores\/store-1$/);
+});
+
 test('store settings: details save with the store’s place kept', async ({ page }) => {
   const asks = await mock(page, { user: MANAGER });
   await page.goto('/stores/store-1/settings');
