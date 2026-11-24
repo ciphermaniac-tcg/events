@@ -48,7 +48,7 @@ import { latestValue } from '../../lib/resource';
 import { t, timeOfDay, tn, tx } from '../../lib/i18n';
 import { Segmented } from '@ciphermaniac/design/components/Segmented';
 import { Combo, splitMatch } from '@ciphermaniac/design/components/Combo';
-import { seatOf } from '../../lib/tournament/present';
+import { roundLabel, seatOf } from '../../lib/tournament/present';
 import { byLastName, findPlayers, sortName } from './playerSearch';
 import { ConfirmAction } from './ConfirmAction';
 import type { ManageState } from './manageState';
@@ -155,6 +155,7 @@ interface FormProps {
   /** The table a player sits at this round, shown beside their name. */
   seat: (playerId: string) => number | 'bye' | null;
   latestOf: (playerId: string) => number;
+  roundName: (round: number) => string;
   judges: { id: string; name: string }[];
   saving: boolean;
   error: string | null;
@@ -219,7 +220,7 @@ function NoteForm(props: FormProps) {
       </label>
       <Select label={t('Round')} value={props.draft.round} onChange={value => set({ round: Number(value) })}>
         <For each={rounds(props.latestOf(props.draft.playerId))}>
-          {round => <option value={round}>{t('Round {round}', { round })}</option>}
+          {round => <option value={round}>{props.roundName(round)}</option>}
         </For>
       </Select>
       <Select
@@ -425,6 +426,7 @@ function Filters(props: {
   onQuery: (query: string) => void;
   round: number;
   latest: number;
+  roundName: (round: number) => string;
   onRound: (round: number) => void;
   withChecks: boolean;
   shown: Shown;
@@ -447,7 +449,7 @@ function Filters(props: {
         onChange={e => props.onRound(Number(e.currentTarget.value))}
       >
         <option value={0}>{t('All rounds')}</option>
-        <For each={rounds(props.latest)}>{round => <option value={round}>{t('Round {round}', { round })}</option>}</For>
+        <For each={rounds(props.latest)}>{round => <option value={round}>{props.roundName(round)}</option>}</For>
       </select>
       <Show when={props.withChecks}>
         <span class='tm-grow' />
@@ -569,6 +571,18 @@ export function PenaltiesPanel(props: {
   });
   const latestOf = (playerId: string) => latestRounds().get(playerId) ?? 0;
   const latest = createMemo(() => Math.max(0, ...props.manage.tournament.players.map(player => latestOf(player.id))));
+  // A round by the name Pairings gives it ("Semifinals"), or by its number where pods name it differently.
+  const roundNames = createMemo(() => {
+    const names = new Map<number, string>();
+    for (const pod of props.manage.tournament.pods) {
+      for (const round of pod.rounds) {
+        const name = roundLabel(round, pod);
+        names.set(round.number, (names.get(round.number) ?? name) === name ? name : '');
+      }
+    }
+    return names;
+  });
+  const roundName = (round: number) => roundNames().get(round) || t('Round {round}', { round });
   // A player is only written up for a round they were paired in; a late entry waits for their first.
   const players = createMemo(() =>
     props.manage.tournament.players.filter(player => latestOf(player.id) > 0).sort(byLastName)
@@ -662,6 +676,7 @@ export function PenaltiesPanel(props: {
               search={query => findPlayers(props.manage.tournament, players(), query)}
               seat={id => seatOf(props.manage.tournament, id)}
               latestOf={id => (id ? latestOf(id) : latest())}
+              roundName={roundName}
               judges={notes.judges()}
               saving={saving()}
               error={error()}
@@ -679,6 +694,7 @@ export function PenaltiesPanel(props: {
           onQuery={setQuery}
           round={round()}
           latest={latest()}
+          roundName={roundName}
           onRound={setRound}
           withChecks={withChecks()}
           shown={shown()}
