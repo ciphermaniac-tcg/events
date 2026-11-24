@@ -116,8 +116,6 @@
   "Approved by {who} at {time}, during round {round}": "Genehmigt in Runde {round} um {time} von {who}",
   "Approving as {who}": "Du genehmigst als {who}",
   "Archetypes": "Archetypen",
-  "Ask staff": "Beantragen",
-  "Ask staff to drop you?": "Ausstieg beim Personal beantragen?",
   "Asked": "Angefragt",
   "At least {n} characters": "Mindestens {n} Zeichen",
   "Auto scroll": "Automatisch scrollen",
@@ -138,7 +136,6 @@
   "Busy; try again": "Gerade ausgelastet. Versuch es noch mal.",
   "Bye": "Freilos",
   "Cancel": "Abbrechen",
-  "Cancel request": "Anfrage zurückziehen",
   "Cancelled": "Zurückgezogen",
   "Capped at {n} rounds": {
     "one": "Höchstens {n} Runde",
