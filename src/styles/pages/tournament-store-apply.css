@@ -33,12 +33,6 @@
   margin: 0;
   font-size: var(--text-lg);
 }
-.tm-path-held {
-  font-weight: 600;
-}
-.tm-path-held.is-held {
-  color: var(--positive);
-}
 .tm-path-step {
   display: grid;
   justify-items: end;

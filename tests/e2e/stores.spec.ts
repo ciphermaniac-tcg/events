@@ -289,17 +289,10 @@ test('a player becomes a Community organizer from the first row, and goes on to 
   expect(sentTo(asks, 'POST', '/api/community')).toHaveLength(1);
 });
 
-test('a Community organizer is told it may run unsanctioned events and not sanctioned ones yet', async ({ page }) => {
+test('a Community organizer sees its role and the way to apply for a store', async ({ page }) => {
   await mock(page, { user: { ...ME, role: 'community' } });
   await page.goto('/apply');
-  await expect(page.locator('.tm-path-title')).toHaveText([
-    'Community organizer',
-    'I run an official Play! Pokémon store'
-  ]);
-  await expect(page.locator('.tm-path-held')).toHaveText([
-    'You are currently approved for unsanctioned events.',
-    'You are currently not approved for sanctioned events.'
-  ]);
+  await expect(page.locator('.tm-path-title')).toHaveText(['Community organizer', 'Play! Pokémon store']);
   await expect(page.locator('.tm-paths').getByRole('link', { name: 'Your events' })).toHaveAttribute('href', '/');
   await expect(page.getByRole('button', { name: 'Community organizer' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Apply as store' })).toBeVisible();
@@ -335,12 +328,11 @@ test('an approved store that is also a Community organizer sees its store, not t
   await mock(page, { user: { ...MANAGER, role: 'community' }, state: { ...NONE, application } });
   await page.goto('/apply');
   await expect(page.locator('.tm-path-title')).toHaveText(['Community organizer', 'Combat Power Gaming']);
-  await expect(page.getByText('You run this store.')).toBeVisible();
+  await expect(page.locator('.tm-path-text').nth(1)).toContainText('Manager');
   await expect(page.locator('.tm-paths').getByRole('link', { name: 'Store settings' })).toHaveAttribute(
     'href',
     '/stores/store-1/settings'
   );
-  await expect(page.getByText('You are currently not approved for sanctioned events.')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Apply as store' })).toHaveCount(0);
   // Another store is a quieter way in, which opens the application under the rows.
   await page.getByRole('button', { name: 'Apply for another store' }).click();
