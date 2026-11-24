@@ -254,6 +254,8 @@
    phone the tall press area of a link wrapped under it does not cover it. */
 .tm-code-copy {
   position: relative;
+  /* Over the meta line's links, whose finger-sized boxes reach into its line. */
+  z-index: 1;
   padding: 0;
   border: 0;
   background: none;

@@ -182,6 +182,25 @@
   position: absolute;
   inset: -8px;
 }
+/* Links and buttons set as small words take a bigger tap than they draw: at least 24px, and 44px wide under a finger. */
+.site-footer-links a,
+.hero-meta a,
+.tm-admin-events a,
+.tm-people a {
+  position: relative;
+}
+.site-footer-links a::before,
+.hero-meta a::before,
+.tm-admin-events a::before,
+.tm-people a::before,
+.tm-trail a::before,
+.tm-code-copy::before,
+.tm-you-signin::before,
+.tm-bar-link::before {
+  content: '';
+  position: absolute;
+  inset: -4px -6px;
+}
 @media (max-width: 640px) {
   .site-head-row {
     gap: var(--space-1);
@@ -240,6 +259,9 @@
 }
 /* Small words, still a 44px tap under a finger. */
 @media (max-width: 640px), (pointer: coarse) {
+  .hero-meta .tm-code-copy::before {
+    inset: -14px -6px -4px;
+  }
   .site-footer-links {
     gap: 0 18px;
   }

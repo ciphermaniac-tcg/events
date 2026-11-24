@@ -188,6 +188,7 @@
 }
 /* Sign-in, a link set under the question, so the form stays the box's one step. */
 .tm-you-signin {
+  position: relative;
   justify-self: start;
   padding: 0;
   border: 0;
