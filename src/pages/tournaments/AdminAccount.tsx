@@ -28,6 +28,12 @@ export const fits = (user: AdminUser, query: string) =>
     field.toLowerCase().includes(query)
   );
 
+/** The account's real name, or its @username while it has none. */
+export const shownName = (user: AdminUser) => (user.name === user.handle ? `@${user.handle}` : user.name);
+
+/** Its @username, unless that is already its name or the account was found without one. */
+export const sideHandle = (user: AdminUser) => (user.handle && user.handle !== user.name ? `@${user.handle}` : '');
+
 /** How many accounts the move's search offers at once. */
 const MOVE_MATCHES = 5;
 
@@ -114,10 +120,8 @@ function MoveSearch(props: {
                 {user => (
                   <tr>
                     <td class='tm-move-match'>
-                      {user.name}{' '}
-                      <span class='muted'>
-                        {[user.handle && `@${user.handle}`, user.popId].filter(Boolean).join(' · ')}
-                      </span>
+                      {shownName(user)}{' '}
+                      <span class='muted'>{[sideHandle(user), user.popId].filter(Boolean).join(' · ')}</span>
                     </td>
                     <td class='num'>
                       <button
@@ -245,7 +249,7 @@ export function AccountCard(props: {
       {u => (
         <Modal
           open={!shut()}
-          title={u().name}
+          title={shownName(u())}
           class='tm-account-dialog'
           bar={
             <button type='button' class='btn btn-ghost tm-small tm-account-close' onClick={() => setShut(true)}>
