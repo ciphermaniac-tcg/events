@@ -874,17 +874,18 @@ export function staffQuery(db: D1Like, code: string, guard?: Guard): D1Statement
   const key = keyHeldTo(code, guard);
   return db
     .prepare(
-      `SELECT staff.user_id AS id, ${displayNameSql('users')} AS name, staff.joined_at AS joined_at FROM staff ` +
-        `LEFT JOIN users ON users.id = staff.user_id WHERE staff.code = ${key.sql} ORDER BY staff.joined_at`
+      `SELECT staff.user_id AS id, ${displayNameSql('users')} AS name, users.handle AS handle, ` +
+        `staff.joined_at AS joined_at FROM staff LEFT JOIN users ON users.id = staff.user_id WHERE staff.code = ${key.sql} ORDER BY staff.joined_at`
     )
     .bind(...key.values);
 }
 
 /** What `staffQuery` read, as the staff list. */
 export const staffOf = (read: { results?: unknown[] } | undefined): StaffMember[] =>
-  rows<{ id: string; name: string | null; joined_at: number | null }>(read).map(row => ({
+  rows<{ id: string; name: string | null; handle: string | null; joined_at: number | null }>(read).map(row => ({
     id: row.id,
     name: row.name ?? 'Unknown',
+    handle: row.handle,
     joinedAt: row.joined_at
   }));
 

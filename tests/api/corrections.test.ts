@@ -139,7 +139,8 @@ test('only the organizer or the head judge corrects, and the head judge only whi
   assert.equal((await nameHeadJudge(code, helper, helperUser.id)).status, 403, 'only the organizer names one');
   assert.deepEqual((await nameHeadJudge(code, owner, helperUser.id)).json.headJudge, {
     id: helperUser.id,
-    name: 'helper'
+    name: 'helper',
+    handle: 'helper'
   });
 
   assert.equal((await record(code, helper)).approver, 'head-judge');

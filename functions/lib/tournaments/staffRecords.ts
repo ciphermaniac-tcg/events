@@ -84,7 +84,7 @@ interface RecordKind<Input extends RecordInput, Entry> {
  */
 const staffSql = (code: string) =>
   `WITH event AS MATERIALIZED (SELECT ${code} AS code) ` +
-  `SELECT u.id AS id, ${displayNameSql('u')} AS name FROM users u WHERE u.id IN (` +
+  `SELECT u.id AS id, ${displayNameSql('u')} AS name, u.handle AS handle FROM users u WHERE u.id IN (` +
   'SELECT owner_id FROM tournaments WHERE code = (SELECT code FROM event) AND store_id IS NULL ' +
   'UNION SELECT m.user_id FROM tournaments t JOIN store_members m ON m.store_id = t.store_id ' +
   'WHERE t.code = (SELECT code FROM event) ' +
