@@ -59,7 +59,7 @@ import '../../styles/pages/tournament-console.css';
 import { ClockControls } from './RoundControls';
 import { EndEventStep, type RoundEnd, RoundEndSplit } from './NextStep';
 import { createTomLink, type Lapse, type TomLink, TomStatus } from './TomSyncPanel';
-import { createDropGate, DropAsk, podDrops } from './dropGate';
+import { createDropGate, DropAsk } from './dropGate';
 import { Trail } from './Trail';
 import { pageTitle } from '../../lib/title';
 import { warmChunks } from '../../lib/preloadRecovery';
@@ -264,22 +264,8 @@ function Hero(props: { state: ManageState; manage: Manage; pod: Pod | undefined;
   /** Why round 1 cannot pair yet, while it is the step; null once it can. */
   const firstBlock = () => (pairStep() !== null && !progress().round ? firstRoundBlock(props.manage, active()) : null);
   const firstBlocked = () => firstBlock() !== null;
-  /** Whether the main step pairs a round now: not a top cut or the end, which no drop request holds back. */
-  const pairsNow = () => {
-    const end = roundEnd();
-    return end ? end.end === 'pair' && end.ready : Boolean(pairStep()?.ready);
-  };
-  // Players who asked to drop are answered before the next round pairs them (see dropGate).
-  const drops = () => (pairsNow() ? podDrops(props.manage, props.pod).length : 0);
-  const reason = () => {
-    const first = firstBlock();
-    if (first) {
-      return first;
-    }
-    return drops()
-      ? tn(drops(), '{n} drop request waiting', '{n} drop requests waiting')
-      : (pairStep() ?? stepOf('decide') ?? closeStep())?.reason;
-  };
+  // A drop request waiting holds the next round too, but the head's drop row (DropAsk) already asks about it.
+  const reason = () => firstBlock() ?? (pairStep() ?? stepOf('decide') ?? closeStep())?.reason;
   // The open tables need no saying twice: the lead already counts them.
   const openTablesOnly = () => reason() === tn(progress().open, '{n} table open', '{n} tables open');
   const action = (
@@ -464,9 +450,13 @@ function Console(props: { state: ReturnType<typeof createManage>; manage: Manage
   // In the URL, so a reload mid-event comes back to the same tab and pod.
   const [params, setParams] = useSearchParams<{ tab?: string; pod?: string; show?: string }>();
   const tabs = () => tabsFor(props.manage);
-  // The strip has the room to name each tab in full.
+  // The strip's tabs take words only, so a count follows the name.
   const wideTabs = () =>
-    tabs().map(option => ({ value: option.value, label: option.name ?? option.label, locked: option.locked }));
+    tabs().map(option => ({
+      value: option.value,
+      label: option.count ? `${option.label} ${option.count}` : option.label,
+      locked: option.locked
+    }));
   const tab = (): Tab =>
     tabs().some(option => option.value === params.tab && !option.locked)
       ? (params.tab as Tab)
