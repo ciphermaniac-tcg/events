@@ -31,7 +31,7 @@ import {
   rotateStaffToken,
   saveSettings
 } from '../../lib/tournament/api';
-import { intlLocale, t, tn } from '../../lib/i18n';
+import { intlLocale, msg, t, tn } from '../../lib/i18n';
 import { latestValue } from '../../lib/resource';
 import { downloadBlob } from '../../lib/download';
 import { createCopied } from './copied';
@@ -296,11 +296,11 @@ function createSettingsForm(state: ManageState, manage: () => Manage): SettingsF
   };
 }
 
-/** What the cap row says: how to have none, or that a cap under who is in takes nobody new and removes nobody. */
+/** What the cap row says once a cap is under who is in: it takes nobody new and removes nobody. */
 const capNote = (cap: number, registered: number) =>
   cap > 0 && cap < registered
     ? t('{n} players are already registered. Nobody is removed, but no one new can register.', { n: registered })
-    : t('Leave blank for no cap.');
+    : undefined;
 
 /** Where a store's event is played: the store, as its record named it when the event was made. */
 function StoreVenue(props: { venue: string; address: string }) {
@@ -368,6 +368,7 @@ function EventBox(props: { form: SettingsForm; manage: Manage }) {
           inputMode='numeric'
           min={0}
           max={SETTINGS_LIMITS.playerCap}
+          placeholder={t('No cap')}
           {...marked('set-cap', props.form.rangeError('set-cap'))}
           value={value().playerCap || ''}
           onInput={e => props.form.set('playerCap', Math.trunc(fieldNumber(e.currentTarget)))}
@@ -405,7 +406,11 @@ function EventTypeRow(props: { form: SettingsForm; manage: Manage }) {
   return (
     <SettingRow
       label={t('Event type')}
-      note={midEvent(props.manage, t('Changes the top cut still to come. Rounds played stay as they are.'))}
+      info={
+        hasStarted(props.manage.tournament) && (
+          <SettingInfo text={msg('Changes the top cut still to come. Rounds played stay as they are.')} />
+        )
+      }
     >
       <EventTypeSelect
         value={props.form.info('eventType')}
@@ -423,11 +428,7 @@ function RoundRows(props: { form: SettingsForm; manage: Manage }) {
   const minutes = () => minuteRange(props.manage, props.form.info('eventType'));
   return (
     <>
-      <SettingRow
-        label={t('Swiss rounds')}
-        for='info-rounds'
-        note={midEvent(props.manage, t('The next step follows the new count.'))}
-      >
+      <SettingRow label={t('Swiss rounds')} for='info-rounds'>
         <RoundsSelect
           id='info-rounds'
           value={props.form.value().roundCap}
@@ -504,11 +505,7 @@ function RulesBox(props: { form: SettingsForm; manage: Manage }) {
       <Show when={swiss()}>
         <RoundRows form={props.form} manage={props.manage} />
       </Show>
-      <SettingRow
-        label={t('Mobile result reporting')}
-        info={<SettingInfo text={reportingInfo(value().sanctioned)} />}
-        note={midEvent(props.manage, t('Applies to open tables at once.'))}
-      >
+      <SettingRow label={t('Mobile result reporting')} info={<SettingInfo text={reportingInfo(value().sanctioned)} />}>
         <Toggle
           label={t('Mobile result reporting')}
           value={value().playerReporting}
@@ -574,7 +571,6 @@ function Finish(props: { state: ManageState; manage: Manage }) {
                 <button type='button' class='btn btn-secondary' onClick={download}>
                   {t('Download .tdf')}
                 </button>
-                <span class='muted tm-num'>{t('Version {version}', { version: props.manage.version })}</span>
               </span>
             </SettingRow>
           </Show>
@@ -600,15 +596,19 @@ function StaffInvite(props: { state: ManageState; manage: Manage }) {
       <div class='tm-box'>
         <SettingRow
           label={t('Invite link')}
-          note={
-            // A store's event is organized by its Owner and every Manager, not by one account.
-            props.manage.store
-              ? t(
-                  'Staff can enter results, manage players and change settings. Only the store’s owner and managers can invite or remove staff and delete the event.'
-                )
-              : t(
-                  'Staff can enter results, manage players and change settings. Only you can invite or remove staff and delete the event.'
-                )
+          info={
+            <SettingInfo
+              text={
+                // A store's event is organized by its Owner and every Manager, not by one account.
+                props.manage.store
+                  ? msg(
+                      'Staff can enter results, manage players and change settings. Only the store’s owner and managers can invite or remove staff and delete the event.'
+                    )
+                  : msg(
+                      'Staff can enter results, manage players and change settings. Only you can invite or remove staff and delete the event.'
+                    )
+              }
+            />
           }
         >
           <span class='tm-set-inline tm-invite'>
@@ -681,7 +681,11 @@ function HeadJudge(props: { manage: Manage; removals: number }) {
       .catch((err: unknown) => setError(errorText(err)));
   }
   return (
-    <SettingRow label={t('Head judge')} for='head-judge' note={t('May approve result corrections')}>
+    <SettingRow
+      label={t('Head judge')}
+      for='head-judge'
+      info={<SettingInfo text={msg('May approve result corrections')} />}
+    >
       <span class='tm-set-inline'>
         <select
           id='head-judge'
@@ -835,7 +839,7 @@ function DeleteEvent(props: { manage: Manage }) {
       <SettingRow label={t('Delete this event')}>
         <ConfirmAction
           class='btn btn-secondary tm-danger'
-          label={t('Delete event')}
+          label={t('Delete')}
           question={t('Delete {name}?', { name: props.manage.tournament.info.name })}
           scope={scope()}
           typed={scope() ? props.manage.code : undefined}
