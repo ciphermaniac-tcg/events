@@ -240,6 +240,16 @@ export function plannedRounds(pod: Pod, roundCap: number, type: EventType, tourn
   return roundCap > 0 ? Math.min(roundCap, rounds) : rounds;
 }
 
+/** Whether a pod has paired its last planned Swiss round, from when its top cut is known. */
+export function swissPaired(
+  pod: Pod,
+  event: { mode: TournamentMode; settings: TournamentSettings },
+  tournament: Tournament
+) {
+  const swiss = pod.rounds.filter(round => round.kind === 'swiss').length;
+  return swiss > 0 && swiss >= plannedRounds(pod, roundCapOf(event) ?? 0, eventTypeOf(tournament), tournament);
+}
+
 /**
  * A clock in words, the one place that puts them to its phase: past zero it
  * reads as time over rather than a negative time left, and a paused one says
