@@ -210,7 +210,7 @@ test('Settings opened from the application offers the way back after a save, and
   // Linking an email comes back to the application as well.
   await expect(page.getByRole('link', { name: 'Link Discord' })).toHaveAttribute('href', /next=%2Fapply%3Fstore/);
   await expect(page.getByRole('link', { name: 'Back to your application' })).toHaveCount(0);
-  await page.getByRole('button', { name: 'Save profile' }).click();
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
   await page.getByRole('link', { name: 'Back to your application' }).click();
   // Back where it was left: the store application open on what it still needs.
   await expect(page).toHaveURL(/\/apply\?store$/);
@@ -218,7 +218,7 @@ test('Settings opened from the application offers the way back after a save, and
   // Opened on its own, Settings keeps its Save button after a save.
   await page.goto('/settings?section=profile');
   await expect(page.getByRole('link', { name: 'Link Discord' })).toHaveAttribute('href', /next=%2Fsettings/);
-  await page.getByRole('button', { name: 'Save profile' }).click();
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.getByRole('status')).toHaveText('Saved');
   await expect(page.getByRole('link', { name: 'Back to your application' })).toHaveCount(0);
 });
@@ -428,7 +428,7 @@ test('Settings lists every way the account runs events, each with its step @mobi
   await expect(rows.nth(2)).toContainText('Staff');
   await expect(rows.nth(2).getByRole('link', { name: 'Store page' })).toHaveAttribute('href', '/stores/store-2');
   await expect(rows.nth(2).getByRole('button', { name: 'Leave' })).toBeVisible();
-  await expect(rows.nth(3).getByRole('link', { name: 'Apply for a store' })).toHaveAttribute('href', '/apply');
+  await expect(rows.nth(3).getByRole('link', { name: 'Apply', exact: true })).toHaveAttribute('href', '/apply');
   // An approved Application says nothing more than the store's own row does.
   await expect(page.locator('.tm-applicant')).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Your events' })).toHaveCount(1);
@@ -438,7 +438,7 @@ test('Settings: the account’s standing as a community organizer, for each role
   const cases: [typeof ME, string, string][] = [
     [{ ...ME, stores: [STORE] }, 'Community organizer', 'Join'],
     [{ ...ME, role: 'revoked' }, 'Community organizer', 'Access removed'],
-    [{ ...ME, role: 'admin' }, 'Admin', 'Admin page']
+    [{ ...ME, role: 'admin' }, 'Admin', 'Open']
   ];
   for (const [user, label, step] of cases) {
     await page.unrouteAll();
@@ -487,14 +487,14 @@ test('Settings: after a rejection, Apply again is the one way to apply', async (
   await mockApplicant(page, { ...NONE, application: application('rejected') }, { ...ME, role: 'community' });
   await page.goto('/settings?section=organizer');
   await expect(page.locator('.tm-applicant').getByRole('link', { name: 'Apply again' })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Apply for a store' })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'Apply', exact: true })).toHaveCount(0);
 });
 
 test('Settings: with an Application pending, no second one is offered', async ({ page }) => {
   await mockApplicant(page, { ...NONE, application: application('pending') }, { ...ME, role: 'community' });
   await page.goto('/settings?section=organizer');
   await expect(page.locator('.tm-applicant')).toContainText('Application pending');
-  await expect(page.getByRole('link', { name: 'Apply for a store' })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'Apply', exact: true })).toHaveCount(0);
 });
 
 test('Settings shows a pending Application with its day, and withdraws it', async ({ page }) => {
