@@ -586,10 +586,10 @@ function Head(props: {
       >
         <OptionsMenu name={props.title} buttonLabel={t('More')} closeOnSelect>
           <button type='button' class='tm-menu-item' onClick={() => f().setNaming(true)}>
-            {props.years ? t('Change name or year') : t('Change name')}
+            {props.years ? t('Change name or year') : t('Change name')}…
           </button>
           <button type='button' class='tm-menu-item' onClick={() => f().someoneElse()}>
-            {t('Register someone else')}
+            {t('Register someone else')}…
           </button>
           <Show when={f().withdrawable()}>
             <button
@@ -600,7 +600,7 @@ function Head(props: {
                 f().setWithdrawing(true);
               }}
             >
-              {t('Withdraw')}
+              {t('Withdraw')}…
             </button>
           </Show>
         </OptionsMenu>

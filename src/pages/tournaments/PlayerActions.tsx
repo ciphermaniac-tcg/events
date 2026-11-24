@@ -136,7 +136,7 @@ export function PlayerActions(props: {
             <Show when={props.onDetails}>
               {open => (
                 <button type='button' class='tm-menu-item' data-closes-menu onClick={() => open()()}>
-                  {t('Details')}
+                  {t('Details')}…
                 </button>
               )}
             </Show>
@@ -145,13 +145,14 @@ export function PlayerActions(props: {
             </Show>
             <Show when={!ended()}>
               <button type='button' class='tm-menu-item' data-closes-menu onClick={() => setEditing(true)}>
-                {t('Edit')}
+                {t('Edit')}…
               </button>
             </Show>
             {/* Once paired, a player is dropped rather than removed, so their opponents keep the match. */}
             <Show when={!ended() && !hasPlayed(pod(), props.player.id)}>
               <ConfirmAction
-                label={t('Remove')}
+                label={`${t('Remove')}…`}
+                confirmLabel={t('Remove')}
                 question={t('Remove {name}?', { name: playerName(props.player) })}
                 class='tm-menu-item'
                 danger
@@ -162,7 +163,8 @@ export function PlayerActions(props: {
               {/* Before round 1 a drop is a removal (see unplayedDrop), which Remove already offers. */}
               <Show when={hasStarted(props.manage.tournament)}>
                 <ConfirmAction
-                  label={t('Drop')}
+                  label={`${t('Drop')}…`}
+                  confirmLabel={t('Drop')}
                   question={t('Drop {name}? You can reinstate them until the next round is paired.', {
                     name: playerName(props.player)
                   })}
@@ -172,7 +174,8 @@ export function PlayerActions(props: {
                 />
               </Show>
               <ConfirmAction
-                label={t('Disqualify')}
+                label={`${t('Disqualify')}…`}
+                confirmLabel={t('Disqualify')}
                 question={t('Disqualify {name}? It goes in the event file. Write the penalty note under Penalties.', {
                   name: playerName(props.player)
                 })}
