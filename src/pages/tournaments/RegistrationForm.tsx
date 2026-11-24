@@ -690,6 +690,15 @@ function Paste(props: { form: Registration }) {
         placeholder={t('Paste your list from TCG Live')}
         value={props.form.deck()}
         onInput={e => props.form.setDeck(e.currentTarget.value)}
+        onKeyDown={e => {
+          // Cmd or Ctrl and Enter sends the list, as the button under the box does.
+          if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+            e.currentTarget
+              .closest('.tm-reg')
+              ?.querySelector<HTMLButtonElement>('.tm-decklist-foot > .btn-primary')
+              ?.click();
+          }
+        }}
       />
       <Show when={props.form.deck().trim()}>
         <div id='reg-deck-check'>

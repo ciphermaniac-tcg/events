@@ -293,7 +293,8 @@ test('any other Player ID registers, with a pasted list, and the Registered card
   await page.getByText('Digital').click();
   await expect(page.getByText('Paste a decklist')).toBeVisible();
   await page.getByRole('textbox', { name: 'Decklist' }).fill('60 Basic {G} Energy SVE 1');
-  await register.click();
+  // Cmd or Ctrl and Enter in the box sends it, as Register does.
+  await page.getByRole('textbox', { name: 'Decklist' }).press('ControlOrMeta+Enter');
   await expect(page.getByRole('status')).toHaveText('You’re registered.');
   const card = page.getByRole('region', { name: 'Your registration' });
   await expect(card).toContainText('Registered');
