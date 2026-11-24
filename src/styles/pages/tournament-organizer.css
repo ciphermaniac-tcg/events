@@ -27,9 +27,10 @@
 .tm-organizer-surface .tm-page:not(.tm-console) .tm-apply-found {
   border-color: var(--rule);
 }
-.tm-organizer-surface .tm-page:not(.tm-console) .tm-input,
-.tm-organizer-surface .tm-page:not(.tm-console) .tm-select,
-.tm-organizer-surface .tm-page:not(.tm-console) .search {
+/* Disabled and read-only fields keep their own edge (tournament.css). */
+.tm-organizer-surface .tm-page:not(.tm-console) .tm-input:not(:disabled, [readonly]),
+.tm-organizer-surface .tm-page:not(.tm-console) .tm-select:not(:disabled),
+.tm-organizer-surface .tm-page:not(.tm-console) .search:not(:disabled, [readonly]) {
   border-color: var(--border);
 }
 .tm-organizer-surface .tm-page:not(.tm-console) .tm-setup-name {
