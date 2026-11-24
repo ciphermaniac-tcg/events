@@ -455,6 +455,8 @@ test('a cut round leads to the next stage by name, and a finished final crowns i
   const final: Round = { ...round2, kind: 'elimination', matches: [{ ...first, outcome: 'p1' }] };
   assert.equal(champion(final, pod), first.p1);
   assert.equal(champion({ ...final, matches: [{ ...first, outcome: 'pending' }] }, pod), null);
+  const playing = podProgress({ ...pod, rounds: [{ ...final, matches: [{ ...first, outcome: 'pending' }] }] }, []);
+  assert.deepEqual(nextStep(playing, false), { kind: 'none' }, 'nothing to pair while the final plays');
 });
 
 test('the status sentence names the round, what is still playing and the clock', () => {
@@ -615,7 +617,7 @@ test('once the plan’s rounds are played, the next step is a decision, which wa
   });
   const semi: Round = { ...round2, kind: 'elimination', matches: round2.matches.slice(0, 2) };
   assert.equal(
-    nextStep({ ...open, round: semi, open: 0 }, false, { rounds: 1, cut: 4 }).kind,
+    nextStep({ ...podProgress({ ...pod, rounds: [semi] }, []), open: 0 }, false, { rounds: 1, cut: 4 }).kind,
     'pair',
     'a cut pairs on'
   );

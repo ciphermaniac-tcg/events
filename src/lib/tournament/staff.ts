@@ -53,6 +53,10 @@ export function nextStep(progress: PodProgress, finished: boolean, plan: SwissPl
     return { kind: 'close', champion: winner, ...waiting };
   }
   const swiss = round.kind === 'swiss';
+  // While the final plays there is nothing to pair next; its result is the step.
+  if (!swiss && !progress.next) {
+    return { kind: 'none' };
+  }
   const label = swiss ? t('Pair round {n}', { n: round.number + 1 }) : t('Pair {stage}', { stage: progress.next });
   return plan && swiss && round.number >= plan.rounds
     ? { kind: 'decide', label, cut: plan.cut, ...waiting }
