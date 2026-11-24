@@ -226,10 +226,10 @@ test('a player’s strip shows their own record, and their name opens their shee
   const sheet = page.getByRole('dialog', { name: /Hedy Lamarr/ });
   await expect(sheet).toBeVisible();
   // The tiebreakers say what they are behind a tip.
-  const owp = sheet.getByRole('button', { name: /^OWP: The win percentage of the opponents you’ve faced/ });
+  const owp = sheet.getByRole('button', { name: /^OWP: Average win percentage of your opponents/ });
   await owp.click();
   await expect(sheet.getByRole('tooltip').filter({ visible: true })).toHaveText(
-    'The win percentage of the opponents you’ve faced, used for tiebreakers.'
+    'Average win percentage of your opponents.'
   );
 });
 
