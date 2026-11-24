@@ -306,18 +306,19 @@ function createRegistration(props: RegistrationProps) {
   }
   const withdraw = () => run(withdrawTask);
 
-  // The account taking the registration's Player ID, with its name and birth year; refused when another account holds it.
+  // The account taking the registration's Player ID, and nothing else of it; refused when another account holds it.
   const [accountSaved, setAccountSaved] = createSignal(false);
   async function saveToAccountTask() {
-    const { user } = await saveProfile(profile());
+    const { user } = await saveProfile({ ...asAccount(account(), profile()), popId: profile().popId });
     setSession(prev => (prev ? { ...prev, user } : prev));
     setAccountSaved(true);
   }
   const saveToAccount = () => run(saveToAccountTask);
-  /** Offered to a signed-in account whose Player ID is not this registration's yet: a list may be sent for a friend. */
+  /** Offered only on the account's own registration, under its name, while its Player ID is not this one yet. */
   const offerSave = () => {
-    const user = latestValue(session)?.user;
-    return props.sanctioned && step() === 'edit' && Boolean(user) && user?.popId !== profile().popId;
+    const user = account();
+    const mine = user !== null && !other() && nameKey(profile()) === nameKey(asAccount(user, profile()));
+    return props.sanctioned && step() === 'edit' && mine && user.popId !== profile().popId;
   };
 
   /** Someone else on this device: forget whose registration it held, and start again. */
