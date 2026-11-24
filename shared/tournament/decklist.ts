@@ -123,9 +123,9 @@ export function parseDecklist(text: string): ParsedDeck {
   }
   const total = cards.reduce((sum, card) => sum + card.count, 0);
   const problems = [
-    ...(total === DECK_SIZE ? [] : [`${total} cards (a deck is ${DECK_SIZE})`]),
+    ...(total === DECK_SIZE ? [] : [`${total} of ${DECK_SIZE} cards`]),
     ...copyProblems(cards),
-    ...(unread.length > 0 ? [`${unread.length} line${unread.length === 1 ? '' : 's'} not read as a card`] : [])
+    ...(unread.length > 0 ? [`${unread.length} unrecognized line${unread.length === 1 ? '' : 's'}`] : [])
   ];
   return { cards, total, unread, problems };
 }

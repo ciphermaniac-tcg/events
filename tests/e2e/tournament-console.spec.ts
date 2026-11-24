@@ -3375,6 +3375,21 @@ async function mockRecords(page: Page, id: string) {
   );
 }
 
+test('a player’s sheet calls nobody Unclassified before their list is in', async ({ page }) => {
+  const t = event(8, 1, true);
+  await mockConsole(page, t, settingsOf({ decklists: 'closed', deckVisibility: 'always' }));
+  await mockRecords(page, t.players.find(p => p.firstName === 'Player1')!.id);
+  await page.route(`**/api/tournaments/${CODE}/decklists`, route =>
+    route.fulfill({ json: { decklists: [], mine: null } })
+  );
+  await page.getByRole('tab', { name: 'Standings', exact: true }).click();
+  await page.getByRole('button', { name: 'Player1 Test', exact: true }).click();
+  const sheet = page.getByRole('dialog', { name: 'Player1 Test' });
+  const list = sheet.locator('.tm-sheet-section', { has: page.getByRole('heading', { name: 'Decklist' }) });
+  await expect(list).toContainText('No list yet');
+  await expect(list).not.toContainText('Unclassified');
+});
+
 test('a player’s sheet opens from standings and the roster, with their table, rounds, list, notes and checks', async ({
   page
 }) => {
