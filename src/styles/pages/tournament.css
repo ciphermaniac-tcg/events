@@ -642,7 +642,8 @@ body[data-mode='dark'] :is(.tm-input, .tm-select) {
   min-height: 96px;
   resize: vertical;
 }
-.tm-decklist-input {
+/* Outranks a phone's 44px field floor, which shrank the box to two lines. */
+.tm-page .tm-textarea.tm-decklist-input {
   min-height: 260px;
   font-family: ui-monospace, 'SF Mono', Menlo, monospace;
 }
