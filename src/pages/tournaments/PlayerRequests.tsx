@@ -88,7 +88,7 @@ export function PlayerRequests(props: {
                         disabled={action.busy()}
                         onClick={() => void send(entry.kind, true)}
                       >
-                        {t('Cancel request')}
+                        {t('Cancel')}
                       </button>
                     </Show>
                   </span>
@@ -98,9 +98,10 @@ export function PlayerRequests(props: {
                 <ConfirmAction
                   label={t(entry.ask)}
                   class='btn btn-secondary tm-small'
-                  question={t('Ask staff to drop you?')}
-                  confirmLabel={t('Ask staff')}
+                  question={t('Request a drop?')}
+                  confirmLabel={t('Drop')}
                   keepLabel={t('Keep playing')}
+                  danger
                   onConfirm={() => void send(entry.kind)}
                 />
               </Show>
