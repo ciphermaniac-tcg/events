@@ -28,6 +28,8 @@ export function ProfilePage(props: { handle: string }) {
     const name = shown()?.name;
     if (name) {
       document.title = pageTitle(name);
+    } else if (profile.error) {
+      document.title = pageTitle(missing(profile.error) ? t('Profile not found') : t('Couldn’t load this profile'));
     }
   });
   return (
