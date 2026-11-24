@@ -1385,7 +1385,6 @@
   "{round} complete": "{round} abgeschlossen",
   "{round} in progress": "{round} läuft",
   "{round} is read-only. Results are entered in the current round.": "{round} lässt sich nicht mehr bearbeiten. Ergebnisse trägst du in der aktuellen Runde ein.",
-  "{round}, final played": "{round}, Finale gespielt",
   "{round}: {open}": "{round}: {open}",
   "{shown} of {n} players": {
     "one": "{shown} von {n} Spieler",

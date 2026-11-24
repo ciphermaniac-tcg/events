@@ -1441,7 +1441,6 @@
   "{round} complete": "{round}, sin mesas pendientes",
   "{round} in progress": "{round} en curso",
   "{round} is read-only. Results are entered in the current round.": "{round} es de solo lectura. Los resultados se registran en la ronda actual.",
-  "{round}, final played": "{round}, final jugada",
   "{round}: {open}": "{round}: {open}",
   "{shown} of {n} players": {
     "one": "{shown} de {n} jugador",
