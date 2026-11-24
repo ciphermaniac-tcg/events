@@ -2903,6 +2903,14 @@ test('round 1 waits on check-in, its Pair button disabled with the reason under 
   await expect(page.getByRole('button', { name: 'Pair round 1' })).toBeEnabled();
 });
 
+test('pairing round 1 from the keyboard takes focus to the new pairings', async ({ page }) => {
+  await mockConsole(page, event(4, 0, false), settingsOf({}), [], true);
+  const pair = page.getByRole('button', { name: 'Pair round 1' });
+  await pair.focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('tabpanel', { name: 'Pairings' })).toBeFocused();
+});
+
 test('once the event has started, a division’s round 1 pairs without waiting on check-in', async ({ page }) => {
   await mockConsole(page, { ...event(2, 0, false), startedAt: 1 }, settingsOf({ entryFee: 10 }));
   await expect(page.getByRole('button', { name: 'Pair round 1' })).toBeEnabled();
