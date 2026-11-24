@@ -2,14 +2,6 @@
    delete. Built on the tournament pages' boxes and the apply page's choice
    rows (tournament-store-apply.css). */
 
-.tm-modal-steps {
-  font-size: var(--text-sm);
-  color: var(--muted);
-}
-.tm-modal-steps b {
-  color: var(--fg);
-  font-weight: 600;
-}
 .tm-choice-text span {
   color: var(--muted);
 }
