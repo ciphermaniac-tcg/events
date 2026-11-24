@@ -16,6 +16,7 @@ import { latestValue } from '../../lib/resource';
 import { ownPath } from '../../lib/ownPath';
 import { ErrorLine, Field } from './Field';
 import { t } from '../../lib/i18n';
+import { MAIN_SITE } from '../../lib/constants';
 import { TournamentHero } from './Hero';
 import { session } from './session';
 import { Skeleton } from '@ciphermaniac/design/components/Skeleton';
@@ -94,13 +95,26 @@ function Answer(props: { stage: Stage; error: string | null }) {
           {props.error}
         </p>
       </div>
-      <Show when={props.stage === 'expired'}>
-        <div class='tm-box-bar'>
+      <div class='tm-box-bar tm-row-actions'>
+        <Show
+          when={props.stage === 'expired'}
+          fallback={
+            <>
+              {/* Too young for an account, not for events: the ways on are the 404 page's. */}
+              <a class='btn btn-secondary' href={`${MAIN_SITE}/tools/event-locator`}>
+                {t('Find an event')}
+              </a>
+              <A class='btn btn-ghost' href='/'>
+                {t('Go home')}
+              </A>
+            </>
+          }
+        >
           <A class='btn btn-secondary' href='/settings'>
             {t('Sign in')}
           </A>
-        </div>
-      </Show>
+        </Show>
+      </div>
     </>
   );
 }
@@ -163,7 +177,7 @@ function NewAccount() {
               />
             </Field>
             <div class='tm-welcome-actions'>
-              <button type='submit' class='btn btn-primary' disabled={stage() === 'sending' || !birthDate()}>
+              <button type='submit' class='btn btn-primary' disabled={stage() === 'sending'}>
                 {t('Continue')}
               </button>
             </div>
