@@ -340,7 +340,7 @@ test('an organizer whose access was removed sees so, and applies again from ther
   await expect(page.getByRole('button', { name: 'Apply as store' })).toHaveCount(0);
   await page.getByRole('button', { name: 'Apply again' }).click();
   // Community access was taken away, so only the store is offered.
-  await expect(page.getByRole('button', { name: 'Community organizer' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Start organizing' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Apply as store' })).toHaveAttribute('aria-expanded', 'true');
 });
 

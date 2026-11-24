@@ -283,7 +283,7 @@ test('a player becomes a Community organizer from the first row, and goes on to 
   const asks = await mock(page);
   await page.goto('/apply');
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Run events');
-  await page.getByRole('button', { name: 'Community organizer' }).click();
+  await page.getByRole('button', { name: 'Start organizing' }).click();
   await expect(page).toHaveURL(/:\d+\/$/);
   await expect(page.getByRole('button', { name: 'Start an event' })).toBeVisible();
   expect(sentTo(asks, 'POST', '/api/community')).toHaveLength(1);
