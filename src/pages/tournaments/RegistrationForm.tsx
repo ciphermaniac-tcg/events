@@ -467,8 +467,11 @@ function missing(form: Registration, sanctioned: boolean): string | null {
   if (fields.length > 0) {
     return t('Fill in your {fields}', { fields: new Intl.ListFormat(intlLocale()).format(fields) });
   }
-  return form.mode() === 'digital' && !form.deck().trim() ? t('Paste a decklist') : null;
+  return null;
 }
+
+/** A digital registration with nothing pasted yet: held back, with the box's placeholder saying what to do. */
+const noList = (form: Registration) => form.mode() === 'digital' && !form.deck().trim();
 
 /** Enter in a step's field goes on, as its Continue does. */
 const onEnter = (go: (() => void) | undefined) => (e: KeyboardEvent) => {
@@ -611,7 +614,7 @@ function Head(props: {
 }) {
   const f = () => props.form;
   return (
-    <div class='tm-box-bar tm-reg-head'>
+    <div class='tm-box-bar tm-reg-head' classList={{ 'is-bare': !props.title }}>
       <span class='tm-reg-who'>
         <strong>{props.title}</strong>
         <Show when={props.sanctioned && f().profile().popId}>
@@ -771,19 +774,16 @@ function Paste(props: { form: Registration }) {
   );
 }
 
-function ModeOption(props: { form: Registration; value: DeckMode; label: string; detail: string }) {
+function ModeOption(props: { form: Registration; value: DeckMode; label: string }) {
   return (
-    <label class='tm-reg-option' classList={{ 'is-on': props.form.mode() === props.value }}>
+    <label class='tm-reg-option'>
       <input
         type='radio'
         name='reg-mode'
         checked={props.form.mode() === props.value}
         onChange={() => props.form.setMode(props.value)}
       />
-      <span>
-        <strong>{props.label}</strong>
-        <span class='muted'>{props.detail}</span>
-      </span>
+      {props.label}
     </label>
   );
 }
@@ -795,8 +795,8 @@ function DeckChoice(props: { form: Registration }) {
     <div class='tm-box-bar tm-reg-stack'>
       <fieldset class='tm-reg-options'>
         <legend class='tm-label'>{t('Decklist')}</legend>
-        <ModeOption form={f()} value='paper' label={t('In person')} detail={t('Hand a paper decklist to staff')} />
-        <ModeOption form={f()} value='digital' label={t('Digital')} detail={t('Paste your list from TCG Live')} />
+        <ModeOption form={f()} value='paper' label={t('In person')} />
+        <ModeOption form={f()} value='digital' label={t('Digital')} />
       </fieldset>
       <Show when={f().mode() === 'digital'}>
         <Paste form={f()} />
@@ -811,7 +811,7 @@ function Foot(props: { form: Registration; sanctioned: boolean; label: string; c
   const problems = () => (f().mode() === 'digital' ? f().parsed().problems.length : 0);
   const unchanged = () => f().step() === 'edit' && !f().changed();
   const needs = () => missing(f(), props.sanctioned) ?? (unchanged() && !f().saved() ? t('No changes to send') : null);
-  const held = () => f().busy() || f().mode() === null || unchanged() || needs() !== null;
+  const held = () => f().busy() || f().mode() === null || unchanged() || needs() !== null || noList(f());
   // A first registration says so; a change to one already sent keeps the plainer question.
   const editing = () => f().step() === 'edit';
   return (
@@ -934,7 +934,7 @@ function NewRegistration(props: { form: Registration; reg: RegistrationProps }) 
       <Head
         form={f()}
         sanctioned={props.reg.sanctioned && !f().other()}
-        title={t('New registration')}
+        title=''
         menu={false}
         back={newBack(f(), props.reg.sanctioned)}
       />

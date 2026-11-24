@@ -789,14 +789,16 @@ function EventBody(props: {
         />
       </Show>
       <Show when={registered()}>{list => <RegisteredCard list={list()} />}</Show>
-      <Tabs
-        id='event'
-        options={tabs()}
-        selected={tab()}
-        onSelect={value => setParams({ tab: value }, { replace: true })}
-        ariaLabel={t('Event sections')}
-      />
-      <TabPanel tabs='event' selected={tab()}>
+      <Show when={tabs().length > 1}>
+        <Tabs
+          id='event'
+          options={tabs()}
+          selected={tab()}
+          onSelect={value => setParams({ tab: value }, { replace: true })}
+          ariaLabel={t('Event sections')}
+        />
+      </Show>
+      <SectionPanel many={tabs().length > 1} selected={tab()}>
         <Show when={tab() === 'pairings'}>
           <section class='tm-box tm-public-pairings'>
             <PublicPairings
@@ -863,7 +865,7 @@ function EventBody(props: {
             years={yearsCorrectable(props.view)}
           />
         </Show>
-      </TabPanel>
+      </SectionPanel>
       <Show when={open()}>
         {id => (
           <OpenPlayer
@@ -955,6 +957,17 @@ function eventDate({ startsAt, timeZone }: TournamentSettings, startDate: string
   }
   const day = eventDay(startsAt, startDate);
   return startsAt ? `${day} · ${firstRoundTime(startsAt) ?? ''}` : day;
+}
+
+/** The open section, as a tab's panel only when there are tabs to pick it with. */
+function SectionPanel(props: { many: boolean; selected: string; children: JSX.Element }) {
+  return (
+    <Show when={props.many} fallback={props.children}>
+      <TabPanel tabs='event' selected={props.selected}>
+        {props.children}
+      </TabPanel>
+    </Show>
+  );
 }
 
 /** The dashboard tab an event's page goes back to: Organizing for its staff, Playing for its players. */
