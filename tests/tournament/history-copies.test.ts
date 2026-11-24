@@ -77,7 +77,7 @@ afterEach(() => {
 });
 
 test('a finished event’s copy may come from the browser’s cache; a live one is asked of the edge', async () => {
-  serve(VIEW);
+  serve({ ...VIEW, settings: { ...VIEW.settings, finished: true } });
   const finished = await loadEntry(entry('finished'));
   assert.equal(finished?.finish.place, 1);
   assert.equal(finished?.finish.deck, 'Gardevoir ex');
@@ -93,7 +93,7 @@ test('a finished event’s copy may come from the browser’s cache; a live one 
 test('with no copy on the edge, the event comes from the API', async () => {
   serve(null);
   const result = await loadEntry(entry('live'));
-  assert.equal(result?.finish.place, 1);
+  assert.equal(result?.finish.record?.wins, 1);
   assert.deepEqual(
     asked.map(a => a.url.replace(/^https?:\/\/[^/]+/, '')),
     ['/tournaments/v1/ABCDEF.json', '/api/tournaments/ABCDEF']

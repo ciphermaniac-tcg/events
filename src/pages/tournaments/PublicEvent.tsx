@@ -572,13 +572,14 @@ function OpenPlayer(props: {
     return p ? swissStandings(p, tournament.players, { regularRounds: regularRounds(tournament, p) }) : [];
   });
   const records = createMemo(() => new Map(standings().map(row => [row.playerId, recordLabel(row.record)])));
-  // The place History gives the same player (see playerResult).
+  // The place History gives the same player (see playerResult): a dash once play starts, until the event is finished.
   const place = createMemo(() => {
-    const at = playerResult(props.view, props.id)?.place;
-    if (at) {
-      return division() ? t('{place} in {division}', { place: ordinal(at), division: division() }) : ordinal(at);
+    if (!pod()?.rounds.length) {
+      return [division(), t('Registered')].filter(Boolean).join(' · ');
     }
-    return [division(), t('Registered')].filter(Boolean).join(' · ');
+    const at = playerResult(props.view, props.id)?.place;
+    const shown = at ? ordinal(at) : '—';
+    return division() ? t('{place} in {division}', { place: shown, division: division() }) : shown;
   });
   return (
     <Show when={pod()}>

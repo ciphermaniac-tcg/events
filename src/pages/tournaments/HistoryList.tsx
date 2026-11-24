@@ -196,7 +196,7 @@ function EntryRow(props: { entry: HistoryEntry; watch: Watch; toCome?: boolean }
         </td>
         <Show when={!props.toCome}>
           <td class='num tm-hist-place'>
-            <Figure value={figure(f => (f.place ? ordinal(f.place) : null))} loading={read.loading} />
+            <Figure value={figure(f => (f.place ? ordinal(f.place) : '—'))} loading={read.loading} />
           </td>
           <td class='num tm-hist-record'>
             <Figure value={figure(f => (f.record ? recordLabel(f.record) : null))} loading={read.loading} />
