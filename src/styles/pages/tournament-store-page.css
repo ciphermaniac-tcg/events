@@ -156,8 +156,13 @@ body[data-mode='dark'] .tm-store-tile {
 }
 @media (max-width: 640px) {
   /* Day, start and fee on one line; the night's name under them. */
-  .tm-storepage-list li {
+  /* The weekly nights share their columns, so a night with no fee keeps its time in line with the others. */
+  .tm-storepage-list {
     grid-template-columns: minmax(0, 1fr) auto auto;
+  }
+  .tm-storepage-list li {
+    grid-column: 1 / -1;
+    grid-template-columns: subgrid;
     row-gap: 2px;
   }
   .tm-storepage-list .tm-storepage-night-name {
