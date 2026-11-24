@@ -328,7 +328,7 @@ export function detailsProblems(details: StoreDetails): Partial<Record<keyof Sto
     problems.country = t('Two letters, e.g. US');
   }
   if (link(details.website)) {
-    problems.website = t('Starts with https://');
+    problems.website = t('Use https://, or leave the http:// off');
   }
   if (readDiscordInvite(withScheme(details.discord)) === null) {
     problems.discord = t('Enter a Discord invite URL');
