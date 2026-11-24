@@ -639,6 +639,33 @@ test('a footer link a touch screen leaves under the finger keeps its color @mobi
   await expect(link).toHaveCSS('color', color);
 });
 
+test('a phone’s footer links are each 48px tall, and no link’s tap reaches into another’s @mobileOnly', async ({
+  page
+}) => {
+  await page.setViewportSize({ width: 320, height: 640 });
+  await mockApi(page, VIEW);
+  await page.goto(`/t/${CODE}`);
+  // Narrow enough to wrap them, as longer words in another language do.
+  await page.addStyleTag({ content: '.site-footer-links { max-width: 140px; }' });
+  // Each link's tap area: the link and what its ::before adds past its edges.
+  const taps = await page.locator('.site-footer-links a').evaluateAll(links =>
+    links.map(link => {
+      const box = link.getBoundingClientRect();
+      const tap = getComputedStyle(link, '::before');
+      const [top, right, bottom, left] = [tap.top, tap.right, tap.bottom, tap.left].map(Number.parseFloat);
+      return { h: box.height, t: box.top + top!, r: box.right - right!, b: box.bottom - bottom!, l: box.left + left! };
+    })
+  );
+  expect(new Set(taps.map(tap => tap.t)).size, 'the links wrap onto more than one row').toBeGreaterThan(1);
+  for (const [i, tap] of taps.entries()) {
+    expect(tap.h).toBeGreaterThanOrEqual(48);
+    for (const other of taps.slice(i + 1)) {
+      const apart = tap.r <= other.l || other.r <= tap.l || tap.b <= other.t || other.b <= tap.t;
+      expect(apart).toBe(true);
+    }
+  }
+});
+
 test('a phone’s player sheet shows an opponent’s name longer than its column whole @mobile', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 640 });
   const [player] = tdf.players;

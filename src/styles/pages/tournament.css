@@ -1530,6 +1530,7 @@ tr.is-in .tm-place {
 
 /* ---------- Console decklists ---------- */
 .tm-bar-link {
+  position: relative;
   color: var(--accent-ink);
   text-decoration: underline;
   text-decoration-color: color-mix(in srgb, currentColor 40%, transparent);
@@ -2092,6 +2093,7 @@ tr.is-in .tm-place {
   line-height: var(--tm-trail-h);
 }
 .tm-trail a {
+  position: relative;
   flex: none;
   color: inherit;
 }
