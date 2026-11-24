@@ -1120,6 +1120,14 @@ const showAgain = (page: Page) =>
     document.dispatchEvent(new Event('visibilitychange'));
   });
 
+/** The seat is linked to the account: its Not you? asks to unlink, and Keep leaves it linked. */
+async function expectLinked(page: Page) {
+  await page.locator('.tm-you-who').getByRole('button', { name: 'Not you?' }).click();
+  await expect(page.getByText('Unlink from your account?')).toBeVisible();
+  await page.getByRole('button', { name: 'Keep', exact: true }).click();
+  await expect(page.getByText('Unlink from your account?')).toHaveCount(0);
+}
+
 /** The full reads of the event page's API copy: who the viewer is. */
 const viewReads = (asks: { method: string; path: string }[], code: string) =>
   asks.filter(a => a.method === 'GET' && a.path === `/api/tournaments/${code}`).length;
@@ -1136,12 +1144,9 @@ test('signed in at an unsanctioned event, confirming the reporting player links 
   await page.getByRole('button', { name: 'Show table' }).click();
   const who = page.locator('.tm-you-who');
   await expect(who).toContainText('Ash K.');
-  // Finding a table links nothing: only confirming the reporting player does.
-  await expect(who).not.toContainText('Linked to your account');
   await page.getByRole('button', { name: 'Report result' }).click();
   await page.getByLabel('Last name').fill('Ketchum');
   await page.getByRole('button', { name: 'Confirm reporting player' }).click();
-  await expect(who).toContainText('Linked to your account');
   await who.getByRole('button', { name: 'Not you?' }).click();
   await page.getByRole('button', { name: 'Unlink' }).click();
   await expect(page.getByRole('heading', { name: 'Which player are you?' })).toBeVisible();
@@ -1188,7 +1193,7 @@ test('a Claim released or made elsewhere reaches the open page when it is shown 
     linked: true
   });
   await page.goto(`/t/${code}`);
-  await expect(page.locator('.tm-you-who')).toContainText('Linked to your account');
+  await expectLinked(page);
   setLinked(false);
   await showAgain(page);
   await expect(page.getByRole('heading', { name: 'Which player are you?' })).toBeVisible();
@@ -1199,7 +1204,7 @@ test('a Claim released or made elsewhere reaches the open page when it is shown 
   expect(viewReads(asks, code), 'shown again within the half minute, nothing more is asked').toBe(reads);
   await page.clock.runFor(30_000);
   await showAgain(page);
-  await expect(page.locator('.tm-you-who')).toContainText('Linked to your account');
+  await expectLinked(page);
 });
 
 test('a report refused as not the player’s asks again who the viewer is', async ({ page }) => {
@@ -1257,7 +1262,7 @@ test('a read of who the viewer is that lands after they unlink does not link the
   });
   await page.goto(`/t/${code}`);
   const who = page.locator('.tm-you-who');
-  await expect(who).toContainText('Linked to your account');
+  await expectLinked(page);
   const release = holdNextRead();
   const read = page.waitForRequest(
     r => r.method() === 'GET' && new URL(r.url()).pathname === `/api/tournaments/${code}`
@@ -1277,7 +1282,6 @@ test('a read of who the viewer is that lands after they unlink does not link the
       })
   );
   await expect(page.getByRole('heading', { name: 'Which player are you?' })).toBeVisible();
-  await expect(page.getByText('Linked to your account')).toHaveCount(0);
 });
 
 /** The result reports the page sent: what they said and the token with it. */
@@ -1299,7 +1303,7 @@ test('on a device that never asked, an account linked by its Claim reports as it
     tokenless: true
   });
   await page.goto(`/t/${code}`);
-  await expect(page.locator('.tm-you-who')).toContainText('Linked to your account');
+  await expectLinked(page);
   await expect(page.getByRole('heading', { name: 'Which player are you?' })).toHaveCount(0);
   await page.getByRole('button', { name: 'Report result' }).click();
   await page.getByRole('button', { name: 'I won' }).click();

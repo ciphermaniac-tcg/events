@@ -697,7 +697,6 @@ function WhoLine(props: Props & { me: string; division: string; record: string |
             {' · '}
             <span class='num tm-you-record'>{props.record}</span>
           </Show>
-          {via() === 'claim' ? ` · ${t('Linked to your account')}` : ''}
         </span>
         <Switch
           fallback={
