@@ -43,6 +43,7 @@ import { Segmented } from '@ciphermaniac/design/components/Segmented';
  */
 function AddPlayer(props: { state: ManageState; code: string; sanctioned: boolean; late: boolean }) {
   let firstInput: HTMLInputElement | undefined;
+  let popInput: HTMLInputElement | undefined;
   const [first, setFirst] = createSignal('');
   const [last, setLast] = createSignal('');
   const [popId, setPopId] = createSignal('');
@@ -51,6 +52,17 @@ function AddPlayer(props: { state: ManageState; code: string; sanctioned: boolea
   const identified = () => !props.sanctioned || (popId() !== '' && year().length === 4);
   // Typed letters are refused rather than dropped, so "12ab" is never saved as 12.
   const popInvalid = () => props.sanctioned && popId() !== '' && !/^\d{1,10}$/.test(popId());
+  // A Player ID the event refused as already on its roster, marked on its field until it is changed.
+  const [taken, setTaken] = createSignal('');
+  const popTaken = () => popId() !== '' && popId() === taken();
+  const duplicate = () => t('That Player ID is already registered');
+  function refused() {
+    if (props.state.error() === duplicate()) {
+      props.state.clearError();
+      setTaken(popId());
+      popInput?.focus();
+    }
+  }
   async function submit(event: Event) {
     event.preventDefault();
     if (popInvalid()) {
@@ -71,6 +83,8 @@ function AddPlayer(props: { state: ManageState; code: string; sanctioned: boolea
       setPopId('');
       setYear('');
       firstInput?.focus();
+    } else {
+      refused();
     }
   }
   return (
@@ -97,9 +111,10 @@ function AddPlayer(props: { state: ManageState; code: string; sanctioned: boolea
           <Field id='add-pop' label={t('Player ID')}>
             <input
               id='add-pop'
+              ref={popInput}
               class='tm-input'
               inputmode='numeric'
-              aria-invalid={popInvalid() || undefined}
+              aria-invalid={popInvalid() || popTaken() || undefined}
               value={popId()}
               onInput={e => setPopId(e.currentTarget.value.trim())}
             />
@@ -127,8 +142,8 @@ function AddPlayer(props: { state: ManageState; code: string; sanctioned: boolea
       <Show when={!identified() && (first().trim() || last().trim())}>
         <p class='tm-box-bar muted'>{t('Player ID and birth year are needed at a sanctioned event')}</p>
       </Show>
-      <Show when={popInvalid()}>
-        <p class='tm-box-bar tm-error'>{t('A Player ID is up to ten digits')}</p>
+      <Show when={popInvalid() ? t('A Player ID is up to ten digits') : popTaken() && duplicate()}>
+        {message => <p class='tm-box-bar tm-error'>{message()}</p>}
       </Show>
     </form>
   );
