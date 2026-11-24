@@ -853,7 +853,11 @@ function EventBody(props: {
             sanctioned={isSanctioned(props.view)}
             list={myList}
             held={held()}
-            onHeld={setHeld}
+            onHeld={list => {
+              setHeld(list);
+              // The event's own copy counts the player just registered or withdrawn.
+              props.onWhoAmI();
+            }}
             open={takingLists(props.view)}
             withdrawable={decklistsOpen(props.view)}
             closes={
