@@ -994,8 +994,8 @@ export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod
                 names={names()}
                 decks={shownDecks(props.manage)}
                 pending={props.manage.pending}
-                onReport={inRow() && !tom() ? report : undefined}
-                onRecord={inRow() && !tom() ? send : undefined}
+                onReport={inRow() && !tom() && !locked() ? report : undefined}
+                onRecord={inRow() && !tom() && !locked() ? send : undefined}
                 onRow={opens() ? openSheet : undefined}
                 inProgress={openOnly() ? undefined : isOpen}
                 confirming={asking()}

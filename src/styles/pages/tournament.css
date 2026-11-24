@@ -759,7 +759,7 @@ body[data-mode='dark'] :is(.tm-input, .tm-select) {
   text-align: left;
   color: var(--fg);
 }
-.tm-seat-link:hover {
+button.tm-seat-link:hover {
   background: var(--surface-2);
 }
 .tm-seat-link.is-winner {
