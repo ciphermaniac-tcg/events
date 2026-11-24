@@ -2271,3 +2271,10 @@ tr.is-in .tm-place {
 .tm-screen .tm-live-data {
   font-size: calc(var(--text-lg) * var(--tm-display-scale, 1));
 }
+
+/* Left off a printed page with the rest of the site's chrome (see global.css). */
+@media print {
+  .tm-trail {
+    display: none;
+  }
+}
