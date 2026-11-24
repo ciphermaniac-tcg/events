@@ -376,10 +376,10 @@ test('History and Settings lead back to the dashboard, History to its Playing ta
   await publishCopies(page);
   const trail = page.getByRole('navigation', { name: 'Breadcrumb' });
   await page.goto('/history');
-  await expect(trail.getByRole('link', { name: 'Your events' })).toHaveAttribute('href', '/?tab=playing');
+  await expect(trail.getByRole('link', { name: 'Home' })).toHaveAttribute('href', '/?tab=playing');
   await expect(trail.locator('[aria-current="page"]')).toHaveText('History');
   await page.goto('/settings');
-  await expect(trail.getByRole('link', { name: 'Your events' })).toHaveAttribute('href', '/');
+  await expect(trail.getByRole('link', { name: 'Home' })).toHaveAttribute('href', '/');
   await expect(trail.locator('[aria-current="page"]')).toHaveText('Settings');
   await page.unrouteAll();
   await mockAccount(page, null);
@@ -1218,7 +1218,7 @@ test('an event’s player is led back to the dashboard’s Playing tab, a strang
 }) => {
   const { code } = await mockEvent(page, roundOne(true), { sanctioned: true, user: { ...ME, popId: '1001' } });
   await page.goto(`/t/${code}`);
-  const back = page.getByRole('navigation', { name: 'Breadcrumb' }).getByRole('link', { name: 'Your events' });
+  const back = page.getByRole('navigation', { name: 'Breadcrumb' }).getByRole('link', { name: 'Home' });
   await expect(page.locator('.tm-you-who')).toContainText('Ash Ketchum');
   await expect(back).toHaveAttribute('href', '/?tab=playing');
   await page.unrouteAll();
