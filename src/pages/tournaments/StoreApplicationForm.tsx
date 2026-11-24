@@ -107,6 +107,7 @@ function LeagueField(props: { lookup: Lookup; onLookup: (lookup: Lookup) => void
             {...control}
             class='tm-input'
             autocomplete='off'
+            spellcheck={false}
             value={typed()}
             onInput={e => typing(e.currentTarget.value)}
             onKeyDown={e => {

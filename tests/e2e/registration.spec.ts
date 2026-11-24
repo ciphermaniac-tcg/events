@@ -373,6 +373,7 @@ test('the Player ID keeps only its digits, and the birth year is four digits the
   await id.fill('12a');
   await expect(id).toHaveValue('12');
   await expect(id).toHaveAttribute('inputmode', 'numeric');
+  await expect(id).toHaveAttribute('spellcheck', 'false');
   await page.getByRole('button', { name: 'Continue' }).click();
   const year = page.getByRole('textbox', { name: 'Birth year' });
   await year.fill('1998-02');

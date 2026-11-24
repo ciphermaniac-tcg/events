@@ -99,6 +99,7 @@ function AddPlayer(props: { state: ManageState; code: string; sanctioned: boolea
               id='add-pop'
               class='tm-input'
               inputmode='numeric'
+              spellcheck={false}
               aria-invalid={popInvalid() || undefined}
               value={popId()}
               onInput={e => setPopId(e.currentTarget.value.trim())}
