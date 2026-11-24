@@ -110,6 +110,7 @@ function StageStep(props: {
       </Match>
       <Match when={props.stage === 'pending'}>
         <Withdraw onWithdrawn={props.onChanged} />
+        <ContactLink />
       </Match>
       <Match when={(props.stage === 'rejected' || props.stage === 'revoked') && props.again}>
         <ApplyAgain onApply={props.onApplyAgain} />
@@ -144,19 +145,9 @@ export function ApplicantStatus(props: {
   onApplyAgain?: () => void;
   onChanged: () => void;
 }) {
-  const note = () =>
-    props.stage === 'rejected'
-      ? props.application?.note
-      : props.stage === 'pending'
-        ? t('Your application is in. You’ll see the decision here once it’s reviewed.')
-        : null;
-  // Who to ask next: a question while it waits, or a decision that looks wrong.
-  const ask = () => {
-    if (props.stage === 'pending') {
-      return t('Questions?');
-    }
-    return props.stage === 'rejected' || props.stage === 'revoked' ? t('Think this is a mistake?') : null;
-  };
+  const note = () => (props.stage === 'rejected' ? props.application?.note : null);
+  // Who to ask when a decision looks wrong; while one waits, Contact us sits beside Withdraw.
+  const ask = () => (props.stage === 'rejected' || props.stage === 'revoked' ? t('Think this is a mistake?') : null);
   return (
     <div class='tm-box tm-applicant'>
       <div class='tm-box-bar'>

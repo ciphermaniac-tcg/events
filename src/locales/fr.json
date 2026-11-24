@@ -1197,7 +1197,6 @@
   "You won": "Tu as gagné",
   "You’ve hit our rate limits for resets. Try again later.": "Tu as atteint la limite de réinitialisations. Réessaie plus tard.",
   "Your .tdf could not be parsed. Try again.": "Impossible de lire ton fichier .TDF. Réessaie.",
-  "Your application is in. You’ll see the decision here once it’s reviewed.": "Ta demande est bien envoyée. Tu verras la décision ici dès qu’elle aura été examinée.",
   "Your application is pending": "Ta demande est en attente",
   "Your data": "Tes données",
   "Your decklist could not be loaded": "Impossible de charger ta liste de deck",
@@ -1423,7 +1422,6 @@
   "Change {from} to {name}’s?": "Remplacer {from} par celle de {name} ?",
   "Change {from} to {to}?": "Remplacer {from} par {to} ?",
   "Decided {date}": "Traitée le {date}",
-  "Questions?": "Des questions ?",
   "Think this is a mistake?": "Tu penses que c’est une erreur ?",
   "Drop all {n}": "Enregistrer les {n} abandons",
   "Drop {n} players who aren’t checked in?": {
