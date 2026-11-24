@@ -115,7 +115,7 @@ function DecklistRow(props: RowProps) {
    * against the roster player or, for a site registrant not yet in TOM, their Player ID.
    */
   const paper = () =>
-    props.manage.checkins?.[playerId() ?? props.list.popId]?.list ? t('Handed in on paper.') : t('Not received');
+    props.manage.checkins?.[playerId() ?? props.list.popId]?.list ? t('Paper list received') : t('Not received');
   const canUseDeck = () =>
     archetypes() && playerId() && props.list.archetype && props.manage.decks[playerId() ?? ''] !== props.list.archetype;
   return (
@@ -421,9 +421,9 @@ export function DecklistsPanel(props: {
                   </th>
                   <th>{t('Player')}</th>
                   <th>{t('Submitted')}</th>
-                  <th>{t('Check')}</th>
+                  <th>{t('Status')}</th>
                   <Show when={checks()}>
-                    <th>{t('Last deck check')}</th>
+                    <th>{t('Deck check')}</th>
                   </Show>
                   <th>
                     <span class='sr-only'>{t('Actions')}</span>
