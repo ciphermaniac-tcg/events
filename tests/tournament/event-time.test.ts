@@ -24,19 +24,19 @@ test('a wall-clock time names one instant in its zone, either side of daylight s
   // The skipped hour moves forward by the gap: 02:30 reads as 03:30 daylight time.
   assert.equal(zonedInstant('2026-03-08T02:30', 'America/Chicago'), Date.parse('2026-03-08T08:30:00Z'));
   assert.equal(zonedInstant('2026-03-29T01:15', 'Europe/London'), Date.parse('2026-03-29T01:15:00Z'));
-  assert.match(eventTimes('2026-03-08T02:30', 'America/Chicago', 'America/Chicago').event, /3:30.*CDT/);
+  assert.match(eventTimes('2026-03-08T02:30', 'America/Chicago', 'en-US', 'America/Chicago').event, /3:30.*CDT/);
 });
 
 test('viewers elsewhere see the event’s time and their own; viewers in step see one', () => {
-  const chicago = eventTimes('2026-10-18T12:00', 'America/Chicago', 'America/Los_Angeles');
+  const chicago = eventTimes('2026-10-18T12:00', 'America/Chicago', 'en-US', 'America/Los_Angeles');
   assert.match(chicago.event, /12:00/);
   assert.match(chicago.event, /CDT/);
   assert.match(chicago.yours ?? '', /10:00/);
   assert.match(chicago.yours ?? '', /PDT/);
-  assert.equal(eventTimes('2026-10-18T12:00', 'America/Chicago', 'America/Chicago').yours, null);
+  assert.equal(eventTimes('2026-10-18T12:00', 'America/Chicago', 'en-US', 'America/Chicago').yours, null);
   // A different zone on the same clock that day reads the same.
-  assert.equal(eventTimes('2026-10-18T12:00', 'America/Chicago', 'America/Winnipeg').yours, null);
-  const asWritten = eventTimes('2026-10-18T12:00', '', 'Asia/Tokyo');
+  assert.equal(eventTimes('2026-10-18T12:00', 'America/Chicago', 'en-US', 'America/Winnipeg').yours, null);
+  const asWritten = eventTimes('2026-10-18T12:00', '', 'en-US', 'Asia/Tokyo');
   assert.match(asWritten.event, /12:00/);
   assert.equal(asWritten.yours, null);
 });
@@ -62,12 +62,20 @@ test('a wall-clock time names a real day, hour and minute', () => {
   }
 });
 
+test('times are written in the language the page is shown in, not the browser’s', () => {
+  assert.match(eventTimes('2026-11-26T18:00', 'America/Chicago', 'en-US', 'America/Chicago').event, /Thu, Nov 26/);
+  assert.match(eventTimes('2026-11-26T18:00', 'America/Chicago', 'es-ES', 'America/Chicago').event, /jue/);
+});
+
 test('a stored time that names no real moment shows as written instead of failing or rolling over', () => {
-  assert.deepEqual(eventTimes('2026-10-18T99:00', 'America/Chicago', 'Asia/Tokyo'), {
+  assert.deepEqual(eventTimes('2026-10-18T99:00', 'America/Chicago', 'en-US', 'Asia/Tokyo'), {
     event: '2026-10-18T99:00',
     yours: null
   });
-  assert.deepEqual(eventTimes('2026-02-30T10:00', '', 'Asia/Tokyo'), { event: '2026-02-30T10:00', yours: null });
+  assert.deepEqual(eventTimes('2026-02-30T10:00', '', 'en-US', 'Asia/Tokyo'), {
+    event: '2026-02-30T10:00',
+    yours: null
+  });
 });
 
 test('the page asks who you are from three hours before the start, or once round 1 is paired', () => {
