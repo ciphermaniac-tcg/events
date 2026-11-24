@@ -732,7 +732,7 @@ function Paste(props: { form: Registration }) {
         class='tm-input tm-textarea tm-decklist-input'
         aria-label={t('Decklist')}
         aria-describedby={props.form.deck().trim() ? 'reg-deck-check' : undefined}
-        aria-invalid={parsed().problems.length > 0 ? 'true' : undefined}
+        aria-invalid={props.form.deck().trim() && parsed().problems.length > 0 ? 'true' : undefined}
         spellcheck={false}
         autocapitalize='off'
         autocorrect='off'
