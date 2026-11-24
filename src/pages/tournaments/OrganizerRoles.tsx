@@ -33,7 +33,7 @@ function CommunityRow(props: { user: Me; busy: boolean; onResign: () => void }) 
       <Match when={props.user.role === 'admin'}>
         <SettingRow label={t('Admin')}>
           <A class='btn btn-secondary' href='/admin'>
-            {t('Admin page')}
+            {t('Open')}
           </A>
         </SettingRow>
       </Match>
@@ -118,7 +118,7 @@ export function OrganizerRoles(props: { user: Me; applying: boolean }) {
         <Show when={!props.applying}>
           <SettingRow label={props.user.stores.length > 0 ? t('Another store') : t('Store')}>
             <A class='btn btn-secondary' href='/apply'>
-              {t('Apply for a store')}
+              {t('Apply')}
             </A>
           </SettingRow>
         </Show>
