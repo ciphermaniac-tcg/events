@@ -26,21 +26,33 @@
        weight, so preloading it brings the headings and the body text together. -->
   <link rel="preload" as="font" type="font/woff2" href="/fonts/inter-latin-var.woff2" crossorigin>
 
-  <!-- An event link asks for its published copy now, beside the app's code rather than after it; the
-       event page takes this read once, by its URL, while it is under way or answered under 15 s ago
-       (readPublished in src/lib/tournament/api.ts). It gives up after 15 s, as the app's own read does.
-       The build fills in the origin (vite.config.ts), which leaves the script, and so its hash in
-       _headers, the same in every build. Ahead of the stylesheet, which would hold a script after it
-       until the CSS arrives. -->
+  <!-- An event link asks for its published copy now, beside the app's code rather than after it. The
+       read gives up when no answer has started 5 s after asking (a stalled host), or when the whole answer
+       is not in 15 s after asking, the limit the app's own reads keep. The body is read here, so a page
+       that takes the read later gets bytes no timer can cancel. The event page takes this read once, by
+       its URL (readPublished in src/lib/tournament/api.ts), while it is under way or settled under 15 s
+       ago, whether it answered or failed: a failed read sends the page to the API (firstView in
+       src/lib/tournament/viewPoll.ts), not to a second read of the file. One settled longer ago is left,
+       and the page reads the file afresh. The build fills in the origin (vite.config.ts), which leaves
+       the script, and so its hash in _headers, the same in every build. Ahead of the stylesheet, which
+       would hold a script after it until the CSS arrives. -->
   <script data-origin="%EVENTS_DATA_ORIGIN%">
     (function (match, origin) {
       if (!match) { return; }
       var url = origin + '/tournaments/v1/' + match[1].toUpperCase() + '.json';
+      var asked = Date.now();
       var at = -1;
-      var read = fetch(url, { cache: 'no-cache', signal: AbortSignal.timeout(15000) });
-      read.then(function () { at = Date.now(); }, function () { at = 0; });
-      window.cmE = function (asked) {
-        var taken = asked === url && (at < 0 || Date.now() - at < 15000) ? read : null;
+      var stop = new AbortController();
+      var limit = setTimeout(function () { stop.abort(); }, 5000);
+      var read = fetch(url, { cache: 'no-cache', signal: stop.signal }).then(function (response) {
+        clearTimeout(limit);
+        limit = setTimeout(function () { stop.abort(); }, 15000 - (Date.now() - asked));
+        return response.ok ? response.arrayBuffer().then(function (body) { return new Response(body); }) : response;
+      });
+      var settled = function () { clearTimeout(limit); at = Date.now(); };
+      read.then(settled, settled);
+      window.cmE = function (wanted) {
+        var taken = wanted === url && (at < 0 || Date.now() - at < 15000) ? read : null;
         read = null;
         return taken;
       };

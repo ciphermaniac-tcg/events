@@ -7,6 +7,8 @@
  */
 
 import { readFileSync, utimesSync, writeFileSync } from 'node:fs';
+import { createServer } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import { expect, type Page, type Route } from '@playwright/test';
 import { test } from './network-guard';
 import { deferred } from '../__utils__/deferred';
@@ -463,15 +465,101 @@ test('staff whose copy shows decks the public cannot see yet keep asking the API
   expect(asks).toBe(before + 1);
 });
 
-test('a published file that never answers gives way to the API after fifteen seconds', async ({ page }) => {
-  test.setTimeout(45_000);
+test('a published file that never answers gives way to the API after five seconds', async ({ page }) => {
+  test.setTimeout(30_000);
   await mockApi(page);
   // The connection is taken and nothing comes back, as from a stalled edge or a captive portal.
   await page.route(`**/tournaments/v1/${CODE}.json`, () => undefined);
   await page.goto(`/t/${CODE}`);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Fixture Challenge & Friends', {
-    timeout: 25_000
+    timeout: 10_000
   });
+});
+
+/** Counts the page's reads of the published file and of the event from the API. */
+function countReads(page: Page) {
+  const count = { published: 0, api: 0 };
+  page.on('request', request => {
+    const { pathname } = new URL(request.url());
+    count.published += Number(pathname.endsWith(`/tournaments/v1/${CODE}.json`));
+    count.api += Number(pathname === `/api/tournaments/${CODE}`);
+  });
+  return count;
+}
+
+/** Holds the entry script until `release`, as a phone still downloading the app's code would. */
+async function holdEntry(page: Page) {
+  const entry = deferred<void>();
+  await page.route('**/assets/index-*.js', async route => {
+    await entry.promise;
+    await route.continue();
+  });
+  return entry;
+}
+
+test('a published file that gave up before the app asked for it sends the app to the API, not to a second read', async ({
+  page
+}) => {
+  await page.clock.install();
+  await mockApi(page);
+  await page.route(`**/tournaments/v1/${CODE}.json`, () => undefined);
+  const reads = countReads(page);
+  const entry = await holdEntry(page);
+  const gaveUp = page.waitForEvent('requestfailed', request => request.url().includes(`/tournaments/v1/${CODE}.json`));
+  await page.goto(`/t/${CODE}`, { waitUntil: 'commit' });
+  await expect.poll(() => reads.published).toBe(1);
+  await page.clock.fastForward(5_100);
+  await gaveUp;
+  entry.resolve();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Fixture Challenge & Friends');
+  expect(reads).toEqual({ published: 1, api: 1 });
+});
+
+test('a published file that starts answering within five seconds is read to the end, though it ends after', async ({
+  page
+}) => {
+  test.setTimeout(30_000);
+  await mockApi(page);
+  const { viewer: _viewer, ...published } = VIEW;
+  const body = JSON.stringify(published);
+  // The answer starts at once and its last bytes come 5.5 s later, as over a weak link.
+  const slow = createServer((_request, response) => {
+    response.writeHead(200, { 'content-type': 'application/json', 'access-control-allow-origin': '*' });
+    response.write(body.slice(0, 100));
+    setTimeout(() => response.end(body.slice(100)), 5_500);
+  });
+  await new Promise<void>(resolve => {
+    slow.listen(0, '127.0.0.1', resolve);
+  });
+  const { port } = slow.address() as AddressInfo;
+  await page.route(`**/tournaments/v1/${CODE}.json`, route => route.continue({ url: `http://127.0.0.1:${port}/` }));
+  const reads = countReads(page);
+  await page.goto(`/t/${CODE}`);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Fixture Challenge & Friends', {
+    timeout: 10_000
+  });
+  expect(reads.api).toBe(0);
+  slow.close();
+});
+
+test('a published file answered well before the app asks for it is read whole when the app comes', async ({ page }) => {
+  test.setTimeout(30_000);
+  await page.clock.install();
+  await mockApi(page);
+  await publish(page, () => VIEW);
+  const reads = countReads(page);
+  const entry = await holdEntry(page);
+  const answered = page.waitForEvent('requestfinished', request =>
+    request.url().includes(`/tournaments/v1/${CODE}.json`)
+  );
+  await page.goto(`/t/${CODE}`, { waitUntil: 'commit' });
+  await answered;
+  // Past five seconds on the browser's own timers, then on to fourteen on the page's clock.
+  await page.waitForTimeout(5_500);
+  await page.clock.fastForward(8_000);
+  entry.resolve();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Fixture Challenge & Friends');
+  expect(reads).toEqual({ published: 1, api: 0 });
 });
 
 test('a read the page started that answered over fifteen seconds before the app asks is read again', async ({
