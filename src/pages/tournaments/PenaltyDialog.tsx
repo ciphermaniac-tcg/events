@@ -37,12 +37,12 @@ export interface PenaltySelection {
 /** The judge select's last choice: someone not on the staff, by a name typed in. */
 const SOMEONE_ELSE = '';
 
-/** What is missing before the note can be saved, or null. */
-function problem(penalty: Penalty | '', judgeId: string, judgeName: string): string | null {
+/** The field still missing before the note can be saved, or null. */
+function missingField(penalty: Penalty | '', judgeId: string, judgeName: string): 'penalty' | 'judge' | null {
   if (!penalty) {
-    return t('Choose a penalty');
+    return 'penalty';
   }
-  return judgeId === SOMEONE_ELSE && !judgeName.trim() ? t('Say which judge gave it') : null;
+  return judgeId === SOMEONE_ELSE && !judgeName.trim() ? 'judge' : null;
 }
 
 export function PenaltyDialog(props: {
@@ -61,13 +61,16 @@ export function PenaltyDialog(props: {
   const [notes, setNotes] = createSignal('');
   const [saving, setSaving] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
+  const [missing, setMissing] = createSignal<'penalty' | 'judge' | null>(null);
   const name = (id: string | null) => (id ? (props.names.get(id) ?? id) : '');
   const records = () => record !== undefined && penalty() !== '' && DECIDING_PENALTIES.has(penalty() as Penalty);
   async function save() {
-    const missing = problem(penalty(), judgeId(), judgeName());
+    const missing = missingField(penalty(), judgeId(), judgeName());
     const chosen = penalty();
+    setMissing(missing);
     if (missing || !chosen) {
-      setError(missing);
+      // The field it is about takes focus, its reason under it.
+      document.getElementById(missing === 'judge' ? 'penalty-judge-name' : 'penalty-kind')?.focus();
       return;
     }
     const judge = judgeId() === SOMEONE_ELSE ? { judgeName: judgeName() } : { judgeId: judgeId() };
@@ -112,17 +115,23 @@ export function PenaltyDialog(props: {
               ariaLabel={t('Player')}
             />
           </div>
-          <Field id='penalty-kind' label={t('Penalty')}>
-            <select
-              id='penalty-kind'
-              class='tm-select'
-              disabled={saving()}
-              value={penalty()}
-              onChange={e => setPenalty(isPenalty(e.currentTarget.value) ? e.currentTarget.value : '')}
-            >
-              <option value=''>{t('Choose a penalty')}</option>
-              <For each={PENALTIES}>{p => <option value={p}>{t(PENALTY_LABELS[p])}</option>}</For>
-            </select>
+          <Field
+            id='penalty-kind'
+            label={t('Penalty')}
+            error={missing() === 'penalty' ? t('Choose a penalty') : undefined}
+          >
+            {control => (
+              <select
+                {...control}
+                class='tm-select'
+                disabled={saving()}
+                value={penalty()}
+                onChange={e => setPenalty(isPenalty(e.currentTarget.value) ? e.currentTarget.value : '')}
+              >
+                <option value=''>{t('Choose a penalty')}</option>
+                <For each={PENALTIES}>{p => <option value={p}>{t(PENALTY_LABELS[p])}</option>}</For>
+              </select>
+            )}
           </Field>
           <Field id='penalty-judge' label={t('Judge')}>
             <select
@@ -137,15 +146,21 @@ export function PenaltyDialog(props: {
             </select>
           </Field>
           <Show when={judgeId() === SOMEONE_ELSE}>
-            <Field id='penalty-judge-name' label={t('Name')}>
-              <input
-                id='penalty-judge-name'
-                class='tm-input'
-                disabled={saving()}
-                maxLength={PENALTY_NOTE_LIMITS.judgeName}
-                value={judgeName()}
-                onInput={e => setJudgeName(e.currentTarget.value)}
-              />
+            <Field
+              id='penalty-judge-name'
+              label={t('Name')}
+              error={missing() === 'judge' ? t('Say which judge gave it') : undefined}
+            >
+              {control => (
+                <input
+                  {...control}
+                  class='tm-input'
+                  disabled={saving()}
+                  maxLength={PENALTY_NOTE_LIMITS.judgeName}
+                  value={judgeName()}
+                  onInput={e => setJudgeName(e.currentTarget.value)}
+                />
+              )}
             </Field>
           </Show>
           <Field id='penalty-notes' label={t('Notes')}>
