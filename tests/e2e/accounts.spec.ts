@@ -604,9 +604,13 @@ test('profile link settings validate platform URLs and persist Metafy and cleare
   });
   await page.goto('/settings?section=links');
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Profile links');
-  await page.getByRole('textbox', { name: 'Metafy' }).fill('https://evil.test/@mary');
+  // Not a link at all, the problem shows under the field, not in the browser's own popup.
+  await page.getByRole('textbox', { name: 'Metafy' }).fill('mary');
   await page.getByRole('button', { name: 'Save links' }).click();
   await expect(page.getByRole('textbox', { name: 'Metafy' })).toHaveAttribute('aria-invalid', 'true');
+  await expect(page.getByRole('textbox', { name: 'Metafy' })).toBeFocused();
+  await page.getByRole('textbox', { name: 'Metafy' }).fill('https://evil.test/@mary');
+  await expect(page.getByText('Enter the https:// link to your Metafy profile')).toBeVisible();
   await page.getByRole('textbox', { name: 'Metafy' }).fill('https://metafy.gg/@mary');
   await page.getByRole('textbox', { name: 'Facebook' }).fill('');
   await page.getByRole('button', { name: 'Save links' }).click();
@@ -788,7 +792,7 @@ test('Settings: the username is checked as it is typed, saved lowercased, and re
   await expect(input).toHaveValue('mary');
   await expect(save).toBeDisabled();
   await input.fill('mary..j');
-  await expect(page.getByRole('alert')).toHaveText('Put a letter or number between separators');
+  await expect(page.getByRole('alert')).toHaveText('Don’t put two periods, dashes or underscores in a row.');
   await expect(save).toBeDisabled();
   await input.fill('taken');
   await save.click();
