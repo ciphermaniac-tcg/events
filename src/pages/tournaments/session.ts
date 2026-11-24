@@ -9,6 +9,7 @@ import { createEffect, createResource, createRoot, type ResourceOptions } from '
 import { fetchSession, type Session, signOut } from '../../lib/tournament/api';
 import { latestValue } from '../../lib/resource';
 import { forgetAccountMemory, keepSession, keptSession } from '../../lib/tournament/accountMemory';
+import { forgetBrowserMemory } from '../../lib/tournament/browserMemory';
 
 let revision = 0;
 // Whether the server has answered this page: until then a kept session is not
@@ -57,6 +58,8 @@ export function setSession(update: Session | ((previous: Session | undefined) =>
 /** A successful logout is authoritative even if the next session read fails. */
 export async function leaveSession(): Promise<void> {
   await signOut();
+  // Which player this device was at each event, and the token it reported with, go with the account holder.
+  forgetBrowserMemory(/^cm-tournament-(me|report):/);
   clearSession();
 }
 

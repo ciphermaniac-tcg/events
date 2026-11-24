@@ -52,3 +52,11 @@ export function keepBrowserMemory(key: string, value: string | null, persistent 
     write(false, key, value);
   }
 }
+
+/** Forgets every key `pattern` matches, wherever it was kept. */
+export function forgetBrowserMemory(pattern: RegExp): void {
+  const kept = [...memory.keys(), ...Object.keys(storage(true) ?? {}), ...Object.keys(storage(false) ?? {})];
+  for (const key of kept.filter(key => pattern.test(key))) {
+    keepBrowserMemory(key, null, true);
+  }
+}
