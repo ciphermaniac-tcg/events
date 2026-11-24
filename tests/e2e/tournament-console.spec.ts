@@ -2881,7 +2881,7 @@ test('before round 1 staff tick who paid, and the console names who is still ope
 test('round 1 waits on check-in, its Pair button disabled with the reason under it', async ({ page }) => {
   await mockConsole(page, event(2, 0, false), settingsOf({ entryFee: 10 }));
   await expect(page.getByRole('button', { name: 'Pair round 1' })).toBeDisabled();
-  await expect(page.locator('.tm-next-reason')).toHaveText('2 players aren’t checked in.');
+  await expect(page.locator('.tm-next-reason')).toHaveText('2 not paid.');
   for (const name of ['Player1 Test', 'Player2 Test']) {
     await page.getByRole('checkbox', { name: `Paid: ${name}` }).check();
   }
