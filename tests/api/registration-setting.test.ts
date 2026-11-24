@@ -59,6 +59,7 @@ test('a new event registers players online with no list, and takes none until De
   const { owner, code } = await newEvent();
   const { settings } = await view(code);
   assert.deepEqual([settings.registration, settings.decklists], [true, 'off']);
+  assert.equal(settings.deckVisibility, 'after', 'and shows archetypes once it ends');
 
   const listed = await register(code, { deck: DECK });
   assert.deepEqual([listed.status, listed.json.error], [403, 'This event does not take decklists']);

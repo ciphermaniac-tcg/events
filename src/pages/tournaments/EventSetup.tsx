@@ -125,7 +125,7 @@ export function EventSetup(props: {
   // Not asked here: Run again brings these, and Settings changes them.
   const [roundTime] = field('roundTime', String(DEFAULT_ROUND_MINUTES), isString);
   const [reporting] = field('reporting', false, isBoolean);
-  const [archetypes] = field<DeckVisibility>('archetypes', 'off', (value): value is DeckVisibility =>
+  const [archetypes] = field<DeckVisibility>('archetypes', 'after', (value): value is DeckVisibility =>
     ['off', 'always', 'after'].includes(String(value))
   );
   const [registration] = field('registration', true, isBoolean);
