@@ -321,8 +321,8 @@ test('deleting an event with players counts what goes and waits for its code to 
   });
   await page.getByRole('tab', { name: 'Settings', exact: true }).click();
   await page.getByRole('button', { name: 'Delete event' }).click();
-  const dialog = page.getByRole('dialog', { name: 'Delete Friday League for good?' });
-  await expect(dialog).toContainText('8 players, 1 round of results, and any decklists are deleted for good.');
+  const dialog = page.getByRole('dialog', { name: 'Delete Friday League?' });
+  await expect(dialog).toContainText('This permanently deletes 8 players, 1 round and all decklists.');
   const remove = dialog.getByRole('button', { name: 'Delete', exact: true });
   await expect(remove).toBeDisabled();
   await dialog.getByLabel('Type SWISS2 to confirm').fill('SWISS');
@@ -355,8 +355,8 @@ test('deleting a TOM event before its file comes in counts the players registere
   await page.reload();
   await page.getByRole('tab', { name: 'Settings', exact: true }).click();
   await page.getByRole('button', { name: 'Delete event' }).click();
-  const dialog = page.getByRole('dialog', { name: 'Delete Friday League for good?' });
-  await expect(dialog).toContainText('3 players and any decklists are deleted for good.');
+  const dialog = page.getByRole('dialog', { name: 'Delete Friday League?' });
+  await expect(dialog).toContainText('This permanently deletes 3 players and all decklists.');
   await expect(dialog.getByLabel('Type SWISS2 to confirm')).toBeVisible();
 });
 
@@ -364,7 +364,7 @@ test('an event nobody has joined is deleted with a question asked in place', asy
   await mockConsole(page, emptyTournament({ name: 'Friday League' }), settingsOf({}));
   await page.getByRole('tab', { name: 'Settings', exact: true }).click();
   await page.getByRole('button', { name: 'Delete event' }).click();
-  await expect(page.getByRole('group', { name: 'Delete Friday League for good?' })).toBeVisible();
+  await expect(page.getByRole('group', { name: 'Delete Friday League?' })).toBeVisible();
   await expect(page.getByRole('dialog')).toHaveCount(0);
 });
 
@@ -734,7 +734,7 @@ test('ending the event from the next step asks first, in a dialog that reviews w
 test('a capped league that has played its rounds ends as planned', async ({ page }) => {
   const sent = await mockConsole(page, event(6, 3, false), settingsOf({ roundCap: 3 }));
   await page.locator('.tm-split > .btn', { hasText: 'End event' }).click();
-  const dialog = page.getByRole('dialog', { name: 'End the event?' });
+  const dialog = page.getByRole('dialog', { name: 'End event?' });
   await expect(dialog.locator('.tm-end-gaps')).toHaveCount(0);
   await dialog.getByRole('button', { name: 'End event' }).click();
   await expect.poll(() => sent.saved).toEqual([{ finished: true }]);
