@@ -203,9 +203,13 @@
     min-width: 0;
     white-space: normal;
   }
+  /* The name's line is as tall as a row's action, so rows with one and without match. */
   .tm-people .tm-person-name {
+    display: flex;
     flex: 1 1 auto;
+    align-items: center;
     order: 0;
+    min-height: 30px;
     overflow-wrap: anywhere;
   }
   /* The name and its action keep the first line to themselves, whether or not an email follows. */
@@ -261,5 +265,11 @@
   }
   .tm-app-decide-row .tm-input {
     flex-basis: 100%;
+  }
+}
+/* Where a row's action is 44px tall, so is the name's line. */
+@media (max-width: 640px), (pointer: coarse) {
+  .tm-people .tm-person-name {
+    min-height: 44px;
   }
 }
