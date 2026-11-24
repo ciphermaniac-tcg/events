@@ -42,9 +42,15 @@ export function AccountMenu(props: { user: Me; pending: number }) {
       </button>
       <Show when={open()}>
         <div ref={menu} class='tm-acct-menu'>
+          {/* The @username stands for the name until the account has a real one, and never shows twice. */}
           <p class='tm-acct-id'>
-            <strong>{props.user.name}</strong>
-            <span class='muted'>@{props.user.handle}</span>
+            <strong>
+              {props.user.name === props.user.handle ? '@' : ''}
+              {props.user.name}
+            </strong>
+            <Show when={props.user.name !== props.user.handle}>
+              <span class='muted'>@{props.user.handle}</span>
+            </Show>
           </p>
           <Show when={props.user.publicProfile}>
             <A onClick={close} href={`/u/${props.user.handle}`}>

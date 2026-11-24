@@ -13,7 +13,7 @@ import { fetchAllUsers, ROLE_WORDS } from '../../lib/tournament/admin';
 import { t } from '../../lib/i18n';
 import { dayOf } from '../../lib/tournament/applications';
 import { resolved } from '../../lib/resource';
-import { AccountCard, fits } from './AdminAccount';
+import { AccountCard, fits, shownName, sideHandle } from './AdminAccount';
 import { StoreRoleText } from './AdminOrganizers';
 import { ResourceFallback } from './Field';
 
@@ -24,11 +24,9 @@ function UserRow(props: { user: AdminUser; onOpen: () => void }) {
       <td>
         {/* No handler: the press reaches the row's own. */}
         <button type='button' class='tm-user-open'>
-          {u().name}
+          {shownName(u())}
         </button>
-        <Show when={u().handle && u().handle !== u().name}>
-          <span class='muted tm-nowrap'> @{u().handle}</span>
-        </Show>
+        <Show when={sideHandle(u())}>{handle => <span class='muted tm-nowrap'> {handle()}</span>}</Show>
       </td>
       <td class='muted-cell'>{u().email ?? ''}</td>
       <td class='tm-num'>{u().popId ?? ''}</td>
