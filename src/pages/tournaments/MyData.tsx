@@ -192,7 +192,7 @@ function ExportDialog(props: { open: boolean; onClose: () => void }) {
     }
   }
   return (
-    <Modal open={props.open} title={t('Export data')} onClose={close}>
+    <Modal basic open={props.open} title={t('Export data')} onClose={close}>
       <PartChoices parts={EXPORT_PARTS} chosen={chosen()} onToggle={part => setChosen(toggled(chosen(), part))} />
       <Show when={action.error()}>
         <div class='tm-box-bar'>

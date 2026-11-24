@@ -864,6 +864,30 @@ test('Settings: My data exports the parts ticked as a Markdown download @mobile'
   await expect(dialog).toBeHidden();
 });
 
+test('Settings: a tap outside Export data closes it, one outside Wipe data does not, and the page holds still under both @mobile', async ({
+  page
+}) => {
+  await mockMyData(page);
+  await page.goto('/settings?section=data');
+  const overflow = () => page.evaluate(() => getComputedStyle(document.documentElement).overflow);
+  for (const [name, closes] of [
+    ['Export data', true],
+    ['Wipe data', false]
+  ] as const) {
+    await page.getByRole('button', { name }).click();
+    const dialog = page.getByRole('dialog', { name });
+    await expect(dialog).toBeVisible();
+    expect(await overflow()).toBe('hidden');
+    await page.mouse.click(4, 4);
+    if (!closes) {
+      await expect(dialog).toBeVisible();
+      await page.keyboard.press('Escape');
+    }
+    await expect(dialog).toBeHidden();
+    expect(await overflow()).toBe('visible');
+  }
+});
+
 test('Settings: a wipe is chosen, reviewed, then sent, and says what holds it up @mobile', async ({ page }) => {
   const sent = await mockMyData(page);
   await page.goto('/settings?section=data');

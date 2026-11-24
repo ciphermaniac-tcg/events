@@ -27,7 +27,7 @@ export function DropCheck(props: {
   const names = () => namesById(props.manage.tournament);
   const waiting = () => props.drops.length > 0;
   return (
-    <Modal open={props.open} title={t('Drop requests')} class='tm-drop-check' onClose={props.onClose}>
+    <Modal basic open={props.open} title={t('Drop requests')} class='tm-drop-check' onClose={props.onClose}>
       <div class='tm-box-bar tm-modal-body'>
         <Show when={waiting()} fallback={<p class='muted'>{t('No drop requests waiting.')}</p>}>
           <ul class='tm-check-list'>
