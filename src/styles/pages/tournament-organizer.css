@@ -6,8 +6,6 @@
   --text-base: 14px;
   --tm-row-height: 52px;
   --control-h: 44px;
-  --tm-confirm-fill: #ffdb58;
-  --tm-confirm-ink: #211b0b;
 }
 /* The event console retains its own layout on organizer pages. */
 .tm-organizer-surface
@@ -15,7 +13,7 @@
   .tm-matches
   .data
   tbody
-  tr:not(.tm-group-row, .is-confirming):has(.tm-seat-link:focus-visible) {
+  tr:not(.tm-group-row):has(.tm-seat-link:focus-visible) {
   background: var(--row-hover);
 }
 /* The approved console is excluded: this pass covers its surrounding pages. */
