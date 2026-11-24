@@ -35,7 +35,7 @@ import { HistoryTable } from './HistoryTable';
 import type { ManageState } from './manageState';
 import { offersActions, PlayerActions } from './PlayerActions';
 import { Sheet } from './Sheet';
-import { Squares } from './Squares';
+import { RoundMarks } from './RoundMarks';
 
 interface SheetProps {
   state: ManageState;
@@ -117,7 +117,7 @@ function NowLine(props: { seen: Seen }) {
             <div class='tm-sheet-seat'>
               <Opponent seen={props.seen} id={seat().opponent} />
               <Show when={seat().mark} fallback={<span class='muted'>{t('Playing')}</span>}>
-                <Squares marks={[seat().mark]} />
+                <RoundMarks marks={[seat().mark]} />
               </Show>
             </div>
           </div>

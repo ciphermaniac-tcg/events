@@ -1224,9 +1224,6 @@
   font-variant-numeric: tabular-nums;
   color: var(--fg);
 }
-.tm-console .tm-mark.is-win {
-  color: var(--positive);
-}
 .tm-console .tm-result-label.is-reported {
   color: var(--muted);
   font-weight: 500;
