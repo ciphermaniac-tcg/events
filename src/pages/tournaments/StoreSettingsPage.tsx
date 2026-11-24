@@ -105,6 +105,7 @@ function LeaveGuard(props: { dirty: boolean }) {
       question={t('Leave without saving?')}
       scope={t('Your changes will be lost.')}
       confirmLabel={t('Leave')}
+      keepLabel={t('Stay')}
       danger
       onConfirm={() => leave()?.()}
       onClose={() => setLeave(null)}
