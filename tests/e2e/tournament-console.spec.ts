@@ -1823,7 +1823,7 @@ test('a phone’s tab bar keeps one height and every tab on screen, however long
   // The Players tab shows how many requests wait by its icon, and its name says which.
   const players = page.locator('#console-bar-players');
   await expect(players.locator('.tm-dash-count')).toHaveText('4');
-  await expect(players).toHaveAttribute('aria-label', /^\S+ · 4 \S+$/);
+  await expect(players).toHaveAttribute('aria-label', 'Jugadores · 4 solicitudes de abandono pendientes');
   // Scrolled to the end, the site's foot clears the bar.
   await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
   const foot = await boxOf(page.locator('.site-footer'));
@@ -2508,7 +2508,7 @@ test('staff see a drop request on the Players tab and confirm it by its ID in on
     status: 'open'
   };
   const sent = await mockConsole(page, t, settingsOf({}), [], false, [asked]);
-  const tab = page.getByRole('tab', { name: 'Players · 1 drop' });
+  const tab = page.getByRole('tab', { name: 'Players · 1 drop request' });
   await tab.click();
   const requests = page.getByRole('region', { name: 'Player requests' });
   const row = requests.getByRole('row', { name: new RegExp(player.lastName) });
@@ -2546,7 +2546,7 @@ test('on a 320px phone a drop request stacks in its box, its table named and its
   const player = t.players[0]!;
   const asked: PlayerRequest = { id: 'request-1', player: player.id, kind: 'drop', at: 1, status: 'open' };
   await mockConsole(page, t, settingsOf({}), [], false, [asked]);
-  await page.getByRole('tab', { name: 'Players · 1 drop' }).click();
+  await page.getByRole('tab', { name: 'Players · 1 drop request' }).click();
   const requests = page.getByRole('region', { name: 'Player requests' });
   const seat = await requests
     .getByRole('cell')
@@ -2567,7 +2567,7 @@ test('an open drop request holds the next pairing until it is answered, or paire
   const player = t.players[0]!;
   const asked: PlayerRequest = { id: 'drop-1', player: player.id, kind: 'drop', at: 1, status: 'open' };
   const sent = await mockConsole(page, t, settingsOf({}), [], false, [asked]);
-  await expect(page.getByRole('tab', { name: 'Players · 1 drop' })).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'Players · 1 drop request' })).toBeVisible();
   await expect(page.locator('.tm-next-reason')).toHaveText('1 drop request waiting');
   await page.getByRole('button', { name: 'Pair round 2' }).click();
   const check = page.getByRole('dialog', { name: 'Drop requests' });
@@ -2604,7 +2604,7 @@ test('a top cut is not held by a drop request, but a round paired from the menu 
   const sent = await mockConsole(page, t, settingsOf({}), [], false, [dropAsked(t)]);
   const step = page.locator('.tm-split');
   await expect(step.getByRole('button', { name: 'Start top cut' })).toBeVisible();
-  await expect(page.getByText('1 drop request waiting')).toHaveCount(0);
+  await expect(page.locator('.tm-next-reason', { hasText: 'drop request' })).toHaveCount(0);
   await step.getByRole('button', { name: 'Other next steps' }).click();
   await step.locator('.tm-menu-item', { hasText: 'Pair round 6' }).click();
   const check = page.getByRole('dialog', { name: 'Drop requests' });

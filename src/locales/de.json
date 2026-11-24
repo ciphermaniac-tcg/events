@@ -1511,10 +1511,6 @@
     "one": "{n} offener Ausstiegsantrag",
     "other": "{n} offene Ausstiegsanträge"
   },
-  "{n} drops": {
-    "one": "{n} Ausstieg",
-    "other": "{n} Ausstiege"
-  },
   "First and last name, Player ID, birth year": "Vor- und Nachname, Spieler-ID, Geburtsjahr",
   "Sanctioned events leave your history until you add your Player ID again": "Offizielle Turniere verschwinden aus deinem Verlauf, bis du deine Spieler-ID wieder hinzufügst",
   "Wiped: {parts}": "Gelöscht: {parts}",

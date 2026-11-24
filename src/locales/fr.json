@@ -1511,10 +1511,6 @@
     "one": "{n} demande d’abandon en attente",
     "other": "{n} demandes d’abandon en attente"
   },
-  "{n} drops": {
-    "one": "{n} abandon",
-    "other": "{n} abandons"
-  },
   "First and last name, Player ID, birth year": "Prénom et nom, ID joueur, année de naissance",
   "Sanctioned events leave your history until you add your Player ID again": "Les tournois homologués disparaissent de ton historique jusqu’à ce que tu ajoutes de nouveau ton ID joueur",
   "Wiped: {parts}": "Données effacées : {parts}",
