@@ -643,7 +643,7 @@ test('Settings: the public profile switch shows its link, and a Player ID clash 
   expect(sent.filter(s => s.method === 'PATCH').at(-1)?.body).toEqual({ profileName: 'handle' });
   await profile.getByRole('radio', { name: 'Disabled' }).click();
   await expect(page.getByRole('button', { name: 'Copy' })).toHaveCount(0);
-  await page.getByRole('navigation', { name: 'Settings' }).getByRole('button', { name: 'Player profile' }).click();
+  await page.getByRole('navigation', { name: 'Settings' }).getByRole('link', { name: 'Player profile' }).click();
   await page.getByRole('button', { name: 'Save profile' }).click();
   // The clash is the Player ID's, so it sits under that field, with the way to have it settled.
   const id = page.getByRole('textbox', { name: 'Player ID' });
@@ -664,13 +664,13 @@ test('Settings opens on the player profile, keeps its section in the address, an
   await page.goto('/settings');
   const nav = page.getByRole('navigation', { name: 'Settings' });
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Player profile');
-  await expect(nav.getByRole('button', { name: 'Player profile' })).toHaveAttribute('aria-current', 'page');
+  await expect(nav.getByRole('link', { name: 'Player profile' })).toHaveAttribute('aria-current', 'page');
   await expect(page.locator('.tm-settings-who')).toContainText('@mary');
   await page.getByLabel('First name').fill('Marianne');
-  await nav.getByRole('button', { name: 'Username' }).click();
+  await nav.getByRole('link', { name: 'Username' }).click();
   await expect(page).toHaveURL(/section=username/);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Username');
-  await nav.getByRole('button', { name: 'Player profile' }).click();
+  await nav.getByRole('link', { name: 'Player profile' }).click();
   await expect(page.getByLabel('First name')).toHaveValue('Marianne');
 });
 
@@ -707,7 +707,7 @@ test('Settings opened at a section on a phone shows that section’s tab whole i
   await mockSettings(page, ME);
   await page.goto('/settings?section=data');
   const nav = page.getByRole('navigation', { name: 'Settings' });
-  await expect(nav.getByRole('button', { name: 'Your data' })).toHaveAttribute('aria-current', 'page');
+  await expect(nav.getByRole('link', { name: 'Your data' })).toHaveAttribute('aria-current', 'page');
   expect(await navSpill(nav)).toBe(0);
 });
 
@@ -763,15 +763,15 @@ test('Settings: the username is checked as it is typed, saved lowercased, and re
   await save.click();
   await expect(page.getByRole('alert')).toHaveText('That username is taken');
   const nav = page.getByRole('navigation', { name: 'Settings' });
-  await nav.getByRole('button', { name: 'History' }).click();
+  await nav.getByRole('link', { name: 'History' }).click();
   await page.getByRole('radiogroup', { name: 'Public profile' }).getByRole('radio', { name: 'Enabled' }).click();
-  await nav.getByRole('button', { name: 'Username' }).click();
+  await nav.getByRole('link', { name: 'Username' }).click();
   await input.fill('Mary.J');
   await expect(page.getByRole('alert')).toHaveCount(0);
   await save.click();
   await expect(page.getByRole('status')).toHaveText('Saved');
   expect(sent.filter(s => s.method === 'PATCH').at(-1)?.body).toEqual({ handle: 'mary.j' });
-  await nav.getByRole('button', { name: 'History' }).click();
+  await nav.getByRole('link', { name: 'History' }).click();
   await expect(page.getByRole('link', { name: /\/u\/mary\.j$/ })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Copy' })).toBeVisible();
 });
@@ -780,7 +780,7 @@ test('Settings shows an admin the way to the admin page, and the account button 
   await mockSettings(page, { ...ME, role: 'admin' });
   await page.goto('/settings?section=organizer');
   await expect(page.getByRole('link', { name: 'Admin' })).toHaveAttribute('href', '/admin');
-  await page.getByRole('navigation', { name: 'Settings' }).getByRole('button', { name: 'History' }).click();
+  await page.getByRole('navigation', { name: 'Settings' }).getByRole('link', { name: 'History' }).click();
   await page.getByRole('link', { name: 'View history' }).click();
   await page.locator('.site-head').getByRole('button', { name: 'Account' }).click();
   await expect(page.locator('.tm-acct-menu').getByRole('link', { name: 'History' })).toHaveAttribute(
@@ -893,7 +893,7 @@ test('Settings: a wipe is chosen, reviewed, then sent, and says what holds it up
   await expect(dialog).toBeHidden();
   await expect(page.getByText('Wiped: Profile, Username')).toBeVisible();
   expect(sent.filter(s => s.method === 'POST').at(-1)?.body).toEqual({ parts: ['profile', 'username'] });
-  await page.getByRole('navigation', { name: 'Settings' }).getByRole('button', { name: 'Username' }).click();
+  await page.getByRole('navigation', { name: 'Settings' }).getByRole('link', { name: 'Username' }).click();
   await expect(page.getByRole('textbox', { name: 'Username' })).toHaveValue('quiet-otter-41');
 });
 

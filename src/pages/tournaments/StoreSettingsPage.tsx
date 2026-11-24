@@ -191,7 +191,7 @@ function DetailsSection(props: {
 }
 
 /** The section list: down the left on a wide screen, a row of tabs on a phone. */
-function SectionNav(props: { current: Section; onPick: (section: Section) => void }) {
+function SectionNav(props: { current: Section }) {
   let nav: HTMLElement | undefined;
   // On a phone, where the list is a row of tabs, the open one is brought into the row.
   createEffect(() => {
@@ -207,14 +207,14 @@ function SectionNav(props: { current: Section; onPick: (section: Section) => voi
     <nav ref={nav} class='tm-side-nav' aria-label={t('Store settings')}>
       <For each={SECTIONS}>
         {section => (
-          <button
-            type='button'
+          <a
+            href={`?section=${section.value}`}
+            noScroll
             classList={{ 'is-on': props.current === section.value }}
             aria-current={props.current === section.value ? 'page' : undefined}
-            onClick={() => props.onPick(section.value)}
           >
             {t(section.label)}
-          </button>
+          </a>
         )}
       </For>
     </nav>
@@ -231,7 +231,7 @@ function Pane(props: { of: Section; current: Section; opened: ReadonlySet<Sectio
 }
 
 function Settings(props: { id: string }) {
-  const [params, setParams] = useSearchParams<{ section?: string }>();
+  const [params] = useSearchParams<{ section?: string }>();
   const [read, { refetch, mutate }] = createResource(() => props.id, fetchStore);
   const current = () => latestValue(read);
   const section = () => readSection(params.section);
@@ -289,7 +289,7 @@ function Settings(props: { id: string }) {
             }
           />
           <div class='tm-side-layout'>
-            <SectionNav current={section()} onPick={value => setParams({ section: value })} />
+            <SectionNav current={section()} />
             <div class='tm-side-content'>
               <Pane of='nights' current={section()} opened={opened()}>
                 <NightsSection store={answer().store} onSaved={store => saved(store)} />

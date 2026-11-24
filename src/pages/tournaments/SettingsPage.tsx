@@ -131,9 +131,11 @@ function Pane(props: { of: Section; current: Section; opened: ReadonlySet<Sectio
  * right under its name, kept in the address as ?section=.
  */
 function SignedIn(props: { user: Me; providers: readonly Provider[] }) {
-  const [params, setParams] = useSearchParams<{ section?: string; next?: string }>();
+  const [params] = useSearchParams<{ section?: string; next?: string }>();
   // Opened from the store application, which a linked email or a saved profile is for: the way back to it, open.
   const fromApply = () => params.next === APPLYING;
+  // Each section is a link, so it opens in a new tab too, still on the way back to the application (APPLYING).
+  const sectionHref = (id: Section) => `?section=${id}${fromApply() ? '&next=%2Fapply%3Fstore' : ''}`;
   const section = () => readSection(params.section);
   const opened = createMemo<ReadonlySet<Section>>(
     prev => (prev.has(section()) ? prev : new Set([...prev, section()])),
@@ -160,14 +162,14 @@ function SignedIn(props: { user: Me; providers: readonly Provider[] }) {
           <nav ref={nav} class='tm-side-nav' aria-label={t('Settings')}>
             <For each={SECTIONS}>
               {s => (
-                <button
-                  type='button'
+                <a
+                  href={sectionHref(s.id)}
+                  noScroll
                   classList={{ 'is-on': s.id === section() }}
                   aria-current={s.id === section() ? 'page' : undefined}
-                  onClick={() => setParams({ section: s.id })}
                 >
                   {t(s.label)}
-                </button>
+                </a>
               )}
             </For>
           </nav>
