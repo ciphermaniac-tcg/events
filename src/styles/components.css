@@ -195,7 +195,6 @@
 .tm-people a::before,
 .tm-trail a::before,
 .tm-code-copy::before,
-.tm-you-signin::before,
 .tm-bar-link::before {
   content: '';
   position: absolute;
