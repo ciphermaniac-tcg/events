@@ -15,7 +15,7 @@
 
 import { SessionGate } from './SessionGate';
 import { A, useNavigate, useSearchParams } from '@solidjs/router';
-import { createResource, createSignal, For, type JSX, onMount, Show, untrack } from 'solid-js';
+import { createMemo, createResource, createSignal, For, type JSX, onMount, Show, untrack } from 'solid-js';
 import { canJoinCommunity } from '../../../shared/accounts/roles';
 import { managesStore } from '../../../shared/accounts/stores';
 import type { ApplicationState, MyApplication, MyStore } from '../../../shared/accounts/types';
@@ -205,12 +205,17 @@ function Applying(props: { user: Me }) {
   const [params] = useSearchParams<{ again?: string; store?: string }>();
   const [state, { refetch, mutate }] = createResource(fetchApplication);
   const draftKey = untrack(() => applicationDraftKey(props.user.id));
-  // An application begun in this tab opens again as it was left, as Apply again from it would.
-  const drafted = Object.keys(readApplicationDraft(draftKey)).length > 0;
-  // Settings' Apply again opens the rows as the page opens, at the store, which is what was applied for.
-  const [again, setAgain] = createSignal(params.again !== undefined || drafted);
-  const [storeOpen, setStoreOpen] = createSignal(untrack(again) || params.store !== undefined);
   const current = () => latestValue(state);
+  const after = () => current()?.application?.id ?? null;
+  // An application begun in this tab after the latest one opens again as it was left, as Apply again from it would.
+  const drafted = createMemo(
+    () => current() !== undefined && Object.keys(readApplicationDraft(draftKey, after())).length > 0
+  );
+  // Settings' Apply again opens the rows as the page opens, at the store, which is what was applied for.
+  const [asked, setAgain] = createSignal(params.again !== undefined);
+  const [storeAsked, setStoreOpen] = createSignal(params.again !== undefined || params.store !== undefined);
+  const again = () => asked() || drafted();
+  const storeOpen = () => storeAsked() || drafted();
   createSessionCatchUp(
     () => props.user.role,
     () => current()?.application
@@ -246,6 +251,7 @@ function Applying(props: { user: Me }) {
               <Show when={s().eligible.profile && s().eligible.email} fallback={<StoreNeeds eligible={s().eligible} />}>
                 <StoreApplicationForm
                   draftKey={draftKey}
+                  after={after()}
                   from={again() && s().application?.status === 'rejected' ? s().application : null}
                   onSent={sent}
                   onStale={() => {

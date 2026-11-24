@@ -11,7 +11,7 @@
  * Apply again starts from the application it follows (`from`).
  */
 
-import { createEffect, createSignal, For, Show, untrack } from 'solid-js';
+import { createEffect, createSignal, For, on, Show, untrack } from 'solid-js';
 import { EXPLANATION_MAX } from '../../../shared/accounts/applications';
 import {
   addressOf,
@@ -64,6 +64,10 @@ function placeOf(league: League, timeZone: string): StorePlace | null {
 
 /** What is typed, as the tab keeps it (sessionStorage: it holds the store's private phone and email). */
 interface Draft {
+  /** The account's latest application when the draft began; one sent or decided since replaces the draft. */
+  after: string | null;
+  /** The league field as typed, looked up or not. */
+  typed: string;
   lookup: Lookup;
   details: StoreDetails;
   timeZone: string;
@@ -91,10 +95,11 @@ function sentDraft(sent: MyApplication | null | undefined): Partial<Draft> {
     : {};
 }
 
-/** The draft kept under `key`; empty when there is none, or storage is off. */
-export function readApplicationDraft(key: string): Partial<Draft> {
+/** The draft kept under `key`, begun after the application `after`; empty when there is none, or storage is off. */
+export function readApplicationDraft(key: string, after: string | null): Partial<Draft> {
   try {
-    return (JSON.parse(sessionStorage.getItem(key) ?? '{}') as Partial<Draft> | null) ?? {};
+    const draft = (JSON.parse(sessionStorage.getItem(key) ?? '{}') as Partial<Draft> | null) ?? {};
+    return draft.after === after ? draft : {};
   } catch {
     return {};
   }
@@ -127,8 +132,13 @@ function Found(props: { league: LeagueFound }) {
 }
 
 /** The league field and its lookup; the answer goes to `onLookup`. */
-function LeagueField(props: { lookup: Lookup; onLookup: (lookup: Lookup) => void }) {
-  const [typed, setTyped] = createSignal(untrack(() => leagueOf(props.lookup)?.leagueId ?? ''));
+function LeagueField(props: {
+  typed: string;
+  onType: (typed: string) => void;
+  lookup: Lookup;
+  onLookup: (lookup: Lookup) => void;
+}) {
+  const typed = () => props.typed;
   async function look() {
     const leagueId = readLeagueId(typed());
     if (!leagueId) {
@@ -156,7 +166,7 @@ function LeagueField(props: { lookup: Lookup; onLookup: (lookup: Lookup) => void
   }
   /** Another league typed after a lookup puts the form away until that one is looked up. */
   function typing(value: string) {
-    setTyped(readLeagueId(value) ?? value);
+    props.onType(readLeagueId(value) ?? value);
     const current = leagueOf(props.lookup);
     if (current && readLeagueId(value) !== current.leagueId) {
       props.onLookup({ kind: 'idle' });
@@ -202,12 +212,14 @@ function LeagueField(props: { lookup: Lookup; onLookup: (lookup: Lookup) => void
 
 export function StoreApplicationForm(props: {
   draftKey: string;
+  /** The account's latest application, which a draft kept must have begun after. */
+  after: string | null;
   from?: MyApplication | null;
   onSent: (sent: MyApplication) => void;
   onStale: () => void;
 }) {
   // What this tab kept goes over what was sent before, as it was typed since.
-  const draft = untrack(() => ({ ...sentDraft(props.from), ...readApplicationDraft(props.draftKey) }));
+  const draft = untrack(() => ({ ...sentDraft(props.from), ...readApplicationDraft(props.draftKey, props.after) }));
   // A lookup that was on its way, or refused, starts over.
   const [lookup, setLookup] = createSignal<Lookup>(
     draft.lookup && leagueOf(draft.lookup) ? draft.lookup : { kind: 'idle' }
@@ -218,17 +230,20 @@ export function StoreApplicationForm(props: {
   const [certified, setCertified] = createSignal(draft.certified ?? false);
   const [nights, setNights] = createSignal<LeagueNight[]>(draft.nights ?? []);
   const [explanation, setExplanation] = createSignal(draft.explanation ?? '');
-  createEffect(() =>
-    keepDraft(props.draftKey, {
-      lookup: lookup(),
-      details: details(),
-      timeZone: timeZone(),
-      relationship: relationship(),
-      certified: certified(),
-      nights: nights(),
-      explanation: explanation()
-    })
-  );
+  const [typed, setTyped] = createSignal(draft.typed ?? untrack(() => leagueOf(lookup())?.leagueId ?? ''));
+  const typedDraft = (): Draft => ({
+    after: props.after,
+    typed: typed(),
+    lookup: lookup(),
+    details: details(),
+    timeZone: timeZone(),
+    relationship: relationship(),
+    certified: certified(),
+    nights: nights(),
+    explanation: explanation()
+  });
+  // Kept once something is typed, not as the form opens.
+  createEffect(on(typedDraft, next => keepDraft(props.draftKey, next), { defer: true }));
   const [sending, setSending] = createSignal(false);
   const [checked, setChecked] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
@@ -306,7 +321,7 @@ export function StoreApplicationForm(props: {
 
   return (
     <form ref={form} class='tm-apply-store' noValidate onSubmit={event => void send(event)}>
-      <LeagueField lookup={lookup()} onLookup={looked} />
+      <LeagueField typed={typed()} onType={setTyped} lookup={lookup()} onLookup={looked} />
       <Show when={league()}>
         <>
           <Show when={known()}>{found => <Found league={found()} />}</Show>
