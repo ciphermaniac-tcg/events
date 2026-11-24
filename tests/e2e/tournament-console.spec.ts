@@ -222,6 +222,15 @@ test('with two pods the next step names the pod it pairs, and a reload keeps the
   await expect(page.getByRole('button', { name: 'Pair round 2 for Masters' })).toBeVisible();
 });
 
+test('a past round’s names read as text, not as buttons that do nothing', async ({ page }) => {
+  await mockConsole(page, event(8, 1, true), settingsOf({}));
+  await expect(page.locator('.tm-matches button.tm-seat-link').first()).toBeVisible();
+  await page.getByRole('button', { name: 'Previous round' }).click();
+  await expect(page.getByRole('combobox', { name: 'Round' })).toHaveValue('1');
+  await expect(page.locator('.tm-matches .tm-seat-link').first()).toBeVisible();
+  await expect(page.locator('.tm-matches button.tm-seat-link')).toHaveCount(0);
+});
+
 test('a late player added before the round starts is seated by a re-pair, and after it is not offered one', async ({
   page
 }) => {

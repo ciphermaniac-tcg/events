@@ -136,18 +136,28 @@ function SeatCell(props: CellProps & { seat: 1 | 2; records: Map<string, string>
                 </Show>
               </span>
             </PendingSeatMark>
-            <button
-              type='button'
-              class='tm-seat-link'
-              classList={{ 'is-winner': mark() === 'W' }}
-              aria-label={reportable() ? t('Report {name} as the winner', { name: name(playerId()) }) : undefined}
-              onClick={() =>
-                reportable() ? props.onReport?.(props.match, winnerOutcome(props.seat)) : props.onPlayer?.(playerId())
+            {/* A name a press does nothing with reads as text, not as a button. */}
+            <Show
+              when={reportable() || props.onPlayer}
+              fallback={
+                <span class='tm-seat-link' classList={{ 'is-winner': mark() === 'W' }}>
+                  {content(playerId())}
+                </span>
               }
-              onDblClick={() => reportable() && open() && props.onRecord?.(props.match, winnerOutcome(props.seat))}
             >
-              {content(playerId())}
-            </button>
+              <button
+                type='button'
+                class='tm-seat-link'
+                classList={{ 'is-winner': mark() === 'W' }}
+                aria-label={reportable() ? t('Report {name} as the winner', { name: name(playerId()) }) : undefined}
+                onClick={() =>
+                  reportable() ? props.onReport?.(props.match, winnerOutcome(props.seat)) : props.onPlayer?.(playerId())
+                }
+                onDblClick={() => reportable() && open() && props.onRecord?.(props.match, winnerOutcome(props.seat))}
+              >
+                {content(playerId())}
+              </button>
+            </Show>
           </span>
         )}
       </Show>

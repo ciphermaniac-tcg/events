@@ -1269,10 +1269,10 @@
   .tm-console .tm-matches .data tbody tr:not(.tm-group-row, .is-confirming):hover {
     background: var(--row-hover);
   }
-  .tm-console .tm-seat-link:hover {
+  .tm-console button.tm-seat-link:hover {
     background: color-mix(in srgb, var(--fg) 25%, var(--surface));
   }
-  .tm-console .tm-seat-link:hover .tm-record {
+  .tm-console button.tm-seat-link:hover .tm-record {
     color: var(--fg);
   }
   .tm-console .tm-matches tr.is-confirming .tm-seat-link:hover {
