@@ -13,11 +13,24 @@
  * browser that can hold a file, the file stays linked so later saves reach
  * the site without another upload. Either way the setup (EventSetup) asks
  * the rest, in place of the lists. `?new=<store>` opens the Swiss setup as
- * that store, as store settings' Start an event does.
+ * that store, as store settings' Start an event does; `?new=swiss` opens it
+ * as Start an event does.
  */
 
 import { A, useNavigate, useSearchParams } from '@solidjs/router';
-import { createResource, createSignal, For, Match, onMount, type Resource, Show, Switch, untrack } from 'solid-js';
+import {
+  createEffect,
+  createResource,
+  createSignal,
+  For,
+  Match,
+  on,
+  onMount,
+  type Resource,
+  Show,
+  Switch,
+  untrack
+} from 'solid-js';
 import { canRunCommunityEvents } from '../../../shared/accounts/roles';
 import { canCreateEvents, managesStore } from '../../../shared/accounts/stores';
 import { parseTomDate } from '../../../shared/tournament/divisions';
@@ -472,7 +485,20 @@ function Organizer(props: {
   ];
   /** The store `?new=` asks to start an event as, when the account may. */
   const asked = untrack(() => runAs(false).find(option => option.id !== null && option.id === params.new)?.id ?? null);
-  const [stage, setStage] = createSignal<Stage>(asked ? { kind: 'swiss' } : { kind: 'lists' });
+  // `?new=swiss` is the setup open as the account picks: kept by a reload, and Back closes it.
+  const setUp = untrack(() => asked !== null || (params.new === 'swiss' && runAs(false).length > 0));
+  const [stage, setStage] = createSignal<Stage>(setUp ? { kind: 'swiss' } : { kind: 'lists' });
+  createEffect(
+    on(
+      () => params.new,
+      value => {
+        if (!value && stage().kind !== 'lists') {
+          setStage({ kind: 'lists' });
+        }
+      },
+      { defer: true }
+    )
+  );
   /** One primary on the page: starting an event, unless an event is running, whose console is. */
   const startClass = () => (live().length > 0 ? 'btn btn-secondary' : 'btn btn-primary');
 
@@ -488,7 +514,14 @@ function Organizer(props: {
               fallback={<ApplicantLine role={role()} application={props.application} primary={live().length === 0} />}
             >
               <span class='tm-hero-acts'>
-                <button type='button' class={startClass()} onClick={() => setStage({ kind: 'swiss' })}>
+                <button
+                  type='button'
+                  class={startClass()}
+                  onClick={() => {
+                    setStage({ kind: 'swiss' });
+                    setParams({ new: 'swiss' });
+                  }}
+                >
                   {t('Start an event')}
                 </button>
                 <Show when={runAs(true).length > 0}>
@@ -548,7 +581,8 @@ export function HostIndex() {
   onMount(() => {
     document.title = pageTitle();
   });
-  const opened = (code: string) => navigate(`/host/${code}`);
+  // In place of the setup, so Back from the new event finds the lists rather than the form again.
+  const opened = (code: string) => navigate(`/host/${code}`, { replace: true });
   return (
     <div class='tm-page'>
       <SessionGate>

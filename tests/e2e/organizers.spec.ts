@@ -627,6 +627,18 @@ test('/host: an Organizer whose access goes while the page is open is refused, a
   expect(asks.filter(a => a.path === '/api/applications/mine')).toHaveLength(1);
 });
 
+test('/host: the new event form is in the address, so a reload keeps it and Back closes it', async ({ page }) => {
+  await mockHost(page, { ...ME, role: 'community' });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Start an event' }).click();
+  await expect(page).toHaveURL(/[?&]new=swiss/);
+  await page.reload();
+  await expect(page.getByRole('textbox', { name: 'Event name' })).toBeVisible();
+  await page.goBack();
+  await expect(page.getByRole('textbox', { name: 'Event name' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Start an event' })).toBeVisible();
+});
+
 test('/host: a hero with nothing for its meta line draws none, so its action sits level with the counts', async ({
   page
 }) => {
