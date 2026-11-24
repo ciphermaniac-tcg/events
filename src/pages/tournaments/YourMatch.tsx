@@ -470,7 +470,14 @@ function MatchLine(props: Props & { me: string; found: Found; report: Report; op
                     </Show>
                     <Clock round={props.found.round} extraSeconds={props.found.match.timeExtension?.seconds} />
                   </span>
-                  <Show when={canReport()}>
+                  <Show
+                    when={canReport()}
+                    fallback={
+                      <Show when={!props.view.settings.playerReporting}>
+                        <span class='muted'>{t('Report your result to staff')}</span>
+                      </Show>
+                    }
+                  >
                     <ReportStart report={props.report} onOpen={props.onOpen} />
                   </Show>
                 </>
