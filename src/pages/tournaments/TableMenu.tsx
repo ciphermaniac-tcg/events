@@ -26,7 +26,7 @@ const reportsFor = (manage: Manage, player: Player) => manage.settings.playerRep
 /** Whether ReleaseAction has anything to offer for the player. */
 export const mayRelease = (manage: Manage, player: Player) => reportsFor(manage, player) || !isSanctioned(manage);
 
-/** `short`: the small button a table's menu puts beside each seat's name, named by its answer alone. */
+/** `short`: the small button a table's menu puts beside each seat's name. */
 export function ReleaseAction(props: { state: ManageState; manage: Manage; player: Player; short?: boolean }) {
   const reporting = () => reportsFor(props.manage, props.player);
   const name = () => playerName(props.player);
@@ -35,7 +35,7 @@ export function ReleaseAction(props: { state: ManageState; manage: Manage; playe
   return (
     <Show when={mayRelease(props.manage, props.player)}>
       <ConfirmAction
-        label={props.short ? answer() : full()}
+        label={full()}
         class={props.short ? 'btn btn-ghost tm-small' : 'tm-menu-item'}
         question={
           reporting()
