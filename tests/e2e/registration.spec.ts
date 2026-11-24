@@ -403,6 +403,8 @@ test('at an unsanctioned event a name a slip away is asked about, never opened, 
   await lookUp('Avry', 'Chen');
   await page.getByRole('button', { name: 'Avery C.' }).click();
   await expect(page.locator('.tm-reg-who')).toContainText('Avery Chen');
+  // Found by name, not sent from here: saving may be refused, so the form says where it can be changed.
+  await expect(page.getByText('If your list was sent from another device, change it there')).toBeVisible();
 
   // A surname one letter off cannot open the match by the shortened name: it asks for the surname to be corrected.
   await page.getByRole('button', { name: 'More' }).click();

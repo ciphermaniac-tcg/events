@@ -413,6 +413,8 @@ function createRegistration(props: RegistrationProps) {
     withdraw,
     notYou,
     offerSave,
+    /** At an unsanctioned event, a registration the name lookup found that this device did not send. */
+    unheld: () => !props.sanctioned && !own(),
     accountSaved,
     saveToAccount
   };
@@ -906,6 +908,13 @@ function EditRegistration(props: { form: Registration; reg: RegistrationProps })
   return (
     <section class='tm-box tm-reg'>
       <Head form={f()} sanctioned={props.reg.sanctioned} title={name()} menu years={props.reg.years} />
+      <Show when={f().unheld()}>
+        <p class='tm-box-bar tm-reg-note'>
+          {t(
+            'You’re already registered. If your list was sent from another device, change it there or ask staff to reset it.'
+          )}
+        </p>
+      </Show>
       <Show when={f().withdrawing()}>
         <div class='tm-box-bar tm-row-actions tm-confirm' role='group' aria-label={t('Withdraw')}>
           <span>{t('Withdraw from this event?')}</span>
