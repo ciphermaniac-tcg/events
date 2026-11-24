@@ -176,7 +176,6 @@ export function ResultSheet(props: {
         <div class='tm-sheet-top'>
           <strong>{t('Table {table}', { table: props.match.table })}</strong>
           <OptionsMenu name={t('table {table}', { table: props.match.table })} closeOnSelect>
-            <SeatResets {...props.menu} match={props.match} />
             <Show when={props.onTimeExtension}>
               <button type='button' class='tm-menu-item' onClick={() => props.onTimeExtension?.()}>
                 {t('Time extension')}…
@@ -187,6 +186,7 @@ export function ResultSheet(props: {
                 {t('Penalty')}…
               </button>
             </Show>
+            <SeatResets {...props.menu} match={props.match} />
             <StreamLink {...props.menu} pod={props.pod} table={props.match.table} />
           </OptionsMenu>
           <span

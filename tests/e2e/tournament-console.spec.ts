@@ -2395,7 +2395,7 @@ test('table extensions use the match menu and support editing and removal @mobil
   expect(t.pods[0]!.rounds[0]!.timeLeft).toBe(-120);
 });
 
-test('a table menu resets a seat first and copies the table’s stream overlay link @mobile', async ({
+test('a table menu resets a seat after the results and copies the table’s stream overlay link @mobile', async ({
   page,
   context
 }) => {
@@ -2409,11 +2409,16 @@ test('a table menu resets a seat first and copies the table’s stream overlay l
   await page.getByRole('button', { name: `More for table ${match.table}`, exact: true }).click();
   const seats = page.locator('.tm-menu-seats p');
   const name = (id: string | null) => t.players.find(p => p.id === id)?.firstName ?? '';
-  // Seat one, then seat two, each with Reset reporting.
+  // Seat one, then seat two, each with Reset reporting, following the results.
   await expect(seats).toHaveText([
     new RegExp(`^${name(match.p1)} .*Reset reporting$`),
     new RegExp(`^${name(match.p2)} .*Reset reporting$`)
   ]);
+  expect(
+    await page
+      .getByRole('button', { name: 'Penalty…', exact: true })
+      .evaluate(item => Boolean(item.compareDocumentPosition(document.querySelector('.tm-menu-seats')!) & 4))
+  ).toBe(true);
   const copy = page.getByRole('button', { name: 'Copy stream overlay link', exact: true });
   await copy.click();
   // The menu stays open to say the link was copied.
@@ -2578,8 +2583,8 @@ test('Escape closes the extension menu before the mobile result sheet @mobileOnl
   const sheet = page.getByRole('dialog', { name: 'Result, table 1', exact: true });
   const more = sheet.getByRole('button', { name: 'More for table 1', exact: true });
   await more.click();
-  // The menu opens on its first seat's Unlink account, ahead of the results.
-  await expect(sheet.getByRole('button', { name: 'Unlink account', exact: true }).first()).toBeFocused();
+  // The menu opens on its first item, the seats' Unlink account coming after it.
+  await expect(sheet.getByRole('button', { name: 'Time extension…', exact: true })).toBeFocused();
   await page.keyboard.press('Escape');
   await expect(sheet).toBeVisible();
   await expect(more).toBeFocused();
