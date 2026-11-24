@@ -32,11 +32,13 @@ const STAGE_WORDS: Record<ApplicantStage, string> = {
 
 /** The day under the stage: when a pending Application went in, or when a rejection came. */
 function stageDay(stage: ApplicantStage, application: MyApplication | null): string | null {
+  // A date never breaks across lines.
+  const day = (ms: number) => dayOf(ms).replace(/ /gu, '\u00a0');
   if (stage === 'pending' && application) {
-    return t('Sent {date}', { date: dayOf(application.createdAt) });
+    return t('Sent {date}', { date: day(application.createdAt) });
   }
   return stage === 'rejected' && application?.decidedAt
-    ? t('Decided {date}', { date: dayOf(application.decidedAt) })
+    ? t('Decided {date}', { date: day(application.decidedAt) })
     : null;
 }
 
