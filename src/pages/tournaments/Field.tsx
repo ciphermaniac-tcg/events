@@ -69,10 +69,15 @@ export function Field(props: {
 }
 
 /** The one line a failed request leaves, where the action was, with the way on (`action`) when there is one. */
-export function ErrorLine(props: { message: string | null | undefined; action?: JSX.Element }) {
+export function ErrorLine(props: {
+  message: string | null | undefined;
+  action?: JSX.Element;
+  /** For the field it is about to name as its description. */
+  id?: string;
+}) {
   return (
     <Show when={props.message}>
-      <p class='tm-error' role='alert'>
+      <p class='tm-error' role='alert' id={props.id}>
         {props.message} {props.action}
       </p>
     </Show>
