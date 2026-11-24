@@ -233,6 +233,7 @@ function Applying(props: { user: Me }) {
               <Show when={s().eligible.profile && s().eligible.email} fallback={<StoreNeeds eligible={s().eligible} />}>
                 <StoreApplicationForm
                   draftKey={draftKey}
+                  from={again() && s().application?.status === 'rejected' ? s().application : null}
                   onSent={sent}
                   onStale={() => {
                     void refetch();
