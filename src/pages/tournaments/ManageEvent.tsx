@@ -37,6 +37,7 @@ import { errorText, joinStaff, type Manage } from '../../lib/tournament/api';
 import {
   divisionCuts,
   namesById,
+  openWords,
   podLabel,
   type PodProgress,
   podProgress,
@@ -269,8 +270,11 @@ function Hero(props: { state: ManageState; manage: Manage; pod: Pod | undefined;
   const firstBlocked = () => firstBlock() !== null;
   // A drop request waiting holds the next round too, but the head's drop row (DropAsk) already asks about it.
   const reason = () => firstBlock() ?? (pairStep() ?? stepOf('decide') ?? closeStep())?.reason;
-  // The open tables need no saying twice: the lead already counts them.
-  const openTablesOnly = () => reason() === tn(progress().open, '{n} table open', '{n} tables open');
+  // The open tables or matches need no saying twice: the lead already says the round is playing.
+  const openTablesOnly = () => {
+    const { round, open } = progress();
+    return round !== undefined && reason() === openWords(open, round.kind);
+  };
   const action = (
     <Switch>
       <Match when={props.tom}>{tom => <TomStatus link={tom()} />}</Match>
