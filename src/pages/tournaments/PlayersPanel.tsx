@@ -57,10 +57,11 @@ function AddPlayer(props: { state: ManageState; code: string; sanctioned: boolea
   const popTaken = () => popId() !== '' && popId() === taken();
   const duplicate = () => t('That Player ID is already registered');
   const popError = () => (popInvalid() ? t('A Player ID is up to ten digits') : popTaken() && duplicate());
-  function refused() {
-    if (props.state.error() === duplicate()) {
+  /** A refusal for the ID `sent` goes on its field while that ID is still the one typed; above the tabs otherwise. */
+  function refused(sent: string) {
+    if (props.state.error() === duplicate() && popId() === sent) {
       props.state.clearError();
-      setTaken(popId());
+      setTaken(sent);
       popInput?.focus();
     }
   }
@@ -69,6 +70,7 @@ function AddPlayer(props: { state: ManageState; code: string; sanctioned: boolea
     if (popInvalid()) {
       return;
     }
+    const sent = popId();
     const ok = await props.state.send({
       type: 'addPlayer',
       player: {
@@ -85,7 +87,7 @@ function AddPlayer(props: { state: ManageState; code: string; sanctioned: boolea
       setYear('');
       firstInput?.focus();
     } else {
-      refused();
+      refused(sent);
     }
   }
   return (
@@ -125,6 +127,8 @@ function AddPlayer(props: { state: ManageState; code: string; sanctioned: boolea
               inputmode='numeric'
               spellcheck={false}
               aria-invalid={Boolean(popError()) || undefined}
+              // Its error sits under the whole row, which a line under the field would put out of line.
+              aria-describedby={popError() ? 'add-pop-error' : undefined}
               value={popId()}
               onInput={e => setPopId(e.currentTarget.value.trim())}
             />
@@ -153,7 +157,13 @@ function AddPlayer(props: { state: ManageState; code: string; sanctioned: boolea
       <Show when={!identified() && (first().trim() || last().trim())}>
         <p class='tm-box-bar muted'>{t('Player ID and birth year are needed at a sanctioned event')}</p>
       </Show>
-      <Show when={popError()}>{message => <p class='tm-box-bar tm-error'>{message()}</p>}</Show>
+      <Show when={popError()}>
+        {message => (
+          <p class='tm-box-bar tm-error' id='add-pop-error'>
+            {message()}
+          </p>
+        )}
+      </Show>
     </form>
   );
 }
