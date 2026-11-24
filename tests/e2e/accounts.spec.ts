@@ -483,6 +483,16 @@ test('a profile’s badges fit one line and move into overflow before wrapping @
   expect(errors).toEqual([]);
 });
 
+test('an account opening its own private profile is told it is private, with the way to share it', async ({ page }) => {
+  await mockAccount(page, ME);
+  await page.route('**/api/profiles/**', route => route.fulfill({ status: 404, json: { error: 'No such profile' } }));
+  await page.goto('/u/Mary');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Your profile is private');
+  await expect(page.getByRole('link', { name: 'Make it public' })).toHaveAttribute('href', '/settings?section=history');
+  await page.goto('/u/someone-else');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Profile not found');
+});
+
 test('an organizer who has played nothing opens on Organizing, its status in plain words', async ({ page }) => {
   await mockAccount(page, null);
   const hosted = {
