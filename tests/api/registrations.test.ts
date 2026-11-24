@@ -121,6 +121,23 @@ test('a distinct new name is still added, and an existing unambiguous name updat
   );
 });
 
+test('a list reads as checked in once staff tick what check-in asks of its player', async () => {
+  const { owner, code } = await casualEvent();
+  const ada = { firstName: 'Ada', lastName: 'Byron' };
+  const sent = await register(code, ada, { mode: 'paper', deck: '' });
+  assert.equal(sent.json.decklist.checkedIn, false, 'a paper list waits for staff');
+  assert.equal((await register(code, { firstName: 'Grace', lastName: 'Hopper' })).json.decklist.checkedIn, true);
+  const id = (await rosterOf(code, owner)).find(player => player.firstName === 'Ada')?.id;
+  const ticked = await hit(checkins.onRequestPut as Handler, '/checkins', at(code), {
+    method: 'PUT',
+    cookie: owner,
+    body: { playerId: id, mark: 'list', on: true }
+  });
+  assert.equal(ticked.status, 200);
+  const lists = await hit(decklists.onRequestGet as Handler, '/decklists', at(code), { cookie: owner });
+  assert.equal(lists.json.decklists.find((list: { firstName: string }) => list.firstName === 'Ada').checkedIn, true);
+});
+
 test('only the device that owns an unsanctioned registration renames or withdraws it', async () => {
   const { owner, code } = await casualEvent();
   const sent = await register(code, { firstName: 'Grace', lastName: 'Hopper' });

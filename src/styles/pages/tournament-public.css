@@ -28,6 +28,11 @@
   letter-spacing: 0;
   color: var(--muted);
 }
+.tm-you-line {
+  margin: 0;
+  padding: var(--space-3) 14px;
+  font-size: var(--text-body);
+}
 .tm-you-mid {
   flex: 1 1 200px;
   min-width: 0;

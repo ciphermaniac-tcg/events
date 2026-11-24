@@ -787,7 +787,7 @@ function EventBody(props: {
           }}
         />
       </Show>
-      <Show when={registered()}>{list => <RegisteredCard view={props.view} list={list()} />}</Show>
+      <Show when={registered()}>{list => <RegisteredCard list={list()} />}</Show>
       <Tabs
         id='event'
         options={tabs()}
