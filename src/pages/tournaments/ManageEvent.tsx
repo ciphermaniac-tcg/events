@@ -337,10 +337,12 @@ function Hero(props: { state: ManageState; manage: Manage; pod: Pod | undefined;
                 <CodeCopy code={props.manage.code} />
                 <span class='dot'>·</span>
               </span>
-              <span class='tm-meta-part'>
-                {props.manage.mode === 'tom' ? t('Run in TOM') : t('Swiss on this site')}
-                <span class='dot'>·</span>
-              </span>
+              <Show when={props.manage.mode === 'tom'}>
+                <span class='tm-meta-part'>
+                  {t('Run in TOM')}
+                  <span class='dot'>·</span>
+                </span>
+              </Show>
               <span class='tm-meta-part'>
                 {tn(props.manage.tournament.players.length, '{n} player', '{n} players')}
                 <span class='dot'>·</span>
