@@ -800,15 +800,24 @@ function createTableDialogs(
   const [extension, setExtension] = createSignal<ExtensionSelection | null>(null);
   const [penalty, setPenalty] = createSignal<PenaltySelection | null>(null);
   onMount(() => warmChunks([TimeExtensionDialog.preload]));
+  // The menu button a dialog was opened from, found again by its name once the dialog closes: a save draws its row anew.
+  let opener: string | null | undefined;
+  const opened = () => (opener = document.activeElement?.closest('.tm-more')?.querySelector('button')?.ariaLabel);
+  const back = (close: () => void) => () => {
+    close();
+    document.querySelector<HTMLElement>(`.tm-more > button[aria-label="${CSS.escape(opener ?? '')}"]`)?.focus();
+  };
   return {
     penalty: (match: Match, r: Round) =>
       props.manage.watching
         ? undefined
         : () => {
+            opened();
             closeSheet();
             setPenalty({ round: r.number, match, record: record(match) });
           },
     extend(match: Match, r: Round) {
+      opened();
       closeSheet();
       props.state.clearError();
       setExtension({ pod: props.pod.category, round: r.number, match });
@@ -818,7 +827,7 @@ function createTableDialogs(
         <Show when={extension()} keyed>
           {selection => (
             <Suspense>
-              <TimeExtensionDialog state={props.state} selection={selection} onClose={() => setExtension(null)} />
+              <TimeExtensionDialog state={props.state} selection={selection} onClose={back(() => setExtension(null))} />
             </Suspense>
           )}
         </Show>
@@ -829,7 +838,7 @@ function createTableDialogs(
                 code={props.manage.code}
                 selection={selection}
                 names={names()}
-                onClose={() => setPenalty(null)}
+                onClose={back(() => setPenalty(null))}
               />
             </Suspense>
           )}
