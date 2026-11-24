@@ -183,6 +183,7 @@ export function PlaceRows(props: {
         <input
           id={`${props.id}-venue`}
           class='tm-input'
+          autocomplete='organization'
           maxLength={SETTINGS_LIMITS.venue}
           value={props.venue}
           onInput={e => props.onChange('venue', e.currentTarget.value)}
@@ -192,6 +193,7 @@ export function PlaceRows(props: {
         <input
           id={`${props.id}-address`}
           class='tm-input'
+          autocomplete='street-address'
           maxLength={SETTINGS_LIMITS.address}
           value={props.address}
           onInput={e => props.onChange('address', e.currentTarget.value)}
