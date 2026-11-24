@@ -1282,12 +1282,8 @@
 .tm-console .tm-seat-link:focus-visible .tm-record {
   color: var(--fg);
 }
-.tm-console .tm-matches tr.is-confirming .tm-seat-link:focus-visible {
-  background: color-mix(in srgb, var(--accent-fill) 45%, var(--surface));
-  color: var(--fg);
-}
 @media (hover: hover) {
-  .tm-console .tm-matches .data tbody tr:not(.tm-group-row, .is-confirming):hover {
+  .tm-console .tm-matches .data tbody tr:not(.tm-group-row):hover {
     background: var(--row-hover);
   }
   .tm-console button.tm-seat-link:hover {
@@ -1296,39 +1292,10 @@
   .tm-console button.tm-seat-link:hover .tm-record {
     color: var(--fg);
   }
-  .tm-console .tm-matches tr.is-confirming .tm-seat-link:hover {
-    background: color-mix(in srgb, var(--accent-fill) 45%, var(--surface));
-    color: var(--fg);
-  }
 }
-.tm-console .tm-matches .data tr.is-confirming td {
-  background: color-mix(in srgb, var(--accent-fill) 18%, var(--surface));
-}
-.tm-console .tm-result.is-asking {
-  padding: 8px 12px;
-  border-radius: var(--radius-sm);
-  background: var(--tm-confirm-fill);
-  color: var(--tm-confirm-ink);
-}
-/* The acts' class outranks the row's hover ink, which in dark mode is the
-   page's light text: on the yellow fill it would all but vanish. */
-.tm-console .tm-result.is-asking .tm-result-label,
-.tm-console .tm-result.is-asking .tm-result-acts .btn-ghost {
-  color: var(--tm-confirm-ink);
-}
-.tm-console .tm-result.is-asking .btn-primary {
-  background: var(--tm-confirm-ink);
-  border-color: var(--tm-confirm-ink);
-  color: var(--tm-confirm-fill);
-}
-@media (hover: hover) {
-  .tm-console .tm-result.is-asking .btn-ghost:hover {
-    background: color-mix(in srgb, var(--tm-confirm-ink) 10%, var(--tm-confirm-fill));
-  }
-}
-.tm-console .tm-result.is-asking :focus-visible {
-  outline-color: var(--tm-confirm-ink);
-  outline-offset: 2px;
+/* The question reads in ink, with the console's own buttons. */
+.tm-console .tm-result.is-asking .tm-result-label {
+  color: var(--fg);
 }
 .tm-console .tm-result {
   display: grid;
