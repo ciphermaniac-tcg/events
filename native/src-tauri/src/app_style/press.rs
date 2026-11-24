@@ -1,10 +1,10 @@
-//! A button, tab, menu item or chip held down dims where it stands, as a
-//! native control does, instead of shrinking as it does on the site. The
-//! change is immediate, both ways.
+//! A button, link, tab, menu item or chip held down dims where it stands,
+//! as a native control does, instead of shrinking as it does on the site.
+//! The change is immediate, both ways.
 
 /// `!important` wins over the site's own press scale and transitions.
 pub const CSS: &str = "\
-:is(button, .btn, [role=\"tab\"], [role=\"menuitem\"], .chip):active:not(:disabled) \
+:is(button, a[href], .btn, [role=\"tab\"], [role=\"menuitem\"], .chip):active:not(:disabled) \
 { opacity: 0.55 !important; transform: none !important; transition: none !important; }";
 
 #[cfg(test)]
@@ -16,5 +16,10 @@ mod tests {
         assert!(CSS.contains(":active:not(:disabled)"));
         assert!(CSS.contains("opacity: 0.55"));
         assert!(CSS.contains("transform: none !important"));
+    }
+
+    #[test]
+    fn dims_a_held_link() {
+        assert!(CSS.contains("a[href]"));
     }
 }
