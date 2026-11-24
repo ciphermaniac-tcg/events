@@ -2373,6 +2373,7 @@ test('a reporting player asks staff to drop them and can take it back until staf
   await page.getByLabel('Birth year').fill(yearOf('Jackson'));
   await page.getByRole('button', { name: 'Confirm reporting player' }).click();
   await page.getByRole('button', { name: 'Request drop' }).click();
+  await expect(page.getByRole('button', { name: 'Keep playing' })).toBeVisible();
   await page.getByRole('button', { name: 'Ask staff' }).click();
   await expect(page.locator('.tm-you-requests')).toContainText('Drop requested');
   expect(asked[0]).toMatchObject({ request: 'drop', reportToken: 'phone-token' });

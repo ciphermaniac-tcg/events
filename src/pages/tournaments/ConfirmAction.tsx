@@ -89,6 +89,8 @@ export function ConfirmAction(props: {
   /** The question the second press answers, e.g. "Remove Ada?". */
   question: string;
   confirmLabel?: string;
+  /** What backing out keeps, when Keep alone would not say. */
+  keepLabel?: string;
   class?: string;
   disabled?: boolean;
   danger?: boolean;
@@ -168,7 +170,7 @@ export function ConfirmAction(props: {
             {props.confirmLabel ?? props.label}
           </button>
           <button type='button' class={`btn btn-ghost${size()}`} onClick={back}>
-            {t('Keep')}
+            {props.keepLabel ?? t('Keep')}
           </button>
         </span>
       </Show>
