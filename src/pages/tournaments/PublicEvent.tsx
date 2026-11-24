@@ -388,6 +388,11 @@ function createMe(view: () => TournamentView, events: { onView: (view: Published
     setClaim(null);
     setReportToken(null);
   }
+  // Signing out in another tab forgets which player this device is there: this tab lets go of its copy, and its proof.
+  const elsewhere = ({ key, newValue }: StorageEvent) =>
+    newValue === null && [null, meKey(code()), tokenKey(code())].includes(key) && forget();
+  window.addEventListener('storage', elsewhere);
+  onCleanup(() => window.removeEventListener('storage', elsewhere));
   // A device that said who the player is before reporting took a token asks for one now, if nobody has it.
   async function claimNow(said: PlayerClaim, token?: string) {
     const answer = await identifyPlayer(code(), said, token).catch(() => null);
