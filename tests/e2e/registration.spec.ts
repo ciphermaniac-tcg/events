@@ -87,6 +87,8 @@ async function mockEvent(page: Page, settings: Partial<TournamentSettings> = {},
     }
   };
   const calls: { method: string; query: Record<string, string>; body: Record<string, unknown> | null }[] = [];
+  // The event as the API has it: a registration adds its player, in a new version.
+  let event = published;
   const listOf = (held: Held) => ({
     popId: sanctioned ? held.popId : '',
     firstName: held.firstName,
@@ -131,13 +133,18 @@ async function mockEvent(page: Page, settings: Partial<TournamentSettings> = {},
       return route.fulfill({ json: { user: user && { id: 'u1', name: user.firstName, ...user }, providers: [] } });
     }
     if (url.pathname !== `/api/tournaments/${CODE}/decklists`) {
-      return route.fulfill({ json: { ...published, viewer: { role: null, me: null, via: null, signedIn: false } } });
+      return route.fulfill({ json: { ...event, viewer: { role: null, me: null, via: null, signedIn: false } } });
     }
     const query = Object.fromEntries(url.searchParams);
     const body = request.method() === 'PUT' ? (request.postDataJSON() as Record<string, unknown>) : null;
     calls.push({ method: request.method(), query, body });
     if (request.method() === 'PUT') {
       const profile = body?.profile as { firstName: string; lastName: string; popId: string; birthDate: string };
+      const joined = run(t, {
+        type: 'addPlayer',
+        player: { firstName: profile.firstName, lastName: profile.lastName }
+      });
+      event = { ...published, version: 2, tournament: publicTournament(joined, assignKeys(joined, {}), !sanctioned) };
       return route.fulfill({
         json: {
           decklist: listOf({
@@ -293,8 +300,12 @@ test('any other Player ID registers, with a pasted list, and the Registered card
   await page.getByText('Digital').click();
   await expect(page.getByText('Paste a decklist')).toBeVisible();
   await page.getByRole('textbox', { name: 'Decklist' }).fill('60 Basic {G} Energy SVE 1');
+  const hero = page.locator('.tm-hero');
+  await expect(hero).toContainText('4 players');
   await register.click();
   await expect(page.getByRole('status')).toHaveText('You’re registered.');
+  // The count under the event's name has them in it.
+  await expect(hero).toContainText('5 players');
   const card = page.getByRole('region', { name: 'Your registration' });
   await expect(card).toContainText('Registered');
   await expect(card).toContainText('Checked in');
