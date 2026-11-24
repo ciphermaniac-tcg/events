@@ -497,6 +497,8 @@ test('the console leads with where the round stands: in progress, complete, or b
 test('against a plan, the lead counts the Swiss rounds, and names a round past the plan alone', () => {
   const open = podProgress(pod, []);
   assert.equal(roundStatus(open, false, 3), 'Round 2 of 3 in progress');
+  const unstarted = { ...open, round: { ...round2, status: 'paired' as const } };
+  assert.equal(roundStatus(unstarted, false, 3), 'Round 2 of 3 paired', 'until its clock first starts');
   assert.equal(roundStatus(open, false, 1), 'Round 2 in progress', 'a round past the plan');
   const quarter: Round = { ...round2, kind: 'elimination', matches: round2.matches.slice(0, 4) };
   assert.equal(roundStatus(podProgress({ ...pod, rounds: [quarter] }, []), false, 3), 'Quarterfinals in progress');
