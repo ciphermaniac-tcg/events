@@ -33,7 +33,7 @@ async function openConsole(page: Page) {
 test('opens signed in on the sample event, and pairs a round for real @mobile', async ({ page }) => {
   const out = await watched(page);
   await page.goto('/');
-  await expect(page.getByRole('region', { name: 'Demo' })).toContainText('This is a demo.');
+  await expect(page.getByRole('region', { name: 'Demo' })).toContainText('Demo mode.');
   await expect(page.getByRole('cell', { name: 'Demo Games League Challenge', exact: true })).toBeVisible();
   await page.getByRole('link', { name: 'Demo Games League Challenge' }).click();
   await page.getByRole('button', { name: 'Pair round 1' }).click();
@@ -63,7 +63,7 @@ test('what you do stays across a reload, and Reset starts over', async ({ page }
 
   const bar = page.getByRole('region', { name: 'Demo' });
   await bar.getByRole('button', { name: 'Reset demo' }).click();
-  await expect(bar).toContainText('Start the demo over?');
+  await expect(bar).toContainText('Reset the demo?');
   await bar.getByRole('button', { name: 'Reset', exact: true }).click();
   await expect(page).toHaveURL(/\/$/);
   await page.getByRole('link', { name: 'Demo Games League Challenge' }).click();
@@ -104,7 +104,7 @@ test('signing out and deleting the account are not part of the demo', async ({ p
 
   await page.goto('/settings');
   await page.getByRole('button', { name: 'Sign out' }).click();
-  await expect(page.getByText('This isn’t part of the demo.')).toBeVisible();
+  await expect(page.getByText('Not available in the demo.')).toBeVisible();
 });
 
 test('a request for anywhere else is refused before it leaves', async ({ page }) => {
