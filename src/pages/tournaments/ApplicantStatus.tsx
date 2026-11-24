@@ -224,7 +224,14 @@ export function ApplicantLine(props: {
               </A>
             }
           >
-            {words => <span class='tm-applicant-words'>{t(words())}</span>}
+            {words => (
+              // A pending Application's words lead to where it stands.
+              <Show when={current() === 'pending'} fallback={<span class='tm-applicant-words'>{t(words())}</span>}>
+                <A class='tm-applicant-words tm-link-inline' href='/apply'>
+                  {t(words())}
+                </A>
+              </Show>
+            )}
           </Show>
           <Show when={current() === 'rejected' || current() === 'revoked'}>
             <ApplyAgain onApply={undefined} />

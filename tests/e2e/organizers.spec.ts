@@ -609,6 +609,8 @@ test('/host: a pending Application shows in place of the way to apply', async ({
   await page.goto('/');
   await expect(page.locator('.tm-applicant-line')).toHaveText('Application pending');
   await expect(page.getByRole('link', { name: 'Apply to run events' })).toHaveCount(0);
+  // The words lead to where the Application stands.
+  await expect(page.getByRole('link', { name: 'Application pending' })).toHaveAttribute('href', '/apply');
 });
 
 test('/host: an Organizer whose access goes while the page is open is refused, and offered the way to apply', async ({
