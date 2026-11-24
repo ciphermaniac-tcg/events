@@ -81,9 +81,6 @@
   border-radius: var(--radius-md);
   background: var(--surface);
 }
-.tm-bracket-match.is-me {
-  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
-}
 .tm-bracket-meta {
   display: flex;
   gap: var(--space-2);

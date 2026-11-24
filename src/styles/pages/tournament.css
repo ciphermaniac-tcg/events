@@ -822,13 +822,6 @@ body[data-mode='dark'] :is(.tm-input, .tm-select) {
   text-decoration: underline dotted;
   text-underline-offset: 3px;
 }
-.data tr.is-me td {
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-}
-/* On the tint the muted ink falls under 4.5:1 in dark mode; the player's own row is read closest. */
-.tm-page .data tr.is-me .muted-cell {
-  color: var(--fg);
-}
 .data tr.is-confirming td {
   background: color-mix(in srgb, var(--accent) 9%, var(--surface));
 }
@@ -1257,12 +1250,8 @@ body:has(.tm-sheet) {
   .tm-matches .data tr.is-confirming {
     background: color-mix(in srgb, var(--accent) 9%, var(--surface));
   }
-  .tm-matches .data tr.is-confirming td,
-  .tm-matches .data tr.is-me td {
+  .tm-matches .data tr.is-confirming td {
     background: none;
-  }
-  .tm-matches .data tr.is-me {
-    background: color-mix(in srgb, var(--accent) 12%, transparent);
   }
 }
 @media (min-width: 641px) and (max-width: 1100px) {
