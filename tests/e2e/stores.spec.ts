@@ -1073,7 +1073,7 @@ test('a store event starts from a listing, which fills the setup and sends its s
   const picker = page.getByRole('group', { name: 'On pokemon.com' });
   await expect(picker.getByRole('radio', { name: 'Not listed here' })).toBeChecked();
   await picker.getByRole('radio', { name: /Combat Power League Cup/ }).check();
-  await expect(page.getByRole('textbox', { name: 'Event name' })).toHaveValue('Combat Power League Cup');
+  await expect(page.getByRole('textbox', { name: 'Name', exact: true })).toHaveValue('Combat Power League Cup');
   await expect(page.getByLabel('Starts')).toHaveValue('2099-10-11T11:00');
   await expect(page.locator('.tm-set-row', { hasText: 'Sanction ID' })).toContainText('26-10-007710');
   await expect(page.locator('.tm-set-row', { hasText: 'Sanction ID' })).toContainText('League Cup');
@@ -1104,7 +1104,7 @@ test('Not listed here keeps what was typed and sends no sanction ID', async ({ p
   await expect(page.locator('.tm-set-row', { hasText: 'Sanction ID' })).toHaveCount(0);
   await expect(page.getByRole('checkbox', { name: 'Sanctioned', exact: true })).toBeVisible();
   await expect(page.getByRole('combobox', { name: 'Event type', exact: true })).toBeVisible();
-  await expect(page.getByRole('textbox', { name: 'Event name' })).toHaveValue('Combat Power Locals');
+  await expect(page.getByRole('textbox', { name: 'Name', exact: true })).toHaveValue('Combat Power Locals');
   await page.getByRole('button', { name: 'Create event' }).click();
   await expect(page).toHaveURL(/\/host\/NEW001/);
   const [sent] = sentTo(asks, 'POST', '/api/tournaments') as Record<string, unknown>[];
@@ -1125,7 +1125,7 @@ test('an unsanctioned store’s event offers Local and Prerelease without listin
   const asks = await mock(page, { user: { ...ME, stores: [{ ...MY_STORE, leagueId: null }] } });
   await page.goto('/');
   await page.getByRole('button', { name: 'Start an event' }).click();
-  await expect(page.getByRole('textbox', { name: 'Event name' })).toBeVisible();
+  await expect(page.getByRole('textbox', { name: 'Name', exact: true })).toBeVisible();
   await expect(page.getByRole('group', { name: 'On pokemon.com' })).toHaveCount(0);
   await expect(page.getByRole('checkbox', { name: 'Sanctioned', exact: true })).toHaveCount(0);
   await expect(page.getByRole('combobox', { name: 'Event type', exact: true }).locator('option')).toHaveText([
