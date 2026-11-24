@@ -303,6 +303,34 @@ test('after a rejection, the note shows and Apply again opens the form', async (
   expect(sent).toEqual({ explanation: 'Certificate is on its way.', store: APPLIED });
 });
 
+test('a store application draft keeps the league as typed, gives way to an application decided since, and goes on sign-out', async ({
+  page
+}) => {
+  await mockApplicant(page, NONE);
+  const draft = () => page.evaluate(() => sessionStorage.getItem('cm-store-application:acct-1'));
+  await page.goto('/apply');
+  await page.getByRole('button', { name: 'Apply as store' }).click();
+  // Opening the form keeps nothing.
+  expect(await draft()).toBeNull();
+  const league = page.getByLabel('League ID or pokemon.com league page');
+  await league.fill('6238621');
+  await page.reload();
+  await expect(league).toHaveValue('6238621');
+  // Another tab sends an application for another store meanwhile, and it is turned down.
+  const rejected = application('rejected', { id: 'app-2', store: APPLIED });
+  await page.route('**/api/applications/mine', route => route.fulfill({ json: { ...NONE, application: rejected } }));
+  await page.reload();
+  await expect(page.locator('.tm-applicant')).toContainText('Not approved');
+  await expect(league).toHaveCount(0);
+  await page.getByRole('button', { name: 'Apply again' }).click();
+  await expect(league).toHaveValue('6238620');
+  await page.getByLabel('Note').fill('Certificate is on its way.');
+  await page.route('**/api/auth/logout', route => route.fulfill({ status: 204 }));
+  await page.getByRole('button', { name: 'Account' }).click();
+  await page.getByRole('button', { name: 'Sign out', exact: true }).click();
+  await expect.poll(draft).toBeNull();
+});
+
 test('an organizer whose access was removed sees so, and applies again from there', async ({ page }) => {
   await mockApplicant(page, NONE, { ...ME, role: 'revoked' });
   await page.goto('/apply');
