@@ -22,7 +22,7 @@ import type { ApplicationState, MyApplication, MyStore } from '../../../shared/a
 import { type Me } from '../../lib/tournament/api';
 import { msg, t } from '../../lib/i18n';
 import { applicantStage, fetchApplication } from '../../lib/tournament/applications';
-import { joinCommunity } from '../../lib/tournament/stores';
+import { joinCommunity, STORE_ROLE_WORDS } from '../../lib/tournament/stores';
 import { latestValue } from '../../lib/resource';
 import { ApplicantStatus, createSessionCatchUp } from './ApplicantStatus';
 import { ErrorLine, ResourceFallback } from './Field';
@@ -38,22 +38,20 @@ const TITLE = msg('Run events');
 
 type Path = 'community' | 'store';
 
-const PATHS: Record<Path, { title: string; joined: string; line: string; held: string }> = {
+const PATHS: Record<Path, { title: string; joined: string; line: string }> = {
   community: {
-    title: msg('I want to run a tournament for fun'),
+    title: msg('Community events'),
     joined: msg('Community organizer'),
-    line: msg('Run unofficial, unsanctioned events using Ciphermaniac’s Swiss system.'),
-    held: msg('You are currently approved for unsanctioned events.')
+    line: msg('Unsanctioned Swiss events under your own name.')
   },
   store: {
-    title: msg('I run an official Play! Pokémon store'),
-    joined: msg('I run an official Play! Pokémon store'),
-    line: msg('Sync TOM with Ciphermaniac to run sanctioned events with our tools. Requires admin approval.'),
-    held: msg('You are currently not approved for sanctioned events.')
+    title: msg('Play! Pokémon store'),
+    joined: msg('Play! Pokémon store'),
+    line: msg('Sanctioned events with TOM sync. Requires admin approval.')
   }
 };
 
-/** One way in: what it is, and, for a Community organizer, what it may run and may not yet. */
+/** One way in: what it is and what it lets the account run. */
 function PathRow(props: { path: Path; joined: boolean; children?: JSX.Element }) {
   const words = () => PATHS[props.path];
   return (
@@ -61,25 +59,20 @@ function PathRow(props: { path: Path; joined: boolean; children?: JSX.Element })
       <div class='tm-path-text'>
         <h2 class='tm-path-title'>{t(props.joined ? words().joined : words().title)}</h2>
         <span class='muted'>{t(words().line)}</span>
-        <Show when={props.joined}>
-          <span class='tm-path-held' classList={{ 'is-held': props.path === 'community' }}>
-            {t(words().held)}
-          </span>
-        </Show>
       </div>
       {props.children}
     </div>
   );
 }
 
-/** A store the account is in: the way to its settings for a Manager, its page for Staff. */
+/** A store the account is in, with its role there: the way to its settings for a Manager, its page for Staff. */
 function StoreRow(props: { store: MyStore }) {
   const manages = () => managesStore(props.store.role);
   return (
     <div class='tm-path'>
       <div class='tm-path-text'>
         <h2 class='tm-path-title'>{props.store.name}</h2>
-        <span class='muted'>{t('You run this store.')}</span>
+        <span class='muted'>{t(STORE_ROLE_WORDS[props.store.role])}</span>
       </div>
       <A
         class='btn btn-secondary'
@@ -147,8 +140,7 @@ function CommunityStart(props: { quiet: boolean }) {
 
 /**
  * The two ways in, one row each: a player may become a Community organizer
- * at once; a Community organizer is told it runs unsanctioned events alone,
- * with the way to its events; any account may open the store application,
+ * at once; a Community organizer sees the way to its events; any account may open the store application,
  * and one already in a store sees its stores instead, with a quieter way
  * to apply for another under them.
  */

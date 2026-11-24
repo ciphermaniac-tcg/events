@@ -75,9 +75,6 @@
   white-space: normal;
   flex-wrap: wrap;
 }
-.tm-organizer-surface .tm-page:not(.tm-console) .tm-path-held {
-  font-weight: 500;
-}
 @media (max-width: 640px) {
   .tm-organizer-surface .tm-page:not(.tm-console) .tm-set-label {
     position: relative;
