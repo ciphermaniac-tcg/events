@@ -10,7 +10,7 @@
   display: grid;
   gap: var(--space-2);
 }
-.tm-store-section > .tm-box + .tm-subhead {
+.tm-store-section > div + .tm-subhead {
   margin-top: var(--space-4);
 }
 .tm-store-pane {

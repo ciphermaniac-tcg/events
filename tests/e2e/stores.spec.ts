@@ -672,14 +672,13 @@ test('store settings: staff change role, invite links show while the page is ope
   await page.keyboard.press('Escape');
   expect(sentTo(asks, 'PATCH', '/api/stores/store-1/members')).toEqual([{ user: 'acct-2', role: 'manager' }]);
 
-  await expect(
-    page.getByText('Staff run the store’s events. Managers also edit the store, its staff and league nights.')
-  ).toBeVisible();
+  // What each role may do is the Role column's tip, not a line under the buttons.
+  await expect(table.getByRole('columnheader', { name: /Role/ }).locator('.info-tip')).toHaveCount(1);
   await page.getByRole('button', { name: 'Invite staff' }).click();
   const link = page.getByLabel('Staff invite link');
   await expect(link).toHaveValue(/\/stores\/join\?invite=k3QwP9zXr2$/);
   // A second link made keeps the first one's address on show.
-  await page.getByRole('button', { name: 'Invite a manager' }).click();
+  await page.getByRole('button', { name: 'Invite manager' }).click();
   await expect(page.getByLabel('Manager invite link')).toHaveValue(/\/stores\/join\?invite=k3QwP9zXr3$/);
   await expect(link).toHaveValue(/\/stores\/join\?invite=k3QwP9zXr2$/);
   expect(sentTo(asks, 'POST', '/api/stores/store-1/members')).toEqual([{ invite: 'staff' }, { invite: 'manager' }]);
@@ -1162,7 +1161,8 @@ test('store settings’ Start an event opens the setup as the store, and the das
 }) => {
   await mock(page, { user: { ...MANAGER, role: 'community' } });
   await page.goto('/stores/store-1/settings');
-  await page.getByRole('link', { name: 'Start an event' }).click();
+  // Among the header's links, beside Store page, rather than a filled button over every section.
+  await page.locator('.hero-meta').getByRole('link', { name: 'Start an event' }).click();
   await expect(page).toHaveURL(/:\d+\/\?new=store-1$/);
   await expect(page.getByLabel('Run as')).toHaveValue('store-1');
   await expect(page.getByRole('group', { name: 'On pokemon.com' })).toBeVisible();
@@ -1172,15 +1172,6 @@ test('store settings’ Start an event opens the setup as the store, and the das
     'href',
     '/stores/store-1/settings'
   );
-});
-
-test('store settings’ Start an event ends where the page does on a phone held sideways', async ({ page }) => {
-  await page.setViewportSize({ width: 700, height: 390 });
-  await mock(page, { user: { ...MANAGER, role: 'community' } });
-  await page.goto('/stores/store-1/settings');
-  const start = await page.getByRole('link', { name: 'Start an event' }).boundingBox();
-  const head = await page.locator('.tm-hero').boundingBox();
-  expect((start?.x ?? 0) + (start?.width ?? 0)).toBeCloseTo((head?.x ?? 0) + (head?.width ?? 0), 0);
 });
 
 test('staff options remain visible on a narrow screen and return focus on Escape @mobile', async ({ page }) => {
