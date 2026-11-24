@@ -202,6 +202,26 @@ test('a new copy of the event while a look is under way starts no second look be
   held.resolve();
 });
 
+test('with two pods the next step names the pod it pairs, and a reload keeps the pod picked', async ({ page }) => {
+  const born = (n: number) => `01/01/${String(n)}`;
+  const adds: Command[] = Array.from({ length: 12 }, (_, i) => ({
+    type: 'addPlayer',
+    player: { firstName: `Player${i + 1}`, lastName: 'Test', id: String(100 + i), birthDate: born(i < 6 ? 2014 : 1990) }
+  }));
+  const paired = runCommands(emptyTournament({ name: 'Challenge' }), ...adds, { type: 'pairRound', pod: 'masters' });
+  await mockConsole(
+    page,
+    runCommands(paired, ...paired.pods.flatMap(pendingResults)),
+    settingsOf({ sanctioned: true })
+  );
+  const masters = page.locator('.tm-pod-switch').getByRole('radio', { name: 'Masters' });
+  await masters.click();
+  await expect(page.getByRole('button', { name: 'Pair round 2 for Masters' })).toBeVisible();
+  await page.reload();
+  await expect(masters).toBeChecked();
+  await expect(page.getByRole('button', { name: 'Pair round 2 for Masters' })).toBeVisible();
+});
+
 test('a late player added before the round starts is seated by a re-pair, and after it is not offered one', async ({
   page
 }) => {
