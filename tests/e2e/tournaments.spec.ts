@@ -2066,7 +2066,11 @@ test('setup recovers after cancel and reload @mobile', async ({ page }) => {
   await page.getByRole('button', { name: 'Create event' }).click();
   await expect(page.locator('.tm-error')).toHaveText('Fixture submission');
   expect(submissions).toEqual([
-    expect.objectContaining({ roundTime: 30, settings: expect.objectContaining({ entryFee: 12.5 }) })
+    expect.objectContaining({
+      roundTime: 30,
+      // A new event registers players online and shows archetypes once it ends, neither asked here.
+      settings: expect.objectContaining({ entryFee: 12.5, registration: true, deckVisibility: 'after' })
+    })
   ]);
 });
 
