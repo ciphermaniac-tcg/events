@@ -116,7 +116,9 @@ test('an opened list records, edits and removes its player’s deck checks once 
   const playerId = t.players.find(player => player.firstName === 'Player1')?.id;
   const writes = await mockConsole(page, t);
   await page.getByRole('tab', { name: 'Decklists' }).click();
-  await expect(page.getByText('Locked after round 1')).toBeVisible();
+  await expect(page.getByText('Submission closed')).toBeVisible();
+  // Nobody can send a list now, so the console no longer points at the page for it.
+  await expect(page.getByRole('link', { name: 'Submit decklist page' })).toHaveCount(0);
   const row = page.locator('.tm-lists tbody tr').first();
   await expect(row).toContainText('Not checked');
 

@@ -56,7 +56,6 @@
   "Add players to start pairing.": "Füge Spieler hinzu, um mit der Auslosung zu beginnen.",
   "Add to event": "Zum Turnier hinzufügen",
   "Add your Player ID": "Spieler-ID hinzufügen",
-  "Added from list": "Über Liste eingetragen",
   "Address": "Adresse",
   "Adjust by up to an hour at a time": "Pro Änderung höchstens eine Stunde",
   "Admin": "Admin",
@@ -437,7 +436,6 @@
   "Last checked {time}": "Zuletzt geprüft: {time}",
   "Last imported {time}": "Zuletzt importiert: {time}",
   "Last name": "Nachname",
-  "last {time}": "zuletzt {time}",
   "Late": "Nachgemeldet",
   "Layout": "Layout",
   "League Challenge": "Liga-Herausforderung",
@@ -464,7 +462,6 @@
   "Links to your public profile stop working": "Links zu deinem öffentlichen Profil funktionieren nicht mehr",
   "Loading": "Wird geladen",
   "Local": "Lokales Turnier",
-  "Locked after round 1": "Nach Runde 1 gesperrt",
   "Look at the event again first": "Lade das Turnier zuerst neu",
   "Look up": "Suchen",
   "Look up by POP ID, email or account ID": "Suche per POP-ID, E-Mail-Adresse oder Konto-ID",
@@ -1257,10 +1254,6 @@
     "one": "{n} angenommener Pull-Request",
     "other": "{n} angenommene Pull-Requests"
   },
-  "{n} added from lists": {
-    "one": "{n} über Liste eingetragen",
-    "other": "{n} über Listen eingetragen"
-  },
   "{n} approved": {
     "one": "{n} genehmigt",
     "other": "{n} genehmigt"
@@ -1341,10 +1334,6 @@
   "{n} upcoming": {
     "one": "{n} anstehend",
     "other": "{n} anstehend"
-  },
-  "{n} with problems": {
-    "one": "{n} mit Problemen",
-    "other": "{n} mit Problemen"
   },
   "{p1} v {p2}": "{p1} gegen {p2}",
   "{place} in {division}": "{division}: {place} Platz",
@@ -1536,7 +1525,6 @@
   "List": "Liste",
   "Copy list": "Liste kopieren",
   "Read only. You’re not on this event’s staff.": "Nur Lesezugriff. Du gehörst nicht zum Turnierpersonal.",
-  "Re-read archetypes": "Archetypen neu zuordnen",
   "No lists changed.": "Keine Liste geändert.",
   "Renamed {n} lists.": {
     "one": "{n} Liste umbenannt.",

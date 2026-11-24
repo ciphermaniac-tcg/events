@@ -8,7 +8,7 @@
  * word for their deck.
  *
  * Players need no account, and submitting a list adds a submitter who is not
- * yet on a Swiss event's list; those players carry an "Added from list" flag.
+ * yet on a Swiss event's list. The deck column shows only while archetypes do.
  */
 
 import { A } from '@solidjs/router';
@@ -121,19 +121,16 @@ function DecklistRow(props: RowProps) {
   return (
     <>
       <tr>
-        <td class='tm-list-sprite'>
-          <Show when={archetypes()}>
+        <Show when={archetypes()}>
+          <td class='tm-list-sprite'>
             <DeckIcons label={props.list.archetype ?? undefined} />
-          </Show>
-        </td>
+          </td>
+        </Show>
         <td class='tm-who'>
           <span class='tm-who-name'>
             <span class='tm-name'>
               {props.list.firstName} {props.list.lastName}
             </span>
-            <Show when={props.list.fromList}>
-              <span class='tm-flag'>{t('Added from list')}</span>
-            </Show>
             <Show when={!playerId()}>
               <span class='tm-flag'>{t('Not entered')}</span>
             </Show>
@@ -197,7 +194,7 @@ function DecklistRow(props: RowProps) {
       </tr>
       <Show when={props.open}>
         <tr class='tm-expansion'>
-          <td colSpan={props.checks ? 6 : 5}>
+          <td colSpan={(props.checks ? 6 : 5) - (archetypes() ? 0 : 1)}>
             <Show when={props.checks && playerId()} keyed fallback={<ListCards list={props.list} paper={paper()} />}>
               {id => (
                 <div class='tm-check-split'>
@@ -316,7 +313,7 @@ function RereadArchetypes(props: { state: ManageState; manage: Manage; onDone: (
         disabled={props.state.busy()}
         onClick={() => void reread()}
       >
-        {t('Re-read archetypes')}
+        {t('Refresh decks')}
       </button>
     </>
   );
@@ -366,14 +363,10 @@ export function DecklistsPanel(props: {
   const counts = () => {
     const withProblems = all().filter(list => list.problems.length > 0).length;
     const notIn = all().filter(list => !list.registered).length;
-    const fromList = all().filter(list => list.fromList).length;
-    const last = all().reduce((max, list) => Math.max(max, list.submittedAt), 0);
     return [
       tn(all().length, '{n} list', '{n} lists'),
-      ...(withProblems ? [tn(withProblems, '{n} with problems', '{n} with problems')] : []),
-      ...(notIn ? [tn(notIn, '{n} not entered', '{n} not entered')] : []),
-      ...(fromList ? [tn(fromList, '{n} added from lists', '{n} added from lists')] : []),
-      ...(last ? [t('last {time}', { time: submittedAt(last) })] : [])
+      ...(withProblems ? [tn(withProblems, '{n} issue', '{n} issues')] : []),
+      ...(notIn ? [tn(notIn, '{n} not entered', '{n} not entered')] : [])
     ].join(' · ');
   };
   const key = (list: Decklist) => `${list.popId}|${list.firstName}|${list.lastName}`;
@@ -381,11 +374,13 @@ export function DecklistsPanel(props: {
     <div class='tm-panel'>
       <section class='tm-box'>
         <div class='tm-box-bar'>
-          <strong>{locked() ? t('Locked after round 1') : t('Submission open')}</strong>
+          <strong>{locked() ? t('Submission closed') : t('Submission open')}</strong>
           <span class='muted tm-num'>{counts()}</span>
-          <A class='tm-bar-link' href={`/t/${props.manage.code}?tab=decklist`}>
-            {t('Submit decklist page')}
-          </A>
+          <Show when={!locked()}>
+            <A class='tm-bar-link' href={`/t/${props.manage.code}?tab=decklist`}>
+              {t('Submit decklist page')}
+            </A>
+          </Show>
           <span class='tm-grow' />
           <Show
             when={
@@ -416,9 +411,11 @@ export function DecklistsPanel(props: {
               <caption class='sr-only'>{t('Decklists')}</caption>
               <thead>
                 <tr>
-                  <th class='tm-list-sprite'>
-                    <span class='sr-only'>{t('Deck')}</span>
-                  </th>
+                  <Show when={decksEnabled(props.manage.settings)}>
+                    <th class='tm-list-sprite'>
+                      <span class='sr-only'>{t('Deck')}</span>
+                    </th>
+                  </Show>
                   <th>{t('Player')}</th>
                   <th>{t('Submitted')}</th>
                   <th>{t('Status')}</th>
