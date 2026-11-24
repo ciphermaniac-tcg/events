@@ -482,8 +482,13 @@ test('Settings: an account that ran a store and left it is offered the way to ap
 }) => {
   await mockApplicant(page, { ...NONE, application: application('approved') }, ME);
   await page.goto('/settings?section=organizer');
-  await expect(page.locator('.tm-applicant').getByRole('link', { name: 'Apply to run events' })).toBeVisible();
+  const apply = page.locator('.tm-applicant').getByRole('link', { name: 'Apply to run events' });
+  await expect(apply).toBeVisible();
   await expect(page.locator('.tm-applicant-stage')).toHaveCount(0);
+  // Alone in its row, the way to apply starts the line rather than floating at the far end.
+  const row = await page.locator('.tm-applicant .tm-box-bar').boundingBox();
+  const link = await apply.boundingBox();
+  expect((link?.x ?? 0) - (row?.x ?? 0)).toBeLessThan(40);
 });
 
 test('Settings: after a rejection, Apply again is the one way to apply', async ({ page }) => {
