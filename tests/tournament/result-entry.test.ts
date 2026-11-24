@@ -49,13 +49,13 @@ test('a table paired anew, or a round since, is not the match the result was for
 
 /** A console whose sends and reads answer only when the test says, recording what it sent and said. */
 function fakeConsole(manage: () => Pick<Manage, 'tournament' | 'pending'>) {
-  const sends: { command: Command; answer: (ok: boolean) => void }[] = [];
+  const sends: { command: Command; answer: (ok: boolean | null) => void }[] = [];
   const reads: ((ok: boolean) => void)[] = [];
   const said: string[] = [];
   let cleared = 0;
   const state = {
-    send: (command: Command) =>
-      new Promise<boolean>(answer => {
+    deliver: (command: Command) =>
+      new Promise<boolean | null>(answer => {
         sends.push({ command, answer });
       }),
     load: () =>
@@ -223,6 +223,58 @@ test('a retry whose read fails keeps the result as not saved, and one paired ane
   await changed;
   assert.equal(entry.failedFor(round, table), undefined);
   assert.match(fake.said[0] ?? '', /has changed since/);
+});
+
+test('back online, results that never reached the server go again one at a time, never over another device’s', async () => {
+  let shown = paired;
+  const fake = fakeConsole(() => ({ tournament: shown, pending: [] }));
+  const entry = createResultEntry(
+    () => fake.state,
+    () => pod
+  );
+  const [, second, third] = [table, round.matches[1]!, { ...table, table: 99 }];
+  entry.send(round, table, 'p1');
+  entry.send(round, second, 'p2');
+  await settle();
+  fake.sends.forEach(s => s.answer(null));
+  await settle();
+  // Meanwhile another judge records p2 at the first table.
+  shown = report(paired, 'p2');
+  const resent = entry.resendLost();
+  assert.equal(fake.reads.length, 3, 'one read for the reconnect, after the two that followed the failures');
+  fake.reads[2]!(true);
+  await settle();
+  assert.deepEqual(outcomes(fake), ['p1', 'p2', 'p2'], 'only the second table goes again');
+  assert.equal(expected(fake)[2], 'pending', 'against what it expected when entered');
+  fake.sends[2]!.answer(true);
+  await resent;
+  assert.equal(entry.failedFor(round, table), 'p1', 'the first stays for Retry or Discard');
+  assert.equal(entry.conflictFor(round, table), 'p2');
+  assert.equal(entry.failedFor(round, second), undefined);
+  assert.equal(entry.failedFor(round, third), undefined);
+});
+
+test('back online, a result the server refused is not sent again, and one that now stands counts as saved', async () => {
+  let shown = paired;
+  const fake = fakeConsole(() => ({ tournament: shown, pending: [] }));
+  const entry = createResultEntry(
+    () => fake.state,
+    () => pod
+  );
+  const second = round.matches[1]!;
+  entry.send(round, table, 'p1');
+  entry.send(round, second, 'p2');
+  await settle();
+  fake.sends[0]!.answer(null);
+  fake.sends[1]!.answer(false);
+  await settle();
+  shown = report(paired, 'p1');
+  const resent = entry.resendLost();
+  fake.reads[2]!(true);
+  await resent;
+  assert.equal(fake.sends.length, 2, 'nothing sent again');
+  assert.equal(entry.failedFor(round, table), undefined, 'the lost one landed after all');
+  assert.equal(entry.failedFor(round, second), 'p2', 'the refused one waits for Retry');
 });
 
 const expected = (fake: ReturnType<typeof fakeConsole>) =>

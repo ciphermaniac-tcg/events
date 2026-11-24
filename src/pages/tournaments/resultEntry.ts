@@ -21,6 +21,10 @@
  * overwrite each other unseen. After a failure the console reads the event
  * again, and the row names the result now standing (see conflictFor); a
  * retry then sends against that one, on purpose.
+ *
+ * Back online, a result that never reached the server goes again against
+ * what it expected when it was entered, so it never replaces one another
+ * device saved meanwhile: that one stays in its row for Retry or Discard.
  */
 
 import { createMemo, createSelector, createSignal } from 'solid-js';
@@ -41,6 +45,8 @@ export interface EnteredResult {
   outcome: Outcome;
   /** What stood when it was entered, as the console saw it (see the reportResult command). */
   expected?: Outcome;
+  /** Set when its send got no answer from the server, as when the connection was down. */
+  lost?: boolean;
 }
 
 /**
@@ -71,6 +77,13 @@ export function reconcileResult(manage: Event, entered: EnteredResult): Reconcil
   return standing === entered.outcome ? 'saved' : 'send';
 }
 
+/**
+ * Whether no other device's result stands at the table: what stood when the
+ * result was entered, or the result itself, or the table is paired anew.
+ */
+const untouched = (manage: Event, result: EnteredResult) =>
+  [result.expected, result.outcome, null].includes(standingFor(manage, result));
+
 export interface ResultEntry {
   /** The result sent for the match and not answered yet. */
   sentFor: (round: Round, match: Match) => Outcome | undefined;
@@ -83,6 +96,8 @@ export interface ResultEntry {
   /** Several results, each sent once the one before is answered, all for the pod they were entered in. */
   sendAll: (round: Round, results: readonly { match: Match; outcome: Outcome }[]) => Promise<void>;
   retry: (round: Round, match: Match) => Promise<void>;
+  /** Sends again, one after another, each result that got no answer, as when the connection comes back. */
+  resendLost: () => Promise<void>;
   discard: (round: Round, match: Match) => void;
 }
 
@@ -122,6 +137,49 @@ function createTickets() {
   };
 }
 
+/**
+ * Each match's sends, one after another: the last one queued, for the next
+ * to wait on, answering with the result it landed, if it landed one. A
+ * result entered while an earlier one was on its way expects that one.
+ * Once a match's last send is answered it is forgotten, so a later result
+ * expects what the console shows then, never a send it has read past.
+ */
+function createQueues() {
+  const queues = new Map<string, Promise<Outcome | undefined>>();
+  return {
+    after: (key: string, send: (landed: Outcome | undefined) => Promise<Outcome | undefined>) => {
+      const turn = (queues.get(key) ?? Promise.resolve(undefined)).then(send);
+      queues.set(key, turn);
+      void turn.then(() => {
+        if (queues.get(key) === turn) {
+          queues.delete(key);
+        }
+      });
+      return turn;
+    },
+    /** The match's last send, settled once it is answered. */
+    last: (key: string) => queues.get(key)
+  };
+}
+
+/** Back online: one read for every result that got no answer, then each in turn (see retry). */
+async function resendAll(
+  state: ManageState,
+  failed: Results<EnteredResult>,
+  retry: (key: string, read: Promise<boolean>, untouchedOnly: boolean) => Promise<unknown>,
+  sent: (key: string) => Promise<unknown> | undefined
+) {
+  const lost = [...failed].filter(([, result]) => result.lost);
+  if (lost.length === 0) {
+    return;
+  }
+  const read = state.load();
+  for (const [key] of lost) {
+    await retry(key, read, true);
+    await sent(key);
+  }
+}
+
 export function createResultEntry(state: () => ManageState, pod: () => Pod): ResultEntry {
   const [sent, setSent] = createSignal<Results<Outcome>>(new Map());
   /** Each failed result with the match it was entered for, which a retry sends it for again. */
@@ -146,47 +204,33 @@ export function createResultEntry(state: () => ManageState, pod: () => Pod): Res
   const hold = (key: string, outcome: Outcome) => setSent(results => new Map(results).set(key, outcome));
   const fail = (result: EnteredResult) => setFailed(results => new Map(results).set(keyOf(result), result));
   const { ticket, latest } = createTickets();
-  /**
-   * Each match's sends, one after another: the last one queued, for the next
-   * to wait on, answering with the result it landed, if it landed one. A
-   * result entered while an earlier one was on its way expects that one.
-   * Once a match's last send is answered it is forgotten, so a later result
-   * expects what the console shows then, never a send it has read past.
-   */
-  const queues = new Map<string, Promise<Outcome | undefined>>();
+  const queues = createQueues();
 
   /** Sends the result once every earlier send for its match has been answered, unless a newer one came first. */
   function sendEntered(result: EnteredResult): Promise<unknown> {
     const key = keyOf(result);
     const mine = ticket(key);
-    const { pod: category, ...command } = result;
+    const { pod: category, lost: _lost, ...command } = result;
     setFailed(results => without(results, key));
     hold(key, result.outcome);
-    const turn = (queues.get(key) ?? Promise.resolve(undefined)).then(async landed => {
+    return queues.after(key, async landed => {
       if (!latest(key, mine)) {
         return landed;
       }
       const expected = landed ?? result.expected;
-      const ok = await state().send({ type: 'reportResult', pod: category, ...command, expected });
+      const ok = await state().deliver({ type: 'reportResult', pod: category, ...command, expected });
       if (latest(key, mine)) {
         setSent(results => without(results, key));
         afterSend({ ...result, expected }, ok);
       }
       return ok ? result.outcome : landed;
     });
-    queues.set(key, turn);
-    void turn.then(() => {
-      if (queues.get(key) === turn) {
-        queues.delete(key);
-      }
-    });
-    return turn;
   }
 
   /** A result not taken stays in its row, with what it expected, and the event is read again to show what stands now. */
-  function afterSend(result: EnteredResult, ok: boolean) {
+  function afterSend(result: EnteredResult, ok: boolean | null) {
     if (!ok) {
-      fail(result);
+      fail({ ...result, lost: ok === null });
       void state().load();
     }
   }
@@ -205,9 +249,12 @@ export function createResultEntry(state: () => ManageState, pod: () => Pod): Res
     }
   }
 
-  /** Reads the event again, then sends the failed result, for the match it was entered for, only if it is still to send. */
-  async function retry(round: Round, match: Match) {
-    const key = matchKey(round, match);
+  /**
+   * Reads the event again, or takes `read` begun for several, then sends the
+   * failed result, for the match it was entered for, only if it is still to
+   * send. `untouchedOnly`: kept as not saved if another device changed it since.
+   */
+  async function retry(key: string, read?: Promise<boolean>, untouchedOnly = false) {
     const result = failed().get(key);
     if (!result) {
       return;
@@ -215,14 +262,15 @@ export function createResultEntry(state: () => ManageState, pod: () => Pod): Res
     const mine = ticket(key);
     setFailed(results => without(results, key));
     hold(key, result.outcome);
-    const read = await state().load();
+    const loaded = await (read ?? state().load());
     // Something newer was entered for the match while the event was read: that stands.
     if (!latest(key, mine)) {
       return;
     }
     setSent(results => without(results, key));
     const manage = state().data();
-    afterRead(result, read && manage ? reconcileResult(manage, result) : null);
+    const replace = loaded && manage && (!untouchedOnly || untouched(manage, result));
+    afterRead(result, replace ? reconcileResult(manage, result) : null);
   }
 
   return {
@@ -240,7 +288,8 @@ export function createResultEntry(state: () => ManageState, pod: () => Pod): Res
         await sendEntered(result);
       }
     },
-    retry,
+    retry: (round, match) => retry(matchKey(round, match)),
+    resendLost: () => resendAll(state(), failed(), retry, queues.last),
     discard: (round, match) => setFailed(results => without(results, matchKey(round, match)))
   };
 }

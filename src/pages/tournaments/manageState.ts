@@ -30,6 +30,8 @@ export interface ManageState {
   /** Waits on a request that changes something beside the event, and shows why if it fails; whether it went through. */
   act: (request: Promise<unknown>) => Promise<boolean>;
   send: (command: Command) => Promise<boolean>;
+  /** As send, but null when the request got no answer from the server, as when the connection is down. */
+  deliver: (command: Command) => Promise<boolean | null>;
   /** Shows why something the console tried did not happen, where no request failed to say so. */
   fail: (message: string) => void;
   clearError: () => void;
@@ -83,7 +85,8 @@ export function createManage(code: () => string): ManageState {
     }
   }
 
-  async function act(request: Promise<unknown>): Promise<boolean> {
+  /** Whether the request went through: null when it failed without the server answering. */
+  async function attempt(request: Promise<unknown>): Promise<boolean | null> {
     setSending(count => count + 1);
     setError(null);
     try {
@@ -91,11 +94,13 @@ export function createManage(code: () => string): ManageState {
       return true;
     } catch (err) {
       setError(errorText(err));
-      return false;
+      return err instanceof ApiError && err.status > 0 ? false : null;
     } finally {
       setSending(count => count - 1);
     }
   }
+
+  const act = (request: Promise<unknown>) => attempt(request).then(Boolean);
 
   return {
     data,
@@ -109,6 +114,7 @@ export function createManage(code: () => string): ManageState {
     take,
     act,
     send: command => act(sendCommand(code(), command).then(take)),
+    deliver: command => attempt(sendCommand(code(), command).then(take)),
     fail: message => setError(message),
     clearError: () => setError(null)
   };
