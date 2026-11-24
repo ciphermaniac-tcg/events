@@ -2741,7 +2741,7 @@ test('staff see a drop request on the Players tab and confirm it by its ID in on
     status: 'open'
   };
   const sent = await mockConsole(page, t, settingsOf({}), [], false, [asked]);
-  const tab = page.getByRole('tab', { name: 'Players · 1 drop request' });
+  const tab = page.getByRole('tab', { name: 'Players 1', exact: true });
   await tab.click();
   const requests = page.getByRole('region', { name: 'Player requests' });
   const row = requests.getByRole('row', { name: new RegExp(player.lastName) });
@@ -2808,8 +2808,10 @@ test('an open drop request holds the next pairing until it is answered, or paire
   const player = t.players[0]!;
   const asked: PlayerRequest = { id: 'drop-1', player: player.id, kind: 'drop', at: 1, status: 'open' };
   const sent = await mockConsole(page, t, settingsOf({}), [], false, [asked]);
-  await expect(page.getByRole('tab', { name: 'Players · 1 drop request' })).toBeVisible();
-  await expect(page.locator('.tm-next-reason')).toHaveText('1 drop request waiting');
+  await expect(page.getByRole('tab', { name: 'Players 1', exact: true })).toBeVisible();
+  // The head's drop row asks about it, so no line under the step says so again.
+  await expect(page.locator('.tm-drop-ask')).toBeVisible();
+  await expect(page.locator('.tm-next-reason')).toHaveCount(0);
   await page.getByRole('button', { name: 'Pair round 2' }).click();
   const check = page.getByRole('dialog', { name: 'Drop requests' });
   await expect(check.getByRole('listitem')).toHaveText([new RegExp(`${player.firstName} ${player.lastName}`)]);
@@ -2832,7 +2834,8 @@ const dropAsked = (t: Tournament): PlayerRequest => ({
 test('an open drop request holds round 1 until it is answered', async ({ page }) => {
   const t = event(8, 0, false);
   const sent = await mockConsole(page, t, settingsOf({}), [], false, [dropAsked(t)]);
-  await expect(page.locator('.tm-next-reason')).toHaveText('1 drop request waiting');
+  await expect(page.locator('.tm-drop-ask')).toBeVisible();
+  await expect(page.locator('.tm-next-reason')).toHaveCount(0);
   await page.getByRole('button', { name: 'Pair round 1' }).click();
   const check = page.getByRole('dialog', { name: 'Drop requests' });
   await expect(check.getByRole('listitem')).toHaveCount(1);
