@@ -289,7 +289,10 @@ export function statusParts(
   return [roundOf({ ...progress, round }, rounds), doing, ...(open > 0 && clock ? [clockWords(clock, true)] : [])];
 }
 
-/** The console's lead: the round and whether it is still playing, or where the event stands before and after its rounds. */
+/**
+ * The console's lead: the round and whether it is paired, playing (its clock
+ * has started) or complete, or where the event stands before and after its rounds.
+ */
 export function roundStatus(progress: PodProgress, finished: boolean, rounds: number | null = null): string {
   const { round, open } = progress;
   if (finished) {
@@ -299,7 +302,10 @@ export function roundStatus(progress: PodProgress, finished: boolean, rounds: nu
     return t('Registration');
   }
   const name = roundOf({ ...progress, round }, rounds);
-  return open === 0 ? t('{round} complete', { round: name }) : t('{round} in progress', { round: name });
+  if (open === 0) {
+    return t('{round} complete', { round: name });
+  }
+  return round.status === 'paired' ? t('{round} paired', { round: name }) : t('{round} in progress', { round: name });
 }
 
 /** The clock a status line reads, or null where it shows none. */
