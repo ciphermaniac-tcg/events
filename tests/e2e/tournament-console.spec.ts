@@ -1195,6 +1195,24 @@ test('a setting saves as it is left, with no Save to press', async ({ page }) =>
   await expect.poll(() => sent.saved.at(-1)).toEqual({ playerReporting: true });
 });
 
+test('a number left out of its range says the range under it and is not saved until fixed', async ({ page }) => {
+  const sent = await mockConsole(page, event(4, 0, true), settingsOf({}));
+  await page.getByRole('tab', { name: 'Settings' }).click();
+  const cap = page.locator('#set-cap');
+  await cap.fill('-4');
+  await cap.press('Tab');
+  await expect(cap).toHaveAttribute('aria-invalid', 'true');
+  await expect(page.getByText('Enter a number from 0 to 2048.')).toBeVisible();
+  // Another field left meanwhile does not send the one out of range either.
+  await page.getByLabel('Event description').fill('Doors at nine');
+  await page.getByLabel('Event description').blur();
+  await cap.fill('32');
+  await cap.press('Tab');
+  await expect(cap).not.toHaveAttribute('aria-invalid');
+  await expect(page.getByText('Enter a number from 0 to 2048.')).toHaveCount(0);
+  await expect.poll(() => sent.saved).toEqual([{ details: 'Doors at nine', playerCap: 32 }]);
+});
+
 test('a refused save says why and keeps what was typed', async ({ page }) => {
   await mockConsole(page, event(4, 0, true), settingsOf({}));
   await page.route(`**/api/tournaments/${CODE}/settings`, route =>

@@ -55,16 +55,16 @@ import { TomFileRow, type TomLink } from './TomSyncPanel';
  * once for a choice (see SettingsForm), so the box has no Save of its own: a
  * change event from any field in it saves, and Enter in a field does too.
  */
-function SettingsBox(props: { title: string; onSave: () => void; children: JSX.Element }) {
+function SettingsBox(props: { title: string; onSave: (box: HTMLFormElement) => void; children: JSX.Element }) {
   return (
     <section>
       <h2 class='tm-subhead tm-box-head'>{props.title}</h2>
       <form
         class='tm-box tm-set-box'
-        onChange={() => props.onSave()}
+        onChange={event => props.onSave(event.currentTarget)}
         onSubmit={event => {
           event.preventDefault();
-          props.onSave();
+          props.onSave(event.currentTarget);
         }}
       >
         {props.children}
@@ -162,15 +162,28 @@ async function sendDraft<T extends object>(
  * says why above the tabs; the next save tries them again. An edit a
  * colleague overtook is dropped rather than sent over theirs, and the tabs
  * say the event changed. Check-in after the start is not sent until one of
- * them moves.
+ * them moves. Nothing is sent while a number field is out of its range;
+ * the field says the range it takes until it is back in it.
  */
 interface SettingsForm {
   info: <K extends keyof EventFields>(key: K) => EventFields[K];
   setInfo: <K extends keyof EventFields>(key: K, value: EventFields[K]) => void;
   value: () => PlayerSettings;
   set: <K extends keyof PlayerSettings>(key: K, value: PlayerSettings[K]) => void;
-  save: () => void;
+  /** The error under number field `id` while it is out of its range, as it was last left. */
+  rangeError: (id: string) => string | undefined;
+  /** Saves, once `box`'s number fields, as left, and every other box's are in range. */
+  save: (box?: HTMLFormElement) => void;
 }
+
+/** Each number field of `box` out of its range, by id, with the range it takes; those in range map to ''. */
+const rangeErrors = (box: HTMLFormElement): Record<string, string> =>
+  Object.fromEntries(
+    [...box.querySelectorAll<HTMLInputElement>('input[type=number]')].map(field => [
+      field.id,
+      field.validity.valid ? '' : t('Enter a number from {min} to {max}.', { min: field.min, max: field.max })
+    ])
+  );
 
 function createSettingsForm(state: ManageState, manage: () => Manage): SettingsForm {
   const { code } = untrack(manage);
@@ -199,6 +212,14 @@ function createSettingsForm(state: ManageState, manage: () => Manage): SettingsF
       state.fail(t('The event changed since you looked. Look again and try once more.'));
     }
   }
+  const [outOfRange, setOutOfRange] = createSignal<Record<string, string>>({});
+  function save(box?: HTMLFormElement) {
+    const marks = Object.entries({ ...outOfRange(), ...(box ? rangeErrors(box) : {}) }).filter(([, error]) => error);
+    setOutOfRange(Object.fromEntries(marks));
+    if (marks.length === 0) {
+      queueSave(code, send);
+    }
+  }
   // A Prerelease's stored short round time is raised as the tab opens, and saved with the next change.
   untrack(() => {
     if (manage().tournament.info.eventType === 'prerelease') {
@@ -210,7 +231,8 @@ function createSettingsForm(state: ManageState, manage: () => Manage): SettingsF
     setInfo: (key, next) => details.set(key, next, savedInfo()),
     value,
     set: (key, next) => draft.set(key, next, saved()),
-    save: () => queueSave(code, send)
+    rangeError: id => outOfRange()[id],
+    save
   };
 }
 
@@ -273,8 +295,10 @@ function EventBox(props: { form: SettingsForm; manage: Manage }) {
           id='set-fee'
           country={props.manage.tournament.info.country}
           value={value().entryFee}
+          invalid={Boolean(props.form.rangeError('set-fee'))}
           onChange={fee => props.form.set('entryFee', fee)}
         />
+        <ErrorLine message={props.form.rangeError('set-fee')} />
       </SettingRow>
       <SettingRow label={t('Player cap')} for='set-cap' note={capNote(value().playerCap, registered())}>
         <input
@@ -284,9 +308,11 @@ function EventBox(props: { form: SettingsForm; manage: Manage }) {
           inputMode='numeric'
           min={0}
           max={SETTINGS_LIMITS.playerCap}
+          aria-invalid={Boolean(props.form.rangeError('set-cap')) || undefined}
           value={value().playerCap || ''}
           onInput={e => props.form.set('playerCap', Math.trunc(fieldNumber(e.currentTarget)))}
         />
+        <ErrorLine message={props.form.rangeError('set-cap')} />
       </SettingRow>
       <SettingRow label={t('Event description')} for='set-details'>
         <textarea
@@ -357,11 +383,14 @@ function RoundRows(props: { form: SettingsForm; manage: Manage }) {
           id='info-round'
           class='tm-input tm-set-minutes'
           type='number'
+          required
           min={minMinutes()}
           max={timeLimits().maximum}
+          aria-invalid={Boolean(props.form.rangeError('info-round')) || undefined}
           value={props.form.info('roundTime')}
           onInput={e => props.form.setInfo('roundTime', Number(e.currentTarget.value))}
         />
+        <ErrorLine message={props.form.rangeError('info-round')} />
       </SettingRow>
       <SettingRow label={t('Top cut round minutes')} for='info-finals'>
         <input
@@ -372,11 +401,14 @@ function RoundRows(props: { form: SettingsForm; manage: Manage }) {
           }
           class='tm-input tm-set-minutes'
           type='number'
+          required
           min={minMinutes()}
           max={timeLimits().maximum}
+          aria-invalid={Boolean(props.form.rangeError('info-finals')) || undefined}
           value={props.form.info('finalsRoundTime')}
           onInput={e => props.form.setInfo('finalsRoundTime', Number(e.currentTarget.value))}
         />
+        <ErrorLine message={props.form.rangeError('info-finals')} />
       </SettingRow>
     </>
   );
