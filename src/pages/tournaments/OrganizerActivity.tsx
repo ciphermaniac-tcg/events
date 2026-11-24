@@ -40,9 +40,7 @@ export function OrganizerActivity(props: { entries: readonly Activity[] }) {
                       </span>
                     </td>
                     <td>{entry.role === 'organized' ? t('Organized') : t('Staffed')}</td>
-                    <td>
-                      <span class='tm-flag'>{t(STATUS[entry.status])}</span>
-                    </td>
+                    <td>{t(STATUS[entry.status])}</td>
                   </tr>
                 )}
               </For>

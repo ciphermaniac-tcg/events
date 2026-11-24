@@ -20,7 +20,9 @@ function Playing(props: { entries: readonly HistoryEntry[] }) {
  * empty tab, and no count that drops as rows find they have nothing to show.
  */
 export function ProfileHistory(props: { entries: readonly HistoryEntry[]; activity?: readonly Activity[] }) {
-  const [tab, setTab] = createSignal<'playing' | 'organizing'>('playing');
+  const [picked, setTab] = createSignal<'playing' | 'organizing' | null>(null);
+  // Until a tab is picked, someone who has played nothing opens on what they organized.
+  const tab = () => picked() ?? (props.entries.length ? 'playing' : 'organizing');
   return (
     <div class='tm-profile-history'>
       <Show when={props.activity?.length} fallback={<Playing entries={props.entries} />}>
