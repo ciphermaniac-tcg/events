@@ -22,10 +22,10 @@ import { ExtensionClock } from './ExtensionClock';
 import { closeOnBack } from '../../lib/closeOnBack';
 import { inertOutside, keepTabIn } from '../../lib/focusTrap';
 
-/** Table-level results, besides either player winning; an elimination match has neither. */
-const EVEN: { outcome: Outcome; label: string }[] = [
-  { outcome: 'tie', label: msg('Tie') },
-  { outcome: 'double-loss', label: msg('Double loss') }
+/** Table-level results, besides either player winning, and taking one a player reported; an elimination match has neither. */
+const EVEN: { outcome: Outcome; label: string; accept: string }[] = [
+  { outcome: 'tie', label: msg('Tie'), accept: msg('Accept tie') },
+  { outcome: 'double-loss', label: msg('Double loss'), accept: msg('Accept double loss') }
 ];
 
 /** The second step a change to a result that stands takes, in place of the sheet's actions. */
@@ -82,6 +82,13 @@ export function ResultSheet(props: {
     { outcome: 'p2', label: t('{name} wins', { name: name(props.match.p2) }) }
   ];
   const even = () => EVEN.map(choice => ({ ...choice, label: t(choice.label) }));
+  /** Taking a lone report as it is: a win names its winner. */
+  const acceptLabel = (outcome: Outcome) => {
+    const even = EVEN.find(choice => choice.outcome === outcome);
+    return even
+      ? t(even.accept)
+      : t('Accept {name}’s win', { name: name(outcome === 'p1' ? props.match.p1 : props.match.p2) });
+  };
   const choices = () => [...winners(), ...(props.round.kind === 'elimination' ? [] : even())];
   const standing = () =>
     props.outcome === 'pending' ? (props.report?.label ?? t('In progress')) : t(RESULT_WORDS[props.outcome] ?? '');
@@ -121,7 +128,7 @@ export function ResultSheet(props: {
       <Show when={props.lone}>
         {lone => (
           <button type='button' class='btn btn-primary tm-sheet-accept' onClick={() => props.onPick(lone())}>
-            {t('Accept {result}', { result: t(RESULT_WORDS[lone()] ?? '') })}
+            {acceptLabel(lone())}
           </button>
         )}
       </Show>
