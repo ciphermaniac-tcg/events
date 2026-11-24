@@ -44,7 +44,6 @@ import { divisionFor, eventSeason } from '../../../shared/tournament/divisions';
 import {
   currentMatchOf,
   divisionHeading,
-  firstRoundTime,
   namesById,
   playerDivision,
   podStandings,
@@ -124,8 +123,6 @@ interface Props {
   pins?: boolean;
   onView: (view: PublishedView) => void;
   onPlayer?: (id: string) => void;
-  /** The start of round 1, formatted, or null when unset. */
-  firstRound: string | null;
   /** Whether an account is signed in, which the page's copy of the event cannot say until the API answers. */
   signedIn: boolean;
   /** The sign-ins the server offers, for a player who is signed out. */
@@ -617,9 +614,6 @@ function MatchBox(props: Props & { me: string; askAs: PlayerClaim | null }) {
           fallback={
             <>
               <span class='tm-you-big'>{started() ? t('Not paired') : t('Registered')}</span>
-              <span class='tm-you-mid'>
-                {!started() && props.firstRound ? t('Round 1 at {time}', { time: props.firstRound }) : ''}
-              </span>
             </>
           }
         >
@@ -767,17 +761,13 @@ function WhoLine(props: Props & { me: string; division: string; record: string |
 /**
  * Where check-in stands for a registration, as far as the page can say: a
  * paper list waits for staff, and a digital one with nothing else asked of it
- * (no fee, no TOM) is all its player has to do. Otherwise, when round 1 is.
+ * (no fee, no TOM) is all its player has to do.
  */
 function checkInLine(view: TournamentView, list: Decklist): string {
   if (list.mode === 'paper' && view.settings.decklists !== 'off') {
     return t('Hand your list to staff to check in');
   }
-  if (marksFor(view, undefined).length === 0) {
-    return t('Checked in');
-  }
-  const first = firstRoundTime(view.settings.startsAt);
-  return first ? t('Round 1 at {time}', { time: first }) : '';
+  return marksFor(view, undefined).length === 0 ? t('Checked in') : '';
 }
 
 /** Before round 1, the registration this device or account holds, over the tabs: that it is in, check-in, and whose. */

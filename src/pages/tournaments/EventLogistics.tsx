@@ -14,22 +14,19 @@ import { eventDay } from '../../lib/tournament/history';
 import { firstRoundTime } from '../../lib/tournament/present';
 import { intlLocale, t } from '../../lib/i18n';
 
-type Shown = Pick<TournamentSettings, 'timeZone' | 'checkInAt' | 'startsAt' | 'venue' | 'address'>;
+type Shown = Pick<TournamentSettings, 'timeZone' | 'checkInAt' | 'startsAt' | 'venue' | 'address' | 'finished'>;
 
 /** `store`: the store that runs the event, whose page the venue links to. */
 export function EventLogistics(props: { settings: Shown; store?: string | null }) {
-  const times = () =>
-    (
-      [
-        [t('Check-in'), props.settings.checkInAt],
-        [t('Starts'), props.settings.startsAt]
-      ] as const
-    ).flatMap(([label, local]) =>
-      local ? [{ label, ...eventTimes(local, props.settings.timeZone, intlLocale()) }] : []
-    );
+  const time = (label: string, local: string) =>
+    local ? [{ label, ...eventTimes(local, props.settings.timeZone, intlLocale()) }] : [];
+  // The start is in the page's heading already: it earns a row only where it reads differently here, and only before it is over.
+  const times = () => [
+    ...time(t('Check-in'), props.settings.checkInAt),
+    ...time(t('Starts'), props.settings.finished ? '' : props.settings.startsAt).filter(start => start.yours)
+  ];
   const place = () => props.settings.venue || props.settings.address;
-  // The start alone is in the page's heading already; it earns a row where it reads differently here.
-  const shown = () => place() || props.settings.checkInAt || times().some(time => time.yours);
+  const shown = () => place() || times().length > 0;
   return (
     <Show when={shown()}>
       <table class='tm-logistics'>

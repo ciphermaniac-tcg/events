@@ -67,10 +67,9 @@ import {
   SCREEN_POLL_MS,
   seesMoreThanPublished
 } from '../../lib/tournament/viewPoll';
-import { dayLabel, playerResult } from '../../lib/tournament/history';
+import { playerResult } from '../../lib/tournament/history';
 import {
   eventStatus,
-  firstRoundTime,
   foundElsewhere,
   namesById,
   playerDivision,
@@ -100,7 +99,7 @@ import { EventNotFound } from './EventNotFound';
 import { ReportProblem } from '../../components/ReportProblem';
 import { EMPTY_LIVE_DATA, type LiveData, liveFailure, staleSince } from '../../lib/tournament/liveData';
 import { LiveDataStatus } from './LiveDataStatus';
-import { msg, t, timeOfDay, tn, tx } from '../../lib/i18n';
+import { msg, t, tn, tx } from '../../lib/i18n';
 import { keepEventCopy, readEventCopy } from '../../lib/tournament/eventCopies';
 import { DAY_MS } from '../../../shared/tournament/limits';
 
@@ -792,7 +791,6 @@ function EventBody(props: {
           pins={PINS_MATCH.has(tab())}
           onView={props.onView}
           onPlayer={setOpen}
-          firstRound={firstRoundTime(props.view.settings.startsAt)}
           signedIn={Boolean(props.session?.user)}
           offer={props.session ?? { providers: [] }}
           onUnlink={unlink}
@@ -948,13 +946,6 @@ function EventSkeleton() {
   );
 }
 
-/** When the page last changed: a time today, a date before that. */
-function updatedLabel(at: number): string {
-  const date = new Date(at);
-  const today = new Date().toDateString() === date.toDateString();
-  return today ? timeOfDay(date) : dayLabel(date);
-}
-
 /** The dashboard tab an event's page goes back to: Organizing for its staff, Playing for its players. */
 function dashboardTab(viewer: TournamentView['viewer']): DashboardTab | undefined {
   if (viewer.role) {
@@ -987,7 +978,6 @@ function Hero(props: { view: TournamentView; prefer: (PodCategory | null)[]; min
       {
         pending: props.view.pending,
         finished: settings().finished,
-        firstRound: firstRoundTime(settings().startsAt),
         roundCap: roundCapOf(props.view),
         prefer: [...props.prefer, lead()],
         clock: !(props.mine && underway())
@@ -995,7 +985,6 @@ function Hero(props: { view: TournamentView; prefer: (PodCategory | null)[]; min
       now()
     ).join(' · ');
   const place = () => [info().city, info().state].filter(Boolean).join(', ');
-  const playing = () => livePods(props.view.tournament).some(pod => podProgress(pod, props.view.pending).open > 0);
   const started = () => livePods(props.view.tournament).some(pod => pod.rounds.length > 0);
   const underway = () => started() && !settings().finished;
   const venue = () =>
@@ -1012,12 +1001,7 @@ function Hero(props: { view: TournamentView; prefer: (PodCategory | null)[]; min
       settings().entryFee > 0 && t('{amount} entry', { amount: formatFee(settings().entryFee, info().country) }),
       venue() || place(),
       // Before round 1 the status line already counts them.
-      started() && tn(props.view.tournament.players.length, '{n} player', '{n} players'),
-      // A finished event's date already says when; an unknown time says nothing; mid-round, the clock says the page is live.
-      !settings().finished &&
-        props.view.updatedAt > 0 &&
-        !playing() &&
-        t('Updated {time}', { time: updatedLabel(props.view.updatedAt) })
+      started() && tn(props.view.tournament.players.length, '{n} player', '{n} players')
     ].filter(Boolean)
   );
   return (
