@@ -198,7 +198,7 @@ function EndDialog(props: { state: ManageState; manage: Manage; open: boolean; o
   return (
     <Modal
       open={props.open}
-      title={early() ? t('End the event early?') : t('End the event?')}
+      title={early() ? t('End the event early?') : t('End event?')}
       class='tm-end-dialog'
       onClose={props.onClose}
     >
@@ -215,7 +215,7 @@ function EndDialog(props: { state: ManageState; manage: Manage; open: boolean; o
             </For>
           </ul>
         </Show>
-        <p class='muted'>{t('The final standings are published. Results can change only by reopening the event.')}</p>
+        <p class='muted'>{t('Publishes final standings and locks results until reopened.')}</p>
       </div>
       <div class='tm-box-bar tm-modal-foot'>
         <button type='button' class='btn btn-ghost' onClick={() => props.onClose()}>
