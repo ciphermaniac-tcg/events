@@ -52,13 +52,10 @@ export type ShareTheme = 'light' | 'dark';
 interface Palette {
   readonly bg: Rgb;
   readonly surface: Rgb;
-  readonly surface2: Rgb;
   readonly fg: Rgb;
   readonly muted: Rgb;
   readonly rule: Rgb;
-  readonly accent: Rgb;
-  readonly accentFill: Rgb;
-  readonly accentFg: Rgb;
+  readonly positive: Rgb;
   readonly head: Rgb;
   readonly headFg: Rgb;
   readonly headMuted: Rgb;
@@ -67,13 +64,10 @@ interface Palette {
 const LIGHT: Palette = {
   bg: [0xec, 0xec, 0xea],
   surface: [0xff, 0xff, 0xff],
-  surface2: [0xe3, 0xe4, 0xe1],
   fg: [0x20, 0x22, 0x1f],
   muted: [0x50, 0x54, 0x4f],
   rule: [0xbf, 0xc3, 0xbc],
-  accent: [0xbb, 0x77, 0x00],
-  accentFill: [0xee, 0xaa, 0x11],
-  accentFg: [0x20, 0x22, 0x1f],
+  positive: [0x1b, 0x73, 0x32],
   head: [0x1c, 0x1d, 0x1b],
   headFg: [0xf5, 0xf3, 0xeb],
   headMuted: [0xb9, 0xb6, 0xaa]
@@ -82,13 +76,10 @@ const LIGHT: Palette = {
 const DARK: Palette = {
   bg: [0x16, 0x16, 0x15],
   surface: [0x25, 0x25, 0x23],
-  surface2: [0x33, 0x33, 0x2f],
   fg: [0xf5, 0xf3, 0xeb],
   muted: [0xb9, 0xb6, 0xaa],
   rule: [0x59, 0x59, 0x4f],
-  accent: [0xee, 0xaa, 0x11],
-  accentFill: [0xee, 0xaa, 0x11],
-  accentFg: [0x20, 0x22, 0x1f],
+  positive: [0x30, 0xd1, 0x58],
   head: [0x23, 0x24, 0x22],
   headFg: [0xf5, 0xf3, 0xeb],
   headMuted: [0xb9, 0xb6, 0xaa]
@@ -101,7 +92,7 @@ const INNER = WIDTH - 2 * PAD;
 const BAR = 62;
 const ROW = 40;
 const BOX = 22;
-const BADGE = 22;
+const MARK = 22;
 /** The round column's right edge, and where the opponent column starts, from the rows' left. */
 const NUM_RIGHT = 36;
 const OPP_X = 50;
@@ -158,21 +149,14 @@ function sprites(pen: Pen, deck: ShareDeck | null, [x, y]: readonly [number, num
   return deckWidth(deck.sprites.length, box);
 }
 
-/** The page's result square: a win filled marigold, a tie filled grey, a loss outlined. */
-function badge(pen: Pen, row: ShareRound, x: number, y: number): void {
+/** The result as the pages letter it: a win in the positive ink, a loss or a tie in the muted one. */
+function mark(pen: Pen, row: ShareRound, x: number, top: number): void {
   const { pal } = pen;
-  const r = Math.min(6, BADGE / 3);
-  const win = row.mark === 'W';
-  const edge = win ? pal.accent : pal.muted;
-  const fill = win ? pal.accentFill : row.mark === 'T' ? pal.surface2 : pal.surface;
-  pen.ops.push(rect({ x, y, w: BADGE, h: BADGE }, edge, r));
-  pen.ops.push(rect({ x: x + 1, y: y + 1, w: BADGE - 2, h: BADGE - 2 }, fill, r - 1));
-  const size = Math.round(BADGE * 0.55);
   pen.ops.push(
-    text(x + BADGE / 2, middle(y, BADGE, size), row.letter, {
-      size,
+    text(x + MARK / 2, middle(top, ROW, 13), row.letter, {
+      size: 13,
       weight: 700,
-      color: win ? pal.accentFg : pal.fg,
+      color: row.mark === 'W' ? pal.positive : pal.muted,
       align: 'center'
     })
   );
@@ -272,9 +256,9 @@ function round(pen: Pen, row: ShareRound, index: number, top: number): void {
   );
   const left = PAD + OPP_X;
   sprites(pen, row.opponent?.deck ?? null, [left, top + (ROW - BOX) / 2], BOX);
-  const badgeX = PAD + INNER - BADGE;
-  badge(pen, row, badgeX, top + (ROW - BADGE) / 2);
-  const recordRight = badgeX - 16;
+  const markX = PAD + INNER - MARK;
+  mark(pen, row, markX, top);
+  const recordRight = markX - 16;
   const recordWidth = record(pen, row, recordRight, top);
   const x = left + (row.opponent ? pen.slot : 0);
   pen.ops.push(

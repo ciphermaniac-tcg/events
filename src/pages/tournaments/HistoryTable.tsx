@@ -10,7 +10,7 @@ import type { Pod } from '../../../shared/tournament/types';
 import { matchHistory } from '../../lib/tournament/present';
 import { t } from '../../lib/i18n';
 import { DeckIcons } from './DeckIcons';
-import { Squares } from './Squares';
+import { RoundMarks } from './RoundMarks';
 
 export function HistoryTable(props: {
   pod: Pod;
@@ -59,7 +59,7 @@ export function HistoryTable(props: {
                     when={row.mark}
                     fallback={<span class='muted-cell'>{t('Table {table}', { table: row.table })}</span>}
                   >
-                    <Squares marks={[row.mark]} />
+                    <RoundMarks marks={[row.mark]} />
                   </Show>
                 </td>
               </tr>

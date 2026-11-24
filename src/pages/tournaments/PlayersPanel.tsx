@@ -6,7 +6,7 @@
  *
  * The add form is one row in its own box; the roster is a box with its
  * search and status filter (see rosterFilter) in the bar, then a row per player: the name over their Player ID
- * and division, their rounds as squares, the deck picker, the fixed table
+ * and division, their rounds as letters, the deck picker, the fixed table
  * and the actions. With archetypes off for the event the deck column stays
  * in place, greyed, with the way to turn it on. A name, or Details in the
  * row's menu, opens the player's sheet (see StaffSheet).
@@ -28,7 +28,7 @@ import { Field } from './Field';
 import type { ManageState } from './manageState';
 import { birthDateFor } from './ProfileFields';
 import { StaffRequests } from './StaffRequests';
-import { Squares } from './Squares';
+import { RoundMarks } from './RoundMarks';
 import { ReturningPlayerField } from './ReturningPlayerField';
 import { capCount, CheckInBox, CheckInCells, CheckInHeads, createSiteRegistrants, showsCheckIn } from './CheckIn';
 import { inRoster, isRosterFilter, type RosterFilter } from './rosterFilter';
@@ -231,7 +231,7 @@ function PlayerRow(props: RowProps) {
       </td>
       <Show when={props.showRounds}>
         <td class='tm-rounds-cell'>
-          <Squares marks={props.facts?.marks ?? []} rounds={props.facts?.pod.rounds.length ?? 0} />
+          <RoundMarks marks={props.facts?.marks ?? []} rounds={props.facts?.pod.rounds.length ?? 0} />
         </td>
       </Show>
       <Show when={decksEnabled(props.manage.settings)}>
