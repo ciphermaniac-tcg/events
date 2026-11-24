@@ -6,11 +6,9 @@
    ============================================================ */
 
 /* ---------- Page wrapper ---------- */
-/* The shared error state's pale code word. Its 72px floor breaks a word as long
-   as "Einladung" or "Invitation" a letter short of its end on a 320px phone, so
-   under 360px it shrinks with the screen instead. */
+/* The shared error state's pale code word is left out: the heading and its line say what happened. */
 .error-state-code {
-  font-size: clamp(min(72px, 20vw), 16vw, 120px);
+  display: none;
 }
 /* The deck report: the shared Combo, standing for sprites rather than card art.
    Sprites are not thumbnails, so the list's frame and crop come off, and the

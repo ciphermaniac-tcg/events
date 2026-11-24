@@ -52,6 +52,8 @@ import { SessionGate } from './SessionGate';
 import { ErrorLine } from './Field';
 import { createCopied } from './copied';
 import { ErrorState } from '@ciphermaniac/design/components/ErrorState';
+import { EventNotFound } from './EventNotFound';
+import { ReportProblem } from '../../components/ReportProblem';
 import { consoleEvery, lookOnReturn, schedulePolls } from '../../lib/tournament/viewPoll';
 import { LiveDataStatus } from './LiveDataStatus';
 import { createManage, type ManageState } from './manageState';
@@ -756,19 +758,22 @@ export function ManageEvent(props: { code: string }) {
                 <Show
                   when={state.loadError()?.status === 401 || state.loadError()?.status === 403}
                   fallback={
-                    <ErrorState
-                      code={props.code}
-                      title={t('Couldn’t load this event')}
-                      line={
-                        state.loadError()?.status === 0
-                          ? t('Connection unavailable. Try again.')
-                          : errorText(state.loadError())
-                      }
-                    >
-                      <button type='button' class='btn btn-primary' onClick={() => void state.load()}>
-                        {t('Try again')}
-                      </button>
-                    </ErrorState>
+                    <Show when={state.loadError()?.status !== 404} fallback={<EventNotFound code={props.code} />}>
+                      <ErrorState
+                        code=''
+                        title={t('Couldn’t load this event')}
+                        line={
+                          state.loadError()?.status === 0
+                            ? t('Connection unavailable. Try again.')
+                            : errorText(state.loadError())
+                        }
+                      >
+                        <button type='button' class='btn btn-primary' onClick={() => void state.load()}>
+                          {t('Try again')}
+                        </button>
+                        <ReportProblem />
+                      </ErrorState>
+                    </Show>
                   }
                 >
                   <Refused message={t(state.loadError()?.message ?? '')} name={user()?.name} />
