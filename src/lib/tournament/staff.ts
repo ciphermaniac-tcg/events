@@ -53,6 +53,10 @@ export function nextStep(progress: PodProgress, finished: boolean, plan: SwissPl
     return { kind: 'close', champion: winner, ...waiting };
   }
   const swiss = round.kind === 'swiss';
+  // While the final plays there is nothing to pair next; its result is the step.
+  if (!swiss && !progress.next) {
+    return { kind: 'none' };
+  }
   const label = swiss ? t('Pair round {n}', { n: round.number + 1 }) : t('Pair {stage}', { stage: progress.next });
   return plan && swiss && round.number >= plan.rounds
     ? { kind: 'decide', label, cut: plan.cut, ...waiting }
@@ -279,4 +283,22 @@ export function cutSplit(rows: readonly Standing[], cut: number): string | null 
   }
   const rates = { a: percentLabel(inside.oowp), b: percentLabel(outside.oowp) };
   return t('{inside} and {outside} split on OOWP: {a} / {b}', { ...places, ...rates });
+}
+
+/**
+ * What put the last player in above the first one left out, theirs against
+ * the cutoff: points, then OWP, then OOWP. Null when what decided it shows no
+ * difference: late entry, head-to-head or the roster's order, or rates that
+ * read the same.
+ */
+export function missedCutOn(inside: Standing, outside: Standing) {
+  if (inside.points !== outside.points) {
+    return { tiebreak: t('points'), theirs: String(outside.points), cutoff: String(inside.points) };
+  }
+  if (inside.late !== outside.late) {
+    return null;
+  }
+  const [tiebreak, key] = inside.owp === outside.owp ? (['OOWP', 'oowp'] as const) : (['OWP', 'owp'] as const);
+  const [theirs, cutoff] = [percentLabel(outside[key]), percentLabel(inside[key])];
+  return theirs === cutoff ? null : { tiebreak, theirs, cutoff };
 }
