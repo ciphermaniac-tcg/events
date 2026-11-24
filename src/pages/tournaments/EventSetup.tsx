@@ -17,7 +17,7 @@
 import { createSignal, For, type JSX, Show, untrack } from 'solid-js';
 import type { Listing } from '../../../shared/accounts/types';
 import { DEFAULT_ROUND_MINUTES, eventTimeLimits } from '../../../shared/tournament/create';
-import { CREATIONS_PER_DAY, eventDay } from '../../../shared/tournament/limits';
+import { eventDay } from '../../../shared/tournament/limits';
 import { t } from '../../lib/i18n';
 import { createMedia, NOT_TOM_DESKTOP } from '../../lib/media';
 import { setupDraft } from '../../lib/tournament/setupDraft';
@@ -265,7 +265,7 @@ export function EventSetup(props: {
       <div class='tm-box'>
         <Show when={!tomPairs() && listing()}>{picked => <ListingRow listing={picked()} />}</Show>
         <Show when={swiss() && !listed()}>
-          <SettingRow label={t('Event type')}>
+          <SettingRow label={t('Type')}>
             <EventTypeSelect
               value={selectedEventType()}
               types={own() ? ['local', 'prerelease'] : undefined}
@@ -317,16 +317,7 @@ export function EventSetup(props: {
       </Show>
       <Show
         when={tomPairs()}
-        fallback={
-          <SetupFooter
-            limited={limited()}
-            dayTaken={dayTaken()}
-            day={day()}
-            unconfirmed={needsPlayTools() === true && !playToolsConfirmed()}
-            cannotCreate={held()}
-            onCancel={props.onCancel}
-          />
-        }
+        fallback={<SetupFooter dayTaken={dayTaken()} day={day()} cannotCreate={held()} onCancel={props.onCancel} />}
       >
         <TdfFooter link={props.tdfLink?.(runAs())} onCancel={props.onCancel} />
       </Show>
@@ -406,30 +397,16 @@ function PlayToolsRow(props: { confirmed: boolean; onConfirm: (value: boolean) =
   );
 }
 
-function SetupFooter(props: {
-  limited: boolean;
-  dayTaken: boolean;
-  day: string;
-  /** A sanctioned event not yet confirmed as created in Play! Tools. */
-  unconfirmed: boolean;
-  cannotCreate: boolean;
-  onCancel: () => void;
-}) {
+/** Create and Cancel, under why Create waits when a community account already has an event that day. */
+function SetupFooter(props: { dayTaken: boolean; day: string; cannotCreate: boolean; onCancel: () => void }) {
   return (
     <>
-      <Show when={props.limited}>
+      <Show when={props.dayTaken}>
         <p class='muted' role='status'>
-          {t('One community event per date · up to {count} creations in 24 hours.', {
-            count: CREATIONS_PER_DAY.community
-          })}
-          <Show when={props.dayTaken}> {t('An event already uses {day}.', { day: shortDay(props.day) })}</Show>
+          {t('You already have an event on {day}.', { day: shortDay(props.day) })}
         </p>
       </Show>
       <div class='tm-setup-foot'>
-        {/* An empty name is pointed at by the browser when Create is pressed; this is the one reason it can't say. */}
-        <Show when={props.unconfirmed}>
-          <span class='muted'>{t('Confirm the event is in Play! Tools to create it')}</span>
-        </Show>
         <button type='submit' class='btn btn-primary' disabled={props.cannotCreate}>
           {t('Create event')}
         </button>
@@ -444,7 +421,7 @@ function SetupFooter(props: {
 function SetupName(props: { swiss: boolean; name: string; tdfName?: string; onInput: (value: string) => void }) {
   return (
     <div class='tm-box'>
-      <SettingRow label={t('Event name')} for='setup-name'>
+      <SettingRow label={t('Name')} for='setup-name'>
         <Show
           when={props.swiss}
           fallback={
@@ -459,8 +436,6 @@ function SetupName(props: { swiss: boolean; name: string; tdfName?: string; onIn
             id='setup-name'
             class='tm-input tm-setup-name'
             maxLength={120}
-            placeholder={t('Event name')}
-            aria-label={t('Event name')}
             required
             value={props.name}
             ref={el => {
