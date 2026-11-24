@@ -498,16 +498,23 @@
 }
 .tm-lookup-match {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-2) 0;
   border-top: 1px solid var(--rule);
 }
+/* Short of room, as at a large text size, the answer goes under the name rather than squeeze it a
+   letter to a line. */
 .tm-lookup-match > span {
-  flex: 1;
+  flex: 1 1 8em;
   min-width: 0;
   display: grid;
   overflow-wrap: anywhere;
+}
+/* Two answers go under it together: with less than 24em for the row, the name takes the line. */
+.tm-lookup-match:has(.btn + .btn) > span {
+  flex-basis: calc((24em - 100%) * 999);
 }
 .tm-lookup-match .btn {
   flex: none;
