@@ -17,7 +17,7 @@ test.beforeEach(async ({ page }) => {
 
 test('the policy reads signed out, with its contact address', async ({ page }) => {
   await page.goto('/privacy');
-  await expect(page.getByRole('heading', { level: 1, name: 'Privacy Policy' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'Privacy policy' })).toBeVisible();
   await expect(page.getByRole('heading', { level: 2 })).toHaveText([
     'Information we keep',
     'How your information is used',
@@ -28,10 +28,10 @@ test('the policy reads signed out, with its contact address', async ({ page }) =
     'href',
     'mailto:privacy@ciphermaniac.com'
   );
-  await expect(page).toHaveTitle('Privacy Policy — Ciphermaniac Events');
+  await expect(page).toHaveTitle('Privacy policy — Ciphermaniac Events');
 });
 
-test('the policy’s My Data link opens Your data and Export', async ({ page }) => {
+test('the policy’s Your data link opens Your data and Export', async ({ page }) => {
   await page.route('**/api/me', route =>
     route.fulfill({
       json: {
@@ -55,7 +55,7 @@ test('the policy’s My Data link opens Your data and Export', async ({ page }) 
     })
   );
   await page.goto('/privacy');
-  await page.getByRole('link', { name: 'My Data' }).click();
+  await page.getByRole('link', { name: 'Your data' }).click();
   await expect(page).toHaveURL(/\/settings\?section=data$/);
   await expect(
     page.getByRole('navigation', { name: 'Settings' }).getByRole('link', { name: 'Your data' })
@@ -66,7 +66,7 @@ test('the policy’s My Data link opens Your data and Export', async ({ page }) 
 
 test('the terms read signed out, with their contact address', async ({ page }) => {
   await page.goto('/terms');
-  await expect(page.getByRole('heading', { level: 1, name: 'Terms of Service' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'Terms of service' })).toBeVisible();
   await expect(page.getByRole('heading', { level: 2 })).toHaveText([
     'Using the service',
     'Running events',
@@ -78,19 +78,19 @@ test('the terms read signed out, with their contact address', async ({ page }) =
     'href',
     'mailto:howdy@ciphermaniac.com'
   );
-  await expect(page).toHaveTitle('Terms of Service — Ciphermaniac Events');
+  await expect(page).toHaveTitle('Terms of service — Ciphermaniac Events');
 });
 
 test('the age check links to the terms', async ({ page }) => {
   await page.goto('/welcome');
   await page.getByRole('link', { name: 'Terms of service' }).click();
   await expect(page).toHaveURL(/\/terms$/);
-  await expect(page.getByRole('heading', { level: 1, name: 'Terms of Service' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'Terms of service' })).toBeVisible();
 });
 
 test('the age check links to the policy', async ({ page }) => {
   await page.goto('/welcome');
   await page.getByRole('link', { name: 'Privacy policy' }).click();
   await expect(page).toHaveURL(/\/privacy$/);
-  await expect(page.getByRole('heading', { level: 1, name: 'Privacy Policy' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'Privacy policy' })).toBeVisible();
 });

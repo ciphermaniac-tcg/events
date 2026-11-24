@@ -14,11 +14,11 @@ const CONTACT = 'privacy@ciphermaniac.com';
 
 export function PrivacyPage() {
   onMount(() => {
-    document.title = pageTitle('Privacy Policy');
+    document.title = pageTitle('Privacy policy');
   });
   return (
     <div class='tm-page tm-narrow tm-legal-page' lang='en'>
-      <TournamentHero title='Privacy Policy' meta='Last updated October 12, 2026' />
+      <TournamentHero title='Privacy policy' meta='Last updated October 12, 2026' />
       <EnglishOnly />
       <div class='prose tm-legal'>
         <p>
@@ -70,7 +70,7 @@ export function PrivacyPage() {
         <h2 class='tm-subhead'>Your control over your information</h2>
         <p>
           You can download everything we hold about you at any time, from the{' '}
-          <A href='/settings?section=data'>My Data</A> page, as a readable text file. You may also delete any part of
+          <A href='/settings?section=data'>Your data</A> page, as a readable text file. You may also delete any part of
           your information, or all of it, at any time.
         </p>
         <p>
