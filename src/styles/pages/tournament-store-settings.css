@@ -66,6 +66,11 @@
   grid-template-columns: 150px minmax(0, 1.3fr) 232px minmax(0, 1fr) auto;
   min-width: 0;
 }
+/* Why a date will not save: under the row's fields, or under the date where they stack. */
+.tm-night > .tm-error {
+  grid-row: 2;
+  grid-column: 1 / -1;
+}
 .tm-night-change {
   display: flex;
   gap: var(--space-2);

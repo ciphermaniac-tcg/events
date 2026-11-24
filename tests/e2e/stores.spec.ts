@@ -495,7 +495,13 @@ test('store settings: league nights and the dates that differ save together', as
   await expect(page.getByRole('button', { name: 'Save' })).toBeDisabled();
   await page.getByLabel('League night 2 start').fill('18:30');
   await page.getByRole('button', { name: 'Add a date' }).click();
-  await page.getByLabel('Date 2 day').fill('2099-11-25');
+  // A date gone by is dropped as the list saves, so the row says so first.
+  const day = page.getByLabel('Date 2 day');
+  await expect(day).toHaveAttribute('min', /^\d{4}-\d{2}-\d{2}$/);
+  await day.fill('2020-11-25');
+  await expect(day).toHaveAccessibleDescription('That date has passed. Pick today or a later date.');
+  await day.fill('2099-11-25');
+  await expect(day).not.toHaveAttribute('aria-invalid');
   await page.getByLabel('Date 2 change').selectOption('moved');
   await page.getByLabel('Date 2 new start').fill('17:00');
   await page.getByLabel('Date 2 note').fill('Holiday');
