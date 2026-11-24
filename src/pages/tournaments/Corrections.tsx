@@ -97,7 +97,7 @@ function CorrectionLog(props: { entries: CorrectionEntry[]; names: Map<string, s
             <li>
               <span>
                 <strong>{t('Table {table}', { table: entry.table })}</strong> ·{' '}
-                {t('{p1} v {p2}', { p1: name(entry.p1), p2: name(entry.p2) })} ·{' '}
+                {t('{p1} vs {p2}', { p1: name(entry.p1), p2: name(entry.p2) })} ·{' '}
                 {t('{from} to {to}', { from: t(RESULT_WORDS[entry.from] ?? ''), to: t(RESULT_WORDS[entry.to] ?? '') })}
               </span>
               <span>{entry.note}</span>
@@ -159,10 +159,9 @@ export function createRoundCorrections(props: PanelProps, past: () => string | n
     round.kind === 'swiss' &&
     !roundRefusal(props.pod, round.number, ctx());
   const approving = () =>
-    approvalLine({
-      approvedBy: latestValue(session)?.user?.name ?? null,
-      role: approver() ?? 'organizer',
-      alone: approver() === 'organizer' && record()?.headJudge === null
+    t('{who} ({role})', {
+      who: latestValue(session)?.user?.name ?? t('Deleted account'),
+      role: t(ROLE_WORDS[approver() ?? 'organizer'])
     });
   return {
     note: (round: Round | undefined) =>
