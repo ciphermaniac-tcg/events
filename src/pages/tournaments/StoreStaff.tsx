@@ -2,7 +2,7 @@
  * Store settings' Staff: everyone in the store with what they are, each made
  * a Manager or Staff or taken out in place, and the invite links. A link lets
  * one person in, as the role it was made for, for a week; its address shows
- * only as it is made, and every link still open is listed to withdraw. The
+ * only on the page it was made on, and every link still open is listed to withdraw. The
  * Owner's row has no actions: the Owner alone hands the store to someone
  * else, from that person's row, and becomes a Manager, free to leave.
  */
@@ -37,8 +37,8 @@ const inviteWord = (role: GivenRole) => (role === 'manager' ? t('Manager invite'
 const inviteLabel = (role: GivenRole) => (role === 'manager' ? t('Manager invite link') : t('Staff invite link'));
 
 /**
- * One open link: as what it lets someone in and until when, and Withdraw. The
- * one just made also shows its address, the only time it can, with Copy.
+ * One open link: as what it lets someone in and until when, and Withdraw. One
+ * made since the page opened also shows its address, which no reread gives back, with Copy.
  */
 function InviteRow(props: {
   invite: StoreInvite;
@@ -71,12 +71,18 @@ function InviteRow(props: {
             </span>
             <span class='muted tm-invite-hint'>
               {props.invite.role === 'manager'
-                ? t('Anyone with a Ciphermaniac account can join {store} as a manager with this one-time link.', {
-                    store: props.store
-                  })
-                : t('Anyone with a Ciphermaniac account can join {store} as staff with this one-time link.', {
-                    store: props.store
-                  })}
+                ? t(
+                    'One person can join {store} as a manager with this link. It won’t show again after you leave this page.',
+                    {
+                      store: props.store
+                    }
+                  )
+                : t(
+                    'One person can join {store} as staff with this link. It won’t show again after you leave this page.',
+                    {
+                      store: props.store
+                    }
+                  )}
             </span>
           </div>
         )}
@@ -181,8 +187,8 @@ export function StoreStaff(props: { storeId: string; storeName: string }) {
   const navigate = useNavigate();
   const [people, { mutate, refetch }] = createResource(() => props.storeId, fetchPeople);
   const action = createAction();
-  // The link made last on this page, by the name the list gives it: its address is shown nowhere else.
-  const [made, setMade] = createSignal<{ id: string; link: string } | null>(null);
+  // Each link made on this page, by the name the list gives it: its address is shown nowhere else.
+  const [made, setMade] = createSignal<Record<string, string>>({});
   const me = () => latestValue(session)?.user?.id;
 
   async function act(step: () => Promise<void>) {
@@ -222,7 +228,8 @@ export function StoreStaff(props: { storeId: string; storeName: string }) {
     const store = props.storeId;
     void act(async () => {
       const { token } = await createInvite(store, role);
-      setMade({ id: await inviteId(token), link: inviteLink(location.origin, token) });
+      const id = await inviteId(token);
+      setMade(prev => ({ ...prev, [id]: inviteLink(location.origin, token) }));
       await refetch();
     });
   }
@@ -282,7 +289,7 @@ export function StoreStaff(props: { storeId: string; storeName: string }) {
                 <InviteRow
                   invite={open}
                   store={props.storeName}
-                  link={made()?.id === open.id ? (made()?.link ?? null) : null}
+                  link={made()[open.id] ?? null}
                   busy={action.busy()}
                   onWithdraw={() => withdraw(open.id)}
                 />
