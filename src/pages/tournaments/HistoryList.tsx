@@ -20,7 +20,7 @@ import { resolved } from '../../lib/resource';
 import { Skeleton } from '@ciphermaniac/design/components/Skeleton';
 import { Icon } from '@ciphermaniac/design/components/Icon';
 import { DeckIcons } from './DeckIcons';
-import { Squares } from './Squares';
+import { RoundMarks } from './RoundMarks';
 import '../../styles/pages/tournament-history.css';
 
 const STATUS_FLAGS: Record<HistoryEntry['status'], string | null> = {
@@ -78,7 +78,7 @@ function RoundLine(props: { row: EntryResult['finish']['rounds'][number]; result
       </Show>
       <span class='tm-hist-mark'>
         <Show when={props.row.mark} fallback={<span class='muted'>{t('In progress')}</span>}>
-          <Squares marks={[props.row.mark]} />
+          <RoundMarks marks={[props.row.mark]} />
         </Show>
       </span>
     </li>

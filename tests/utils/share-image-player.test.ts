@@ -114,17 +114,16 @@ test('with every deck hidden, no sprite is drawn and names start at the column',
   textOf(ops, '1st in Masters');
 });
 
-test('a win fills its square marigold, a loss is outlined on the ground', () => {
+test('a result is a bare letter, a win in the positive ink', () => {
   const { ops } = headBarScene(SHARE, measure, 'light');
-  const square = (letter: string) => {
-    const at = ops.indexOf(texts(ops).find(op => op.text === letter && op.weight === 700) as Op);
-    const fill = ops[at - 1];
-    assert.equal(fill?.kind, 'rect');
-    return fill.kind === 'rect' ? fill.color : null;
+  const letter = (mark: string) => {
+    const at = ops.indexOf(texts(ops).find(op => op.text === mark && op.weight === 700) as Op);
+    assert.notEqual(ops[at - 1]?.kind, 'rect', `no box behind ${mark}`);
+    return textOf(ops, mark).color;
   };
-  assert.deepEqual(square('W'), [0xee, 0xaa, 0x11]);
-  assert.deepEqual(square('L'), [255, 255, 255]);
-  assert.deepEqual(square('T'), [0xe3, 0xe4, 0xe1]);
+  assert.deepEqual(letter('W'), [0x1b, 0x73, 0x32]);
+  assert.deepEqual(letter('L'), [0x50, 0x54, 0x4f]);
+  assert.deepEqual(letter('T'), [0x50, 0x54, 0x4f]);
 });
 
 // ----- the sheet's data ------------------------------------------------------
