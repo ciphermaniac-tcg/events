@@ -1,7 +1,8 @@
 /**
  * What a spectator narrows the pairings to: every table, the ones still
- * playing, or the players they follow (once they follow anyone, from a
- * player's sheet), and where decks are public, one archetype.
+ * playing (while a Swiss round of an event still running can have any), or
+ * the players they follow (once they follow anyone, from a player's sheet),
+ * and where decks are public, one archetype.
  */
 
 import { For, Show } from 'solid-js';
@@ -14,15 +15,18 @@ export function SpectateBar(props: {
   /** The archetypes played this round, most played first. */
   decks: readonly string[];
   following: number;
+  /** Whether In progress can narrow anything. */
+  live: boolean;
   onFilter: (filter: SpectateFilter) => void;
 }) {
   const options = () => [
     { value: 'all' as const, label: t('All') },
-    { value: 'playing' as const, label: t('In progress') },
+    ...(props.live ? [{ value: 'playing' as const, label: t('In progress') }] : []),
     ...(props.following > 0 ? [{ value: 'following' as const, label: t('Following {n}', { n: props.following }) }] : [])
   ];
   return (
     <span class='tm-spectate'>
+      {/* A lone All offers nothing to choose, so it hides (tournament-public.css). */}
       <Segmented
         options={options()}
         selected={props.filter.showing}

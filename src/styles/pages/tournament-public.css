@@ -388,9 +388,12 @@
     align-items: center;
   }
 }
-/* The pairings' bar: the round picker, then what to show. */
+/* The pairings' bar: the round picker, then what to show; a lone All has nothing to choose between. */
 .tm-spectate {
   display: contents;
+}
+.tm-spectate .segmented:not(:has(button + button)) {
+  display: none;
 }
 @media (max-width: 640px) {
   /* Keep the phone search on its own row below round and following controls. */
