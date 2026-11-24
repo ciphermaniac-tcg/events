@@ -248,7 +248,7 @@ test('a registered Player ID asks its birth year, then opens the registration to
   await page.getByRole('textbox', { name: 'First name' }).fill('Avery J.');
   // A mistyped year is corrected before round 1, proved by the year the registration was opened with.
   await page.getByRole('textbox', { name: 'Birth year' }).fill('2000');
-  await expect(page.locator('.tm-reg-division')).toHaveText('Masters Division');
+  await expect(page.locator('.tm-reg-division')).toHaveText('Masters');
   await page.getByText('In person').click();
   await page.getByRole('button', { name: 'Save changes' }).click();
   await expect(page.getByRole('status')).toHaveText('Changes saved.');
