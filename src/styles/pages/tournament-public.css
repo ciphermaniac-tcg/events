@@ -280,10 +280,10 @@
 .tm-public .tm-details {
   margin: 0 0 var(--space-4);
 }
+/* Each open table's extra time and its clock, on desktop. The table is fixed-layout, so the column needs its own width. */
 .tm-status-col {
   white-space: nowrap;
 }
-/* The desktop table is fixed-layout, so the status column needs its own width. */
 @media (min-width: 641px) {
   .tm-public-pairings th.tm-status-col {
     width: 112px;
