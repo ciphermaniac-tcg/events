@@ -19,6 +19,7 @@ import { DeckIcons } from './DeckIcons';
 import { OptionsMenu } from './OptionsMenu';
 import { SeatResets, StreamLink, type TableMenuOf } from './TableMenu';
 import { ExtensionClock } from './ExtensionClock';
+import { closeOnBack } from '../../lib/closeOnBack';
 import { inertOutside, keepTabIn } from '../../lib/focusTrap';
 
 /** Table-level results, besides either player winning; an elimination match has neither. */
@@ -101,6 +102,7 @@ export function ResultSheet(props: {
       }
     };
     document.addEventListener('keydown', key, true);
+    onCleanup(closeOnBack(() => props.onClose()));
     // Only the sheet, and the scrim that closes it, can be reached while it is open.
     const live = sheet ? inertOutside(sheet, scrim ? [scrim] : []) : () => undefined;
     onCleanup(() => {
