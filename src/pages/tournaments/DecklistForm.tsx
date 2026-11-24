@@ -27,8 +27,10 @@ interface FormProps {
   onHeld: (list: Decklist | null) => void;
   /** Whether players can register now; when not, the page shows the receipt. */
   open: boolean;
-  /** Registrations may still be withdrawn (see decklistsOpen). */
+  /** Registrations may still be withdrawn (see canRegister). */
   withdrawable: boolean;
+  /** The event takes decklists; when not, registering asks for none. */
+  lists: boolean;
   /** The start as players read it, which is when changes close; null when none is set. */
   closes: string | null;
   /** The event's own list is at its cap. */
@@ -125,6 +127,7 @@ export function DecklistForm(props: FormProps) {
               mine={mineOf(props.held, read)}
               onHeld={list => props.onHeld(list)}
               withdrawable={props.withdrawable}
+              lists={props.lists}
               season={props.season}
               years={props.years}
               note={props.withdrawable || mineOf(props.held, props.list.current()) ? undefined : t(LATE_NOTE)}

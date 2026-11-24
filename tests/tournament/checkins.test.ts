@@ -6,12 +6,12 @@ import type { Player } from '../../shared/tournament/types';
 const listed = (...ids: string[]) => ({ players: ids.map(id => ({ id })) });
 const swiss = (entryFee: number, ...ids: string[]) => ({
   mode: 'swiss' as const,
-  settings: { entryFee },
+  settings: { entryFee, decklists: 'off' },
   tournament: listed(...ids)
 });
 const tom = (entryFee: number, ...ids: string[]) => ({
   mode: 'tom' as const,
-  settings: { entryFee },
+  settings: { entryFee, decklists: 'closed' },
   tournament: listed(...ids)
 });
 
@@ -21,6 +21,11 @@ test('an event asks only the checks that apply to it and to the player', () => {
   assert.deepEqual(marksFor(tom(0), undefined), ['tom']);
   assert.deepEqual(marksFor(tom(10), { paper: true }), ['paid', 'tom', 'list']);
   assert.deepEqual(openMarks(tom(10), { paper: true, paid: true, list: true }), ['tom']);
+  assert.deepEqual(
+    marksFor(swiss(10), { paper: true }),
+    ['paid'],
+    'a registration with no list is asked for none where lists are off'
+  );
 });
 
 const player = (id: string, droppedAfter: number | null = null): Player => ({

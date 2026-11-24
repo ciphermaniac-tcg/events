@@ -30,7 +30,7 @@ import { type Pod, POD_CATEGORIES, type PodCategory, type Round } from '../../..
 import type { PlayerClaim } from '../../../shared/tournament/identify';
 import { lateListsOpen } from '../../../shared/tournament/lateLists';
 import {
-  decklistsOpen,
+  canRegister,
   isSanctioned,
   listsPublic,
   type PublishedView,
@@ -460,13 +460,13 @@ function createMe(view: () => TournamentView, events: { onView: (view: Published
 const PINS_MATCH: ReadonlySet<string> = new Set(['pairings', 'standings']);
 
 /** Whether a registration can still correct its birth year: before round 1, at a sanctioned event paired here. */
-const yearsCorrectable = (view: TournamentView) => isSanctioned(view) && view.mode === 'swiss' && decklistsOpen(view);
+const yearsCorrectable = (view: TournamentView) => isSanctioned(view) && view.mode === 'swiss' && canRegister(view);
 
 /** Every round paired so far, across the event's pods: one more each time any of them pairs. */
 const pairedRounds = (view: TournamentView) => view.tournament.pods.reduce((n, pod) => n + pod.rounds.length, 0);
 
-/** Whether the form takes lists: before round 1, or from a late entrant in their round (see lateListsOpen). */
-const takingLists = (view: TournamentView) => decklistsOpen(view) || lateListsOpen(view);
+/** Whether the form is open: to register before round 1, or to a late entrant's list in their round (see lateListsOpen). */
+const takingLists = (view: TournamentView) => canRegister(view) || lateListsOpen(view);
 
 /**
  * The registration tab: the form while players can register, and once they
@@ -476,7 +476,7 @@ const takingLists = (view: TournamentView) => decklistsOpen(view) || lateListsOp
 function decklistTab(view: TournamentView, mayHaveList: boolean): { value: Tab; label: string }[] {
   if (takingLists(view)) {
     // After round 1, only a late entrant can still send a list: a newcomer is not offered to register.
-    const fresh = decklistsOpen(view) ? t('Register') : t('Late decklist');
+    const fresh = canRegister(view) ? t('Register') : t('Late decklist');
     return [{ value: 'decklist', label: mayHaveList ? t('Registration') : fresh }];
   }
   return view.settings.decklists !== 'off' && mayHaveList ? [{ value: 'decklist', label: t('Registration') }] : [];
@@ -858,10 +858,9 @@ function EventBody(props: {
               props.onWhoAmI();
             }}
             open={takingLists(props.view)}
-            withdrawable={decklistsOpen(props.view)}
-            closes={
-              decklistsOpen(props.view) ? timeShown(props.view.settings.startsAt, props.view.settings.timeZone) : null
-            }
+            withdrawable={canRegister(props.view)}
+            lists={props.view.settings.decklists !== 'off'}
+            closes={canRegister(props.view) ? timeShown(props.view.settings) : null}
             full={rosterFull(props.view)}
             season={eventSeason(props.view.tournament)}
             years={yearsCorrectable(props.view)}
@@ -940,8 +939,8 @@ function EventSkeleton() {
 }
 
 /** A time the organizer set (the start, which is when registration changes close, or check-in) as players read it; null when none is set. */
-const timeShown = (local: string, zone: string): string | null =>
-  isWallClock(local) ? eventTimes(local, zone, intlLocale()).event : null;
+const timeShown = ({ startsAt, timeZone }: TournamentSettings): string | null =>
+  isWallClock(startsAt) ? eventTimes(startsAt, timeZone, intlLocale()).event : null;
 
 /** Whether the event's own list is at its cap, so the page says so before anyone types. */
 const rosterFull = (view: TournamentView): boolean =>
@@ -1054,8 +1053,8 @@ function Hero(props: { view: TournamentView; prefer: (PodCategory | null)[]; min
       />
       <Show when={!underway()}>
         <EventLogistics settings={settings()} store={props.view.store} />
-        {/* Where the page takes no registrations, the one thing a player has to do before round 1 of an event to come. */}
-        <Show when={!started() && !settings().finished && settings().decklists === 'off'}>
+        {/* Where players don't register online, the one thing a player has to do before round 1 of an event to come. */}
+        <Show when={!started() && !settings().finished && !settings().registration}>
           <p class='tm-details'>{t('Register with the organizer.')}</p>
         </Show>
         <Show when={settings().details}>

@@ -6,7 +6,9 @@
  * withdraws from its menu; any other registers, on paper or with a pasted
  * list; at an unsanctioned event a player's exact name opens theirs, a name a
  * slip from it asks before opening anything and offers to register the name
- * as typed, and two named alike are offered to pick from; a full event says so.
+ * as typed, and two named alike are offered to pick from; a full event says so;
+ * with decklists off a player registers with no list asked for; with online
+ * registration off nobody registers here.
  */
 
 import { expect, type Page } from '@playwright/test';
@@ -108,8 +110,11 @@ async function mockEvent(page: Page, settings: Partial<TournamentSettings> = {},
     submittedAt: 0,
     problems: [],
     registered: true,
-    // What check-in asks: the fee if the event has one, and a paper list from staff.
-    openChecks: [...((settings.entryFee ?? 0) > 0 ? ['paid'] : []), ...(held.mode === 'paper' ? ['list'] : [])],
+    // What check-in asks: the fee if the event has one, and a paper list from staff where lists are taken.
+    openChecks: [
+      ...((settings.entryFee ?? 0) > 0 ? ['paid'] : []),
+      ...(held.mode === 'paper' && settings.decklists !== 'off' ? ['list'] : [])
+    ],
     fromList: true,
     locked: true
   });
@@ -576,6 +581,40 @@ test('Tab from the Player ID tip reaches its link, then the field', async ({ pag
   await expect(link).toBeVisible();
   await page.keyboard.press('Tab');
   await expect(page.getByRole('textbox', { name: 'Player ID' })).toBeFocused();
+});
+
+test('with decklists off a player registers with no decklist step, and is asked for no list @mobile', async ({
+  page
+}) => {
+  const { calls } = await mockEvent(page, { decklists: 'off' });
+  await page.goto(`/t/${CODE}`);
+  await page.getByRole('textbox', { name: 'Player ID' }).fill('12345678');
+  await page.getByRole('button', { name: 'Continue' }).click();
+  await page.getByRole('textbox', { name: 'First name' }).fill('Nia');
+  await page.getByRole('textbox', { name: 'Last name' }).fill('Okafor');
+  const register = page.getByRole('button', { name: 'Register' });
+  await expect(register).toBeDisabled();
+  await page.getByRole('textbox', { name: 'Birth year' }).fill('2001');
+  // Nothing about a list: no In person or Digital, no paste box.
+  await expect(page.getByRole('group', { name: 'Decklist' })).toHaveCount(0);
+  await expect(page.getByText('In person')).toHaveCount(0);
+  await expect(page.getByRole('textbox', { name: 'Decklist' })).toHaveCount(0);
+  await register.click();
+  await expect(page.getByRole('status')).toHaveText('You’re registered.');
+  expect(lastWrite(calls)?.body).toMatchObject({ mode: 'paper', deck: '' });
+  // No list is asked for, so nothing is left to check in.
+  await expect(page.getByRole('region', { name: 'Your registration' })).toHaveText('Checked in');
+  await expect(page.locator('.tm-hero')).toContainText('5 players');
+});
+
+test('with online registration off the page has no Register tab, and says to register with the organizer', async ({
+  page
+}) => {
+  await mockEvent(page, { registration: false, decklists: 'off' });
+  await page.goto(`/t/${CODE}`);
+  await expect(page.getByText('Register with the organizer.')).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'Register' })).toHaveCount(0);
+  await expect(page.getByRole('tab', { name: 'Pairings' })).toBeVisible();
 });
 
 test('a full event says so to a newcomer', async ({ page }) => {
