@@ -1108,12 +1108,12 @@ test('once the Swiss rounds are played the big screen shows who makes the top cu
 
 test('before round 1 the public page lists everyone registered @mobile', async ({ page }) => {
   const unpaired = { ...VIEW.tournament, pods: VIEW.tournament.pods.map(pod => ({ ...pod, rounds: [] })) };
-  await mockApi(page, { ...VIEW, tournament: unpaired });
+  await mockApi(page, { ...VIEW, settings: { ...VIEW.settings, registration: false }, tournament: unpaired });
   await page.goto(`/t/${CODE}`);
   const players = VIEW.tournament.players.filter(p => p.droppedAfter === null);
   await expect(page.locator('.tm-status')).toHaveText(`Registration · ${players.length} players`);
   await expect(page.locator('.tm-registered li')).toHaveCount(players.length);
-  // Lists are off, so nobody registers here: the page says who to register with.
+  // Online registration is off, so nobody registers here: the page says who to register with.
   await expect(page.getByText('Register with the organizer.')).toBeVisible();
   // Counted once: the meta line leaves the count to the status line until round 1.
   expect(await page.locator('.tm-hero').innerText()).not.toMatch(/players[\s\S]*players/);

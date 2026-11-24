@@ -67,8 +67,8 @@ export function EventLogistics(props: { settings: Shown; store?: string | null }
 }
 
 /** A time the organizer set (the start, which is when registration changes close, or check-in) as players read it; null when none is set. */
-export const timeShown = (local: string, zone: string): string | null =>
-  isWallClock(local) ? eventTimes(local, zone, intlLocale()).event : null;
+export const timeShown = ({ startsAt, timeZone }: TournamentSettings): string | null =>
+  isWallClock(startsAt) ? eventTimes(startsAt, timeZone, intlLocale()).event : null;
 
 /** Whether the event's own list is at its cap, so the page says so before anyone types. */
 export const rosterFull = (view: TournamentView): boolean =>

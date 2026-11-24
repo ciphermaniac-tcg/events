@@ -25,7 +25,7 @@ const gone = player('303', 'Cy', 0);
 const late = { ...player('404', 'Di'), late: true };
 const event = {
   mode: 'swiss' as const,
-  settings: { entryFee: 10 },
+  settings: { entryFee: 10, decklists: 'off' },
   tournament: emptyTournament({ name: 'Night' }),
   checkins: { '101': { paid: true as const } }
 };

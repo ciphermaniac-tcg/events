@@ -14,7 +14,7 @@ import { readCommand } from '../../shared/tournament/readCommand.ts';
 import { parseTdf } from '../../shared/tournament/tdf.ts';
 import { readTournament } from '../../shared/tournament/validate.ts';
 import {
-  decklistsOpen,
+  canRegister,
   decksVisible,
   DEFAULT_SETTINGS,
   listsPublic,
@@ -202,16 +202,38 @@ test('decklists are off, open or closed, and rounds are capped at up to fifteen'
   for (const bad of [-1, 16, 2.5, '3']) {
     assert.equal(readSettings({ roundCap: bad }, DEFAULT_SETTINGS), null);
   }
+});
+
+test('players register online while registration is on, until round 1 is paired', () => {
   const tournament = emptyTournament({ name: 'x' });
-  assert.equal(decklistsOpen({ settings: { decklists: 'open' }, tournament }), true);
-  assert.equal(decklistsOpen({ settings: { decklists: 'closed' }, tournament }), true, 'closed lists are taken too');
-  assert.equal(decklistsOpen({ settings: { decklists: 'off' }, tournament }), false);
-  const started = { ...tournament, startedAt: 1 };
+  assert.equal(canRegister({ settings: { registration: true }, tournament }), true);
+  assert.equal(canRegister({ settings: { registration: false }, tournament }), false);
   assert.equal(
-    decklistsOpen({ settings: { decklists: 'open' }, tournament: started }),
+    canRegister({ settings: { registration: true }, tournament: { ...tournament, startedAt: 1 } }),
     false,
-    'locked once round 1 is paired'
+    'closed once round 1 is paired'
   );
+  assert.equal(DEFAULT_SETTINGS.registration, true, 'a new event registers players online');
+  assert.equal(readSettings({ registration: false }, DEFAULT_SETTINGS)?.registration, false);
+  assert.equal(readSettings({ registration: 'no' }, DEFAULT_SETTINGS), null);
+});
+
+test('an event stored before registration was a setting registers online only while it takes lists', () => {
+  assert.equal(storedSettings({ decklists: 'closed' }, false).registration, true);
+  assert.equal(storedSettings({ decklists: 'open' }, true).registration, true);
+  assert.equal(storedSettings({ decklistsOpen: false }, false).registration, true);
+  assert.equal(storedSettings({ decklists: 'off' }, false).registration, false);
+  assert.equal(storedSettings({}, false).registration, false);
+  // Once stored, the setting is its own: on with no lists, or off whatever Decklists was last set to.
+  assert.deepEqual(storedSettings({ registration: true, decklists: 'off' }, false), DEFAULT_SETTINGS);
+  const off = storedSettings({ registration: false, decklists: 'open', openLists: true }, true);
+  assert.equal(off.registration, false);
+  assert.equal(off.decklists, 'off', 'no lists are taken while registration is off');
+  // A console loaded before the setting existed turns registration on by taking lists.
+  const legacy = storedSettings({}, false);
+  assert.equal(readSettings({ decklists: 'closed' }, legacy)?.registration, true);
+  assert.equal(readSettings({ format: 'Expanded' }, legacy)?.registration, false);
+  assert.equal(readSettings({ decklists: 'off' }, DEFAULT_SETTINGS)?.registration, true);
 });
 
 test('open lists are read by anyone only once round 1 is paired; closed ones stay private', () => {

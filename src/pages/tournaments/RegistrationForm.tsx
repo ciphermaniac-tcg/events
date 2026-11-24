@@ -52,8 +52,10 @@ export interface RegistrationProps {
   full: boolean;
   /** The registration this device or account already holds, once read; it opens straight away. */
   mine: Decklist | null;
-  /** Whether a registration may be withdrawn now: only before round 1 is paired (see decklistsOpen). */
+  /** Whether a registration may be withdrawn now: only before round 1 is paired (see canRegister). */
   withdrawable: boolean;
+  /** Whether the event takes decklists; when not, there is nothing to choose and a registration goes as one with no list sent. */
+  lists: boolean;
   /** A line over the first step, saying who the form is still open to. */
   note?: string;
   /** The season the event is in, which places a birth year in its division. */
@@ -168,7 +170,8 @@ function createRegistration(props: RegistrationProps) {
   const [kept, setKept] = createSignal<NamedPlayer | null>(held);
   /** The birth year the registration was opened or last saved with, which a correction proves the Player ID by. */
   let heldYear = birthYearOf(held?.birthDate ?? '');
-  const [mode, setMode] = createSignal<DeckMode | null>(held?.mode ?? null);
+  const [chosen, setMode] = createSignal<DeckMode | null>(held?.mode ?? null);
+  const mode = () => (props.lists ? chosen() : 'paper');
   const [deck, setDeck] = createSignal(held?.deck ?? '');
   const [matches, setMatches] = createSignal<NamedPlayer[]>([]);
   const [naming, setNaming] = createSignal(false);
@@ -797,20 +800,22 @@ function ModeOption(props: { form: Registration; value: DeckMode; label: string;
   );
 }
 
-/** In person or digital, and the paste box for a digital list. */
-function DeckChoice(props: { form: Registration }) {
+/** In person or digital, and the paste box for a digital list; nothing at an event that takes no lists. */
+function DeckChoice(props: { form: Registration; lists: boolean }) {
   const f = () => props.form;
   return (
-    <div class='tm-box-bar tm-reg-stack'>
-      <fieldset class='tm-reg-options'>
-        <legend class='tm-label'>{t('Decklist')}</legend>
-        <ModeOption form={f()} value='paper' label={t('In person')} detail={t('Hand a paper decklist to staff')} />
-        <ModeOption form={f()} value='digital' label={t('Digital')} detail={t('Paste your list from TCG Live')} />
-      </fieldset>
-      <Show when={f().mode() === 'digital'}>
-        <Paste form={f()} />
-      </Show>
-    </div>
+    <Show when={props.lists}>
+      <div class='tm-box-bar tm-reg-stack'>
+        <fieldset class='tm-reg-options'>
+          <legend class='tm-label'>{t('Decklist')}</legend>
+          <ModeOption form={f()} value='paper' label={t('In person')} detail={t('Hand a paper decklist to staff')} />
+          <ModeOption form={f()} value='digital' label={t('Digital')} detail={t('Paste your list from TCG Live')} />
+        </fieldset>
+        <Show when={f().mode() === 'digital'}>
+          <Paste form={f()} />
+        </Show>
+      </div>
+    </Show>
   );
 }
 
@@ -921,7 +926,7 @@ function SelfRegistration(props: { form: Registration; reg: RegistrationProps; u
             </Show>
           }
         >
-          <DeckChoice form={f()} />
+          <DeckChoice form={f()} lists={props.reg.lists} />
           <Foot form={f()} sanctioned={sanctioned()} label={t('Register')} />
         </Show>
       </Show>
@@ -951,7 +956,7 @@ function NewRegistration(props: { form: Registration; reg: RegistrationProps }) 
           </Show>
         </div>
         <Show when={!f().young()}>
-          <DeckChoice form={f()} />
+          <DeckChoice form={f()} lists={props.reg.lists} />
           <Foot form={f()} sanctioned={props.reg.sanctioned} label={t('Register')} />
         </Show>
       </Show>
@@ -1017,7 +1022,7 @@ function EditRegistration(props: { form: Registration; reg: RegistrationProps })
           </div>
         }
       >
-        <DeckChoice form={f()} />
+        <DeckChoice form={f()} lists={props.reg.lists} />
       </Show>
       <Show when={f().saved() === 'new'}>
         <div class='tm-box-bar tm-reg-stack'>

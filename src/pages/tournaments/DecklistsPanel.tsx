@@ -31,7 +31,7 @@ import { birthYear } from '../../../shared/tournament/divisions';
 import { latestRoundOf } from '../../../shared/tournament/staffRecords';
 import { decklistMatcher } from '../../../shared/tournament/identify';
 import { decklistOpenFor, lateListsOpen } from '../../../shared/tournament/lateLists';
-import { decklistsLocked, decklistsOpen, decksEnabled, isSanctioned } from '../../../shared/tournament/view';
+import { canRegister, decklistsLocked, decksEnabled, isSanctioned } from '../../../shared/tournament/view';
 import { call, type Decklist, fetchDecklists, type Manage, setDeck, unlockDecklist } from '../../lib/tournament/api';
 import { latestValue } from '../../lib/resource';
 import { intlLocale, t, tn } from '../../lib/i18n';
@@ -332,7 +332,7 @@ export function DecklistsPanel(props: {
     () => props.manage.code,
     code => fetchDecklists(code).then(result => result.decklists)
   );
-  const accepting = () => decklistsOpen(props.manage);
+  const accepting = () => canRegister(props.manage);
   const locked = () => decklistsLocked(props.manage);
   // Deck checks are read once round 1 is paired, before which there can be none.
   const checks = createMemo(() => (locked() ? createDeckChecks(() => props.manage.code, props.onPenalty) : null));

@@ -770,7 +770,7 @@ function WhoLine(props: Props & { me: string; division: string; record: string |
  * (no fee, no TOM) is all its player has to do. Otherwise, when round 1 is.
  */
 function checkInLine(view: TournamentView, list: Decklist): string {
-  if (list.mode === 'paper') {
+  if (list.mode === 'paper' && view.settings.decklists !== 'off') {
     return t('Hand your list to staff to check in');
   }
   if (marksFor(view, undefined).length === 0) {
