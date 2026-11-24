@@ -36,6 +36,8 @@ interface TableProps {
   tiebreakers?: boolean;
   /** Hold back the decks of the players in a cut already under way. */
   hideCutDecks?: boolean;
+  /** The last Swiss round is paired and the event goes on: the cut's line shows before the cut starts. */
+  cutDue?: boolean;
   /**
    * The public page's division switch and search: in the box's bar when there
    * is one box, or in a bar of its own above them all when there are several,
@@ -70,6 +72,8 @@ export function StandingsTable(props: TableProps) {
           const cutStarted = () => group().cutStarted;
           const hidden = (row: Standing) => Boolean(props.hideCutDecks) && cutStarted() && row.place <= cut();
           const split = () => (props.tiebreakers && !cutStarted() ? cutSplit(group().rows, cut()) : null);
+          // A cut no one will play draws no line: only one started, or one the last Swiss round leads to.
+          const lined = () => cut() > 0 && (cutStarted() || Boolean(props.cutDue));
           return (
             <section class='tm-standings' classList={{ 'has-decks': hasDecks() }}>
               <Show when={group().division}>
@@ -127,7 +131,12 @@ export function StandingsTable(props: TableProps) {
                       <Index each={group().rows.filter(row => matches(row.playerId))}>
                         {row => (
                           <>
-                            <tr classList={{ 'is-me': row().playerId === props.me, 'is-in': row().place <= cut() }}>
+                            <tr
+                              classList={{
+                                'is-me': row().playerId === props.me,
+                                'is-in': lined() && row().place <= cut()
+                              }}
+                            >
                               <td class='num tm-table-col tm-place'>{row().place}</td>
                               <td>
                                 <button
@@ -165,14 +174,19 @@ export function StandingsTable(props: TableProps) {
                                 <td class='num muted-cell tm-wide-col'>{percentLabel(row().oowp)}</td>
                               </Show>
                             </tr>
-                            <Show when={row().place === cut() && group().rows.length > cut() && !props.query?.trim()}>
+                            <Show
+                              when={
+                                lined() && row().place === cut() && group().rows.length > cut() && !props.query?.trim()
+                              }
+                            >
                               <tr class='tm-cut-line'>
                                 {/* The tiebreakers' two columns get a cell of their own, hidden with them on a
                                     phone: spanned by this one, they kept their width in a fixed table and
                                     squeezed the names to nothing. */}
                                 <td colSpan={4}>
-                                  <span class='tm-cut-top'>{t('Top {n}', { n: cut() })}</span>
-                                  <Show when={split()}>{text => <span class='muted'>{text()}</span>}</Show>
+                                  <span class='tm-cut-top' title={split() ?? undefined}>
+                                    {t('Top {n}', { n: cut() })}
+                                  </span>
                                 </td>
                                 <Show when={props.tiebreakers}>
                                   <td class='tm-wide-col' colSpan={2} />
