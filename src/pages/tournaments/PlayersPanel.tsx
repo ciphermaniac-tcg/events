@@ -347,7 +347,15 @@ export function PlayersPanel(props: { state: ManageState; manage: Manage; onPlay
         <AddPlayer state={props.state} code={props.manage.code} sanctioned={sanctioned()} late={started()} />
       </Show>
       <StaffRequests state={props.state} manage={props.manage} />
-      <CheckInBox state={props.state} manage={props.manage} players={everyone()} />
+      <CheckInBox
+        state={props.state}
+        manage={props.manage}
+        players={everyone()}
+        onShowUnpaid={() => {
+          setQuery('');
+          setParams({ show: 'unchecked' }, { replace: true });
+        }}
+      />
       <section class='tm-box'>
         <div class='tm-box-bar'>
           <input
