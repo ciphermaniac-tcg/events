@@ -59,7 +59,6 @@
   "Add players to start pairing.": "Agrega jugadores para empezar a emparejar.",
   "Add to event": "Agregar al torneo",
   "Add your Player ID": "Agregar tu ID de jugador",
-  "Added from list": "Agregado desde su lista",
   "Address": "Dirección",
   "Adjust by up to an hour at a time": "Ajusta como máximo una hora a la vez",
   "Admin": "Admin",
@@ -436,7 +435,6 @@
   "Last checked {time}": "Última comprobación: {time}",
   "Last imported {time}": "Última importación: {time}",
   "Last name": "Apellido",
-  "last {time}": "última: {time}",
   "Late": "Tardío",
   "Late ‖ players": "Tardíos",
   "Layout": "Diseño",
@@ -464,7 +462,6 @@
   "Links to your public profile stop working": "Los enlaces a tu perfil público dejan de funcionar",
   "Loading": "Cargando",
   "Local": "Local",
-  "Locked after round 1": "Bloqueado desde la ronda 1",
   "Look at the event again first": "Primero vuelve a cargar el evento",
   "Look up": "Buscar",
   "Look up by POP ID, email or account ID": "Busca por POP ID, correo o ID de cuenta",
@@ -1246,10 +1243,6 @@
     "one": "{n} pull request aceptado",
     "other": "{n} pull requests aceptados"
   },
-  "{n} added from lists": {
-    "one": "{n} agregado desde su lista",
-    "other": "{n} agregados desde sus listas"
-  },
   "{n} approved": {
     "one": "{n} aprobada",
     "other": "{n} aprobadas"
@@ -1342,10 +1335,6 @@
   "{n} upcoming": {
     "one": "{n} próximo",
     "other": "{n} próximos"
-  },
-  "{n} with problems": {
-    "one": "{n} con problemas",
-    "other": "{n} con problemas"
   },
   "{p1} v {p2}": "{p1} vs {p2}",
   "{place} in {division}": "{place} en {division}",
@@ -1479,7 +1468,6 @@
   "List": "Lista",
   "Copy list": "Copiar lista",
   "Read only. You’re not on this event’s staff.": "Solo lectura. No formas parte del personal de este torneo.",
-  "Re-read archetypes": "Recalcular arquetipos",
   "No lists changed.": "No cambió ninguna lista.",
   "Renamed {n} lists.": {
     "one": "Se renombró {n} lista.",
