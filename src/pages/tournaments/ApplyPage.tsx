@@ -119,8 +119,8 @@ function StoreNeeds(props: { eligible: ApplicationState['eligible'] }) {
   );
 }
 
-/** Becoming a Community organizer: one press, then on to the events page. */
-function CommunityStart() {
+/** Becoming a Community organizer: one press, then on to the events page. Quiet while the store form is the view's step. */
+function CommunityStart(props: { quiet: boolean }) {
   const navigate = useNavigate();
   const action = createAction({ staysBusy: true });
   async function start() {
@@ -132,7 +132,12 @@ function CommunityStart() {
   }
   return (
     <span class='tm-path-step'>
-      <button type='button' class='btn btn-primary' disabled={action.busy()} onClick={() => void start()}>
+      <button
+        type='button'
+        class={props.quiet ? 'btn btn-secondary' : 'btn btn-primary'}
+        disabled={action.busy()}
+        onClick={() => void start()}
+      >
         {t('Community organizer')}
       </button>
       <ErrorLine message={action.error()} />
@@ -147,7 +152,14 @@ function CommunityStart() {
  * and one already in a store sees its stores instead, with a quieter way
  * to apply for another under them.
  */
-function PathRows(props: { user: Me; store: boolean; storeOpen: boolean; onStore: () => void }) {
+function PathRows(props: {
+  user: Me;
+  store: boolean;
+  storeOpen: boolean;
+  /** The store application's form shows, its Send the view's one filled button. */
+  sending: boolean;
+  onStore: () => void;
+}) {
   const joined = () => props.user.role === 'community';
   const stores = () => props.user.stores;
   return (
@@ -155,7 +167,7 @@ function PathRows(props: { user: Me; store: boolean; storeOpen: boolean; onStore
       <section class='tm-box tm-paths'>
         <Show when={canJoinCommunity(props.user.role) || joined()}>
           <PathRow path='community' joined={joined()}>
-            <Show when={joined()} fallback={<CommunityStart />}>
+            <Show when={joined()} fallback={<CommunityStart quiet={props.sending} />}>
               <A class='btn btn-secondary' href='/'>
                 {t('Your events')}
               </A>
@@ -227,6 +239,7 @@ function Applying(props: { user: Me }) {
               user={props.user}
               store={stage() === 'store'}
               storeOpen={storeOpen()}
+              sending={storeOpen() && s().eligible.profile && s().eligible.email}
               onStore={() => setStoreOpen(true)}
             />
             <Show when={storeOpen()}>
