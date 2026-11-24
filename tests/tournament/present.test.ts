@@ -478,6 +478,8 @@ test('the console leads with where the round stands: in progress, complete, or b
   assert.equal(roundStatus({ ...open, open: 0 }, false), 'Round 2 complete');
   assert.equal(roundStatus(NO_ROUND, false), 'Registration');
   assert.equal(roundStatus(open, true), 'Finished');
+  const final: Round = { ...round2, kind: 'elimination', matches: round2.matches.slice(0, 1) };
+  assert.equal(roundStatus({ ...open, round: final, label: 'Final', open: 0, champion: 'x' }, false), 'Final complete');
 });
 
 test('against a plan, the lead counts the Swiss rounds, and names a round past the plan alone', () => {
