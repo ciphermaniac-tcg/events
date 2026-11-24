@@ -3,12 +3,11 @@
  * shared/tournament/checkins.ts): a column for each check the event asks
  * (Paid with an entry fee, In TOM at a TOM event, List received from anyone
  * handing in a paper list), each with how many are ticked, and above the list
- * who is still open. An event the site pairs waits on them for round 1, so
- * each comes with what lets it go: marking them, or dropping them, one by one
- * or all at once. A long line of them is only counted there, and the roster's
- * Not checked in filter lists them (see rosterFilter), rather than the same
- * names twice. A TOM event pairs in TOM, so it gets the count, and a warning
- * if TOM's round 1 came in with anyone still open.
+ * how many are still open. An event the site pairs waits on them for round 1,
+ * so the count comes with the roster's Not checked in filter (see rosterFilter),
+ * whose rows mark them, and a way to drop them all. A TOM event pairs in TOM,
+ * so it gets the count, and a warning if TOM's round 1 came in with anyone
+ * still open.
  *
  * Anyone TOM's file lists stands ticked In TOM, and that box is locked.
  *
@@ -16,14 +15,14 @@
  * waits, so a desk working through a line never loses a click to another.
  */
 
+import { useSearchParams } from '@solidjs/router';
 import { createResource, createSignal, For, Show } from 'solid-js';
 import { type CheckIn, type CheckMark, marksFor, notCheckedIn, openMarks } from '../../../shared/tournament/checkins';
 import { hasStarted } from '../../../shared/tournament/rounds';
-import { type Player, playerName } from '../../../shared/tournament/types';
+import type { Player } from '../../../shared/tournament/types';
 import { fetchDecklists, type Manage, saveCheckIn } from '../../lib/tournament/api';
 import { msg, t, tn } from '../../lib/i18n';
 import { ConfirmAction } from './ConfirmAction';
-import { OptionsMenu } from './OptionsMenu';
 import type { ManageState } from './manageState';
 import { registrantsSource, siteRegistrants } from './siteRegistrants';
 
@@ -31,11 +30,6 @@ const MARK_LABELS: Record<CheckMark, string> = {
   paid: msg('Paid'),
   tom: msg('In TOM'),
   list: msg('List received')
-};
-
-const MARK_ACTIONS: Partial<Record<CheckMark, string>> = {
-  paid: msg('Mark paid'),
-  list: msg('Mark received')
 };
 
 const checkins = (manage: Manage) => manage.checkins ?? {};
@@ -92,9 +86,6 @@ function viewOf(manage: Manage): CheckInView {
 
 /** A player's check-in as it stands, In TOM included for anyone TOM's file lists. */
 const heldBy = (manage: Manage, id: string) => viewOf(manage).held(id);
-
-/** Above this many players still open, the list above the roster is only counted. */
-const LISTED_MAX = 10;
 
 /** What is on its way, by player and check (or drop): only that control waits for its answer. */
 const [saving, setSaving] = createSignal<ReadonlySet<string>>(new Set());
@@ -233,55 +224,35 @@ export function CheckInMarks(props: { state: ManageState; manage: Manage; id: st
   );
 }
 
-/** One player still open, with what lets them go under their menu, as a roster row's: the checks staff can mark here, or a drop. */
-function Blocker(props: { state: ManageState; manage: Manage; player: Player }) {
-  const name = () => playerName(props.player);
-  return (
-    <li>
-      <span>{name()}</span>
-      <OptionsMenu name={name()}>
-        <For each={openMarks(props.manage, heldBy(props.manage, props.player.id))}>
-          {mark => (
-            <Show when={MARK_ACTIONS[mark]}>
-              {label => (
-                <button
-                  type='button'
-                  class='tm-menu-item'
-                  data-closes-menu
-                  disabled={isSaving(props.player.id, mark)}
-                  onClick={() =>
-                    void tick(props.state, props.manage.code, { playerId: props.player.id, mark, on: true })
-                  }
-                >
-                  {t(label())}
-                </button>
-              )}
-            </Show>
-          )}
-        </For>
-        <ConfirmAction
-          label={t('Drop')}
-          question={t('Drop {name}? You can reinstate them until the next round is paired.', { name: name() })}
-          class='tm-menu-item'
-          danger
-          disabled={isSaving(props.player.id, 'drop')}
-          onConfirm={() => void drop(props.state, props.player.id)}
-        />
-      </OptionsMenu>
-    </li>
-  );
-}
-
 /**
- * Who still holds round 1 back: how many, a way to drop them all, and while
- * there are few, each with what lets them go.
+ * Who still holds round 1 back, on one line: how many (as not paid, when
+ * paying is all they lack), the roster filtered to them, and a way to drop
+ * them all. The roster under it has each one's boxes.
  */
 function Blockers(props: { state: ManageState; manage: Manage; open: readonly Player[] }) {
+  const [, setParams] = useSearchParams<{ show?: string }>();
   const n = () => props.open.length;
+  const unpaid = () =>
+    props.open.every(player => openMarks(props.manage, heldBy(props.manage, player.id)).every(mark => mark === 'paid'));
+  const head = () => {
+    if (unpaid()) {
+      return t('{n} not paid', { n: n() });
+    }
+    return n() === 1 ? t('1 player isn’t checked in.') : t('{n} players aren’t checked in.', { n: n() });
+  };
   return (
     <div class='tm-box-bar tm-check-gate'>
       <div class='tm-check-head'>
-        <strong>{n() === 1 ? t('1 player isn’t checked in.') : t('{n} players aren’t checked in.', { n: n() })}</strong>
+        <strong>{head()}</strong>
+        <Show when={unpaid()}>
+          <button
+            type='button'
+            class='btn btn-ghost'
+            onClick={() => setParams({ show: 'unchecked' }, { replace: true })}
+          >
+            {t('Show unpaid')}
+          </button>
+        </Show>
         <Show when={n() > 1}>
           <ConfirmAction
             label={t('Drop all {n}', { n: n() })}
@@ -293,11 +264,6 @@ function Blockers(props: { state: ManageState; manage: Manage; open: readonly Pl
           />
         </Show>
       </div>
-      <Show when={n() <= LISTED_MAX}>
-        <ul class='tm-check-list'>
-          <For each={props.open}>{player => <Blocker state={props.state} manage={props.manage} player={player} />}</For>
-        </ul>
-      </Show>
     </div>
   );
 }
