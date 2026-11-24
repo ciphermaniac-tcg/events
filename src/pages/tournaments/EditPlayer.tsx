@@ -55,12 +55,19 @@ export function EditPlayerDialog(props: {
       <form onSubmit={event => void save(event)}>
         <div class='tm-box-bar tm-modal-body'>
           <Field id='edit-first' label={t('First name')}>
-            <input id='edit-first' class='tm-input' value={first()} onInput={e => setFirst(e.currentTarget.value)} />
+            <input
+              id='edit-first'
+              class='tm-input'
+              autocapitalize='words'
+              value={first()}
+              onInput={e => setFirst(e.currentTarget.value)}
+            />
           </Field>
           <Field id='edit-last' label={t('Last name')}>
             <input
               id='edit-last'
               class='tm-input'
+              autocapitalize='words'
               // The last field without a sanctioned event's birth year: Enter saves.
               enterkeyhint={props.sanctioned ? undefined : 'done'}
               value={last()}

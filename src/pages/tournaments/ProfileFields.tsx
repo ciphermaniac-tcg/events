@@ -105,6 +105,7 @@ export function ProfileFields(props: {
             {...control}
             class='tm-input'
             autocomplete='given-name'
+            autocapitalize='words'
             value={props.value.firstName}
             onInput={e => set('firstName', e.currentTarget.value)}
           />
@@ -116,6 +117,7 @@ export function ProfileFields(props: {
             {...control}
             class='tm-input'
             autocomplete='family-name'
+            autocapitalize='words'
             value={props.value.lastName}
             onInput={e => set('lastName', e.currentTarget.value)}
           />

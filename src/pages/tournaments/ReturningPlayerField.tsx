@@ -116,6 +116,7 @@ export function ReturningPlayerField(props: {
         class='tm-input'
         value={props.value}
         autocomplete='off'
+        autocapitalize='words'
         role='combobox'
         aria-autocomplete='list'
         aria-expanded={showing()}
