@@ -79,13 +79,14 @@ function Seat(props: BracketProps & { seat: BracketSeat }) {
 
 function MatchBox(props: BracketProps & { match: BracketMatch }) {
   const mine = () => props.me != null && (props.match.top.id === props.me || props.match.bottom.id === props.me);
-  const where = () => (props.match.table ? t('Table {n}', { n: props.match.table }) : t('Not paired yet'));
+  // A slot not paired yet stays blank: the drawing already shows who it waits on.
+  const where = () => (props.match.table ? t('Table {n}', { n: props.match.table }) : '');
   return (
     <div
       class='tm-bracket-match'
       classList={{ 'is-me': mine(), 'is-playing': props.match.playing, 'is-unconfirmed': props.match.unconfirmed }}
       role='group'
-      aria-label={where()}
+      aria-label={where() || undefined}
     >
       <div class='tm-bracket-meta'>
         <span>{where()}</span>
@@ -111,9 +112,26 @@ function pairsOf(matches: readonly BracketMatch[]): BracketMatch[][] {
   return pairs;
 }
 
+/** Scrolls a bracket wider than its box to the latest round with a match paired, which is the one being played or just played. */
+function showLatest(bracket: HTMLDivElement) {
+  const paired = [...bracket.querySelectorAll<HTMLElement>('.tm-bracket-col')].filter(col =>
+    col.querySelector('.tm-bracket-match[aria-label]')
+  );
+  const latest = paired.at(-1);
+  if (latest && latest.offsetLeft + latest.offsetWidth > bracket.clientWidth) {
+    bracket.scrollTo({ left: latest.offsetLeft - parseFloat(getComputedStyle(bracket).paddingLeft) });
+  }
+}
+
 function BracketView(props: BracketProps & { class?: string }) {
   return (
-    <div class={`tm-bracket ${props.class ?? ''}`} tabindex='0' role='region' aria-label={t('Top cut bracket')}>
+    <div
+      ref={el => requestAnimationFrame(() => showLatest(el))}
+      class={`tm-bracket ${props.class ?? ''}`}
+      tabindex='0'
+      role='region'
+      aria-label={t('Top cut bracket')}
+    >
       <div class='tm-bracket-cols'>
         <For each={props.bracket.rounds}>
           {(round, i) => (
