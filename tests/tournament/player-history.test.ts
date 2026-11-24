@@ -84,18 +84,18 @@ describe('one player’s event, read from the public copy as History reads it', 
     t = reportAll(run(t, { type: 'startTopCut', pod: 'masters', size: 4, playoff3rd4th: true }));
     t = reportAll(run(t, { type: 'pairRound', pod: 'masters' }));
     const [final, third] = latest(t)?.matches ?? [];
-    const { view, keys } = copyOf(t, { mode: 'swiss' });
+    const { view, keys } = copyOf(t, { mode: 'swiss', settings: { finished: true } });
     const lastLabel = (id: string | undefined) => playerResult(view, keys[id ?? ''] ?? '')?.rounds.at(-1)?.label;
     assert.equal(lastLabel(final?.p2 ?? undefined), 'Final');
     assert.equal(lastLabel(third?.p1), 'Third place');
     assert.equal(playerResult(view, keys[third?.p1 ?? ''] ?? '')?.place, 3);
   });
 
-  test('mid-event: place in the division, record, every round with a bye, and who dropped', () => {
+  test('mid-event: no place yet, the record, every round with a bye, and who dropped', () => {
     const { view, keys } = copyOf(CHALLENGE);
     const mary = playerResult(view, keys['7200001'] ?? '');
     assert.equal(mary?.division, 'masters');
-    assert.equal(mary?.place, 1);
+    assert.equal(mary?.place, null, 'a place is earned once the event is finished');
     assert.deepEqual(mary?.record, { wins: 1, losses: 0, ties: 0 });
     assert.deepEqual(
       mary?.rounds.map(row => [row.label, row.table, row.opponent, row.mark]),
@@ -106,7 +106,7 @@ describe('one player’s event, read from the public copy as History reads it', 
       'opponents under their public keys, an open round with no mark'
     );
     const dorothy = playerResult(view, keys['7200002'] ?? '');
-    assert.deepEqual([dorothy?.division, dorothy?.place], ['junior', 1], 'ranked in her own division');
+    assert.equal(dorothy?.division, 'junior');
     assert.deepEqual(
       dorothy?.rounds.map(row => [row.round, row.opponent, row.mark, row.outcome]),
       [
@@ -122,8 +122,8 @@ describe('one player’s event, read from the public copy as History reads it', 
     assert.equal(playerResult(copyOf(CHALLENGE).view, '999'), null);
   });
 
-  test('the place matches the standings the event page draws', () => {
-    const { view } = copyOf(CHALLENGE);
+  test('once finished, the place matches the standings the event page draws', () => {
+    const { view } = copyOf(CHALLENGE, { settings: { finished: true } });
     const p = view.tournament.pods[0] as Pod;
     const rows = podStandings(view.tournament, p, id => view.divisions[id] ?? 'masters').flatMap(g => g.rows);
     for (const row of rows) {
