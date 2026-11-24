@@ -58,9 +58,15 @@
 .tm-hist-phone-deck {
   display: none;
 }
-/* With no deck in any row (archetypes off, or none read yet), the column and its head stay out. */
-.tm-hist:not(:has(.tm-hist-deck-in)) .tm-hist-deck {
-  display: none;
+/* With no deck in any row (archetypes off, or none read yet), the column closes to nothing. It
+   stays a column, so an open row's rounds still span the table's whole width. */
+.tm-hist:not(:has(.tm-hist-deck-in)) :is(th, td).tm-hist-deck {
+  width: 0;
+  max-width: 0;
+  padding-inline: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  color: transparent;
 }
 /* The dashboard's lists: the deck as its sprites alone. */
 .tm-hist-icons th.tm-hist-deck {
