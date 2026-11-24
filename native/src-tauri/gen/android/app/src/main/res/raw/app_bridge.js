@@ -6,9 +6,10 @@
     return;
   }
 
-  // Back closes these before it leaves the page: the site's dialogs, sheets
-  // and popover menus, each of which closes on Escape.
-  const LAYERS = 'dialog[open], [role="dialog"][aria-modal="true"], .tm-acct-menu, .tm-badge-list, .tm-menu-fixed';
+  // Back closes these before it leaves the page: the site's dialogs, sheets,
+  // popover menus, info tips and suggestion lists, each of which closes on Escape.
+  const LAYERS =
+    'dialog[open], [role="dialog"][aria-modal="true"], .tm-acct-menu, .tm-badge-list, .tm-menu-fixed, .info-tip.open, .tl-list[popover]';
   const last = list => list[list.length - 1];
   // A modal dialog sits above everything else; otherwise the latest layer is on top.
   const MODAL = CSS.supports('selector(:modal)') ? 'dialog:modal' : 'dialog[open]';
@@ -35,8 +36,9 @@
   };
 
   // A dialog takes requestClose, as Escape would. The rest hear Escape where
-  // focus is when it is in the layer, else at the layer, since a tap on plain
-  // text leaves focus on the body.
+  // focus is when it is in the layer or is the field whose suggestions the
+  // layer is, else at the layer, since a tap on plain text leaves focus on
+  // the body.
   const close = layer => {
     if (layer instanceof HTMLDialogElement) {
       if (typeof layer.requestClose === 'function') {
@@ -48,7 +50,9 @@
     }
     const escape = new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true, cancelable: true });
     const focused = document.activeElement;
-    (focused && layer.contains(focused) ? focused : layer).dispatchEvent(escape);
+    const owner =
+      focused && (layer.contains(focused) || (layer.id && focused.getAttribute('aria-controls') === layer.id));
+    (owner ? focused : layer).dispatchEvent(escape);
   };
 
   // Closes the top layer; false when there was none, or nothing on the page changed.
