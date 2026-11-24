@@ -2,7 +2,8 @@
  * Staff check-in before round 1: whether each player paid the entry fee, is
  * entered in TOM, and handed in the paper decklist they said they would
  * bring. Only what the event asks for is checked: a fee when it has one, TOM
- * when TOM runs it, a paper list when the player chose to hand one in.
+ * when TOM runs it, a paper list when the player chose to hand one in at an
+ * event that takes lists.
  *
  * At an event the site pairs, round 1 waits on every player still in. A TOM
  * event pairs in TOM, so the console can only count who is left and warn.
@@ -30,8 +31,8 @@ export type CheckMark = 'paid' | 'tom' | 'list';
 
 export const CHECK_MARKS: readonly CheckMark[] = ['paid', 'tom', 'list'];
 
-/** What of an event says which checks it asks: who pairs it (TOM or the site), and its fee. */
-type Event = { mode: 'swiss' | 'tom'; settings: { entryFee: number } };
+/** What of an event says which checks it asks: who pairs it (TOM or the site), its fee, and whether it takes lists. */
+type Event = { mode: 'swiss' | 'tom'; settings: { entryFee: number; decklists: string } };
 
 /** An event with its list of players: at a TOM event, the players in TOM's file. */
 type ListedEvent = Event & { tournament: { players: readonly Pick<Player, 'id'>[] } };
@@ -53,7 +54,8 @@ export function marksFor(event: Event, held: CheckIn | undefined): CheckMark[] {
     if (mark === 'paid') {
       return event.settings.entryFee > 0;
     }
-    return mark === 'tom' ? event.mode === 'tom' : held?.paper === true;
+    // A registration with no list reads as a paper one (see decklists.ts): asked for only where lists are taken.
+    return mark === 'tom' ? event.mode === 'tom' : held?.paper === true && event.settings.decklists !== 'off';
   });
 }
 

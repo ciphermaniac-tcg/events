@@ -56,6 +56,12 @@ export type DecklistMode = 'off' | 'open' | 'closed';
 
 export interface TournamentSettings {
   display: DisplaySelection | null;
+  /**
+   * Players register themselves on the event's page until round 1 is paired
+   * (see canRegister). Off, staff add everyone, and no lists are taken:
+   * `decklists` reads 'off' whatever was last chosen (see storedSettings).
+   */
+  registration: boolean;
   decklists: DecklistMode;
   deckVisibility: DeckVisibility;
   /** The organizer's own notes for players: prizes, schedule, what to bring. */
@@ -107,6 +113,7 @@ export interface TournamentSettings {
 
 export const DEFAULT_SETTINGS: TournamentSettings = {
   display: null,
+  registration: true,
   decklists: 'off',
   deckVisibility: 'off',
   details: '',
@@ -152,6 +159,7 @@ type SettingCheck = (value: unknown) => boolean;
 const SETTING_CHECKS: { [K in keyof TournamentSettings]: SettingCheck } = {
   // Never the client's to write: /display copies the picked preset from the event's own store.
   display: () => false,
+  registration: value => typeof value === 'boolean',
   decklists: value => DECKLIST_MODES.includes(value as DecklistMode),
   roundCap: value =>
     typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= SETTINGS_LIMITS.roundCap,
@@ -182,13 +190,17 @@ const SETTING_CHECKS: { [K in keyof TournamentSettings]: SettingCheck } = {
 /**
  * A change or stored copy in today's words: the open or closed switch
  * decklists had before they could be turned off, as a console loaded before
- * then still sends it, reads as the decklists choice.
+ * then still sends it, reads as the decklists choice. Before registration
+ * was a setting of its own, taking lists was what opened it, so a copy or
+ * change that takes them and says nothing of registration turns it on.
  */
 function withoutLegacy(body: object): Record<string, unknown> {
   const { decklistsOpen, ...rest } = body as Record<string, unknown>;
-  return typeof decklistsOpen === 'boolean' && rest.decklists === undefined
-    ? { ...rest, decklists: decklistsOpen ? 'open' : 'closed' }
-    : { ...rest, ...(decklistsOpen === undefined ? {} : { decklistsOpen }) };
+  const now: Record<string, unknown> =
+    typeof decklistsOpen === 'boolean' && rest.decklists === undefined
+      ? { ...rest, decklists: decklistsOpen ? 'open' : 'closed' }
+      : { ...rest, ...(decklistsOpen === undefined ? {} : { decklistsOpen }) };
+  return now.registration === undefined && (now.decklists ?? 'off') !== 'off' ? { ...now, registration: true } : now;
 }
 
 /** A settings change out of a request body, laid over `current`; null when any field is malformed. */
@@ -247,10 +259,16 @@ export function sanctionedSettingsError(
  * Events stored while sharing lists was a switch of its own (`openLists`)
  * keep showing what they showed once their lists locked: shared lists read
  * as Open, the rest as Closed. One not `started` takes the choice it has.
+ * An event stored before registration was a setting of its own registers
+ * players as it did: only while it takes lists (see withoutLegacy). With
+ * registration off no lists are taken, so decklists read as off.
  */
 export function storedSettings(stored: Record<string, unknown>, started: boolean): TournamentSettings {
   const { decklistsOpen: _old, openLists, ...current } = withoutLegacy(stored);
   const settings = { ...DEFAULT_SETTINGS, ...(current as Partial<TournamentSettings>) };
+  if (current.registration !== true) {
+    return { ...settings, registration: false, decklists: 'off' };
+  }
   return typeof openLists === 'boolean' && started && settings.decklists !== 'off'
     ? { ...settings, decklists: openLists ? 'open' : 'closed' }
     : settings;
@@ -266,12 +284,15 @@ export function decklistsLocked(event: { tournament: Tournament }): boolean {
   return hasStarted(event.tournament);
 }
 
-/** Whether players can send a decklist now: the event takes lists, and round 1 is not yet paired. */
-export function decklistsOpen(event: {
-  settings: Pick<TournamentSettings, 'decklists'>;
+/**
+ * Whether players can register, change or withdraw now: online registration
+ * is on, and round 1 is not yet paired at an event that has not ended.
+ */
+export function canRegister(event: {
+  settings: Pick<TournamentSettings, 'registration' | 'finished'>;
   tournament: Tournament;
 }): boolean {
-  return event.settings.decklists !== 'off' && !decklistsLocked(event);
+  return event.settings.registration && !event.settings.finished && !decklistsLocked(event);
 }
 
 /**

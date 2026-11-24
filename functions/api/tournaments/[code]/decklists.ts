@@ -27,7 +27,9 @@
  * allowance is spent.
  * PUT — registers or changes a registration while submission is open:
  * { profile, mode, deck, was?, token?, localTime? }. A paper registration
- * sends no deck. `was` renames an unsanctioned registration from the names
+ * sends no deck. An event that takes no lists (Decklists off) registers
+ * with none, kept as a paper one nobody is asked for, and refuses a deck.
+ * With online registration off, nobody registers here. `was` renames an unsanctioned registration from the names
  * it had. A registrant who is not on the event's player list is added to it
  * (a Swiss event still open, with room under its cap), marked as added from a
  * list; the answer says whether they were added, matched or not added, and
@@ -48,13 +50,13 @@ import { openMarks, standing } from '../../../../shared/tournament/checkins.js';
 import { decklistOpenFor, enteredLate } from '../../../../shared/tournament/lateLists.js';
 import { MAX_DECKLIST_CHARS, parseDecklist } from '../../../../shared/tournament/decklist.js';
 import { decklistMatcher, fullNameKey, nameKey, similarlyNamed } from '../../../../shared/tournament/identify.js';
-import { mayBeMinor, mayBeUnder13 } from '../../../../shared/accounts/age.js';
+import { mayBeUnder13 } from '../../../../shared/accounts/age.js';
 import { birthYear, yearOnlyBirthDate } from '../../../../shared/tournament/divisions.js';
 import { isPopId, type PlayerProfile, readProfile } from '../../../../shared/tournament/profile.js';
 import {
+  canRegister,
   type Decklist,
   decklistsLocked,
-  decklistsOpen,
   type DeckMode,
   decksEnabled,
   isSanctioned,
@@ -80,7 +82,6 @@ import { archetypeRules } from '../../../lib/tournaments/archetypeRules.js';
 import { admitTry, clearFailures, forgive, LOCKED_OUT } from '../../../lib/tournaments/attempts.js';
 import { publishAfter } from '../../../lib/tournaments/publish.js';
 import {
-  FULL,
   fullRefusal,
   isFull,
   type Kept,
@@ -240,23 +241,32 @@ function windowFor(row: TournamentRow): ListWindow {
     : BEFORE_ROUND_1;
 }
 
+/** Whether the stored settings choose to take lists (an event stored before decklists could be turned off keeps its switch). */
+const LISTS_CHOSEN =
+  "coalesce(json_extract(settings, '$.decklists'), " +
+  "CASE WHEN json_type(settings, '$.decklistsOpen') IS NOT NULL THEN 'closed' END) IN ('open', 'closed')";
+
 /**
- * A write's guard that the event still takes lists as the write lands:
- * decklists open or closed (an event stored before decklists could be turned
- * off keeps its switch, see storedSettings) and no round paired since the request
- * read the event (none at all outside a late entrant's window, which also
- * closes as the event ends). Lists turned off or a round paired meanwhile
- * refuses the write all the same.
+ * A write's guard that the event still registers players as the write lands,
+ * read from the stored settings as storedSettings reads them: registration
+ * on (one stored before it was a setting has it on while it takes lists),
+ * lists taken when the write carries one, the event not ended, and no round
+ * paired since the request read the event (none at all outside a late
+ * entrant's window). Registration or lists turned off, the event ended, or a
+ * round paired meanwhile, refuses the write all the same.
  */
 const STILL_TAKING =
   'EXISTS (SELECT 1 FROM tournaments WHERE code = ? AND ' +
-  "coalesce(json_extract(settings, '$.decklists'), " +
-  "CASE WHEN json_type(settings, '$.decklistsOpen') IS NOT NULL THEN 'closed' END) IN ('open', 'closed') " +
-  "AND (? = 0 OR coalesce(json_extract(settings, '$.finished'), 0) = 0) " +
+  `coalesce(json_extract(settings, '$.registration'), ${LISTS_CHOSEN}) AND (? = 0 OR ${LISTS_CHOSEN}) ` +
+  "AND coalesce(json_extract(settings, '$.finished'), 0) = 0 " +
   `AND (? = 1 OR json_extract(state, '$.startedAt') IS NULL) AND (${pairedRounds('state')}) = ?)`;
 
-/** STILL_TAKING's values after the event's code. */
-const windowValues = (window: ListWindow) => [window.late ? 1 : 0, window.late ? 1 : 0, window.paired];
+/** STILL_TAKING's values after the event's code; `list` when the write carries one, as a late entrant's always does. */
+const windowValues = (window: ListWindow, list = false) => [
+  list || window.late ? 1 : 0,
+  window.late ? 1 : 0,
+  window.paired
+];
 
 /** No account: a write names none, and no list's account matches it. */
 const NO_ACCOUNT: ListAccount = { id: '', sql: 'NULL', values: [] };
@@ -464,8 +474,8 @@ interface Submission {
 /** A player under 13 registers with staff (see shared/accounts/age.ts): paper is no way round it online. */
 const UNDER_13 = msg('Players under 13 register with staff at the event.');
 const LOCKED = msg('This list was sent from another device. Send it from that device, or ask staff to reset it.');
-/** A list from a player who may be under 18, once the event is over: its cards were deleted as it ended (store.ts). */
-const OVER_FOR_MINORS = msg('This event is over.');
+/** Any registration once the event is over, ended before round 1 or after: a minor's cards were deleted as it ended (store.ts). */
+const OVER = msg('This event is over.');
 
 /** What follows a submission the guard let in, once its store has run: whether it landed. */
 interface Admitted {
@@ -498,9 +508,6 @@ async function guardSubmission(
   if (mayBeUnder13(year, new Date(now))) {
     return jsonError(UNDER_13, 403);
   }
-  if (row.settings.finished && mayBeMinor(year, new Date(now))) {
-    return jsonError(OVER_FOR_MINORS, 403);
-  }
   const listed = row.tournament.players.some(candidate => candidate.id === profile.popId);
   // A correction proves the Player ID with the year it corrects.
   const right = listed && provesId(row, profile.popId, wasYear ?? String(year ?? ''), null);
@@ -530,22 +537,26 @@ function readWas(value: unknown, sanctioned: boolean): Details | null {
     : null;
 }
 
-/** The list as the body gives it: pasted, or none for a paper one. */
-function readDeck(value: Record<string, unknown>): { mode: DeckMode; deck: string } | null {
+/**
+ * The list as the body gives it: pasted, or none for a paper one. An event
+ * that takes no `lists` keeps a registration without one as a paper one;
+ * a pasted one is refused there (see onRequestPut).
+ */
+function readDeck(value: Record<string, unknown>, lists: boolean): { mode: DeckMode; deck: string } | null {
   const mode = deckMode(value.mode ?? 'digital');
   const deck = typeof value.deck === 'string' ? value.deck.trim() : '';
-  if (mode === 'paper') {
-    return { mode, deck: '' };
+  if (mode === 'paper' || (!lists && !deck)) {
+    return { mode: 'paper', deck: '' };
   }
   return mode && deck && deck.length <= MAX_DECKLIST_CHARS ? { mode, deck } : null;
 }
 
-/** The submission in a request body, or why it is not one. */
-async function readSubmission(request: Request, sanctioned: boolean): Promise<Submission | string> {
+/** The submission in a request body, to an event that takes `lists` or not, or why it is not one. */
+async function readSubmission(request: Request, sanctioned: boolean, lists: boolean): Promise<Submission | string> {
   const value = (await readJsonObject(request, MAX_DECKLIST_CHARS * 4 + 1024)) ?? {};
   const read = readProfile(value.profile, sanctioned);
   const profile = read && { ...read, birthDate: yearOnlyBirthDate(read.birthDate) };
-  const list = readDeck(value);
+  const list = readDeck(value, lists);
   if (!profile) {
     return sanctioned ? msg('Fill in your Player ID, name and birth year') : msg('Fill in your name');
   }
@@ -618,13 +629,10 @@ async function store(
   const key = identityKey(profile, sanctioned);
   const held = typeof submission.held === 'string' && submission.held ? await sha256(submission.held) : '';
   const account = matchingAccount(access, profile) ?? NO_ACCOUNT;
-  // A list from a player who may be under 18 lands only while the event is not over, as it stands when the write does.
-  const minor = mayBeMinor(birthYear(profile.birthDate), new Date(now)) ? 1 : 0;
   const insert = access.db
     .prepare(
       `INSERT INTO decklists (code, user_id, pop_id, first_name, last_name, birth_date, deck, deck_mode, archetype, submitted_at, owner_token, account) SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ${account.sql} ` +
-        `WHERE (? = 0 OR NOT EXISTS (SELECT 1 FROM tournaments WHERE code = ? AND coalesce(json_extract(settings, '$.finished'), 0) = 1)) ` +
-        `AND ${STILL_TAKING} ` +
+        `WHERE ${STILL_TAKING} ` +
         `ON CONFLICT (code, user_id) DO UPDATE SET ` +
         `pop_id = excluded.pop_id, first_name = excluded.first_name, last_name = excluded.last_name, ` +
         `birth_date = excluded.birth_date, deck = excluded.deck, deck_mode = excluded.deck_mode, ` +
@@ -645,10 +653,8 @@ async function store(
       now,
       tokenHash,
       ...account.values,
-      minor,
       access.row.code,
-      access.row.code,
-      ...windowValues(window),
+      ...windowValues(window, sendsList(access, submission)),
       held,
       proved ? 1 : 0,
       sanctioned ? 1 : 0,
@@ -702,15 +708,21 @@ async function rename(
  * them, marked as added from their list, while it has room under its cap. A
  * TOM event's roster is TOM's, and a closed event takes nobody new. A rename
  * finds them under the names they had: the list's rename to the new ones is
- * the keeping's (see keptChanges).
+ * the keeping's (see keptChanges). Someone new is judged against
+ * registration as it stands too, which may have closed since their list
+ * landed: then they are not let in (see submit). A player already on the
+ * event keeps in step with the list that landed while it was open.
  */
 function addition(
   row: TournamentRow,
   submission: Submission
-): { registration: 'full' } | { registration: Registration; added?: Changes } {
+): { registration: 'full' } | { registration: 'closed' } | { registration: Registration; added?: Changes } {
   const { profile, was } = submission;
   if (rosterPlayer(row, was ?? profile) !== undefined || rosterPlayer(row, profile) !== undefined) {
     return { registration: 'matched' };
+  }
+  if (!decklistOpenFor(row, null)) {
+    return { registration: 'closed' };
   }
   // At an unsanctioned event a shared full name is no one player's, so the submitter is not new.
   if (!isSanctioned(row) && nameIsShared(row, profile)) {
@@ -747,8 +759,8 @@ async function enter(context: Context<'code'>, access: Access, submission: Submi
   let refusal: string | null = null;
   const outcome = await mutate(access.db, access.row, current => {
     const entered = addition(current, submission);
-    if (entered.registration === 'full') {
-      return FULL;
+    if (entered.registration === 'full' || entered.registration === 'closed') {
+      return entered.registration;
     }
     const { added } = entered;
     ({ registration } = entered);
@@ -761,7 +773,7 @@ async function enter(context: Context<'code'>, access: Access, submission: Submi
     return typeof keeping === 'string' ? (added ?? keeping) : { ...added, ...keeping };
   });
   if ('error' in outcome) {
-    return outcome.error === FULL ? 'full' : outcome.error;
+    return outcome.error;
   }
   if (outcome.row.version !== access.row.version) {
     await publishAfter(context, outcome.row);
@@ -779,12 +791,21 @@ const eventLimiter = createRateLimiter({ windowMs: 10 * 60 * 1000, maxRequests: 
 const addressLimiter = createRateLimiter({ windowMs: 10 * 60 * 1000, maxRequests: 400 });
 
 /**
- * Why a list cannot be sent or withdrawn now: the event takes none, or the
- * player's list locked (as round 1 paired, or for a late entrant the round
- * after they joined).
+ * Why a registration cannot be sent or withdrawn now: the event is over, it
+ * registers nobody online, registration closed as round 1 paired at one that
+ * takes no lists, or the player's list locked (as round 1 paired, or for a
+ * late entrant the round after they joined).
  */
 function notTakingText(row: TournamentRow, playerId: string | null = null): string {
-  return row.settings.decklists === 'off' ? msg('This event does not take decklists') : lockedText(row, playerId);
+  if (row.settings.finished) {
+    return OVER;
+  }
+  if (!row.settings.registration) {
+    return msg('Register with the organizer.');
+  }
+  return row.settings.decklists === 'off'
+    ? msg('Registration closed when round 1 was paired.')
+    : lockedText(row, playerId);
 }
 
 const lockedText = (row: TournamentRow, playerId: string | null): string =>
@@ -793,6 +814,7 @@ const lockedText = (row: TournamentRow, playerId: string | null): string =>
 const notTaking = (row: TournamentRow, playerId: string | null = null): Response =>
   jsonError(notTakingText(row, playerId), 403);
 
+const NO_LISTS = msg('This event does not take decklists');
 const LOCKED_AFTER_ROUND_1 = msg('Decklists are locked once round 1 is paired');
 const LOCKED_AFTER_JOINING = msg('Decklists are locked once the round after you joined is paired');
 
@@ -841,25 +863,90 @@ async function beforeStore(access: Access, submission: Submission, window: ListW
   return null;
 }
 
-/** Takes back a list that landed for a registration the event then had no room for. */
-const unstore = (access: Access, profile: PlayerProfile) =>
-  access.db
-    .prepare('DELETE FROM decklists WHERE code = ? AND user_id = ?')
-    .bind(access.row.code, identityKey(profile, isSanctioned(access.row)))
-    .run();
+/**
+ * The list already in under the submission's details, read just before the
+ * write: what Decklists off keeps (see asStored), and what taking the write
+ * back restores for a submitter not on the event's list (see unstore).
+ * Undefined where neither needs it.
+ */
+const listBefore = (access: Access, read: Submission): Promise<DecklistRow | null | undefined> =>
+  access.row.settings.decklists === 'off' || submitter(access.row, read) === null
+    ? listUnder(access, identityKey(read.profile, isSanctioned(access.row)))
+    : Promise.resolve(undefined);
+
+/**
+ * Takes back what this write stored for a newcomer the event then had no
+ * room for, or stopped registering: a list that was not there before goes,
+ * and one it replaced comes back as it was. Either only while the row is
+ * still this write's, under its token and time.
+ */
+function unstore(
+  access: Access,
+  profile: PlayerProfile,
+  write: { tokenHash: string; now: number; listed?: DecklistRow | null }
+) {
+  const mine = 'WHERE code = ? AND user_id = ? AND owner_token = ? AND submitted_at = ?';
+  const values = [access.row.code, identityKey(profile, isSanctioned(access.row)), write.tokenHash, write.now];
+  const was = write.listed;
+  const statement = was
+    ? access.db
+        .prepare(
+          'UPDATE decklists SET pop_id = ?, first_name = ?, last_name = ?, birth_date = ?, deck = ?, deck_mode = ?, ' +
+            `archetype = ?, submitted_at = ?, owner_token = ?, account = ? ${mine}`
+        )
+        .bind(
+          was.pop_id,
+          was.first_name,
+          was.last_name,
+          was.birth_date,
+          was.deck,
+          was.deck_mode,
+          was.archetype,
+          was.submitted_at,
+          was.owner_token,
+          was.account,
+          ...values
+        )
+    : access.db.prepare(`DELETE FROM decklists ${mine}`).bind(...values);
+  return statement.run();
+}
+
+/**
+ * The submission as it is stored. With Decklists off, a registration keeps
+ * the list already in under its details as it was (its mode, cards and
+ * archetype): turning lists off stops new ones, and takes back none sent.
+ * Else its list's archetype is read from its cards (see
+ * shared/tournament/archetypes.ts); with archetypes off, none is kept.
+ */
+async function asStored(access: Access, read: Submission, listed: DecklistRow | null | undefined): Promise<Submission> {
+  if (access.row.settings.decklists === 'off') {
+    if (!listed) {
+      return read;
+    }
+    const { mode, deck, archetype } = fromRow(listed);
+    return { ...read, mode, deck, archetype };
+  }
+  const digital = decksEnabled(access.row.settings) && read.mode === 'digital';
+  return { ...read, archetype: digital ? archetypeOfList(read.deck, await archetypeRules()) : null };
+}
+
+/** Whether the write sends a list of its own: one kept as it was (see asStored) is not sent again. */
+const sendsList = (access: Access, submission: Submission) =>
+  submission.deck !== '' && access.row.settings.decklists !== 'off';
 
 /** Stores a submission the guards let in, and registers its player: the answer, or the refusal. */
 async function submit(
   context: Context<'code'>,
   access: Access,
   submission: Submission,
-  window: ListWindow
+  before: { window: ListWindow; listed: DecklistRow | null | undefined }
 ): Promise<Response> {
   const now = Date.now();
   // The device's own token stays its token, so a retry after a lost answer still owns the list.
   const token = deviceToken(submission.held) ?? crypto.randomUUID();
-  if (!(await store(access, submission, { tokenHash: await sha256(token), now, window }))) {
-    return refusedWrite(access, submitter(access.row, submission));
+  const write = { tokenHash: await sha256(token), now };
+  if (!(await store(access, submission, { ...write, window: before.window }))) {
+    return refusedWrite(access, submitter(access.row, submission), sendsList(access, submission));
   }
   const { profile, deck, mode, archetype, was, wasYear, localTime } = submission;
   const kept = await enter(context, access, submission, {
@@ -870,9 +957,9 @@ async function submit(
     archetype,
     localTime
   });
-  if (kept === 'full') {
-    await unstore(access, profile);
-    return fullRefusal();
+  if (kept === 'full' || kept === 'closed') {
+    await unstore(access, profile, { ...write, listed: before.listed });
+    return kept === 'full' ? fullRefusal() : refusedWrite(access);
   }
   if (typeof kept === 'string') {
     return jsonError(kept, 409);
@@ -889,13 +976,17 @@ export async function onRequestPut(context: Context<'code'>): Promise<Response> 
   if (access instanceof Response) {
     return access;
   }
-  const read = await readSubmission(context.request, isSanctioned(access.row));
+  const lists = access.row.settings.decklists !== 'off';
+  const read = await readSubmission(context.request, isSanctioned(access.row), lists);
   if (typeof read === 'string') {
-    return decklistsOpen(access.row) ? jsonError(read, 400) : notTaking(access.row);
+    return canRegister(access.row) ? jsonError(read, 400) : notTaking(access.row);
   }
   const sender = submitter(access.row, read);
   if (!decklistOpenFor(access.row, sender)) {
     return notTaking(access.row, sender);
+  }
+  if (read.deck && !lists) {
+    return jsonError(NO_LISTS, 403);
   }
   const window = windowFor(access.row);
   const guard = await guardSubmission(access, read.profile, read.wasYear);
@@ -907,13 +998,8 @@ export async function onRequestPut(context: Context<'code'>): Promise<Response> 
     await guard.stored(false);
     return refused;
   }
-  // The list's archetype is read from its cards (see shared/tournament/archetypes.ts); with archetypes off, none is kept.
-  const archetype =
-    decksEnabled(access.row.settings) && read.mode === 'digital'
-      ? archetypeOfList(read.deck, await archetypeRules())
-      : null;
-  const submission = { ...read, archetype };
-  const answer = await submit(context, access, submission, window);
+  const listed = await listBefore(access, read);
+  const answer = await submit(context, access, await asStored(access, read, listed), { window, listed });
   await guard.stored(answer.ok);
   return answer;
 }
@@ -955,7 +1041,7 @@ export async function onRequestDelete(context: Context<'code'>): Promise<Respons
     return access;
   }
   // A late entrant's window is for sending a list, not for leaving the event: withdrawing ends with round 1.
-  if (!decklistsOpen(access.row)) {
+  if (!canRegister(access.row)) {
     return notTaking(access.row);
   }
   const details = detailsFrom(context.request, isSanctioned(access.row));
@@ -970,7 +1056,7 @@ export async function onRequestDelete(context: Context<'code'>): Promise<Respons
     return allowed;
   }
   const outcome = await mutate(access.db, access.row, current =>
-    decklistsOpen(current) ? withdrawnChanges(current, details, null) : notTakingText(current)
+    canRegister(current) ? withdrawnChanges(current, details, null) : notTakingText(current)
   );
   if ('error' in outcome) {
     return jsonError(outcome.error, 403);
@@ -981,11 +1067,18 @@ export async function onRequestDelete(context: Context<'code'>): Promise<Respons
   return noContent();
 }
 
-/** Why a write to a list did not land: the event stopped taking lists meanwhile, or the list is not the sender's. */
-async function refusedWrite(access: Access, playerId: string | null = null): Promise<Response> {
+/**
+ * Why a write to a registration did not land: the event stopped taking them
+ * meanwhile, or lists when the write carried a `list`, or the registration
+ * is not the sender's.
+ */
+async function refusedWrite(access: Access, playerId: string | null = null, list = false): Promise<Response> {
   const now = await loadTournament(access.db, access.row.code);
   if (now && !decklistOpenFor(now, playerId)) {
     return notTaking(now, playerId);
+  }
+  if (now && list && now.settings.decklists === 'off') {
+    return jsonError(NO_LISTS, 403);
   }
   return isSanctioned(access.row) ? jsonError(WRONG_YEAR, 403) : jsonError(LOCKED, 409);
 }
