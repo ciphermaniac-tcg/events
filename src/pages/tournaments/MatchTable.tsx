@@ -310,7 +310,6 @@ export function MatchTable(props: MatchTableProps) {
                     <tr
                       classList={{
                         'is-me': mine(match),
-                        'is-confirming': isConfirming(match),
                         'is-openable': Boolean(props.onRow) && match.p2 !== null
                       }}
                       onClick={event =>
