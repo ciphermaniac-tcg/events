@@ -373,12 +373,6 @@ export const RESULT_WORDS: Partial<Record<Outcome, string>> = {
   loss: msg('Missed round')
 };
 
-export const STATUS_LABELS: Record<Round['status'], string> = {
-  paired: msg('Paired'),
-  started: msg('In progress'),
-  finished: msg('Complete')
-};
-
 /** The outcome shown for a match: TOM's, or a pending one entered on the site. */
 export function shownOutcome(
   match: Match,

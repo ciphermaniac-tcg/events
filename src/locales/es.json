@@ -194,7 +194,6 @@
   "Code": "Código",
   "Coming up": "Próximos",
   "Community organizer": "Organizador comunitario",
-  "Complete": "Terminada",
   "Complete your profile first": "Primero completa tu perfil",
   "Conclude": "Cerrar",
   "Conclude pod": "Cerrar pod",
@@ -707,7 +706,6 @@
   "Pair anyway": "Emparejar igualmente",
   "Pair round {n}": "Emparejar ronda {n}",
   "Pair {stage}": "Emparejar {stage}",
-  "Paired": "Emparejada",
   "Paired in TOM": "Emparejada en TOM",
   "Pairings": "Emparejamientos",
   "Pairings open once round 1 starts.": "Los emparejamientos se abren cuando empiece la ronda 1.",
@@ -1439,7 +1437,6 @@
     "one": "{shown} de {n} jugador",
     "other": "{shown} de {n} jugadores"
   },
-  "{status} · {done} of {total} in": "{status} · {done} de {total} con resultado",
   "{store} settings": "Configuración de {store}",
   "{store} · League {id}": "{store} · Liga {id}",
   "{time} left": "quedan {time}",

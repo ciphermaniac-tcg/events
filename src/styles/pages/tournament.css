@@ -1305,9 +1305,6 @@ body:has(.tm-sheet) {
   .tm-matches:not(.has-extra) .data tr {
     grid-template-columns: 32px minmax(0, 1fr) auto;
   }
-  .tm-matches .data td.tm-status-col {
-    grid-area: extra;
-  }
 }
 
 /* ---------- Players ---------- */

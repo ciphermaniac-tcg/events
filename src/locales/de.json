@@ -184,7 +184,6 @@
   "Code": "Code",
   "Coming up": "Demnächst",
   "Community organizer": "Community-Veranstalter",
-  "Complete": "Abgeschlossen",
   "Complete your profile first": "Vervollständige zuerst dein Profil",
   "Conclude": "Beenden",
   "Conclude pod": "Gruppe beenden",
@@ -676,7 +675,6 @@
   "Page {n} of {total}": "Seite {n} von {total}",
   "Pair round {n}": "Runde {n} auslosen",
   "Pair {stage}": "{stage} auslosen",
-  "Paired": "Ausgelost",
   "Paired in TOM": "In TOM ausgelost",
   "Pairings": "Paarungen",
   "Pairings open once round 1 starts.": "Paarungen gibt es, sobald Runde 1 beginnt.",
@@ -1384,7 +1382,6 @@
     "one": "{shown} von {n} Spieler",
     "other": "{shown} von {n} Spielern"
   },
-  "{status} · {done} of {total} in": "{status} · {done} von {total} eingetragen",
   "{store} settings": "Einstellungen für {store}",
   "{store} · League {id}": "{store} · Liga {id}",
   "{time} left": "noch {time}",
