@@ -51,6 +51,18 @@ test('the setup form’s empty fields take the white field fill, not a read-only
   await expect(page.getByLabel('Username')).toHaveCSS('background-color', 'rgb(255, 255, 255)');
 });
 
+test('a new account’s birth date leads, and the username and name follow as one optional group', async ({ page }) => {
+  await mockAgeCheck(page, 200, { next: '/history' });
+  await page.goto('/welcome');
+  const optional = page.getByRole('group', { name: 'Optional' });
+  await expect(optional.getByLabel('Username')).toBeVisible();
+  await expect(optional.getByLabel('Last name')).toBeVisible();
+  await expect(optional.getByLabel('Birth date')).toHaveCount(0);
+  const date = await page.getByLabel('Birth date').boundingBox();
+  const handle = await optional.getByLabel('Username').boundingBox();
+  expect(date?.y ?? Infinity).toBeLessThan(handle?.y ?? 0);
+});
+
 test('a minor is told accounts are for adults, with nothing left to try again', async ({ page }) => {
   await mockAgeCheck(page, 403, { error: 'Ciphermaniac accounts are for people 16 and older.', minor: true });
   await page.goto('/welcome');

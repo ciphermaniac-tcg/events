@@ -12,6 +12,14 @@
 .tm-welcome-form .tm-field > :not(.tm-label) {
   grid-column: 2;
 }
+/* A new account's optional fields, together under one word. */
+.tm-welcome-optional {
+  display: grid;
+  gap: var(--space-3);
+}
+.tm-welcome-optional p {
+  margin: 0;
+}
 .tm-welcome-handle {
   max-width: 280px;
 }
