@@ -138,7 +138,7 @@ function CommunityStart(props: { quiet: boolean }) {
         disabled={action.busy()}
         onClick={() => void start()}
       >
-        {t('Community organizer')}
+        {t('Start organizing')}
       </button>
       <ErrorLine message={action.error()} />
     </span>
