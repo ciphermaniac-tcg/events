@@ -1873,7 +1873,7 @@ test('900px and under the sheet asks before it changes or clears a result that s
 test('on a phone the tabs sit along the bottom, and the round and its clock stay pinned @mobileOnly', async ({
   page
 }) => {
-  await mockConsole(page, partlyPlayed(8, 0, 2), settingsOf({}));
+  await mockConsole(page, partlyPlayed(8, 1, 2), settingsOf({}));
   await expect(page.locator('.tm-console > .tabs')).toBeHidden();
   // Drawn as the rest of the system is, whatever the bar's own styles say.
   await expect(page.locator('.tm-tabbar svg').first()).toHaveCSS('stroke-width', '1.5px');

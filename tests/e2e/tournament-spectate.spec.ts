@@ -260,6 +260,19 @@ test('In progress with a search that finds nobody says no tables match, not that
   await expect(page.locator('.tm-matches tbody tr')).toHaveText(['No tables match.']);
 });
 
+test('a finished event offers no In progress filter, and a lone round no round picker', async ({ page }) => {
+  const pod = VIEW.tournament.pods[0]!;
+  await mockApi(page, {
+    ...VIEW,
+    settings: { ...VIEW.settings, finished: true },
+    tournament: { ...VIEW.tournament, pods: [{ ...pod, rounds: pod.rounds.slice(0, 1) }] }
+  });
+  await page.goto(`/t/${CODE}?tab=pairings`);
+  await expect(page.locator('.tm-matches tbody tr').first()).toBeVisible();
+  await expect(page.getByRole('radio', { name: 'In progress' })).toHaveCount(0);
+  await expect(page.getByRole('combobox', { name: 'Round' })).toHaveCount(0);
+});
+
 test('a stream bar is sized for a broadcast inside title-safe, and a producer can scale it', async ({ page }) => {
   await page.setViewportSize({ width: 1920, height: 1080 });
   await mockApi(page);

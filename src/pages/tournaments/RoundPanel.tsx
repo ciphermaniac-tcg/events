@@ -424,6 +424,8 @@ interface RoundBarProps {
   waiting: boolean;
   nothingReported: boolean;
   openOnly: boolean;
+  /** Whether In progress can narrow anything: a Swiss round, shown as a table, of an event still running. */
+  filterable: boolean;
   /** The Table / Bracket switch, once the pod has a top cut to draw. */
   views?: JSX.Element;
   /** The open tables whose report staff can take as it is, accepted at once (see AcceptReports). */
@@ -459,7 +461,9 @@ function RoundBar(props: RoundBarProps) {
           <DeleteRound state={props.state} pod={props.pod} round={props.round} />
         </Show>
       </span>
-      <ShowTables openOnly={props.openOnly} open={props.open} onOpenOnly={value => props.onOpenOnly(value)} />
+      <Show when={props.filterable}>
+        <ShowTables openOnly={props.openOnly} open={props.open} onOpenOnly={value => props.onOpenOnly(value)} />
+      </Show>
     </div>
   );
 }
@@ -877,7 +881,7 @@ export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod
   );
   createOnlineRetry(() => props.state, entry);
   const [query, setQuery] = createSignal('');
-  const [openOnly, setOpenOnly] = createSignal(false);
+  const [openChosen, setOpenOnly] = createSignal(false);
   let filterInput: HTMLInputElement | undefined;
   const round = createMemo(() => props.pod.rounds.find(r => r.number === picked()) ?? latest());
   // From the player list, which a result leaves as it was (see share.ts): a result draws no name again.
@@ -887,6 +891,8 @@ export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod
   // Results are entered in the table, so the bracket is only ever a look at the cut.
   const [matchView, setMatchView] = createSignal<MatchView>('table');
   const asBracket = () => cut() && matchView() === 'bracket';
+  const filterable = () => !ended() && !asBracket() && round()?.kind !== 'elimination';
+  const openOnly = () => openChosen() && filterable();
   const waiting = createMemo(() =>
     tom() || ended() || latest()?.kind !== 'swiss' ? [] : unseated(props.manage.tournament, props.pod)
   );
@@ -1074,6 +1080,7 @@ export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod
                 waiting={waiting().length > 0}
                 nothingReported={counts().nothingReported}
                 openOnly={openOnly()}
+                filterable={filterable()}
                 onOpenOnly={setOpenOnly}
                 plain={plain()}
                 names={names()}
