@@ -302,7 +302,8 @@ test('any other Player ID registers, with a pasted list, and the Registered card
   await page.getByRole('textbox', { name: 'Decklist' }).fill('60 Basic {G} Energy SVE 1');
   const hero = page.locator('.tm-hero');
   await expect(hero).toContainText('4 players');
-  await register.click();
+  // Cmd or Ctrl and Enter in the box sends it, as Register does.
+  await page.getByRole('textbox', { name: 'Decklist' }).press('ControlOrMeta+Enter');
   await expect(page.getByRole('status')).toHaveText('You’re registered.');
   // The count under the event's name has them in it.
   await expect(hero).toContainText('5 players');

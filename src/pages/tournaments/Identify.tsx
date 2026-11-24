@@ -115,12 +115,19 @@ function ClaimForm(props: IdentifyProps) {
               class='tm-input'
               autocomplete='family-name'
               autocapitalize='words'
+              required
               value={value()}
               onInput={e => setValue(e.currentTarget.value)}
             />
           }
         >
-          <PlayerIdInput id={`${props.idPrefix}-id`} ref={el => focusOpening(el)} value={value()} onValue={setValue} />
+          <PlayerIdInput
+            id={`${props.idPrefix}-id`}
+            ref={el => focusOpening(el)}
+            required
+            value={value()}
+            onValue={setValue}
+          />
         </Show>
       </Field>
       <Show when={sanctioned()}>
@@ -140,11 +147,7 @@ function ClaimForm(props: IdentifyProps) {
           />
         </Field>
       </Show>
-      <button
-        type='submit'
-        class='btn btn-primary'
-        disabled={busy() || !value().trim() || (sanctioned() && year().length !== 4)}
-      >
+      <button type='submit' class='btn btn-primary' disabled={busy() || (sanctioned() && year().length !== 4)}>
         {props.submitLabel}
       </button>
       <ErrorLine message={error()} />
@@ -220,6 +223,7 @@ function LookupForm(props: IdentifyProps) {
           class='tm-input'
           autocomplete='family-name'
           autocapitalize='words'
+          required
           value={last()}
           onInput={event => {
             setLast(event.currentTarget.value);
@@ -246,7 +250,7 @@ function LookupForm(props: IdentifyProps) {
           />
         </Field>
       </Show>
-      <button type='submit' class='btn btn-primary' disabled={busy() || !last().trim()}>
+      <button type='submit' class='btn btn-primary' disabled={busy()}>
         {props.submitLabel}
       </button>
       <p class='muted tm-lookup-status' role='status'>

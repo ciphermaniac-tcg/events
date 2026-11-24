@@ -326,6 +326,9 @@ test('retrying a lost identify response restores reporting and remembers the rec
     return route.fulfill({ json: { key: keys[mary?.id ?? ''], view, reporter: true, reportToken: body.device } });
   });
   await page.goto(`/t/${CODE}`);
+  // Pressed with no name, the browser points at the field rather than the button waiting.
+  await page.getByRole('button', { name: 'Find my match' }).click();
+  await expect(page.getByLabel('Last name', { exact: true })).toBeFocused();
   await page.getByLabel('Last name', { exact: true }).fill('Jackson');
   await page.getByRole('button', { name: 'Find my match' }).click();
   await page.getByRole('button', { name: 'Show table' }).click();
@@ -607,19 +610,23 @@ test('sanctioned setup requires Play! Tools confirmation; local setup skips it @
   await page.getByRole('button', { name: 'Start an event' }).click();
   const create = page.getByRole('button', { name: 'Create event' });
   const confirmation = page.getByRole('checkbox', { name: 'I’ve created this event in Play! Tools' });
-  await expect(create).toBeDisabled();
+  // Left empty, the name is the browser's to point at, so Create does not wait on it.
+  await expect(create).toBeEnabled();
+  await create.click();
+  await expect(page.getByRole('textbox', { name: 'Event name' })).toBeFocused();
   await page.getByRole('textbox', { name: 'Event name' }).fill('Tuesday League');
   // A store that sanctions starts at a League Cup, which always is sanctioned.
   await expect(page.getByRole('combobox', { name: 'Event type', exact: true })).toHaveValue('cup');
   await expect(confirmation).not.toBeChecked();
-  await expect(create).toBeDisabled();
   await page.getByRole('combobox', { name: 'Event type', exact: true }).selectOption('local');
   await expect(create).toBeEnabled();
   await expect(confirmation).toHaveCount(0);
   const sanctioned = page.getByRole('checkbox', { name: 'Sanctioned', exact: true });
   await sanctioned.check();
   await expect(confirmation).not.toBeChecked();
-  await expect(create).toBeDisabled();
+  // Pressed unconfirmed, the browser points at the box.
+  await create.click();
+  await expect(confirmation).toBeFocused();
   const reason = page.locator('.tm-setup-foot').getByText('Confirm the event is in Play! Tools to create it');
   await expect(reason).toBeVisible();
   await expect(page.getByRole('link', { name: 'Play! Tools', exact: true })).toHaveAttribute(
@@ -630,14 +637,14 @@ test('sanctioned setup requires Play! Tools confirmation; local setup skips it @
     'href',
     'https://play-tools.pokemon.com/guide'
   );
-  // A programmatic submit must obey the same gate as the disabled button.
+  // A programmatic submit, which skips the browser's check, must obey the same gate.
   await page.locator('.tm-setup').evaluate(form => form.dispatchEvent(new Event('submit', { bubbles: true })));
   expect(submissions).toEqual([]);
   await confirmation.check();
   await expect(create).toBeEnabled();
   await expect(reason).toHaveCount(0);
   await confirmation.uncheck();
-  await expect(create).toBeDisabled();
+  await expect(reason).toBeVisible();
   await sanctioned.uncheck();
   await expect(confirmation).toHaveCount(0);
   await expect(create).toBeEnabled();
@@ -695,7 +702,8 @@ test('a TOM sanction ID shows an unchecked confirmation; an unsanctioned file sk
   const confirmation = page.getByRole('checkbox', { name: 'I’ve created this event in Play! Tools' });
   const create = page.getByRole('button', { name: 'Create event' });
   await expect(confirmation).not.toBeChecked();
-  await expect(create).toBeDisabled();
+  await create.click();
+  await expect(confirmation).toBeFocused();
   await confirmation.check();
   await expect(create).toBeEnabled();
   await page.getByRole('button', { name: 'Cancel', exact: true }).click();
