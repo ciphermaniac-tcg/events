@@ -10,7 +10,7 @@
  * load it the first time the bracket is asked for.
  */
 
-import { createMemo, For, Index, type JSX, Show } from 'solid-js';
+import { createEffect, createMemo, For, Index, type JSX, Show } from 'solid-js';
 import { cutPodsOf } from '../../../shared/tournament/rounds';
 import { type Pod, POD_LABELS, type Tournament } from '../../../shared/tournament/types';
 import type { PendingResult } from '../../../shared/tournament/view';
@@ -79,13 +79,14 @@ function Seat(props: BracketProps & { seat: BracketSeat }) {
 
 function MatchBox(props: BracketProps & { match: BracketMatch }) {
   const mine = () => props.me != null && (props.match.top.id === props.me || props.match.bottom.id === props.me);
-  const where = () => (props.match.table ? t('Table {n}', { n: props.match.table }) : t('Not paired yet'));
+  // A slot not paired yet stays blank: the drawing already shows who it waits on.
+  const where = () => (props.match.table ? t('Table {n}', { n: props.match.table }) : '');
   return (
     <div
       class='tm-bracket-match'
       classList={{ 'is-me': mine(), 'is-playing': props.match.playing, 'is-unconfirmed': props.match.unconfirmed }}
       role='group'
-      aria-label={where()}
+      aria-label={where() || undefined}
     >
       <div class='tm-bracket-meta'>
         <span>{where()}</span>
@@ -111,9 +112,37 @@ function pairsOf(matches: readonly BracketMatch[]): BracketMatch[][] {
   return pairs;
 }
 
-function BracketView(props: BracketProps & { class?: string }) {
+/**
+ * Scrolls a bracket wider than its box to its column `at`, or with none there
+ * to the latest round with a match paired, the one being played or just played.
+ */
+function showColumn(bracket: HTMLDivElement, at: number) {
+  const cols = [...bracket.querySelectorAll<HTMLElement>('.tm-bracket-col')];
+  const shown = cols[at] ?? cols.filter(col => col.querySelector('.tm-bracket-match[aria-label]')).at(-1);
+  const left = shown ? shown.offsetLeft - parseFloat(getComputedStyle(bracket).paddingLeft) : 0;
+  if (
+    shown &&
+    (left < bracket.scrollLeft || shown.offsetLeft + shown.offsetWidth > bracket.scrollLeft + bracket.clientWidth)
+  ) {
+    bracket.scrollTo({ left });
+  }
+}
+
+/** `column`: the round picked, as its column, which the bracket scrolls to once drawn and as it changes. */
+function BracketView(props: BracketProps & { class?: string; column?: number }) {
+  let box: HTMLDivElement | undefined;
+  createEffect(() => {
+    const at = props.column ?? -1;
+    requestAnimationFrame(() => box && showColumn(box, at));
+  });
   return (
-    <div class={`tm-bracket ${props.class ?? ''}`} tabindex='0' role='region' aria-label={t('Top cut bracket')}>
+    <div
+      ref={box}
+      class={`tm-bracket ${props.class ?? ''}`}
+      tabindex='0'
+      role='region'
+      aria-label={t('Top cut bracket')}
+    >
       <div class='tm-bracket-cols'>
         <For each={props.bracket.rounds}>
           {(round, i) => (
@@ -157,6 +186,8 @@ export function CutBracket(
     pod: Pod;
     pending: readonly PendingResult[];
     class?: string;
+    /** The round picked, by number, which the bracket opens on; else the latest paired. */
+    round?: number;
     /** Drawn instead when the cut's rounds do not make one bracket: the page's table. */
     fallback: JSX.Element;
   }
@@ -183,6 +214,9 @@ export function CutBracket(
               me={props.me}
               onPlayer={props.onPlayer}
               class={props.class}
+              column={entry.pod.rounds
+                .filter(round => round.kind === 'elimination')
+                .findIndex(round => round.number === props.round)}
             />
           </section>
         )}
