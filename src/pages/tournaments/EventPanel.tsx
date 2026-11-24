@@ -199,6 +199,20 @@ interface NumberField {
 const fits = (value: number, { min, max, step = 1 }: NumberField) =>
   value >= min && value <= max && Number.isInteger(Math.round((value / step) * 1e6) / 1e6);
 
+/** Why `value` does not fit `field`: out of its range, or finer than its step. */
+function rangeError(field: NumberField, value: number): string {
+  if (value < field.min || value > field.max) {
+    return t('Enter a number from {min} to {max}.', { min: field.min, max: field.max });
+  }
+  return field.step ? t('Use at most two decimal places.') : t('Enter a whole number.');
+}
+
+/** What a number field takes from its error: marked invalid, and described by the line under it. */
+const marked = (id: string, error: string | undefined) => ({
+  'aria-invalid': error ? true : undefined,
+  'aria-describedby': error ? `${id}-error` : undefined
+});
+
 /** The settings' number fields, with the ranges they take at this event. */
 function numberFields(manage: Manage, type: EventType): NumberField[] {
   const minutes = minuteRange(manage, type);
@@ -241,12 +255,11 @@ function createSettingsForm(state: ManageState, manage: () => Manage): SettingsF
       details.set('finalsRoundTime', savedInfo().finalsRoundTime, savedInfo());
     }
     const edits: Record<string, unknown> = { ...details.changes(savedInfo()), ...draft.changes(saved()) };
-    const out = numberFields(manage(), type).filter(field => {
-      const edit = edits[field.key];
-      return typeof edit === 'number' && !fits(edit, field);
-    });
     return Object.fromEntries(
-      out.map(field => [field.id, t('Enter a number from {min} to {max}.', { min: field.min, max: field.max })])
+      numberFields(manage(), type).flatMap(field => {
+        const edit = edits[field.key];
+        return typeof edit === 'number' && !fits(edit, field) ? [[field.id, rangeError(field, edit)]] : [];
+      })
     );
   }
   const [marks, setMarks] = createSignal<Record<string, string>>({});
@@ -345,7 +358,7 @@ function EventBox(props: { form: SettingsForm; manage: Manage }) {
           invalid={Boolean(props.form.rangeError('set-fee'))}
           onChange={fee => props.form.set('entryFee', fee)}
         />
-        <ErrorLine message={props.form.rangeError('set-fee')} />
+        <ErrorLine id='set-fee-error' message={props.form.rangeError('set-fee')} />
       </SettingRow>
       <SettingRow label={t('Player cap')} for='set-cap' note={capNote(value().playerCap, registered())}>
         <input
@@ -355,11 +368,11 @@ function EventBox(props: { form: SettingsForm; manage: Manage }) {
           inputMode='numeric'
           min={0}
           max={SETTINGS_LIMITS.playerCap}
-          aria-invalid={Boolean(props.form.rangeError('set-cap')) || undefined}
+          {...marked('set-cap', props.form.rangeError('set-cap'))}
           value={value().playerCap || ''}
           onInput={e => props.form.set('playerCap', Math.trunc(fieldNumber(e.currentTarget)))}
         />
-        <ErrorLine message={props.form.rangeError('set-cap')} />
+        <ErrorLine id='set-cap-error' message={props.form.rangeError('set-cap')} />
       </SettingRow>
       <SettingRow label={t('Event description')} for='set-details'>
         <textarea
@@ -431,11 +444,11 @@ function RoundRows(props: { form: SettingsForm; manage: Manage }) {
           required
           min={minutes().min}
           max={minutes().max}
-          aria-invalid={Boolean(props.form.rangeError('info-round')) || undefined}
+          {...marked('info-round', props.form.rangeError('info-round'))}
           value={props.form.info('roundTime')}
           onInput={e => props.form.setInfo('roundTime', Number(e.currentTarget.value))}
         />
-        <ErrorLine message={props.form.rangeError('info-round')} />
+        <ErrorLine id='info-round-error' message={props.form.rangeError('info-round')} />
       </SettingRow>
       <SettingRow label={t('Top cut round minutes')} for='info-finals'>
         <input
@@ -446,11 +459,11 @@ function RoundRows(props: { form: SettingsForm; manage: Manage }) {
           required
           min={minutes().min}
           max={minutes().max}
-          aria-invalid={Boolean(props.form.rangeError('info-finals')) || undefined}
+          {...marked('info-finals', props.form.rangeError('info-finals'))}
           value={props.form.info('finalsRoundTime')}
           onInput={e => props.form.setInfo('finalsRoundTime', Number(e.currentTarget.value))}
         />
-        <ErrorLine message={props.form.rangeError('info-finals')} />
+        <ErrorLine id='info-finals-error' message={props.form.rangeError('info-finals')} />
       </SettingRow>
     </>
   );

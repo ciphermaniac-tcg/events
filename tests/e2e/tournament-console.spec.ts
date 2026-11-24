@@ -1370,7 +1370,14 @@ test('a number left out of its range says the range under it and is not saved un
   await cap.fill('-4');
   await cap.press('Tab');
   await expect(cap).toHaveAttribute('aria-invalid', 'true');
-  await expect(page.getByText('Enter a number from 0 to 2048.')).toBeVisible();
+  await expect(cap).toHaveAccessibleDescription('Enter a number from 0 to 2048.');
+  // A part of a minute is inside the range, and asks for a whole number instead.
+  const minutes = page.getByLabel('Swiss round minutes');
+  await minutes.fill('45.5');
+  await minutes.press('Tab');
+  await expect(minutes).toHaveAccessibleDescription('Enter a whole number.');
+  await minutes.fill('45');
+  await minutes.press('Tab');
   // Another field left meanwhile does not send the one out of range either.
   await page.getByLabel('Event description').fill('Doors at nine');
   await page.getByLabel('Event description').blur();

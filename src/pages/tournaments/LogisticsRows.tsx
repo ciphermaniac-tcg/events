@@ -40,7 +40,7 @@ export function FeeField(props: {
   id: string;
   country: string;
   value: number;
-  /** Out of its range, as the form that holds it found it. */
+  /** Out of its range, as the form that holds it found it, said in the line `<id>-error`. */
   invalid?: boolean;
   onChange: (value: number) => void;
 }) {
@@ -60,6 +60,7 @@ export function FeeField(props: {
         step={0.01}
         max={SETTINGS_LIMITS.entryFee}
         aria-invalid={props.invalid || undefined}
+        aria-describedby={props.invalid ? `${props.id}-error` : undefined}
         value={props.value || ''}
         onInput={e => props.onChange(fieldNumber(e.currentTarget))}
       />
