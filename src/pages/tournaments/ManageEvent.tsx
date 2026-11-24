@@ -508,6 +508,13 @@ function Console(props: { state: ReturnType<typeof createManage>; manage: Manage
       const sent = await props.state.send(command);
       if (open && sent && (command.type === 'pairRound' || command.type === 'startTopCut')) {
         setTab('round');
+        // Focus follows to the new pairings, rather than falling to the page with the button pressed,
+        // once they are drawn: the panel's first draw may wait a moment on its code.
+        requestAnimationFrame(() => {
+          const panel = document.getElementById('console-panel');
+          panel?.setAttribute('tabindex', '-1');
+          panel?.focus();
+        });
       }
       return sent;
     }
