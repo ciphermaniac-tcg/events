@@ -55,7 +55,6 @@
   "Add players to start pairing.": "Ajoute des joueurs pour lancer les appariements.",
   "Add to event": "Ajouter au tournoi",
   "Add your Player ID": "Ajouter ton ID joueur",
-  "Added from list": "Ajouté via sa liste",
   "Address": "Adresse",
   "Adjust by up to an hour at a time": "Une heure maximum par ajustement",
   "Admin": "Admin",
@@ -416,7 +415,6 @@
   "Last checked {time}": "Dernière vérification : {time}",
   "Last imported {time}": "Dernier import : {time}",
   "Last name": "Nom",
-  "last {time}": "dernière : {time}",
   "Late": "Retardataire",
   "Layout": "Mise en page",
   "League Challenge": "Défi de Ligue",
@@ -442,7 +440,6 @@
   "Links to your public profile stop working": "Les liens vers ton profil public ne fonctionnent plus",
   "Loading": "Chargement",
   "Local": "Local",
-  "Locked after round 1": "Verrouillées après la ronde 1",
   "Look at the event again first": "Recharge d’abord le tournoi",
   "Look up": "Rechercher",
   "Look up by POP ID, email or account ID": "Cherche par ID joueur, e-mail ou ID de compte",
@@ -1212,10 +1209,6 @@
     "one": "{n} pull request acceptée",
     "other": "{n} pull requests acceptées"
   },
-  "{n} added from lists": {
-    "one": "{n} ajouté via sa liste",
-    "other": "{n} ajoutés via leur liste"
-  },
   "{n} approved": {
     "one": "{n} approuvée",
     "other": "{n} approuvées"
@@ -1296,10 +1289,6 @@
   "{n} upcoming": {
     "one": "{n} à venir",
     "other": "{n} à venir"
-  },
-  "{n} with problems": {
-    "one": "{n} à corriger",
-    "other": "{n} à corriger"
   },
   "{p1} v {p2}": "{p1} contre {p2}",
   "{place} in {division}": "{place} en {division}",
@@ -1488,7 +1477,6 @@
   "List": "Liste",
   "Copy list": "Copier la liste",
   "Read only. You’re not on this event’s staff.": "Lecture seule. Tu ne fais pas partie du staff de ce tournoi.",
-  "Re-read archetypes": "Recalculer les archétypes",
   "No lists changed.": "Aucune liste modifiée.",
   "Renamed {n} lists.": {
     "one": "{n} liste renommée.",
