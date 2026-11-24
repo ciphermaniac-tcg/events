@@ -206,7 +206,10 @@ test('a penalty note is recorded, edited and removed, and changes nothing else',
   await expect(form.getByLabel('Judge')).toHaveValue('u1');
 
   await form.getByRole('button', { name: 'Save note' }).click();
-  await expect(form.getByRole('alert')).toHaveText('Choose a player');
+  // What is missing is said under its field, which takes focus.
+  const box = page.getByRole('combobox', { name: 'Choose a player' });
+  await expect(form.locator('label').filter({ has: box }).getByRole('alert')).toHaveText('Choose a player');
+  await expect(form.locator(box)).toBeFocused();
   await pickPlayer(form, 'Ada');
   await form.getByLabel('Penalty').selectOption({ label: 'Game Loss' });
   await expect(form).toContainText('A note only.');
