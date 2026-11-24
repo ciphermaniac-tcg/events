@@ -76,13 +76,14 @@
   border-top: 1px solid var(--border);
   pointer-events: none;
 }
+/* A match is its rows, not a box: the bracket's lines draw the shape. */
 .tm-bracket-match {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
   background: var(--surface);
 }
 .tm-bracket-meta {
   display: flex;
+  /* A blank slot keeps the height of a named one, so the lines meet the same place. */
+  min-height: calc(1lh + 2 * var(--space-1));
   gap: var(--space-2);
   justify-content: space-between;
   padding: var(--space-1) 10px;
