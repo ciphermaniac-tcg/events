@@ -33,7 +33,6 @@ import { msg, t, tx } from '../../lib/i18n';
 import { Modal } from './Modal';
 import { clearSession } from './session';
 import { forgetAccountMemory } from '../../lib/tournament/accountMemory';
-import { SettingRow } from './SettingControls';
 import '../../styles/pages/tournament-store-apply.css';
 import '../../styles/pages/tournament-my-data.css';
 import { createAction } from './action';
@@ -42,7 +41,7 @@ import { createAction } from './action';
 const PARTS: Record<ExportPart, { name: string; what: string }> = {
   profile: { name: msg('Profile'), what: msg('First and last name, Player ID, birth year') },
   username: { name: msg('Username'), what: msg('Your username, and any you changed from today') },
-  events: { name: msg('Event history'), what: msg('The ended events you played in, and which players you were there') },
+  events: { name: msg('Event history'), what: msg('Past events you played in') },
   organizer: { name: msg('Organizer history'), what: msg('The events you ran or staffed') },
   account: { name: msg('Account'), what: msg('Email, sign-ins, sessions, applications, stores, badges') }
 };
@@ -50,7 +49,7 @@ const PARTS: Record<ExportPart, { name: string; what: string }> = {
 /** What follows from wiping each part. */
 const AFTER: Record<WipePart, string[]> = {
   profile: [
-    msg('Decklists and “find my table” stop filling themselves in'),
+    msg('Decklists and table lookup stop autofilling'),
     msg('Sanctioned events leave your history until you add your Player ID again'),
     msg('You can’t apply to organize until the profile is filled in')
   ],
@@ -71,7 +70,7 @@ const AFTER: Record<WipePart, string[]> = {
 
 /** What deleting costs. */
 const DELETE_AFTER = [
-  msg('Your profile, username and history are wiped, and your sign-ins and sessions go'),
+  msg('Your profile, username, history, sign-ins and sessions are removed.'),
   msg('Events you ran stay for their players, without your name')
 ];
 
@@ -249,20 +248,6 @@ function WipeDialog(props: { open: boolean; onClose: () => void; onWiped: (user:
   }
   return (
     <Modal open={props.open} title={t('Wipe data')} onClose={close}>
-      <div class='tm-box-bar'>
-        <span class='tm-modal-steps'>
-          <Show
-            when={reviewing()}
-            fallback={
-              <>
-                <b>1 {t('Choose')}</b> · 2 {t('Review')}
-              </>
-            }
-          >
-            1 {t('Choose')} · <b>2 {t('Review')}</b>
-          </Show>
-        </span>
-      </div>
       <Show
         when={reviewing()}
         fallback={
@@ -301,7 +286,7 @@ function WipeDialog(props: { open: boolean; onClose: () => void; onWiped: (user:
             {t('Back')}
           </button>
           <button type='button' class='btn btn-secondary tm-danger' disabled={busy()} onClick={() => void wipe()}>
-            {parts().length === WIPE_PARTS.length ? t('Wipe all') : t('Wipe {n}', { n: parts().length })}
+            {parts().length === WIPE_PARTS.length ? t('Wipe all') : t('Wipe selected')}
           </button>
         </div>
       </Show>
@@ -393,31 +378,18 @@ export function MyData(props: { user: Me; onWiped: (user: Me) => void }) {
   return (
     <section>
       <div class='tm-box'>
-        <SettingRow label={t('Terms of service')}>
-          <A class='btn btn-secondary' href='/terms'>
-            {t('View terms')}
-          </A>
-        </SettingRow>
-        <SettingRow label={t('Privacy policy')}>
-          <A class='btn btn-secondary' href='/privacy'>
-            {t('View policy')}
-          </A>
-        </SettingRow>
-        <SettingRow label={t('Export')}>
+        <div class='tm-box-bar'>
           <button type='button' class='btn btn-secondary' onClick={() => setOpen('export')}>
             {t('Export data')}
           </button>
-        </SettingRow>
-        <SettingRow label={t('Wipe data')} note={wipedNote()}>
           <button type='button' class='btn btn-secondary' onClick={() => setOpen('wipe')}>
-            {t('Wipe data')}
+            {t('Wipe data…')}
           </button>
-        </SettingRow>
-        <SettingRow label={t('Delete account')}>
           <button type='button' class='btn btn-secondary tm-danger' onClick={() => setOpen('delete')}>
-            {t('Delete account')}
+            {t('Delete account…')}
           </button>
-        </SettingRow>
+          <Show when={wipedNote()}>{note => <span class='muted'>{note()}</span>}</Show>
+        </div>
       </div>
       <ExportDialog open={open() === 'export'} onClose={close} />
       <WipeDialog

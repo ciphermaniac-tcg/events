@@ -950,7 +950,7 @@ test('Settings: a wipe is chosen, reviewed, then sent, and says what holds it up
   await expect(review).toBeDisabled();
   await dialog.getByRole('checkbox', { name: /^Organizer history/ }).check();
   await review.click();
-  await dialog.getByRole('button', { name: 'Wipe 1' }).click();
+  await dialog.getByRole('button', { name: 'Wipe selected' }).click();
   await expect(dialog.getByRole('alert')).toHaveText('End your running events first');
   await expect(dialog.getByRole('link', { name: 'Friday Cup' })).toHaveAttribute('href', '/t/LIVE01');
   await dialog.getByRole('button', { name: 'Back' }).click();
@@ -958,7 +958,7 @@ test('Settings: a wipe is chosen, reviewed, then sent, and says what holds it up
   await dialog.getByRole('checkbox', { name: /^Username/ }).check();
   await dialog.getByRole('checkbox', { name: /^Profile/ }).check();
   await review.click();
-  await dialog.getByRole('button', { name: 'Wipe 2' }).click();
+  await dialog.getByRole('button', { name: 'Wipe selected' }).click();
   await expect(dialog).toBeHidden();
   await expect(page.getByText('Wiped: Profile, Username')).toBeVisible();
   expect(sent.filter(s => s.method === 'POST').at(-1)?.body).toEqual({ parts: ['profile', 'username'] });
@@ -976,7 +976,7 @@ test('Settings: organizer history held up by a running event says so before anyt
   await expect(dialog.getByRole('checkbox', { name: /^Organizer history/ })).toBeDisabled();
   await dialog.getByRole('checkbox', { name: /^Profile/ }).check();
   await dialog.getByRole('button', { name: 'Review' }).click();
-  await dialog.getByRole('button', { name: 'Wipe 1' }).click();
+  await dialog.getByRole('button', { name: 'Wipe selected' }).click();
   await expect(dialog).toBeHidden();
   expect(sent.filter(s => s.method === 'POST').at(-1)?.body).toEqual({ parts: ['profile'] });
 });
