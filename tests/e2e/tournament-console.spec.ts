@@ -3332,7 +3332,7 @@ test('the head names whose clock it runs only where the event pairs more than on
 test('check-in fills half an hour before the start, moves with it, and is refused once after it', async ({ page }) => {
   const sent = await mockConsole(page, event(4, 0, false), settingsOf({ startsAt: '2026-11-14T18:00' }));
   await page.getByRole('tab', { name: 'Settings' }).click();
-  await page.getByRole('button', { name: '30 minutes before · 5:30 PM' }).click();
+  await page.getByRole('button', { name: 'Use 5:30 PM, 30 minutes before' }).click();
   const checkIn = page.locator('#set-check-in');
   await expect(checkIn).toHaveValue('2026-11-14T17:30');
   await expect.poll(() => sent.saved).toEqual([{ checkInAt: '2026-11-14T17:30' }]);
