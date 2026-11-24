@@ -2376,11 +2376,12 @@ test('a reporting player asks staff to drop them and can take it back until staf
   await page.getByRole('button', { name: 'Confirm reporting player' }).click();
   await page.getByRole('button', { name: 'Request drop' }).click();
   await expect(page.getByRole('button', { name: 'Keep playing' })).toBeVisible();
-  await page.getByRole('button', { name: 'Ask staff' }).click();
+  await expect(page.getByRole('button', { name: 'Drop', exact: true })).toHaveClass(/tm-danger/);
+  await page.getByRole('button', { name: 'Drop', exact: true }).click();
   await expect(page.locator('.tm-you-requests')).toContainText('Drop requested');
   expect(asked[0]).toMatchObject({ request: 'drop', reportToken: 'phone-token' });
   await expect(page.getByRole('button', { name: 'Request drop' })).toHaveCount(0);
-  await page.getByRole('button', { name: 'Cancel request' }).click();
+  await page.locator('.tm-you-requests').getByRole('button', { name: 'Cancel' }).click();
   await expect(page.getByRole('button', { name: 'Request drop' })).toBeVisible();
   expect(asked[1]).toMatchObject({ request: 'drop', cancel: true });
 });
