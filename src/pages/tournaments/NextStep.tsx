@@ -11,13 +11,12 @@ import { createMemo, createSignal, For, Show } from 'solid-js';
 import { finalPodRound, prereleaseChoiceAvailable } from '../../../shared/tournament/lifecycleWorkflow';
 import { divisionLookup } from '../../../shared/tournament/divisions';
 import { latestRound, regularRounds } from '../../../shared/tournament/rounds';
-import { recordLabel, swissStandings } from '../../../shared/tournament/standings';
+import { percentLabel, recordLabel, type Standing, swissStandings } from '../../../shared/tournament/standings';
 import { eventTypeOf, TOP_CUT_SIZES } from '../../../shared/tournament/structure';
 import { type Division, DIVISION_LABELS, type Pod } from '../../../shared/tournament/types';
 import { type Manage, saveSettings } from '../../lib/tournament/api';
 import { type DivisionCut, namesById, podLabel } from '../../lib/tournament/present';
-import { cutSplit, endGaps } from '../../lib/tournament/staff';
-import { ordinal } from '../../lib/format';
+import { endGaps } from '../../lib/tournament/staff';
 import { Segmented } from '@ciphermaniac/design/components/Segmented';
 import { Icon } from '@ciphermaniac/design/components/Icon';
 import { ConfirmDialog } from './ConfirmAction';
@@ -42,8 +41,8 @@ const suggestedCut = (entry: DivisionCut | undefined) => (entry ? entry.cut || l
 /**
  * Who a cut of `size` takes from a division, as the cut seeds it: the players
  * still in, by Swiss place in each flight, the flights taking turns. In a pod
- * of one flight, `out` is the first left out and `why` what put the last one
- * in above them; `all` says nobody still in is left out.
+ * of one flight, `rows` are its standings and `out` the first left out; `all`
+ * says nobody still in is left out.
  */
 function cutPreview(manage: Manage, pod: Pod, division: Division, size: number) {
   const of = divisionLookup(manage.tournament);
@@ -61,34 +60,42 @@ function cutPreview(manage: Manage, pod: Pod, division: Division, size: number) 
   return {
     seeds: seeds.flat(),
     out: single?.[size] ?? null,
-    why: single && cutSplit(single, size),
+    rows: single,
     all: ranked.every(rows => rows.length <= per)
   };
 }
 
 /** The seeds the size picked takes, and the bubble, before anything is committed. */
+/** What split the last one in from the first left out: points, then OWP, then OOWP, theirs against the cutoff. */
+function missedOn(inside: Standing, outside: Standing): { tiebreak: string; theirs: string; cutoff: string } {
+  if (inside.points !== outside.points) {
+    return { tiebreak: t('points'), theirs: String(outside.points), cutoff: String(inside.points) };
+  }
+  const [tiebreak, key] = inside.owp === outside.owp ? (['OOWP', 'oowp'] as const) : (['OWP', 'owp'] as const);
+  return { tiebreak, theirs: percentLabel(outside[key]), cutoff: percentLabel(inside[key]) };
+}
+
 function CutPreview(props: { manage: Manage; pod: Pod; division: Division; size: number }) {
   const preview = createMemo(() => cutPreview(props.manage, props.pod, props.division, props.size));
   const names = createMemo(() => namesById(props.manage.tournament));
   const bubble = () => {
-    const { out, why, all } = preview();
+    const { out, rows, all } = preview();
     if (all) {
       return t('Everyone still in makes this cut.');
     }
     if (!out) {
       return '';
     }
-    const line = t('{place} {name} {record} is out', {
-      place: ordinal(props.size + 1),
-      name: names().get(out.playerId) ?? out.playerId,
-      record: recordLabel(out.record)
-    });
-    return why ? `${line} · ${why}` : line;
+    const name = names().get(out.playerId) ?? out.playerId;
+    const inside = rows?.[props.size - 1];
+    return inside
+      ? t('{name} misses the cut on {tiebreak}, {theirs} to {cutoff}.', { name, ...missedOn(inside, out) })
+      : t('{name} misses the cut.', { name });
   };
   return (
     <div class='tm-cut-preview'>
       <p class='tm-cut-preview-head'>
-        <span>{t('The {n} in this cut', { n: preview().seeds.length })}</span>
+        <span>{t('Top {n} seeds', { n: preview().seeds.length })}</span>
         <span class='num'>{bubble()}</span>
       </p>
       <ol class='tm-cut-seeds'>
@@ -139,7 +146,7 @@ function CutDialog(props: {
     void props.state.send(props.divided && which ? { ...cut, division: which } : cut);
   }
   return (
-    <Modal basic open={props.open} title={t('Start the top cut')} class='tm-cut-dialog' onClose={props.onClose}>
+    <Modal basic open={props.open} title={t(CUT_LABEL)} class='tm-cut-dialog' onClose={props.onClose}>
       <div class='tm-box-bar tm-modal-body'>
         <div class='tm-cut-row'>
           <span class='tm-cut-label'>{t('Cut to')}</span>
@@ -174,7 +181,7 @@ function CutDialog(props: {
           {t('Cancel')}
         </button>
         <button type='button' class='btn btn-primary' disabled={props.state.busy()} onClick={start}>
-          {t('Start top {n} cut', { n: size() })}
+          {t('Start top {n}', { n: size() })}
         </button>
       </div>
     </Modal>

@@ -161,7 +161,9 @@ export function podProgress(pod: Pod, pending: readonly PendingResult[]): PodPro
   const played = round?.matches.filter(m => m.p2 !== null) ?? [];
   const open = round ? played.filter(m => shownOutcome(m, pod, round, pending).outcome === 'pending').length : 0;
   const label = round ? roundLabel(round, pod) : '';
-  const next = round?.kind === 'elimination' ? nextStageName(bracketSize(pod, round)) : '';
+  // The final leads to no stage: it crowns the champion.
+  const matches = round?.kind === 'elimination' ? bracketSize(pod, round) : 0;
+  const next = matches > 1 ? nextStageName(matches) : '';
   return { round, tables: played.length, open, champion: champion(round, pod), label, next };
 }
 
