@@ -144,7 +144,12 @@ function SignedIn(props: { user: Me; providers: readonly Provider[] }) {
   // A phone runs the sections as a row of tabs: the open one is brought into the row, as the site's tabs are.
   createEffect(() => {
     section();
-    nav?.querySelector('.is-on')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    // Scrolled by hand: scrollIntoView would move where the first Tab press starts, past the skip link.
+    const on = nav?.querySelector('.is-on')?.getBoundingClientRect();
+    const strip = nav?.getBoundingClientRect();
+    if (nav && on && strip) {
+      nav.scrollLeft += Math.min(0, on.left - strip.left) || Math.max(0, on.right - strip.right);
+    }
   });
   return (
     <>
