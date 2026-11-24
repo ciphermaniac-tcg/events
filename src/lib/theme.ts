@@ -42,8 +42,16 @@ const [mode, setModeSignal] = createSignal<Mode>(storedMode() ?? systemMode());
 /** The mode in effect. Reactive — read it to render a control's state. */
 export { mode };
 
+/** The page background in each mode (tokens.css), which index.html's theme-color starts the browser's bar on. */
+const BAR = { light: '#ececea', dark: '#161615' };
+
 function paint(next: Mode): void {
   document.body.dataset.mode = next;
+  // Scrollbars, dialogs and native controls draw in the mode, and the browser's bar matches the page, chosen or not.
+  document.documentElement.style.colorScheme = next;
+  for (const meta of document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]')) {
+    meta.content = BAR[next];
+  }
 }
 
 /** Puts the mode on the document. Call once, before the first render. */
