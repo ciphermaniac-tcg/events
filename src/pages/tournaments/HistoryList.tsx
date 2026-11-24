@@ -148,7 +148,8 @@ function EntryRow(props: { entry: HistoryEntry; watch: Watch; toCome?: boolean }
       divisionHeading(finish()?.division ?? null)
     ]
       .filter(Boolean)
-      .join(' · ');
+      // The dot keeps to the part before it, so a wrapped line never starts on one.
+      .join('\u00a0· ');
   return (
     // A copy with no player under the entry's key is a row left behind: nothing to show.
     <Show when={resolved(read) !== null}>
