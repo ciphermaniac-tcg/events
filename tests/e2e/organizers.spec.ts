@@ -396,7 +396,7 @@ test('Settings shows where an Application stands, with its step @mobile', async 
     } else {
       await expect(status.locator('.tm-applicant-stage')).toHaveCount(0);
     }
-    await expect(page.getByRole('link', { name: 'Your events' })).toHaveCount(1);
+    await expect(page.getByRole('link', { name: 'Home', exact: true })).toHaveCount(1);
     // Anyone may apply for a store, so every account's page asks where its Application stands.
     expect(asks.some(a => a.path === '/api/applications/mine')).toBe(true);
   }
@@ -434,7 +434,7 @@ test('Settings lists every way the account runs events, each with its step @mobi
   await expect(rows.nth(3).getByRole('link', { name: 'Apply for a store' })).toHaveAttribute('href', '/apply');
   // An approved Application says nothing more than the store's own row does.
   await expect(page.locator('.tm-applicant')).toHaveCount(0);
-  await expect(page.getByRole('link', { name: 'Your events' })).toHaveCount(1);
+  await expect(page.getByRole('link', { name: 'Home', exact: true })).toHaveCount(1);
 });
 
 test('Settings: the account’s standing as a community organizer, for each role', async ({ page }) => {

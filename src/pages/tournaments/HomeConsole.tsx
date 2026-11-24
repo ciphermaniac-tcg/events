@@ -231,7 +231,7 @@ export function HomeConsole(props: { run: SampleRun }) {
   return (
     <section class='tm-hc' aria-label={t('A sample admin console')}>
       <p class='tm-hc-crumb'>
-        {t('Your events')} / <span>Friday League</span>
+        {t('Home')} / <span>Friday League</span>
       </p>
       <div class='tm-hc-head'>
         <div>
