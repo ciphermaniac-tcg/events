@@ -121,8 +121,6 @@
   "Approved by {who} at {time}, during round {round}": "Aprobada por {who} a las {time}, durante la ronda {round}",
   "Approving as {who}": "Apruebas como {who}",
   "Archetypes": "Arquetipos",
-  "Ask staff": "Solicitar abandono",
-  "Ask staff to drop you?": "¿Solicitar el abandono del torneo?",
   "Asked": "Hora",
   "At least {n} characters": "Al menos {n} caracteres",
   "Auto scroll": "Desplazamiento automático",
@@ -144,7 +142,6 @@
   "Bye": "Bye",
   "Called {time} ago": "Tiempo agotado hace {time}",
   "Cancel": "Cancelar",
-  "Cancel request": "Cancelar solicitud",
   "Cancelled": "Cancelada",
   "Capped at {n} rounds": {
     "one": "Máximo de {n} ronda",
