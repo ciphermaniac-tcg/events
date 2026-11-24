@@ -73,40 +73,43 @@ function Where(props: { store: PublicStore }) {
 function Nights(props: { store: PublicStore }) {
   const today = () => dateIn(props.store.timeZone, Date.now());
   const ahead = () => props.store.exceptions.filter(item => item.date >= today());
+  // A store with no league nights and no dates ahead leaves the section out.
   return (
-    <section class='tm-storepage-nights' aria-labelledby='storepage-nights'>
-      <h2 class='tm-subhead tm-box-head' id='storepage-nights'>
-        {t('League nights')}
-      </h2>
-      <Show when={props.store.nights.length > 0} fallback={<p class='muted tm-storepage-none'>{t('None listed')}</p>}>
-        <ul class='tm-storepage-list'>
-          <For each={byWeek(props.store.nights)}>
-            {night => (
-              <li>
-                <strong>{weekdayPlural(night.weekday)}</strong>
-                <span class='tm-num'>{clock(night.time)}</span>
-                <span class='muted tm-storepage-night-name'>{night.name}</span>
-                <span class='muted tm-num'>{night.fee}</span>
-              </li>
-            )}
-          </For>
-        </ul>
-        <p class='muted tm-storepage-zone'>{zoneName(props.store.timeZone)}</p>
-      </Show>
-      <Show when={ahead().length > 0}>
-        <ul class='tm-storepage-list tm-storepage-changes'>
-          <For each={ahead()}>
-            {item => (
-              <li>
-                <strong class='tm-num'>{shortDay(item.date)}</strong>
-                <span>{exceptionChange(item)}</span>
-                <span class='muted tm-storepage-night-name'>{item.note}</span>
-              </li>
-            )}
-          </For>
-        </ul>
-      </Show>
-    </section>
+    <Show when={props.store.nights.length > 0 || ahead().length > 0}>
+      <section class='tm-storepage-nights' aria-labelledby='storepage-nights'>
+        <h2 class='tm-subhead tm-box-head' id='storepage-nights'>
+          {t('League nights')}
+        </h2>
+        <Show when={props.store.nights.length > 0}>
+          <ul class='tm-storepage-list'>
+            <For each={byWeek(props.store.nights)}>
+              {night => (
+                <li>
+                  <strong>{weekdayPlural(night.weekday)}</strong>
+                  <span class='tm-num'>{clock(night.time)}</span>
+                  <span class='muted tm-storepage-night-name'>{night.name}</span>
+                  <span class='muted tm-num'>{night.fee}</span>
+                </li>
+              )}
+            </For>
+          </ul>
+          <p class='muted tm-storepage-zone'>{zoneName(props.store.timeZone)}</p>
+        </Show>
+        <Show when={ahead().length > 0}>
+          <ul class='tm-storepage-list tm-storepage-changes'>
+            <For each={ahead()}>
+              {item => (
+                <li>
+                  <strong class='tm-num'>{shortDay(item.date)}</strong>
+                  <span>{exceptionChange(item)}</span>
+                  <span class='muted tm-storepage-night-name'>{item.note}</span>
+                </li>
+              )}
+            </For>
+          </ul>
+        </Show>
+      </section>
+    </Show>
   );
 }
 
@@ -114,12 +117,9 @@ function Events(props: { events: readonly StoreEvent[] }) {
   return (
     <section class='tm-storepage-events' aria-labelledby='storepage-events'>
       <h2 class='tm-subhead tm-box-head' id='storepage-events'>
-        {t('Upcoming events')}
+        {t('Events')}
       </h2>
-      <Show
-        when={props.events.length > 0}
-        fallback={<p class='muted tm-storepage-none'>{t('None on Ciphermaniac')}</p>}
-      >
+      <Show when={props.events.length > 0} fallback={<p class='muted tm-storepage-none'>{t('None scheduled.')}</p>}>
         <ul class='tm-storepage-history'>
           <For each={props.events}>
             {event => (
@@ -140,8 +140,8 @@ function EventName(props: { code: string; name: string; sanctioned: boolean }) {
   return (
     <span class='tm-storepage-event'>
       <A href={`/t/${props.code}`}>{props.name || props.code}</A>
-      <Show when={props.sanctioned}>
-        <span class='tm-flag'>{t('Sanctioned')}</span>
+      <Show when={!props.sanctioned}>
+        <span class='tm-flag'>{t('Unsanctioned')}</span>
       </Show>
     </span>
   );
@@ -165,7 +165,9 @@ function Past(props: { events: readonly PastEvent[] }) {
                       <span class='tm-num'>{shortDay(event.date)}</span>
                       <EventName code={event.code} name={event.name} sanctioned={event.sanctioned} />
                       <span class='muted tm-num'>{playersWord(event.players)}</span>
-                      <span class='tm-storepage-winner'>{event.winners.join(', ')}</span>
+                      <span class='tm-storepage-winner'>
+                        {event.winners.length > 0 && t('Won by {name}', { name: event.winners.join(', ') })}
+                      </span>
                     </li>
                   )}
                 </For>
@@ -174,15 +176,6 @@ function Past(props: { events: readonly PastEvent[] }) {
           )}
         </For>
       </section>
-    </Show>
-  );
-}
-
-/** The store's league, or that it has none yet. */
-function LeagueLine(props: { leagueId: string | null }) {
-  return (
-    <Show when={props.leagueId} fallback={<span>{t('Unsanctioned store')}</span>}>
-      {id => <span class='tm-num'>{t('League {id}', { id: id() })}</span>}
     </Show>
   );
 }
@@ -207,7 +200,11 @@ export function StorePage(props: { id: string }) {
           <>
             <TournamentHero
               title={answer().store.name}
-              meta={<LeagueLine leagueId={answer().store.leagueId} />}
+              meta={
+                <Show when={!answer().store.leagueId}>
+                  <span>{t('Unsanctioned store')}</span>
+                </Show>
+              }
               action={
                 <Show when={managesStore(answer().role)}>
                   <A class='btn btn-secondary' href={`/stores/${answer().store.id}/settings`}>
