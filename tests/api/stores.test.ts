@@ -42,6 +42,7 @@ import { resetRateLimiters } from '../../functions/lib/api/rateLimiter.ts';
 import { at, eventCalls } from '../__utils__/eventCalls.ts';
 import { countingTrips, racing, sqliteD1 } from '../__utils__/sqliteD1.ts';
 import { publishStores } from '../../functions/lib/stores/publish.ts';
+import { storeEvents } from '../../functions/lib/stores/db.ts';
 import { storeApplication } from '../__utils__/storeApplication.ts';
 
 let env: TournamentEnv;
@@ -1172,4 +1173,29 @@ test('store updates reject non-Discord invite links without changing the saved l
   const stored = await hit(storeRoute.onRequestGet as Handler, `/api/stores/${store}`, { id: store });
   assert.equal(stored.json.store.discord, discord);
   assert.equal((await save('')).status, 200, 'the link can still be removed');
+});
+
+test('a store’s events that have not ended are listed soonest first, whatever order they were made in', () => {
+  // The read's own column names, which are not this code's to choose.
+  const [DAY, TIME] = ['start_date', 'starts_at'] as const;
+  const row = (code: string, startsAt: string | null, startDate: string) => ({
+    code,
+    mode: 'swiss',
+    name: code,
+    [DAY]: startDate,
+    [TIME]: startsAt,
+    sanctioned: 1,
+    rounds: 0
+  });
+  const listed = storeEvents({
+    results: [
+      row('LATE', '2026-12-05T18:00', '12/05/2026'),
+      row('SOON', '2026-11-29T10:00', '11/29/2026'),
+      row('DAYONLY', null, '11/30/2026')
+    ]
+  });
+  assert.deepEqual(
+    listed.map(item => item.code),
+    ['SOON', 'DAYONLY', 'LATE']
+  );
 });
