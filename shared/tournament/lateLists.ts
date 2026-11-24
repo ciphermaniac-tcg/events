@@ -7,7 +7,7 @@
 
 import { joiningRound, latestRound } from './rounds.js';
 import type { Player, Tournament } from './types.js';
-import { decklistsLocked, type TournamentSettings } from './view.js';
+import { canRegister, decklistsLocked, type TournamentSettings } from './view.js';
 
 /**
  * Whether a late entrant is still in the round they joined in (see
@@ -25,21 +25,27 @@ function inJoiningRound(tournament: Tournament, player: Player): boolean {
 }
 
 /**
- * Whether the player's list may be sent or replaced now: by anyone before
- * round 1 is paired, and for a late entrant until the next round pairs after
- * they entered. A null player is someone not on the event, who registers
- * before round 1 only.
+ * Whether the player's registration, and the list it carries at an event
+ * that takes lists, may be sent or replaced now: by anyone before round 1 is
+ * paired while registration is on (see canRegister), and at an event that
+ * takes lists, for a late entrant until the next round pairs after they
+ * entered. Neither once the event has ended. A null player is someone not on
+ * the event, who registers before round 1 only.
  */
 export function decklistOpenFor(
-  event: { settings: Pick<TournamentSettings, 'decklists' | 'finished'>; tournament: Tournament },
+  event: { settings: Pick<TournamentSettings, 'registration' | 'decklists' | 'finished'>; tournament: Tournament },
   playerId: string | null
 ): boolean {
-  const taking = event.settings.decklists !== 'off';
-  if (!taking || !decklistsLocked(event)) {
-    return taking;
+  if (!decklistsLocked(event)) {
+    return canRegister(event);
   }
   const player = event.tournament.players.find(candidate => candidate.id === playerId);
-  return !event.settings.finished && player !== undefined && inJoiningRound(event.tournament, player);
+  return (
+    event.settings.decklists !== 'off' &&
+    !event.settings.finished &&
+    player !== undefined &&
+    inJoiningRound(event.tournament, player)
+  );
 }
 
 /** Whether the player joined their Swiss pod after round 1 (see joiningRound), so their list locks later. */
@@ -51,7 +57,7 @@ export function enteredLate(tournament: Tournament, playerId: string | null): bo
 
 /** Whether any late entrant may still send their list, so the page keeps its form after round 1. */
 export function lateListsOpen(event: {
-  settings: Pick<TournamentSettings, 'decklists' | 'finished'>;
+  settings: Pick<TournamentSettings, 'registration' | 'decklists' | 'finished'>;
   tournament: Tournament;
 }): boolean {
   return decklistsLocked(event) && event.tournament.players.some(player => decklistOpenFor(event, player.id));

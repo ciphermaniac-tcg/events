@@ -109,6 +109,7 @@ type PlayerSettings = Logistics &
     | 'sanctioned'
     | 'playerReporting'
     | 'agreedReportsSettle'
+    | 'registration'
     | 'decklists'
     | 'entryFee'
     | 'playerCap'
@@ -118,7 +119,7 @@ type PlayerSettings = Logistics &
 const pickPlayerSettings = (settings: TournamentSettings): PlayerSettings => {
   const { details, format, startsAt, deckVisibility, sanctioned, playerReporting, decklists } = settings;
   const { agreedReportsSettle, roundCap } = settings;
-  const { timeZone, checkInAt, venue, address, entryFee, playerCap } = settings;
+  const { timeZone, checkInAt, venue, address, entryFee, playerCap, registration } = settings;
   return {
     details,
     format,
@@ -131,6 +132,7 @@ const pickPlayerSettings = (settings: TournamentSettings): PlayerSettings => {
     sanctioned,
     playerReporting,
     agreedReportsSettle,
+    registration,
     decklists,
     entryFee,
     playerCap,
@@ -170,6 +172,8 @@ interface SettingsForm {
   setInfo: <K extends keyof EventFields>(key: K, value: EventFields[K]) => void;
   value: () => PlayerSettings;
   set: <K extends keyof PlayerSettings>(key: K, value: PlayerSettings[K]) => void;
+  /** Sets a switch, which saves as it is pressed. */
+  choose: <K extends keyof PlayerSettings>(key: K, value: PlayerSettings[K]) => void;
   /** The error under number field `id` while its edit is out of its range, as of the last save. */
   rangeError: (id: string) => string | undefined;
   /** Saves, once every number edited is in its range. */
@@ -291,6 +295,10 @@ function createSettingsForm(state: ManageState, manage: () => Manage): SettingsF
     setInfo: (key, next) => details.set(key, next, savedInfo()),
     value,
     set: (key, next) => draft.set(key, next, saved()),
+    choose: (key, next) => {
+      draft.set(key, next, saved());
+      save();
+    },
     rangeError: id => marks()[id],
     save
   };
@@ -313,10 +321,9 @@ function StoreVenue(props: { venue: string; address: string }) {
   );
 }
 
-/** The event as players find it: its name, when and where, what it costs, how many it takes, and what it says. */
+/** The event as players find it: its name, when and where, and what it says. */
 function EventBox(props: { form: SettingsForm; manage: Manage }) {
   const value = () => props.form.value();
-  const registered = () => props.manage.tournament.players.filter(player => player.droppedAfter === null).length;
   return (
     <SettingsBox title={t('Event')} onSave={props.form.save}>
       {/* A TOM event's name is the file's. */}
@@ -350,6 +357,36 @@ function EventBox(props: { form: SettingsForm; manage: Manage }) {
       <Show when={props.manage.store !== null}>
         <StoreVenue venue={value().venue} address={value().address} />
       </Show>
+      <SettingRow label={t('Event description')} for='set-details'>
+        <textarea
+          id='set-details'
+          class='tm-input tm-textarea'
+          maxLength={SETTINGS_LIMITS.details}
+          value={value().details}
+          onInput={e => props.form.set('details', e.currentTarget.value)}
+        />
+      </SettingRow>
+    </SettingsBox>
+  );
+}
+
+/**
+ * How players get into the event: whether they register themselves on its
+ * page, what it costs, how many it takes, and, while they register online,
+ * whether they send a decklist with it.
+ */
+function RegistrationBox(props: { form: SettingsForm; manage: Manage }) {
+  const value = () => props.form.value();
+  const registered = () => props.manage.tournament.players.filter(player => player.droppedAfter === null).length;
+  return (
+    <SettingsBox title={t('Registration')} onSave={props.form.save}>
+      <SettingRow label={t('Online registration')} info={<SettingInfo text={SETTING_INFO.registration} />}>
+        <Toggle
+          label={t('Online registration')}
+          value={value().registration}
+          onChange={v => props.form.choose('registration', v)}
+        />
+      </SettingRow>
       <SettingRow label={t('Entry fee')} for='set-fee'>
         <FeeField
           id='set-fee'
@@ -374,15 +411,15 @@ function EventBox(props: { form: SettingsForm; manage: Manage }) {
         />
         <ErrorLine id='set-cap-error' message={props.form.rangeError('set-cap')} />
       </SettingRow>
-      <SettingRow label={t('Event description')} for='set-details'>
-        <textarea
-          id='set-details'
-          class='tm-input tm-textarea'
-          maxLength={SETTINGS_LIMITS.details}
-          value={value().details}
-          onInput={e => props.form.set('details', e.currentTarget.value)}
-        />
-      </SettingRow>
+      <Show when={value().registration}>
+        <SettingRow
+          label={t('Decklists')}
+          info={<SettingInfo text={SETTING_INFO.decklists} />}
+          note={midEvent(props.manage, t('Players can’t send lists once round 1 is paired.'))}
+        >
+          <DecklistsSwitch value={value().decklists} onChange={v => props.form.choose('decklists', v)} />
+        </SettingRow>
+      </Show>
     </SettingsBox>
   );
 }
@@ -469,13 +506,9 @@ function RoundRows(props: { form: SettingsForm; manage: Manage }) {
   );
 }
 
-/** How the event runs: its kind, format, decks, rounds and reporting. A switch saves as it is pressed. */
+/** How the event runs: its kind, format, archetypes, rounds and reporting. A switch saves as it is pressed. */
 function RulesBox(props: { form: SettingsForm; manage: Manage }) {
   const value = () => props.form.value();
-  const choose = <K extends keyof PlayerSettings>(key: K, next: PlayerSettings[K]) => {
-    props.form.set(key, next);
-    props.form.save();
-  };
   const swiss = () => props.manage.mode === 'swiss';
   return (
     <SettingsBox title={t('Rules')} onSave={props.form.save}>
@@ -484,13 +517,6 @@ function RulesBox(props: { form: SettingsForm; manage: Manage }) {
       </Show>
       <SettingRow label={t('Format')} for='set-format'>
         <FormatSelect id='set-format' value={value().format} onChange={format => props.form.set('format', format)} />
-      </SettingRow>
-      <SettingRow
-        label={t('Decklists')}
-        info={<SettingInfo text={SETTING_INFO.decklists} />}
-        note={midEvent(props.manage, t('Players can’t send lists once round 1 is paired.'))}
-      >
-        <DecklistsSwitch value={value().decklists} onChange={v => choose('decklists', v)} />
       </SettingRow>
       <SettingRow label={t('Archetypes')} for='set-decks' info={<SettingInfo text={SETTING_INFO.archetypes} />}>
         {/* Showing decks sooner than the event does now is the organizer's call alone (see settings.ts). */}
@@ -512,7 +538,7 @@ function RulesBox(props: { form: SettingsForm; manage: Manage }) {
         <Toggle
           label={t('Mobile result reporting')}
           value={value().playerReporting}
-          onChange={v => choose('playerReporting', v)}
+          onChange={v => props.form.choose('playerReporting', v)}
         />
       </SettingRow>
       <Show when={value().playerReporting && swiss()}>
@@ -520,7 +546,7 @@ function RulesBox(props: { form: SettingsForm; manage: Manage }) {
           <Toggle
             label={t('Agreeing reports count')}
             value={value().agreedReportsSettle}
-            onChange={v => choose('agreedReportsSettle', v)}
+            onChange={v => props.form.choose('agreedReportsSettle', v)}
           />
         </SettingRow>
       </Show>
@@ -929,6 +955,7 @@ export function EventPanel(props: { state: ManageState; manage: Manage; tom: Tom
       </Show>
       <Show when={props.tom}>{link => <TomFile link={link()} />}</Show>
       <EventBox form={form} manage={props.manage} />
+      <RegistrationBox form={form} manage={props.manage} />
       <RulesBox form={form} manage={props.manage} />
       <Show when={props.manage.store !== null}>
         <BigScreenPreset state={props.state} manage={props.manage} />

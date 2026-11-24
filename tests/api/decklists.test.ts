@@ -109,19 +109,24 @@ const closeNow = (code: string) => () =>
 const readMine = (code: string, token: string) =>
   hit(decklists.onRequestGet as Handler, `/decklists?popId=4242&token=${token}`, at(code));
 
-test('a list sent or withdrawn as lists turn off is refused, though the event read had them on', async () => {
+test('a list sent as lists turn off, or withdrawn as registration does, is refused, though the event read had them on', async () => {
   const { code, token } = await eventWithList();
   env.TOURNAMENT_DB = racing(db, 'INSERT INTO decklists', closeNow(code));
   const replaced = await submit(code, { token, deck: '60 Basic {G} Energy SVE 1' });
   assert.deepEqual([replaced.status, replaced.json.error], [403, 'This event does not take decklists']);
   assert.equal((await readMine(code, token)).json.mine.deck, LIST.deck, 'the list stands as it was');
 
+  // A withdrawal is a registration's, not a list's: it is registration turning off that refuses it.
   db.raw
     .prepare("UPDATE tournaments SET settings = json_set(settings, '$.decklists', 'open') WHERE code = ?")
     .run(code);
-  env.TOURNAMENT_DB = racing(db, 'DELETE FROM decklists', closeNow(code));
+  const stopRegistering = () =>
+    db.raw
+      .prepare("UPDATE tournaments SET settings = json_set(settings, '$.registration', json('false')) WHERE code = ?")
+      .run(code);
+  env.TOURNAMENT_DB = racing(db, 'DELETE FROM decklists', stopRegistering);
   const gone = await withdraw(code);
-  assert.deepEqual([gone.status, gone.json.error], [403, 'This event does not take decklists']);
+  assert.deepEqual([gone.status, gone.json.error], [403, 'Register with the organizer.']);
   assert.equal((await readMine(code, token)).json.mine.deck, LIST.deck, 'and is not withdrawn');
 });
 
