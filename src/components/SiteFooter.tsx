@@ -7,7 +7,7 @@
 
 import { type JSX, Show } from 'solid-js';
 import { A } from '@solidjs/router';
-import { MAIN_SITE } from '../lib/constants';
+import { FEEDBACK, MAIN_SITE } from '../lib/constants';
 import { chooseLocale, offeredLanguage, t } from '../lib/i18n';
 import { type Mode, mode, setMode } from '../lib/theme';
 
@@ -48,7 +48,7 @@ export function SiteFooter(): JSX.Element {
       <nav class='site-footer-links' aria-label={t('Footer')}>
         <A href='/terms'>{t('Terms')}</A>
         <A href='/privacy'>{t('Privacy')}</A>
-        <a href={`${MAIN_SITE}/feedback`}>{t('Feedback')}</a>
+        <a href={FEEDBACK}>{t('Feedback')}</a>
         <a href={MAIN_SITE}>Ciphermaniac</a>
         <LanguageLink />
       </nav>

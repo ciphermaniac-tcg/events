@@ -1031,17 +1031,11 @@ test('an invite link joins the store and goes on to its events; a used one says 
   expect(sentTo(asks, 'POST', '/api/stores/join')).toHaveLength(2);
 });
 
-test('a broken invite’s pale code word stays whole on a 320px phone in German @mobileOnly', async ({ page }) => {
+test('a broken invite says what happened without a pale code word @mobileOnly', async ({ page }) => {
   await mock(page);
-  await page.setViewportSize({ width: 320, height: 640 });
-  await page.goto('/stores/join?lang=de');
-  const code = page.locator('.error-state-code');
-  await expect(code).toHaveAttribute('data-code', 'Einladung');
-  const lines = await code.evaluate(el => {
-    const { height } = el.getBoundingClientRect();
-    return Math.round(height / parseFloat(getComputedStyle(el).lineHeight));
-  });
-  expect(lines).toBe(1);
+  await page.goto('/stores/join');
+  await expect(page.getByRole('heading', { level: 1, name: 'This invite didn’t work' })).toBeVisible();
+  await expect(page.locator('.error-state-code')).toBeHidden();
 });
 
 test('a broken invite centres its error state on a phone held sideways @mobile', async ({ page }) => {
