@@ -40,7 +40,16 @@ function LiveEntry(props: { entry: HistoryEntry }) {
         {props.entry.name || props.entry.code}
         <Show when={current()}>{row => <> · {row().label}</>}</Show>
       </p>
-      <Show when={current()} fallback={<p class='tm-dash-live-big'>{t('In progress')}</p>}>
+      <Show
+        when={current()}
+        fallback={
+          <Show when={result()}>
+            {done => (
+              <p class='tm-dash-live-big'>{t('Waiting on round {n}', { n: done().finish.rounds.length + 1 })}</p>
+            )}
+          </Show>
+        }
+      >
         {row => (
           <p class='tm-dash-live-big'>
             <Show when={row().table > 0}>{t('Table {n}', { n: row().table })} </Show>
@@ -59,8 +68,9 @@ function LiveEntry(props: { entry: HistoryEntry }) {
           </p>
         )}
       </Show>
+      {/* Between rounds there is no match to open, only the event's page to wait on. */}
       <A class='btn btn-primary' href={`/t/${props.entry.code}`}>
-        {t('Your match')}
+        {current() ? t('Open match') : t('Event page')}
       </A>
     </section>
   );
@@ -80,7 +90,7 @@ function NextEntry(props: { entry: HistoryEntry }) {
         {isWallClock(checkIn()) ? t('Check-in {time}', { time: timeOfDay(checkIn()) }) : t('Registered')}
       </p>
       <A class='btn btn-primary' href={`/t/${props.entry.code}`}>
-        {t('Your registration')}
+        {t('View registration')}
       </A>
     </section>
   );
@@ -90,7 +100,8 @@ function NextEntry(props: { entry: HistoryEntry }) {
 const soonest = (a: HistoryEntry, b: HistoryEntry) =>
   Number(!a.startsAt) - Number(!b.startsAt) || a.startsAt.localeCompare(b.startsAt);
 
-function Group(props: { title: string; entries: readonly HistoryEntry[]; more?: boolean }) {
+/** `toCome`: events not yet played, which have no place or record to show. */
+function Group(props: { title: string; entries: readonly HistoryEntry[]; more?: boolean; toCome?: boolean }) {
   return (
     <Show when={props.entries.length > 0}>
       <section class='tm-dash-section'>
@@ -100,7 +111,7 @@ function Group(props: { title: string; entries: readonly HistoryEntry[]; more?: 
             <A href='/history'>{t('All results')}</A>
           </Show>
         </div>
-        <HistoryList entries={props.entries} iconsOnly />
+        <HistoryList entries={props.entries} iconsOnly toCome={props.toCome} />
       </section>
     </Show>
   );
@@ -160,7 +171,7 @@ export function PlayingTab(props: { history: Resource<OwnHistory>; onRetry: () =
       >
         {list => (
           <Show when={list().length > 0} fallback={<Welcome />}>
-            <Group title={t('Coming up')} entries={upcoming().filter(entry => entry !== next())} />
+            <Group title={t('Coming up')} entries={upcoming().filter(entry => entry !== next())} toCome />
             <Group title={t('Results')} entries={finished().slice(0, RECENT)} more={finished().length > RECENT} />
           </Show>
         )}
