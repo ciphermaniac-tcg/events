@@ -1906,7 +1906,7 @@ test('community setup shows an occupied date before creation @mobile', async ({ 
   await page.getByRole('textbox', { name: 'Event name' }).fill('Next event');
   await page.locator('#setup-starts').fill('2026-10-18T12:00');
   await expect(page.getByText('One community event per date', { exact: false })).toBeVisible();
-  await expect(page.getByText('An event already uses 2026-10-18.', { exact: false })).toBeVisible();
+  await expect(page.getByText('An event already uses Sun, Oct 18.', { exact: false })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Create event' })).toBeDisabled();
   await page.locator('#setup-starts').fill('2026-10-19T12:00');
   await expect(page.getByRole('button', { name: 'Create event' })).toBeEnabled();
