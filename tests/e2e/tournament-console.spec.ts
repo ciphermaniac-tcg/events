@@ -3147,6 +3147,19 @@ test('a signed-out visitor to a console is offered sign-in, back to the console'
   expect(decodeURIComponent((await google.getAttribute('href')) ?? '')).toContain(`/host/${CODE}`);
 });
 
+test('the staff invite link reads as a value to copy, and an ordinary field beside it keeps its fill', async ({
+  page
+}) => {
+  await mockConsole(page, event(4, 0, false), settingsOf({}));
+  await page.getByRole('tab', { name: 'Settings' }).click();
+  await page.getByRole('button', { name: 'Show the staff invite link' }).click();
+  const fill = (name: string) =>
+    page.getByRole('textbox', { name, exact: true }).evaluate(el => getComputedStyle(el).backgroundColor);
+  expect(await fill('Staff invite link')).toBe('rgba(0, 0, 0, 0)');
+  expect(await fill('Event name')).not.toBe('rgba(0, 0, 0, 0)');
+  await expect(page.getByRole('textbox', { name: 'Staff invite link' })).toBeFocused();
+});
+
 test('an invite link joins the staff before the console reads the event', async ({ page }) => {
   await mockConsole(page, event(8, 0, true), settingsOf({}));
   await expect(page.getByRole('button', { name: 'Report Player' }).first()).toBeVisible();
