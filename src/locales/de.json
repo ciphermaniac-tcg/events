@@ -1232,7 +1232,6 @@
   "You won": "Du hast gewonnen",
   "You’ve hit our rate limits for resets. Try again later.": "Zu viele Anfragen zum Zurücksetzen des Passworts. Versuch es später noch mal.",
   "Your .tdf could not be parsed. Try again.": "Deine .tdf konnte nicht gelesen werden. Versuch es noch mal.",
-  "Your application is in. You’ll see the decision here once it’s reviewed.": "Dein Antrag ist eingegangen. Sobald er geprüft ist, siehst du die Entscheidung hier.",
   "Your application is pending": "Dein Antrag wird noch geprüft",
   "Your data": "Deine Daten",
   "Your decklist could not be loaded": "Deine Deckliste konnte nicht geladen werden",
@@ -1459,7 +1458,6 @@
   "Change {from} to {name}’s?": "{from} in Sieg von {name} ändern?",
   "Change {from} to {to}?": "{from} in {to} ändern?",
   "Decided {date}": "Entschieden am {date}",
-  "Questions?": "Fragen?",
   "Think this is a mistake?": "Hältst du das für einen Fehler?",
   "Drop all {n}": "Alle {n} austragen",
   "Drop {n} players who aren’t checked in?": {

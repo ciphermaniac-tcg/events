@@ -229,7 +229,8 @@ test('a pending Application shows where it stands instead of the form, and withd
   const status = page.locator('.tm-applicant');
   await expect(status).toContainText('Application pending');
   await expect(status).toContainText('Sent');
-  await expect(status).toContainText('Questions?');
+  // The status and its steps say it all: no paragraph explains it again.
+  await expect(status.locator('.tm-applicant-note')).toHaveCount(0);
   await expect(status.getByRole('link', { name: 'Contact us' })).toHaveAttribute(
     'href',
     'https://ciphermaniac.com/feedback'
