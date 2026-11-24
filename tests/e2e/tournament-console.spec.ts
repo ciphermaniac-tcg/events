@@ -1356,10 +1356,7 @@ test('a setting saves as it is left, with no Save to press', async ({ page }) =>
   await page.getByLabel('Event name').press('Tab');
   await expect.poll(() => sent.at(-1)).toEqual({ type: 'updateInfo', info: { name: 'Friday Night League' } });
   // A switch saves as it is pressed.
-  await page
-    .getByRole('radiogroup', { name: 'Mobile result reporting' })
-    .getByRole('radio', { name: 'Enabled' })
-    .click();
+  await page.getByRole('radiogroup', { name: 'Mobile result reporting' }).getByRole('radio', { name: 'On' }).click();
   await expect.poll(() => sent.saved.at(-1)).toEqual({ playerReporting: true });
 });
 
@@ -1398,10 +1395,7 @@ test('a number out of range is held back however the save is set off, after the 
   await cap.press('Tab');
   await page.getByRole('tab', { name: 'Players' }).click();
   await page.getByRole('tab', { name: 'Settings' }).click();
-  await page
-    .getByRole('radiogroup', { name: 'Mobile result reporting' })
-    .getByRole('radio', { name: 'Enabled' })
-    .click();
+  await page.getByRole('radiogroup', { name: 'Mobile result reporting' }).getByRole('radio', { name: 'On' }).click();
   await expect(cap).toHaveAttribute('aria-invalid', 'true');
   await cap.fill('8');
   await cap.press('Tab');
@@ -1429,13 +1423,13 @@ test('a colleague’s change shows in an untouched setting, and saving sends onl
   const sent = await mockConsole(page, event(4, 0, true), settings);
   await page.getByRole('tab', { name: 'Settings' }).click();
   const reporting = page.getByRole('radiogroup', { name: 'Mobile result reporting' });
-  await expect(reporting.getByRole('radio', { name: 'Disabled' })).toHaveAttribute('aria-checked', 'true');
+  await expect(reporting.getByRole('radio', { name: 'Off' })).toHaveAttribute('aria-checked', 'true');
   await page.getByLabel('Event description').fill('Doors at nine');
   // A colleague turns reporting on; the console's next look brings it in.
   const changed = { ...consoleOf(event(4, 0, true), 9), settings: { ...settings, playerReporting: true } };
   await page.route(`**/api/tournaments/${CODE}/manage*`, route => route.fulfill({ json: changed }));
   await page.evaluate(() => window.dispatchEvent(new Event('online')));
-  await expect(reporting.getByRole('radio', { name: 'Enabled' })).toHaveAttribute('aria-checked', 'true');
+  await expect(reporting.getByRole('radio', { name: 'On' })).toHaveAttribute('aria-checked', 'true');
   await expect(page.getByLabel('Event description')).toHaveValue('Doors at nine');
   await page.getByLabel('Event description').blur();
   await expect.poll(() => sent.saved).toEqual([{ details: 'Doors at nine' }]);
@@ -1472,11 +1466,11 @@ test('a setting switched on and back off before its save is answered ends off', 
   );
   await page.getByRole('tab', { name: 'Settings' }).click();
   const reporting = page.getByRole('radiogroup', { name: 'Mobile result reporting' });
-  await reporting.getByRole('radio', { name: 'Enabled' }).click();
-  await reporting.getByRole('radio', { name: 'Disabled' }).click();
+  await reporting.getByRole('radio', { name: 'On' }).click();
+  await reporting.getByRole('radio', { name: 'Off' }).click();
   held.resolve();
   await expect.poll(() => sent.saved).toEqual([{ playerReporting: true }, { playerReporting: false }]);
-  await expect(reporting.getByRole('radio', { name: 'Disabled' })).toHaveAttribute('aria-checked', 'true');
+  await expect(reporting.getByRole('radio', { name: 'Off' })).toHaveAttribute('aria-checked', 'true');
 });
 
 test('a save made after leaving Settings and coming back waits for the one still on its way', async ({ page }) => {
@@ -1495,10 +1489,7 @@ test('a save made after leaving Settings and coming back waits for the one still
   await page.getByLabel('Event description').blur();
   await page.getByRole('tab', { name: 'Players' }).click();
   await page.getByRole('tab', { name: 'Settings' }).click();
-  await page
-    .getByRole('radiogroup', { name: 'Mobile result reporting' })
-    .getByRole('radio', { name: 'Enabled' })
-    .click();
+  await page.getByRole('radiogroup', { name: 'Mobile result reporting' }).getByRole('radio', { name: 'On' }).click();
   held.resolve();
   await expect.poll(() => sent.saved).toEqual([{ details: 'Doors at nine' }, { playerReporting: true }]);
 });
