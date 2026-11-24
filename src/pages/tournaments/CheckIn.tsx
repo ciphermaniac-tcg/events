@@ -159,19 +159,18 @@ export function checkColumns(manage: Manage): readonly CheckMark[] {
 export const showsCheckIn = (manage: Manage) => !hasStarted(manage.tournament) && checkColumns(manage).length > 0;
 
 export function CheckInHeads(props: { manage: Manage; players: readonly Player[] }) {
-  const active = () => props.players.filter(player => player.droppedAfter === null);
-  const ticked = (mark: CheckMark) => {
+  // Out of those the check is asked of: a list only of who chose paper.
+  const count = (mark: CheckMark) => {
     const view = viewOf(props.manage);
-    return active().filter(player => view.held(player.id)?.[mark]).length;
+    const asked = props.players.filter(player => player.droppedAfter === null && view.asks(player.id, mark));
+    return t('{n}/{total}', { n: asked.filter(player => view.held(player.id)?.[mark]).length, total: asked.length });
   };
   return (
     <For each={checkColumns(props.manage)}>
       {mark => (
         <th class='tm-check-col'>
           {t(MARK_LABELS[mark])}
-          <span class='tm-check-count muted tm-num'>
-            {t('{n}/{total}', { n: ticked(mark), total: active().length })}
-          </span>
+          <span class='tm-check-count muted tm-num'>{count(mark)}</span>
         </th>
       )}
     </For>
