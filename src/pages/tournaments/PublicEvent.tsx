@@ -117,6 +117,12 @@ const missing = (error: unknown) => error instanceof ApiError && error.status ==
 const sameViewer = (a: TournamentView['viewer'], b: TournamentView['viewer']) =>
   a.role === b.role && a.me === b.me && a.via === b.via && a.signedIn === b.signedIn;
 
+/** Whether the room waits on pairings: the event is under way and no table is still playing. */
+const awaitingPairings = (shown: TournamentView) =>
+  hasStarted(shown.tournament) &&
+  !shown.settings.finished &&
+  !livePods(shown.tournament).some(pod => podProgress(pod, shown.pending).open > 0);
+
 /**
  * The event, polled while the tab is visible (see lib/tournament/viewPoll.ts),
  * every `every` ms; a poll that finds nothing new costs one tiny request. It
@@ -227,9 +233,10 @@ function createView(code: () => string, signedIn: () => boolean, options: { ever
       .catch(() => undefined);
   onMount(() => {
     let announced = 0;
+    const ownCopy = (shown: TournamentView) => options.decks && seesMoreThanPublished(shown);
     const poll = createViewPoll({
       current: () => latestValue(view),
-      ownCopy: shown => options.decks && seesMoreThanPublished(shown),
+      ownCopy,
       announced: () => announced,
       reload,
       published: () => fetchPublished(code()),
@@ -239,7 +246,14 @@ function createView(code: () => string, signedIn: () => boolean, options: { ever
       checked,
       failed
     });
-    const polls = schedulePolls(poll, () => document.hidden, options.every);
+    // While the room waits on the next round's pairings, look as often as the big screen does. Only at the
+    // published file, which costs the functions nothing: a copy of the viewer's own keeps its pace.
+    const quick = (shown = latestValue(view)) => shown != null && awaitingPairings(shown) && !ownCopy(shown);
+    const polls = schedulePolls(
+      poll,
+      () => document.hidden,
+      () => (quick() ? SCREEN_POLL_MS : options.every)
+    );
     retry = () => {
       poll.retry();
       polls.soon();

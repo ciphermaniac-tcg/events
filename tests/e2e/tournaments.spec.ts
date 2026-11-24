@@ -408,6 +408,61 @@ function afterOneResult(): TournamentView {
 const announce = (page: Page, version: number) =>
   page.evaluate(change => new BroadcastChannel('cm-tournament-changes').postMessage(change), { code: CODE, version });
 
+test('a player waiting on the next pairings looks every four seconds, not ten', async ({ page }) => {
+  const view = structuredClone(VIEW);
+  for (const match of view.tournament.pods[0]?.rounds.at(-1)?.matches ?? []) {
+    match.outcome = match.outcome === 'pending' ? 'p1' : match.outcome;
+  }
+  let reads = 0;
+  page.on('request', request => {
+    if (request.url().includes(`/tournaments/v1/${CODE}.json`)) {
+      reads += 1;
+    }
+  });
+  await page.clock.install();
+  await mockApi(page, view);
+  await publish(page, () => view);
+  await page.goto(`/t/${CODE}`);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Fixture Challenge & Friends');
+  const before = reads;
+  await page.clock.fastForward(10_000);
+  await expect.poll(() => reads).toBe(before + 1);
+  await page.clock.fastForward(5_000);
+  await expect.poll(() => reads).toBe(before + 2);
+});
+
+test('staff whose copy shows decks the public cannot see yet keep asking the API every ten seconds between rounds', async ({
+  page
+}) => {
+  const view: TournamentView = {
+    ...structuredClone(VIEW),
+    settings: { ...VIEW.settings, deckVisibility: 'after' },
+    viewer: { role: 'staff', me: null, via: null, signedIn: true }
+  };
+  for (const match of view.tournament.pods[0]?.rounds.at(-1)?.matches ?? []) {
+    match.outcome = match.outcome === 'pending' ? 'p1' : match.outcome;
+  }
+  let asks = 0;
+  page.on('request', request => {
+    if (new URL(request.url()).pathname === `/api/tournaments/${CODE}`) {
+      asks += 1;
+    }
+  });
+  await page.clock.install();
+  await mockApi(page, view);
+  await page.route('**/api/me', route => route.fulfill({ json: organizerMe() }));
+  await page.goto(`/t/${CODE}`);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Fixture Challenge & Friends');
+  const before = asks;
+  await page.clock.fastForward(10_000);
+  await expect.poll(() => asks).toBe(before + 1);
+  // The answer lands, and the next wait starts from it.
+  await page.waitForTimeout(500);
+  await page.clock.fastForward(5_000);
+  await page.waitForTimeout(500);
+  expect(asks).toBe(before + 1);
+});
+
 test('a player opening the page reads the published file, and asks the functions for no event', async ({ page }) => {
   await mockApi(page);
   await publish(page, () => VIEW);
