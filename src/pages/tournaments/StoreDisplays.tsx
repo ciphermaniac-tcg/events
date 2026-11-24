@@ -79,7 +79,7 @@ function Preview(props: { options: DisplayOptions }) {
   const shown = () => Array.from({ length: columns() * rows() }, (_, i) => i);
   return (
     <div class='tm-display-preview' style={{ '--tm-preview-scale': props.options.scale }} aria-hidden='true'>
-      <p class='tm-display-preview-head'>{t('Thursday League Night')}</p>
+      <p class='tm-display-preview-head'>{t('Thursday league night')}</p>
       <ol style={{ 'grid-template-columns': `repeat(${columns()}, minmax(0, 1fr))` }}>
         <For each={shown()}>
           {i => (
@@ -199,7 +199,7 @@ function PresetFields(props: { draft: Draft; onChange: (draft: Draft) => void })
           </button>
           <Show when={roomInReach(options().room) && options().scale !== roomScale(options().room)}>
             <span class='muted'>
-              {t('from {percent} for this room', { percent: percent(roomScale(options().room)) })}
+              {t('Suggested for this room: {percent}', { percent: percent(roomScale(options().room)) })}
             </span>
           </Show>
         </span>
@@ -233,6 +233,9 @@ function PresetFields(props: { draft: Draft; onChange: (draft: Draft) => void })
   );
 }
 
+/** A room limit as the error states it, e.g. 20–300. */
+const span = (limits: { min: number; max: number }) => `${limits.min}–${limits.max}`;
+
 const problem = (draft: Draft) => {
   if (!draft.name.trim()) {
     return t('Name the preset');
@@ -240,7 +243,10 @@ const problem = (draft: Draft) => {
   if (roomInReach(draft.options.room)) {
     return null;
   }
-  return measuresInFeet() ? t('Give whole inches and feet') : t('Give whole inches, and metres to a tenth');
+  const inches = span(ROOM_LIMITS.inches);
+  return measuresInFeet()
+    ? t('Enter {inches} in and {feet} ft.', { inches, feet: span(ROOM_LIMITS.feet) })
+    : t('Enter {inches} in and {metres} m.', { inches, metres: span(ROOM_LIMITS.metres) });
 };
 
 const deleteQuestion = (name: string | undefined) => (name ? t('Delete {name}?', { name }) : t('Delete this preset?'));
@@ -309,7 +315,7 @@ export function StoreDisplays(props: { storeId: string }) {
       >
         <h2 class='tm-subhead tm-box-head tm-label-row' id='store-displays-head'>
           {t('Display presets')}
-          <SettingInfo text={msg('Pick one in an event’s console, Settings tab.')} />
+          <SettingInfo text={msg('Choose a preset under Settings in any event console.')} />
         </h2>
         <ErrorLine message={read.error ? errorText(read.error) : null} />
         <Show when={presets().length}>
