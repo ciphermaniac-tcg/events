@@ -1,13 +1,14 @@
 import assert from 'node:assert/strict';
-import { beforeEach, test } from 'node:test';
+import { beforeEach, mock, test } from 'node:test';
 import * as players from '../../functions/api/tournaments/[code]/players.ts';
 import * as staff from '../../functions/api/tournaments/[code]/staff.ts';
 import * as manage from '../../functions/api/tournaments/[code]/manage.ts';
 import type { TournamentEnv } from '../../functions/lib/auth/env.ts';
+import type { D1Like, D1Statement } from '../../functions/lib/types.ts';
 import { playerSearch } from '../../shared/tournament/returningPlayers.ts';
 import { apiCalls, type Handler } from '../__utils__/apiCalls.ts';
 import { at, eventCalls } from '../__utils__/eventCalls.ts';
-import { sqliteD1 } from '../__utils__/sqliteD1.ts';
+import { countingTrips, sqliteD1 } from '../__utils__/sqliteD1.ts';
 
 let db: ReturnType<typeof sqliteD1>;
 let env: TournamentEnv;
@@ -125,4 +126,80 @@ test('players with the same name remain distinct by Player ID', async () => {
   const result = await search(code, 'Alex', owner);
   assert.equal(result.json.players.length, 1);
   assert.equal(result.json.players[0].popId, '7654321');
+});
+
+test('a search answers in the one wait that opens the event, and a stranger hears nothing of it', async () => {
+  const owner = await signIn('Organizer', 'organizer');
+  const old = await newEvent(owner);
+  await send(old, owner, { type: 'addPlayer', player: alex });
+  const code = await newEvent(owner);
+  const other = await signIn('Other', 'organizer');
+  const counting = countingTrips(db);
+  env.TOURNAMENT_DB = counting.db;
+  const found = await search(code, 'Alex', owner);
+  assert.equal(found.json.players.length, 1);
+  assert.equal(counting.trips(), 1, 'the search goes with the event and its asker');
+  const refused = await search(code, 'Alex', other);
+  assert.deepEqual([refused.status, refused.json.players], [403, undefined]);
+});
+
+/** The database, keeping what the search statement found in each batch it went in. */
+function watchingSearch(): { db: D1Like; found: unknown[][] } {
+  const found: unknown[][] = [];
+  const searches = new WeakSet<D1Statement>();
+  const tracked = (statement: D1Statement, search: boolean): D1Statement => {
+    const wrapped = { ...statement, bind: (...values: unknown[]) => tracked(statement.bind(...values), search) };
+    if (search) {
+      searches.add(wrapped);
+    }
+    return wrapped;
+  };
+  return {
+    found,
+    db: {
+      prepare: sql => tracked(db.prepare(sql), sql.includes('profiles AS')),
+      batch: async statements => {
+        const results = await db.batch(statements);
+        statements.forEach((statement, i) => searches.has(statement) && found.push(results[i]?.results ?? []));
+        return results;
+      }
+    }
+  };
+}
+
+async function storeWithAlex() {
+  const owner = await signIn('Organizer', 'organizer');
+  const old = await newEvent(owner);
+  await send(old, owner, { type: 'addPlayer', player: alex });
+  return { owner, code: await newEvent(owner) };
+}
+
+test('a search the access check refuses finds nobody in SQL too: no age check, or a session ending meanwhile', async () => {
+  const { owner, code } = await storeWithAlex();
+  const watching = watchingSearch();
+  env.TOURNAMENT_DB = watching.db;
+  db.raw.prepare("UPDATE users SET age_checked_at = NULL WHERE handle = 'organizer'").run();
+  assert.equal((await search(code, 'Alex', owner)).status, 401);
+  assert.deepEqual(watching.found, [[]], 'an account without the age check');
+  db.raw.prepare("UPDATE users SET age_checked_at = 1 WHERE handle = 'organizer'").run();
+  const { expires } = db.raw.prepare('SELECT max(expires_at) AS expires FROM sessions').get() as { expires: number };
+  // The clock passes the session's end between any two readings: one reading decides both.
+  let readings = 0;
+  const clock = mock.method(Date, 'now', () => (readings++ === 0 ? expires + 1 : expires - 1));
+  try {
+    assert.equal((await search(code, 'Alex', owner)).status, 401);
+  } finally {
+    clock.mock.restore();
+  }
+  assert.deepEqual(watching.found, [[], []], 'a session ending between readings');
+  assert.equal((await search(code, 'Alex', owner)).json.players.length, 1, 'and a live one still finds Alex');
+});
+
+test('an event whose settings store sanctioned as null is unsanctioned, as the event reads it', async () => {
+  const { owner, code } = await storeWithAlex();
+  await send(code, owner, { type: 'addPlayer', player: { ...alex, id: '7777777' } });
+  db.raw
+    .prepare("UPDATE tournaments SET settings = json_set(settings, '$.sanctioned', json('null')) WHERE code = ?")
+    .run(code);
+  assert.deepEqual((await search(code, 'Alex', owner)).json.players, [], 'Alex is on its list by name');
 });

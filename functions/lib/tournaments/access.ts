@@ -103,9 +103,15 @@ function staffOnly(access: Access, watch: boolean): StaffAccess | Response {
 /**
  * Reads a staff route sends in the batch that opens the event, each held to
  * `guard`: the asker's standing as the route checks it, in SQL, so the reads
- * find nothing for anyone the route refuses.
+ * find nothing for anyone the route refuses. `session` is the one asking, and
+ * the moment the batch reads it at.
  */
-export type StaffReads = (db: D1Like, code: string, guard: Guard) => D1Statement[];
+export type StaffReads = (
+  db: D1Like,
+  code: string,
+  guard: Guard,
+  session: { hash: string; now: number }
+) => D1Statement[];
 
 /**
  * Who a staff route lets in, as one SQL standing over the event's row (see
@@ -125,7 +131,7 @@ const heldTo = (reads: StaffReads, rule: Rule): OpenOptions => ({
       return [];
     }
     const guard = rule.standing(code, session.hash, session.now);
-    return [db.prepare(`SELECT ${guard.sql} AS admitted`).bind(...guard.values), ...reads(db, code, guard)];
+    return [db.prepare(`SELECT ${guard.sql} AS admitted`).bind(...guard.values), ...reads(db, code, guard, session)];
   }
 });
 
