@@ -321,17 +321,16 @@ test.describe('on a phone held sideways', () => {
     expect(Math.min(...edges)).toBeGreaterThanOrEqual(47);
   });
 
-  test('the viewer’s own table is tinted as one row, not cell by cell', async ({ page }) => {
+  test('the viewer’s own table is marked by its You chip alone, with no tint', async ({ page }) => {
     await mockApi(page, { ...VIEW, viewer: { role: null, me: matches[0]!.p1, via: 'claim', signedIn: true } });
     await page.goto(`/t/${CODE}`);
     const mine = page.locator('.tm-matches tr.is-me');
-    await expect(mine).toBeVisible();
-    const fills = await mine.evaluate(row => ({
-      row: getComputedStyle(row).backgroundColor,
-      cells: [...row.children].map(cell => getComputedStyle(cell).backgroundColor)
-    }));
-    expect(fills.row).not.toBe('rgba(0, 0, 0, 0)');
-    expect(new Set(fills.cells)).toEqual(new Set(['rgba(0, 0, 0, 0)']));
+    await expect(mine.locator('.tm-flag.is-you')).toHaveText('You');
+    // Drawn as any other row is, zebra and all.
+    const others = await page
+      .locator('.tm-matches tbody tr:not(.is-me)')
+      .evaluateAll(rows => rows.map(row => getComputedStyle(row).backgroundColor));
+    expect(others).toContain(await mine.evaluate(row => getComputedStyle(row).backgroundColor));
   });
 
   test('without a notch the footer starts where the head and the page do', async ({ page }) => {
