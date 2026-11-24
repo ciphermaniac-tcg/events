@@ -651,6 +651,7 @@ function AcceptReports(props: {
           </For>
         }
         confirmLabel={t('Accept {count}', { count: count() })}
+        keepLabel={t('Cancel')}
         onConfirm={() => props.onAccept(asked() ?? [])}
         onClose={() => setAsked(null)}
       />
