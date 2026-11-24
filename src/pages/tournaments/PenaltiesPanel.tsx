@@ -45,7 +45,7 @@ import {
   removePenaltyNote
 } from '../../lib/tournament/api';
 import { latestValue } from '../../lib/resource';
-import { t, timeOfDay, tn, tx } from '../../lib/i18n';
+import { msg, t, timeOfDay, tn, tx } from '../../lib/i18n';
 import { Segmented } from '@ciphermaniac/design/components/Segmented';
 import { Combo, splitMatch } from '@ciphermaniac/design/components/Combo';
 import { roundLabel, seatOf } from '../../lib/tournament/present';
@@ -90,15 +90,36 @@ const editing = (note: PenaltyNote): Draft => ({
   replaces: note.id
 });
 
-/** What is missing before the draft can be saved, or null. */
-function draftProblem(draft: Draft): string | null {
+type Field = 'player' | 'penalty' | 'judge';
+
+const PROBLEMS: Record<Field, string> = {
+  player: msg('Choose a player'),
+  penalty: msg('Choose a penalty'),
+  judge: msg('Say which judge gave it')
+};
+
+/** The first field the draft still needs before it can be saved, or null. */
+function missingField(draft: Draft): Field | null {
   if (!draft.playerId) {
-    return t('Choose a player');
+    return 'player';
   }
   if (!draft.penalty) {
-    return t('Choose a penalty');
+    return 'penalty';
   }
-  return draft.judgeId === SOMEONE_ELSE && !draft.judgeName.trim() ? t('Say which judge gave it') : null;
+  return draft.judgeId === SOMEONE_ELSE && !draft.judgeName.trim() ? 'judge' : null;
+}
+
+/** What a field still needs, under it once Save has been tried. */
+function FieldProblem(props: { text: string | null }) {
+  return (
+    <Show when={props.text}>
+      {text => (
+        <span class='tm-problem' role='alert'>
+          {text()}
+        </span>
+      )}
+    </Show>
+  );
 }
 
 /** One line of the log: a penalty note, or with deck checks shown, a deck check. */
@@ -128,10 +149,12 @@ function Select(props: {
   value: string | number;
   onChange: (value: string) => void;
   ref?: (el: HTMLSelectElement) => void;
+  field?: Field;
+  problem?: string | null;
   children: JSX.Element;
 }) {
   return (
-    <label>
+    <label data-field={props.field}>
       {props.label}
       <select
         ref={props.ref}
@@ -141,6 +164,7 @@ function Select(props: {
       >
         {props.children}
       </select>
+      <FieldProblem text={props.problem ?? null} />
     </label>
   );
 }
@@ -206,17 +230,27 @@ function NoteForm(props: FormProps) {
   const set = (change: Partial<Draft>) => props.onChange({ ...props.draft, ...change });
   const setPlayer = (playerId: string) =>
     set({ playerId, round: Math.min(props.draft.round, props.latestOf(playerId)) || props.draft.round });
+  // Once Save finds a field missing, each field says what it still needs until the draft saves.
+  const [tried, setTried] = createSignal(false);
+  const problem = (field: Field) => (tried() && missingField(props.draft) === field ? t(PROBLEMS[field]) : null);
   return (
     <form
       class='tm-penalty-form'
       onSubmit={event => {
         event.preventDefault();
-        props.onSave();
+        const field = missingField(props.draft);
+        setTried(field !== null);
+        if (field) {
+          event.currentTarget.querySelector<HTMLElement>(`[data-field='${field}'] :is(input, select)`)?.focus();
+        } else {
+          props.onSave();
+        }
       }}
     >
-      <label>
+      <label data-field='player'>
         {t('Player')}
         <PlayerCombo {...props} onPick={setPlayer} />
+        <FieldProblem text={problem('player')} />
       </label>
       <Select label={t('Round')} value={props.draft.round} onChange={value => set({ round: Number(value) })}>
         <For each={rounds(props.latestOf(props.draft.playerId))}>
@@ -225,6 +259,8 @@ function NoteForm(props: FormProps) {
       </Select>
       <Select
         label={t('Penalty')}
+        field='penalty'
+        problem={problem('penalty')}
         ref={el => props.started && queueMicrotask(() => el.focus())}
         value={props.draft.penalty}
         onChange={value => set({ penalty: isPenalty(value) ? value : '' })}
@@ -237,7 +273,7 @@ function NoteForm(props: FormProps) {
         <option value={SOMEONE_ELSE}>{t('Someone else')}</option>
       </Select>
       <Show when={props.draft.judgeId === SOMEONE_ELSE}>
-        <label>
+        <label data-field='judge'>
           {t('Name')}
           <input
             class='tm-input'
@@ -245,6 +281,7 @@ function NoteForm(props: FormProps) {
             value={props.draft.judgeName}
             onInput={e => set({ judgeName: e.currentTarget.value })}
           />
+          <FieldProblem text={problem('judge')} />
         </label>
       </Show>
       <label class='tm-penalty-notes'>
@@ -643,9 +680,8 @@ export function PenaltiesPanel(props: {
   function save() {
     const sent = draft();
     const { playerId, round: when, judgeId, judgeName, penalty, notes: text, replaces } = sent;
-    const problem = draftProblem(sent);
-    if (problem || !penalty) {
-      setError(problem);
+    // The form saves only a draft with nothing missing (see missingField).
+    if (!penalty) {
       return;
     }
     const judge = judgeId === SOMEONE_ELSE ? { judgeName } : { judgeId };

@@ -1026,6 +1026,10 @@
   gap: var(--space-2) var(--space-3);
   align-items: end;
 }
+/* A field's problem under it lengthens its label downward, so the fields stay level along their tops. */
+.tm-console .tm-penalty-form > label {
+  align-self: start;
+}
 .tm-console .tm-penalty-notes {
   grid-column: 1 / -2;
 }
