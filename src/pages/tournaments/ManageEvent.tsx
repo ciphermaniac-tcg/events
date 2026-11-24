@@ -38,10 +38,11 @@ import {
   divisionCuts,
   namesById,
   podLabel,
-  podProgress,
   type PodProgress,
+  podProgress,
   roundStatus,
   shownDecks,
+  swissPaired,
   unseated
 } from '../../lib/tournament/present';
 import { type NextStep, nextStep, swissPlanOf } from '../../lib/tournament/staff';
@@ -588,6 +589,7 @@ function Console(props: { state: ReturnType<typeof createManage>; manage: Manage
                   tiebreakers
                   onPlayer={setSheetId}
                   hideCutDecks={props.manage.settings.deckVisibility !== 'always' && !props.manage.settings.finished}
+                  cutDue={!props.manage.settings.finished && swissPaired(p(), props.manage, props.manage.tournament)}
                 />
               );
             }}

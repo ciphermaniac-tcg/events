@@ -76,7 +76,8 @@ import {
   namesById,
   playerDivision,
   podLabel,
-  roundCapOf
+  roundCapOf,
+  swissPaired
 } from '../../lib/tournament/present';
 import type { Tab as DashboardTab } from './Dashboard';
 import { TournamentHero } from './Hero';
@@ -839,6 +840,7 @@ function EventBody(props: {
               bar={bar(false)}
               note={deckNote(props.view)}
               miss={miss(msg('No players match in {division}.'))}
+              cutDue={!props.view.settings.finished && swissPaired(pod()!, props.view, props.view.tournament)}
             />
           </Show>
         </Show>
