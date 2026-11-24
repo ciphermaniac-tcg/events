@@ -2831,9 +2831,7 @@ test('on a phone the player’s table stays under the head once their strip scro
   await expect(page.locator('.tm-you')).toBeInViewport();
 });
 
-test('a player presses their answer again and confirms to take the report back, and no line promises agreeing reports count', async ({
-  page
-}) => {
+test('a report says only how long it can change, and pressing it again asks to clear it', async ({ page }) => {
   const open = openTable();
   const view: TournamentView = {
     ...VIEW,
@@ -2877,9 +2875,11 @@ test('a player presses their answer again and confirms to take the report back, 
   const won = page.getByRole('button', { name: 'I won', exact: true });
   await won.click();
   await expect(won).toHaveAttribute('aria-pressed', 'true');
+  // Nothing about whom it waits on: staff or the opponent, the player has nothing to do about it.
+  await expect(page.locator('.tm-you-note')).toHaveText('You can change this for 30 seconds.');
   await won.click();
-  await page.getByRole('group', { name: 'Take back' }).getByRole('button', { name: 'Take back' }).click();
+  await page.getByRole('group', { name: 'Clear your report?' }).getByRole('button', { name: 'Clear' }).click();
   await expect.poll(() => bodies.at(-1)).toMatchObject({ withdraw: true });
   await expect(won).toHaveAttribute('aria-pressed', 'false');
-  await expect(page.locator('.tm-you-status')).toHaveText('Not reported');
+  await expect(page.locator('.tm-you-note')).toHaveCount(0);
 });
