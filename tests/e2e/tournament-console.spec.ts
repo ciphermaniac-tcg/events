@@ -1313,10 +1313,33 @@ test('a Player ID already on the roster is marked on its field, which takes focu
   const id = form.getByLabel('Player ID');
   await expect(id).toBeFocused();
   await expect(id).toHaveAttribute('aria-invalid', 'true');
+  await expect(id).toHaveAccessibleDescription('That Player ID is already registered');
   await expect(page.getByText('That Player ID is already registered')).toHaveCount(1);
   await id.fill('4243');
   await expect(id).not.toHaveAttribute('aria-invalid');
   await expect(page.getByText('That Player ID is already registered')).toHaveCount(0);
+});
+
+test('a Player ID refused as already on the roster marks nothing once another is typed', async ({ page }) => {
+  await mockConsole(page, event(4, 0, false), settingsOf({ sanctioned: true }));
+  const held = deferred<void>();
+  await page.route(`**/api/tournaments/${CODE}/commands`, async route => {
+    await held.promise;
+    return route.fulfill({ status: 400, json: { error: 'That Player ID is already registered' } });
+  });
+  const form = page.getByRole('form', { name: 'Add a player' });
+  await form.getByLabel('First name').fill('Sam');
+  await form.getByLabel('Last name').fill('Lee');
+  await form.getByLabel('Player ID').fill('4242');
+  await form.getByLabel('Birth year').fill('2001');
+  await form.getByRole('button', { name: 'Add player' }).click();
+  const id = form.getByLabel('Player ID');
+  // Changed while the first is on its way: the refusal is for 4242, not the ID typed now.
+  await id.fill('4243');
+  held.resolve();
+  await expect(page.getByText('That Player ID is already registered')).toHaveCount(1);
+  await expect(id).not.toHaveAttribute('aria-invalid');
+  await expect(id).toHaveValue('4243');
 });
 
 test('a setting saves as it is left, with no Save to press', async ({ page }) => {
