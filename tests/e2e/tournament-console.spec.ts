@@ -690,17 +690,19 @@ test('after the planned rounds the step is the top cut, set in a dialog, with an
   await expect(step.locator('.tm-menu-item')).toHaveText(['Pair round 6', 'End event']);
   await page.keyboard.press('Escape');
   await step.getByRole('button', { name: 'Start top cut' }).click();
-  const dialog = page.getByRole('dialog', { name: 'Start the top cut' });
+  const dialog = page.getByRole('dialog', { name: 'Start top cut' });
   await expect(
     dialog.getByRole('radiogroup', { name: 'Top cut size' }).getByRole('radio', { checked: true })
   ).toHaveText('Top 4');
   await dialog.getByRole('radio', { name: 'Top 8' }).click();
   // Who that takes, and the first left out, before anything starts; no match for third is offered.
   await expect(dialog.locator('.tm-cut-seeds li')).toHaveCount(8);
-  await expect(dialog.locator('.tm-cut-preview-head')).toContainText('The 8 in this cut');
-  await expect(dialog.locator('.tm-cut-preview-head')).toContainText(/9th .+ \d+-\d+-\d+ is out/);
+  await expect(dialog.locator('.tm-cut-preview-head')).toContainText('Top 8 seeds');
+  await expect(dialog.locator('.tm-cut-preview-head')).toContainText(
+    /^Top 8 seeds.+ misses the cut on (points|OWP|OOWP), .+ to .+\.$/
+  );
   await expect(dialog.getByRole('checkbox')).toHaveCount(0);
-  await dialog.getByRole('button', { name: 'Start top 8 cut' }).click();
+  await dialog.getByRole('button', { name: 'Start top 8' }).click();
   await expect(dialog).toBeHidden();
   await expect.poll(() => sent.at(-1)).toEqual({ type: 'startTopCut', pod: 'masters', size: 8 });
   // The round line names the cut alone, with no suffix about cuts under way.

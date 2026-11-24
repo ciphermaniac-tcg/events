@@ -63,6 +63,7 @@ import {
   changeQuestion,
   cutSplit,
   endGaps,
+  missedCutOn,
   nextStep,
   outcomeLabel,
   outcomeNoun,
@@ -455,6 +456,8 @@ test('a cut round leads to the next stage by name, and a finished final crowns i
   const final: Round = { ...round2, kind: 'elimination', matches: [{ ...first, outcome: 'p1' }] };
   assert.equal(champion(final, pod), first.p1);
   assert.equal(champion({ ...final, matches: [{ ...first, outcome: 'pending' }] }, pod), null);
+  const playing = podProgress({ ...pod, rounds: [{ ...final, matches: [{ ...first, outcome: 'pending' }] }] }, []);
+  assert.deepEqual(nextStep(playing, false), { kind: 'none' }, 'nothing to pair while the final plays');
 });
 
 test('the status sentence names the round, what is still playing and the clock', () => {
@@ -615,7 +618,7 @@ test('once the plan’s rounds are played, the next step is a decision, which wa
   });
   const semi: Round = { ...round2, kind: 'elimination', matches: round2.matches.slice(0, 2) };
   assert.equal(
-    nextStep({ ...open, round: semi, open: 0 }, false, { rounds: 1, cut: 4 }).kind,
+    nextStep({ ...podProgress({ ...pod, rounds: [semi] }, []), open: 0 }, false, { rounds: 1, cut: 4 }).kind,
     'pair',
     'a cut pairs on'
   );
@@ -638,6 +641,27 @@ test('the cut line says what split the last player in from the first one out', (
   assert.equal(cutSplit([row(1, 6, 0.5)], 8), null, 'no one outside the cut');
   const long = Array.from({ length: 12 }, (_, i) => row(i + 1, 12 - i, 0.5));
   assert.match(cutSplit(long, 11) ?? '', /^11th and 12th/);
+});
+
+test('who misses the cut is told what put the last one in above them, only when it shows a difference', () => {
+  const row = (points: number, owp: number, oowp: number, late = false) => ({
+    playerId: String(points),
+    place: 1,
+    record: { wins: 0, losses: 0, ties: 0 },
+    points,
+    owp,
+    oowp,
+    dropped: false,
+    late
+  });
+  assert.deepEqual(missedCutOn(row(9, 0.5, 0.5), row(6, 0.5, 0.5)), { tiebreak: 'points', theirs: '6', cutoff: '9' });
+  assert.deepEqual(missedCutOn(row(6, 0.6, 0.5), row(6, 0.5, 0.5)), {
+    tiebreak: 'OWP',
+    theirs: '50.00%',
+    cutoff: '60.00%'
+  });
+  assert.equal(missedCutOn(row(6, 0.5, 0.5), row(6, 0.5, 0.5)), null, 'a tie broken past OOWP names none');
+  assert.equal(missedCutOn(row(6, 0.4, 0.5), row(6, 0.6, 0.5, true)), null, 'late entry decided it');
 });
 
 test('the public status names registration, the round in play, or how the event finished', () => {
