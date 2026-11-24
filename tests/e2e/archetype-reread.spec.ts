@@ -58,7 +58,7 @@ test('staff re-read every list’s archetype and see how many changed', async ({
   });
   await page.goto(`/host/${CODE}`);
   await page.getByRole('tab', { name: 'Decklists' }).click();
-  const button = page.getByRole('button', { name: 'Re-read archetypes' });
+  const button = page.getByRole('button', { name: 'Refresh decks' });
   await expect(button).toBeVisible();
   const before = reads;
   await button.click();
@@ -94,14 +94,14 @@ test('an event with no pasted lists, or with archetypes off, has nothing to re-r
   await page.goto(`/host/${CODE}`);
   await page.getByRole('tab', { name: 'Decklists' }).click();
   await expect(page.locator('.tm-lists tbody tr')).toHaveCount(1);
-  await expect(page.getByRole('button', { name: 'Re-read archetypes' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Refresh decks' })).toHaveCount(0);
 
   settings = { ...settings, deckVisibility: 'off' };
   lists = [list('Dragapult')];
   await page.reload();
   await page.getByRole('tab', { name: 'Decklists' }).click();
   await expect(page.locator('.tm-lists tbody tr')).toHaveCount(1);
-  await expect(page.getByRole('button', { name: 'Re-read archetypes' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Refresh decks' })).toHaveCount(0);
 });
 
 test('on a phone with archetypes off, a list’s name starts its row instead of past an empty deck slot @mobileOnly', async ({
