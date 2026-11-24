@@ -9,7 +9,7 @@
 
 import { createResource, createSignal, For, type JSX, Show, Suspense } from 'solid-js';
 import { lazyPanel } from './lazyPanel';
-import { type CorrectionContext, type CorrectionEntry, roundRefusal } from '../../../shared/tournament/corrections';
+import { type CorrectionEntry, roundRefusal } from '../../../shared/tournament/corrections';
 import type { Match, Pod, Round } from '../../../shared/tournament/types';
 import { type CorrectionRecord, fetchCorrections, type Manage } from '../../lib/tournament/api';
 import { RESULT_WORDS } from '../../lib/tournament/present';
@@ -30,25 +30,6 @@ const ROLE_WORDS = { organizer: msg('organizer'), 'head-judge': msg('head judge'
 export function approvalLine(entry: Pick<CorrectionEntry, 'approvedBy' | 'role' | 'alone'>): string {
   const values = { who: entry.approvedBy ?? t('Deleted account'), role: t(ROLE_WORDS[entry.role]) };
   return entry.alone ? t('{who}, {role} (no head judge named)', values) : t('{who}, {role}', values);
-}
-
-/**
- * What the note above a past round says: when it can be corrected and by
- * whom, or why it cannot. Null for the plain read-only note, as for a round
- * of a top cut.
- */
-export function pastNote(pod: Pod, round: Round, ctx: CorrectionContext, approver: boolean): string | null {
-  if (round.kind !== 'swiss') {
-    return null;
-  }
-  const refusal = roundRefusal(pod, round.number, ctx);
-  if (refusal) {
-    return t(refusal);
-  }
-  const values = { round: round.number, until: round.number + 2 };
-  return approver
-    ? t('Round {round} can be corrected until round {until} is paired.', values)
-    : t('Round {round} can be corrected until round {until} is paired, by the organizer or head judge.', values);
 }
 
 /** A past round's result cell: whether it was corrected, and how to correct it now, if the viewer can. */
@@ -133,7 +114,7 @@ interface PanelProps {
 }
 
 /**
- * Corrections for the round panel: the note over a past round, each result's
+ * Corrections for the round panel: whether a past round is locked, each result's
  * cell, the round's corrections under its tables, and the dialog. `past` is
  * the past round shown, by name; null on the latest round.
  */
@@ -164,8 +145,9 @@ export function createRoundCorrections(props: PanelProps, past: () => string | n
       role: t(ROLE_WORDS[approver() ?? 'organizer'])
     });
   return {
-    note: (round: Round | undefined) =>
-      round && past() ? pastNote(props.pod, round, ctx(), approver() !== null) : null,
+    /** A past round no one can correct any more: a top cut's, or a Swiss round past its window. */
+    locked: (round: Round) =>
+      past() !== null && (round.kind !== 'swiss' || roundRefusal(props.pod, round.number, ctx()) !== null),
     cell: (match: Match, round: Round): CorrectableCell | null =>
       past() === null || tom() || round.kind !== 'swiss'
         ? null

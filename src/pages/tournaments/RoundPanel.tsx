@@ -20,7 +20,6 @@
  * entered from Players.
  */
 
-import { useSearchParams } from '@solidjs/router';
 import {
   createEffect,
   createMemo,
@@ -424,6 +423,8 @@ interface RoundBarProps {
   waiting: boolean;
   nothingReported: boolean;
   openOnly: boolean;
+  /** A past round that can no longer be corrected. */
+  locked: boolean;
   /** Whether In progress can narrow anything: a Swiss round, shown as a table, of an event still running. */
   filterable: boolean;
   /** The Table / Bracket switch, once the pod has a top cut to draw. */
@@ -445,7 +446,9 @@ function RoundBar(props: RoundBarProps) {
     <div class='tm-box-bar'>
       <RoundStepper pod={props.pod} selected={props.round.number} onSelect={props.onPick} />
       <span class='muted tm-num tm-round-state'>
-        {t('{done} of {total} in', { done: props.played - props.open, total: props.played })}
+        {props.locked
+          ? t('Complete · Locked')
+          : t('{done} of {total} in', { done: props.played - props.open, total: props.played })}
       </span>
       {props.views}
       <span class='tm-grow' />
@@ -474,6 +477,8 @@ function RoundPin(props: {
   pod: Pod;
   round: Round;
   clocked: boolean;
+  /** A past round that can no longer be corrected, which the bar's hidden state says on wider screens. */
+  locked: boolean;
   query: string;
   onQuery: (value: string) => void;
   onPick: (n: number) => void;
@@ -484,6 +489,9 @@ function RoundPin(props: {
     <Show when={phone()}>
       <div class='tm-round-pin'>
         <RoundPicker pod={props.pod} selected={props.round.number} onSelect={props.onPick} />
+        <Show when={props.locked}>
+          <span class='muted'>{t('Locked')}</span>
+        </Show>
         <Show when={props.clocked}>
           {/* A watching Admin sees the time with nothing to press. */}
           <Show when={!props.state.data()?.watching} fallback={<Clock round={props.round} set />}>
@@ -597,20 +605,6 @@ function NotSeated(props: { state: ManageState; pod: Pod; names: string }) {
   );
 }
 
-/** An ended event's results stand until it is reopened, which Settings offers. */
-function EndedNote() {
-  const [, setParams] = useSearchParams<{ tab?: string }>();
-  return (
-    <div class='tm-strip is-note' role='status'>
-      <span>{t('The event has ended. Reopen it to change results.')}</span>
-      <span class='tm-grow' />
-      <button type='button' class='btn btn-secondary tm-small' onClick={() => setParams({ tab: 'event' })}>
-        {t('Settings')}
-      </button>
-    </div>
-  );
-}
-
 interface PlainReport {
   match: Match;
   outcome: Outcome;
@@ -695,38 +689,12 @@ function roundCounts(round: Round | undefined, isOpen: (match: Match) => boolean
 }
 
 /**
- * A round before the latest takes no results: the server takes them for the
- * latest round only. `text` says instead whether the round can be corrected
- * (see Corrections.tsx).
+ * The lines above the round: who is not seated, and each champion. A past
+ * round says it is locked in its bar, and an ended event says so in its head.
  */
-function PastNote(props: { past: string | null; text: string | null; onCurrent: () => void }) {
-  return (
-    <Show when={props.past}>
-      {past => (
-        <div class='tm-strip is-note' role='status'>
-          <span>
-            {props.text ?? t('{round} is read-only. Results are entered in the current round.', { round: past() })}
-          </span>
-          <span class='tm-grow' />
-          <button type='button' class='btn btn-secondary tm-small' onClick={() => props.onCurrent()}>
-            {t('Current round')}
-          </button>
-        </div>
-      )}
-    </Show>
-  );
-}
-
-/** The lines above the round: whether the event has ended, who is not seated, and each champion. */
 function RoundNotes(props: {
   state: ManageState;
   pod: Pod;
-  ended: boolean;
-  /** The round shown, by name, when it is not the latest. */
-  past: string | null;
-  /** What the note above a past round says, when not the plain read-only note (see pastNote). */
-  pastText: string | null;
-  onCurrent: () => void;
   /** The names of the players a re-pair would seat, joined. */
   waiting: string;
   winners: readonly Champion[];
@@ -734,12 +702,6 @@ function RoundNotes(props: {
 }) {
   return (
     <>
-      <Show
-        when={props.ended}
-        fallback={<PastNote past={props.past} text={props.pastText} onCurrent={props.onCurrent} />}
-      >
-        <EndedNote />
-      </Show>
       <NotSeated state={props.state} pod={props.pod} names={props.waiting} />
       <For each={props.winners}>
         {won => (
@@ -991,10 +953,6 @@ export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod
       <RoundNotes
         state={props.state}
         pod={props.pod}
-        ended={ended()}
-        past={pastLabel()}
-        pastText={fixes.note(round())}
-        onCurrent={() => setPicked(null)}
         waiting={waiting()
           .map(id => names().get(id) ?? id)
           .join(', ')}
@@ -1065,6 +1023,7 @@ export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod
                 pod={props.pod}
                 round={r()}
                 clocked={timed() && r().status !== 'finished' && !props.manage.settings.finished}
+                locked={fixes.locked(r())}
                 query={query()}
                 onQuery={setQuery}
                 onPick={setPicked}
@@ -1080,6 +1039,7 @@ export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod
                 waiting={waiting().length > 0}
                 nothingReported={counts().nothingReported}
                 openOnly={openOnly()}
+                locked={fixes.locked(r())}
                 filterable={filterable()}
                 onOpenOnly={setOpenOnly}
                 plain={plain()}
