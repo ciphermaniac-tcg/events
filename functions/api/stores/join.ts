@@ -1,7 +1,7 @@
 /**
  * GET /api/stores/join?invite= — what an open invite link is for, before
  * anyone signs in: { store, role }, the store's name and as what it lets
- * someone in; 410 when the link was used, withdrawn or ran out.
+ * someone in; 410 when the link was used, withdrawn or ran out, with what to do next.
  * POST /api/stores/join — the signed-in account joins a store through an
  * invite link a Manager made ({ token }). Each link lets one person in, as
  * the role it was made for. Answers { storeId }; 410 when the link was used,
@@ -22,7 +22,9 @@ export async function onRequestGet({ request, env }: Context): Promise<Response>
   }
   const token = new URL(request.url).searchParams.get('invite') ?? '';
   const invite = token && token.length <= 64 ? await inviteOf(db, token) : null;
-  return invite ? privateJson(invite) : jsonError('This invite link was used or has run out', 410);
+  return invite
+    ? privateJson(invite)
+    : jsonError('This link was used or has expired. Ask the store for a new one.', 410);
 }
 
 export async function onRequestPost({ request, env }: Context): Promise<Response> {
@@ -33,5 +35,7 @@ export async function onRequestPost({ request, env }: Context): Promise<Response
   const { db, user } = opened;
   const token = (await readJsonObject(request, 512))?.token;
   const storeId = typeof token === 'string' && token ? await acceptInvite(db, token, user.id) : null;
-  return storeId ? privateJson({ storeId }) : jsonError('This invite link was used or has run out', 410);
+  return storeId
+    ? privateJson({ storeId })
+    : jsonError('This link was used or has expired. Ask the store for a new one.', 410);
 }
