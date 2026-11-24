@@ -435,7 +435,8 @@ test('a result coming in redraws its own table, and leaves the search and the ot
   await page.goto(`/t/${CODE}`);
   const rows = page.locator('.tm-matches tbody tr:not(.tm-group-row)');
   await expect(rows).toHaveCount(4);
-  await expect(rows.filter({ hasText: 'In progress' })).toHaveCount(2);
+  await expect(page.locator('.tm-group-row').first()).toHaveText('In progress · 2');
+  await expect(page.locator('.tm-matches th.tm-status-col')).toHaveCount(0);
   const search = page.getByRole('searchbox', { name: 'Find a player' });
   await search.focus();
   // Marked, so a row or a search box drawn again from nothing shows as one that lost its mark.
@@ -444,7 +445,7 @@ test('a result coming in redraws its own table, and leaves the search and the ot
   });
   view = afterOneResult();
   await announce(page, view.version);
-  await expect(rows.filter({ hasText: 'In progress' })).toHaveCount(1);
+  await expect(page.locator('.tm-group-row').first()).toHaveText('In progress · 1');
   await expect(search).toBeFocused();
   await expect(search).toHaveAttribute('data-kept', '');
   await expect(page.locator('.tm-matches tbody tr:not(.tm-group-row)[data-kept]')).toHaveCount(3);
@@ -465,9 +466,7 @@ test('a result at another table leaves an open Report result and what was typed 
   await id.fill('12345');
   view = { ...afterOneResult(), settings };
   await announce(page, view.version);
-  await expect(page.locator('.tm-matches tbody tr:not(.tm-group-row)').filter({ hasText: 'In progress' })).toHaveCount(
-    1
-  );
+  await expect(page.locator('.tm-group-row').first()).toHaveText('In progress · 1');
   await expect(page.getByRole('button', { name: 'Confirm reporting player' })).toBeVisible();
   await expect(id).toHaveValue('12345');
 });
@@ -944,8 +943,7 @@ test('a result coming in leaves a reader scrolled down the page where they were'
   await mockApi(page);
   await publish(page, () => view);
   await page.goto(`/t/${CODE}`);
-  const rows = page.locator('.tm-matches tbody tr:not(.tm-group-row)');
-  await expect(rows.filter({ hasText: 'In progress' })).toHaveCount(2);
+  await expect(page.locator('.tm-group-row').first()).toHaveText('In progress · 2');
   // Room to scroll past the tabs, as a field of hundreds gives.
   const at = await page.evaluate(() => {
     document.body.style.paddingBottom = '4000px';
@@ -956,7 +954,7 @@ test('a result coming in leaves a reader scrolled down the page where they were'
   await expect(tabs).not.toBeInViewport();
   view = afterOneResult();
   await announce(page, view.version);
-  await expect(rows.filter({ hasText: 'In progress' })).toHaveCount(1);
+  await expect(page.locator('.tm-group-row').first()).toHaveText('In progress · 1');
   // A smooth scroll would have started within a few frames of the redraw.
   await page.waitForTimeout(500);
   expect(await page.evaluate(() => window.scrollY)).toBe(at);
@@ -2625,11 +2623,12 @@ test('a result at another table leaves an open list as it is, asked for once', a
     .click();
   const sheet = page.getByRole('dialog');
   await expect(sheet).toContainText('Handed in on paper.');
+  // The pointer rests over the tables, which holds their groups unnamed, so the new result shows as a mark.
+  const wins = page.locator('.tm-matches .tm-mark.is-win');
+  const won = await wins.count();
   view = { ...afterOneResult(), settings: view.settings };
   await announce(page, view.version);
-  await expect(page.locator('.tm-matches tbody tr:not(.tm-group-row)').filter({ hasText: 'In progress' })).toHaveCount(
-    1
-  );
+  await expect(wins).toHaveCount(won + 1);
   view = { ...view, version: view.version + 1, settings: { ...view.settings, venue: 'Hall B' } };
   await announce(page, view.version);
   await expect(page.locator('.hero-meta').getByRole('link', { name: 'Hall B' })).toHaveAttribute(
@@ -2798,7 +2797,11 @@ test('a table given extra time says so on its player’s strip and in the pairin
     await expect(row.locator('.tm-table-extra')).toBeVisible();
     await expect(row.locator('.tm-table-extra')).toContainText('3 extra minutes');
   } else {
-    await expect(row.locator('.tm-status-col .tm-extension')).toContainText('+3 min');
+    // The Status column holds the extra time and its clock alone, and only an open table with extra time fills it.
+    await expect(page.locator('.tm-matches th.tm-status-col')).toHaveText('Status');
+    await expect(row.locator('.tm-status-col')).toHaveText(/^\+3 min/);
+    await expect(row.locator('.tm-status-col')).not.toContainText(/In progress|Done/);
+    await expect(page.locator('.tm-matches tbody tr:not(.is-me) td.tm-status-col').first()).toHaveText('');
   }
 });
 
