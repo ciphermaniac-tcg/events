@@ -147,7 +147,7 @@
   max-width: 760px;
   margin: 0;
 }
-.tm-you-status.is-bad {
+.tm-you-note.is-bad {
   color: color-mix(in srgb, var(--negative) 82%, var(--fg));
 }
 .tm-you-note {

@@ -64,24 +64,11 @@ const SignIn = lazyPanel(() => import('./SignIn').then(m => ({ default: m.SignIn
 
 const SAID: Record<PlayerResult, string> = { win: msg('You won'), loss: msg('You lost'), tie: msg('You tied') };
 
-const REPORTED: Record<PlayerResult, string> = {
-  win: msg('You reported a win'),
-  loss: msg('You reported a loss'),
-  tie: msg('You reported a tie')
-};
-
 /** A report filed, on the strip once its answers are put away. */
 const FILED: Record<PlayerResult, string> = {
   win: msg('Reported a win'),
   loss: msg('Reported a loss'),
   tie: msg('Reported a tie')
-};
-
-/** Asked when the answer already filed is pressed again, which would take it back. */
-const TAKE_BACK: Record<PlayerResult, string> = {
-  win: msg('Take back your win?'),
-  loss: msg('Take back your loss?'),
-  tie: msg('Take back your tie?')
 };
 
 const NOT_REPORTER = msg('Someone else is already reporting for this player. Ask staff if that’s wrong.');
@@ -90,13 +77,8 @@ const NOT_REPORTER = msg('Someone else is already reporting for this player. Ask
 const WINDOW = { seconds: REPORT_WINDOW_MS / 1000 };
 
 const NOTES = {
-  open: msg('Staff must accept your result.'),
-  reported: msg('Staff will accept it shortly. You can change it for {seconds} seconds.'),
-  /** Past the window to change it, the report only waits for staff. */
-  locked: msg('Your report is locked in. Staff will accept it shortly.'),
-  /** Where agreeing reports settle the match, the opponent's report is what it waits on. */
-  agrees: msg('It counts once your opponent reports the same. You can change it for {seconds} seconds.'),
-  agreesLocked: msg('Your report is locked in. It counts once your opponent reports the same.'),
+  /** Past the window the pressed answer says it all: what it waits on next is no business of the player's. */
+  change: msg('You can change this for {seconds} seconds.'),
   disputed: msg('Your reports don’t match. If you pressed the wrong one, change it. Otherwise, find a judge.'),
   /** Once the report is locked there is nothing to change: only the judge is left. */
   disputedLocked: msg('Your reports don’t match. Find a judge.')
@@ -265,35 +247,16 @@ function createReport(props: Props & { me: string }, found: () => Found | null) 
 
 type Report = ReturnType<typeof createReport>;
 
-/** Whether two agreeing reports settle a match here, without staff. */
-const settles = (view: TournamentView) => view.mode === 'swiss' && view.settings.agreedReportsSettle;
-
-/** The answers, what the report is waiting on, and the line that explains it. */
-function ReportPanel(props: { report: Report; found: Found; settles: boolean }) {
+/** The answers, and one line while the pressed one can still change or when reports disagree. */
+function ReportPanel(props: { report: Report; found: Found }) {
   const s = () => props.report.state();
   const choices = () => (props.found.round.kind === 'elimination' ? CHOICES.filter(c => c.result !== 'tie') : CHOICES);
-  const status = () => {
-    const state = s();
-    if (!state?.chosen) {
-      return t('Not reported');
-    }
-    if (state.disputed) {
-      return t('Reports don’t match');
-    }
-    return t(REPORTED[state.chosen]);
-  };
   const note = () => {
     const state = s();
-    if (!state?.chosen) {
-      return props.settles ? null : t(NOTES.open);
-    }
-    if (state.disputed) {
+    if (state?.disputed) {
       return t(state.locked ? NOTES.disputedLocked : NOTES.disputed);
     }
-    if (props.settles) {
-      return t(state.locked ? NOTES.agreesLocked : NOTES.agrees, WINDOW);
-    }
-    return t(state.locked ? NOTES.locked : NOTES.reported, WINDOW);
+    return state?.chosen && !state.locked ? t(NOTES.change, WINDOW) : null;
   };
   const fixed = () => Boolean(s()?.locked || s()?.final);
   // The answer filed, pressed again, asks before it is taken back: a double tap must not undo a report.
@@ -342,30 +305,37 @@ function ReportPanel(props: { report: Report; found: Found; settles: boolean }) 
             }}
           </For>
         </div>
-        <strong class='tm-you-status' classList={{ 'is-bad': Boolean(s()?.disputed) }} role='status'>
-          {status()}
-        </strong>
       </div>
       <Show
         when={asking() && !fixed() && s()?.chosen}
-        fallback={<Show when={note()}>{text => <p class='tm-you-note muted'>{text()}</p>}</Show>}
+        fallback={
+          <Show when={note()}>
+            {text => (
+              <p
+                class='tm-you-note'
+                classList={{ muted: !s()?.disputed, 'is-bad': Boolean(s()?.disputed) }}
+                role='status'
+              >
+                {text()}
+              </p>
+            )}
+          </Show>
+        }
       >
-        {chosen => (
-          <div class='tm-row-actions tm-confirm' role='group' aria-label={t('Take back')}>
-            <span>{t(TAKE_BACK[chosen()])}</span>
-            <button
-              type='button'
-              class='btn btn-secondary tm-small tm-danger'
-              disabled={props.report.busy()}
-              onClick={takeBack}
-            >
-              {t('Take back')}
-            </button>
-            <button type='button' class='btn btn-ghost tm-small' onClick={() => setAsking(false)}>
-              {t('Keep it')}
-            </button>
-          </div>
-        )}
+        <div class='tm-row-actions tm-confirm' role='group' aria-label={t('Clear your report?')}>
+          <span>{t('Clear your report?')}</span>
+          <button
+            type='button'
+            class='btn btn-secondary tm-small tm-danger'
+            disabled={props.report.busy()}
+            onClick={takeBack}
+          >
+            {t('Clear')}
+          </button>
+          <button type='button' class='btn btn-ghost tm-small' onClick={() => setAsking(false)}>
+            {t('Keep')}
+          </button>
+        </div>
       </Show>
       <ErrorLine message={props.report.error()} />
     </div>
@@ -669,9 +639,7 @@ function MatchBox(props: Props & { me: string; askAs: PlayerClaim | null }) {
           </button>
         </div>
       </Show>
-      <Show when={panel() && found()}>
-        {f => <ReportPanel report={report} found={f()} settles={settles(props.view)} />}
-      </Show>
+      <Show when={panel() && found()}>{f => <ReportPanel report={report} found={f()} />}</Show>
       <Show when={!props.view.settings.finished && !dropped() && props.askAs}>
         {claim => (
           <PlayerRequests
