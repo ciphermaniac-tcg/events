@@ -460,7 +460,12 @@ function SetupName(props: { swiss: boolean; name: string; tdfName?: string; onIn
             placeholder={t('Event name')}
             aria-label={t('Event name')}
             value={props.name}
-            ref={el => queueMicrotask(() => el.focus())}
+            ref={el => {
+              // Not on a phone, where focus would open the keyboard over the form.
+              if (!matchMedia('(max-width: 640px)').matches) {
+                queueMicrotask(() => el.focus());
+              }
+            }}
             onInput={e => props.onInput(e.currentTarget.value)}
           />
         </Show>

@@ -41,7 +41,7 @@ import { BarIcon } from './BarIcon';
 import { TabBar } from './TabBar';
 import '../../styles/pages/tournament-dashboard.css';
 import { pageTitle } from '../../lib/title';
-import { msg, t } from '../../lib/i18n';
+import { msg, t, tn } from '../../lib/i18n';
 import { ResourceFallback } from './Field';
 
 export type Tab = 'playing' | 'organizing';
@@ -79,7 +79,13 @@ function TabList(props: {
       panel='tm-dash-panel'
       label={t('Dashboard')}
       class={props.wide ? 'tm-dash-tabs tm-dash-wide' : 'tm-tabbar'}
-      tabs={props.shown.map(s => ({ value: s.tab, label: t(LABELS[s.tab]), count: s.count }))}
+      tabs={props.shown.map(s => ({
+        value: s.tab,
+        label: t(LABELS[s.tab]),
+        count: s.count,
+        // Read as "Organizing · 1 live", not "Organizing1".
+        name: s.count ? `${t(LABELS[s.tab])} · ${tn(s.count, '{n} live', '{n} live')}` : undefined
+      }))}
       selected={props.tab}
       onSelect={props.onSelect}
       icon={props.wide ? undefined : tab => ICONS[tab]()}
