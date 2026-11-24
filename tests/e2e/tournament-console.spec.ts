@@ -2546,6 +2546,14 @@ test('staff see a drop request on the Players tab and confirm it by its ID in on
   const seated = seatedAt(t, player.id);
   await expect(row.getByRole('cell').nth(1)).toHaveText(String(seated.table));
   await requests.getByRole('button', { name: 'Confirm drop' }).click();
+  // Round 1 has not started, so the drop takes the table away from the opponent too, and asks first.
+  const opponent = t.players.find(p => p.id === (seated.p1 === player.id ? seated.p2 : seated.p1))!;
+  await requests
+    .getByRole('group', {
+      name: `Drop ${player.firstName} ${player.lastName}? ${opponent.firstName} ${opponent.lastName} will need a re-pair.`
+    })
+    .getByRole('button', { name: 'Confirm drop' })
+    .click();
   await expect.poll(() => sent.answers).toEqual([expect.objectContaining({ id: 'request-1', status: 'accepted' })]);
   // The server drops the player with the answer; the console sends no separate drop to fail halfway.
   expect(sent).toHaveLength(0);
