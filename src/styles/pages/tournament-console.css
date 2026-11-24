@@ -1112,6 +1112,12 @@
     grid-column: 1 / -1;
   }
 }
+@media (max-width: 480px) {
+  /* Half a phone's width cuts a penalty's name short, so it takes a line of its own. */
+  .tm-console .tm-penalty-form > [data-field='penalty'] {
+    grid-column: 1 / -1;
+  }
+}
 @media (max-width: 640px) {
   /* A request stacks as the roster's rows do: the player, then where and what on one muted line, then its answers. */
   .tm-console .tm-requests,
