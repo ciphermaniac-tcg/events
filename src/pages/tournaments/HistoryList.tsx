@@ -128,7 +128,7 @@ function Figure(props: { value: string | null | undefined; loading: boolean }) {
   );
 }
 
-function EntryRow(props: { entry: HistoryEntry; watch: Watch }) {
+function EntryRow(props: { entry: HistoryEntry; watch: Watch; toCome?: boolean }) {
   const [open, setOpen] = createSignal(false);
   const [seen, setSeen] = createSignal(false);
   const [read] = createResource(() => (seen() ? props.entry : false), loadEntry);
@@ -169,7 +169,9 @@ function EntryRow(props: { entry: HistoryEntry; watch: Watch }) {
           <span class='tm-hist-name'>
             {/* Its own box, so a long name gives way before its flag does. */}
             <span>{props.entry.name || props.entry.code}</span>
-            <Show when={STATUS_FLAGS[props.entry.status]}>{flag => <span class='tm-flag'>{t(flag())}</span>}</Show>
+            <Show when={!props.toCome && STATUS_FLAGS[props.entry.status]}>
+              {flag => <span class='tm-flag'>{t(flag())}</span>}
+            </Show>
           </span>
           <span class='tm-hist-sub'>
             {/* On a phone the deck's own column gives way, and its sprites lead this line. */}
@@ -192,16 +194,18 @@ function EntryRow(props: { entry: HistoryEntry; watch: Watch }) {
             )}
           </Show>
         </td>
-        <td class='num tm-hist-place'>
-          <Figure value={figure(f => (f.place ? ordinal(f.place) : null))} loading={read.loading} />
-        </td>
-        <td class='num tm-hist-record'>
-          <Figure value={figure(f => (f.record ? recordLabel(f.record) : null))} loading={read.loading} />
-        </td>
+        <Show when={!props.toCome}>
+          <td class='num tm-hist-place'>
+            <Figure value={figure(f => (f.place ? ordinal(f.place) : null))} loading={read.loading} />
+          </td>
+          <td class='num tm-hist-record'>
+            <Figure value={figure(f => (f.record ? recordLabel(f.record) : null))} loading={read.loading} />
+          </td>
+        </Show>
       </tr>
       <Show when={open()}>
         <tr class='row-expansion'>
-          <td colSpan={5}>
+          <td colSpan={props.toCome ? 3 : 5}>
             <Rounds entry={props.entry} result={result()} failed={failed()} />
           </td>
         </tr>
@@ -210,8 +214,11 @@ function EntryRow(props: { entry: HistoryEntry; watch: Watch }) {
   );
 }
 
-/** `iconsOnly`: the deck as its sprites alone, its name left to the tooltip and assistive tech. */
-export function HistoryList(props: { entries: readonly HistoryEntry[]; iconsOnly?: boolean }) {
+/**
+ * `iconsOnly`: the deck as its sprites alone, its name left to the tooltip and assistive tech.
+ * `toCome`: events not yet played, with no status flag and no place or record columns.
+ */
+export function HistoryList(props: { entries: readonly HistoryEntry[]; iconsOnly?: boolean; toCome?: boolean }) {
   const watch = watchRows();
   return (
     <section class='tm-box tm-hist' classList={{ 'tm-hist-icons': props.iconsOnly }}>
@@ -224,12 +231,14 @@ export function HistoryList(props: { entries: readonly HistoryEntry[]; iconsOnly
               </th>
               <th>{t('Event')}</th>
               <th class='tm-hist-deck'>{t('Deck')}</th>
-              <th class='num tm-hist-place'>{t('Place')}</th>
-              <th class='num tm-hist-record'>{t('Record')}</th>
+              <Show when={!props.toCome}>
+                <th class='num tm-hist-place'>{t('Place')}</th>
+                <th class='num tm-hist-record'>{t('Record')}</th>
+              </Show>
             </tr>
           </thead>
           <tbody>
-            <For each={props.entries}>{entry => <EntryRow entry={entry} watch={watch} />}</For>
+            <For each={props.entries}>{entry => <EntryRow entry={entry} watch={watch} toCome={props.toCome} />}</For>
           </tbody>
         </table>
       </div>
