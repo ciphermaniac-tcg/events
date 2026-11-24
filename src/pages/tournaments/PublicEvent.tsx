@@ -624,10 +624,6 @@ function RegisteredList(props: {
       .sort((a, b) => a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName));
   return (
     <>
-      <p class='tm-box-bar muted'>
-        {props.view.settings.registration ? '' : `${t('Register with the organizer.')} `}
-        {t('Pairings will show here once round 1 is paired.')}
-      </p>
       <ul class='tm-registered'>
         <For each={players()}>
           {player => (
@@ -813,7 +809,10 @@ function EventBody(props: {
         />
       </Show>
       <SectionPanel many={tabs().length > 1} selected={tab()}>
-        <Show when={tab() === 'pairings'}>
+        {/* Before round 1 the box holds the players registered so far, and with none, nothing to search. */}
+        <Show
+          when={tab() === 'pairings' && (started() || props.view.tournament.players.some(p => p.droppedAfter === null))}
+        >
           <section class='tm-box tm-public-pairings'>
             <PublicPairings
               view={props.view}
@@ -1044,6 +1043,10 @@ function Hero(props: { view: TournamentView; prefer: (PodCategory | null)[]; min
       />
       <Show when={!underway()}>
         <EventLogistics settings={settings()} store={props.view.store} />
+        {/* Where players don't register online, the one thing a player has to do before round 1 of an event to come. */}
+        <Show when={!started() && !settings().finished && !settings().registration}>
+          <p class='tm-details'>{t('Register with the organizer.')}</p>
+        </Show>
         <Show when={settings().details}>
           <p class='tm-details'>{settings().details}</p>
         </Show>
