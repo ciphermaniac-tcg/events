@@ -1604,6 +1604,13 @@ tr.is-in .tm-place {
   flex-basis: 100%;
   margin: var(--space-1) 0 0;
 }
+/* With a line under the field, the label stays level with the field, not with the two together. */
+.tm-set-row:has(> .tm-set-control > :is(.tm-error, .tm-check-in-fill)) {
+  align-items: start;
+}
+.tm-set-row:has(> .tm-set-control > :is(.tm-error, .tm-check-in-fill)) > .tm-set-label {
+  padding-top: 11px;
+}
 .tm-set-control > .tm-textarea {
   max-width: 520px;
 }
