@@ -1436,6 +1436,11 @@ tr.is-in .tm-place {
 .tm-reg-head {
   flex-wrap: nowrap;
 }
+/* With no title the bar is only its way back, set over the fields rather than ruled off from them. */
+.tm-reg-head.is-bare {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
 .tm-reg-who {
   display: flex;
   flex: 1;
@@ -1467,7 +1472,7 @@ tr.is-in .tm-place {
 }
 .tm-reg-options {
   display: grid;
-  gap: var(--space-2);
+  gap: 0;
   margin: 0;
   padding: 0;
   border: 0;
@@ -1478,32 +1483,18 @@ tr.is-in .tm-place {
 }
 .tm-reg-option {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 10px;
-  padding: 10px var(--space-3);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--field);
+  min-height: 32px;
   cursor: pointer;
 }
-.tm-reg-option.is-on {
-  border-color: var(--accent);
-  box-shadow: inset 0 0 0 1px var(--accent);
-}
 .tm-reg-option input {
-  margin-top: 3px;
+  margin: 0;
   accent-color: var(--accent-fill);
 }
-.tm-reg-option > span {
-  display: grid;
-  gap: 2px;
-}
-@media (min-width: 641px) {
-  .tm-reg-options {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  }
-  .tm-reg-options legend {
-    grid-column: 1 / -1;
+@media (max-width: 640px), (pointer: coarse) {
+  .tm-reg-option {
+    min-height: 44px;
   }
 }
 
