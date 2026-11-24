@@ -222,7 +222,7 @@ test('the Player ID field says where to get one, with a way to sign up @mobile',
   await mockEvent(page, {});
   await page.goto(`/t/${CODE}?tab=decklist`);
   const tip = page.getByRole('button', { name: 'Where to find it' });
-  await expect(tip).toHaveAccessibleDescription(/^Your PLAY! Pokémon ID\. Create an account or ask your organizer/);
+  await expect(tip).toHaveAccessibleDescription(/^Your Play! Pokémon ID\. Create an account or ask your organizer/);
   await tip.click();
   await expect(page.getByRole('link', { name: 'Create an account' })).toHaveAttribute(
     'href',
