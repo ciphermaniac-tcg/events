@@ -510,15 +510,15 @@ test('a failed result can be discarded, and the row reads as it stands', async (
   await expect(rowOf(page, match).locator('.tm-result-label')).toHaveText('');
 });
 
-test('a past round takes no results and says so, with the way back to the current one', async ({ page }) => {
+test('a past round takes no results, and the stepper goes back to the current one', async ({ page }) => {
   const sent = await mockConsole(page, event(8, 1, true), settingsOf({}));
   await page.getByRole('button', { name: 'Previous round' }).click();
-  await expect(page.getByText('Round 1 can be corrected until round 3 is paired.')).toBeVisible();
+  await expect(page.getByRole('combobox', { name: 'Round' })).toHaveValue('1');
   await expect(page.getByRole('button', { name: /^Report / })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Clear' })).toBeHidden();
   await page.locator('.tm-seat-link').first().dblclick();
   expect([...sent]).toEqual([]);
-  await page.getByRole('button', { name: 'Current round' }).click();
+  await page.getByRole('button', { name: 'Next round' }).click();
   await expect(page.getByRole('combobox', { name: 'Round' })).toHaveValue('2');
   await expect(page.getByRole('button', { name: /^Report / }).first()).toBeVisible();
 });
@@ -740,7 +740,7 @@ test('a capped league that has played its rounds ends as planned', async ({ page
   await expect(dialog.locator('.tm-end-gaps')).toHaveCount(0);
   await dialog.getByRole('button', { name: 'End event' }).click();
   await expect.poll(() => sent.saved).toEqual([{ finished: true }]);
-  await expect(page.getByText('The event has ended. Reopen it to change results.')).toBeVisible();
+  await expect(page.locator('.tm-meta-lead')).toContainText('Finished');
 });
 
 test('ending from Settings with tables open lists them and ends the event early', async ({ page }) => {
@@ -763,7 +763,7 @@ test('an ended event locks its results, round controls and roster until it is re
     outcome: 'p1'
   });
   const sent = await mockConsole(page, t, settingsOf({ finished: true }));
-  await expect(page.getByText('The event has ended. Reopen it to change results.')).toBeVisible();
+  await expect(page.locator('.tm-meta-lead')).toContainText('Finished');
   const rows = page.locator('.tm-matches tbody tr:not(.tm-group-row)');
   await expect(rows.first()).toBeVisible();
   await expect(page.getByRole('button', { name: /^Report / })).toHaveCount(0);
@@ -776,8 +776,7 @@ test('an ended event locks its results, round controls and roster until it is re
   await expect(page.getByRole('form', { name: 'Add a player' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Remove' })).toHaveCount(0);
   expect([...sent]).toEqual([]);
-  await page.getByRole('tab', { name: 'Pairings' }).click();
-  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  await page.getByRole('tab', { name: 'Settings', exact: true }).click();
   await page.getByRole('button', { name: 'Reopen event' }).click();
   await expect.poll(() => sent.saved).toEqual([{ finished: false }]);
 });
