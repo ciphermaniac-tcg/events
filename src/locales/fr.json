@@ -177,7 +177,6 @@
   "Code": "Code",
   "Coming up": "À venir",
   "Community organizer": "Organisateur indépendant",
-  "Complete": "Terminée",
   "Complete your profile first": "Complète d’abord ton profil",
   "Conclude": "Clôturer",
   "Conclude pod": "Clôturer le groupe",
@@ -663,7 +662,6 @@
   "Page {n} of {total}": "Page {n} sur {total}",
   "Pair round {n}": "Apparier la ronde {n}",
   "Pair {stage}": "Apparier {stage}",
-  "Paired": "Appariée",
   "Paired in TOM": "Appariements de TOM",
   "Pairings": "Appariements",
   "Pairings open once round 1 starts.": "Les appariements s’affichent dès le début de la ronde 1.",
@@ -1366,7 +1364,6 @@
     "one": "{shown} sur {n} joueur",
     "other": "{shown} sur {n} joueurs"
   },
-  "{status} · {done} of {total} in": "{status} · résultats : {done} sur {total}",
   "{store} settings": "Paramètres de la boutique {store}",
   "{store} · League {id}": "{store} · Ligue {id}",
   "{time} left": "il reste {time}",

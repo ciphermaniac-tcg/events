@@ -505,7 +505,7 @@ test('a failed result can be discarded, and the row reads as it stands', async (
   await rowOf(page, match).locator('.tm-seat-link').first().dblclick();
   await expect(page.getByText('The reported match has changed')).toBeVisible();
   await rowOf(page, match).getByRole('button', { name: 'Discard' }).click();
-  await expect(rowOf(page, match).locator('.tm-result-label')).toHaveText('In progress');
+  await expect(rowOf(page, match).locator('.tm-result-label')).toHaveText('');
 });
 
 test('a past round takes no results and says so, with the way back to the current one', async ({ page }) => {
@@ -1782,7 +1782,7 @@ test('while a round plays, its tables in progress lead under their heading and t
   const box = page.locator('.tm-matches');
   await expect(box.locator('.tm-group-row')).toHaveText(['In progress · 3', 'Done · 1']);
   const rows = box.locator('tbody tr:not(.tm-group-row)');
-  await expect(rows.first().locator('.tm-result-label')).toHaveText('In progress');
+  await expect(rows.first().locator('.tm-result-label')).toHaveText('');
   await expect(rows.last().locator('.tm-result-label')).toHaveText('1–0');
   const show = page.getByRole('radiogroup', { name: 'Show' });
   await expect(show.getByRole('radio', { name: /In progress/ })).toHaveText('In progress3');
