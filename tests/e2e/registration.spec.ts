@@ -310,6 +310,8 @@ test('any other Player ID registers, with a pasted list, and the Registered card
   const card = page.getByRole('region', { name: 'Your registration' });
   await expect(card).toContainText('Registered');
   await expect(card).toContainText('Checked in');
+  // The card says it, so the form does not say it again.
+  await expect(page.getByText('You’re registered.', { exact: true })).toHaveCount(1);
   await expect(card).toContainText('Nia Okafor · Masters');
   await expect(page.locator('.tm-reg-who')).toContainText('Nia Okafor');
   expect(calls.at(-1)?.body).toMatchObject({ mode: 'digital', deck: '60 Basic {G} Energy SVE 1' });
@@ -553,6 +555,8 @@ test('signed in without a Player ID, the box asks for it under the head and Regi
   await page.getByText('In person').click();
   const register = page.getByRole('button', { name: 'Register' });
   await expect(register).toBeDisabled();
+  // Only what is missing: the name and birth year are the account's.
+  await expect(page.getByText('Fill in your Player ID', { exact: true })).toBeVisible();
   await page.getByRole('textbox', { name: 'Player ID' }).fill('5550001');
   await register.click();
   await expect(page.getByRole('status')).toHaveText('You’re registered.');
