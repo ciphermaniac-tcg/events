@@ -204,9 +204,15 @@
     white-space: normal;
   }
   .tm-people .tm-person-name {
-    flex: 1 1 0;
+    flex: 1 1 auto;
     order: 0;
     overflow-wrap: anywhere;
+  }
+  /* The name and its action keep the first line to themselves, whether or not an email follows. */
+  .tm-people tr::before {
+    content: '';
+    flex-basis: 100%;
+    order: 2;
   }
   .tm-people .tm-person-acts {
     order: 1;
