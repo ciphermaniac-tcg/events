@@ -177,8 +177,8 @@
   user-select: all;
 }
 
-/* ---------- Phones ---------- */
-@media (max-width: 720px) {
+/* ---------- Phones, and any width the table's columns don't fit ---------- */
+@media (max-width: 1100px) {
   /* A role holder restacks: the name and its action, the email under it,
      then POP ID, role, since and events on one muted line. */
   .tm-people,
@@ -206,6 +206,7 @@
   .tm-people .tm-person-name {
     flex: 1 1 0;
     order: 0;
+    overflow-wrap: anywhere;
   }
   .tm-people .tm-person-acts {
     order: 1;

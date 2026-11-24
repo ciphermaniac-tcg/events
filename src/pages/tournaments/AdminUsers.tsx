@@ -27,7 +27,7 @@ function UserRow(props: { user: AdminUser; onOpen: () => void }) {
           {u().name}
         </button>
         <Show when={u().handle && u().handle !== u().name}>
-          <span class='muted'> @{u().handle}</span>
+          <span class='muted tm-nowrap'> @{u().handle}</span>
         </Show>
       </td>
       <td class='muted-cell'>{u().email ?? ''}</td>
