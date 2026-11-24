@@ -2,12 +2,13 @@
  * How every hand-built popover behaves while `open` (the account menu, a
  * row's options, the badges past "+N"): focus moves into it, to its first
  * link or button or, with none, to the panel itself; a press outside, or focus
- * moving to something outside, closes it; Escape closes it and hands focus
- * back to its trigger. Escape inside a dialog opened from it is the dialog's
- * own, so the popover stays.
+ * moving to something outside, closes it; Escape, or Back on Android, closes
+ * it and hands focus back to its trigger. Escape inside a dialog opened from
+ * it is the dialog's own, so the popover stays.
  */
 
 import { createEffect, onCleanup } from 'solid-js';
+import { closeOnBack } from '../../lib/closeOnBack';
 
 // Not a field: focusing one would open a phone's keyboard over the menu.
 const FOCUSABLE = 'a[href], button:not(:disabled)';
@@ -34,12 +35,15 @@ export function holdPopover(parts: PopoverParts): () => void {
       parts.close();
     }
   };
+  const dismiss = () => {
+    parts.close();
+    parts.trigger()?.focus();
+  };
   const key = (event: KeyboardEvent) => {
     if (event.key !== 'Escape' || (event.target as Partial<Element> | null)?.closest?.('dialog')) {
       return;
     }
-    parts.close();
-    parts.trigger()?.focus();
+    dismiss();
   };
   // Focus going nowhere (a press Safari doesn't focus, a control removed under it) is not leaving.
   const left = (event: FocusEvent) => {
@@ -51,7 +55,9 @@ export function holdPopover(parts: PopoverParts): () => void {
   document.addEventListener('keydown', key);
   root?.addEventListener('focusout', left);
   queueMicrotask(() => focusInto(parts.panel()));
+  const back = closeOnBack(dismiss);
   return () => {
+    back();
     document.removeEventListener('pointerdown', press);
     document.removeEventListener('keydown', key);
     root?.removeEventListener('focusout', left);

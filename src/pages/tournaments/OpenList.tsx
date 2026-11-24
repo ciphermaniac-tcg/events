@@ -6,13 +6,14 @@
  * nothing.
  */
 
-import { type Accessor, createEffect, createMemo, createSignal, For, Show } from 'solid-js';
+import { type Accessor, createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import { Segmented } from '@ciphermaniac/design/components/Segmented';
 import { Skeleton } from '@ciphermaniac/design/components/Skeleton';
 import { type DeckCard, parseDecklist } from '../../../shared/tournament/decklist';
 import type { OpenList as List } from '../../../shared/tournament/view';
 import { artCrop, type CardArt, cardArt } from '../../lib/cardArt';
 import { canonicalArt } from '../../lib/cardPrints';
+import { closeOnBack } from '../../lib/closeOnBack';
 import { msg, t, tn } from '../../lib/i18n';
 import { fetchOpenList } from '../../lib/tournament/api';
 import { createCopied } from './copied';
@@ -213,10 +214,11 @@ function Art(props: { card: DeckCard; crop?: boolean; sizes?: string }) {
   );
 }
 
-/** One card large, over the sheet: any press or Escape puts it away. */
+/** One card large, over the sheet: any press, Escape or Back puts it away. */
 function Peek(props: { card: DeckCard; onClose: () => void }) {
   const { art, failed } = createArt(() => props.card);
   const close = () => props.onClose();
+  onMount(() => onCleanup(closeOnBack(() => props.onClose())));
   return (
     <div
       class='tm-peek'
