@@ -514,6 +514,23 @@ test('with storage full, a registration still goes in, and stays this page’s t
   expect(puts[1]?.body?.token).toBe('device-token-0000001');
 });
 
+test('Tab from the Player ID tip reaches its link, then the field', async ({ page }) => {
+  await mockEvent(page);
+  await page.goto(`/t/${CODE}?tab=decklist`);
+  const tip = page.getByRole('button', { name: 'Where to find it' });
+  for (let i = 0; i < 10 && !(await tip.evaluate(el => el === document.activeElement)); i += 1) {
+    await page.keyboard.press('Tab');
+  }
+  await expect(tip).toBeFocused();
+  await page.keyboard.press('Tab');
+  // InfoTip is a button, so the link inside it is not named as a link: found by its text.
+  const link = page.locator('.info-tip a', { hasText: 'Create an account' });
+  await expect(link).toBeFocused();
+  await expect(link).toBeVisible();
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('textbox', { name: 'Player ID' })).toBeFocused();
+});
+
 test('a full event says so to a newcomer', async ({ page }) => {
   await mockEvent(page, { playerCap: 3 });
   await page.goto(`/t/${CODE}?tab=decklist`);
