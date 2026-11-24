@@ -2282,6 +2282,23 @@ async function openExtension(page: Page, table: number) {
   return page.getByRole('dialog', { name: `Time extension, table ${table}`, exact: true });
 }
 
+test('a time extension saved from a table’s menu hands focus back to its row, on a phone to its result button @mobile', async ({
+  page
+}) => {
+  const t = event(4, 0, true);
+  const { table } = firstMatch(t);
+  await mockConsole(page, t, settingsOf({}), [], true);
+  const editor = await openExtension(page, table);
+  await editor.getByRole('button', { name: 'Add 3 minutes', exact: true }).click();
+  await expect(editor).toHaveCount(0);
+  const back =
+    (page.viewportSize()?.width ?? 1000) <= 900
+      ? page.getByRole('button', { name: `Enter the result of table ${table}`, exact: true })
+      : page.getByRole('button', { name: `More for table ${table}`, exact: true });
+  await expect(back).toBeFocused();
+  await expect(back).toBeVisible();
+});
+
 test('table extensions use the match menu and support editing and removal @mobile', async ({ page }) => {
   const t = event(4, 0, true);
   const round = t.pods[0]!.rounds[0]!;

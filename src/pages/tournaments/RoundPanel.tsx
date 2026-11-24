@@ -252,7 +252,7 @@ function StandingResult(props: ResultProps) {
   const even = () => props.takesResults && props.round.kind !== 'elimination';
   const report = createMemo(() => staffReport(props.reports, props.match, props.names));
   return (
-    <div class='tm-result'>
+    <div class='tm-result' data-table={props.match.table}>
       <span
         class='tm-result-label'
         classList={{ 'is-open': open(), 'is-reported': Boolean(report()), 'is-problem': report()?.problem }}
@@ -794,22 +794,40 @@ function createTables(
 function createTableDialogs(
   props: { state: ManageState; manage: Manage; pod: Pod },
   names: () => Map<string, string>,
-  closeSheet: () => void,
+  sheet: { opens: () => boolean; close: () => void },
   record: (match: Match) => ((outcome: Outcome) => void) | undefined
 ) {
   const [extension, setExtension] = createSignal<ExtensionSelection | null>(null);
   const [penalty, setPenalty] = createSignal<PenaltySelection | null>(null);
   onMount(() => warmChunks([TimeExtensionDialog.preload]));
+  /**
+   * The table a dialog was opened for, whose row takes focus back once it
+   * closes, found again then since a save draws the row anew: its result
+   * button where a phone's sheet opened it, its menu otherwise, and the
+   * pairings when the table is gone.
+   */
+  let opener = 0;
+  const opened = (match: Match) => {
+    opener = match.table;
+    sheet.close();
+  };
+  const back = (close: () => void) => () => {
+    close();
+    const row = document.querySelector(`.tm-result[data-table="${opener}"]`);
+    const panel = document.getElementById('console-panel');
+    panel?.setAttribute('tabindex', '-1');
+    (row?.querySelector<HTMLElement>(sheet.opens() ? '.tm-row-open' : '.tm-more > button') ?? panel)?.focus();
+  };
   return {
     penalty: (match: Match, r: Round) =>
       props.manage.watching
         ? undefined
         : () => {
-            closeSheet();
+            opened(match);
             setPenalty({ round: r.number, match, record: record(match) });
           },
     extend(match: Match, r: Round) {
-      closeSheet();
+      opened(match);
       props.state.clearError();
       setExtension({ pod: props.pod.category, round: r.number, match });
     },
@@ -818,7 +836,7 @@ function createTableDialogs(
         <Show when={extension()} keyed>
           {selection => (
             <Suspense>
-              <TimeExtensionDialog state={props.state} selection={selection} onClose={() => setExtension(null)} />
+              <TimeExtensionDialog state={props.state} selection={selection} onClose={back(() => setExtension(null))} />
             </Suspense>
           )}
         </Show>
@@ -829,7 +847,7 @@ function createTableDialogs(
                 code={props.manage.code}
                 selection={selection}
                 names={names()}
-                onClose={() => setPenalty(null)}
+                onClose={back(() => setPenalty(null))}
               />
             </Suspense>
           )}
@@ -891,7 +909,7 @@ export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod
   const live = () => !props.locked && !tom() && timed() && !ended();
   // A TOM event's results are entered in TOM, so its rows open no sheet and take no presses.
   const { opens, inRow, openSheet, sheetMatch, closeSheet } = createRowSheet(() => locked() || tom());
-  const dialogs = createTableDialogs(props, names, closeSheet, match =>
+  const dialogs = createTableDialogs(props, names, { opens, close: closeSheet }, match =>
     // A penalty's loss lands only on a table still playing, as it was when the penalty was given.
     !tom() && isOpen(match) ? outcome => send(match, outcome, false, 'pending') : undefined
   );
