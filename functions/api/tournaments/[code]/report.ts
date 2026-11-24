@@ -56,7 +56,7 @@ import {
   seatHeld,
   type SeatRead
 } from '../../../lib/tournaments/reporters.js';
-import { reportEvidence } from '../../../lib/tournaments/reportHistory.js';
+import { reportEvidence, reportEvidenceQuery } from '../../../lib/tournaments/reportHistory.js';
 import { playerRequestChanges } from '../../../lib/tournaments/requests.js';
 import { admission, admitTry, clearFailures, LOCKED_OUT } from '../../../lib/tournaments/attempts.js';
 import { type Changes, type Held, mutateHeld, type TournamentRow } from '../../../lib/tournaments/store.js';
@@ -433,10 +433,8 @@ export async function onRequestPost(context: Context<'code'>): Promise<Response>
 
 /** Staff retain the original claims and filed reports for later review, even after a result is accepted. */
 export async function onRequestGet(context: Context<'code'>): Promise<Response> {
-  const access = await openForStaff(context);
-  return access instanceof Response
-    ? access
-    : privateJson({ history: await reportEvidence(access.db, access.row.code) });
+  const access = await openForStaff(context, (db, code, guard) => [reportEvidenceQuery(db, code, guard)]);
+  return access instanceof Response ? access : privateJson({ history: reportEvidence(access.along[0]) });
 }
 
 /** Read-only table lookup: no seat, token, account link, or identity-attempt side effects. */

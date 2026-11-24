@@ -120,15 +120,20 @@ export function sessionHash(request: Request): Promise<string | null> {
 }
 
 /**
- * The read of the user a session belongs to; `userFromRow` reads its row. An
- * account that has not passed the age check (lib/auth/signup.ts) reads as no
- * one, whatever session it holds.
+ * Who is signed in, as SQL: session `session` is the one hashed to `hash`,
+ * live at `now`, and its account `account` has passed the age check
+ * (lib/auth/signup.ts). An account that has not reads as no one, whatever
+ * session it holds. Every check of a session asking goes through this.
  */
+export const liveSession = (session: string, account: string, hash = '?', now = '?') =>
+  `${session}.token_hash = ${hash} AND ${session}.expires_at > ${now} AND ${account}.age_checked_at IS NOT NULL`;
+
+/** The read of the user a session belongs to; `userFromRow` reads its row. */
 export function sessionUserQuery(db: D1Like, tokenHash: string, now: number): D1Statement {
   return db
     .prepare(
       `SELECT ${USER_COLUMNS} FROM sessions JOIN users ON users.id = sessions.user_id ` +
-        'WHERE sessions.token_hash = ? AND sessions.expires_at > ? AND users.age_checked_at IS NOT NULL'
+        `WHERE ${liveSession('sessions', 'users')}`
     )
     .bind(tokenHash, now);
 }

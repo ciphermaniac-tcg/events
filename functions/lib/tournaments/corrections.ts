@@ -9,6 +9,7 @@
 import type { ApproverRole, CorrectionEntry } from '../../../shared/tournament/corrections.js';
 import type { Outcome, PodCategory } from '../../../shared/tournament/types.js';
 import { displayNameSql } from '../accounts/handles.js';
+import { type Guard, keyHeldTo, rows } from '../d1.js';
 import type { D1Like, D1Statement } from '../types.js';
 import { onStaff, organizes } from './roles.js';
 
@@ -88,16 +89,20 @@ interface EntryRow {
   recorded_at: number;
 }
 
-/** The event's corrections, newest first. */
-export async function loadCorrections(db: D1Like, code: string): Promise<CorrectionEntry[]> {
-  const { results } = await db
+/** The event's corrections, newest first (see `correctionsOf`); none unless `guard` holds. */
+export function correctionsQuery(db: D1Like, code: string, guard?: Guard): D1Statement {
+  const key = keyHeldTo(code, guard);
+  return db
     .prepare(
       `SELECT c.*, (SELECT ${displayNameSql('u')} FROM users u WHERE u.id = c.approved_by) AS approver ` +
-        'FROM result_corrections c WHERE c.code = ? ORDER BY c.recorded_at DESC, c.id'
+        `FROM result_corrections c WHERE c.code = ${key.sql} ORDER BY c.recorded_at DESC, c.id`
     )
-    .bind(code)
-    .all<EntryRow>();
-  return results.map(row => ({
+    .bind(...key.values);
+}
+
+/** What `correctionsQuery` read, as entries. */
+export function correctionsOf(read: { results?: unknown[] } | undefined): CorrectionEntry[] {
+  return rows<EntryRow>(read).map(row => ({
     id: row.id,
     pod: row.pod,
     round: row.round,

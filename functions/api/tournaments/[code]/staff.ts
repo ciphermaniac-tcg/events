@@ -19,17 +19,25 @@ import {
   privateJson,
   type StaffAccess
 } from '../../../lib/tournaments/access.js';
-import { isStaffMember, joinStaff, listStaff, removeStaff, rotateStaff } from '../../../lib/tournaments/store.js';
+import {
+  isStaffMember,
+  joinStaff,
+  removeStaff,
+  rotateStaff,
+  staffOf,
+  staffQuery
+} from '../../../lib/tournaments/store.js';
 import { msg } from '../../../../shared/i18n.js';
 
 const ONLY_ORGANIZER = msg('Only the organizer can do that');
 
 /** Everyone the invite link let in, and when. */
-const staffList = async (access: StaffAccess) => privateJson({ staff: await listStaff(access.db, access.row.code) });
+const staffList = async (access: StaffAccess) =>
+  privateJson({ staff: staffOf(await staffQuery(access.db, access.row.code).all()) });
 
 export async function onRequestGet(context: Context<'code'>): Promise<Response> {
-  const access = await openForOwner(context);
-  return access instanceof Response ? access : staffList(access);
+  const access = await openForOwner(context, undefined, (db, code, guard) => [staffQuery(db, code, guard)]);
+  return access instanceof Response ? access : privateJson({ staff: staffOf(access.along[0]) });
 }
 
 export async function onRequestDelete(context: Context<'code'>): Promise<Response> {

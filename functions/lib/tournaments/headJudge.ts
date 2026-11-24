@@ -4,11 +4,11 @@
  */
 
 import type { StaffAccount } from '../../../shared/tournament/staffRecords.js';
-import { rowsChanged } from '../d1.js';
+import { rows, rowsChanged } from '../d1.js';
 import type { D1Like } from '../types.js';
 import type { Access } from './access.js';
 import { type Asker, askerValues, asksStill, onStaff } from './roles.js';
-import { staffAccounts, staffAccountsQuery } from './staffRecords.js';
+import { staffAccountsQuery } from './staffRecords.js';
 
 /** The event's staff accounts, and the head judge among them. */
 interface StaffContext {
@@ -24,8 +24,12 @@ const contextOf = (staff: StaffAccount[], headJudge: string | null | undefined):
 
 /** The staff context as the request read the event: its head judge came with the row. */
 export async function staffContext(access: Access): Promise<StaffContext> {
-  return contextOf(await staffAccounts(access), access.row.headJudge);
+  return staffContextOf(access, await staffAccountsQuery(access.db, access.row.code).all());
 }
+
+/** As `staffContext`, from what `staffAccountsQuery` read along with the event. */
+export const staffContextOf = (access: Access, staff: { results?: unknown[] } | undefined): StaffContext =>
+  contextOf(rows<StaffAccount>(staff), access.row.headJudge);
 
 /** The event's head judge, while they are on its staff. */
 export async function headJudgeOf(access: Access): Promise<StaffContext['headJudge']> {

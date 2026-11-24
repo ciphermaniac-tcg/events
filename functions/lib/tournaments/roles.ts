@@ -9,6 +9,7 @@
 
 import type { Role } from '../../../shared/tournament/view.js';
 import type { Guard } from '../d1.js';
+import { liveSession } from '../auth/session.js';
 
 /** Whether account `who` (an SQL expression) organizes the event in `tournaments`: its owner, or its store's Owner or a Manager. */
 export const organizes = (who: string) =>
@@ -39,17 +40,17 @@ export interface Asker {
  */
 export const asksStill = (asker: Asker, hash = '?', now = '?') =>
   `EXISTS (SELECT 1 FROM sessions asking JOIN users asking_user ON asking_user.id = asking.user_id ` +
-  `WHERE asking.token_hash = ${hash} AND asking.expires_at > ${now} AND asking_user.age_checked_at IS NOT NULL ` +
+  `WHERE ${liveSession('asking', 'asking_user', hash, now)} ` +
   `AND ${asker.role === 'owner' ? organizes('asking.user_id') : onStaff('asking.user_id')})`;
 
-export const askerValues = (asker: Asker): [string, number] => [asker.hash, Date.now()];
+export const askerValues = (asker: Asker, now = Date.now()): [string, number] => [asker.hash, now];
 
 /**
  * That the asker still holds their role at event `code`, for a write to a
  * table beside `tournaments`: one that runs on its own, outside the event's
  * own write and its gate (see store.ts).
  */
-export const askerStands = (code: string, asker: Asker): Guard => ({
+export const askerStands = (code: string, asker: Asker, now = Date.now()): Guard => ({
   sql: `EXISTS (SELECT 1 FROM tournaments WHERE code = ? AND ${asksStill(asker)})`,
-  values: [code, ...askerValues(asker)]
+  values: [code, ...askerValues(asker, now)]
 });

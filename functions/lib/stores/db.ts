@@ -29,7 +29,7 @@ import { shortLastNames } from '../../../shared/tournament/identify.js';
 import { pastEventDate } from './dates.js';
 import { randomToken, sha256 } from '../auth/session.js';
 import { displayNameSql } from '../accounts/handles.js';
-import { type Guard, rows, rowsChanged } from '../d1.js';
+import { type Guard, keyHeldTo, rows, rowsChanged } from '../d1.js';
 import type { D1Like, D1Statement } from '../types.js';
 
 /** How long a store's invite link lets someone in. */
@@ -247,22 +247,26 @@ export async function setStatus(
   return rowsChanged(done) === 1;
 }
 
-export async function listMembers(db: D1Like, storeId: string): Promise<StoreMember[]> {
-  const { results } = await db
+const membersQuery = (db: D1Like, key: Guard) =>
+  db
     .prepare(
       `SELECT m.user_id AS id, ${displayNameSql('u')} AS name, u.pop_id, m.role, m.added_at FROM store_members m ` +
-        'JOIN users u ON u.id = m.user_id WHERE m.store_id = ? ' +
+        `JOIN users u ON u.id = m.user_id WHERE m.store_id = ${key.sql} ` +
         "ORDER BY CASE m.role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 ELSE 2 END, name"
     )
-    .bind(storeId)
-    .all<{ id: string; name: string; pop_id: string | null; role: string; added_at: number }>();
-  return results.map(row => ({
+    .bind(...key.values);
+
+const membersOf = (read: { results?: unknown[] } | undefined): StoreMember[] =>
+  rows<{ id: string; name: string; pop_id: string | null; role: string; added_at: number }>(read).map(row => ({
     id: row.id,
     name: row.name,
     hasPopId: Boolean(row.pop_id),
     role: storeRoleOf(row.role),
     addedAt: row.added_at
   }));
+
+export async function listMembers(db: D1Like, storeId: string): Promise<StoreMember[]> {
+  return membersOf(await membersQuery(db, keyHeldTo(storeId)).all());
 }
 
 /** The row is not the Owner's, which no removal or role change touches. */
@@ -370,23 +374,34 @@ export async function createInvite(
   return rowsChanged(results[1]) === 1 ? token : null;
 }
 
-/** The links still open, newest first: when each was made and as what it lets someone in. */
-export async function listInvites(db: D1Like, storeId: string, now = Date.now()): Promise<StoreInvite[]> {
-  const { results } = await db
-    .prepare(
-      'SELECT token_hash, role, created_at, expires_at FROM store_invites WHERE store_id = ? AND expires_at > ? ' +
-        'ORDER BY created_at DESC'
-    )
-    .bind(storeId, now)
-    .all<{ token_hash: string; role: string; created_at: number; expires_at: number }>();
+/** The store's members, and its links still open, newest first (see `peopleOf`); none unless `guard` holds. */
+export const peopleQueries = (db: D1Like, storeId: string, guard?: Guard): D1Statement[] => {
+  const key = keyHeldTo(storeId, guard);
+  return [
+    membersQuery(db, key),
+    db
+      .prepare(
+        `SELECT token_hash, role, created_at, expires_at FROM store_invites WHERE store_id = ${key.sql} ` +
+          'AND expires_at > ? ORDER BY created_at DESC'
+      )
+      .bind(...key.values, Date.now())
+  ];
+};
+
+/** What `peopleQueries` read: the members, and when each open link was made and as what it lets someone in. */
+export const peopleOf = ([members, invites]: { results?: unknown[] }[]): {
+  members: StoreMember[];
+  invites: StoreInvite[];
+} => ({
+  members: membersOf(members),
   // A link is named by the start of its hash: enough to withdraw it, and nothing to let anyone in with.
-  return results.map(row => ({
+  invites: rows<{ token_hash: string; role: string; created_at: number; expires_at: number }>(invites).map(row => ({
     id: row.token_hash.slice(0, 16),
     role: row.role === 'manager' ? 'manager' : 'staff',
     createdAt: row.created_at,
     expiresAt: row.expires_at
-  }));
-}
+  }))
+});
 
 export async function withdrawInvite(db: D1Like, storeId: string, id: string, guard: Guard = ALWAYS): Promise<boolean> {
   const done = await db

@@ -9,7 +9,7 @@ import { jsonError } from '../api/responses.js';
 import type { Guard } from '../d1.js';
 import type { D1Like } from '../types.js';
 import { type Context, sameOrigin } from './env.js';
-import { currentUser, sessionHash, type User } from './session.js';
+import { currentUser, liveSession, sessionHash, type User } from './session.js';
 
 export interface AdminAccess {
   db: D1Like;
@@ -18,12 +18,12 @@ export interface AdminAccess {
   guard: Guard;
 }
 
-/** That the session `hash` names is live and its account still an Admin, as SQL. */
-const stillAdmin = (hash: string): Guard => ({
+/** That the session `hash` names is live at `now` and its account still an Admin, as SQL. */
+export const stillAdmin = (hash: string, now = Date.now()): Guard => ({
   sql:
-    'EXISTS (SELECT 1 FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? ' +
-    "AND s.expires_at > ? AND u.age_checked_at IS NOT NULL AND u.role = 'admin')",
-  values: [hash, Date.now()]
+    `EXISTS (SELECT 1 FROM sessions s JOIN users u ON u.id = s.user_id WHERE ${liveSession('s', 'u')} ` +
+    "AND u.role = 'admin')",
+  values: [hash, now]
 });
 
 /** The database and the Admin asking, or the answer that turns the request away. */

@@ -1,4 +1,5 @@
 import type { PlayerReport } from '../../../shared/tournament/reports.js';
+import { type Guard, keyHeldTo, rows } from '../d1.js';
 import type { D1Like, D1Statement } from '../types.js';
 
 export interface ReportEvidence {
@@ -32,18 +33,25 @@ export function reportEvidenceWrites(
   ];
 }
 
-/** Staff-only history, including each prior version of a player's report. */
-export async function reportEvidence(db: D1Like, code: string): Promise<ReportEvidence[]> {
-  const { results } = await db
+/** Staff-only history, including each prior version of a player's report (see `reportEvidence`). */
+export function reportEvidenceQuery(db: D1Like, code: string, guard?: Guard): D1Statement {
+  const key = keyHeldTo(code, guard);
+  return db
     .prepare(
-      'SELECT version, report, account_id, claimed_at FROM report_history WHERE code = ? ORDER BY version, player_id'
+      `SELECT version, report, account_id, claimed_at FROM report_history WHERE code = ${key.sql} ` +
+        'ORDER BY version, player_id'
     )
-    .bind(code)
-    .all<{ version: number; report: string; account_id: string | null; claimed_at: number | null }>();
-  return results.map(row => ({
-    version: row.version,
-    report: JSON.parse(row.report) as PlayerReport,
-    account: row.account_id,
-    claimedAt: row.claimed_at
-  }));
+    .bind(...key.values);
+}
+
+/** What `reportEvidenceQuery` read, as the event's report history. */
+export function reportEvidence(read: { results?: unknown[] } | undefined): ReportEvidence[] {
+  return rows<{ version: number; report: string; account_id: string | null; claimed_at: number | null }>(read).map(
+    row => ({
+      version: row.version,
+      report: JSON.parse(row.report) as PlayerReport,
+      account: row.account_id,
+      claimedAt: row.claimed_at
+    })
+  );
 }

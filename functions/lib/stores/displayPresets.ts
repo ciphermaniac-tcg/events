@@ -1,13 +1,24 @@
 import { type DisplayPreset, MAX_DISPLAY_PRESETS } from '../../../shared/tournament/display.js';
-import { type Guard, rowsChanged } from '../d1.js';
-import type { D1Like } from '../types.js';
+import { type Guard, keyHeldTo, rows, rowsChanged } from '../d1.js';
+import type { D1Like, D1Statement } from '../types.js';
+
+/** The store's display presets, by name (see `presetsOf`); none unless `guard` holds. */
+export function presetsQuery(db: D1Like, storeId: string, guard?: Guard): D1Statement {
+  const key = keyHeldTo(storeId, guard);
+  return db
+    .prepare(`SELECT id, name, options FROM display_presets WHERE store_id = ${key.sql} ORDER BY name`)
+    .bind(...key.values);
+}
+
+/** What `presetsQuery` read, as presets. */
+export const presetsOf = (read: { results?: unknown[] } | undefined): DisplayPreset[] =>
+  rows<{ id: string; name: string; options: string }>(read).map(row => ({
+    ...row,
+    options: JSON.parse(row.options) as DisplayPreset['options']
+  }));
 
 export async function displayPresets(db: D1Like, storeId: string): Promise<DisplayPreset[]> {
-  const { results } = await db
-    .prepare('SELECT id, name, options FROM display_presets WHERE store_id = ? ORDER BY name')
-    .bind(storeId)
-    .all<{ id: string; name: string; options: string }>();
-  return (results ?? []).map(row => ({ ...row, options: JSON.parse(row.options) as DisplayPreset['options'] }));
+  return presetsOf(await presetsQuery(db, storeId).all());
 }
 
 export async function saveDisplayPreset(

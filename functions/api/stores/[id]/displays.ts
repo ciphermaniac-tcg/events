@@ -3,15 +3,13 @@ import { readJsonObject } from '../../../lib/api/body.js';
 import { jsonError } from '../../../lib/api/responses.js';
 import type { Context } from '../../../lib/auth/env.js';
 import { openStore, type StoreAccess } from '../../../lib/stores/access.js';
-import { deleteDisplayPreset, displayPresets, saveDisplayPreset } from '../../../lib/stores/displayPresets.js';
+import { deleteDisplayPreset, presetsOf, presetsQuery, saveDisplayPreset } from '../../../lib/stores/displayPresets.js';
 import { privateJson } from '../../../lib/tournaments/access.js';
 import { followPreset } from '../../../lib/tournaments/displays.js';
 
 export async function onRequestGet(context: Context<'id'>): Promise<Response> {
-  const access = await openStore(context, 'member');
-  return access instanceof Response
-    ? access
-    : privateJson({ presets: await displayPresets(access.db, access.store.id) });
+  const access = await openStore(context, 'member', (db, id, guard) => [presetsQuery(db, id, guard)]);
+  return access instanceof Response ? access : privateJson({ presets: presetsOf(access.along[0]) });
 }
 
 export async function onRequestPut(context: Context<'id'>): Promise<Response> {

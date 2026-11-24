@@ -31,7 +31,7 @@ import { type PlayerRequest, withRequestIds } from '../../../shared/tournament/r
 import type { CheckIns } from '../../../shared/tournament/checkins.js';
 import { randomToken, sessionHash, sessionUserQuery, type User, userFromRow, type UserRow } from '../auth/session.js';
 import { displayNameSql } from '../accounts/handles.js';
-import { firstRow, type Guard, rows, rowsChanged } from '../d1.js';
+import { firstRow, type Guard, keyHeldTo, rows, rowsChanged } from '../d1.js';
 import type { D1Like, D1Statement } from '../types.js';
 import { deleteWrites, firstIndexWrites, rosterWrites } from './rosterWrites.js';
 import { correctionGuard, type CorrectionWrite, correctionWrites } from './corrections.js';
@@ -186,8 +186,11 @@ export interface Opened {
 export interface OpenOptions {
   /** Read the asking account's Claim too, in the same batch. */
   claim?: boolean;
-  /** More reads of the event's own, sent in the same batch (see `Opened.along`). */
-  along?: (db: D1Like, code: string) => D1Statement[];
+  /**
+   * More reads of the event's own, sent in the same batch (see `Opened.along`),
+   * given the session asking and the moment the batch reads it at, or null without one.
+   */
+  along?: (db: D1Like, code: string, session: { hash: string; now: number } | null) => D1Statement[];
 }
 
 /**
@@ -203,9 +206,10 @@ export async function openTournament(
   options: OpenOptions = {}
 ): Promise<Opened | null> {
   const hash = await sessionHash(request);
-  const along = options.along?.(db, code) ?? [];
+  const now = Date.now();
+  const along = options.along?.(db, code, hash ? { hash, now } : null) ?? [];
   if (hash) {
-    return openAs(db, code, hash, { ...options, along });
+    return openAs(db, code, hash, { ...options, along, now });
   }
   if (along.length === 0) {
     const row = await loadTournament(db, code);
@@ -221,9 +225,9 @@ async function openAs(
   db: D1Like,
   code: string,
   hash: string,
-  options: { claim?: boolean; along?: D1Statement[] } = {}
+  options: { claim?: boolean; along?: D1Statement[]; now: number }
 ): Promise<Opened | null> {
-  const now = Date.now();
+  const { now } = options;
   const asking = [
     tournamentQuery(db, code),
     sessionUserQuery(db, hash, now),
@@ -675,7 +679,7 @@ export async function readAgain(
     const row = await loadTournament(db, code);
     return row ? { row } : { error: msg('No such tournament'), status: 404 };
   }
-  const opened = await openAs(db, code, asker.hash);
+  const opened = await openAs(db, code, asker.hash, { now: Date.now() });
   if (!opened) {
     return { error: msg('No such tournament'), status: 404 };
   }
@@ -865,17 +869,24 @@ export async function joinStaff(db: D1Like, code: string, userId: string, token:
   return rowsChanged(result) === 1;
 }
 
-/** Everyone the invite link has let onto the event's staff, earliest first. */
-export async function listStaff(db: D1Like, code: string): Promise<StaffMember[]> {
-  const { results } = await db
+/** Everyone the invite link has let onto the event's staff, earliest first (see `staffOf`); none unless `guard` holds. */
+export function staffQuery(db: D1Like, code: string, guard?: Guard): D1Statement {
+  const key = keyHeldTo(code, guard);
+  return db
     .prepare(
       `SELECT staff.user_id AS id, ${displayNameSql('users')} AS name, staff.joined_at AS joined_at FROM staff ` +
-        'LEFT JOIN users ON users.id = staff.user_id WHERE staff.code = ? ORDER BY staff.joined_at'
+        `LEFT JOIN users ON users.id = staff.user_id WHERE staff.code = ${key.sql} ORDER BY staff.joined_at`
     )
-    .bind(code)
-    .all<{ id: string; name: string | null; joined_at: number | null }>();
-  return results.map(row => ({ id: row.id, name: row.name ?? 'Unknown', joinedAt: row.joined_at }));
+    .bind(...key.values);
 }
+
+/** What `staffQuery` read, as the staff list. */
+export const staffOf = (read: { results?: unknown[] } | undefined): StaffMember[] =>
+  rows<{ id: string; name: string | null; joined_at: number | null }>(read).map(row => ({
+    id: row.id,
+    name: row.name ?? 'Unknown',
+    joinedAt: row.joined_at
+  }));
 
 /** Whether the asker, as organizer, took `userId` off the event's staff. */
 export async function removeStaff(db: D1Like, code: string, userId: string, asker: Asker): Promise<boolean> {
