@@ -73,7 +73,7 @@ export function AdminUsers() {
                       <tr>
                         <th>{t('Name')}</th>
                         <th>{t('Email')}</th>
-                        <th>{t('POP ID')}</th>
+                        <th>{t('Player ID')}</th>
                         <th>{t('Role')}</th>
                         <th>{t('Joined')}</th>
                       </tr>
