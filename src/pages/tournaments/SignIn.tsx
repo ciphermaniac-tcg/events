@@ -189,8 +189,6 @@ export function SignedOutBox(props: { offer: SignInOffer; next: string }) {
     <section class='tm-box'>
       <div class='tm-box-bar'>
         <strong>{t('Sign in')}</strong>
-        <span class='tm-grow' />
-        <span class='tm-flag'>{t('Signed out')}</span>
       </div>
       <div class='tm-box-bar'>
         <SignIn offer={props.offer} next={props.next} />
