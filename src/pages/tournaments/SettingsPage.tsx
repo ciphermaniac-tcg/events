@@ -76,7 +76,7 @@ const PROVIDER_NAMES: Record<OAuthProvider, string> = { google: 'Google', discor
 const SECTIONS = [
   { id: 'profile', label: msg('Player profile') },
   { id: 'username', label: msg('Username') },
-  { id: 'history', label: msg('History') },
+  { id: 'history', label: msg('Public profile') },
   { id: 'links', label: msg('Profile links') },
   { id: 'organizer', label: msg('Organizer') },
   { id: 'data', label: msg('Your data') }
@@ -266,7 +266,7 @@ function Username(props: { user: Me }) {
             type='submit'
             disabled={wanted() === props.user.handle || problem() !== null}
           >
-            {t('Save username')}
+            {t('Save')}
           </button>
         </div>
       </form>
@@ -348,7 +348,7 @@ function Profile(props: { user: Me; fromApply: boolean }) {
             when={back()}
             fallback={
               <button type='submit' class='btn btn-primary' disabled={status() === 'saving'}>
-                {t('Save profile')}
+                {t('Save')}
               </button>
             }
           >
@@ -384,14 +384,9 @@ function HistorySection(props: { user: Me }) {
   return (
     <section>
       <div class='tm-box'>
-        <SettingRow label={t('Your history')}>
-          <A class='btn btn-secondary' href='/history'>
-            {t('View history')}
-          </A>
-        </SettingRow>
         <SettingRow
           label={t('Public profile')}
-          info={<SettingInfo text={t('Enables a public profile page to share your performance at events.')} />}
+          info={<SettingInfo text={t('Anyone with the link can see your results.')} />}
         >
           <span class='tm-set-inline' aria-busy={action.busy()}>
             {/* Off first: a profile is private until its account shares it. */}

@@ -616,14 +616,14 @@ test('profile link settings validate platform URLs and persist Metafy and cleare
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Profile links');
   // Not a link at all, the problem shows under the field, not in the browser's own popup.
   await page.getByRole('textbox', { name: 'Metafy' }).fill('mary');
-  await page.getByRole('button', { name: 'Save links' }).click();
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.getByRole('textbox', { name: 'Metafy' })).toHaveAttribute('aria-invalid', 'true');
   await expect(page.getByRole('textbox', { name: 'Metafy' })).toBeFocused();
   await page.getByRole('textbox', { name: 'Metafy' }).fill('https://evil.test/@mary');
   await expect(page.getByText('Enter the https:// link to your Metafy profile')).toBeVisible();
   await page.getByRole('textbox', { name: 'Metafy' }).fill('https://metafy.gg/@mary');
   await page.getByRole('textbox', { name: 'Facebook' }).fill('');
-  await page.getByRole('button', { name: 'Save links' }).click();
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.getByRole('status')).toHaveText('Saved');
   await page.reload();
   await expect(page.getByRole('textbox', { name: 'Metafy' })).toHaveValue('https://metafy.gg/@mary');
@@ -664,7 +664,6 @@ test('Settings: the public profile switch shows its link, and a Player ID clash 
 }) => {
   const sent = await mockSettings(page, ME);
   await page.goto('/settings?section=history');
-  await expect(page.getByRole('link', { name: 'View history' })).toHaveAttribute('href', '/history');
   await expect(page.getByRole('link', { name: 'Admin' })).toHaveCount(0);
   const profile = page.getByRole('radiogroup', { name: 'Public profile' });
   await expect(page.getByRole('radiogroup', { name: 'Name shown' })).toHaveCount(0);
@@ -680,7 +679,7 @@ test('Settings: the public profile switch shows its link, and a Player ID clash 
   await profile.getByRole('radio', { name: 'Off' }).click();
   await expect(page.getByRole('button', { name: 'Copy' })).toHaveCount(0);
   await page.getByRole('navigation', { name: 'Settings' }).getByRole('link', { name: 'Player profile' }).click();
-  await page.getByRole('button', { name: 'Save profile' }).click();
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
   // The clash is the Player ID's, so it sits under that field, with the way to have it settled.
   const id = page.getByRole('textbox', { name: 'Player ID' });
   await expect(id).toBeFocused();
@@ -783,7 +782,7 @@ test('Settings: a profile save that is refused names each problem on its field a
   await expect(first).not.toHaveAttribute('aria-invalid');
   await first.fill('');
   await year.fill('19');
-  await page.getByRole('button', { name: 'Save profile' }).click();
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(first).toBeFocused();
   await expect(first).toHaveAttribute('aria-invalid', 'true');
   await expect(first).toHaveAccessibleDescription('Required');
@@ -798,7 +797,7 @@ test('Settings: the username is checked as it is typed, saved lowercased, and re
   const sent = await mockSettings(page, ME);
   await page.goto('/settings?section=username');
   const input = page.getByRole('textbox', { name: 'Username' });
-  const save = page.getByRole('button', { name: 'Save username' });
+  const save = page.getByRole('button', { name: 'Save', exact: true });
   await expect(input).toHaveValue('mary');
   await expect(save).toBeDisabled();
   await input.fill('mary..j');
@@ -808,7 +807,7 @@ test('Settings: the username is checked as it is typed, saved lowercased, and re
   await save.click();
   await expect(page.getByRole('alert')).toHaveText('That username is taken');
   const nav = page.getByRole('navigation', { name: 'Settings' });
-  await nav.getByRole('link', { name: 'History' }).click();
+  await nav.getByRole('link', { name: 'Public profile' }).click();
   await page.getByRole('radiogroup', { name: 'Public profile' }).getByRole('radio', { name: 'On' }).click();
   await nav.getByRole('link', { name: 'Username' }).click();
   await input.fill('Mary.J');
@@ -816,7 +815,7 @@ test('Settings: the username is checked as it is typed, saved lowercased, and re
   await save.click();
   await expect(page.getByRole('status')).toHaveText('Saved');
   expect(sent.filter(s => s.method === 'PATCH').at(-1)?.body).toEqual({ handle: 'mary.j' });
-  await nav.getByRole('link', { name: 'History' }).click();
+  await nav.getByRole('link', { name: 'Public profile' }).click();
   await expect(page.getByRole('link', { name: /\/u\/mary\.j$/ })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Copy' })).toBeVisible();
 });
@@ -824,9 +823,7 @@ test('Settings: the username is checked as it is typed, saved lowercased, and re
 test('Settings shows an admin the way to the admin page, and the account button offers History', async ({ page }) => {
   await mockSettings(page, { ...ME, role: 'admin' });
   await page.goto('/settings?section=organizer');
-  await expect(page.getByRole('link', { name: 'Admin' })).toHaveAttribute('href', '/admin');
-  await page.getByRole('navigation', { name: 'Settings' }).getByRole('link', { name: 'History' }).click();
-  await page.getByRole('link', { name: 'View history' }).click();
+  await expect(page.getByRole('link', { name: 'Open' })).toHaveAttribute('href', '/admin');
   await page.locator('.site-head').getByRole('button', { name: 'Account' }).click();
   await expect(page.locator('.tm-acct-menu').getByRole('link', { name: 'History' })).toHaveAttribute(
     'href',
