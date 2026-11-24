@@ -21,7 +21,10 @@
  * and lastName) answer whether anyone is registered under them, and at an
  * unsanctioned event who is named like them; a Player ID with its birthYear
  * answers with whose registration it is and its list, as does the device
- * token or the account that owns one.
+ * token or the account that owns one. With `own`, as the event page reads
+ * its own, only the registration the token or the account owns comes back,
+ * or null: nothing says whether anyone else is registered, so no lookup
+ * allowance is spent.
  * PUT — registers or changes a registration while submission is open:
  * { profile, mode, deck, was?, token?, someoneElse?, localTime? }. A paper registration
  * sends no deck. An event that takes no lists (Decklists off) registers
@@ -44,6 +47,7 @@
 
 import { isAdmin } from '../../../../shared/accounts/roles.js';
 import { archetypeOfList } from '../../../../shared/tournament/archetypes.js';
+import { openMarks, standing } from '../../../../shared/tournament/checkins.js';
 import { decklistOpenFor, enteredLate } from '../../../../shared/tournament/lateLists.js';
 import { MAX_DECKLIST_CHARS, parseDecklist } from '../../../../shared/tournament/decklist.js';
 import { decklistMatcher, fullNameKey, nameKey, similarlyNamed } from '../../../../shared/tournament/identify.js';
@@ -125,7 +129,7 @@ interface DecklistRow {
 }
 
 /** A list as stored, before it is checked against the roster (see presenter). */
-type Stored = Omit<Decklist, 'problems' | 'registered' | 'fromList' | 'late' | 'editable'>;
+type Stored = Omit<Decklist, 'problems' | 'registered' | 'openChecks' | 'fromList' | 'late' | 'editable'>;
 
 const deckMode = (value: unknown): DeckMode | null => (value === 'paper' || value === 'digital' ? value : null);
 
@@ -158,6 +162,7 @@ function presenter(row: TournamentRow) {
       // A minor's cards are deleted once the event ends (see store.ts), leaving nothing to check.
       problems: list.deck ? parseDecklist(list.deck).problems : [],
       registered: player !== undefined,
+      openChecks: player ? openMarks(row, standing(row, row.checkins, player.id)) : [],
       fromList: player?.fromList === true,
       late: enteredLate(row.tournament, player?.id ?? null),
       editable: decklistOpenFor(row, player?.id ?? null)
@@ -383,6 +388,22 @@ async function byName(access: Access, request: Request, details: Details): Promi
   };
 }
 
+/**
+ * The asker's own registration and nothing else: the latest the device token
+ * holds, or the one under the details when the token or the account owns it
+ * (see ownList). Anything else, a token that holds none, details nobody
+ * registered or someone else's, reads as none.
+ */
+async function ownAnswer(access: Access, request: Request): Promise<MyRegistration> {
+  const sanctioned = isSanctioned(access.row);
+  const details = detailsFrom(request, sanctioned);
+  const listed =
+    details && !(details instanceof Response)
+      ? await ownList(access, request, details, await listUnder(access, identityKey(details, sanctioned)))
+      : await tokenList(access, request);
+  return { known: listed !== null, mine: listed && presenter(access.row)(fromRow(listed)) };
+}
+
 async function playerAnswer(access: Access, request: Request): Promise<MyRegistration | Response> {
   const details = detailsFrom(request, isSanctioned(access.row));
   if (details instanceof Response) {
@@ -430,6 +451,9 @@ export async function onRequestGet(context: Context<'code'>): Promise<Response> 
       .all<DecklistRow>();
     const present = presenter(access.row);
     return privateJson({ decklists: results.map(row => present(fromRow(row))), mine: null });
+  }
+  if (new URL(context.request.url).searchParams.has('own')) {
+    return privateJson({ decklists: [], ...(await ownAnswer(access, context.request)) });
   }
   const allowance = lookupAllowance(access, context.request);
   if (allowance && !allowance.allows(`${access.row.code}:${rateLimitAddress(context.request)}`)) {

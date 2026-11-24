@@ -90,7 +90,7 @@ import { PublicPairings } from './PublicPairings';
 import type { Identified } from './Identify';
 import { StandingsTable } from './StandingsTable';
 import { RegisteredCard, YourMatch } from './YourMatch';
-import { createMyList } from './myList';
+import { createListRereads, createMyList } from './myList';
 import '../../styles/pages/tournament-public.css';
 import { pageTitle } from '../../lib/title';
 import { RoundStepper } from './RoundStepper';
@@ -719,6 +719,8 @@ function EventBody(props: {
     const list = held() === undefined ? myList.current() : held();
     return !started() && list?.registered ? list : null;
   };
+  // Before round 1 the page reads the registration again as it comes back in view, for staff's check-in ticks.
+  createListRereads(myList, started, held, setHeld);
 
   const bar = (withRounds: boolean, withSearch = true) => (
     <>
@@ -800,7 +802,7 @@ function EventBody(props: {
           }}
         />
       </Show>
-      <Show when={registered()}>{list => <RegisteredCard view={props.view} list={list()} />}</Show>
+      <Show when={registered()}>{list => <RegisteredCard list={list()} />}</Show>
       <Tabs
         id='event'
         options={tabs()}

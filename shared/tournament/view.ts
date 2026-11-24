@@ -13,7 +13,7 @@ import { birthYear, divisionFor, eventSeason } from './divisions.js';
 import { isTimeZone, isWallClock } from './timeZone.js';
 import { SANCTIONED, sanctionedMinutesError } from './structure.js';
 import { type PlayerClaim, shortLastNames } from './identify.js';
-import type { CheckIns } from './checkins.js';
+import type { CheckIns, CheckMark } from './checkins.js';
 import type { PlayerProfile } from './profile.js';
 import type { PairedThrough } from './corrections.js';
 import type { PlayerReport } from './reports.js';
@@ -658,6 +658,8 @@ export interface Decklist extends PlayerProfile {
   problems: string[];
   /** Whether the player is on the event's player list yet. */
   registered: boolean;
+  /** The checks staff have yet to tick for the player (see checkins.ts): none once checked in, or off the list. */
+  openChecks: CheckMark[];
   /** Submitting this list is what added the player to the event. */
   fromList: boolean;
   /** The player joined after round 1, so their list locks with the round after it (see enteredLate). */
