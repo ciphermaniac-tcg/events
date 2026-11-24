@@ -271,6 +271,9 @@ test('an Admin approves an Application, and it shows as decided in place @mobile
   expect(adminAsks(asks).filter(a => a.method === 'POST')).toEqual([
     { method: 'POST', path: '/api/admin/applications/app-1', body: { decision: 'approve', note: '' } }
   ]);
+  // With none left to decide, the bar shows no count.
+  await page.locator('.tm-app').nth(1).getByRole('button', { name: 'Approve' }).click();
+  await expect(count.locator('.tm-num')).toHaveCount(0);
 });
 
 test('an Admin rejects one with a note beside Reject, and reads the decided ones by status', async ({ page }) => {
@@ -363,7 +366,7 @@ test('an Admin opens an account from Users, moves its POP ID to one found by nam
   const search = card.getByRole('searchbox', { name: 'Move 7200001 to' });
   await expect(search).toBeFocused();
   await search.fill('nobody');
-  await expect(card).toContainText('No users.');
+  await expect(card).toContainText('No matching users.');
   await search.fill('ben');
   await card.getByRole('row').filter({ hasText: 'Ben Ortiz' }).getByRole('button', { name: 'Move' }).click();
   const move = page.getByRole('dialog', { name: 'Move 7200001 to Ben Ortiz?' });

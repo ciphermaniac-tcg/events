@@ -109,7 +109,7 @@ function MoveSearch(props: {
         when={found().length > 0}
         fallback={
           <Show when={query().trim()}>
-            <p class='muted'>{t('No users.')}</p>
+            <p class='muted'>{t('No matching users.')}</p>
           </Show>
         }
       >
