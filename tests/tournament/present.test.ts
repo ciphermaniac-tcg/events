@@ -467,9 +467,10 @@ test('the status sentence names the round, what is still playing and the clock',
   assert.equal(statusParts(open, false, clock('over', -245))[2], '4:05 over', 'past time reads as over, not negative');
   assert.equal(statusParts(open, false, clock('paused', 1421))[2], '23:41 left, paused', 'a paused clock says so');
   assert.equal(statusParts(open, false, clock('stale', 1421))[2], '23:41 left', 'a stale clock holds its last time');
-  assert.deepEqual(statusParts({ ...open, open: 0 }, false, clock('running', 1421)), [
-    'Round 2',
-    `all ${open.tables} tables in`
+  assert.deepEqual(statusParts({ ...open, open: 0 }, false, clock('running', 1421)), ['Round 2', 'Complete']);
+  const final: Round = { ...round2, kind: 'elimination', matches: round2.matches.slice(0, 1) };
+  assert.deepEqual(statusParts({ ...open, round: final, label: 'Final', open: 0, champion: 'x' }, false, null), [
+    'Final complete'
   ]);
   assert.deepEqual(statusParts(NO_ROUND, false, null), ['Registration']);
   assert.deepEqual(statusParts(open, true, null), ['Finished']);
