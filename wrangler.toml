@@ -6,11 +6,6 @@ compatibility_flags = ["nodejs_compat"]
 # Pages build output directory — Vite outputs the SPA shell + assets here.
 pages_build_output_dir = "dist"
 
-# Run the functions near D1 once Cloudflare measures that as faster: each
-# query after the first then stays in one region instead of crossing the country.
-[placement]
-mode = "smart"
-
 # Public bucket served at events-data.ciphermaniac.com: published event views
 # (tournaments/v1) and the stores index the main site's event locator reads.
 [[r2_buckets]]
