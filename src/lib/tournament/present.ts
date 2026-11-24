@@ -174,11 +174,6 @@ const playingWords = (n: number, kind: Round['kind']) =>
     ? tn(n, '{n} match playing', '{n} matches playing')
     : tn(n, '{n} table playing', '{n} tables playing');
 
-const allInWords = (n: number, kind: Round['kind']) =>
-  kind === 'elimination'
-    ? tn(n, 'all {n} match in', 'all {n} matches in')
-    : tn(n, 'all {n} table in', 'all {n} tables in');
-
 const NEXT_STAGES: Record<number, string> = { 2: msg('the final'), 4: msg('semifinals'), 8: msg('quarterfinals') };
 
 /** The name of the stage a cut round of `matches` bracket matches leads to: "semifinals", "the final". */
@@ -280,7 +275,7 @@ export function statusParts(
   clock: ClockState | null,
   rounds: number | null = null
 ): string[] {
-  const { round, open, tables } = progress;
+  const { round, open } = progress;
   if (finished) {
     return [t('Finished')];
   }
@@ -288,9 +283,9 @@ export function statusParts(
     return [t('Registration')];
   }
   if (progress.champion && open === 0) {
-    return [progress.label, t('final played')];
+    return [t('{round} complete', { round: progress.label })];
   }
-  const doing = open === 0 ? allInWords(tables, round.kind) : playingWords(open, round.kind);
+  const doing = open === 0 ? t('Complete') : playingWords(open, round.kind);
   return [roundOf({ ...progress, round }, rounds), doing, ...(open > 0 && clock ? [clockWords(clock, true)] : [])];
 }
 
