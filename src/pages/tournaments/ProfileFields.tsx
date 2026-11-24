@@ -42,7 +42,7 @@ function DigitsInput(props: DigitsProps & { max: number }) {
  * with the number pad on phones.
  */
 export function PlayerIdInput(props: DigitsProps) {
-  return <DigitsInput autocomplete='off' {...props} max={10} />;
+  return <DigitsInput autocomplete='off' spellcheck={false} {...props} max={10} />;
 }
 
 /** A birth year field's input, the same on every form that asks for one: four digits, filled in by the browser where it can. */

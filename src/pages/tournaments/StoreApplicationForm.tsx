@@ -107,6 +107,7 @@ function LeagueField(props: { lookup: Lookup; onLookup: (lookup: Lookup) => void
             {...control}
             class='tm-input'
             autocomplete='off'
+            spellcheck={false}
             // Enter looks the league up, where the next field's Next would skip it.
             enterkeyhint='search'
             value={typed()}
