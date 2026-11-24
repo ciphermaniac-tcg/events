@@ -1737,7 +1737,7 @@ test('the dashboard of a player who runs nothing is its Playing tab alone, the l
   const live = page.locator('.tm-dash-live');
   await expect(live).toContainText('Fixture Challenge & Friends · Round 2');
   await expect(live).toContainText('vs ');
-  await expect(live.getByRole('link', { name: 'Your match' })).toHaveAttribute('href', '/t/LIVE01');
+  await expect(live.getByRole('link', { name: 'Open match' })).toHaveAttribute('href', '/t/LIVE01');
   // The live card has room for the deck's name beside its sprites, so a deck with none still reads; read aloud once.
   const deck = live.locator('.tm-dash-live-deck');
   await expect(deck.locator('> [aria-hidden="true"]')).toHaveText('Gardevoir ex');
@@ -1748,6 +1748,25 @@ test('the dashboard of a player who runs nothing is its Playing tab alone, the l
   await expect(page.locator('.tm-hist-icons .tm-hist-deck-name').first()).toBeHidden();
   await expect(page).toHaveTitle('Playing — Ciphermaniac Events');
   expect(errors).toEqual([]);
+});
+
+test('between rounds the live card waits on pairings, even after a final leaves none to pair @mobile', async ({
+  page
+}) => {
+  await mockDashboard(page, ME);
+  // The final is reported and the event not yet ended: no round is left for its champion.
+  const ended = { ...DONE.view, code: 'LIVE01', settings: { ...DONE.view.settings, finished: false } };
+  await page.route('**/tournaments/v1/LIVE01.json', route =>
+    route.fulfill({ json: ended, headers: { 'access-control-allow-origin': '*' } })
+  );
+  const entries = ENTRIES.map(e =>
+    e.code === 'LIVE01' ? { ...e, key: DONE.keys[juniorChampion] ?? '', mode: 'swiss' as const } : e
+  );
+  await page.route('**/api/history', route => route.fulfill({ json: { entries } }));
+  await page.goto('/');
+  const live = page.locator('.tm-dash-live');
+  await expect(live.locator('.tm-dash-live-big')).toHaveText('Waiting on pairings');
+  await expect(live.getByRole('link', { name: 'Event page' })).toHaveAttribute('href', '/t/LIVE01');
 });
 
 test('the Playing tab always takes an event code, even when History fails to load @mobile', async ({ page }) => {
@@ -1788,11 +1807,14 @@ test('with nothing being played, the next event the player is in leads the Playi
   await expect(lead).toHaveCount(1);
   await expect(lead.locator('.tm-dash-live-event')).toHaveText(/^Riverside Thursday Cup · Thu, Nov 19/);
   await expect(lead.locator('.tm-dash-live-big')).toHaveText('Check-in 5:30 PM');
-  await expect(lead.getByRole('link', { name: 'Your registration' })).toHaveAttribute('href', '/t/SOON01');
+  await expect(lead.getByRole('link', { name: 'View registration' })).toHaveAttribute('href', '/t/SOON01');
   // The rest still come up under it, without the one leading.
   const coming = page.locator('.tm-dash-section', { has: page.getByRole('heading', { name: 'Coming up' }) });
   await expect(coming).toContainText('Mill Street Challenge');
   await expect(coming).not.toContainText('Riverside Thursday Cup');
+  // Nothing played yet: no Upcoming flag on each row, and no place or record to fill.
+  await expect(coming.locator('.tm-flag')).toHaveCount(0);
+  await expect(coming.getByRole('columnheader', { name: 'Place' })).toHaveCount(0);
 });
 
 test('a player with no events yet is welcomed with the way to play, then the way to run events @mobile', async ({
