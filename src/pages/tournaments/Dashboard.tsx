@@ -200,7 +200,12 @@ export function Dashboard(props: {
           <div id='tm-dash-panel' role='tabpanel' aria-label={t(LABELS[open()])}>
             <Switch>
               <Match when={open() === 'playing'}>
-                <PlayingTab history={history} onRetry={() => void refetch()} />
+                <PlayingTab
+                  history={history}
+                  onRetry={() => void refetch()}
+                  hasId={Boolean(props.user.popId)}
+                  runs={organizes()}
+                />
               </Match>
               <Match when={open() === 'organizing'}>
                 <Show
