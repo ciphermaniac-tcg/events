@@ -8,6 +8,7 @@
  * nights, and optionally a note. A refusal over the profile
  * or a pending Application rereads the account (`onStale`). What is typed
  * is kept for the tab (`draftKey`), so a reload opens it again as it was left.
+ * Apply again starts from the application it follows (`from`).
  */
 
 import { createEffect, createSignal, For, Show, untrack } from 'solid-js';
@@ -18,7 +19,8 @@ import {
   readLeagueId,
   type Relationship,
   RELATIONSHIPS,
-  type StoreDetails
+  type StoreDetails,
+  type StorePlace
 } from '../../../shared/accounts/stores';
 import type { LeagueFound, MyApplication } from '../../../shared/accounts/types';
 import { ApiError, errorText } from '../../lib/tournament/api';
@@ -44,10 +46,21 @@ type Lookup =
   | { kind: 'looking' }
   | { kind: 'found'; leagueId: string; league: LeagueFound }
   | { kind: 'unknown'; leagueId: string }
+  /** The league an application sent before asked for, and where it put the store. */
+  | { kind: 'again'; leagueId: string; place: StorePlace | null }
   | { kind: 'refused'; message: string };
 
-/** The lookup's league, once it is found or left to type: the form is open on it. */
-const leagueOf = (lookup: Lookup) => (lookup.kind === 'found' || lookup.kind === 'unknown' ? lookup : null);
+/** A lookup with its league: found, left to type or applied for before. The form is open on it. */
+type League = Extract<Lookup, { leagueId: string }>;
+
+const leagueOf = (lookup: Lookup): League | null =>
+  lookup.kind === 'found' || lookup.kind === 'unknown' || lookup.kind === 'again' ? lookup : null;
+
+/** Where the store is, as its lookup found it or the application before had it, in the zone now picked. */
+function placeOf(league: League, timeZone: string): StorePlace | null {
+  const at = league.kind === 'found' ? league.league : league.kind === 'again' ? league.place : null;
+  return at && { lat: at.lat, lon: at.lon, timeZone };
+}
 
 /** What is typed, as the tab keeps it (sessionStorage: it holds the store's private phone and email). */
 interface Draft {
@@ -61,6 +74,22 @@ interface Draft {
 }
 
 export const applicationDraftKey = (account: string) => `cm-store-application:${encodeURIComponent(account)}`;
+
+/** What an application sent before fills in, for Apply again: all of it but the profile's own parts. */
+function sentDraft(sent: MyApplication | null | undefined): Partial<Draft> {
+  const store = sent?.store;
+  return store
+    ? {
+        lookup: { kind: 'again', leagueId: store.leagueId, place: store.place },
+        details: store.details,
+        timeZone: store.timeZone,
+        relationship: store.relationship,
+        certified: true,
+        nights: store.nights,
+        explanation: sent.explanation
+      }
+    : {};
+}
 
 /** The draft kept under `key`; empty when there is none, or storage is off. */
 export function readApplicationDraft(key: string): Partial<Draft> {
@@ -170,10 +199,12 @@ function LeagueField(props: { lookup: Lookup; onLookup: (lookup: Lookup) => void
 
 export function StoreApplicationForm(props: {
   draftKey: string;
+  from?: MyApplication | null;
   onSent: (sent: MyApplication) => void;
   onStale: () => void;
 }) {
-  const draft = untrack(() => readApplicationDraft(props.draftKey));
+  // What this tab kept goes over what was sent before, as it was typed since.
+  const draft = untrack(() => ({ ...sentDraft(props.from), ...readApplicationDraft(props.draftKey) }));
   // A lookup that was on its way, or refused, starts over.
   const [lookup, setLookup] = createSignal<Lookup>(
     draft.lookup && leagueOf(draft.lookup) ? draft.lookup : { kind: 'idle' }
@@ -244,8 +275,7 @@ export function StoreApplicationForm(props: {
       return;
     }
     setSending(true);
-    const place =
-      found.kind === 'found' ? { lat: found.league.lat, lon: found.league.lon, timeZone: timeZone() } : null;
+    const place = placeOf(found, timeZone());
     try {
       const { application } = await sendStoreApplication(
         {

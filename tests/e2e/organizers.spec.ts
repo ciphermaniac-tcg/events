@@ -268,7 +268,11 @@ const APPLIED: MyApplication['store'] = {
 test('after a rejection, the note shows and Apply again opens the form', async ({ page }) => {
   const asks = await mockApplicant(page, {
     ...NONE,
-    application: application('rejected', { note: 'Send your certificate, please.', store: APPLIED })
+    application: application('rejected', {
+      note: 'Send your certificate, please.',
+      explanation: 'I run the Thursday league.',
+      store: APPLIED
+    })
   });
   await page.goto('/apply');
   const status = page.locator('.tm-applicant');
@@ -284,11 +288,17 @@ test('after a rejection, the note shows and Apply again opens the form', async (
   await expect(page.getByRole('button', { name: 'Apply again' })).toHaveCount(0);
   // Applying again is applying for a store again: its row opens at once.
   await expect(page.getByRole('button', { name: 'Apply as store' })).toHaveAttribute('aria-expanded', 'true');
-  await openStoreForm(page);
+  // The form starts from what was sent, so only what the admin asked about needs changing.
+  await expect(page.getByLabel('League ID or pokemon.com league page')).toHaveValue('6238620');
+  await expect(page.getByLabel('Why are you applying for this store?')).toHaveValue('owner');
+  await expect(page.getByLabel('Store name')).toHaveValue('Combat Power Gaming');
+  await expect(page.getByLabel('League night 1 start')).toHaveValue('19:30');
+  await expect(page.getByLabel('Note')).toHaveValue('I run the Thursday league.');
   await page.getByLabel('Note').fill('Certificate is on its way.');
   await page.getByRole('button', { name: 'Send application' }).click();
   await expect(status).toContainText('Application pending');
-  expect(posted(asks)).toEqual([{ explanation: 'Certificate is on its way.', store: true }]);
+  const [sent] = asks.filter(a => a.method === 'POST').map(a => a.body as { explanation: string; store: unknown });
+  expect(sent).toEqual({ explanation: 'Certificate is on its way.', store: APPLIED });
 });
 
 test('an organizer whose access was removed sees so, and applies again from there', async ({ page }) => {
