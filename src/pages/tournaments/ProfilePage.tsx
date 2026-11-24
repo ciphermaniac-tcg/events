@@ -9,7 +9,8 @@ import { A } from '@solidjs/router';
 import { createEffect, createResource, Show } from 'solid-js';
 import { Skeleton } from '@ciphermaniac/design/components/Skeleton';
 import { ApiError, fetchProfile } from '../../lib/tournament/api';
-import { resolved } from '../../lib/resource';
+import { latestValue, resolved } from '../../lib/resource';
+import { session } from './session';
 import { Avatar } from './Avatar';
 import { ReportProblem } from '../../components/ReportProblem';
 import { Badges } from './Badges';
@@ -25,16 +26,20 @@ const missing = (error: unknown) => error instanceof ApiError && error.status ==
 /** The profile's name, or its @username when it shows no real name, so the username never shows twice. */
 const heading = (p: { name: string; handle: string }) => (p.name === p.handle ? `@${p.handle}` : p.name);
 
+/** What a profile no one can see is called: private to the account it belongs to, not found to anyone else. */
+const unseenTitle = (own: boolean) => (own ? t('Your profile is private') : t('Profile not found'));
+
 export function ProfilePage(props: { handle: string }) {
   const [profile, { refetch }] = createResource(() => props.handle, fetchProfile);
   const shown = () => resolved(profile);
+  const own = () => latestValue(session)?.user?.handle.toLowerCase() === props.handle.toLowerCase();
   createEffect(() => {
     const found = shown();
     const name = found && heading(found);
     if (name) {
       document.title = pageTitle(name);
     } else if (profile.error) {
-      document.title = pageTitle(missing(profile.error) ? t('Profile not found') : t('Couldn’t load this profile'));
+      document.title = pageTitle(missing(profile.error) ? unseenTitle(own()) : t('Couldn’t load this profile'));
     }
   });
   return (
@@ -42,15 +47,26 @@ export function ProfilePage(props: { handle: string }) {
       <Show
         when={!missing(profile.error)}
         fallback={
-          <ErrorState
-            code=''
-            title={t('Profile not found')}
-            line={t('No public profile for @{handle}.', { handle: props.handle })}
+          <Show
+            when={own()}
+            fallback={
+              <ErrorState
+                code=''
+                title={unseenTitle(false)}
+                line={t('No public profile for @{handle}.', { handle: props.handle })}
+              >
+                <A href='/' class='btn btn-primary'>
+                  {t('Go home')}
+                </A>
+              </ErrorState>
+            }
           >
-            <A href='/' class='btn btn-primary'>
-              {t('Go home')}
-            </A>
-          </ErrorState>
+            <ErrorState code='' title={unseenTitle(true)} line=''>
+              <A href='/settings?section=history' class='btn btn-primary'>
+                {t('Make it public')}
+              </A>
+            </ErrorState>
+          </Show>
         }
       >
         <Show
