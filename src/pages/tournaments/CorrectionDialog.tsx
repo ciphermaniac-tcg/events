@@ -16,8 +16,7 @@ import { DIVISION_LABELS, type Match, type Outcome, type Pod } from '../../../sh
 import { Segmented } from '@ciphermaniac/design/components/Segmented';
 import { ApiError, correctResult, errorText, type Manage } from '../../lib/tournament/api';
 import { type CorrectionPreview, correctionPreview } from '../../lib/tournament/corrections';
-import { RESULT_WORDS } from '../../lib/tournament/present';
-import { t, tx } from '../../lib/i18n';
+import { t, tn, tx } from '../../lib/i18n';
 import { Modal } from './Modal';
 
 export interface CorrectionSelection {
@@ -60,13 +59,12 @@ function NextRound(props: {
         <For each={props.preview.next.filter(m => m.points[0] !== m.points[1])}>
           {m => (
             <li>
-              {t('Round {round} table {table} now pairs {p1} ({p1Points} pts) with {p2} ({p2Points} pts).', {
-                round: next(),
+              {t('Table {table} stays {p1} ({p1Points}) vs {p2} ({p2Points}).', {
                 table: m.table,
                 p1: name(m.p1),
-                p1Points: m.points[0],
+                p1Points: tn(m.points[0], '{n} pt', '{n} pts'),
                 p2: name(m.p2),
-                p2Points: m.points[1]
+                p2Points: tn(m.points[1], '{n} pt', '{n} pts')
               })}
             </li>
           )}
@@ -137,7 +135,7 @@ export function CorrectionDialog(props: {
   manage: Manage;
   selection: CorrectionSelection;
   names: Map<string, string>;
-  /** Who approves, as the console shows it: "Reese, organizer". */
+  /** Who approves, as the console shows it: "Reese (organizer)". */
   approving: string;
   onClose: () => void;
   onDone: (next: Manage) => void;
@@ -147,13 +145,14 @@ export function CorrectionDialog(props: {
   // The dialog keeps the match it opened on, even if a poll replaces the event.
   const { pod: opened, round, match } = untrack(() => props.selection);
   const name = (id: string) => props.names.get(id) ?? id;
-  const [outcome, setOutcome] = createSignal<Outcome>(match.outcome);
+  // Nothing is chosen at first: the recorded result is said above the choices, not pressed among them.
+  const [outcome, setOutcome] = createSignal<Outcome | null>(null);
   const [note, setNote] = createSignal('');
   const [error, setError] = createSignal<string | null>(null);
   // Under the note, where it is fixed; what the server says stays by the buttons.
   const [noteMissing, setNoteMissing] = createSignal(false);
   const [saving, setSaving] = createSignal(false);
-  const changed = () => outcome() !== match.outcome;
+  const changed = () => outcome() !== null && outcome() !== match.outcome;
   // Read against the event as it stands now, so the preview is what the server is sent.
   const pod = () => props.manage.tournament.pods.find(p => p.category === opened.category) ?? opened;
   const preview = createMemo(() =>
@@ -164,7 +163,7 @@ export function CorrectionDialog(props: {
           table: match.table,
           p1: match.p1,
           p2: match.p2 ?? '',
-          outcome: outcome()
+          outcome: outcome() ?? match.outcome
         })
       : null
   );
@@ -183,7 +182,7 @@ export function CorrectionDialog(props: {
         table: match.table,
         p1: match.p1,
         p2: match.p2 ?? '',
-        outcome: outcome(),
+        outcome: outcome() ?? match.outcome,
         note: note(),
         version: props.manage.version,
         ...(repair ? { repair: true as const } : {})
@@ -212,8 +211,13 @@ export function CorrectionDialog(props: {
         }}
       >
         <div class='tm-box-bar tm-modal-body'>
+          <p class='muted tm-correction-who'>
+            {t('Recorded: {result}', {
+              result: choicesFor(match, name).find(choice => choice.value === match.outcome)?.label ?? ''
+            })}
+          </p>
           <div class='tm-correction-field'>
-            <span>{t('Recorded {result}. Correct to', { result: t(RESULT_WORDS[match.outcome] ?? '') })}</span>
+            <span>{t('Correct to')}</span>
             <Segmented
               options={choicesFor(match, name)}
               selected={outcome()}
@@ -244,10 +248,7 @@ export function CorrectionDialog(props: {
             </Show>
           </div>
           <p class='muted tm-correction-who'>{t('Approving as {who}', { who: props.approving })}</p>
-          <Show
-            when={preview()}
-            fallback={<p class='muted tm-correction-who'>{t('Choose the corrected result to see what changes.')}</p>}
-          >
+          <Show when={preview()}>
             {p => <Changes preview={p()} names={props.names} round={round} repairable={repairable()} />}
           </Show>
         </div>
