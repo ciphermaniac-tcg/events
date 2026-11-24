@@ -126,10 +126,12 @@ test('the organizer corrects a round 1 result during round 2, after seeing what 
   await page.getByRole('button', { name: 'More for table 1' }).click();
   await page.getByRole('button', { name: 'Correct result' }).click();
   const dialog = page.getByRole('dialog', { name: 'Correct round 1, table 1' });
-  await expect(dialog).toContainText('Recorded 1–0. Correct to');
+  // The recorded result is said, not pressed: nothing is chosen until the judge picks.
+  await expect(dialog).toContainText(`Recorded: ${winner} Test won`);
+  await expect(dialog.getByRole('radio', { checked: true })).toHaveCount(0);
   await expect(dialog.getByRole('button', { name: 'Apply only' })).toBeDisabled();
   await expect(dialog.getByRole('button', { name: 'Apply and re-pair round 2' })).toBeDisabled();
-  await expect(dialog).toContainText('Approving as Organizer, organizer (no head judge named)');
+  await expect(dialog).toContainText('Approving as Organizer (organizer)');
 
   await dialog.getByRole('radio', { name: `${loser} Test won` }).click();
   await expect(dialog).toContainText('What changes');
