@@ -33,7 +33,7 @@ import {
   withdrawRegistration
 } from '../../lib/tournament/api';
 import { latestValue } from '../../lib/resource';
-import { msg, t, tn } from '../../lib/i18n';
+import { intlLocale, msg, t, tn } from '../../lib/i18n';
 import { ConfirmAction } from './ConfirmAction';
 import { ContactLink } from './ContactLink';
 import { ErrorLine, Field } from './Field';
@@ -114,6 +114,17 @@ function nameFound(
   return near.length > 0 ? { near } : null;
 }
 
+/** What a save did: changed a registration, or made one, which the page's Registered card shows (`carded`) instead of the form. */
+type Saved = 'edit' | 'new' | 'carded';
+
+/** The Registered card shows before round 1 (`open`), for a player the event's list took. */
+const savedAs = (editing: boolean, list: Decklist, open: boolean): Saved => {
+  if (editing) {
+    return 'edit';
+  }
+  return open && list.registered ? 'carded' : 'new';
+};
+
 /** The registration's state and what it can do, apart from how it is drawn. */
 function createRegistration(props: RegistrationProps) {
   // eslint-disable-next-line solid/reactivity -- the form opens on the registration the page read once
@@ -132,7 +143,7 @@ function createRegistration(props: RegistrationProps) {
   const [deck, setDeck] = createSignal(held?.deck ?? '');
   const [matches, setMatches] = createSignal<NamedPlayer[]>([]);
   const [naming, setNaming] = createSignal(false);
-  const [saved, setSaved] = createSignal<'new' | 'edit' | null>(null);
+  const [saved, setSaved] = createSignal<Saved | null>(null);
   // Whether anything changed since the registration was opened or last saved.
   const [changed, setChanged] = createSignal(false);
   const [withdrawing, setWithdrawing] = createSignal(false);
@@ -280,7 +291,7 @@ function createRegistration(props: RegistrationProps) {
       hold(result.decklist);
       heldYear = birthYearOf(sent.birthDate);
       setProfile(sent);
-      setSaved(step() === 'edit' ? 'edit' : 'new');
+      setSaved(savedAs(step() === 'edit', result.decklist, props.withdrawable));
       setKept({ firstName: sent.firstName, lastName: sent.lastName });
       setNaming(false);
       setOwn(true);
@@ -429,8 +440,13 @@ type Registration = ReturnType<typeof createRegistration>;
 /** What is still missing before the registration can go, for the line under a held-back button. */
 function missing(form: Registration, sanctioned: boolean): string | null {
   const problems = profileErrors(form.registrant(), sanctioned);
-  if (problems.firstName || problems.lastName || problems.popId || problems.birthDate) {
-    return sanctioned ? t('Fill in your Player ID, name and birth year') : t('Fill in your name');
+  const fields = [
+    problems.popId && t('Player ID'),
+    (problems.firstName || problems.lastName) && t('name'),
+    problems.birthDate && t('birth year')
+  ].filter((field): field is string => Boolean(field));
+  if (fields.length > 0) {
+    return t('Fill in your {fields}', { fields: new Intl.ListFormat(intlLocale()).format(fields) });
   }
   return form.mode() === 'digital' && !form.deck().trim() ? t('Paste a decklist') : null;
 }
@@ -1022,7 +1038,10 @@ function announcement(form: Registration): string {
     return t('You’ve withdrawn.');
   }
   const saved = form.saved();
-  return saved === 'new' ? t('You’re registered.') : saved === 'edit' ? t('Changes saved.') : '';
+  if (saved === 'edit') {
+    return t('Changes saved.');
+  }
+  return saved ? t('You’re registered.') : '';
 }
 
 export function RegistrationForm(props: RegistrationProps) {
