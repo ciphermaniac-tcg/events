@@ -13,7 +13,7 @@ export function PlayerIdTip() {
       // A short name for the marker; the bubble's words describe it (InfoTip ties them in).
       label={t('Where to find it')}
     >
-      {tx('Your PLAY! Pokémon ID. {create} or ask your organizer if you don’t have one.', {
+      {tx('Your Play! Pokémon ID. {create} or ask your organizer if you don’t have one.', {
         create: (
           <a class='tm-link-inline' href={SIGN_UP} target='_blank' rel='noopener'>
             {t('Create an account')}
