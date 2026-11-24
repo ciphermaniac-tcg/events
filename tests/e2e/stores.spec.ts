@@ -1335,7 +1335,7 @@ test('store settings: a display preset is made from the room, nudged, saved and 
   await expect(page.locator('.tm-set-box strong.num')).toHaveText('165%');
   await page.getByRole('button', { name: 'Larger text' }).click();
   await expect(page.locator('.tm-set-box strong.num')).toHaveText('170%');
-  await expect(page.getByText('from 165% for this room')).toBeVisible();
+  await expect(page.getByText('Suggested for this room: 165%')).toBeVisible();
   await page.getByLabel('Layout').selectOption('alphabetical');
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByRole('status')).toHaveText('Saved');
@@ -1415,7 +1415,7 @@ test('store settings: a new preset edited while its save is on its way keeps the
   // With no preset yet the form is the new one, so there is nothing to pick and no New preset to press.
   await expect(name).toBeVisible();
   await expect(page.getByRole('button', { name: 'New preset' })).toHaveCount(0);
-  await expect(page.locator('.tm-display-preview-head')).toHaveText('Thursday League Night');
+  await expect(page.locator('.tm-display-preview-head')).toHaveText('Thursday league night');
   await name.fill('Combat Power');
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByRole('button', { name: 'Save' })).toBeDisabled();
