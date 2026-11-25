@@ -629,6 +629,10 @@
     width: 100%;
     margin-inline: calc(-1 * var(--space-2));
   }
+  /* The question has no button padding to take up the row's outdent, so it steps back in line with the text above it. */
+  .tm-console .tm-round-acts .tm-confirm {
+    margin-left: var(--space-2);
+  }
   .tm-console .tm-round-pin .tm-clock-face {
     min-width: 64px;
     padding-inline: var(--space-2);
