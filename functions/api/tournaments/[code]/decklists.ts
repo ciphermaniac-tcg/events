@@ -91,7 +91,6 @@ import {
 } from '../../../lib/tournaments/attempts.js';
 import { publishAfter } from '../../../lib/tournaments/publish.js';
 import {
-  FULL,
   fullRefusal,
   isFull,
   type Kept,
@@ -278,6 +277,9 @@ const windowValues = (window: ListWindow, list = false) => [
   window.late ? 1 : 0,
   window.paired
 ];
+
+/** The hash of the token a device sent for its earlier list, or '' for none. */
+const heldHash = async (held: unknown) => (typeof held === 'string' && held ? sha256(held) : '');
 
 /** No account: a write names none, and no list's account matches it. */
 const NO_ACCOUNT: ListAccount = { id: '', sql: 'NULL', values: [] };
@@ -646,20 +648,21 @@ const REPLACES =
  * one staff unlocked, or a replacement its sender may make (see REPLACES). A
  * list sent by the account that is its player is that account's; the device
  * that holds the token keeps the account its list had. False when the list
- * there is not the sender's to replace, which stays as it was.
+ * there is not the sender's to replace, which stays as it was; else the list
+ * it found there (`was`, read in the same batch), for unstore.
  */
 async function store(
   access: Access,
   submission: Submission,
   write: { tokenHash: string; now: number; window: ListWindow } & Pick<Admitted, 'admit' | 'after'>
-): Promise<boolean | Response> {
+): Promise<{ was: DecklistRow | null } | false | Response> {
   const { tokenHash, now, window, admit, after } = write;
   const { profile, deck } = submission;
   const sanctioned = isSanctioned(access.row);
   // The guard proved the birth year against the event's own list for a player on it.
   const proved = sanctioned && rosterPlayer(access.row, profile) !== undefined;
   const key = identityKey(profile, sanctioned);
-  const held = typeof submission.held === 'string' && submission.held ? await sha256(submission.held) : '';
+  const held = await heldHash(submission.held);
   const account = matchingAccount(access, profile) ?? NO_ACCOUNT;
   // A list from a player who may be under 18 lands only while the event is not over, as it stands when the write does.
   const minor = mayBeMinor(birthYear(profile.birthDate), new Date(now)) ? 1 : 0;
@@ -699,13 +702,15 @@ async function store(
     );
   const owner = accountNamed(access, submission);
   const named = owner ? [saveToAccount(access, owner.id, profile)] : [];
+  // The list there as the upsert finds it, read in the same batch, is what taking the write back restores.
+  const there = access.db.prepare('SELECT * FROM decklists WHERE code = ? AND user_id = ?').bind(access.row.code, key);
   // Right after the try's admission, changes() is whether it let the try in: refused, no list lands.
-  const results = await access.db.batch([...admit, insert, ...named, ...after]);
-  if (admit.length > 0 && !firstRow(results[0])) {
+  const results = await access.db.batch([there, ...admit, insert, ...named, ...after]);
+  if (admit.length > 0 && !firstRow(results[1])) {
     return jsonError(LOCKED_OUT, 429);
   }
   // The upsert changes no row when the list there is not the sender's, so its count is the answer.
-  return rowsChanged(results[admit.length]) > 0;
+  return rowsChanged(results[admit.length + 1]) > 0 && { was: firstRow<DecklistRow>(results[0]) };
 }
 
 /**
@@ -719,7 +724,7 @@ async function rename(
   window: ListWindow
 ): Promise<boolean> {
   const { was, profile, held } = submission;
-  const token = typeof held === 'string' && held ? await sha256(held) : '';
+  const token = await heldHash(held);
   const account = matchingAccount(access, was) ?? NO_ACCOUNT;
   const moved = await access.db
     .prepare(
@@ -750,15 +755,21 @@ async function rename(
  * them, marked as added from their list, while it has room under its cap. A
  * TOM event's roster is TOM's, and a closed event takes nobody new. A rename
  * finds them under the names they had: the list's rename to the new ones is
- * the keeping's (see keptChanges).
+ * the keeping's (see keptChanges). Someone new is judged against
+ * registration as it stands too, which may have closed since their list
+ * landed: then they are not let in (see submit). A player already on the
+ * event keeps in step with the list that landed while it was open.
  */
 function addition(
   row: TournamentRow,
   submission: Submission
-): { registration: 'full' } | { registration: Registration; added?: Changes } {
+): { registration: 'full' } | { registration: 'closed' } | { registration: Registration; added?: Changes } {
   const { profile, was } = submission;
   if (rosterPlayer(row, was ?? profile) !== undefined || rosterPlayer(row, profile) !== undefined) {
     return { registration: 'matched' };
+  }
+  if (!decklistOpenFor(row, null)) {
+    return { registration: 'closed' };
   }
   // At an unsanctioned event a shared full name is no one player's, so the submitter is not new.
   if (!isSanctioned(row) && nameIsShared(row, profile)) {
@@ -795,8 +806,8 @@ async function enter(context: Context<'code'>, access: Access, submission: Submi
   let refusal: string | null = null;
   const outcome = await mutate(access.db, access.row, current => {
     const entered = addition(current, submission);
-    if (entered.registration === 'full') {
-      return FULL;
+    if (entered.registration === 'full' || entered.registration === 'closed') {
+      return entered.registration;
     }
     const { added } = entered;
     ({ registration } = entered);
@@ -809,7 +820,7 @@ async function enter(context: Context<'code'>, access: Access, submission: Submi
     return typeof keeping === 'string' ? (added ?? keeping) : { ...added, ...keeping };
   });
   if ('error' in outcome) {
-    return outcome.error === FULL ? 'full' : outcome.error;
+    return outcome.error;
   }
   if (outcome.row.version !== access.row.version) {
     await publishAfter(context, outcome.row);
@@ -897,12 +908,42 @@ async function beforeStore(access: Access, submission: Submission, window: ListW
   return null;
 }
 
-/** Takes back a list that landed for a registration the event then had no room for. */
-const unstore = (access: Access, profile: PlayerProfile) =>
-  access.db
-    .prepare('DELETE FROM decklists WHERE code = ? AND user_id = ?')
-    .bind(access.row.code, identityKey(profile, isSanctioned(access.row)))
-    .run();
+/**
+ * Takes back what this write stored for a newcomer the event then had no
+ * room for, or stopped registering: a list that was not there before goes,
+ * and one it replaced comes back as it was. Either only while the row is
+ * still this write's, under its token and time.
+ */
+function unstore(
+  access: Access,
+  profile: PlayerProfile,
+  write: { tokenHash: string; now: number; listed: DecklistRow | null }
+) {
+  const mine = 'WHERE code = ? AND user_id = ? AND owner_token = ? AND submitted_at = ?';
+  const values = [access.row.code, identityKey(profile, isSanctioned(access.row)), write.tokenHash, write.now];
+  const was = write.listed;
+  const statement = was
+    ? access.db
+        .prepare(
+          'UPDATE decklists SET pop_id = ?, first_name = ?, last_name = ?, birth_date = ?, deck = ?, deck_mode = ?, ' +
+            `archetype = ?, submitted_at = ?, owner_token = ?, account = ? ${mine}`
+        )
+        .bind(
+          was.pop_id,
+          was.first_name,
+          was.last_name,
+          was.birth_date,
+          was.deck,
+          was.deck_mode,
+          was.archetype,
+          was.submitted_at,
+          was.owner_token,
+          was.account,
+          ...values
+        )
+    : access.db.prepare(`DELETE FROM decklists ${mine}`).bind(...values);
+  return statement.run();
+}
 
 /** The refusal for a sender the event is not open to, or for a list sent to an event that takes none; null when it may go on. */
 function turnedAway(row: TournamentRow, sender: string | null, unwantedList: boolean): Response | null {
@@ -946,8 +987,9 @@ async function submit(
   const now = Date.now();
   // The device's own token stays its token, so a retry after a lost answer still owns the list.
   const token = deviceToken(submission.held) ?? crypto.randomUUID();
-  const stored = await store(access, submission, { tokenHash: await sha256(token), now, ...write });
-  if (stored !== true) {
+  const mine = { tokenHash: await sha256(token), now };
+  const stored = await store(access, submission, { ...mine, ...write });
+  if (!stored || stored instanceof Response) {
     return stored || refusedWrite(access, submitter(access.row, submission), sendsList(access, submission));
   }
   const { profile, deck, mode, archetype, was, wasYear, localTime } = submission;
@@ -959,9 +1001,9 @@ async function submit(
     archetype,
     localTime
   });
-  if (kept === 'full') {
-    await unstore(access, profile);
-    return fullRefusal();
+  if (kept === 'full' || kept === 'closed') {
+    await unstore(access, profile, { ...mine, listed: stored.was });
+    return kept === 'full' ? fullRefusal() : refusedWrite(access);
   }
   if (typeof kept === 'string') {
     return jsonError(kept, 409);

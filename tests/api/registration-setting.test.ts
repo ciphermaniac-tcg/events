@@ -188,3 +188,44 @@ test('an edit while Decklists is off leaves the list already in as it was, and t
   assert.deepEqual([listed.status, listed.json.error], [403, 'This event does not take decklists']);
   assert.equal(stored()?.deck, DECK);
 });
+
+test('a registration landing as registration turns off adds nobody, and takes back only its own write', async () => {
+  // Staff turn registration off after the list is in, before the roster takes the player.
+  const closing = (code: string) => () =>
+    db.raw
+      .prepare(
+        "UPDATE tournaments SET settings = json_set(settings, '$.registration', json('false')), version = version + 1 WHERE code = ?"
+      )
+      .run(code);
+  const lists = (code: string) =>
+    db.raw
+      .prepare('SELECT first_name AS name, deck_mode AS mode, deck, submitted_at AS at FROM decklists WHERE code = ?')
+      .all(code)
+      .map(row => ({ ...row }));
+
+  // A newcomer's list goes.
+  const fresh = await newEvent();
+  env.TOURNAMENT_DB = racing(db, 'UPDATE tournaments', closing(fresh.code));
+  const sent = await register(fresh.code);
+  assert.deepEqual([sent.status, sent.json.error], [403, 'Register with the organizer.']);
+  assert.equal((await view(fresh.code)).tournament.players.length, 0);
+  assert.deepEqual(lists(fresh.code), []);
+
+  // A list already on file for someone staff took off the roster comes back as it was.
+  env.TOURNAMENT_DB = db;
+  const { owner, code } = await newEvent();
+  await settle(code, owner, { decklists: 'closed' });
+  const first = await register(code, { deck: DECK });
+  assert.equal((await send(code, owner, { type: 'removePlayer', id: PROFILE.popId })).status, 200);
+  await settle(code, owner, { decklists: 'off' });
+  const before = lists(code);
+  assert.deepEqual(
+    before.map(row => [row.name, row.mode, row.deck]),
+    [['Nia', 'digital', DECK]]
+  );
+  env.TOURNAMENT_DB = racing(db, 'UPDATE tournaments', closing(code));
+  const edited = await register(code, { profile: { ...PROFILE, firstName: 'Nina' }, token: first.json.token });
+  assert.deepEqual([edited.status, edited.json.error], [403, 'Register with the organizer.']);
+  assert.equal((await view(code)).tournament.players.length, 0);
+  assert.deepEqual(lists(code), before);
+});
