@@ -100,11 +100,11 @@ impl Tom {
         self.process.running()
     }
 
-    pub(crate) fn view(&mut self) -> TomView {
-        match self.request::<HelperStatus>("status", &[]) {
-            Ok(status) => status.into_view(),
-            Err(failure) => TomView::unavailable(failure.reason()),
-        }
+    /// What the helper sees of TOM; why not, when it did not answer.
+    pub(crate) fn view(&mut self) -> Result<TomView, String> {
+        self.request::<HelperStatus>("status", &[])
+            .map(HelperStatus::into_view)
+            .map_err(Failure::reason)
     }
 
     /// `event`: what TOM must have open; the helper refuses another.
@@ -128,6 +128,14 @@ impl Tom {
             Outcome::Accepted => SubmitResult::accepted(code),
             Outcome::Rejected { message } => SubmitResult::rejected(code, message),
             Outcome::Uncertain { reason } => SubmitResult::uncertain(code, reason),
+            Outcome::NotReady {
+                reason,
+                held: held @ Some(_),
+            } => SubmitResult::NotReady {
+                code: code.to_owned(),
+                reason,
+                held,
+            },
             other => SubmitResult::not_ready(code, other.reason()),
         }
     }
@@ -139,8 +147,23 @@ impl Tom {
         let _ = self.request::<Outcome>("finish", &[]);
     }
 
-    pub(crate) fn save(&mut self) -> SaveResult {
-        match self.outcome("save", &[]) {
+    /// Brings TOM to the front; on macOS the app is activated by pid too,
+    /// as a Java window cannot always take the front from another app there.
+    pub(crate) fn show(&mut self) -> Result<(), String> {
+        #[cfg(target_os = "macos")]
+        if let Process::App { pid, .. } = self.process {
+            crate::macos_app::activate(pid);
+        }
+        match self.outcome("show", &[]) {
+            Outcome::Shown => Ok(()),
+            other => Err(other.reason()),
+        }
+    }
+
+    /// `event`: what TOM must have open; the helper refuses another.
+    pub(crate) fn save(&mut self, event: Event) -> SaveResult {
+        let fields: Vec<_> = event.fields().collect();
+        match self.outcome("save", &fields) {
             Outcome::Saved => SaveResult::Saved,
             other => SaveResult::not_ready(other.reason()),
         }
@@ -171,7 +194,7 @@ impl Tom {
     fn outcome(&mut self, op: &str, fields: &[(&str, String)]) -> Outcome {
         self.request(op, fields)
             .unwrap_or_else(|failure| match failure {
-                Failure::Unsent(reason) => Outcome::NotReady { reason },
+                Failure::Unsent(reason) => Outcome::NotReady { reason, held: None },
                 Failure::Unanswered(reason) => Outcome::Uncertain { reason },
             })
     }
@@ -370,11 +393,14 @@ enum Outcome {
     },
     NotReady {
         reason: String,
+        #[serde(default)]
+        held: Option<u8>,
     },
-    Saved,
     Started,
     AlreadyStarted,
+    Saved,
     Finished,
+    Shown,
     /// The helper entered the code but could not see what TOM did with it.
     Uncertain {
         reason: String,
@@ -385,7 +411,7 @@ impl Outcome {
     /// Why a request did not do what it asked, for answers that are not its success.
     fn reason(self) -> String {
         match self {
-            Self::NotReady { reason }
+            Self::NotReady { reason, .. }
             | Self::Rejected { message: reason }
             | Self::Uncertain { reason } => reason,
             _ => "TOM's helper gave an unexpected answer.".to_owned(),
@@ -401,11 +427,14 @@ struct HelperStatus {
     windows: Vec<String>,
     #[serde(default)]
     pods: Vec<PodStatus>,
+    #[serde(default)]
+    file: Option<PathBuf>,
 }
 
 impl HelperStatus {
     fn into_view(self) -> TomView {
         TomView {
+            file: self.file,
             ready: self.tournament_open,
             reason: (!self.tournament_open).then(|| "No tournament is open in TOM.".to_owned()),
             tournament_open: self.tournament_open,
@@ -495,20 +524,22 @@ pub(crate) mod tests {
         let server = fake_helper(
             &helper,
             &[
-                r#"{"tournamentOpen":true,"slipDialogOpen":false,"windows":["Main"]}"#,
+                r#"{"tournamentOpen":true,"slipDialogOpen":false,"windows":["Main"],"file":"/TOM/Cup.tdf"}"#,
                 r#"{"result":"rejected","message":"Two codes in a row"}"#,
                 r#"{"error":"unauthorized"}"#,
             ],
         );
         let status: HelperStatus = helper.request("status", &[]).unwrap();
-        assert_eq!(status.into_view().windows, ["Main"]);
+        let view = status.into_view();
+        assert_eq!(view.windows, ["Main"]);
+        assert_eq!(view.file.as_deref(), Some(Path::new("/TOM/Cup.tdf")));
         let outcome: Outcome = helper
             .request("submit", &[("code", "21113".into())])
             .unwrap();
         assert!(
             matches!(outcome, Outcome::Rejected { message } if message == "Two codes in a row")
         );
-        let refused = helper.request::<Outcome>("save", &[]).err().unwrap();
+        let refused = helper.request::<Outcome>("show", &[]).err().unwrap();
         assert!(matches!(refused, Failure::Unsent(reason) if reason.contains("unauthorized")));
         server.join().unwrap();
     }
@@ -518,9 +549,9 @@ pub(crate) mod tests {
         let helper = Helper::create().unwrap();
         let server = fake_helper(
             &helper,
-            &[r#"{"result":"saved"}"#, r#"{"result":"accepted"}"#],
+            &[r#"{"result":"shown"}"#, r#"{"result":"accepted"}"#],
         );
-        helper.request::<Outcome>("save", &[]).unwrap();
+        helper.request::<Outcome>("show", &[]).unwrap();
         helper
             .request::<Outcome>("submit", &[("code", "21113".into())])
             .unwrap();
@@ -530,7 +561,7 @@ pub(crate) mod tests {
             .iter()
             .map(|line| serde_json::from_str(line).unwrap())
             .collect();
-        assert_eq!(seen[0], json!({ "token": helper.token, "op": "save" }));
+        assert_eq!(seen[0], json!({ "token": helper.token, "op": "show" }));
         assert_eq!(
             seen[1],
             json!({ "token": helper.token, "op": "submit", "code": "21113" })
@@ -610,6 +641,23 @@ pub(crate) mod tests {
         for mut tom in [hung_up, unsure] {
             tom.kill();
         }
+    }
+
+    #[test]
+    fn passes_on_the_result_tom_holds_for_the_match() {
+        let entry = crate::code::entry(2, None, 1, 1, 1, "21113");
+        let mut tom = tom_answering(Some(
+            r#"{"result":"not_ready","reason":"Round 1 table 1 already has a different result in TOM.","held":2}"#,
+        ));
+        assert_eq!(
+            tom.submit(&entry, Event::default()),
+            SubmitResult::NotReady {
+                code: "21113".into(),
+                reason: "Round 1 table 1 already has a different result in TOM.".into(),
+                held: Some(2),
+            }
+        );
+        tom.kill();
     }
 
     #[test]

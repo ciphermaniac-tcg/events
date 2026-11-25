@@ -17,7 +17,7 @@ import { emptyTournament } from '../../shared/tournament/create';
 import { lookupPlayers } from '../../shared/tournament/lookup';
 import { birthYear } from '../../shared/tournament/divisions';
 import { seededRandom } from '../../shared/tournament/random';
-import { parseTdf } from '../../shared/tournament/tdf';
+import { categoryCode, parseTdf } from '../../shared/tournament/tdf';
 import { readTournament } from '../../shared/tournament/validate';
 import {
   assignKeys,
@@ -1514,59 +1514,335 @@ test('a TOM console says when TOM last saved, how often once it has seen, and wh
   await expect(saved(page)).toHaveClass(/is-late/);
 });
 
-/** The desktop app's TOM bridge: every result comes back unsent, as with TOM not launched, or refused by TOM when `rejecting`. */
-const desktopTomClosed = (page: Page, rejecting = false) =>
+/** What the desktop app says of TOM on the computer: on or off, TOM open, being opened, or not opening; and TOM's file. */
+interface DesktopTom {
+  on: boolean;
+  tom: 'open' | 'reopening' | 'failed';
+  reason?: string;
+  file: { name: string; source: number } | null;
+  /** The text of TOM's file as the app last read it, and that read's time, which tom_read hands over. */
+  text?: string;
+  modified?: number;
+  /** What the person answers when the app asks whether TOM's file is the event's. */
+  confirm?: boolean;
+}
+
+/**
+ * The desktop app with TOM: `state` answers tom_state, and each call is kept
+ * on window. TOM takes every result, but those at the tables in `answers`,
+ * which get that answer instead.
+ */
+const desktopTom = (page: Page, state: DesktopTom, answers: Record<number, object> = {}) =>
   page.addInitScript(
-    rejects =>
+    ({ given, byTable }) => {
+      const app = { ...given };
+      const calls: [string, unknown][] = [];
       Object.assign(window, {
-        __CM_TOM__: 2,
+        __CM_TOM__: 3,
+        __tom: { app, calls },
         __TAURI_INTERNALS__: {
-          invoke: (_command: string, args?: { entries?: { code: string }[] }) =>
-            Promise.resolve(
-              (args?.entries ?? []).map(entry =>
-                rejects
-                  ? { result: 'rejected', code: entry.code, message: 'TOM refused it.' }
-                  : { result: 'not_ready', code: entry.code, reason: 'TOM is closed.' }
-              )
-            )
+          invoke: (
+            command: string,
+            args?: { since?: number; source?: number; entries?: { code: string; table: number }[] }
+          ) => {
+            calls.push([command, args]);
+            app.on ||= command === 'tom_turn_on';
+            const answers = new Map<string, unknown>([
+              ['tom_state', { ...app }],
+              [
+                'tom_read',
+                // The app's read never crosses files: one TOM has since left reads nothing.
+                app.text && args?.since !== app.modified && args?.source === app.file?.source
+                  ? { modified: app.modified, text: app.text }
+                  : null
+              ],
+              ['tom_confirm_event', app.confirm === true]
+            ]);
+            const taken = args?.entries?.map(entry => ({
+              result: 'accepted',
+              ...byTable[entry.table],
+              code: entry.code
+            }));
+            return Promise.resolve(answers.has(command) ? answers.get(command) : (taken ?? true));
+          }
         }
-      }),
-    rejecting
+      });
+    },
+    { given: state, byTable: answers }
   );
 
-test('in the desktop app, double losses TOM has no slip code for can still be written to the .tdf', async ({
+/** Changes what the desktop app says of TOM. */
+const tomNow = (page: Page, change: Partial<DesktopTom>) =>
+  page.evaluate(next => Object.assign((window as unknown as { __tom: { app: DesktopTom } }).__tom.app, next), change);
+
+/** The arguments of each call the site made to one of the app's TOM commands. */
+const tomCalls = (page: Page, command: string) =>
+  page.evaluate(
+    name =>
+      (window as unknown as { __tom: { calls: [string, unknown][] } }).__tom.calls
+        .filter(([called]) => called === name)
+        .map(([, args]) => args),
+    command
+  );
+
+/** The tables of the entries in each result the site sent TOM, in order. */
+const sentTables = async (page: Page) =>
+  ((await tomCalls(page, 'tom_submit')) as { entries: { table: number }[] }[]).map(call =>
+    call.entries.map(entry => entry.table)
+  );
+
+const syncAnswer = (manage: object) => () => ({ status: 200, json: { ...manage, version: 5, revision: 'next' } });
+
+test('in the desktop app with TOM off, the console keeps the browser’s .tdf controls, and once TOM is on its results go in by themselves', async ({
   page
 }) => {
-  await desktopTomClosed(page);
-  const pending = openPending().map(result => ({ ...result, outcome: 'double-loss' as const }));
-  const manage = { ...tomManage(), pending };
-  await tomConsole(page, () => ({ status: 200, json: { ...manage, version: 5, revision: 'next' } }), { manage });
-  await expect(page.getByRole('button', { name: 'Write 2 results to .tdf' })).toBeVisible();
-  await expect(page.getByRole('button', { name: /to TOM$/ })).toHaveCount(0);
-});
-
-test('in the desktop app, results that could not reach TOM can still be written to the .tdf', async ({ page }) => {
-  await desktopTomClosed(page);
+  await desktopTom(page, { on: false, tom: 'reopening', file: null });
   const manage = { ...tomManage(), pending: openPending() };
-  await tomConsole(page, () => ({ status: 200, json: { ...manage, version: 5, revision: 'next' } }), { manage });
-  const write = page.getByRole('button', { name: 'Write 2 results to .tdf' });
-  await expect(write).toHaveCount(0);
-  await page.getByRole('button', { name: 'Send 2 results to TOM' }).click();
-  await page.getByRole('group', { name: 'Send results to TOM' }).getByRole('button', { name: 'Send' }).click();
-  await expect(page.getByRole('status').filter({ hasText: 'TOM is closed.' })).toBeVisible();
-  await expect(write).toBeVisible();
+  await tomConsole(page, () => null, { manage, following: false });
+  await expect(page.getByRole('button', { name: 'Download 2 results to .tdf' })).toBeVisible();
+  await expect(page.getByText('Upload .tdf', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Use TOM on this computer' }).click();
+  await expect(saved(page)).toHaveText('Reopening TOM2 results waiting');
+  await expect(page.getByText('waiting for TOM')).toHaveCount(2);
+  expect(await tomCalls(page, 'tom_submit')).toEqual([]);
+  await tomNow(page, { tom: 'open' });
+  await expect(saved(page)).toHaveText('Sending 2 results');
+  await expect.poll(() => tomCalls(page, 'tom_submit')).toHaveLength(2);
+  await expect(page.getByRole('button', { name: 'Download 2 results to .tdf' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Show TOM' }).click();
+  await expect.poll(() => tomCalls(page, 'tom_show')).toHaveLength(1);
 });
 
-test('in the desktop app, a result TOM refused can still be written to the .tdf', async ({ page }) => {
-  await desktopTomClosed(page, true);
-  const manage = { ...tomManage(), pending: openPending().slice(0, 1) };
-  await tomConsole(page, () => ({ status: 200, json: { ...manage, version: 5, revision: 'next' } }), { manage });
-  const write = page.getByRole('button', { name: 'Write 1 result to .tdf' });
-  await expect(write).toHaveCount(0);
-  await page.getByRole('button', { name: 'Send 1 result to TOM' }).click();
-  await page.getByRole('group', { name: 'Send results to TOM' }).getByRole('button', { name: 'Send' }).click();
-  await expect(page.getByRole('status').filter({ hasText: 'TOM refused it.' })).toBeVisible();
-  await expect(write).toBeVisible();
+test('in the desktop app, results go to TOM one at a time, and one TOM is not ready for waits without holding up the rest', async ({
+  page
+}) => {
+  await page.clock.install();
+  const [first, second] = openPending();
+  const reason = `Round ${first!.round} table ${first!.table} in TOM has different players than the site.`;
+  await desktopTom(page, { on: true, tom: 'open', file: null }, { [first!.table]: { result: 'not_ready', reason } });
+  await tomConsole(page, () => null, { manage: { ...tomManage(), pending: [first, second] }, following: false });
+  await expect.poll(() => sentTables(page)).toEqual([[first!.table], [second!.table]]);
+  await expect(page.getByText('going into TOM').first()).toHaveAttribute('title', reason);
+  await page.clock.fastForward(11_000);
+  await expect.poll(() => sentTables(page)).toEqual([[first!.table], [second!.table], [first!.table]]);
+});
+
+test('in the desktop app with TOM on, TOM’s saves come in by themselves, and only this event’s', async ({ page }) => {
+  const other = TDF_SOURCE.replace(/<name>[^<]*<\/name>/, '<name>Another Cup</name>');
+  await desktopTom(page, {
+    on: true,
+    tom: 'open',
+    file: { name: 'Cup.tdf', source: 1 },
+    text: TDF_SOURCE,
+    modified: 1
+  });
+  const synced: string[] = [];
+  await tomConsole(
+    page,
+    body => {
+      synced.push(body);
+      return syncAnswer(tomManage())();
+    },
+    { following: false }
+  );
+  await expect.poll(() => synced.length).toBe(1);
+  await page.getByRole('tab', { name: 'Settings', exact: true }).first().click();
+  await expect(page.locator('.tm-file-line')).toHaveText('Following · Cup.tdf · as TOM saves it');
+  await tomNow(page, { file: { name: 'Other.tdf', source: 2 }, text: other, modified: 2 });
+  await expect(page.getByText('TOM has Another Cup open, not this event')).toBeVisible();
+  expect(synced).toHaveLength(1);
+  // TOM closes its event and stays open: there is no file to follow, and nothing wrong with it.
+  await tomNow(page, { file: null });
+  await expect(page.locator('.tm-file-line')).toHaveText('Not linked');
+  await expect(page.getByText('TOM has Another Cup open, not this event')).toHaveCount(0);
+});
+
+test('in the desktop app, nothing goes to TOM while following its file is paused', async ({ page }) => {
+  await desktopTom(page, {
+    on: true,
+    tom: 'reopening',
+    file: { name: 'Cup.tdf', source: 1 },
+    text: TDF_SOURCE,
+    modified: 1
+  });
+  // The site's copy has a result TOM's file lacks, so the file reads as older and following pauses.
+  const newer = structuredClone(tdf);
+  newer.pods[0]!.rounds.at(-1)!.matches.find(m => m.table === openPending()[0]!.table)!.outcome = 'p1';
+  const manage = { ...tomManage(), tournament: newer, pending: openPending().slice(1) };
+  await tomConsole(page, syncAnswer(manage), { manage, following: false });
+  const reconnect = page.getByRole('button', { name: 'Reconnect Cup.tdf' });
+  await expect(reconnect).toBeVisible();
+  await tomNow(page, { tom: 'open' });
+  await expect(saved(page)).toHaveText('Sending 1 result');
+  await page.waitForTimeout(2500);
+  expect(await tomCalls(page, 'tom_submit')).toEqual([]);
+  await reconnect.click();
+  await page.getByRole('button', { name: 'Replace' }).click();
+  await expect.poll(() => tomCalls(page, 'tom_submit')).toHaveLength(1);
+});
+
+test('in the desktop app, a backup of the same event that TOM opens is not taken over the site’s newer copy', async ({
+  page
+}) => {
+  await desktopTom(page, {
+    on: true,
+    tom: 'open',
+    file: { name: 'Cup.tdf', source: 1 },
+    text: TDF_SOURCE,
+    modified: 1
+  });
+  // TOM saves a result after this file, which the site takes.
+  const newer = structuredClone(tdf);
+  newer.pods[0]!.rounds.at(-1)!.matches.find(m => m.table === openPending()[0]!.table)!.outcome = 'p1';
+  const synced: string[] = [];
+  await tomConsole(
+    page,
+    body => {
+      synced.push(body);
+      return syncAnswer({ ...tomManage(), tournament: newer })();
+    },
+    { following: false }
+  );
+  await expect.poll(() => synced.length).toBe(1);
+  await tomNow(page, { file: { name: 'Cup_r2-begin.tdf', source: 2 }, modified: 2 });
+  await expect(page.getByRole('button', { name: 'Reconnect Cup_r2-begin.tdf' })).toBeVisible();
+  expect(synced).toHaveLength(1);
+});
+
+test('in the desktop app, an event without a sanction ID takes TOM’s file only once the organizer says it is the event’s', async ({
+  page
+}) => {
+  const unsanctioned = structuredClone(tdf);
+  unsanctioned.info.sanctionId = '';
+  const manage = { ...tomManage(), tournament: unsanctioned, pending: openPending().slice(0, 1) };
+  await desktopTom(page, {
+    on: true,
+    tom: 'open',
+    file: { name: 'Cup.tdf', source: 1 },
+    text: TDF_SOURCE,
+    modified: 1
+  });
+  const synced: string[] = [];
+  await tomConsole(
+    page,
+    body => {
+      synced.push(body);
+      return syncAnswer(manage)();
+    },
+    { manage, following: false }
+  );
+  await expect(page.getByText('TOM has Fixture Challenge & Friends open, not this event')).toBeVisible();
+  expect(synced).toEqual([]);
+  // The app names the file itself; the site only says which of TOM's files it asks about.
+  expect(await tomCalls(page, 'tom_confirm_event')).toEqual([{ source: 1 }]);
+  expect(await tomCalls(page, 'tom_submit')).toEqual([]);
+  await tomNow(page, { confirm: true, file: { name: 'Cup.tdf', source: 2 } });
+  await expect.poll(() => synced.length).toBe(1);
+  await expect
+    .poll(() => tomCalls(page, 'tom_submit'))
+    .toEqual([expect.objectContaining({ tournamentId: '26-09-000456' })]);
+});
+
+test('in the desktop app, a result whose match TOM holds otherwise is never typed over, even after a reload, and needs the organizer in TOM', async ({
+  page
+}) => {
+  await page.clock.install();
+  const [first, second] = openPending();
+  const otherwise = { result: 'not_ready', reason: 'TOM has it otherwise.' };
+  // TOM 1.86 writes a double loss as 10, as older TOM wrote 6.
+  await desktopTom(
+    page,
+    { on: true, tom: 'open', file: null },
+    { [first!.table]: { ...otherwise, held: 2 }, [second!.table]: { ...otherwise, held: 10 } }
+  );
+  await tomConsole(page, () => null, { manage: { ...tomManage(), pending: openPending() }, following: false });
+  await expect(page.getByText('TOM has 0–1, fix it in TOM')).toBeVisible();
+  await expect(page.getByText('TOM has Double loss, fix it in TOM')).toBeVisible();
+  await expect(saved(page)).toHaveText('2 need you in TOM');
+  await expect.poll(() => tomCalls(page, 'tom_badge')).toContainEqual({ count: 2 });
+  await page.clock.fastForward(30_000);
+  await expect(saved(page)).toHaveText('2 need you in TOM');
+  expect(await sentTables(page)).toHaveLength(2);
+  await page.reload();
+  await expect(page.getByText('TOM has 0–1, fix it in TOM')).toBeVisible();
+  await page.clock.fastForward(30_000);
+  expect(await tomCalls(page, 'tom_submit')).toEqual([]);
+});
+
+test('in the desktop app, a result TOM saved otherwise before it got there still needs the organizer in TOM', async ({
+  page
+}) => {
+  const [first] = openPending();
+  const saved0 = structuredClone(tdf);
+  const pod = saved0.pods[0]!;
+  const round = pod.rounds.at(-1)!;
+  const match = round.matches.find(m => m.table === first!.table)!;
+  match.outcome = 'p2';
+  const key = `${categoryCode(pod.category)}:${round.number}:${match.table}:${match.p1}:${match.p2}`;
+  await page.addInitScript(
+    ([store, value]) => localStorage.setItem(store!, value!),
+    [
+      `cm-tom-held:${CODE}`,
+      JSON.stringify({ [key]: { sent: 'p1', row: `${pod.category}:${round.number}:${match.table}` } })
+    ]
+  );
+  await desktopTom(page, { on: true, tom: 'open', file: null });
+  await tomConsole(page, () => null, { manage: { ...tomManage(), tournament: saved0 }, following: false });
+  await expect(page.getByText('1–0 here, check it in TOM')).toBeVisible();
+  await expect(saved(page)).toHaveText('1 needs you in TOM');
+});
+
+test('in the desktop app, a result cleared on the site leaves no hold behind when TOM later saves another', async ({
+  page
+}) => {
+  const [first] = openPending();
+  const later = structuredClone(tdf);
+  const pod = later.pods[0]!;
+  const round = pod.rounds.at(-1)!;
+  const match = round.matches.find(m => m.table === first!.table)!;
+  match.outcome = 'p2';
+  const key = `${categoryCode(pod.category)}:${round.number}:${match.table}:${match.p1}:${match.p2}`;
+  // The site had 1–0 there for TOM, once.
+  await page.addInitScript(
+    ([store, value]) => {
+      if (!sessionStorage.getItem('seeded')) {
+        localStorage.setItem(store!, value!);
+        sessionStorage.setItem('seeded', '1');
+      }
+    },
+    [
+      `cm-tom-held:${CODE}`,
+      JSON.stringify({ [key]: { sent: 'p1', row: `${pod.category}:${round.number}:${match.table}` } })
+    ]
+  );
+  await desktopTom(page, { on: true, tom: 'open', file: null });
+  // The organizer cleared it, with TOM's match still open.
+  const manage = tomManage();
+  await tomConsole(page, () => null, { manage, following: false });
+  await expect(saved(page)).toHaveText('TOM has every result');
+  // TOM later saves another result there.
+  Object.assign(manage, { tournament: later });
+  await page.reload();
+  await expect(saved(page)).toHaveText('TOM has every result');
+  await expect(page.getByText('1–0 here, check it in TOM')).toHaveCount(0);
+});
+
+test('in the desktop app, once TOM won’t open its results can be written to a .tdf, and TOM tried again', async ({
+  page
+}) => {
+  await desktopTom(page, { on: true, tom: 'failed', reason: 'TOM closed each time it was opened.', file: null });
+  await tomConsole(page, () => null, { manage: { ...tomManage(), pending: openPending() }, following: false });
+  await expect(saved(page)).toHaveText('TOM didn’t open2 results waiting');
+  await expect(saved(page)).toHaveClass(/is-late/);
+  await expect(saved(page)).toHaveAttribute('title', 'TOM closed each time it was opened.');
+  await expect.poll(() => tomCalls(page, 'tom_badge')).toContainEqual({ count: 2 });
+  await expect(page.getByRole('button', { name: 'Show TOM' })).toHaveCount(0);
+  const download = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Write 2 to .tdf' }).click();
+  expect((await download).suggestedFilename()).toMatch(/\.tdf$/);
+  await page.getByRole('button', { name: 'Try again' }).click();
+  await expect.poll(() => tomCalls(page, 'tom_retry')).toHaveLength(1);
+  expect(await tomCalls(page, 'tom_submit')).toEqual([]);
 });
 
 test('a TOM console writes results into the file only once TOM is closed, and holds them until TOM saves them', async ({

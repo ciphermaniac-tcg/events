@@ -2,10 +2,15 @@
 
 import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
-import { nativeTom, startTomRound } from '../../src/lib/native/bridge';
+import { bind, nativeTom, tomEventOf } from '../../src/lib/native/bridge';
+import type { TournamentInfo } from '../../shared/tournament/types';
+import { startTomRound } from '../../src/lib/native/tomRound';
 import { drivesTom, hasTom, inNativeApp } from '../../src/lib/native/detect';
 
-const global = globalThis as { window?: unknown };
+const global = globalThis as { window?: unknown; localStorage?: unknown };
+
+/** An event's info as TOM's commands read it. */
+const info = (sanctionId: string) => ({ name: 'Spring Cup', sanctionId }) as TournamentInfo;
 
 afterEach(() => {
   delete global.window;
@@ -42,20 +47,37 @@ test('starting a pod’s round in TOM names the pod by TOM’s category code and
   global.window = {
     __TAURI_INTERNALS__: {
       invoke: (command: string, args?: Record<string, unknown>) => {
+        if (command === 'tom_state') {
+          return Promise.resolve({ on: true, tom: 'open', file: null });
+        }
         calls.push([command, args]);
         return Promise.resolve(answers.shift());
       }
     }
   };
-  const event = { name: 'Spring Cup', sanctionId: '26-10-000001' };
-  assert.equal(await startTomRound('masters', event, 3), null);
-  assert.equal(await startTomRound('mixed', event, 1), 'TOM is not running');
+  const event = info('26-10-000001');
+  assert.equal(await startTomRound('masters', event, 'CUP', 3), null);
+  assert.equal(await startTomRound('mixed', event, 'CUP', 1), 'TOM is not running');
   assert.deepEqual(calls, [
     ['tom_start_round', { pod: 2, round: 3, tournament: 'Spring Cup', tournamentId: '26-10-000001' }],
     ['tom_start_round', { pod: 10, round: 1, tournament: 'Spring Cup', tournamentId: '26-10-000001' }]
   ]);
   global.window = { __TAURI_INTERNALS__: { invoke: () => Promise.reject(new Error('IPC closed')) } };
-  assert.equal(await startTomRound('masters', event, 3), 'IPC closed');
+  assert.equal(await startTomRound('masters', event, 'CUP', 3), 'IPC closed');
+});
+
+test('with TOM off on the computer, starting the clock leaves TOM alone and says nothing', async () => {
+  const calls: string[] = [];
+  global.window = {
+    __TAURI_INTERNALS__: {
+      invoke: (command: string) => {
+        calls.push(command);
+        return Promise.resolve({ on: false, tom: 'reopening', file: null });
+      }
+    }
+  };
+  assert.equal(await startTomRound('masters', info('26-10-000001'), 'CUP', 1), null);
+  assert.deepEqual(calls, ['tom_state']);
 });
 
 test('only the desktop app, which marks its window, has TOM; the Android app has the bridge alone', () => {
@@ -63,19 +85,51 @@ test('only the desktop app, which marks its window, has TOM; the Android app has
   global.window = { __TAURI_INTERNALS__: {} };
   assert.equal(inNativeApp(), true);
   assert.equal(hasTom(), false, 'Android');
-  global.window = { __TAURI_INTERNALS__: {}, __CM_TOM__: 2 };
+  global.window = { __TAURI_INTERNALS__: {}, __CM_TOM__: 3 };
   assert.equal(hasTom(), true, 'desktop');
-  global.window = { __CM_TOM__: 2 };
+  global.window = { __CM_TOM__: 3 };
   assert.equal(hasTom(), false, 'a flag without the app');
   global.window = { __TAURI_INTERNALS__: {}, __CM_TOM__: true };
   assert.equal(hasTom(), false, 'an older desktop build, which sends without checking TOM');
+  global.window = { __TAURI_INTERNALS__: {}, __CM_TOM__: 2 };
+  assert.equal(hasTom(), false, 'a desktop build that launched TOM from the site, through its panel');
 });
 
 test('the console drives TOM only for an event run in TOM, never one the site runs itself', () => {
-  global.window = { __TAURI_INTERNALS__: {}, __CM_TOM__: 2 };
+  global.window = { __TAURI_INTERNALS__: {}, __CM_TOM__: 3 };
   assert.equal(drivesTom('tom'), true);
   assert.equal(drivesTom('swiss'), false, 'a Swiss event on the site has no TOM at all');
   assert.equal(drivesTom(undefined), false, 'before the event is loaded');
   global.window = { __TAURI_INTERNALS__: {} };
   assert.equal(drivesTom('tom'), false, 'the Android app');
+});
+
+test('an event without a sanction ID starts no round in TOM until it is bound to TOM’s file, as its sends', async () => {
+  const calls: string[] = [];
+  global.window = {
+    __TAURI_INTERNALS__: {
+      invoke: (command: string) => {
+        calls.push(command);
+        return Promise.resolve(command === 'tom_state' ? { on: true, tom: 'open', file: null } : { result: 'started' });
+      }
+    }
+  };
+  assert.equal(await startTomRound('masters', info(''), 'UNBOUND', 1), null);
+  assert.deepEqual(calls, [], 'TOM is not even asked');
+  bind('BOUND', '26-10-000002');
+  assert.equal(await startTomRound('masters', info(''), 'BOUND', 1), null);
+  assert.deepEqual(calls, ['tom_state', 'tom_start_round']);
+});
+
+test('a binding to a file with a sanction ID is kept, one to a file without only until the page closes', () => {
+  const kept = new Map<string, string>();
+  global.localStorage = {
+    getItem: (key: string) => kept.get(key) ?? null,
+    setItem: (key: string, value: string) => kept.set(key, value)
+  };
+  bind('WITH', '26-10-000003');
+  bind('WITHOUT', '');
+  assert.deepEqual([...kept.entries()], [['cm-tom-event:WITH', '26-10-000003']]);
+  assert.deepEqual(tomEventOf(info(''), 'WITHOUT'), { name: 'Spring Cup', sanctionId: '' });
+  delete global.localStorage;
 });

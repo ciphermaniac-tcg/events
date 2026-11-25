@@ -28,8 +28,6 @@ const IN_APP_HOSTS: &[&str] = &[
     "hcaptcha.com",
 ];
 const IN_APP_HOST_SUFFIXES: &[&str] = &[".protect.clerk.com", ".hcaptcha.com"];
-/// The app's own pages on Windows, such as the TOM panel.
-const APP_HOST: &str = "tauri.localhost";
 const LOCAL_HOSTS: &[&str] = &["localhost", "127.0.0.1"];
 /// Whether a local server may stand in for the site, over plain HTTP too: in
 /// a debug build only.
@@ -91,7 +89,7 @@ fn stays_at(url: &Url, local: bool) -> bool {
     let Some(host) = url.host_str() else {
         return true;
     };
-    if host == APP_HOST || (local && is_local_host(host)) {
+    if local && is_local_host(host) {
         return true;
     }
     (local || url.scheme() == "https")
@@ -278,11 +276,12 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
 
 /// Tells the site, before any of its scripts run, that this window can reach
 /// TOM (the `tom_*` commands exist only on desktop). Read by `hasTom` in the
-/// site's src/lib/native/detect.ts. 2: the helper checks the event, the live
-/// match and TOM's own result before it writes; a build that set `true`
-/// checks none of them, so the site leaves it the file workflow.
+/// site's src/lib/native/detect.ts. 3: TOM is a setting of this computer's
+/// that the app keeps open and follows itself (`tom.rs`); a build that set 2
+/// had the site launch and send through a panel, and one that set `true`
+/// checks nothing, so the site leaves both the file workflow.
 #[cfg(desktop)]
-const TOM_FLAG_SCRIPT: &str = "window.__CM_TOM__ = 2;";
+const TOM_FLAG_SCRIPT: &str = "window.__CM_TOM__ = 3;";
 
 /// Builds the main window from its tauri.conf.json entry (`create: false`)
 /// so it can also catch `target="_blank"` links and `window.open` on desktop,
@@ -445,7 +444,6 @@ mod tests {
         assert!(stays("https://discord.com/oauth2/authorize?client_id=1"));
         assert!(stays("https://discord.com/login?redirect_to=%2Foauth2"));
         assert!(stays("https://challenges.cloudflare.com/cdn-cgi/challenge"));
-        assert!(stays("http://tauri.localhost/index.html"));
         assert!(stays("tauri://localhost/"));
         assert!(stays("about:blank"));
     }
@@ -464,7 +462,7 @@ mod tests {
     fn a_release_build_keeps_only_https_and_its_own_pages() {
         let release = |url: &str| stays_at(&Url::parse(url).unwrap(), false);
         assert!(release("https://events.ciphermaniac.com/host"));
-        assert!(release("http://tauri.localhost/index.html"));
+        assert!(!release("http://tauri.localhost/index.html"));
         assert!(!release("http://events.ciphermaniac.com/host"));
         assert!(!release("http://localhost:4321/"));
         assert!(!release("http://127.0.0.1:8788/"));

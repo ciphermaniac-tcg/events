@@ -28,7 +28,7 @@ use results::TomView;
 
 const NOT_LAUNCHED: &str = "Launch TOM from here to send it results.";
 /// The helper can only be added as TOM starts, never to a running TOM.
-const ALREADY_OPEN: &str = "TOM is already open without the helper, which can only be added as TOM starts. Quit TOM, then launch it from here.";
+pub const ALREADY_OPEN: &str = "TOM is already open without the helper, which can only be added as TOM starts. Quit TOM, then launch it from here.";
 
 /// The event TOM must have open, alone: by name, as TOM titles its window,
 /// and by TOM's tournament ID when the site has one. `None` takes any.
@@ -82,7 +82,8 @@ impl Bridge {
     /// # Errors
     /// When TOM cannot be found or started, or is already open.
     pub fn launch(&mut self, helper_jar: &Path) -> Result<(), String> {
-        if self.tom_path.is_none() {
+        // A TOM moved or removed since it was saved is looked for again.
+        if !self.tom_path.as_deref().is_some_and(Path::exists) {
             self.tom_path = detect().into_iter().next();
         }
         let program = self
@@ -131,10 +132,12 @@ impl Bridge {
     }
 
     pub fn status(&mut self) -> Status {
-        let view = self
+        let seen = self
             .tom
             .as_mut()
-            .map_or_else(|| TomView::unavailable(NOT_LAUNCHED), inside::Tom::view);
+            .map_or_else(|| Err(NOT_LAUNCHED.to_owned()), inside::Tom::view);
+        let answering = seen.is_ok();
+        let view = seen.unwrap_or_else(TomView::unavailable);
         Status {
             tom_path: self.tom_path.clone(),
             launched: self.launched(),
@@ -144,6 +147,8 @@ impl Bridge {
             slip_dialog_open: view.slip_dialog_open,
             windows: view.windows,
             pods: view.pods,
+            answering,
+            file: view.file,
         }
     }
 
@@ -181,11 +186,22 @@ impl Bridge {
         )
     }
 
-    /// Asks TOM to save its tournament file.
-    pub fn save(&mut self) -> SaveResult {
+    /// Asks TOM to save its tournament file. TOM must have `event` open, and only it.
+    pub fn save(&mut self, event: Event) -> SaveResult {
+        self.tom.as_mut().map_or_else(
+            || SaveResult::not_ready(NOT_LAUNCHED),
+            |tom| tom.save(event),
+        )
+    }
+
+    /// Brings TOM to the front.
+    ///
+    /// # Errors
+    /// When TOM is not open from here, or its helper could not do it.
+    pub fn show(&mut self) -> Result<(), String> {
         self.tom
             .as_mut()
-            .map_or_else(|| SaveResult::not_ready(NOT_LAUNCHED), inside::Tom::save)
+            .map_or_else(|| Err(NOT_LAUNCHED.to_owned()), inside::Tom::show)
     }
 }
 
@@ -210,7 +226,11 @@ mod tests {
         assert_eq!(status.reason.as_deref(), Some(NOT_LAUNCHED));
         let results = bridge.submit(&[code::entry(2, None, 1, 1, 1, "21113")], Event::default());
         assert_eq!(results, [SubmitResult::not_ready("21113", NOT_LAUNCHED)]);
-        assert_eq!(bridge.save(), SaveResult::not_ready(NOT_LAUNCHED));
+        assert_eq!(bridge.show(), Err(NOT_LAUNCHED.to_owned()));
+        assert_eq!(
+            bridge.save(Event::default()),
+            SaveResult::not_ready(NOT_LAUNCHED)
+        );
         assert_eq!(
             bridge.start_round(Some(2), None, Event::default()),
             StartResult::not_ready(NOT_LAUNCHED)
@@ -244,6 +264,53 @@ mod tests {
                 tom.kill();
             }
         }
+    }
+
+    #[test]
+    fn a_save_names_the_event_tom_must_have_open() {
+        let (tom, server) = inside::tests::fake_tom(&[r#"{"result":"saved"}"#]);
+        let mut bridge = Bridge {
+            tom_path: None,
+            tom: Some(tom),
+        };
+        let event = Event {
+            name: Some("Spring Cup"),
+            id: Some("26-10-000001"),
+        };
+        assert_eq!(bridge.save(event), SaveResult::Saved);
+        let seen: serde_json::Value = serde_json::from_str(&server.join().unwrap()[0]).unwrap();
+        assert_eq!(seen["op"], "save");
+        assert_eq!(seen["tournament"], "Spring Cup");
+        assert_eq!(seen["tournament_id"], "26-10-000001");
+        if let Some(tom) = bridge.tom.as_mut() {
+            tom.kill();
+        }
+    }
+
+    #[test]
+    fn asks_the_helper_to_bring_tom_forward() {
+        let (tom, server) = inside::tests::fake_tom(&[r#"{"result":"shown"}"#]);
+        let mut bridge = Bridge {
+            tom_path: None,
+            tom: Some(tom),
+        };
+        assert_eq!(bridge.show(), Ok(()));
+        assert_eq!(ops(&server.join().unwrap()), [r#""show""#]);
+        if let Some(tom) = bridge.tom.as_mut() {
+            tom.kill();
+        }
+    }
+
+    #[test]
+    fn a_saved_tom_that_is_gone_is_looked_for_again() {
+        let dir = testdir::TestDir::new();
+        let mut bridge = Bridge::new(Some(dir.path().join("TOM.app/Contents/MacOS/TOM")));
+        let error = bridge.launch(&dir.path().join("helper.jar")).unwrap_err();
+        assert_eq!(bridge.tom_path(), detect().first().map(PathBuf::as_path));
+        assert!(
+            error.contains("not found") || bridge.tom_path().is_some(),
+            "{error}"
+        );
     }
 
     #[test]

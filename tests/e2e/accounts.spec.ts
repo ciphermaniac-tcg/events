@@ -657,6 +657,50 @@ test('Settings: the public profile switch shows its link, and a Player ID clash 
   await expect(page.getByRole('alert')).toHaveCount(0);
 });
 
+test('Settings: in the desktop app, TOM is a setting of this computer, which the app turns on', async ({ page }) => {
+  await page.addInitScript(() => {
+    const app = { on: false, tom: 'reopening', file: null };
+    Object.assign(window, {
+      __app: app,
+      __CM_TOM__: 3,
+      __TAURI_INTERNALS__: {
+        invoke: (command: string) => {
+          app.on = command === 'tom_turn_on' || (app.on && command !== 'tom_turn_off');
+          // The app turns TOM off at once, but its settings folder refuses the change.
+          return command === 'tom_turn_off'
+            ? Promise.reject(new Error('The setting could not be saved: read-only'))
+            : Promise.resolve(command === 'tom_state' ? { ...app } : true);
+        }
+      }
+    });
+  });
+  await mockSettings(page, ME);
+  await page.goto('/settings?section=computer');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('This computer');
+  const tom = page.getByRole('radiogroup', { name: 'TOM' });
+  await expect(tom.getByRole('radio', { name: 'Off' })).toHaveAttribute('aria-checked', 'true');
+  await tom.getByRole('radio', { name: 'On' }).click();
+  await expect(tom.getByRole('radio', { name: 'On' })).toHaveAttribute('aria-checked', 'true');
+  await tom.getByRole('radio', { name: 'Off' }).click();
+  await expect(tom.getByRole('radio', { name: 'Off' })).toHaveAttribute('aria-checked', 'true');
+  await expect(page.getByRole('alert')).toHaveText('The setting could not be saved: read-only');
+  // The app's TOM menu changes it without the page: the app tells the page, which reads it again.
+  await page.evaluate(() => {
+    (window as unknown as { __app: { on: boolean } }).__app.on = true;
+    window.dispatchEvent(new Event('cm-tom'));
+  });
+  await expect(tom.getByRole('radio', { name: 'On' })).toHaveAttribute('aria-checked', 'true');
+});
+
+test('Settings in a browser has no section for the computer', async ({ page }) => {
+  await mockSettings(page, ME);
+  await page.goto('/settings?section=computer');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Player profile');
+  await expect(
+    page.getByRole('navigation', { name: 'Settings' }).getByRole('button', { name: 'This computer' })
+  ).toHaveCount(0);
+});
+
 test('Settings opens on the player profile, keeps its section in the address, and its edits across sections @mobile', async ({
   page
 }) => {

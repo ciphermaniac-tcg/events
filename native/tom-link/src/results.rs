@@ -14,8 +14,14 @@ pub enum SubmitResult {
     Accepted { code: String },
     /// TOM (or the code check before it) refused the code.
     Rejected { code: String, message: String },
-    /// The code was not sent: TOM was not in a state to take it.
-    NotReady { code: String, reason: String },
+    /// The code was not sent: TOM was not in a state to take it. `held`:
+    /// TOM's own result for the match (its outcome code), when that is why.
+    NotReady {
+        code: String,
+        reason: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        held: Option<u8>,
+    },
     /// The code may have reached TOM but its fate was not seen. Check TOM
     /// before sending it again.
     Uncertain { code: String, reason: String },
@@ -26,6 +32,7 @@ impl SubmitResult {
         Self::NotReady {
             code: code.to_owned(),
             reason: reason.into(),
+            held: None,
         }
     }
 
@@ -124,11 +131,16 @@ pub struct Status {
     /// Titles of TOM's open windows.
     pub windows: Vec<String>,
     pub pods: Vec<PodStatus>,
+    /// The helper inside TOM answered, so TOM is up, not still starting.
+    pub answering: bool,
+    /// The `.tdf` TOM saves the open tournament to, as TOM keeps it.
+    pub file: Option<PathBuf>,
 }
 
 /// The view of TOM the helper produced, before the bridge adds its own fields.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(crate) struct TomView {
+    pub file: Option<PathBuf>,
     pub ready: bool,
     pub reason: Option<String>,
     pub tournament_open: bool,
@@ -196,10 +208,6 @@ mod tests {
         assert_eq!(
             json,
             r#"[{"result":"accepted","code":"21113"},{"result":"rejected","code":"21114","message":"bad"},{"result":"not_ready","code":"21121","reason":"closed"}]"#
-        );
-        assert_eq!(
-            serde_json::to_string(&SaveResult::Saved).unwrap(),
-            r#"{"result":"saved"}"#
         );
         assert_eq!(
             serde_json::to_string(&StartResult::AlreadyStarted).unwrap(),

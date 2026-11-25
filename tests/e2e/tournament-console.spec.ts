@@ -3326,17 +3326,21 @@ test('in the desktop app, TOM’s round starts only once the site has started th
   await page.addInitScript(() => {
     const calls: string[] = [];
     Object.assign(window, {
-      __CM_TOM__: 2,
+      __CM_TOM__: 3,
       __tomCalls: calls,
       __TAURI_INTERNALS__: {
         invoke: (command: string) => {
           calls.push(command);
-          return Promise.resolve({ result: 'started' });
+          return Promise.resolve(
+            command === 'tom_state' ? { on: true, tom: 'open', file: null } : { result: 'started' }
+          );
         }
       }
     });
   });
+  // A sanctioned event: TOM's round starts by its sanction ID, as its sends go.
   const t = event(8, 0, true);
+  t.info.sanctionId = '26-10-000009';
   await mockConsole(page, t, settingsOf({}));
   const manage = { ...manageOf(CODE, t, { mode: 'tom', settings: settingsOf({}) }), reports: [], requests: [] };
   await page.route(`**/api/tournaments/${CODE}/manage`, route =>

@@ -14,9 +14,9 @@ const ignoreLists = [...workflow.matchAll(/paths-ignore:\s*\[([^\]]*)\]/g)].map(
 
 const skipped = (file: string) => ignoreLists.every(list => list.some(glob => matchesGlob(file, glob)));
 
-test('a change to the TOM panel or the native package still runs the site gates', () => {
+test('a change to the native package still runs the site gates', () => {
   assert.equal(ignoreLists.length, 2, 'pull requests and pushes to main');
-  for (const file of ['native/panel/src/App.tsx', 'native/panel/vite.config.ts', 'native/package.json']) {
+  for (const file of ['native/package.json', 'native/package-lock.json']) {
     assert.equal(skipped(file), false, file);
   }
 });

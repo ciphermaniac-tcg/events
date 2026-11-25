@@ -404,7 +404,12 @@ fn results_land_in_the_saved_tdf() {
     start_round_is_idempotent(&mut bridge);
     later_batches(&mut bridge, &slips);
 
-    assert_eq!(bridge.save(), SaveResult::Saved);
+    // A save names the event: one TOM does not have open saves nothing.
+    assert!(matches!(
+        bridge.save(LAST_WEEK),
+        SaveResult::NotReady { .. }
+    ));
+    assert_eq!(bridge.save(EVENT), SaveResult::Saved);
     let outcomes: Vec<(u32, u32)> = env
         .slips()
         .iter()
