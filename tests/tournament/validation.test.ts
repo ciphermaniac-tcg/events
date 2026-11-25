@@ -204,15 +204,17 @@ test('decklists are off, open or closed, and rounds are capped at up to fifteen'
   }
 });
 
-test('players register online while registration is on, until round 1 is paired', () => {
+test('players register online while registration is on, until round 1 is paired or the event ends', () => {
   const tournament = emptyTournament({ name: 'x' });
-  assert.equal(canRegister({ settings: { registration: true }, tournament }), true);
-  assert.equal(canRegister({ settings: { registration: false }, tournament }), false);
+  const on = { registration: true, finished: false };
+  assert.equal(canRegister({ settings: on, tournament }), true);
+  assert.equal(canRegister({ settings: { ...on, registration: false }, tournament }), false);
   assert.equal(
-    canRegister({ settings: { registration: true }, tournament: { ...tournament, startedAt: 1 } }),
+    canRegister({ settings: on, tournament: { ...tournament, startedAt: 1 } }),
     false,
     'closed once round 1 is paired'
   );
+  assert.equal(canRegister({ settings: { ...on, finished: true }, tournament }), false, 'or the event ended before it');
   assert.equal(DEFAULT_SETTINGS.registration, true, 'a new event registers players online');
   assert.equal(readSettings({ registration: false }, DEFAULT_SETTINGS)?.registration, false);
   assert.equal(readSettings({ registration: 'no' }, DEFAULT_SETTINGS), null);

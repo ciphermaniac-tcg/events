@@ -266,3 +266,22 @@ test('a minor’s list put back as the event ends comes back without its cards, 
     .get(code);
   assert.deepEqual({ ...row }, { name: 'Nia', mode: 'digital', deck: '' }, 'its details come back, its cards do not');
 });
+
+test('an event ended before round 1 takes no registration, even one racing the end', async () => {
+  const { owner, code } = await newEvent();
+  assert.equal((await settle(code, owner, { finished: true })).status, 200);
+  const late = await register(code);
+  assert.deepEqual([late.status, late.json.error], [403, 'This event is over.']);
+  assert.equal((await view(code)).tournament.players.length, 0);
+
+  const ended = await newEvent();
+  env.TOURNAMENT_DB = racing(db, 'INSERT INTO decklists', () =>
+    db.raw
+      .prepare("UPDATE tournaments SET settings = json_set(settings, '$.finished', json('true')) WHERE code = ?")
+      .run(ended.code)
+  );
+  const raced = await register(ended.code);
+  assert.deepEqual([raced.status, raced.json.error], [403, 'This event is over.']);
+  const stored = db.raw.prepare('SELECT count(*) AS n FROM decklists').get() as { n: number };
+  assert.equal(stored.n, 0);
+});

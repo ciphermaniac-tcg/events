@@ -296,12 +296,15 @@ export function decklistsLocked(event: { tournament: Tournament }): boolean {
   return hasStarted(event.tournament);
 }
 
-/** Whether players can register, change or withdraw now: online registration is on, and round 1 is not yet paired. */
+/**
+ * Whether players can register, change or withdraw now: online registration
+ * is on, and round 1 is not yet paired at an event that has not ended.
+ */
 export function canRegister(event: {
-  settings: Pick<TournamentSettings, 'registration'>;
+  settings: Pick<TournamentSettings, 'registration' | 'finished'>;
   tournament: Tournament;
 }): boolean {
-  return event.settings.registration && !decklistsLocked(event);
+  return event.settings.registration && !event.settings.finished && !decklistsLocked(event);
 }
 
 /**
