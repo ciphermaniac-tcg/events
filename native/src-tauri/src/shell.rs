@@ -28,8 +28,6 @@ const IN_APP_HOSTS: &[&str] = &[
     "hcaptcha.com",
 ];
 const IN_APP_HOST_SUFFIXES: &[&str] = &[".protect.clerk.com", ".hcaptcha.com"];
-/// The app's own pages on Windows, such as the TOM panel.
-const APP_HOST: &str = "tauri.localhost";
 const LOCAL_HOSTS: &[&str] = &["localhost", "127.0.0.1"];
 /// Whether a local server may stand in for the site, over plain HTTP too: in
 /// a debug build only.
@@ -91,7 +89,7 @@ fn stays_at(url: &Url, local: bool) -> bool {
     let Some(host) = url.host_str() else {
         return true;
     };
-    if host == APP_HOST || (local && is_local_host(host)) {
+    if local && is_local_host(host) {
         return true;
     }
     (local || url.scheme() == "https")
@@ -155,6 +153,11 @@ fn record_load<R: Runtime>(webview: &Webview<R>, payload: &PageLoadPayload<'_>) 
         load.last_good = Some(payload.url().clone());
     }
     drop(loads);
+    // Started comes as the page commits, at the address it ends up on.
+    #[cfg(target_os = "macos")]
+    if payload.event() == PageLoadEvent::Started && webview.label() == MAIN_WINDOW {
+        crate::mac_title_strip::page_committed(&webview.window(), payload.url());
+    }
     #[cfg(target_os = "android")]
     if webview.label() == MAIN_WINDOW {
         crate::android::page_load(webview, payload.event());
@@ -278,11 +281,12 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
 
 /// Tells the site, before any of its scripts run, that this window can reach
 /// TOM (the `tom_*` commands exist only on desktop). Read by `hasTom` in the
-/// site's src/lib/native/detect.ts. 2: the helper checks the event, the live
-/// match and TOM's own result before it writes; a build that set `true`
-/// checks none of them, so the site leaves it the file workflow.
+/// site's src/lib/native/detect.ts. 3: TOM is a setting of this computer's
+/// that the app keeps open and follows itself (`tom.rs`); a build that set 2
+/// had the site launch and send through a panel, and one that set `true`
+/// checks nothing, so the site leaves both the file workflow.
 #[cfg(desktop)]
-const TOM_FLAG_SCRIPT: &str = "window.__CM_TOM__ = 2;";
+const TOM_FLAG_SCRIPT: &str = "window.__CM_TOM__ = 3;";
 
 /// Builds the main window from its tauri.conf.json entry (`create: false`)
 /// so it can also catch `target="_blank"` links and `window.open` on desktop,
@@ -445,7 +449,6 @@ mod tests {
         assert!(stays("https://discord.com/oauth2/authorize?client_id=1"));
         assert!(stays("https://discord.com/login?redirect_to=%2Foauth2"));
         assert!(stays("https://challenges.cloudflare.com/cdn-cgi/challenge"));
-        assert!(stays("http://tauri.localhost/index.html"));
         assert!(stays("tauri://localhost/"));
         assert!(stays("about:blank"));
     }
@@ -464,7 +467,7 @@ mod tests {
     fn a_release_build_keeps_only_https_and_its_own_pages() {
         let release = |url: &str| stays_at(&Url::parse(url).unwrap(), false);
         assert!(release("https://events.ciphermaniac.com/host"));
-        assert!(release("http://tauri.localhost/index.html"));
+        assert!(!release("http://tauri.localhost/index.html"));
         assert!(!release("http://events.ciphermaniac.com/host"));
         assert!(!release("http://localhost:4321/"));
         assert!(!release("http://127.0.0.1:8788/"));
@@ -517,5 +520,28 @@ mod tests {
         assert_eq!(window_title(" ", app), app);
         assert_eq!(window_title("about:blank", app), app);
         assert_eq!(window_title("https://events.ciphermaniac.com/", app), app);
+    }
+
+    /// A build pointed at another site changes it everywhere at once, or a
+    /// capability (the Mac's title strip, say) is left denied there.
+    #[test]
+    fn the_window_and_every_capability_name_the_one_site() {
+        let config: serde_json::Value =
+            serde_json::from_str(include_str!("../tauri.conf.json")).unwrap();
+        let window = config["app"]["windows"][0]["url"].as_str().unwrap();
+        assert_eq!(
+            Url::parse(window).unwrap().host_str(),
+            Some(super::SITE_HOST)
+        );
+        for capability in [
+            include_str!("../capabilities/site.json"),
+            include_str!("../capabilities/mac-title-strip.json"),
+        ] {
+            let capability: serde_json::Value = serde_json::from_str(capability).unwrap();
+            assert_eq!(
+                capability["remote"]["urls"],
+                serde_json::json!([format!("{window}/*")])
+            );
+        }
     }
 }

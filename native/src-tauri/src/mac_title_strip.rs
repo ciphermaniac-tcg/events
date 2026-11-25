@@ -12,12 +12,20 @@
 //! the system's "Double-click a window's title bar" setting says, as a
 //! title bar does; its controls stay theirs. While a dialog is open over
 //! the page, its backdrop's top still moves the window.
+//!
+//! The window's buttons never sit on the page. The window draws over the
+//! page only while a page of the site is in it (`page_committed`, as each
+//! page commits), and the strip's style goes into that page before it
+//! first paints. Any other page, the app's own among them, has a title bar
+//! of its own above it. The site's head under the style is checked by the
+//! site's tests (tests/e2e), not by looking at the page here.
 
 /// The strip's height, in points.
 const HEIGHT: u32 = 38;
 
 /// The space between the strip and the page's first line, in place of the
 /// site's 36 px.
+#[cfg(test)]
 const PAGE_GAP: u32 = 18;
 
 /// A window button's size.
@@ -45,6 +53,7 @@ const fn edge() -> u32 {
 
 /// The room the window's buttons take at the left: three buttons 20 pt
 /// apart, and after them a gap a little wider than the space above them.
+#[cfg(test)]
 const fn lights_room() -> u32 {
     edge() + 2 * 20 + BUTTON + button_margin() + 6
 }
@@ -58,85 +67,93 @@ fn traffic_lights() -> (f64, f64) {
     )
 }
 
-/// The window with no title bar of its own and its buttons on the strip.
+/// The window, its buttons placed for the strip but above the page until the
+/// site's first page commits. Placed so, they end above a title bar's 28 pt
+/// as well.
 #[cfg(target_os = "macos")]
 pub fn window<R: tauri::Runtime>(
     builder: tauri::WebviewWindowBuilder<'_, R, tauri::AppHandle<R>>,
 ) -> tauri::WebviewWindowBuilder<'_, R, tauri::AppHandle<R>> {
     let (x, y) = traffic_lights();
     builder
-        .title_bar_style(tauri::TitleBarStyle::Overlay)
+        .title_bar_style(ABOVE)
         .hidden_title(true)
         .traffic_light_position(tauri::LogicalPosition::new(x, y))
 }
 
+/// A title bar above the page, with the window's buttons in it.
+#[cfg(target_os = "macos")]
+const ABOVE: tauri::TitleBarStyle = tauri::TitleBarStyle::Transparent;
+
+/// Whether the window draws over the page: once the main window's page
+/// commits, only for a page of the live site, whose style makes room for the
+/// window's buttons. A page of the site reloading keeps the strip, so the
+/// page does not move.
+#[cfg(target_os = "macos")]
+pub fn page_committed<R: tauri::Runtime>(window: &tauri::Window<R>, url: &tauri::Url) {
+    static STRIP: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+    let strip = takes_strip(url);
+    if STRIP.swap(strip, std::sync::atomic::Ordering::Relaxed) == strip {
+        return;
+    }
+    let style = if strip {
+        tauri::TitleBarStyle::Overlay
+    } else {
+        ABOVE
+    };
+    if let Err(err) = window.set_title_bar_style(style) {
+        log::debug!("could not change the title bar: {err}");
+    }
+}
+
+/// The pages the strip's style goes into (`script`): the live site's.
+#[cfg(any(target_os = "macos", test))]
+fn takes_strip(url: &tauri::Url) -> bool {
+    crate::shell::is_site_at(url, false)
+}
+
 /// The strip's controls: the account button and Sign in.
+#[cfg(test)]
 const CONTROL: u32 = 24;
 
 /// The space between the strip and the account menu under it.
+#[cfg(test)]
 const MENU_GAP: u32 = 6;
 
 /// How far the account menu opens below the account button: the space under
 /// the button, the strip's 1 px border, and the gap.
+#[cfg(test)]
 const fn menu_drop() -> u32 {
     (HEIGHT - CONTROL) / 2 + 1 + MENU_GAP
 }
 
-/// The head bar as the strip. Its controls sit on the window buttons'
-/// center line, as far from the right edge as the close button is from the
-/// left. The account button takes a faint ring under the pointer and dims
-/// while held (`press.rs`); its menu opens just under the strip, its right
-/// edge on the button's, and scrolls rather than run past the window's
-/// bottom. `:root` outweighs the site's own rules for the bar, including a
-/// phone width's gutters and stylesheets a page loads later.
-fn css() -> String {
+/// The head bar as the strip (`mac_title_strip.css`). Its controls sit on
+/// the window buttons' center line, as far from the right edge as the close
+/// button is from the left. The account button takes a faint ring under the
+/// pointer and dims while held (`press.rs`); its menu opens just under the
+/// strip, its right edge on the button's, and scrolls rather than run past
+/// the window's bottom. `:root` outweighs the site's own rules for the bar,
+/// including a phone width's gutters and stylesheets a page loads later.
+const CSS: &str = include_str!("mac_title_strip.css");
+
+/// The script each page of the main window runs first: on the site's pages,
+/// the strip's style before the page first paints, as the page's own last
+/// stylesheet, then the strip's drag and double click (`mac_title_strip.js`).
+#[cfg(any(target_os = "macos", test))]
+fn script_for(site: &str) -> String {
     format!(
-        ":root, body[data-mode] {{ --topnav-h: {HEIGHT}px !important; }} \
-         :root .site-head-name {{ display: none; }} \
-         :root .site-head-row {{ max-width: none; justify-content: flex-end; \
-         padding: 0 {right}px 0 {left}px; }} \
-         :root .site-head .tm-acct-button {{ width: {CONTROL}px; height: {CONTROL}px; font-size: 11px; }} \
-         :root .site-head-signin {{ min-height: {CONTROL}px; height: {CONTROL}px; font-size: 12px; }} \
-         :root .site-head .tm-acct-button:hover {{ \
-         box-shadow: 0 0 0 3px color-mix(in srgb, var(--fg) 22%, transparent); }} \
-         :root .site-head .tm-acct-menu {{ top: calc(100% + {drop}px); right: 0; \
-         max-height: calc(100dvh - var(--topnav-h) - {below}px); }} \
-         :root main.page {{ padding-top: {PAGE_GAP}px; }}",
-        right = edge(),
-        left = lights_room(),
-        drop = menu_drop(),
-        below = 1 + MENU_GAP + edge(),
+        "(() => {{ if (location.hostname !== '{site}') return; \
+         const sheet = new CSSStyleSheet(); sheet.replaceSync({css}); \
+         document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet]; \
+         ({js})({HEIGHT}, command => window.__TAURI_INTERNALS__.invoke(command).catch(() => {{}})); }})();",
+        css = serde_json::Value::from(CSS),
+        js = include_str!("mac_title_strip.js").trim_end(),
     )
 }
 
-/// What a press on the strip may not take: the controls in it.
-const CONTROLS: &str = "a, button, input, select, textarea, label, summary, [role], \
-                        [tabindex]:not([tabindex=\"-1\"]), [contenteditable]:not([contenteditable=\"false\"])";
-
-/// Drags the window from the strip, and acts on a double click when the
-/// button comes up where it went down, as `AppKit` does.
-fn drag_script() -> String {
-    format!(
-        "const onStrip = event => {{ const target = event.target; \
-         if (!(target instanceof Element)) return false; const head = target.closest('.site-head'); \
-         if (head) {{ const control = target.closest('{CONTROLS}'); return !control || !head.contains(control); }} \
-         return target.tagName === 'DIALOG' && event.clientY < {HEIGHT}; }}; \
-         const invoke = command => window.__TAURI_INTERNALS__.invoke(command).catch(() => {{}}); \
-         let pressed = null; \
-         document.addEventListener('mousedown', event => {{ \
-         if (event.button !== 0 || !onStrip(event)) return; \
-         if (event.detail === 2) {{ pressed = [event.clientX, event.clientY]; return; }} \
-         if (event.detail !== 1) return; event.preventDefault(); invoke('plugin:window|start_dragging'); }}); \
-         document.addEventListener('mouseup', event => {{ const at = pressed; pressed = null; \
-         if (event.button !== 0 || event.detail !== 2 || !at || !onStrip(event)) return; \
-         if (at[0] === event.clientX && at[1] === event.clientY) invoke('title_strip_double_click'); }});"
-    )
-}
-
-/// The script each page of the main window runs first.
 #[cfg(target_os = "macos")]
 pub fn script() -> String {
-    crate::app_style::site_script(&css(), &drag_script())
+    script_for(crate::shell::SITE_HOST)
 }
 
 /// What the system's setting has a double click on a title bar do.
@@ -187,7 +204,10 @@ pub async fn title_strip_double_click<R: tauri::Runtime>(window: tauri::WebviewW
 
 #[cfg(test)]
 mod tests {
-    use super::{DoubleClick, css, double_click, drag_script, lights_room, traffic_lights};
+    use super::{
+        BUTTON, CONTROL, CSS, DoubleClick, HEIGHT, PAGE_GAP, double_click, edge, lights_room,
+        menu_drop, script_for, takes_strip, traffic_lights,
+    };
 
     #[test]
     fn centers_the_windows_buttons_on_the_strip() {
@@ -198,24 +218,67 @@ mod tests {
     }
 
     #[test]
-    fn makes_the_head_bar_the_strip() {
-        let css = css();
-        assert!(css.contains("--topnav-h: 38px !important"));
-        assert!(css.contains(":root .site-head-name { display: none; }"));
-        assert!(css.contains("padding: 0 13px 0 86px"));
-        assert!(css.contains(":root main.page { padding-top: 18px; }"));
-        assert!(css.contains(".tm-acct-button:hover"));
-        assert!(css.contains(".tm-acct-menu { top: calc(100% + 14px); right: 0;"));
-        assert!(css.contains("max-height: calc(100dvh - var(--topnav-h) - 20px)"));
+    fn makes_the_head_bar_the_strip_with_the_strips_measures() {
+        let has = |rule: String| assert!(CSS.contains(&rule), "{rule}");
+        has(format!("--topnav-h: {HEIGHT}px !important"));
+        has(":root .site-head-name { display: none; }".into());
+        has(format!("padding: 0 {}px 0 {}px", edge(), lights_room()));
+        has(format!("width: {CONTROL}px; height: {CONTROL}px;"));
+        has(format!("min-height: {CONTROL}px; height: {CONTROL}px;"));
+        has(format!(":root main.page {{ padding-top: {PAGE_GAP}px; }}"));
+        has(".tm-acct-button:hover".into());
+        has(format!(
+            ".tm-acct-menu {{ top: calc(100% + {}px); right: 0;",
+            menu_drop()
+        ));
+        has(format!(
+            "max-height: calc(100dvh - var(--topnav-h) - {}px)",
+            1 + 6 + edge()
+        ));
     }
 
     #[test]
-    fn drags_from_the_strip_but_not_its_controls() {
-        let script = drag_script();
+    fn styles_the_sites_pages_before_they_paint_and_drags_from_the_strip() {
+        let script = script_for("events.ciphermaniac.com");
+        assert!(
+            script.starts_with(
+                "(() => { if (location.hostname !== 'events.ciphermaniac.com') return;"
+            )
+        );
+        assert!(
+            script
+                .contains("document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet]")
+        );
+        assert!(script.contains("padding: 0 13px 0 86px"));
         assert!(script.contains("closest('.site-head')"));
         assert!(script.contains("plugin:window|start_dragging"));
         assert!(script.contains("invoke('title_strip_double_click')"));
-        assert!(script.contains("event.clientY < 38"));
+        assert!(
+            script.contains(&format!("}}))({HEIGHT}, command =>")),
+            "the page's side runs"
+        );
+    }
+
+    #[test]
+    fn draws_over_only_the_live_sites_pages() {
+        let url = |url: &str| tauri::Url::parse(url).unwrap();
+        assert!(takes_strip(&url(
+            "https://events.ciphermaniac.com/host/ABCD"
+        )));
+        assert!(!takes_strip(&url("https://clerk.ciphermaniac.com/sign-in")));
+        assert!(!takes_strip(&url("https://discord.com/oauth2/authorize")));
+        assert!(!takes_strip(&url("tauri://localhost/index.html")));
+        assert!(
+            !takes_strip(&url("http://localhost:4321/host")),
+            "a local site has no strip style"
+        );
+        assert!(!takes_strip(&url("about:blank")));
+    }
+
+    #[test]
+    fn the_buttons_end_above_a_title_bar_too() {
+        let (_, y) = traffic_lights();
+        assert!(y - f64::from(super::BUTTON_RISE) + f64::from(BUTTON) <= 28.0);
     }
 
     #[test]

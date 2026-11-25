@@ -1,0 +1,9 @@
+:root, body[data-mode] { --topnav-h: 38px !important; }
+:root .site-head-name { display: none; }
+:root .site-head-row { max-width: none; justify-content: flex-end; padding: 0 13px 0 86px; }
+:root .site-head .tm-acct-button { width: 24px; height: 24px; font-size: 11px; }
+:root .site-head-signin { min-height: 24px; height: 24px; font-size: 12px; }
+:root .site-head .tm-acct-button:hover { box-shadow: 0 0 0 3px color-mix(in srgb, var(--fg) 22%, transparent); }
+:root .site-head .tm-acct-menu { top: calc(100% + 14px); right: 0; max-height: calc(100dvh - var(--topnav-h) - 20px); }
+:root main.page { padding-top: 18px; }
+:root .skip-link { left: 86px; }

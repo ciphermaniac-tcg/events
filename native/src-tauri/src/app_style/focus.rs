@@ -4,7 +4,9 @@
 //! only once the keyboard is in use. The root carries `data-app-keyboard`
 //! from a key press (a menu shortcut aside) until the next press of a
 //! pointer, and without it a link or button draws no ring. Fields keep
-//! theirs, which show where typing goes.
+//! theirs, which show where typing goes. The site's skip link is the
+//! keyboard's first stop alone: the webview focusing it as the window
+//! takes a page does not show it, and the first Tab still does.
 
 pub const CSS: &str = "\
 :root:not([data-app-keyboard]) :focus-visible:not(input):not(textarea):not(select) { outline: none !important; }";
@@ -15,7 +17,10 @@ pub const SCRIPT: &str = "\
 const markKeyboard = on => document.documentElement?.toggleAttribute('data-app-keyboard', on); \
 document.addEventListener('keydown', event => { \
 if (!event.metaKey && !event.ctrlKey && !event.altKey) markKeyboard(true); }, true); \
-document.addEventListener('pointerdown', () => markKeyboard(false), true);";
+document.addEventListener('pointerdown', () => markKeyboard(false), true); \
+document.addEventListener('focusin', event => { \
+if (event.target instanceof Element && event.target.matches('.skip-link') \
+&& !document.documentElement.hasAttribute('data-app-keyboard')) event.target.blur(); }, true);";
 
 #[cfg(test)]
 mod tests {
@@ -30,5 +35,10 @@ mod tests {
         );
         assert!(SCRIPT.contains("'keydown'") && SCRIPT.contains("'pointerdown'"));
         assert!(SCRIPT.contains("document.documentElement?."));
+        assert!(
+            SCRIPT.contains("matches('.skip-link')")
+                && SCRIPT.contains("!document.documentElement.hasAttribute('data-app-keyboard')) event.target.blur()"),
+            "the skip link waits for the keyboard"
+        );
     }
 }

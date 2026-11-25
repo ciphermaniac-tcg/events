@@ -49,8 +49,6 @@ const PLATFORM_SCRIPT: &str = "";
 #[cfg(mobile)]
 const PLATFORM_SCRIPT: &str = footer::ACCOUNT_MENU_LINKS;
 
-const SITE_HOST: &str = "events.ciphermaniac.com";
-
 /// Every rule the app adds to the site.
 fn rules() -> String {
     [
@@ -70,8 +68,9 @@ fn rules() -> String {
 /// before then the page may have no root at all. It runs `then` at once.
 pub fn site_script(css: &str, then: &str) -> String {
     let css = serde_json::Value::from(css);
+    let site = crate::shell::SITE_HOST;
     format!(
-        "(() => {{ if (location.hostname !== '{SITE_HOST}') return; \
+        "(() => {{ if (location.hostname !== '{site}') return; \
          const add = () => {{ const style = document.createElement('style'); \
          style.textContent = {css}; document.head.append(style); \
          document.documentElement.classList.add('in-app'); }}; \

@@ -2,8 +2,8 @@
 //! the app running in the Dock, as a Mac app does: the window hides rather
 //! than closes, so it comes back as it was, on its page. Clicking the Dock
 //! icon brings it back, as do the app's menu commands for it
-//! (`menu.rs`). Quit ends the app; the big screen and TOM Link windows
-//! close for good, as any other window does.
+//! (`menu.rs`). Quit ends the app; the big screen window closes for good,
+//! as any other window does.
 
 use tauri::{AppHandle, RunEvent, Runtime, WebviewWindow, WindowEvent};
 
