@@ -99,7 +99,7 @@ final class Live {
          throw new NotReady(where + " in TOM has different players than the site.");
       }
       if (match.outcome() != 0 && match.outcome() != want.outcome()) {
-         throw new NotReady(where + " already has a different result in TOM.");
+         throw new NotReady(where + " already has a different result in TOM.", match.outcome());
       }
       return match.outcome() == want.outcome();
    }
@@ -145,6 +145,20 @@ final class Live {
          Bridge.log("live pairings unreadable: " + e);
          throw new NotReady("The app could not read TOM's pairings, so nothing was sent.");
       }
+   }
+
+   /** Where TOM saves the tournament `frame` shows; null when that cannot be read. Event thread only. */
+   static String file(JFrame frame) {
+      try {
+         return fileOf(tournamentOf(frame));
+      } catch (ReflectiveOperationException | RuntimeException e) {
+         return null;
+      }
+   }
+
+   /** A tournament's .tdf, as TOM keeps it (TournamentData.getPersistenceFile in TOM 1.86.0). */
+   static String fileOf(Object tournament) throws ReflectiveOperationException {
+      return (String) call(call(tournament, "getData"), "getPersistenceFile");
    }
 
    /** The tournament of TOM's active window, which its slip form writes to; it must be `frame`. */

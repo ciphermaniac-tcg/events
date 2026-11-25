@@ -9,6 +9,7 @@ import { createSignal, createUniqueId, Show } from 'solid-js';
 import type { Pod, Round } from '../../../shared/tournament/types';
 import { t, tn } from '../../lib/i18n';
 import { drivesTom } from '../../lib/native/detect';
+import type { TomEvent } from '../../../shared/native/tomCommands';
 import { clockState, parseClock } from '../../lib/tournament/clockState';
 import { podLabel } from '../../lib/tournament/present';
 import { Clock } from './Clock';
@@ -87,6 +88,12 @@ function ClockSetter(props: { round: Round; onSet: (seconds: number) => void; on
   );
 }
 
+/** The console's event as TOM must have it open, as its sends name it: TomSyncPanel says which. */
+let tomEvent: () => TomEvent | null = () => null;
+export function startsFor(event: () => TomEvent | null) {
+  tomEvent = event;
+}
+
 /**
  * In the desktop app, a TOM event's round starts in TOM too when its clock
  * starts, so TOM takes the pod's results. The site's clock runs whatever TOM
@@ -98,8 +105,8 @@ async function startInTom(state: ManageState, pod: Pod, round: number): Promise<
   if (!data || !drivesTom(data.mode)) {
     return null;
   }
-  const { startTomRound } = await import('../../lib/native/bridge');
-  return startTomRound(pod.category, data.tournament.info, round);
+  const { startTomRound } = await import('../../lib/native/tomRound');
+  return startTomRound(pod.category, tomEvent(), round);
 }
 
 /**
