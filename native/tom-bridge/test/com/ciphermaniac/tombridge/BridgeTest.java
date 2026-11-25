@@ -193,6 +193,23 @@ public final class BridgeTest {
       }, "TOM's event has no tournament ID");
    }
 
+   /** TOM's tournament and its data, as far as the helper reads them for the file TOM saves to. */
+   public static final class FakeTournament {
+      public FakeData getData() {
+         return new FakeData();
+      }
+   }
+
+   public static final class FakeData {
+      public String getPersistenceFile() {
+         return "/Users/demo/TOM/League Cup 0412.tdf";
+      }
+   }
+
+   static void testTheFileTomSavesToIsReadFromItsTournament() throws Exception {
+      check("/Users/demo/TOM/League Cup 0412.tdf".equals(Live.fileOf(new FakeTournament())), "TOM's file was not read");
+   }
+
    static void testStartRoundRefusesAPodOnAnotherRound() throws Exception {
       Pods.Pod second = new Pods.Pod(0, 2, 2, Pods.State.PAIRED);
       check(Pods.onRound(second, 2) == second, "the pod's own round was refused");
@@ -237,6 +254,11 @@ public final class BridgeTest {
    static void testADifferentResultInTomIsNeverOverwritten() throws Exception {
       Live.Slip p1Wins = new Live.Slip(2, null, 1, 7, 1, "5", "8");
       expectRefused(masters(0, null, 1, 3), p1Wins, "21717", "a judge entered a tie at table 7 in TOM");
+      try {
+         Live.confirm(masters(0, null, 1, 3), p1Wins, "21717");
+      } catch (NotReady refused) {
+         check(refused.held == 3, "the refusal does not say TOM holds a tie");
+      }
    }
 
    static void testAnEventOfTheSameNameWithOtherPlayersIsRefused() throws Exception {

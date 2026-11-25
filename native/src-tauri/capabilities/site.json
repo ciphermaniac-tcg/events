@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "site",
-  "description": "The live site in the main window may send TOM results and start its round, tell the app its mode and open an event's big screen, and nothing else.",
+  "description": "The live site in the main window may follow and drive the TOM this computer has on, tell the app its mode and open an event's big screen, and nothing else.",
   "windows": [
     "main"
   ],

@@ -2,9 +2,8 @@
 //! on the main window. Settings, Back, Forward, Reload and the Go menu move
 //! within the site as its own links do; the zoom commands scale the page;
 //! View > Appearance picks light or dark (`appearance.rs`); Feedback opens
-//! the main site in the browser. "TOM Link…" (`tom.rs`) sits under Settings
-//! in the Mac's app menu and in the Window menu elsewhere, where File holds
-//! Settings. On the Mac the menus are the system's own: File holds Close
+//! the main site in the browser. While TOM is on, a TOM menu (`tom.rs`) sits
+//! before Window. Outside the Mac, File holds Settings. On the Mac the menus are the system's own: File holds Close
 //! Window, View ends with Enter Full Screen, and Window and Help are the
 //! app's windows and help menus to the system, which lists the open windows
 //! in Window.
@@ -19,7 +18,7 @@ use tauri::{
     },
 };
 
-use crate::{appearance, shell, tom};
+use crate::{appearance, shell};
 
 /// An app command: its menu id and what it does.
 struct Command {
@@ -130,7 +129,7 @@ fn follow_script(path: &str) -> String {
     )
 }
 
-fn item<R: Runtime>(
+pub(crate) fn item<R: Runtime>(
     app: &AppHandle<R>,
     id: &str,
     text: &str,
@@ -174,7 +173,6 @@ fn first_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<tauri::menu::Subm
         .about(Some(about(app)))
         .separator()
         .item(&settings(app)?)
-        .item(&tom::menu_item(app)?)
         .separator()
         .services()
         .separator()
@@ -263,8 +261,6 @@ fn window_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<tauri::menu::Sub
     SubmenuBuilder::with_id(app, WINDOW_SUBMENU_ID, "Window")
         .minimize()
         .maximize()
-        .separator()
-        .item(&tom::menu_item(app)?)
         .build()
 }
 

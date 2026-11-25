@@ -1325,6 +1325,9 @@
   white-space: normal;
   line-height: 1.45;
 }
+.tm-console .tm-result-sub.is-held {
+  color: var(--accent-ink);
+}
 .tm-console td .btn-ghost {
   color: var(--muted);
 }

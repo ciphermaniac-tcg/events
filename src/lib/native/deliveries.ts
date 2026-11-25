@@ -122,20 +122,21 @@ export function recorded(
   return next;
 }
 
-const storeKey = (event: string) => `cm-tom-sent:${event}`;
+/** Per event; `kind` keeps another record of the event's beside the deliveries, such as NativeTom's marks. */
+const storeKey = (event: string, kind = 'sent') => `cm-tom-${kind}:${event}`;
 
-export function recallDeliveries(event: string): Deliveries {
+export function recallDeliveries<T = Deliveries>(event: string, kind?: string): T | Record<string, never> {
   try {
-    const value: unknown = JSON.parse(localStorage.getItem(storeKey(event)) ?? '{}');
-    return value && typeof value === 'object' ? (value as Deliveries) : {};
+    const value: unknown = JSON.parse(localStorage.getItem(storeKey(event, kind)) ?? '{}');
+    return value && typeof value === 'object' ? (value as T) : {};
   } catch {
     return {};
   }
 }
 
-export function rememberDeliveries(event: string, deliveries: Deliveries) {
+export function rememberDeliveries<T = Deliveries>(event: string, deliveries: T, kind?: string) {
   try {
-    localStorage.setItem(storeKey(event), JSON.stringify(deliveries));
+    localStorage.setItem(storeKey(event, kind), JSON.stringify(deliveries));
   } catch {
     // Storage refused: what was sent is remembered until the page closes.
   }

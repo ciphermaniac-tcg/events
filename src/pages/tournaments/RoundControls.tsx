@@ -98,8 +98,8 @@ async function startInTom(state: ManageState, pod: Pod, round: number): Promise<
   if (!data || !drivesTom(data.mode)) {
     return null;
   }
-  const { startTomRound } = await import('../../lib/native/bridge');
-  return startTomRound(pod.category, data.tournament.info, round);
+  const { startTomRound } = await import('../../lib/native/tomRound');
+  return startTomRound(pod.category, data.tournament.info, data.code, round);
 }
 
 /**

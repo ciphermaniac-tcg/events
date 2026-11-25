@@ -14,7 +14,7 @@
 import { SessionGate } from './SessionGate';
 import { SignOutButton } from './SignOutButton';
 import { A, Navigate, useLocation, useNavigate, useSearchParams } from '@solidjs/router';
-import { createEffect, createMemo, createResource, createSignal, For, type JSX, on, Show } from 'solid-js';
+import { createEffect, createMemo, createResource, createSignal, For, type JSX, on, onCleanup, Show } from 'solid-js';
 import { displayName, HANDLE_MAX, handleProblem, normalizeHandle } from '../../../shared/accounts/handle';
 import { type PlayerProfile, profileErrors } from '../../../shared/tournament/profile';
 import {
@@ -52,6 +52,8 @@ import { msg, t } from '../../lib/i18n';
 import { ProfileLinksForm } from './ProfileLinksForm';
 import '../../styles/pages/tournament-auth.css';
 import { createAction } from './action';
+import { nativeTom } from '../../lib/native/bridge';
+import { hasTom } from '../../lib/native/detect';
 
 /**
  * Takes in the fields one save changed, and only those: each answer carries
@@ -78,11 +80,45 @@ const SECTIONS = [
   { id: 'history', label: msg('History') },
   { id: 'links', label: msg('Profile links') },
   { id: 'organizer', label: msg('Organizer') },
-  { id: 'data', label: msg('Your data') }
+  { id: 'data', label: msg('Your data') },
+  { id: 'computer', label: msg('This Mac') }
 ] as const;
 type Section = (typeof SECTIONS)[number]['id'];
+/** The sections shown: the computer's only in the desktop app, which keeps what it holds. */
+const shownSections = () => SECTIONS.filter(section => section.id !== 'computer' || hasTom());
 const readSection = (value: string | undefined): Section =>
-  SECTIONS.find(section => section.id === value)?.id ?? 'profile';
+  shownSections().find(section => section.id === value)?.id ?? 'profile';
+const sectionName = (section: { id: Section; label: string }) =>
+  section.id === 'computer' && !navigator.userAgent.includes('Mac') ? t('This computer') : t(section.label);
+
+/** The desktop app's: TOM on this computer alone, which the app keeps, asking itself before TOM goes on. */
+function ThisComputer() {
+  const tom = nativeTom();
+  const [state, { refetch }] = createResource(() => tom.state());
+  // The app's TOM menu turns TOM off without this page.
+  const changed = () => void refetch();
+  window.addEventListener('cm-tom', changed);
+  onCleanup(() => window.removeEventListener('cm-tom', changed));
+  const [error, setError] = createSignal('');
+  // The app says when the choice could not be saved: TOM is off for now, but may be on again after a restart.
+  const turn = (value: boolean) =>
+    void (value ? tom.turnOn() : tom.turnOff())
+      .then(
+        () => setError(''),
+        (err: unknown) => setError(errorText(err))
+      )
+      .then(() => refetch());
+  return (
+    <>
+      <div class='tm-box'>
+        <SettingRow label='TOM' info={<span class='muted'>{t('Experimental')}</span>}>
+          <Toggle label='TOM' value={state()?.on === true} on={t('On')} off={t('Off')} onChange={turn} />
+        </SettingRow>
+      </div>
+      <ErrorLine message={error()} />
+    </>
+  );
+}
 
 /** The store application, opened as it was left for Settings. */
 const APPLYING = '/apply?store';
@@ -139,7 +175,7 @@ function SignedIn(props: { user: Me; providers: readonly Provider[] }) {
     prev => (prev.has(section()) ? prev : new Set([...prev, section()])),
     new Set()
   );
-  const label = () => t(SECTIONS.find(s => s.id === section())?.label ?? '');
+  const label = () => sectionName(SECTIONS.find(s => s.id === section()) ?? SECTIONS[0]);
   let nav: HTMLElement | undefined;
   // A phone runs the sections as a row of tabs: the open one is brought into the row, as the site's tabs are.
   createEffect(() => {
@@ -153,7 +189,7 @@ function SignedIn(props: { user: Me; providers: readonly Provider[] }) {
         <div class='tm-settings-side'>
           <Identity user={props.user} providers={props.providers} next={fromApply() ? APPLYING : '/settings'} />
           <nav ref={nav} class='tm-side-nav' aria-label={t('Settings')}>
-            <For each={SECTIONS}>
+            <For each={shownSections()}>
               {s => (
                 <button
                   type='button'
@@ -161,7 +197,7 @@ function SignedIn(props: { user: Me; providers: readonly Provider[] }) {
                   aria-current={s.id === section() ? 'page' : undefined}
                   onClick={() => setParams({ section: s.id })}
                 >
-                  {t(s.label)}
+                  {sectionName(s)}
                 </button>
               )}
             </For>
@@ -190,6 +226,9 @@ function SignedIn(props: { user: Me; providers: readonly Provider[] }) {
               user={props.user}
               onWiped={wiped => mergeUser(wiped, 'handle', 'popId', 'firstName', 'lastName', 'birthDate')}
             />
+          </Pane>
+          <Pane of='computer' current={section()} opened={opened()}>
+            <ThisComputer />
           </Pane>
         </div>
       </div>
