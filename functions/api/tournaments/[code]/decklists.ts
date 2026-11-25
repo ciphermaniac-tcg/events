@@ -691,7 +691,7 @@ async function store(
       minor,
       access.row.code,
       access.row.code,
-      ...windowValues(window, deck !== ''),
+      ...windowValues(window, sendsList(access, submission)),
       held,
       proved ? 1 : 0,
       sanctioned ? 1 : 0,
@@ -912,6 +912,30 @@ function turnedAway(row: TournamentRow, sender: string | null, unwantedList: boo
   return unwantedList ? jsonError(NO_LISTS, 403) : null;
 }
 
+/**
+ * The submission as it is stored. With Decklists off, a registration keeps
+ * the list already in under its details as it was (its mode, cards and
+ * archetype): turning lists off stops new ones, and takes back none sent.
+ * Else its list's archetype is read from its cards (see
+ * shared/tournament/archetypes.ts); with archetypes off, none is kept.
+ */
+async function asStored(access: Access, read: Submission): Promise<Submission> {
+  if (access.row.settings.decklists === 'off') {
+    const listed = await listUnder(access, identityKey(read.profile, isSanctioned(access.row)));
+    if (!listed) {
+      return read;
+    }
+    const { mode, deck, archetype } = fromRow(listed);
+    return { ...read, mode, deck, archetype };
+  }
+  const digital = decksEnabled(access.row.settings) && read.mode === 'digital';
+  return { ...read, archetype: digital ? archetypeOfList(read.deck, await archetypeRules()) : null };
+}
+
+/** Whether the write sends a list of its own: one kept as it was (see asStored) is not sent again. */
+const sendsList = (access: Access, submission: Submission) =>
+  submission.deck !== '' && access.row.settings.decklists !== 'off';
+
 /** Stores a submission the guards let in, and registers its player: the answer, or the refusal. */
 async function submit(
   context: Context<'code'>,
@@ -924,7 +948,7 @@ async function submit(
   const token = deviceToken(submission.held) ?? crypto.randomUUID();
   const stored = await store(access, submission, { tokenHash: await sha256(token), now, ...write });
   if (stored !== true) {
-    return stored || refusedWrite(access, submitter(access.row, submission), submission.deck !== '');
+    return stored || refusedWrite(access, submitter(access.row, submission), sendsList(access, submission));
   }
   const { profile, deck, mode, archetype, was, wasYear, localTime } = submission;
   const kept = await enter(context, access, submission, {
@@ -976,13 +1000,11 @@ export async function onRequestPut(context: Context<'code'>): Promise<Response> 
     await guard.stored(false);
     return admitted ? refused : jsonError(LOCKED_OUT, 429);
   }
-  // The list's archetype is read from its cards (see shared/tournament/archetypes.ts); with archetypes off, none is kept.
-  const archetype =
-    decksEnabled(access.row.settings) && read.mode === 'digital'
-      ? archetypeOfList(read.deck, await archetypeRules())
-      : null;
-  const submission = { ...read, archetype };
-  const answer = await submit(context, access, submission, { window, admit: guard.admit, after: guard.after });
+  const answer = await submit(context, access, await asStored(access, read), {
+    window,
+    admit: guard.admit,
+    after: guard.after
+  });
   await guard.stored(answer.ok);
   return answer;
 }

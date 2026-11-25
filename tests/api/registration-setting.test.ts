@@ -161,3 +161,30 @@ test('a registration landing as registration turns off is refused, though the ev
   const stored = db.raw.prepare('SELECT count(*) AS n FROM decklists WHERE code = ?').get(code) as { n: number };
   assert.equal(stored.n, 0);
 });
+
+test('an edit while Decklists is off leaves the list already in as it was, and takes no new one', async () => {
+  const { owner, code } = await newEvent();
+  await settle(code, owner, { decklists: 'closed' });
+  const sent = await register(code, { deck: DECK });
+  db.raw.prepare("UPDATE decklists SET archetype = 'Iono Box' WHERE code = ?").run(code);
+  await settle(code, owner, { decklists: 'off' });
+
+  // The form sends no list with Decklists off, as for a paper one.
+  const renamed = await register(code, {
+    profile: { ...PROFILE, firstName: 'Nina' },
+    mode: 'paper',
+    deck: '',
+    token: sent.json.token
+  });
+  assert.equal(renamed.status, 200);
+  assert.deepEqual([renamed.json.decklist.mode, renamed.json.decklist.deck], ['digital', DECK]);
+  const stored = () =>
+    db.raw
+      .prepare('SELECT first_name AS name, deck_mode AS mode, deck, archetype FROM decklists WHERE code = ?')
+      .get(code);
+  assert.deepEqual({ ...stored() }, { name: 'Nina', mode: 'digital', deck: DECK, archetype: 'Iono Box' });
+
+  const listed = await register(code, { deck: '4 Iono PAL 185', token: sent.json.token });
+  assert.deepEqual([listed.status, listed.json.error], [403, 'This event does not take decklists']);
+  assert.equal(stored()?.deck, DECK);
+});
