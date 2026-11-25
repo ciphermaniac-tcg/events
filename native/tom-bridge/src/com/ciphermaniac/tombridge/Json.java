@@ -1,7 +1,6 @@
 package com.ciphermaniac.tombridge;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 /** Just enough JSON for the bridge: flat string-valued requests in, small objects out. */
@@ -65,22 +64,6 @@ final class Json {
 
       Obj num(String key, int value) {
          return raw(key, String.valueOf(value));
-      }
-
-      Obj strs(String key, List<String> values) {
-         StringBuilder list = new StringBuilder("[");
-         for (String value : values) {
-            if (list.length() > 1) {
-               list.append(',');
-            }
-            list.append(quote(value));
-         }
-         return raw(key, list.append(']').toString());
-      }
-
-      /** A list of objects already encoded as JSON. */
-      Obj objs(String key, List<String> encoded) {
-         return raw(key, "[" + String.join(",", encoded) + "]");
       }
 
       private Obj raw(String key, String json) {

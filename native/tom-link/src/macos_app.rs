@@ -9,7 +9,9 @@ use std::sync::mpsc;
 use std::time::Duration;
 
 use block2::RcBlock;
-use objc2_app_kit::{NSRunningApplication, NSWorkspace, NSWorkspaceOpenConfiguration};
+use objc2_app_kit::{
+    NSApplicationActivationOptions, NSRunningApplication, NSWorkspace, NSWorkspaceOpenConfiguration,
+};
 use objc2_foundation::{NSBundle, NSDictionary, NSError, NSString, NSURL};
 
 /// `LaunchServices` answers within a second or two; TOM's JVM starts after.
@@ -49,6 +51,16 @@ fn file_url(path: &Path) -> Result<objc2::rc::Retained<NSURL>, String> {
         .to_str()
         .ok_or_else(|| format!("{} cannot be opened.", path.display()))?;
     Ok(NSURL::fileURLWithPath(&NSString::from_str(text)))
+}
+
+/// Brings the app running as `pid` to the front, with all its windows.
+pub(crate) fn activate(pid: u32) {
+    let Ok(pid) = libc::pid_t::try_from(pid) else {
+        return;
+    };
+    if let Some(app) = NSRunningApplication::runningApplicationWithProcessIdentifier(pid) {
+        app.activateWithOptions(NSApplicationActivationOptions::ActivateAllWindows);
+    }
 }
 
 /// Whether any copy of this app is running, matched by its bundle identifier.

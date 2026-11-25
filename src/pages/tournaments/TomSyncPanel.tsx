@@ -24,13 +24,20 @@
  * site's copy with this file on purpose, asked first. An upload of a file
  * saved before the site's copy came in asks the same.
  *
+ * In the desktop app with TOM on for the computer, the app follows the file
+ * TOM has open and the link reads it through the app instead (tomFile), with
+ * the console's head the app's (NativeTom). Nothing is linked or written
+ * there: a write downloads the file.
+ *
  * The link's state lives in createTomLink, shared by the console's head
  * (TomStatus) and the TOM file row on the Settings tab (TomFileRow).
  */
 
 import { createSignal, onCleanup, onMount, Show, untrack } from 'solid-js';
+import type { TomApp, TomEvent } from '../../../shared/native/tomCommands';
+import type { TomNote } from './NativeTom';
 import { olderThan, revisionOf } from '../../../shared/tournament/revision';
-import type { Tournament } from '../../../shared/tournament/types';
+import type { Tournament, TournamentInfo } from '../../../shared/tournament/types';
 import type { PendingResult } from '../../../shared/tournament/view';
 import { parseTdf } from './tdfReader';
 import { ApiError, errorText, type Manage, syncTournament } from '../../lib/tournament/api';
@@ -48,16 +55,29 @@ import {
   writeFile
 } from '../../lib/tournament/tomLink';
 import { fileTicks } from '../../lib/tournament/fileTicks';
+import { bind, nativeTom, tomEventOf, unbindFileless } from '../../lib/native/bridge';
 import { hasTom } from '../../lib/native/detect';
 import { lazyChunk } from '../../lib/preloadRecovery';
 import { autosaveMinutes, minutesSince, savesLate, withSave } from '../../lib/tournament/tomSaves';
 import { downloadBlob } from '../../lib/download';
 import { intlLocale, msg, t, tn } from '../../lib/i18n';
+import { startsFor } from './RoundControls';
 import { ConfirmAction, ConfirmDialog } from './ConfirmAction';
 import { SettingRow } from './SettingControls';
 
 /** Only the desktop app sends results into TOM itself; a browser never loads this. */
-const NativeSend = lazyChunk(() => import('./NativeSend').then(m => ({ default: m.NativeSend })));
+const NativeTom = lazyChunk(() => import('./NativeTom').then(m => ({ default: m.NativeTom })));
+
+/**
+ * What the desktop app's TOM head (NativeTom) says of each result entered on
+ * the site that TOM's file lacks, for its row, by pod category, round and
+ * table: on its way into TOM, waiting for TOM, or needing the organizer in
+ * TOM. Empty everywhere else.
+ */
+export const [tomNotes, setTomNotes] = createSignal<ReadonlyMap<string, TomNote>>(new Map());
+
+/** Takes a report staff accepted into what goes to TOM, while the desktop app's TOM head is up (NativeTom); null elsewhere. */
+export const [tomAccept, setTomAccept] = createSignal<((result: PendingResult) => void) | null>(null);
 
 /** 'none' before a file is linked (or on a browser that cannot hold one), 'reconnect' once following stops (see Lapse). */
 export type LinkState = 'none' | 'reconnect' | 'watching';
@@ -111,6 +131,115 @@ async function during<T>(step: keyof typeof STEP_FAILURES, run: () => Promise<T>
 }
 
 /**
+ * In the desktop app, TOM's own file for the link: TOM's state there on each
+ * look, and the file TOM has open, which the app reads, as a handle the link
+ * follows (`follow`) while TOM is on, from the start again whenever TOM opens
+ * another file. Each read is the app's snapshot, its bytes with their own
+ * time. It is never written, so a write downloads the file.
+ *
+ * The file is taken only when it is the event's: by name and sanction ID, or
+ * for an event without one, once the person has said in the app that it is
+ * (`claim`); the sanction ID that file had then binds the event from then on.
+ */
+function createAppFile(
+  code: string,
+  follow: (file: TdfHandle | null) => void,
+  following: () => TdfHandle | null,
+  info: () => TournamentInfo
+) {
+  // Published only when it changes, so nothing that reads it reruns on every look.
+  const [app, setApp] = createSignal<TomApp | null>(null, {
+    equals: (last, next) => JSON.stringify(last) === JSON.stringify(next)
+  });
+  /** Moves on when the event's binding does, so the sends that read it read it again. */
+  const [bound, setBound] = createSignal(0);
+  const tom = hasTom() ? nativeTom() : null;
+  let snap = { modified: 0, text: '' };
+  let source = 0;
+  /** The file the person said is not this event's, so they are asked once for it. */
+  let refused = -1;
+  /** TOM's file is refused as not this event's, so nothing can go into TOM until that changes. */
+  const [wrong, setWrong] = createSignal(false);
+  const file: TdfHandle = {
+    get name() {
+      return app()?.file?.name ?? '';
+    },
+    getFile: async () => {
+      snap = (await tom?.read(snap.modified, source)) ?? snap;
+      return { lastModified: snap.modified, text: () => Promise.resolve(snap.text) } as unknown as File;
+    },
+    createWritable: () => Promise.reject(new Error('read only')),
+    queryPermission: ({ mode }) => Promise.resolve(mode === 'read' ? 'granted' : 'denied')
+  };
+  /** The event as TOM must have it open; null until an event without a sanction ID is bound. */
+  const event = (info: TournamentInfo): TomEvent | null => {
+    bound();
+    const found = tomEventOf(info, code);
+    // Bound to a file without a sanction ID: sends name that file, so the app refuses them once TOM opens another.
+    return found?.sanctionId === '' ? { ...found, source } : found;
+  };
+  /** The event TOM must have open for results to go in, and a round to start; null until one without a sanction ID is bound. */
+  const tomEvent = () => event(info());
+  // eslint-disable-next-line solid/reactivity -- read when the clock starts, in the press's handler
+  startsFor(tomEvent);
+  onCleanup(() => startsFor(() => null));
+  return {
+    /** TOM on this computer, as the app last said; null outside the app, and until it answers. */
+    app,
+    /** What the console's TOM head reads of it (NativeTom's NativeLink). */
+    forLink: { app, tomEvent, wrongFile: wrong },
+    turnOn: () => tom?.turnOn(),
+    isFile: (handle: TdfHandle | null) => handle === file,
+    claim: async (found: TournamentInfo) => {
+      const want = tomEvent();
+      const named = found.name === info().name;
+      const ok =
+        named &&
+        (want ? found.sanctionId === want.sanctionId : refused !== source && (await tom?.confirmEvent(source)));
+      setWrong(!ok);
+      if (!ok) {
+        // Only the person's answer is final for a file: a name fixed on either side is asked about again.
+        if (named && !want) {
+          refused = source;
+        }
+        throw new Error(t('TOM has {name} open, not this event', { name: found.name }));
+      }
+      if (!want) {
+        bind(code, found.sanctionId);
+        setBound(n => n + 1);
+      }
+    },
+    /** Follows TOM's file once TOM is on and has one open, and stops once TOM is off or has none. */
+    look: async () => {
+      const next = (await tom?.state().catch(() => null)) ?? null;
+      setApp(next);
+      const found = next?.on ? next.file : null;
+      if (!found || found.source !== source) {
+        setWrong(false);
+      }
+      if (found && (following() !== file || found.source !== source)) {
+        ({ source } = found);
+        unbindFileless(code);
+        setBound(n => n + 1);
+        snap = { modified: 0, text: '' };
+        follow(file);
+      } else if (!found && following() === file) {
+        follow(null);
+      }
+    }
+  };
+}
+
+/** What the console's TOM head reads of its copy of the event: the results entered here, and players' reports. */
+const eventOf = (props: { manage: () => Manage }) => ({
+  pending: () => props.manage().pending.length,
+  results: () => props.manage().pending,
+  reports: () => props.manage().reports,
+  settles: () => props.manage().settings.agreedReportsSettle,
+  tournament: () => props.manage().tournament
+});
+
+/**
  * `onSynced` takes the console's new copy of the event when a sync answered
  * with one, and asks for it again when one was refused.
  */
@@ -144,6 +273,16 @@ export function createTomLink(props: { manage: () => Manage; onSynced: (answer?:
   let again = false;
   /** Whether the file as read is the one this browser last wrote, which is no save of TOM's. */
   const ownWrite = (modified: number) => recallWrite(code())?.at === modified;
+  /** TOM's file instead, in the desktop app with TOM on there. */
+  const native = createAppFile(untrack(code), followApp, handle, () => props.manage().tournament.info);
+
+  /** Follows TOM's file through the app from the start, or stops; looked at within each read, so a switch never lands mid-read. */
+  function followApp(next: TdfHandle | null) {
+    restart();
+    setError(null);
+    setHandle(next);
+    setState(next ? 'watching' : 'none');
+  }
 
   /** Starts over from the console's copy: the next read sends the file whatever it holds. */
   function restart() {
@@ -169,6 +308,9 @@ export function createTomLink(props: { manage: () => Manage; onSynced: (answer?:
    */
   async function push(text: string, force = false): Promise<boolean> {
     const parsed = await during('parse', async () => parseTdf(text));
+    if (native.isFile(handle())) {
+      await native.claim(parsed.info);
+    }
     const json = JSON.stringify(parsed);
     if (force || json !== lastSent) {
       const base = synced ?? (await revisionOf(props.manage().tournament));
@@ -244,11 +386,6 @@ export function createTomLink(props: { manage: () => Manage; onSynced: (answer?:
 
   async function tick(force = false) {
     setNow(Date.now());
-    const current = handle();
-    // An ended event takes no copy of the file (see sync.ts); once reopened, the next look reads what TOM saved meanwhile.
-    if (!current || state() !== 'watching' || props.manage().settings.finished) {
-      return;
-    }
     if (reading) {
       // Dropping a refresh here would leave the organizer looking at a button that did nothing.
       again ||= force;
@@ -256,7 +393,12 @@ export function createTomLink(props: { manage: () => Manage; onSynced: (answer?:
     }
     reading = true;
     try {
-      await readOnce(current, force);
+      await native.look();
+      const current = handle();
+      // An ended event takes no copy of the file (see sync.ts); once reopened, the next look reads what TOM saved meanwhile.
+      if (current && state() === 'watching' && !props.manage().settings.finished) {
+        await readOnce(current, force);
+      }
     } finally {
       reading = false;
     }
@@ -280,12 +422,16 @@ export function createTomLink(props: { manage: () => Manage; onSynced: (answer?:
   onMount(() => {
     onCleanup(fileTicks(() => void tick()));
     void (async () => {
-      const remembered = canLinkFiles() ? await recallHandle(code()) : null;
+      // With TOM on in the app, its own file is followed, never a file this browser linked before.
+      await tick();
+      const remembered = canLinkFiles() && !native.app()?.on ? await recallHandle(code()) : null;
       if (remembered) {
         await watch(remembered, false);
       }
     })();
   });
+
+  const refresh = () => tick(true);
 
   async function link() {
     try {
@@ -355,8 +501,8 @@ export function createTomLink(props: { manage: () => Manage; onSynced: (answer?:
     }
   }
 
-  /** Writes the results into the linked file, or without one, downloads the file with them for TOM to open. */
-  async function write() {
+  /** Writes the results into the linked file, or without one, downloads the file with them and NativeTom's `more` for TOM. */
+  async function write(more: readonly PendingResult[] = []) {
     const current = handle();
     try {
       if (current && state() === 'watching' && (await ensurePermission(current, 'readwrite', true))) {
@@ -364,9 +510,10 @@ export function createTomLink(props: { manage: () => Manage; onSynced: (answer?:
         return;
       }
       const { tournament, pending } = props.manage();
+      const all = [...pending, ...more];
       const { tdfFilename, tdfText } = await import('../../lib/tournament/exportTdf');
       downloadBlob(
-        new Blob([tdfText({ tournament, pending, finished: false })], { type: 'application/xml' }),
+        new Blob([tdfText({ tournament, pending: all, finished: false })], { type: 'application/xml' }),
         tdfFilename(tournament)
       );
     } catch (err) {
@@ -379,13 +526,16 @@ export function createTomLink(props: { manage: () => Manage; onSynced: (answer?:
     fileName: () => handle()?.name ?? '',
     importedAt: () => props.manage().lastImportAt ?? null,
     error,
-    pending: () => props.manage().pending.length,
-    results: () => props.manage().pending,
+    ...eventOf(props),
     event: code,
-    tournament: () => props.manage().tournament,
-    /** The site has stopped following the file TOM keeps, so time extensions wait until it is reconnected. */
+    /** The site has stopped following the file TOM keeps, so time extensions and sends to TOM wait until it is reconnected. */
     locked: () => state() === 'reconnect',
     lapse,
+    ...native.forLink,
+    setNotes: setTomNotes,
+    setAccept: (accept: ((result: PendingResult) => void) | null) => setTomAccept(() => accept),
+    /** Asks the desktop app to turn TOM on for this computer, which the person answers there. */
+    turnOn: () => native.turnOn()?.then(refresh, (err: unknown) => setError(errorText(err))),
     /** When TOM last saved the file this page follows, or null before the first read. */
     savedAt: () => saves().at(-1) ?? null,
     /** How often TOM saves, in minutes, once its saves show it. */
@@ -393,7 +543,7 @@ export function createTomLink(props: { manage: () => Manage; onSynced: (answer?:
     now,
     finished: () => props.manage().settings.finished,
     writeState,
-    refresh: () => tick(true),
+    refresh,
     /** Follows the file again: asks for permission again, or for a file that can't be read, has it picked again. */
     reconnect: () => {
       const current = handle();
@@ -662,41 +812,54 @@ function Reconnect(props: { link: TomLink }) {
  * The console's head for a TOM event: the results TOM does not have yet,
  * then when TOM last saved. A lost file makes following it again the one
  * thing to do; a browser with no file linked offers linking or uploading one.
+ * The desktop app offers turning TOM on, and once it is on, the head is the
+ * app's (NativeTom).
  */
 export function TomStatus(props: { link: TomLink }) {
   const link = () => props.link;
   return (
     <span class='tm-next-acts tm-tom-status'>
-      <Show when={link().pending() > 0 && link().state() !== 'reconnect'}>
-        <Show when={hasTom()} fallback={<WriteResults link={link()} />}>
-          <NativeSend event={link().event()} tournament={link().tournament()} pending={link().results()}>
-            <WriteResults link={link()} />
-          </NativeSend>
+      <Show
+        when={!link().app()?.on}
+        fallback={
+          <>
+            <NativeTom link={link()} />
+            <Show when={link().state() === 'reconnect'}>
+              <Reconnect link={link()} />
+            </Show>
+          </>
+        }
+      >
+        <Show when={link().pending() > 0 && link().state() !== 'reconnect'}>
+          <WriteResults link={link()} />
         </Show>
-      </Show>
-      <Saved link={link()} lost={link().state() === 'reconnect'} />
-      <Show when={link().state() === 'reconnect'}>
-        <Reconnect link={link()} />
-      </Show>
-      {/* Only a TOM-run event's console has this head, so only it opens the app's TOM panel. */}
-      <Show when={hasTom()}>
-        <button
-          type='button'
-          class='btn btn-ghost'
-          onClick={() => void import('../../lib/native/bridge').then(m => m.nativeTom().openPanel())}
-        >
-          {t('TOM Link')}
-        </button>
-      </Show>
-      <Show when={link().state() === 'none'}>
-        <Show when={canLinkFiles()}>
-          <button type='button' class='btn btn-secondary' onClick={() => void link().link()}>
-            {t('Link .tdf file')}
+        <Saved link={link()} lost={link().state() === 'reconnect'} />
+        <Show when={link().state() === 'reconnect'}>
+          <Reconnect link={link()} />
+        </Show>
+        <Show when={hasTom()}>
+          <button type='button' class='btn btn-secondary' onClick={() => void link().turnOn()}>
+            {navigator.userAgent.includes('Mac') ? t('Use TOM on this Mac') : t('Use TOM on this computer')}
           </button>
         </Show>
-        <UploadButton link={link()} label={t('Upload .tdf')} class='btn btn-secondary' />
+        <BrowserFile link={link()} />
       </Show>
     </span>
+  );
+}
+
+/** Without a file, a browser links or uploads one. */
+function BrowserFile(props: { link: TomLink }) {
+  const link = () => props.link;
+  return (
+    <Show when={link().state() === 'none'}>
+      <Show when={canLinkFiles()}>
+        <button type='button' class='btn btn-secondary' onClick={() => void link().link()}>
+          {t('Link .tdf file')}
+        </button>
+      </Show>
+      <UploadButton link={link()} label={t('Upload .tdf')} class='btn btn-secondary' />
+    </Show>
   );
 }
 
@@ -715,38 +878,54 @@ export function TomFileRow(props: { link: TomLink }) {
   const link = () => props.link;
   return (
     <SettingRow label={t('TOM file')}>
-      <span class='tm-set-inline'>
+      <Show when={link().app()?.on} fallback={<LinkedFile link={link()} />}>
         <span class='tm-file-line'>
           <strong>{t(MODES[link().state()])}</strong>
           <Show when={link().fileName()}>
             <span> · {link().fileName()}</span>
-          </Show>
-          {/* Events imported before the time was recorded say nothing rather than guess. */}
-          <Show when={link().importedAt()}>
-            {at => (
-              <span class='muted'>
-                {' '}
-                ·{' '}
-                {t('Last imported {time}', {
-                  time: new Date(at()).toLocaleString(intlLocale(), { dateStyle: 'medium', timeStyle: 'medium' })
-                })}
-              </span>
-            )}
-          </Show>
-          <Show when={!canLinkFiles()}>
-            <span class='muted'> · {t('This browser cannot follow files')}</span>
+            <span class='muted'> · {link().app()?.tom === 'open' ? t('as TOM saves it') : t('waiting for TOM')}</span>
           </Show>
         </span>
-        <Show when={link().state() === 'watching'}>
-          <button type='button' class='btn btn-secondary tm-small' onClick={() => void link().refresh()}>
-            {t('Refresh .tdf')}
-          </button>
-          <UploadButton link={link()} label={t('Upload a .tdf instead')} class='btn btn-ghost tm-small' />
-          <button type='button' class='btn btn-ghost tm-small' onClick={() => void link().unlink()}>
-            {t('Unlink file')}
-          </button>
+      </Show>
+    </SettingRow>
+  );
+}
+
+/** The file a browser links, with its own controls. */
+function LinkedFile(props: { link: TomLink }) {
+  const link = () => props.link;
+  return (
+    <span class='tm-set-inline'>
+      <span class='tm-file-line'>
+        <strong>{t(MODES[link().state()])}</strong>
+        <Show when={link().fileName()}>
+          <span> · {link().fileName()}</span>
+        </Show>
+        {/* Events imported before the time was recorded say nothing rather than guess. */}
+        <Show when={link().importedAt()}>
+          {at => (
+            <span class='muted'>
+              {' '}
+              ·{' '}
+              {t('Last imported {time}', {
+                time: new Date(at()).toLocaleString(intlLocale(), { dateStyle: 'medium', timeStyle: 'medium' })
+              })}
+            </span>
+          )}
+        </Show>
+        <Show when={!canLinkFiles() && !hasTom()}>
+          <span class='muted'> · {t('This browser cannot follow files')}</span>
         </Show>
       </span>
-    </SettingRow>
+      <Show when={link().state() === 'watching'}>
+        <button type='button' class='btn btn-secondary tm-small' onClick={() => void link().refresh()}>
+          {t('Refresh .tdf')}
+        </button>
+        <UploadButton link={link()} label={t('Upload a .tdf instead')} class='btn btn-ghost tm-small' />
+        <button type='button' class='btn btn-ghost tm-small' onClick={() => void link().unlink()}>
+          {t('Unlink file')}
+        </button>
+      </Show>
+    </span>
   );
 }

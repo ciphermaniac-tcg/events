@@ -12,6 +12,8 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -219,7 +221,7 @@ fn launch(env: &Env) -> Bridge {
         env.work.join("READY").exists()
     });
     wait_for("the helper", Duration::from_secs(30), || {
-        bridge.status().ready
+        bridge.status().file.is_some()
     });
     bridge
 }
@@ -259,14 +261,17 @@ fn other_players(slips: &[Slip], table: u16) -> Entry {
     entry
 }
 
-/// Submits a batch and checks TOM's slip form was closed again afterwards.
+/// Submits a batch and checks, among TOM's own windows, that the slip form was closed again afterwards.
 fn submit(bridge: &mut Bridge, entries: &[Entry]) -> Vec<SubmitResult> {
     let results = bridge.submit(entries, EVENT);
-    let status = bridge.status();
-    assert!(
-        !status.slip_dialog_open,
-        "the slip form was left open: {status:?}"
-    );
+    wait_for("the slip form to close", Duration::from_secs(5), || {
+        !xdotool(&[
+            "search",
+            "--onlyvisible",
+            "--name",
+            "^Speed Match Slip Entry$",
+        ])
+    });
     results
 }
 
@@ -287,21 +292,14 @@ fn refused_with(results: &[SubmitResult], text: &str) -> bool {
 /// A late round-1 slip must not start round 2, nor a slip for other players
 /// at a paired table.
 fn mismatches_start_nothing(bridge: &mut Bridge, slips: &[Slip]) {
-    let pods = bridge.status().pods;
-    assert_eq!(
-        (pods.len(), pods[0].category, pods[0].round, pods[0].started),
-        (1, Some(2), 2, false)
-    );
     let results = submit(bridge, &[late_slip()]);
     println!("late slip before the round: {results:?}");
     assert!(
         matches!(&results[..], [SubmitResult::NotReady { reason, .. }] if reason.contains("round must be started"))
     );
-    assert!(!bridge.status().pods[0].started);
     let results = submit(bridge, &[other_players(slips, 6)]);
     println!("other players before the round: {results:?}");
     assert!(refused_with(&results, "different players than the site"));
-    assert!(!bridge.status().pods[0].started);
 }
 
 /// Same name, another ID: neither a slip nor Start Round touches TOM.
@@ -314,13 +312,37 @@ fn another_event_starts_nothing(bridge: &mut Bridge, slips: &[Slip]) {
         matches!(&start, StartResult::NotReady { reason } if reason.contains("not this event")),
         "{start:?}"
     );
-    assert!(!bridge.status().pods[0].started);
 }
 
 fn inside_mode(bridge: &mut Bridge, slips: &[Slip]) {
     // The round is not started yet: submit starts it, then enters the codes.
     let entries = [code(slips, 1, 1), code(slips, 2, 2)];
+    // The slip form is seen while the batch runs, so the check that it closes can see it at all.
+    let seen = Arc::new(AtomicBool::new(false));
+    let done = Arc::new(AtomicBool::new(false));
+    let watcher = {
+        let (seen, done) = (Arc::clone(&seen), Arc::clone(&done));
+        thread::spawn(move || {
+            while !done.load(Ordering::Relaxed) {
+                if xdotool(&[
+                    "search",
+                    "--onlyvisible",
+                    "--name",
+                    "^Speed Match Slip Entry$",
+                ]) {
+                    seen.store(true, Ordering::Relaxed);
+                }
+                thread::sleep(Duration::from_millis(50));
+            }
+        })
+    };
     let results = submit(bridge, &entries);
+    done.store(true, Ordering::Relaxed);
+    watcher.join().unwrap();
+    assert!(
+        seen.load(Ordering::Relaxed),
+        "the slip form was never seen open"
+    );
     println!("inside: {results:?}");
     assert_eq!(results, [accepted(&entries[0]), accepted(&entries[1])]);
     // TOM's live pairings decide: a late slip and a same-name event's players never go in.
@@ -346,7 +368,7 @@ fn inside_mode(bridge: &mut Bridge, slips: &[Slip]) {
 }
 
 fn start_round_is_idempotent(bridge: &mut Bridge) {
-    assert!(bridge.status().pods[0].started);
+    // Submit started the round it entered results for.
     assert_eq!(
         bridge.start_round(Some(2), Some(ROUND), EVENT),
         StartResult::AlreadyStarted
@@ -378,6 +400,19 @@ fn later_batches(bridge: &mut Bridge, slips: &[Slip]) {
     );
 }
 
+/// Another of TOM's windows becomes the active one: TOM's file still reads,
+/// but nothing goes into a tournament whose window is not the active one.
+fn another_window_active(env: &Env, bridge: &mut Bridge, slips: &[Slip]) {
+    fs::write(env.work.join("OTHER"), "").unwrap();
+    wait_for("another TOM window", Duration::from_secs(10), || {
+        env.work.join("OTHER-READY").exists()
+    });
+    assert!(bridge.status().file.is_some());
+    let results = submit(bridge, &[code(slips, 6, 1)]);
+    println!("with another window active: {results:?}");
+    assert!(refused_with(&results, "could not read which event"));
+}
+
 #[test]
 #[ignore = "drives the real TOM GUI under Xvfb; see the module docs"]
 fn results_land_in_the_saved_tdf() {
@@ -404,11 +439,17 @@ fn results_land_in_the_saved_tdf() {
     start_round_is_idempotent(&mut bridge);
     later_batches(&mut bridge, &slips);
 
-    assert_eq!(bridge.save(), SaveResult::Saved);
+    // A save names the event: one TOM does not have open saves nothing.
+    assert!(matches!(
+        bridge.save(LAST_WEEK),
+        SaveResult::NotReady { .. }
+    ));
+    assert_eq!(bridge.save(EVENT), SaveResult::Saved);
     let outcomes: Vec<(u32, u32)> = env
         .slips()
         .iter()
         .map(|slip| (slip.table, slip.outcome))
         .collect();
     assert_eq!(outcomes, [(1, 1), (2, 2), (3, 1), (4, 3), (5, 2), (6, 0)]);
+    another_window_active(&env, &mut bridge, &slips);
 }

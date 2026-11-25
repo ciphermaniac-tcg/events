@@ -1,4 +1,4 @@
-/** The desktop app's TOM commands, as the panel and the site call them through Tauri's invoke. */
+/** The desktop app's TOM commands, as the site calls them through Tauri's invoke. */
 
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
@@ -17,25 +17,32 @@ function recording(answer: unknown = null) {
 
 test('each command goes to the Rust command of its name, with its arguments named as Tauri expects', async () => {
   const { calls, tom } = recording();
-  await tom.detect();
-  await tom.setPath('C:\\TOM\\TOM.exe');
-  await tom.launch();
-  await tom.status();
+  await tom.state();
+  await tom.read(0, 1);
+  await tom.confirmEvent(1);
+  await tom.turnOn();
+  await tom.turnOff();
+  await tom.show();
+  await tom.retry();
+  await tom.badge(2);
   await tom.submit([ENTRY], { name: 'Spring Cup', sanctionId: '26-10-000001' });
-  await tom.save();
   await tom.startRound(2, { name: 'Spring Cup', sanctionId: '' }, 3);
   await tom.startRound();
-  await tom.openPanel();
   assert.deepEqual(calls, [
-    ['tom_detect', undefined],
-    ['tom_set_path', { path: 'C:\\TOM\\TOM.exe' }],
-    ['tom_launch', undefined],
-    ['tom_status', undefined],
-    ['tom_submit', { entries: [ENTRY], tournament: 'Spring Cup', tournamentId: '26-10-000001' }],
-    ['tom_save', undefined],
-    ['tom_start_round', { pod: 2, round: 3, tournament: 'Spring Cup', tournamentId: undefined }],
-    ['tom_start_round', { pod: undefined, round: undefined, tournament: undefined, tournamentId: undefined }],
-    ['tom_open_panel', undefined]
+    ['tom_state', undefined],
+    ['tom_read', { since: 0, source: 1 }],
+    ['tom_confirm_event', { source: 1 }],
+    ['tom_turn_on', undefined],
+    ['tom_turn_off', undefined],
+    ['tom_show', undefined],
+    ['tom_retry', undefined],
+    ['tom_badge', { count: 2 }],
+    ['tom_submit', { entries: [ENTRY], tournament: 'Spring Cup', tournamentId: '26-10-000001', source: undefined }],
+    ['tom_start_round', { pod: 2, round: 3, tournament: 'Spring Cup', tournamentId: undefined, source: undefined }],
+    [
+      'tom_start_round',
+      { pod: undefined, round: undefined, tournament: undefined, tournamentId: undefined, source: undefined }
+    ]
   ]);
 });
 

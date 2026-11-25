@@ -14,8 +14,11 @@
  */
 
 import type { SubmitEntry, SubmitResult } from '../../../shared/native/tomCommands';
+import { agreedOutcome, type PlayerReport } from '../../../shared/tournament/reports';
+import { sameMatch } from '../../../shared/tournament/rounds';
 import { type MatchSlip, resultEntry } from '../../../shared/tournament/slipCodes';
 import type { Outcome, PodCategory } from '../../../shared/tournament/types';
+import type { PendingResult } from '../../../shared/tournament/view';
 
 export interface Delivery {
   /** The result sent. */
@@ -122,20 +125,47 @@ export function recorded(
   return next;
 }
 
-const storeKey = (event: string) => `cm-tom-sent:${event}`;
+/**
+ * What players' reports give TOM in the desktop app, by match: the report
+ * staff accepted, or else the result two agreeing reports from two devices
+ * give it where the event lets them settle a match (agreedOutcome). A match
+ * goes only while it has a report: the server drops a match's reports once
+ * it has a result, from TOM's save or otherwise, or is re-paired.
+ */
+export function reportedResults(
+  reports: readonly PlayerReport[],
+  settles: boolean,
+  accepted: Record<string, PendingResult>
+): PendingResult[] {
+  const byMatch = new Map<string, PendingResult>();
+  for (const report of reports) {
+    const { pod, round, table, p1, p2, at } = report;
+    const key = `${pod}:${round}:${table}`;
+    const taken = accepted[key];
+    const outcome = settles && agreedOutcome(reports.filter(other => sameMatch(other, report)));
+    const result = taken && sameMatch(taken, report) ? taken : outcome && { pod, round, table, p1, p2, outcome, at };
+    if (result) {
+      byMatch.set(key, result);
+    }
+  }
+  return [...byMatch.values()];
+}
 
-export function recallDeliveries(event: string): Deliveries {
+/** Per event; `kind` keeps another record of the event's beside the deliveries, such as NativeTom's marks. */
+const storeKey = (event: string, kind = 'sent') => `cm-tom-${kind}:${event}`;
+
+export function recallDeliveries<T = Deliveries>(event: string, kind?: string): T | Record<string, never> {
   try {
-    const value: unknown = JSON.parse(localStorage.getItem(storeKey(event)) ?? '{}');
-    return value && typeof value === 'object' ? (value as Deliveries) : {};
+    const value: unknown = JSON.parse(localStorage.getItem(storeKey(event, kind)) ?? '{}');
+    return value && typeof value === 'object' ? (value as T) : {};
   } catch {
     return {};
   }
 }
 
-export function rememberDeliveries(event: string, deliveries: Deliveries) {
+export function rememberDeliveries<T = Deliveries>(event: string, deliveries: T, kind?: string) {
   try {
-    localStorage.setItem(storeKey(event), JSON.stringify(deliveries));
+    localStorage.setItem(storeKey(event, kind), JSON.stringify(deliveries));
   } catch {
     // Storage refused: what was sent is remembered until the page closes.
   }

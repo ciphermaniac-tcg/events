@@ -1,9 +1,10 @@
 package com.ciphermaniac.tombridge;
 
+import java.awt.Desktop;
 import java.awt.Dialog;
+import java.awt.Frame;
 import java.awt.Window;
 import java.awt.event.KeyEvent;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -92,7 +93,7 @@ final class Tom {
          openSlipDialog(event);
          return enterAndObserve(code, want, event);
       } catch (NotReady e) {
-         return notReady(e.getMessage());
+         return notReady(e);
       } finally {
          pendingFinish = closer.schedule(this::finish, IDLE_FINISH_MS, TimeUnit.MILLISECONDS);
       }
@@ -166,7 +167,7 @@ final class Tom {
       } catch (Uncertain e) {
          return uncertain(e.getMessage());
       } catch (NotReady e) {
-         return notReady(e.getMessage());
+         return notReady(e);
       }
       if (ticked == null) {
          return ACCEPTED;
@@ -179,9 +180,10 @@ final class Tom {
       }
    }
 
-   synchronized String save() {
+   /** Saves TOM's file, refused unless TOM has `event` open, alone. */
+   synchronized String save(Live.Event event) {
       try {
-         Swing.onEdt(Tom::clickSave);
+         Swing.onEdt(() -> clickSave(event));
          return awaitSave();
       } catch (NotReady e) {
          return notReady(e.getMessage());
@@ -312,25 +314,34 @@ final class Tom {
       return false;
    }
 
+   /** What the app reads of TOM: the file TOM saves the open tournament to, when one is open alone. */
    private static String describe() {
-      List<String> titles = new ArrayList<>();
-      for (Window window : Swing.showing()) {
-         String title = Swing.title(window);
-         if (!title.isBlank()) {
-            titles.add(title);
-         }
-      }
       JFrame frame = Pods.mainFrame();
-      return new Json.Obj()
-         .bool("tournamentOpen", tournamentOpen())
-         .bool("slipDialogOpen", Swing.dialog(SLIP) != null)
-         .strs("windows", titles)
-         .objs("pods", Pods.toJson(Pods.read(frame == null ? null : Pods.podPane(frame))))
-         .toString();
+      String file = frame == null ? null : Live.file(frame);
+      Json.Obj status = new Json.Obj();
+      return (file == null ? status : status.str("file", file)).toString();
    }
 
-   private static boolean tournamentOpen() {
-      return Pods.mainFrame() != null;
+   /** Brings TOM to the front, every window it shows restored from the Dock or taskbar. */
+   String show() {
+      try {
+         return Swing.onEdt(Tom::raise);
+      } catch (NotReady e) {
+         return notReady(e.getMessage());
+      }
+   }
+
+   private static String raise() {
+      if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.APP_REQUEST_FOREGROUND)) {
+         Desktop.getDesktop().requestForeground(true);
+      }
+      for (Window window : Swing.showing()) {
+         if (window instanceof Frame frame) {
+            frame.setExtendedState(frame.getExtendedState() & ~Frame.ICONIFIED);
+            frame.toFront();
+         }
+      }
+      return new Json.Obj().str("result", "shown").toString();
    }
 
    /** A modal dialog other than the slip form, which would swallow our input. */
@@ -510,8 +521,8 @@ final class Tom {
       }
    }
 
-   private static Void clickSave() throws NotReady {
-      clickMenu(requireIdle(true, Live.Event.ANY), "Save");
+   private static Void clickSave(Live.Event event) throws NotReady {
+      clickMenu(requireIdle(true, event), "Save");
       return null;
    }
 
@@ -537,5 +548,11 @@ final class Tom {
 
    private static String notReady(String reason) {
       return new Json.Obj().str("result", "not_ready").str("reason", reason).toString();
+   }
+
+   /** Not ready, with TOM's own result for the match when that result is why. */
+   private static String notReady(NotReady e) {
+      Json.Obj reply = new Json.Obj().str("result", "not_ready").str("reason", e.getMessage());
+      return (e.held == 0 ? reply : reply.num("held", e.held)).toString();
    }
 }

@@ -47,10 +47,6 @@ const config: KnipConfig = {
         '.github/scripts/*.{ts,mjs}!',
         'tests/**/*.{ts,js,mjs}'
       ]
-    },
-    // The desktop app (native/package.json holds its dependencies); its TOM panel is a page of its own.
-    native: {
-      project: ['panel/**/*.{ts,tsx}!']
     }
   }
 };

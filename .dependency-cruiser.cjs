@@ -34,12 +34,6 @@ module.exports = {
       to: { path: '^(functions|scripts|\\.github)/|^shared/data/hash\\.ts$', reachable: true }
     },
     {
-      name: 'panel-has-no-site',
-      severity: 'error',
-      from: { path: '^native/panel/' },
-      to: { path: '^(src|functions|scripts|\\.github)/', reachable: true }
-    },
-    {
       name: 'domain-has-no-ui',
       severity: 'error',
       from: { path: '^src/(lib|utils)/.*\\.ts$' },

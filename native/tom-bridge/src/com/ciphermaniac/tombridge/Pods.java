@@ -61,13 +61,6 @@ final class Pods {
 
    /** One pod tab. `category` is null when the tab title is not one TOM uses in English. */
    record Pod(int index, Integer category, int round, State state) {
-      Json.Obj toJson() {
-         Json.Obj obj = new Json.Obj();
-         if (category != null) {
-            obj.num("category", category);
-         }
-         return obj.num("round", round).bool("started", state.started());
-      }
    }
 
    private Pods() {
@@ -139,14 +132,6 @@ final class Pods {
          }
       }
       return pods;
-   }
-
-   static List<String> toJson(List<Pod> pods) {
-      List<String> out = new ArrayList<>();
-      for (Pod pod : pods) {
-         out.add(pod.toJson().toString());
-      }
-      return out;
    }
 
    /**

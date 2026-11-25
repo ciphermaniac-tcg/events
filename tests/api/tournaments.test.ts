@@ -1696,6 +1696,18 @@ test('at a TOM event an agreed report stays a report for staff to enter in TOM',
   assert.match(accepted.json.error, /make this change in TOM/, 'staff accept it in TOM, not here');
   const table = agreed.json.tournament.pods[0]?.rounds[1]?.matches.find(m => m.table === 1);
   assert.equal(table?.outcome, 'pending', 'TOM’s copy is untouched');
+  // The desktop app enters it in TOM instead, and TOM's save settles the match and drops its reports.
+  const saved = structuredClone(agreed.json.tournament);
+  const entered = saved.pods[0]?.rounds[1]?.matches.find(m => m.table === 1);
+  assert.ok(entered);
+  entered.outcome = 'tie';
+  const synced = await hit(sync.onRequestPut as Handler, '/sync', at(code), {
+    method: 'PUT',
+    cookie: owner,
+    body: { tournament: saved, base: await revisionNow(code, owner) }
+  });
+  assert.equal(synced.status, 200);
+  assert.deepEqual(synced.json.reports, [], 'a match TOM settled has no reports waiting');
 });
 
 const LIST = { deck: '60 Basic {P} Energy SVE 5', archetype: null };

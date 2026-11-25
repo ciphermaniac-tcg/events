@@ -117,13 +117,19 @@ const TOM_LAPSES: Record<Lapse, string> = {
   older: msg('reconnect the .tdf to keep players updated')
 };
 
-/** What a TOM event's head adds to the round: whether TOM has every result entered here. */
-function tomPart(tom: TomLink): string {
+/**
+ * What a TOM event's head adds to the round: whether TOM has every result
+ * entered here. Nothing with TOM on in the desktop app, whose head says it.
+ */
+function tomPart(tom: TomLink): string[] {
   if (tom.locked()) {
-    return t(TOM_LAPSES[tom.lapse()]);
+    return [t(TOM_LAPSES[tom.lapse()])];
   }
   const n = tom.pending();
-  return n ? tn(n, '{n} result to write', '{n} results to write') : t('TOM has every result');
+  if (tom.app()?.on) {
+    return [];
+  }
+  return [n ? tn(n, '{n} result to write', '{n} results to write') : t('TOM has every result')];
 }
 
 /** Pairing the pod's next round or stage, asking first about any drop request still open (see dropGate). */
@@ -210,7 +216,7 @@ function Hero(props: { state: ManageState; manage: Manage; pod: Pod | undefined;
   /** The lead of the meta line: where the round stands, then what else needs saying about it. */
   const lead = () => {
     const { tom } = props;
-    const extra = tom ? [tomPart(tom)] : waiting() ? [t('{n} not seated', { n: waiting() })] : [];
+    const extra = tom ? tomPart(tom) : waiting() ? [t('{n} not seated', { n: waiting() })] : [];
     const rounds = tom ? null : (plan()?.rounds ?? null);
     // A console that cannot reach the site says so, rather than showing an old round as the current one.
     const stale = props.state.loadError() ? [t('not updating')] : [];

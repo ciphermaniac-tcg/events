@@ -1,27 +1,25 @@
-# The TOM bridge commands. Declaring any app permission turns on Tauri's
-# app ACL, so every app command must be listed here before a window can
-# call it. See capabilities/ for which window gets which.
-[[permission]]
-identifier = "tom-bridge"
-description = "Calls into the local TOM bridge, for the local TOM panel."
-commands.allow = [
-  "tom_detect",
-  "tom_set_path",
-  "tom_launch",
-  "tom_status",
-  "tom_submit",
-  "tom_save",
-  "tom_start_round",
-  "tom_open_panel",
-]
-
-# The live site only sends results, starts a round and opens the panel. It
-# never chooses or launches the program TOM runs as.
+# TOM, for the live site. Declaring any app permission turns on Tauri's app
+# ACL, so every app command must be listed in a permission before a window
+# can call it. See capabilities/ for which window gets which.
+#
+# The site reads TOM's state and the text of the .tdf TOM has open, asks to
+# turn TOM on and whether the file TOM has open is the event's (the person
+# answers both natively), turns it off, brings TOM forward, tries opening it
+# again, badges the Dock icon, sends results and starts a round. It never chooses, finds or launches the program TOM runs
+# as, nor names a file: the app does all of that itself, and only while the
+# person has TOM on.
 [[permission]]
 identifier = "tom-site"
-description = "Sends TOM results and starts its round, for the live site."
+description = "Follows and drives the TOM this computer has on, for the live site."
 commands.allow = [
+  "tom_state",
+  "tom_read",
+  "tom_turn_on",
+  "tom_turn_off",
+  "tom_show",
+  "tom_retry",
+  "tom_confirm_event",
+  "tom_badge",
   "tom_submit",
   "tom_start_round",
-  "tom_open_panel",
 ]

@@ -99,7 +99,7 @@ final class Live {
          throw new NotReady(where + " in TOM has different players than the site.");
       }
       if (match.outcome() != 0 && match.outcome() != want.outcome()) {
-         throw new NotReady(where + " already has a different result in TOM.");
+         throw new NotReady(where + " already has a different result in TOM.", match.outcome());
       }
       return match.outcome() == want.outcome();
    }
@@ -147,14 +147,47 @@ final class Live {
       }
    }
 
+   /**
+    * Where TOM saves the tournament `frame` shows; null when that cannot be
+    * read. Only a read: whichever of TOM's windows `frame` is, active or not,
+    * so a tournament TOM just opened counts before its window is ever active.
+    * Event thread only.
+    */
+   static String file(JFrame frame) {
+      try {
+         return fileOf(shownIn(frame));
+      } catch (ReflectiveOperationException | RuntimeException e) {
+         return null;
+      }
+   }
+
+   /** A tournament's .tdf, as TOM keeps it (TournamentData.getPersistenceFile in TOM 1.86.0). */
+   static String fileOf(Object tournament) throws ReflectiveOperationException {
+      return (String) call(call(tournament, "getData"), "getPersistenceFile");
+   }
+
    /** The tournament of TOM's active window, which its slip form writes to; it must be `frame`. */
    private static Object tournamentOf(JFrame frame) throws ReflectiveOperationException {
-      Class<?> manager = Class.forName(MANAGER, false, ClassLoader.getSystemClassLoader());
-      Object application = call(manager.getMethod("getDefaultManager").invoke(null), "getActiveInstance");
+      Object application = call(manager(), "getActiveInstance");
       if (application == null || call(application, "getWindow") != frame) {
          throw new IllegalStateException("the active TOM window is not the tournament's");
       }
       return Objects.requireNonNull(call(application, "getTournament"), "tournament");
+   }
+
+   /** The tournament of whichever of TOM's windows is `frame`, for reading only. */
+   private static Object shownIn(JFrame frame) throws ReflectiveOperationException {
+      for (Object application : (List<?>) call(manager(), "getRunningInstances")) {
+         if (call(application, "getWindow") == frame) {
+            return Objects.requireNonNull(call(application, "getTournament"), "tournament");
+         }
+      }
+      throw new IllegalStateException("no TOM window is the tournament's");
+   }
+
+   private static Object manager() throws ReflectiveOperationException {
+      Class<?> manager = Class.forName(MANAGER, false, ClassLoader.getSystemClassLoader());
+      return manager.getMethod("getDefaultManager").invoke(null);
    }
 
    private static Layout layout(Object tournament, String code) throws ReflectiveOperationException {
