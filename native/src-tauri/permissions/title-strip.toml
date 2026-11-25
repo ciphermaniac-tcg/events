@@ -1,7 +1,8 @@
 # The Mac's title strip (mac_title_strip.rs): a double click on it does
-# what the system's title bar setting says. See tom-bridge.toml on why each
+# what the system's title bar setting says, and the page asks for the strip
+# once it has room for the window's buttons. See tom-bridge.toml on why each
 # app command is listed.
 [[permission]]
 identifier = "title-strip"
-description = "Acts on a double click on the Mac's title strip."
-commands.allow = ["title_strip_double_click"]
+description = "Acts on a double click on the Mac's title strip, and asks for the strip or the title bar."
+commands.allow = ["title_strip_double_click", "title_strip"]

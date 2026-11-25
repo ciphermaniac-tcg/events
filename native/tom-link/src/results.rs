@@ -1,8 +1,8 @@
-//! What the bridge reports back, serialized for the desktop panel.
+//! What the bridge reports back, serialized for the app.
 
 use std::path::PathBuf;
 
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 use crate::code::Entry;
 
@@ -14,8 +14,14 @@ pub enum SubmitResult {
     Accepted { code: String },
     /// TOM (or the code check before it) refused the code.
     Rejected { code: String, message: String },
-    /// The code was not sent: TOM was not in a state to take it.
-    NotReady { code: String, reason: String },
+    /// The code was not sent: TOM was not in a state to take it. `held`:
+    /// TOM's own result for the match (its outcome code), when that is why.
+    NotReady {
+        code: String,
+        reason: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        held: Option<u8>,
+    },
     /// The code may have reached TOM but its fate was not seen. Check TOM
     /// before sending it again.
     Uncertain { code: String, reason: String },
@@ -26,6 +32,7 @@ impl SubmitResult {
         Self::NotReady {
             code: code.to_owned(),
             reason: reason.into(),
+            held: None,
         }
     }
 
@@ -91,59 +98,13 @@ impl StartResult {
     }
 }
 
-/// One pod's current round as TOM's window shows it.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct PodStatus {
-    /// TOM's category code (0, 1, 2, 8, 9, 10); absent when TOM's pod tab
-    /// title was not one this app recognizes.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub category: Option<u8>,
-    pub round: u32,
-    /// Running, paused or complete: results can be entered.
-    pub started: bool,
-}
-
-/// What TOM looks like right now.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
-#[expect(
-    clippy::struct_excessive_bools,
-    reason = "a flat JSON shape for the panel"
-)]
-pub struct Status {
-    /// The TOM launcher this app will start, when one is known.
-    pub tom_path: Option<PathBuf>,
-    /// The TOM this app started is still running.
-    pub launched: bool,
-    /// A submit would be attempted now.
-    pub ready: bool,
-    /// Why not, when `ready` is false.
-    pub reason: Option<String>,
-    pub tournament_open: bool,
-    pub slip_dialog_open: bool,
-    /// Titles of TOM's open windows.
-    pub windows: Vec<String>,
-    pub pods: Vec<PodStatus>,
-}
-
-/// The view of TOM the helper produced, before the bridge adds its own fields.
+/// What the app reads of TOM: whether the helper inside TOM answered, so
+/// TOM is up rather than still starting, and the `.tdf` TOM saves the open
+/// tournament to, as TOM keeps it.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub(crate) struct TomView {
-    pub ready: bool,
-    pub reason: Option<String>,
-    pub tournament_open: bool,
-    pub slip_dialog_open: bool,
-    pub windows: Vec<String>,
-    pub pods: Vec<PodStatus>,
-}
-
-impl TomView {
-    pub(crate) fn unavailable(reason: impl Into<String>) -> Self {
-        Self {
-            reason: Some(reason.into()),
-            ..Self::default()
-        }
-    }
+pub struct Status {
+    pub answering: bool,
+    pub file: Option<PathBuf>,
 }
 
 /// Runs entries in order, vetting each, and stops at the first one that is
@@ -196,10 +157,6 @@ mod tests {
         assert_eq!(
             json,
             r#"[{"result":"accepted","code":"21113"},{"result":"rejected","code":"21114","message":"bad"},{"result":"not_ready","code":"21121","reason":"closed"}]"#
-        );
-        assert_eq!(
-            serde_json::to_string(&SaveResult::Saved).unwrap(),
-            r#"{"result":"saved"}"#
         );
         assert_eq!(
             serde_json::to_string(&StartResult::AlreadyStarted).unwrap(),

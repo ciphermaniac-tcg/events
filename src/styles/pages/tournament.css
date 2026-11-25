@@ -2032,9 +2032,11 @@ tr.is-in .tm-place {
   text-align: left;
   cursor: pointer;
 }
+/* height: Safari 18 sizes a popover fit-content, which a grid with a max-height stretches to that height. */
 .tm-menu-fixed {
   position: fixed;
   inset: auto;
+  height: auto;
   z-index: 40;
   margin: 0;
   overflow: visible;

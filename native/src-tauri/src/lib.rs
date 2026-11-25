@@ -115,23 +115,24 @@ fn with_desktop_shell(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<tau
 fn with_desktop(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<tauri::Wry> {
     builder
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_fs::init())
-        // Keeps the .tdf picked in the panel readable after a restart.
-        .plugin(tauri_plugin_persisted_scope::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
             theme::app_theme,
-            tom::tom_detect,
-            tom::tom_set_path,
-            tom::tom_launch,
-            tom::tom_status,
+            tom::tom_state,
+            tom::tom_read,
+            tom::tom_turn_on,
+            tom::tom_turn_off,
+            tom::tom_show,
+            tom::tom_retry,
+            tom::tom_confirm_event,
+            tom::tom_badge,
             tom::tom_submit,
-            tom::tom_save,
             tom::tom_start_round,
-            tom::tom_open_panel,
             big_screen::open_big_screen,
             #[cfg(target_os = "macos")]
             mac_title_strip::title_strip_double_click,
+            #[cfg(target_os = "macos")]
+            mac_title_strip::title_strip,
         ])
 }
 

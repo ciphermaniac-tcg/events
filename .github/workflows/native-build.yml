@@ -5,8 +5,8 @@
 # Windows (NSIS installer) and Android (APK), and uploads them as the
 # native-macos, native-windows and native-android artifacts of the calling
 # run. Called by native.yml (installers and releases) and native-screens.yml
-# (screenshots). `tauri build` builds the TOM panel and the TOM bridge jar
-# first (beforeBuildCommand in tauri.conf.json), so the desktop jobs need Java.
+# (screenshots). `tauri build` builds the TOM bridge jar first
+# (beforeBuildCommand in tauri.conf.json), so the desktop jobs need Java.
 #
 # Optional secrets, passed by the caller:
 #   TAURI_SIGNING_PRIVATE_KEY, TAURI_SIGNING_PRIVATE_KEY_PASSWORD

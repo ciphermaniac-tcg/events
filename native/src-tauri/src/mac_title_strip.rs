@@ -12,12 +12,21 @@
 //! the system's "Double-click a window's title bar" setting says, as a
 //! title bar does; its controls stay theirs. While a dialog is open over
 //! the page, its backdrop's top still moves the window.
+//!
+//! The window's buttons never sit on the page. The window opens, and every
+//! page loads, with a title bar of its own above the page; only a page of
+//! the site that finds nothing but backgrounds where the buttons go, with
+//! the strip's style in place, has the window draw over it
+//! (`mac_title_strip.js`). A page that fails to load, the app's own pages,
+//! another host, or the site's head changing under the style keep the
+//! title bar, so the buttons stay off the page from its first paint.
 
 /// The strip's height, in points.
 const HEIGHT: u32 = 38;
 
 /// The space between the strip and the page's first line, in place of the
 /// site's 36 px.
+#[cfg(test)]
 const PAGE_GAP: u32 = 18;
 
 /// A window button's size.
@@ -58,85 +67,85 @@ fn traffic_lights() -> (f64, f64) {
     )
 }
 
-/// The window with no title bar of its own and its buttons on the strip.
+/// The window, its buttons placed for the strip but above the page until a
+/// page asks for the strip (`title_strip`). Placed so, they end above a
+/// title bar's 28 pt as well.
 #[cfg(target_os = "macos")]
 pub fn window<R: tauri::Runtime>(
     builder: tauri::WebviewWindowBuilder<'_, R, tauri::AppHandle<R>>,
 ) -> tauri::WebviewWindowBuilder<'_, R, tauri::AppHandle<R>> {
     let (x, y) = traffic_lights();
     builder
-        .title_bar_style(tauri::TitleBarStyle::Overlay)
+        .title_bar_style(ABOVE)
         .hidden_title(true)
         .traffic_light_position(tauri::LogicalPosition::new(x, y))
 }
 
+/// A title bar above the page, with the window's buttons in it.
+#[cfg(target_os = "macos")]
+const ABOVE: tauri::TitleBarStyle = tauri::TitleBarStyle::Transparent;
+
+/// Each page of the main window starts with the title bar above it.
+#[cfg(target_os = "macos")]
+pub fn page_started<R: tauri::Runtime>(window: &tauri::Window<R>) {
+    if let Err(err) = window.set_title_bar_style(ABOVE) {
+        log::debug!("could not put the title bar above the page: {err}");
+    }
+}
+
+/// The strip, once the page has room for the window's buttons, or the title
+/// bar above the page again once it no longer has.
+#[cfg(target_os = "macos")]
+#[tauri::command]
+pub async fn title_strip<R: tauri::Runtime>(window: tauri::WebviewWindow<R>, on: bool) {
+    let style = if on {
+        tauri::TitleBarStyle::Overlay
+    } else {
+        ABOVE
+    };
+    if let Err(err) = window.set_title_bar_style(style) {
+        log::debug!("could not change the title bar: {err}");
+    }
+}
+
 /// The strip's controls: the account button and Sign in.
+#[cfg(test)]
 const CONTROL: u32 = 24;
 
 /// The space between the strip and the account menu under it.
+#[cfg(test)]
 const MENU_GAP: u32 = 6;
 
 /// How far the account menu opens below the account button: the space under
 /// the button, the strip's 1 px border, and the gap.
+#[cfg(test)]
 const fn menu_drop() -> u32 {
     (HEIGHT - CONTROL) / 2 + 1 + MENU_GAP
 }
 
-/// The head bar as the strip. Its controls sit on the window buttons'
-/// center line, as far from the right edge as the close button is from the
-/// left. The account button takes a faint ring under the pointer and dims
-/// while held (`press.rs`); its menu opens just under the strip, its right
-/// edge on the button's, and scrolls rather than run past the window's
-/// bottom. `:root` outweighs the site's own rules for the bar, including a
-/// phone width's gutters and stylesheets a page loads later.
-fn css() -> String {
-    format!(
-        ":root, body[data-mode] {{ --topnav-h: {HEIGHT}px !important; }} \
-         :root .site-head-name {{ display: none; }} \
-         :root .site-head-row {{ max-width: none; justify-content: flex-end; \
-         padding: 0 {right}px 0 {left}px; }} \
-         :root .site-head .tm-acct-button {{ width: {CONTROL}px; height: {CONTROL}px; font-size: 11px; }} \
-         :root .site-head-signin {{ min-height: {CONTROL}px; height: {CONTROL}px; font-size: 12px; }} \
-         :root .site-head .tm-acct-button:hover {{ \
-         box-shadow: 0 0 0 3px color-mix(in srgb, var(--fg) 22%, transparent); }} \
-         :root .site-head .tm-acct-menu {{ top: calc(100% + {drop}px); right: 0; \
-         max-height: calc(100dvh - var(--topnav-h) - {below}px); }} \
-         :root main.page {{ padding-top: {PAGE_GAP}px; }}",
-        right = edge(),
-        left = lights_room(),
-        drop = menu_drop(),
-        below = 1 + MENU_GAP + edge(),
-    )
-}
+/// The head bar as the strip (`mac_title_strip.css`). Its controls sit on
+/// the window buttons' center line, as far from the right edge as the close
+/// button is from the left. The account button takes a faint ring under the
+/// pointer and dims while held (`press.rs`); its menu opens just under the
+/// strip, its right edge on the button's, and scrolls rather than run past
+/// the window's bottom. `:root` outweighs the site's own rules for the bar,
+/// including a phone width's gutters and stylesheets a page loads later.
+const CSS: &str = include_str!("mac_title_strip.css");
 
-/// What a press on the strip may not take: the controls in it.
-const CONTROLS: &str = "a, button, input, select, textarea, label, summary, [role], \
-                        [tabindex]:not([tabindex=\"-1\"]), [contenteditable]:not([contenteditable=\"false\"])";
-
-/// Drags the window from the strip, and acts on a double click when the
-/// button comes up where it went down, as `AppKit` does.
-fn drag_script() -> String {
+/// The page's side: the strip's drag and double click, and asking for the
+/// strip while the page has room for the window's buttons (`mac_title_strip.js`).
+fn page_script() -> String {
     format!(
-        "const onStrip = event => {{ const target = event.target; \
-         if (!(target instanceof Element)) return false; const head = target.closest('.site-head'); \
-         if (head) {{ const control = target.closest('{CONTROLS}'); return !control || !head.contains(control); }} \
-         return target.tagName === 'DIALOG' && event.clientY < {HEIGHT}; }}; \
-         const invoke = command => window.__TAURI_INTERNALS__.invoke(command).catch(() => {{}}); \
-         let pressed = null; \
-         document.addEventListener('mousedown', event => {{ \
-         if (event.button !== 0 || !onStrip(event)) return; \
-         if (event.detail === 2) {{ pressed = [event.clientX, event.clientY]; return; }} \
-         if (event.detail !== 1) return; event.preventDefault(); invoke('plugin:window|start_dragging'); }}); \
-         document.addEventListener('mouseup', event => {{ const at = pressed; pressed = null; \
-         if (event.button !== 0 || event.detail !== 2 || !at || !onStrip(event)) return; \
-         if (at[0] === event.clientX && at[1] === event.clientY) invoke('title_strip_double_click'); }});"
+        "({})({HEIGHT}, {}, (command, args) => window.__TAURI_INTERNALS__.invoke(command, args).catch(() => {{}}));",
+        include_str!("mac_title_strip.js").trim_end(),
+        lights_room()
     )
 }
 
 /// The script each page of the main window runs first.
 #[cfg(target_os = "macos")]
 pub fn script() -> String {
-    crate::app_style::site_script(&css(), &drag_script())
+    crate::app_style::site_script(CSS, &page_script())
 }
 
 /// What the system's setting has a double click on a title bar do.
@@ -187,7 +196,10 @@ pub async fn title_strip_double_click<R: tauri::Runtime>(window: tauri::WebviewW
 
 #[cfg(test)]
 mod tests {
-    use super::{DoubleClick, css, double_click, drag_script, lights_room, traffic_lights};
+    use super::{
+        BUTTON, CONTROL, CSS, DoubleClick, HEIGHT, PAGE_GAP, double_click, edge, lights_room,
+        menu_drop, page_script, traffic_lights,
+    };
 
     #[test]
     fn centers_the_windows_buttons_on_the_strip() {
@@ -198,24 +210,43 @@ mod tests {
     }
 
     #[test]
-    fn makes_the_head_bar_the_strip() {
-        let css = css();
-        assert!(css.contains("--topnav-h: 38px !important"));
-        assert!(css.contains(":root .site-head-name { display: none; }"));
-        assert!(css.contains("padding: 0 13px 0 86px"));
-        assert!(css.contains(":root main.page { padding-top: 18px; }"));
-        assert!(css.contains(".tm-acct-button:hover"));
-        assert!(css.contains(".tm-acct-menu { top: calc(100% + 14px); right: 0;"));
-        assert!(css.contains("max-height: calc(100dvh - var(--topnav-h) - 20px)"));
+    fn makes_the_head_bar_the_strip_with_the_strips_measures() {
+        let has = |rule: String| assert!(CSS.contains(&rule), "{rule}");
+        has(format!("--topnav-h: {HEIGHT}px !important"));
+        has(":root .site-head-name { display: none; }".into());
+        has(format!("padding: 0 {}px 0 {}px", edge(), lights_room()));
+        has(format!("width: {CONTROL}px; height: {CONTROL}px;"));
+        has(format!("min-height: {CONTROL}px; height: {CONTROL}px;"));
+        has(format!(":root main.page {{ padding-top: {PAGE_GAP}px; }}"));
+        has(".tm-acct-button:hover".into());
+        has(format!(
+            ".tm-acct-menu {{ top: calc(100% + {}px); right: 0;",
+            menu_drop()
+        ));
+        has(format!(
+            "max-height: calc(100dvh - var(--topnav-h) - {}px)",
+            1 + 6 + edge()
+        ));
     }
 
     #[test]
-    fn drags_from_the_strip_but_not_its_controls() {
-        let script = drag_script();
+    fn drags_from_the_strip_and_asks_for_it_only_with_room_for_the_buttons() {
+        let script = page_script();
         assert!(script.contains("closest('.site-head')"));
         assert!(script.contains("plugin:window|start_dragging"));
         assert!(script.contains("invoke('title_strip_double_click')"));
-        assert!(script.contains("event.clientY < 38"));
+        assert!(script.contains("invoke('title_strip', { on: now })"));
+        let call = format!("({HEIGHT}, {}, (command, args) =>", lights_room());
+        assert!(
+            script.contains(&format!("}})){call}")),
+            "the page's side runs"
+        );
+    }
+
+    #[test]
+    fn the_buttons_end_above_a_title_bar_too() {
+        let (_, y) = traffic_lights();
+        assert!(y - f64::from(super::BUTTON_RISE) + f64::from(BUTTON) <= 28.0);
     }
 
     #[test]

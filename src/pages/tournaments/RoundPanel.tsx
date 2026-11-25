@@ -72,6 +72,7 @@ import { ChampionLine, ClockControls, DeleteRound, RepairControl } from './Round
 import { createResultEntry } from './resultEntry';
 import { type CorrectableCell, CorrectableResult, createRoundCorrections } from './Corrections';
 import { SeatResets, StreamLink, type TableMenuOf } from './TableMenu';
+import { tomAccept, tomNotes } from './TomSyncPanel';
 
 // Decks are named now and then, not every round, so their picker loads when first asked for.
 const CutBracket = lazyPanel(() => import('./Bracket').then(m => ({ default: m.CutBracket })));
@@ -94,6 +95,8 @@ interface ResultProps {
   locked: boolean;
   /** Whether results are entered here: not at a TOM event, whose results are entered in TOM. */
   takesResults: boolean;
+  /** A TOM event's report Accept sends to TOM, in the desktop app with TOM on (see tomAccept). */
+  toTom: boolean;
   pod: Pod;
   round: Round;
   /** The result that stands for the match, TOM's or one entered on the site (see shownOutcome). */
@@ -239,6 +242,22 @@ function reportsByTable(reports: readonly PlayerReport[], pod: Pod, round: Round
 }
 
 /**
+ * Under a result TOM's file lacks; in the desktop app with TOM on, where it
+ * stands with TOM, and under one TOM saved otherwise than the site had it.
+ */
+function NotInTom(props: { pod: Pod; round: Round; table: number; unconfirmed: boolean }) {
+  const note = () => tomNotes().get(`${props.pod.category}:${props.round.number}:${props.table}`);
+  return (
+    <Show when={props.unconfirmed || note()}>
+      <span class='tm-result-sub' classList={{ 'is-held': note()?.held }} title={note()?.why}>
+        {' '}
+        {note()?.text ?? t('not in TOM yet')}
+      </span>
+    </Show>
+  );
+}
+
+/**
  * What stands for a match, on one line: Open, or what the players reported,
  * with Clear once a result stands or Accept while one report waits right
  * after it (the two never meet), and the table's menu last, at the row's end.
@@ -259,9 +278,7 @@ function StandingResult(props: ResultProps) {
       >
         {open() ? (report()?.label ?? t('In progress')) : t(RESULT_WORDS[shown().outcome] ?? '')}
         <Show when={report()}>{r => <span class='sr-only'>. {r().detail}</span>}</Show>
-        <Show when={shown().unconfirmed}>
-          <span class='tm-result-sub'> {t('not in TOM yet')}</span>
-        </Show>
+        <NotInTom pod={props.pod} round={props.round} table={props.match.table} unconfirmed={shown().unconfirmed} />
         <Show when={props.match.timeExtension}>
           <ExtensionClock match={props.match} round={props.round} playing={open()} />
         </Show>
@@ -283,7 +300,7 @@ function StandingResult(props: ResultProps) {
           <Icon name='chevron-right' />
         </button>
       </Show>
-      <Show when={props.takesResults}>
+      <Show when={props.takesResults || props.toTom}>
         <ResultSlot {...props} open={open()} />
       </Show>
       <span class='tm-result-acts' classList={{ 'is-locked': props.locked || Boolean(props.onOpen) }}>
@@ -319,7 +336,7 @@ function ResultSlot(props: ResultProps & { open: boolean }) {
   return (
     <span class='tm-result-slot' classList={{ 'is-locked': props.locked || Boolean(props.onOpen) }}>
       <Show
-        when={props.open}
+        when={props.open || props.toTom}
         fallback={
           <button type='button' class='btn btn-ghost tm-small' onClick={() => props.onReport('pending')}>
             {t('Clear')}
@@ -686,6 +703,35 @@ function createPlain(
   });
 }
 
+/**
+ * Where Accept sends a report to TOM rather than entering it: a TOM event's
+ * console in the desktop app with TOM on (see tomAccept), while `can` holds.
+ */
+function createToTom(pod: () => Pod, can: () => boolean) {
+  const to = () => (can() ? tomAccept() : null);
+  return {
+    on: () => to() !== null,
+    /** A row TOM's queue already has, which its note says (see tomNotes). */
+    queued: (r: Round, match: Match) => tomNotes().has(`${pod().category}:${r.number}:${match.table}`),
+    /** Sends a report Accept took to TOM; false where Accept does not send to TOM. */
+    take: (r: Round | undefined, match: Match, outcome: Outcome) => {
+      const take = to();
+      if (take && r && match.p2 !== null) {
+        take({
+          pod: pod().category,
+          round: r.number,
+          table: match.table,
+          p1: match.p1,
+          p2: match.p2,
+          outcome,
+          at: Date.now()
+        });
+      }
+      return take !== null;
+    }
+  };
+}
+
 /** A round's tables with two players, how many of those are open, and whether any result is in. */
 function roundCounts(round: Round | undefined, isOpen: (match: Match) => boolean) {
   const played = round?.matches.filter(m => m.p2 !== null) ?? [];
@@ -877,6 +923,10 @@ export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod
   const timed = () => isLatest() && winner() === null;
   /** The staff controls that act on the round, offered only where its clock is, never for TOM, and not once it ends. */
   const live = () => !props.locked && !tom() && timed() && !ended();
+  const toTom = createToTom(
+    () => props.pod,
+    () => tom() && !locked()
+  );
   // A TOM event's results are entered in TOM, so its rows open no sheet and take no presses.
   const { opens, inRow, openSheet, sheetMatch, closeSheet } = createRowSheet(() => locked() || tom());
   const dialogs = createTableDialogs(props, names, closeSheet, match =>
@@ -894,9 +944,9 @@ export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod
   const counts = createMemo(() => roundCounts(round(), isOpen));
   const plain = createPlain(
     round,
-    live,
+    () => live() || toTom.on(),
     tableOf,
-    (r, m) => Boolean(entry.sentFor(r, m) ?? entry.failedFor(r, m)) || isAsking(m)
+    (r, m) => Boolean(entry.sentFor(r, m) ?? entry.failedFor(r, m)) || isAsking(m) || toTom.queued(r, m)
   );
   const canExtend = (match: Match) => !locked() && match.p2 !== null && isOpen(match);
   // A new round, or another division, starts on its current round again; other changes keep the round shown.
@@ -942,7 +992,9 @@ export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod
   function acceptAll(list: readonly PlainReport[]) {
     const r = round();
     setAsking(null);
-    if (r) {
+    if (toTom.on()) {
+      list.forEach(each => toTom.take(r, each.match, each.outcome));
+    } else if (r) {
       void entry.sendAll(r, list);
     }
   }
@@ -993,6 +1045,7 @@ export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod
                   <Result
                     locked={locked()}
                     takesResults={!tom()}
+                    toTom={toTom.on() && !toTom.queued(r(), match)}
                     match={match}
                     pod={props.pod}
                     round={r()}
@@ -1007,7 +1060,7 @@ export function RoundPanel(props: { state: ManageState; manage: Manage; pod: Pod
                     asking={isAsking(match) ? asking() : null}
                     onReport={o => report(match, o)}
                     onRecord={() => record(match)}
-                    onAccept={outcome => send(match, outcome)}
+                    onAccept={outcome => toTom.take(r(), match, outcome) || send(match, outcome)}
                     onOpen={opens() ? () => openSheet(match) : undefined}
                     onTimeExtension={canExtend(match) ? () => dialogs.extend(match, r()) : undefined}
                     onPenalty={dialogs.penalty(match, r())}

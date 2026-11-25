@@ -5,6 +5,7 @@ import { afterEach, test } from 'node:test';
 import type { SubmitResult } from '../../shared/native/tomCommands';
 import { matchSlips } from '../../shared/tournament/slipCodes';
 import { parseTdf } from '../../shared/tournament/tdf';
+import type { ReportedOutcome } from '../../shared/tournament/reports';
 import type { Outcome } from '../../shared/tournament/types';
 import {
   type Deliveries,
@@ -12,6 +13,7 @@ import {
   recallDeliveries,
   recorded,
   rememberDeliveries,
+  reportedResults,
   settled
 } from '../../src/lib/native/deliveries';
 
@@ -172,4 +174,32 @@ test('what was sent is remembered per event across a reload, and storage that fa
   };
   assert.deepEqual(recallDeliveries('ABCD'), {});
   assert.doesNotThrow(() => rememberDeliveries('ABCD', sent));
+});
+
+const report = (table: number, by: string, outcome: ReportedOutcome, device: string) => ({
+  ...result(table, outcome),
+  by,
+  outcome,
+  at: 1,
+  device
+});
+
+const accepted = (table: number, outcome: Outcome) => ({
+  [`masters:1:${table}`]: { ...result(table, outcome), at: 5 }
+});
+
+const given = (results: readonly { table: number; outcome: Outcome }[]) => results.map(r => [r.table, r.outcome]);
+
+test('the reports give TOM what staff accepted, else what agreeing players said where that settles, while reported', () => {
+  const reports = [
+    report(1, 'a1', 'p1', 'phone-a'),
+    report(1, 'b1', 'p1', 'phone-b'),
+    report(2, 'a2', 'p2', 'phone-c'),
+    report(3, 'a3', 'p1', 'phone-d'),
+    report(3, 'b3', 'p1', 'phone-d')
+  ];
+  assert.deepEqual(given(reportedResults(reports, true, {})), [[1, 'p1']], 'one device never speaks for both');
+  assert.deepEqual(given(reportedResults(reports, false, {})), [], 'agreement waits for Accept');
+  assert.deepEqual(given(reportedResults(reports, false, { ...accepted(2, 'p2'), ...accepted(4, 'p1') })), [[2, 'p2']]);
+  assert.deepEqual(given(reportedResults(reports, true, accepted(1, 'p2'))), [[1, 'p2']], 'staff decide');
 });

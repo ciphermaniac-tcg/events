@@ -69,9 +69,10 @@ final class Session implements Runnable {
       return switch (op) {
          case "status" -> tom.status();
          case "submit" -> submit(request);
-         case "save" -> tom.save();
+         case "save" -> tom.save(event(request));
          case "finish" -> tom.finish();
          case "start_round" -> startRound(request);
+         case "show" -> tom.show();
          default -> new Json.Obj().str("error", "unknown op").toString();
       };
    }
