@@ -23,6 +23,7 @@ import type { ReturningPlayer } from '../../../shared/tournament/returningPlayer
 import type { PlayerResult, ShownMatch } from '../../../shared/tournament/reports';
 import type { EventType, Tournament } from '../../../shared/tournament/types';
 import {
+  copyNow,
   type Decklist,
   type DeckMode,
   type Manage,
@@ -264,7 +265,7 @@ async function readPublished(code: string, cache: RequestCache = 'no-cache'): Pr
   const url = `${EVENTS_DATA_ORIGIN}/${publishedViewKey(code)}`;
   const response = await ((globalThis as EarlyRead).cmE?.(url) ??
     fetch(url, { cache, signal: AbortSignal.timeout(15_000) }));
-  return response.ok ? ((await response.json()) as PublishedView) : null;
+  return response.ok ? copyNow((await response.json()) as PublishedView) : null;
 }
 
 /** How long a read started ahead stays worth taking once answered: a page opened later reads afresh. */

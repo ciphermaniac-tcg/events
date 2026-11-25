@@ -313,6 +313,19 @@ test('reads the published view from the data origin, and a missing one as null',
   assert.equal(await fetchPublished('ABC'), null);
 });
 
+test('a copy published before registration was a setting registers players exactly while it takes lists', async () => {
+  const settingsOf = async (settings: object) => {
+    answer(200, { code: 'ABC', version: 3, settings });
+    return ((await fetchPublished('ABC')) as { settings: object } | null)?.settings;
+  };
+  assert.deepEqual(await settingsOf({ decklists: 'closed' }), { decklists: 'closed', registration: true });
+  assert.deepEqual(await settingsOf({ decklists: 'off' }), { decklists: 'off', registration: false });
+  assert.deepEqual(await settingsOf({ decklists: 'open', registration: false }), {
+    decklists: 'open',
+    registration: false
+  });
+});
+
 test('the read the page started is asked for by the URL the app would read, not by its code alone', async () => {
   answer(200, { code: 'ABC', version: 3 });
   const asked: string[] = [];

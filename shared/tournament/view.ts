@@ -275,6 +275,18 @@ export function storedSettings(stored: Record<string, unknown>, started: boolean
 }
 
 /**
+ * A copy of an event published or kept before registration was a setting of
+ * its own, in today's words: it registered players exactly while it took
+ * lists (see storedSettings).
+ */
+export function copyNow<V extends { settings?: Partial<TournamentSettings> }>(view: V): V {
+  const { settings } = view;
+  return settings && settings.registration === undefined
+    ? { ...view, settings: { ...settings, registration: (settings.decklists ?? 'off') !== 'off' } }
+    : view;
+}
+
+/**
  * Whether the event's lists are locked: once any division's round 1 is
  * paired, nobody sends, replaces or withdraws one. The lists then stand as
  * what deck checks are held to. Their owners still read them, and staff read

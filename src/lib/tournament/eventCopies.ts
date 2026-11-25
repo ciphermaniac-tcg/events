@@ -13,7 +13,7 @@
  */
 
 import { DAY_MS } from '../../../shared/tournament/limits';
-import type { TournamentView, Viewer } from '../../../shared/tournament/view';
+import { copyNow, type TournamentView, type Viewer } from '../../../shared/tournament/view';
 import { keepBrowserMemory, readBrowserMemory } from './browserMemory';
 
 const PREFIX = 'cm-event-copy:';
@@ -51,7 +51,7 @@ export function readEventCopy(code: string, now: number): EventCopy | null {
     drop(code);
     return null;
   }
-  return copy;
+  return copy && { ...copy, view: copyNow(copy.view) };
 }
 
 /** Keeps `view` as its event's copy, if the public sees all of it and it is no older than the one kept. */
