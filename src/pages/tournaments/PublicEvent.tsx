@@ -37,8 +37,7 @@ import {
   type TournamentSettings,
   type TournamentView
 } from '../../../shared/tournament/view';
-import { asksWhoYouAre, eventTimes } from '../../../shared/tournament/eventTime';
-import { isWallClock } from '../../../shared/tournament/timeZone';
+import { asksWhoYouAre } from '../../../shared/tournament/eventTime';
 import { Segmented } from '@ciphermaniac/design/components/Segmented';
 import { Skeleton } from '@ciphermaniac/design/components/Skeleton';
 import { TabPanel, Tabs } from '@ciphermaniac/design/components/Tabs';
@@ -68,7 +67,7 @@ import {
   SCREEN_POLL_MS,
   seesMoreThanPublished
 } from '../../lib/tournament/viewPoll';
-import { dayLabel, eventDay, playerResult } from '../../lib/tournament/history';
+import { dayLabel, playerResult } from '../../lib/tournament/history';
 import {
   eventStatus,
   firstRoundTime,
@@ -85,7 +84,7 @@ import { createNow } from './now';
 import { createClockNow, StaleSince } from './Clock';
 import { leadDivision } from './clockOrder';
 import { formatFee } from '../../lib/events/format';
-import { EventLogistics } from './EventLogistics';
+import { eventDate, EventLogistics, rosterFull, timeShown } from './EventLogistics';
 import { FinalResults } from './FinalResults';
 import { PlayerSheet } from './PlayerSheet';
 import { PublicPairings } from './PublicPairings';
@@ -100,7 +99,7 @@ import { ErrorState } from '@ciphermaniac/design/components/ErrorState';
 import { EMPTY_LIVE_DATA, type LiveData, liveFailure, staleSince } from '../../lib/tournament/liveData';
 import { LiveDataStatus } from './LiveDataStatus';
 import { MAIN_SITE } from '../../lib/constants';
-import { intlLocale, msg, t, timeOfDay, tn, tx } from '../../lib/i18n';
+import { msg, t, timeOfDay, tn, tx } from '../../lib/i18n';
 import { keepEventCopy, readEventCopy } from '../../lib/tournament/eventCopies';
 import { DAY_MS } from '../../../shared/tournament/limits';
 
@@ -947,28 +946,6 @@ function EventSkeleton() {
       <Skeleton height='190px' rounded='var(--radius-md)' />
     </div>
   );
-}
-
-/** A time the organizer set (the start, which is when registration changes close, or check-in) as players read it; null when none is set. */
-const timeShown = (local: string, zone: string): string | null =>
-  isWallClock(local) ? eventTimes(local, zone, intlLocale()).event : null;
-
-/** Whether the event's own list is at its cap, so the page says so before anyone types. */
-const rosterFull = (view: TournamentView): boolean =>
-  view.mode === 'swiss' &&
-  view.settings.playerCap > 0 &&
-  view.tournament.players.filter(player => player.droppedAfter === null).length >= view.settings.playerCap;
-
-/**
- * One date format across the page: the organizer's start time, in the event's
- * zone where it has one, else TOM's start date (see eventDay).
- */
-function eventDate({ startsAt, timeZone }: TournamentSettings, startDate: string): string {
-  if (startsAt && timeZone) {
-    return eventTimes(startsAt, timeZone, intlLocale()).event;
-  }
-  const day = eventDay(startsAt, startDate);
-  return startsAt ? `${day} · ${firstRoundTime(startsAt) ?? ''}` : day;
 }
 
 /** When the page last changed: a time today, a date before that. */

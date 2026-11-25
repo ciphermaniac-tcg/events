@@ -8,7 +8,10 @@
 import { A } from '@solidjs/router';
 import { For, Show } from 'solid-js';
 import { eventTimes } from '../../../shared/tournament/eventTime';
-import type { TournamentSettings } from '../../../shared/tournament/view';
+import { isWallClock } from '../../../shared/tournament/timeZone';
+import type { TournamentSettings, TournamentView } from '../../../shared/tournament/view';
+import { eventDay } from '../../lib/tournament/history';
+import { firstRoundTime } from '../../lib/tournament/present';
 import { intlLocale, t } from '../../lib/i18n';
 
 type Shown = Pick<TournamentSettings, 'timeZone' | 'checkInAt' | 'startsAt' | 'venue' | 'address'>;
@@ -61,4 +64,26 @@ export function EventLogistics(props: { settings: Shown; store?: string | null }
       </table>
     </Show>
   );
+}
+
+/** A time the organizer set (the start, which is when registration changes close, or check-in) as players read it; null when none is set. */
+export const timeShown = (local: string, zone: string): string | null =>
+  isWallClock(local) ? eventTimes(local, zone, intlLocale()).event : null;
+
+/** Whether the event's own list is at its cap, so the page says so before anyone types. */
+export const rosterFull = (view: TournamentView): boolean =>
+  view.mode === 'swiss' &&
+  view.settings.playerCap > 0 &&
+  view.tournament.players.filter(player => player.droppedAfter === null).length >= view.settings.playerCap;
+
+/**
+ * One date format across the page: the organizer's start time, in the event's
+ * zone where it has one, else TOM's start date (see eventDay).
+ */
+export function eventDate({ startsAt, timeZone }: TournamentSettings, startDate: string): string {
+  if (startsAt && timeZone) {
+    return eventTimes(startsAt, timeZone, intlLocale()).event;
+  }
+  const day = eventDay(startsAt, startDate);
+  return startsAt ? `${day} · ${firstRoundTime(startsAt) ?? ''}` : day;
 }
