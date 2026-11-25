@@ -596,6 +596,9 @@ async function saveTournament(
   return rowsChanged(results[before.length]) === 1 ? { ...next, version: row.version + 1, updatedAt } : null;
 }
 
+/** The earliest birth year whose player may still be 17 at `now` (see shared/accounts/age.ts). */
+export const youngestMinorYear = (now: number): number => new Date(now).getUTCFullYear() - ADULT_AGE;
+
 /**
  * Deletes the cards of every list whose player may be under 18, as the event
  * ends: deck checks needed them while it ran, and nothing needs them after
@@ -608,8 +611,7 @@ async function saveTournament(
  * unsanctioned event's lists carry no birth year, so its lists are kept.
  */
 function minorCardsCut(db: D1Like, next: TournamentRow, version: number, now: number): D1Statement {
-  // Born in this year or later, someone may still be 17 (shared/accounts/age.ts).
-  const youngest = new Date(now).getUTCFullYear() - ADULT_AGE;
+  const youngest = youngestMinorYear(now);
   const minors = next.tournament.players
     .filter(player => mayBeMinor(birthYear(player.birthDate), new Date(now)))
     .map(player => player.id);
