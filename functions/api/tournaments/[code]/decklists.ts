@@ -51,7 +51,7 @@ import { openMarks, standing } from '../../../../shared/tournament/checkins.js';
 import { decklistOpenFor, enteredLate } from '../../../../shared/tournament/lateLists.js';
 import { MAX_DECKLIST_CHARS, parseDecklist } from '../../../../shared/tournament/decklist.js';
 import { decklistMatcher, fullNameKey, nameKey, similarlyNamed } from '../../../../shared/tournament/identify.js';
-import { mayBeMinor, mayBeUnder13 } from '../../../../shared/accounts/age.js';
+import { mayBeUnder13 } from '../../../../shared/accounts/age.js';
 import { birthYear, yearOnlyBirthDate } from '../../../../shared/tournament/divisions.js';
 import { isPopId, type PlayerProfile, readProfile } from '../../../../shared/tournament/profile.js';
 import {
@@ -259,21 +259,20 @@ const LISTS_CHOSEN =
  * A write's guard that the event still registers players as the write lands,
  * read from the stored settings as storedSettings reads them: registration
  * on (one stored before it was a setting has it on while it takes lists),
- * lists taken when the write carries one, and no round paired since the
- * request read the event (none at all outside a late entrant's window, which
- * also closes as the event ends). Registration or lists turned off, or a
+ * lists taken when the write carries one, the event not ended, and no round
+ * paired since the request read the event (none at all outside a late
+ * entrant's window). Registration or lists turned off, the event ended, or a
  * round paired meanwhile, refuses the write all the same.
  */
 const STILL_TAKING =
   'EXISTS (SELECT 1 FROM tournaments WHERE code = ? AND ' +
   `coalesce(json_extract(settings, '$.registration'), ${LISTS_CHOSEN}) AND (? = 0 OR ${LISTS_CHOSEN}) ` +
-  "AND (? = 0 OR coalesce(json_extract(settings, '$.finished'), 0) = 0) " +
+  "AND coalesce(json_extract(settings, '$.finished'), 0) = 0 " +
   `AND (? = 1 OR json_extract(state, '$.startedAt') IS NULL) AND (${pairedRounds('state')}) = ?)`;
 
 /** STILL_TAKING's values after the event's code; `list` when the write carries one, as a late entrant's always does. */
 const windowValues = (window: ListWindow, list = false) => [
   list || window.late ? 1 : 0,
-  window.late ? 1 : 0,
   window.late ? 1 : 0,
   window.paired
 ];
@@ -489,8 +488,8 @@ interface Submission {
 /** A player under 13 registers with staff (see shared/accounts/age.ts): paper is no way round it online. */
 const UNDER_13 = msg('Players under 13 register with staff at the event.');
 const LOCKED = msg('This list was sent from another device. Send it from that device, or ask staff to reset it.');
-/** A list from a player who may be under 18, once the event is over: its cards were deleted as it ended (store.ts). */
-const OVER_FOR_MINORS = msg('This event is over.');
+/** Any registration once the event is over, ended before round 1 or after: a minor's cards were deleted as it ended (store.ts). */
+const OVER = msg('This event is over.');
 
 /**
  * A submission the guard let through: the try's admission, which the store
@@ -530,9 +529,6 @@ async function guardSubmission(
   const year = birthYear(profile.birthDate);
   if (mayBeUnder13(year, new Date(now))) {
     return jsonError(UNDER_13, 403);
-  }
-  if (row.settings.finished && mayBeMinor(year, new Date(now))) {
-    return jsonError(OVER_FOR_MINORS, 403);
   }
   const listed = row.tournament.players.some(candidate => candidate.id === profile.popId);
   // A correction proves the Player ID with the year it corrects.
@@ -664,13 +660,10 @@ async function store(
   const key = identityKey(profile, sanctioned);
   const held = await heldHash(submission.held);
   const account = matchingAccount(access, profile) ?? NO_ACCOUNT;
-  // A list from a player who may be under 18 lands only while the event is not over, as it stands when the write does.
-  const minor = mayBeMinor(birthYear(profile.birthDate), new Date(now)) ? 1 : 0;
   const insert = access.db
     .prepare(
       `INSERT INTO decklists (code, user_id, pop_id, first_name, last_name, birth_date, deck, deck_mode, archetype, submitted_at, owner_token, account) SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ${account.sql} ` +
-        `WHERE (? = 0 OR NOT EXISTS (SELECT 1 FROM tournaments WHERE code = ? AND coalesce(json_extract(settings, '$.finished'), 0) = 1)) ` +
-        `AND ${STILL_TAKING} ${admit.length > 0 ? 'AND changes() > 0 ' : ''}` +
+        `WHERE ${STILL_TAKING} ${admit.length > 0 ? 'AND changes() > 0 ' : ''}` +
         `ON CONFLICT (code, user_id) DO UPDATE SET ` +
         `pop_id = excluded.pop_id, first_name = excluded.first_name, last_name = excluded.last_name, ` +
         `birth_date = excluded.birth_date, deck = excluded.deck, deck_mode = excluded.deck_mode, ` +
@@ -691,8 +684,6 @@ async function store(
       now,
       tokenHash,
       ...account.values,
-      minor,
-      access.row.code,
       access.row.code,
       ...windowValues(window, sendsList(access, submission)),
       held,
@@ -838,12 +829,15 @@ const eventLimiter = createRateLimiter({ windowMs: 10 * 60 * 1000, maxRequests: 
 const addressLimiter = createRateLimiter({ windowMs: 10 * 60 * 1000, maxRequests: 400 });
 
 /**
- * Why a registration cannot be sent or withdrawn now: the event registers
- * nobody online, registration closed as round 1 paired at one that takes no
- * lists, or the player's list locked (as round 1 paired, or for a late
- * entrant the round after they joined).
+ * Why a registration cannot be sent or withdrawn now: the event is over, it
+ * registers nobody online, registration closed as round 1 paired at one that
+ * takes no lists, or the player's list locked (as round 1 paired, or for a
+ * late entrant the round after they joined).
  */
 function notTakingText(row: TournamentRow, playerId: string | null = null): string {
+  if (row.settings.finished) {
+    return OVER;
+  }
   if (!row.settings.registration) {
     return msg('Register with the organizer.');
   }

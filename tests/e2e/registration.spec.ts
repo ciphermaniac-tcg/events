@@ -608,6 +608,13 @@ test('with decklists off a player registers with no decklist step, and is asked 
   await expect(page.locator('.tm-hero')).toContainText('5 players');
 });
 
+test('an event ended before round 1 offers no registration', async ({ page }) => {
+  await mockEvent(page, { decklists: 'off', finished: true });
+  await page.goto(`/t/${CODE}?tab=decklist`);
+  await expect(page.locator('.tm-hero')).toContainText('Finished');
+  await expect(page.getByRole('textbox', { name: 'Player ID' })).toHaveCount(0);
+});
+
 test('with online registration off the page has no Register tab, and says to register with the organizer', async ({
   page
 }) => {
