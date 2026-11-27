@@ -1,0 +1,80 @@
+# =============================================================================
+# Android check (throwaway, native/android-m3-test only)
+# =============================================================================
+# Runs a debug x86_64 build of the Android app on an emulator against the
+# site built from this commit, served on the runner with a local D1 and seeded
+# with a made-up event (native/screens/m3-site.sh), and checks its native
+# behaviour (native/screens/m3-check.sh). Screenshots and results are the
+# android-m3-check artifact. No secrets.
+# =============================================================================
+
+name: Android M3 check
+
+on:
+  push:
+    branches: [native/android-m3-test]
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880
+        with:
+          distribution: temurin
+          java-version: '17'
+      - run: npm ci
+      - run: npm run build
+      - name: Serve and seed the site
+        run: |
+          native/screens/m3-site.sh start
+          echo "EVENT_CODE=$(native/screens/m3-site.sh seed)" >> "$GITHUB_ENV"
+      - name: Point the app at the runner's site
+        run: |
+          sed -i 's|pub const SITE_HOST: &str = "botan.tail843dce.ts.net";|pub const SITE_HOST: \&str = "localhost";|' native/src-tauri/src/shell.rs
+          sed -i 's|const SITE_HOST: &str = "botan.tail843dce.ts.net";|const SITE_HOST: \&str = "localhost";|' native/src-tauri/src/app_style/mod.rs
+          sed -i 's|"https://botan.tail843dce.ts.net:4600"|"http://localhost:4600"|' native/src-tauri/gen/android/app/src/main/java/com/ciphermaniac/events/PageBridge.kt
+          sed -i 's|"https://botan.tail843dce.ts.net:4600/api|"http://localhost:4600/api|' native/src-tauri/tauri.conf.json
+          git diff --stat
+      - run: rustup target add x86_64-linux-android
+      - run: npm ci --prefix native
+      - name: Build
+        working-directory: native
+        run: |
+          export NDK_HOME="$ANDROID_NDK_LATEST_HOME"
+          npx tauri android build --apk --debug --target x86_64
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' |
+            sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Check
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_7
+          cores: 4
+          ram-size: 4096M
+          disable-animations: false
+          script: native/screens/m3-check.sh native/src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk "$RUNNER_TEMP/m3" "$EVENT_CODE"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: android-m3-check
+          if-no-files-found: error
+          path: ${{ runner.temp }}/m3
