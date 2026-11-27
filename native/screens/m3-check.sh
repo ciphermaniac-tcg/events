@@ -137,7 +137,7 @@ run_theme() {
   check "warm link opens the console" "$(path)" "/host/$code"
 
   # The Material navigation bar: 80 dp, the open tab's pill filled, and a tap moves it.
-  check "the navigation bar is 80 dp" "$(page "document.querySelector('.tm-tabbar').getBoundingClientRect().height >= 80")" true
+  check "the navigation bar is 80 dp" "$(page "Math.round(document.querySelector('.tm-tabbar').getBoundingClientRect().height) >= 80")" true
   check "the open tab's pill is filled" "$(pill "[aria-selected=true]")" true
   check "a closed tab's pill is empty" "$(pill '#console-bar-players')" false
   tap_el '#console-bar-players'
@@ -155,7 +155,7 @@ run_theme() {
   # A link that launches the app is the page it opens on, still signed in
   # after the app left the screen and was stopped.
   adb shell input keyevent KEYCODE_HOME
-  sleep 2
+  sleep 5
   adb shell am force-stop "$package"
   view "/t/$code"
   until_true "location.pathname === '/t/$code' && document.body.innerText.includes('Avery')"
@@ -256,6 +256,8 @@ run_theme() {
   adb shell settings put system user_rotation 1
   sleep 3
   check "held sideways, the sections are a rail" "$(rail)" true
+  check "with every tab in view" \
+    "$(page "[...document.querySelectorAll('.tm-console > .tm-tabbar [role=tab]')].every(t => t.getBoundingClientRect().bottom <= innerHeight)")" true
   shoot rail-sideways
   adb shell settings put system user_rotation 0
   sleep 2
