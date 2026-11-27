@@ -79,6 +79,58 @@
     }
   };
 
+  // A sheet from the bottom follows a drag down from its head, where its
+  // handle is, and closes when let go past a quarter of its height or
+  // flicked down; short of that it settles back.
+  let drag = null;
+  const slide = (sheet, from, to) =>
+    sheet.animate([{ translate: `0 ${from}px` }, { translate: to }], {
+      duration: matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 180,
+      easing: 'cubic-bezier(0.2, 0, 0, 1)',
+      fill: 'forwards'
+    });
+  const release = event => {
+    const { sheet, dy, at } = drag;
+    drag = null;
+    sheet.style.removeProperty('translate');
+    if (dy === 0) {
+      return;
+    }
+    const flicked = dy > 24 && dy / Math.max(1, event.timeStamp - at) > 0.5;
+    if (event.type !== 'touchend' || (!flicked && dy < sheet.offsetHeight / 4)) {
+      slide(sheet, dy, '0 0').finished.then(run => run.cancel(), () => undefined);
+      return;
+    }
+    const away = slide(sheet, dy, '0 100%');
+    void away.finished.then(() => {
+      close(sheet);
+      requestAnimationFrame(() => sheet.isConnected && away.cancel());
+    });
+  };
+  document.addEventListener(
+    'touchstart',
+    event => {
+      const head = event.target instanceof Element ? event.target.closest('.tm-sheet-head') : null;
+      drag =
+        head && innerWidth <= 640 && event.touches.length === 1
+          ? { sheet: head.parentElement, y: event.touches[0].clientY, at: event.timeStamp, dy: 0 }
+          : null;
+    },
+    { passive: true }
+  );
+  document.addEventListener(
+    'touchmove',
+    event => {
+      if (drag) {
+        drag.dy = Math.max(0, event.touches[0].clientY - drag.y);
+        drag.sheet.style.translate = `0 ${drag.dy}px`;
+      }
+    },
+    { passive: true }
+  );
+  document.addEventListener('touchend', event => drag && release(event));
+  document.addEventListener('touchcancel', event => drag && release(event));
+
   // Closes the top layer; false when there was none, or nothing on the page changed.
   window.__cmBack = () => {
     const layer = topLayer();

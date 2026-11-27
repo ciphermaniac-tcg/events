@@ -3,7 +3,10 @@
 //! navigation bar: 80 dp, each icon in a pill that fills on the open tab.
 //! Wider than a phone, the console's sections move to a navigation rail at
 //! the left, under the head bar, in place of its tabs along the top; the
-//! dashboard keeps its tabs beside its heading.
+//! dashboard keeps its tabs beside its heading. A sheet from the bottom of
+//! a phone has Material's 28 dp corners and a drag handle in place of its
+//! Close, which stays for screen readers; the drag itself is the Android
+//! bridge's (`app_bridge.js`).
 
 /// The navigation bar and the rail.
 pub const NAV: &str = "\
@@ -30,14 +33,24 @@ font-family: inherit; font-size: 12px; font-weight: 500; line-height: 16px; text
 body:has(.tm-console > .tm-tabbar) main.page { max-width: min(1180px, calc(100% - 80px)); \
 margin-left: max(80px, calc((100% - 1100px) / 2)); } }";
 
+/// The bottom sheet. Its head takes the drag, so the page doesn't pan.
+pub const SHEETS: &str = "\
+@media (max-width: 640px) { \
+.tm-sheet { padding-top: 22px; border-top: 0; border-radius: 28px 28px 0 0; } \
+.tm-sheet::before { content: ''; position: absolute; top: 10px; left: 50%; width: 32px; height: 4px; \
+margin-left: -16px; border-radius: 2px; background: var(--border); } \
+.tm-sheet-head { touch-action: none; } \
+.tm-sheet-head > .btn { position: absolute; width: 1px; height: 1px; padding: 0; border: 0; \
+overflow: hidden; clip-path: inset(50%); white-space: nowrap; } }";
+
 /// Every component's rules.
 pub fn css() -> String {
-    NAV.to_owned()
+    [NAV, SHEETS].join(" ")
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{NAV, css};
+    use super::{NAV, SHEETS, css};
 
     #[test]
     fn draws_the_open_tab_in_a_pill_on_an_80_dp_bar() {
@@ -54,5 +67,14 @@ mod tests {
         assert!(wide.contains(".tm-console > .tabs { display: none; }"));
         assert!(wide.contains(".tm-console > .tm-tabbar { position: fixed;"));
         assert!(wide.contains("body:has(.tm-console > .tm-tabbar) main.page { max-width: min(1180px, calc(100% - 80px));"));
+    }
+
+    #[test]
+    fn gives_a_phone_sheet_round_corners_and_a_handle_for_its_close() {
+        let css = css();
+        assert!(css.contains(SHEETS));
+        assert!(SHEETS.contains("border-radius: 28px 28px 0 0"));
+        assert!(SHEETS.contains(".tm-sheet::before { content: '';"));
+        assert!(SHEETS.contains(".tm-sheet-head > .btn { position: absolute; width: 1px;"));
     }
 }
