@@ -4,6 +4,7 @@ import android.content.Intent
 import android.content.res.Configuration
 import android.os.Bundle
 import android.os.SystemClock
+import android.webkit.CookieManager
 import android.webkit.WebView
 import androidx.annotation.Keep
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
@@ -80,6 +81,16 @@ class MainActivity : TauriActivity() {
       "share" -> files.share(message)
       "save" -> files.save(message)
     }
+  }
+
+  /**
+   * Writes the webview's cookies to disk as the app leaves the screen. The
+   * webview does so only now and then, so an app swiped away soon after
+   * signing in would otherwise open signed out.
+   */
+  override fun onStop() {
+    super.onStop()
+    CookieManager.getInstance().flush()
   }
 
   // Back before Android 13. From 13 on the system calls BackNavigation instead.
