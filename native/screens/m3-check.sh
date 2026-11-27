@@ -3,8 +3,9 @@
 # the local site (m3-site.sh), in light and dark: system bars and insets, a
 # site link opening the app warm and cold, Back and the predictive back
 # gesture on a sheet, Back on a menu and a dialog, the page held still under
-# a dialog, the keyboard over a field, and the offline page coming back on
-# Retry. Screenshots are m3-<theme>-<step>.png; results.txt says what held.
+# a dialog, the keyboard over a field, the Material navigation bar and its
+# rail when wider, the sheet's handle and drag, and the offline page coming
+# back on Retry. Screenshots are m3-<theme>-<step>.png; results.txt says what held.
 # Usage: m3-check.sh <apk> <out-dir> <event-code>. Run from the repo root.
 set -uo pipefail
 
@@ -51,16 +52,41 @@ until_true() {
   return 1
 }
 
-# Taps the centre of the first element the selector finds, in screen pixels.
-tap_el() {
+# The centre of the first element the selector finds, in screen pixels.
+point() {
   local rect top
   rect=$(page "(() => { const r = document.querySelector('$1')?.getBoundingClientRect(); \
 return r ? [r.x + r.width / 2, r.y + r.height / 2, devicePixelRatio].join(' ') : '' })()")
   top=$(webview_top)
   [ -n "$rect" ] || return 1
   read -r x y dpr <<<"$rect"
-  adb shell input tap "$(node -e "console.log(Math.round($x * $dpr))")" \
-    "$(node -e "console.log(Math.round($y * $dpr + $top))")"
+  echo "$(node -e "console.log(Math.round($x * $dpr))") $(node -e "console.log(Math.round($y * $dpr + $top))")"
+}
+
+tap_el() {
+  local at
+  at=$(point "$1") || return 1
+  # shellcheck disable=SC2086 # the point is "x y"
+  adb shell input tap $at
+}
+
+# Whether a tab's pill in the navigation bar is filled.
+pill() { page "getComputedStyle(document.querySelector('.tm-tabbar $1'), '::before').backgroundColor !== 'rgba(0, 0, 0, 0)'"; }
+
+# Whether the console's sections are a rail at the left, with its tabs along the top gone.
+rail() {
+  page "(() => { const bar = document.querySelector('.tm-console > .tm-tabbar'); \
+const tabs = document.querySelector('.tm-console > .tabs'); \
+return getComputedStyle(bar).flexDirection === 'column' && getComputedStyle(tabs).display === 'none' \
+&& document.querySelector('main.page').getBoundingClientRect().left >= 80 })()"
+}
+
+sheet_open() { page "Boolean(document.querySelector('.tm-sheet'))"; }
+
+open_sheet() {
+  page "document.querySelector('.tm-seat-link')?.click()" >/dev/null
+  until_true "document.querySelector('.tm-sheet')" || note "FAIL $theme: the player sheet did not open"
+  sleep 1.5
 }
 
 webview_top() {
@@ -109,6 +135,19 @@ run_theme() {
   sleep 2
   shoot console
   check "warm link opens the console" "$(path)" "/host/$code"
+
+  # The Material navigation bar: 80 dp, the open tab's pill filled, and a tap moves it.
+  check "the navigation bar is 80 dp" "$(page "document.querySelector('.tm-tabbar').getBoundingClientRect().height >= 80")" true
+  check "the open tab's pill is filled" "$(pill "[aria-selected=true]")" true
+  check "a closed tab's pill is empty" "$(pill '#console-bar-players')" false
+  tap_el '#console-bar-players'
+  sleep 2
+  check "a tap opens that tab" "$(page "document.getElementById('console-bar-players').getAttribute('aria-selected')")" true
+  check "and fills its pill" "$(pill '#console-bar-players')" true
+  check "and empties the last one's" "$(pill '#console-bar-round')" false
+  shoot nav-players
+  tap_el '#console-bar-round'
+  sleep 1.5
   adb shell input keyevent KEYCODE_BACK
   sleep 2
   check "Back after a warm link" "$(path)" "/"
@@ -127,10 +166,10 @@ run_theme() {
   shoot public
 
   # The player sheet: the gesture shrinks it, letting go restores it, finishing closes it.
-  page "document.querySelector('.tm-seat-link')?.click()" >/dev/null
-  until_true "document.querySelector('.tm-sheet')" || note "FAIL $theme: the player sheet did not open"
-  sleep 2
+  open_sheet
   shoot sheet
+  check "the sheet has 28 dp corners" "$(page "getComputedStyle(document.querySelector('.tm-sheet')).borderTopLeftRadius")" 28px
+  check "a handle stands in for Close" "$(page "document.querySelector('.tm-sheet-head > .btn').getBoundingClientRect().width")" 1
   swipe_hold 1500 320
   shoot sheet-gesture
   local scale
@@ -147,9 +186,31 @@ run_theme() {
   swipe_hold 1500 600
   adb shell input motionevent UP 600 1500
   sleep 1.5
-  check "a finished gesture closes the sheet" "$(page "Boolean(document.querySelector('.tm-sheet'))")" false
+  check "a finished gesture closes the sheet" "$(sheet_open)" false
   check "and stays on the event" "$(path)" "/t/$code"
   shoot sheet-closed
+
+  # Back closes the sheet, and so does a drag down by its handle; a short drag doesn't.
+  open_sheet
+  adb shell input keyevent KEYCODE_BACK
+  sleep 1.5
+  check "Back closes the sheet" "$(sheet_open)" false
+  check "and stays on the event" "$(path)" "/t/$code"
+  open_sheet
+  local x y
+  read -r x y <<<"$(point '.tm-sheet-head h2')"
+  adb shell input swipe "$x" "$y" "$x" "$((y + 40))" 600
+  sleep 1.5
+  check "a short drag keeps the sheet" "$(sheet_open)" true
+  adb shell input motionevent DOWN "$x" "$y"
+  for d in 100 200 300 400; do adb shell input motionevent MOVE "$x" "$((y + d))"; done
+  sleep 0.5
+  shoot sheet-drag
+  adb shell input motionevent MOVE "$x" "$((y + 600))"
+  adb shell input motionevent UP "$x" "$((y + 600))"
+  sleep 1.5
+  check "a drag down by the handle closes the sheet" "$(sheet_open)" false
+  check "and stays on the event" "$(path)" "/t/$code"
 
   # Back closes the account menu before it leaves the page.
   page "document.querySelector('.site-head .tm-acct-button')?.click()" >/dev/null
@@ -168,6 +229,7 @@ run_theme() {
   until_true "document.querySelector('dialog:modal')"
   sleep 1
   shoot dialog
+  check "the dialog has 28 dp corners" "$(page "getComputedStyle(document.querySelector('dialog:modal')).borderTopLeftRadius")" 28px
   check "the page behind a dialog holds still" "$(page "getComputedStyle(document.documentElement).overflow")" hidden
   adb shell input keyevent KEYCODE_BACK
   sleep 1.5
@@ -186,6 +248,24 @@ run_theme() {
     "$(page "(() => { const r = document.querySelector('#add-first').getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight })()")" true
   adb shell input keyevent KEYCODE_BACK
   sleep 1
+
+  # Wider than a phone, the console's sections are a rail at the left.
+  go "/host/$code"
+  until_true "document.querySelector('.tm-console > .tm-tabbar')"
+  adb shell settings put system accelerometer_rotation 0
+  adb shell settings put system user_rotation 1
+  sleep 3
+  check "held sideways, the sections are a rail" "$(rail)" true
+  shoot rail-sideways
+  adb shell settings put system user_rotation 0
+  sleep 2
+  adb shell wm size 1800x2400
+  sleep 3
+  check "on a small tablet, the sections are a rail" "$(rail)" true
+  shoot rail-tablet
+  adb shell wm size reset
+  sleep 3
+  check "on a phone, the bar is back" "$(page "getComputedStyle(document.querySelector('.tm-console > .tm-tabbar')).flexDirection")" row
 }
 
 offline() {
@@ -217,4 +297,6 @@ adb shell getprop ro.build.version.sdk | tee -a "$results"
 run_theme light
 run_theme dark
 offline
-grep -c '^FAIL' "$results" | xargs echo "failures:" | tee -a "$results"
+failures=$(grep -c '^FAIL' "$results" || true)
+echo "failures: $failures" | tee -a "$results"
+[ "$failures" = 0 ]
