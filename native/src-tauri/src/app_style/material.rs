@@ -2,7 +2,8 @@
 //! console's and dashboard's bar along the bottom of a phone is a Material
 //! navigation bar: 80 dp, each icon in a pill that fills on the open tab.
 //! Wider than a phone, the console's sections move to a navigation rail at
-//! the left, under the head bar, in place of its tabs along the top; the
+//! the left, under the head bar, in place of its tabs along the top, with
+//! icons alone when the screen is short, as on a phone held sideways; the
 //! dashboard keeps its tabs beside its heading. A sheet from the bottom of
 //! a phone has Material's 28 dp corners and a drag handle in place of its
 //! Close, which stays for screen readers; the drag itself is the Android
@@ -23,8 +24,8 @@ width: 64px; height: 32px; margin-left: -32px; border-radius: 16px; } \
 @media (min-width: 641px) { \
 .tm-console > .tabs { display: none; } \
 .tm-console > .tm-tabbar { position: fixed; top: calc(var(--topnav-h) + 1px); bottom: 0; left: 0; z-index: 30; \
-display: flex; flex-direction: column; align-items: center; gap: 12px; \
-width: calc(80px + env(safe-area-inset-left)); padding: 12px 0 0 env(safe-area-inset-left); \
+display: flex; flex-direction: column; align-items: center; gap: 12px; overflow-y: auto; \
+width: calc(80px + env(safe-area-inset-left)); padding: 12px 0 12px env(safe-area-inset-left); \
 border-right: 1px solid var(--border); background: var(--surface); } \
 .tm-console > .tm-tabbar :is(button, a) { position: relative; display: flex; flex-direction: column; align-items: center; \
 gap: 4px; width: 80px; padding: 0 0 4px; border: 0; background: none; color: var(--muted); \
@@ -32,7 +33,9 @@ font-family: inherit; font-size: 12px; font-weight: 500; line-height: 16px; text
 .tm-console > .tm-tabbar :is(button, a)::before { top: 0; } \
 .tm-console > .tm-tabbar [aria-selected='true'] { color: var(--fg); font-weight: 600; } \
 body:has(.tm-console > .tm-tabbar) main.page { max-width: min(1180px, calc(100% - 80px)); \
-margin-left: max(80px, calc((100% - 1100px) / 2)); } }";
+margin-left: max(80px, calc((100% - 1100px) / 2)); } \
+@media (max-height: 480px) { .tm-console > .tm-tabbar :is(button, a) > span { position: absolute; \
+width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; } } }";
 
 /// The bottom sheet. Its head takes the drag, so the page doesn't pan.
 pub const SHEETS: &str = "\
@@ -79,6 +82,14 @@ mod tests {
         let (_, wide) = NAV.split_once("@media (min-width: 641px)").unwrap();
         assert!(wide.contains(".tm-console > .tabs { display: none; }"));
         assert!(wide.contains(".tm-console > .tm-tabbar { position: fixed;"));
+    }
+
+    #[test]
+    fn keeps_every_rail_tab_in_reach_on_a_phone_held_sideways() {
+        let (_, wide) = NAV.split_once("@media (min-width: 641px)").unwrap();
+        let (_, short) = wide.split_once("@media (max-height: 480px)").unwrap();
+        assert!(short.contains(":is(button, a) > span { position: absolute;"));
+        assert!(wide.contains("overflow-y: auto;"));
         assert!(wide.contains("body:has(.tm-console > .tm-tabbar) main.page { max-width: min(1180px, calc(100% - 80px));"));
     }
 
