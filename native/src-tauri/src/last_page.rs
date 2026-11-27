@@ -1,5 +1,6 @@
 //! Opens the main window where it was left: the last page of the site that
-//! finished loading, kept in the app's data directory.
+//! finished loading, kept in the app's data directory. On Android a link
+//! to the site that launches the app is written there first (SiteLinks.kt).
 
 use std::{fs, path::PathBuf};
 

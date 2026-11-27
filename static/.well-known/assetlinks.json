@@ -1,0 +1,10 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.ciphermaniac.events",
+      "sha256_cert_fingerprints": ["D2:F9:20:6E:8D:FB:FB:55:BB:DE:C7:1A:C7:19:6A:92:46:3F:18:28:37:22:10:5A:46:63:40:B9:33:02:11:56"]
+    }
+  }
+]

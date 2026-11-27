@@ -16,7 +16,7 @@ import org.json.JSONObject
  * either, so no other page the webview opens can reach the activity.
  */
 object PageBridge {
-  private const val SITE_ORIGIN = "https://events.ciphermaniac.com"
+  const val SITE_ORIGIN = "https://events.ciphermaniac.com"
   private const val TAG = "PageBridge"
 
   /** Runs the script on the site's pages and hands their main frame's messages to [onMessage]. */

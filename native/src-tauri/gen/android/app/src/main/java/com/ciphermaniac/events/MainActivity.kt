@@ -1,5 +1,6 @@
 package com.ciphermaniac.events
 
+import android.content.Intent
 import android.content.res.Configuration
 import android.os.Bundle
 import android.os.SystemClock
@@ -21,7 +22,16 @@ class MainActivity : TauriActivity() {
     bars.apply()
     back = BackNavigation(this)
     files = FileHandoff(this)
+    if (savedInstanceState == null) {
+      SiteLinks.openAtLaunch(this)
+    }
     super.onCreate(savedInstanceState)
+  }
+
+  /** A link to the site while the app runs (the activity is singleTask). */
+  override fun onNewIntent(intent: Intent) {
+    super.onNewIntent(intent)
+    SiteLinks.link(intent)?.let { webView?.loadUrl(it) }
   }
 
   /**
