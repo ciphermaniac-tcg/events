@@ -55,6 +55,30 @@
     (owner ? focused : layer).dispatchEvent(escape);
   };
 
+  // Predictive back (BackNavigation.kt): as the gesture runs, the top sheet
+  // or dialog shrinks toward the edge it rests on, as Material's do, and it
+  // takes its size back when the gesture is let go or it closes.
+  let shrunk = null;
+  const restore = () => {
+    shrunk?.style.removeProperty('scale');
+    shrunk?.style.removeProperty('transform-origin');
+    shrunk = null;
+  };
+  const edge = box =>
+    box.top > 0 && box.bottom >= innerHeight - 1 ? 'bottom' : box.right >= innerWidth - 1 ? 'right' : 'center';
+  window.__cmBackProgress = progress => {
+    const layer = topLayer();
+    const target = layer?.matches('dialog, [role="dialog"]') ? layer : null;
+    if (shrunk !== target || progress <= 0) {
+      restore();
+    }
+    if (target && progress > 0) {
+      shrunk = target;
+      target.style.transformOrigin = edge(target.getBoundingClientRect());
+      target.style.scale = String(1 - 0.1 * Math.min(progress, 1));
+    }
+  };
+
   // Closes the top layer; false when there was none, or nothing on the page changed.
   window.__cmBack = () => {
     const layer = topLayer();
@@ -66,6 +90,7 @@
     close(layer);
     const changed = watch.takeRecords().length > 0;
     watch.disconnect();
+    restore();
     queue();
     return changed;
   };

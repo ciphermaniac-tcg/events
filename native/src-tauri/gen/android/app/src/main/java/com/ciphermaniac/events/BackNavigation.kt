@@ -2,6 +2,8 @@ package com.ciphermaniac.events
 
 import android.os.Build
 import android.webkit.WebView
+import android.window.BackEvent
+import android.window.OnBackAnimationCallback
 import android.window.OnBackInvokedCallback
 import android.window.OnBackInvokedDispatcher
 import androidx.activity.ComponentActivity
@@ -18,13 +20,15 @@ import androidx.lifecycle.LifecycleEventObserver
  * those to do, so on the first page with nothing open the system plays its
  * back-to-home preview. The page says when a layer opens or its history
  * moves, and Rust says when a page starts or finishes loading ([refresh]).
+ * From Android 14 the back gesture previews closing a sheet or dialog: the
+ * page shrinks it as the gesture runs ([preview]).
  * Create it before the activity's onCreate.
  */
 class BackNavigation(private val activity: ComponentActivity) {
   private var webView: WebView? = null
   private var layerOpen = false
   private var pageCanGoBack = false
-  private val system = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) SystemBack(activity, ::back) else null
+  private val system = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) SystemBack(activity, ::back, ::preview) else null
 
   fun attach(webView: WebView) {
     this.webView = webView
@@ -41,6 +45,13 @@ class BackNavigation(private val activity: ComponentActivity) {
   /** Claims back from the system while there is something for it to do in the app. */
   fun refresh() {
     system?.claimed = layerOpen || pageCanGoBack || webView?.canGoBack() == true
+  }
+
+  /** How far a back gesture has gone, from 0 to 1, for the page to preview closing its top layer. */
+  private fun preview(progress: Float) {
+    if (layerOpen || progress == 0f) {
+      webView?.evaluateJavascript("window.__cmBackProgress?.($progress)", null)
+    }
   }
 
   /** Closes the page's top layer, or goes back a page, or leaves. */
@@ -90,11 +101,22 @@ class BackNavigation(private val activity: ComponentActivity) {
  * enabled callback on the activity's back dispatcher would hold back from
  * the system for good, with no back-to-home preview. So once the activity is
  * created, the dispatcher is cut off from the window, and this registers
- * [onBack] with the window only while [claimed].
+ * [onBack] with the window only while [claimed]. From Android 14 it also
+ * hands [onProgress] the gesture's progress as it runs, and 0 when it is
+ * let go.
  */
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
-private class SystemBack(private val activity: ComponentActivity, onBack: () -> Unit) {
-  private val callback = OnBackInvokedCallback(onBack)
+private class SystemBack(
+  private val activity: ComponentActivity,
+  onBack: () -> Unit,
+  onProgress: (Float) -> Unit
+) {
+  private val callback =
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+      previewing(onBack, onProgress)
+    } else {
+      OnBackInvokedCallback(onBack)
+    }
   private var registered = false
 
   var claimed = false
@@ -128,6 +150,17 @@ private class SystemBack(private val activity: ComponentActivity, onBack: () -> 
     registered = claimed
   }
 }
+
+/** Back that follows the gesture as it runs, from Android 14. */
+@RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+private fun previewing(onBack: () -> Unit, onProgress: (Float) -> Unit) =
+  object : OnBackAnimationCallback {
+    override fun onBackInvoked() = onBack()
+
+    override fun onBackProgressed(backEvent: BackEvent) = onProgress(backEvent.progress)
+
+    override fun onBackCancelled() = onProgress(0f)
+  }
 
 /** Where the activity's back dispatcher registers, so its callbacks never reach the window. */
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
