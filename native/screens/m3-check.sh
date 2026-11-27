@@ -113,19 +113,23 @@ run_theme() {
   sleep 2
   check "Back after a warm link" "$(path)" "/"
 
-  # A link that launches the app is the page it opens on.
+  # A link that launches the app is the page it opens on, still signed in
+  # after the app left the screen and was stopped.
+  adb shell input keyevent KEYCODE_HOME
+  sleep 2
   adb shell am force-stop "$package"
   view "/t/$code"
   until_true "location.pathname === '/t/$code' && document.body.innerText.includes('Avery')"
   check "cold link opens the event" "$(path)" "/t/$code"
   check "cold link loads once" "$(page 'history.length')" "1"
+  check "still signed in after a stop" "$(page "Boolean(document.querySelector('.tm-acct-button'))")" true
   sleep 2
   shoot public
 
   # The player sheet: the gesture shrinks it, letting go restores it, finishing closes it.
-  page "[...document.querySelectorAll('button, a')].find(b => /^Avery/.test(b.textContent.trim()))?.click()" >/dev/null
+  page "document.querySelector('.tm-seat-link')?.click()" >/dev/null
   until_true "document.querySelector('.tm-sheet')" || note "FAIL $theme: the player sheet did not open"
-  sleep 1
+  sleep 2
   shoot sheet
   swipe_hold 1500 320
   shoot sheet-gesture
