@@ -10,8 +10,9 @@
 //! system's font (`system_font.rs`), a held control dims rather than
 //! shrinks (`press.rs`), focus rings wait for the keyboard (`focus.rs`),
 //! meta-line links drop their underline at rest (`links.rs`), and the
-//! footer is hidden (`footer.rs`). Only the site's own pages get
-//! it, and the site served to browsers is untouched.
+//! footer is hidden (`footer.rs`). The page behind an open dialog holds
+//! still, as it does behind the site's sheets. Only the site's own pages
+//! get it, and the site served to browsers is untouched.
 
 mod focus;
 mod footer;
@@ -28,6 +29,10 @@ a, img { -webkit-user-drag: none; } \
 :root { color-scheme: light; } \
 :root:has(body[data-mode=\"dark\"]), :root:has(body.tm-home-mode) { color-scheme: dark; } \
 @media (prefers-color-scheme: dark) { :root:has(body:not([data-mode])) { color-scheme: dark; } }";
+
+/// A modal dialog leaves the page behind it in place, where the site would
+/// let it scroll under the scrim.
+const MODAL: &str = ":root:has(dialog:modal) { overflow: hidden; }";
 
 /// `!important` wins over the site's own pointer cursors.
 #[cfg(desktop)]
@@ -55,6 +60,7 @@ const SITE_HOST: &str = "events.ciphermaniac.com";
 fn rules() -> String {
     [
         SELECTION,
+        MODAL,
         PLATFORM,
         focus::CSS,
         footer::CSS,
@@ -102,6 +108,11 @@ mod tests {
             !script.contains("input, textarea"),
             "fields stay selectable"
         );
+    }
+
+    #[test]
+    fn holds_the_page_still_behind_a_dialog() {
+        assert!(script().contains(":root:has(dialog:modal) { overflow: hidden; }"));
     }
 
     #[test]
