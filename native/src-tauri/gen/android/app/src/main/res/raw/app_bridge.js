@@ -1,3 +1,78 @@
+// Audit probe (native/android-feel-audit only, never merged): records when
+// the page first shows content and when it is usable, layout shifts, long
+// tasks, input timing and font loads, for native/screens/feel.mjs to read.
+(() => {
+  if (window.top !== window || window.__feel) {
+    return;
+  }
+  const feel = (window.__feel = { origin: performance.timeOrigin, marks: {}, shifts: [], long: [], events: [], fonts: [], lcp: 0, seenSkeleton: false, taps: [] });
+  const mark = (name, at) => {
+    if (!(name in feel.marks)) {
+      feel.marks[name] = at;
+    }
+  };
+  const check = at => {
+    const main = document.querySelector('main.page');
+    if (document.getElementById('root')?.childElementCount) {
+      mark('root', at);
+    }
+    if (!main) {
+      return;
+    }
+    if (main.querySelector('.skeleton')) {
+      feel.seenSkeleton = true;
+      mark('skeleton', at);
+    }
+    if (main.innerText.trim().length > 0) {
+      mark('mainText', at);
+    }
+    const heading = main.querySelector('h1, h2');
+    if (heading && heading.textContent.trim() && !main.querySelector('.skeleton')) {
+      mark('usable', at);
+    }
+  };
+  let queued = false;
+  const queue = () => {
+    if (!queued) {
+      queued = true;
+      requestAnimationFrame(at => {
+        queued = false;
+        check(at);
+      });
+    }
+  };
+  new MutationObserver(queue).observe(document, { subtree: true, childList: true, characterData: true });
+  const observe = (type, take, extra = {}) => {
+    try {
+      new PerformanceObserver(list => list.getEntries().forEach(take)).observe({ type, buffered: true, ...extra });
+    } catch (err) {
+      feel[`no_${type}`] = String(err);
+    }
+  };
+  observe('layout-shift', e => feel.shifts.push({ at: e.startTime, value: e.value, input: e.hadRecentInput }));
+  observe('longtask', e => feel.long.push({ at: e.startTime, ms: e.duration }));
+  observe('largest-contentful-paint', e => (feel.lcp = e.startTime));
+  observe(
+    'event',
+    e =>
+      feel.events.push({
+        name: e.name,
+        at: e.startTime,
+        delay: e.processingStart - e.startTime,
+        processing: e.processingEnd - e.processingStart,
+        duration: e.duration
+      }),
+    { durationThreshold: 16 }
+  );
+  for (const name of ['pointerdown', 'pointerup', 'click', 'touchstart']) {
+    addEventListener(name, e => feel.taps.push({ name, at: e.timeStamp }), { capture: true, passive: true });
+  }
+  addEventListener('popstate', e => (feel.popstate = e.timeStamp));
+  document.fonts?.addEventListener('loadingdone', e =>
+    feel.fonts.push({ at: performance.now(), faces: e.fontfaces.map(f => `${f.family} ${f.weight}`) })
+  );
+})();
+
 // The site's side of the Android app (PageBridge.kt). It runs first on each
 // of the site's pages, where `cmNative`, the channel to the activity, exists.
 (() => {

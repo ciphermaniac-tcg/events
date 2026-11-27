@@ -4,6 +4,7 @@ import android.content.Intent
 import android.content.res.Configuration
 import android.os.Bundle
 import android.os.SystemClock
+import android.util.Log
 import android.webkit.CookieManager
 import android.webkit.WebView
 import androidx.annotation.Keep
@@ -19,6 +20,7 @@ class MainActivity : TauriActivity() {
   private var pageLoaded = false
 
   override fun onCreate(savedInstanceState: Bundle?) {
+    feel("create")
     holdSplash()
     bars.apply()
     back = BackNavigation(this)
@@ -50,12 +52,14 @@ class MainActivity : TauriActivity() {
   /** Called from Rust (android.rs) when the main window starts loading a page. */
   @Keep
   fun onMainPageStarted() {
+    feel("pageStarted")
     back.refresh()
   }
 
   /** Called from Rust (android.rs) when the main window's page has loaded. */
   @Keep
   fun onMainPageFinished() {
+    feel("pageFinished")
     pageLoaded = true
     back.refresh()
   }
@@ -67,6 +71,7 @@ class MainActivity : TauriActivity() {
   }
 
   override fun onWebViewCreate(webView: WebView) {
+    feel("webView")
     this.webView = webView
     bars.attach()
     followFontScale(webView)
@@ -111,6 +116,11 @@ class MainActivity : TauriActivity() {
   /** The page's text at the size set for the whole phone, which a webview ignores unless told. */
   private fun followFontScale(webView: WebView) {
     webView.settings.textZoom = (resources.configuration.fontScale * 100).roundToInt()
+  }
+
+  /** Audit timing (native/android-feel-audit only): wall-clock milliseconds for feel.mjs. */
+  private fun feel(what: String) {
+    Log.i("Feel", "$what ${System.currentTimeMillis()}")
   }
 
   private companion object {

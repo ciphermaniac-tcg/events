@@ -1,0 +1,94 @@
+# =============================================================================
+# Android feel audit (throwaway, native/android-feel-audit only)
+# =============================================================================
+# Builds two debug x86_64 builds of the Android app, one on the live site and
+# one on the site built from this commit (served on the runner with a local
+# D1 and made-up events), and measures both on an emulator with
+# native/screens/feel.mjs: starts, navigation, input, the webview's tells,
+# offline and throttled loads, and payload. Results are the android-feel
+# artifact. No secrets; the live build only reads public pages.
+# =============================================================================
+
+name: Android feel audit
+
+on:
+  push:
+    branches: [native/android-feel-audit]
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880
+        with:
+          distribution: temurin
+          java-version: '17'
+      - run: npm ci
+      - run: npm run build
+      - name: Serve and seed the site
+        run: |
+          native/screens/m3-site.sh start
+          echo "EVENT_CODE=$(native/screens/m3-site.sh seed)" >> "$GITHUB_ENV"
+          echo "BIG_CODE=$(native/screens/feel-seed.sh)" >> "$GITHUB_ENV"
+      - run: rustup target add x86_64-linux-android
+      - run: npm ci --prefix native
+      - name: Build on the live site
+        working-directory: native
+        run: |
+          sed -i 's|pub const SITE_HOST: &str = "botan.tail843dce.ts.net";|pub const SITE_HOST: \&str = "events.ciphermaniac.com";|' src-tauri/src/shell.rs
+          sed -i 's|pub const SITE_PORT: Option<u16> = Some(4600);|pub const SITE_PORT: Option<u16> = None;|' src-tauri/src/shell.rs
+          sed -i 's|const SITE_HOST: &str = "botan.tail843dce.ts.net";|const SITE_HOST: \&str = "events.ciphermaniac.com";|' src-tauri/src/app_style/mod.rs
+          sed -i 's|"https://botan.tail843dce.ts.net:4600"|"https://events.ciphermaniac.com"|' src-tauri/gen/android/app/src/main/java/com/ciphermaniac/events/PageBridge.kt
+          sed -i 's|"https://botan.tail843dce.ts.net:4600/api/auth/login/dev?name=Reese"|"https://events.ciphermaniac.com"|' src-tauri/tauri.conf.json
+          git diff --stat
+          export NDK_HOME="$ANDROID_NDK_LATEST_HOME"
+          npx tauri android build --apk --debug --target x86_64
+          cp src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk "$RUNNER_TEMP/live.apk"
+          git checkout -- .
+      - name: Build on the runner's site
+        working-directory: native
+        run: |
+          sed -i 's|pub const SITE_HOST: &str = "botan.tail843dce.ts.net";|pub const SITE_HOST: \&str = "localhost";|' src-tauri/src/shell.rs
+          sed -i 's|const SITE_HOST: &str = "botan.tail843dce.ts.net";|const SITE_HOST: \&str = "localhost";|' src-tauri/src/app_style/mod.rs
+          sed -i 's|"https://botan.tail843dce.ts.net:4600"|"http://localhost:4600"|' src-tauri/gen/android/app/src/main/java/com/ciphermaniac/events/PageBridge.kt
+          sed -i 's|"https://botan.tail843dce.ts.net:4600/api|"http://localhost:4600/api|' src-tauri/tauri.conf.json
+          git diff --stat
+          export NDK_HOME="$ANDROID_NDK_LATEST_HOME"
+          npx tauri android build --apk --debug --target x86_64
+          cp src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk "$RUNNER_TEMP/local.apk"
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' |
+            sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Measure
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_7
+          cores: 4
+          ram-size: 4096M
+          disable-animations: false
+          script: native/screens/feel-run.sh "$RUNNER_TEMP/feel" "$EVENT_CODE" "$BIG_CODE" PUF98Z
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: android-feel
+          if-no-files-found: error
+          path: ${{ runner.temp }}/feel
