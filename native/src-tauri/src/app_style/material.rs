@@ -6,7 +6,8 @@
 //! dashboard keeps its tabs beside its heading. A sheet from the bottom of
 //! a phone has Material's 28 dp corners and a drag handle in place of its
 //! Close, which stays for screen readers; the drag itself is the Android
-//! bridge's (`app_bridge.js`).
+//! bridge's (`app_bridge.js`). Dialogs have 28 dp corners, a 24 sp title
+//! and their answers as text buttons, the main one in the accent's ink.
 
 /// The navigation bar and the rail.
 pub const NAV: &str = "\
@@ -43,14 +44,26 @@ margin-left: -16px; border-radius: 2px; background: var(--border); } \
 .tm-sheet-head > .btn { position: absolute; width: 1px; height: 1px; padding: 0; border: 0; \
 overflow: hidden; clip-path: inset(50%); white-space: nowrap; } }";
 
+/// The dialog. Its parts share the title's 24 dp inset.
+pub const DIALOGS: &str = "\
+.tm-modal { width: min(560px, calc(100vw - 48px)); border: 0; border-radius: 28px; } \
+.tm-modal > :is(.tm-box-bar, .tm-choice) { padding-inline: 24px; } \
+.tm-modal > .tm-box-bar:first-child { padding-block: 24px 16px; border-bottom: 0; } \
+.tm-modal h3 { font-size: 24px; line-height: 32px; font-weight: 400; } \
+.tm-modal .tm-modal-foot { gap: 8px; padding-block: 16px 24px; border-top: 0; } \
+.tm-modal .tm-modal-foot .btn { min-width: 0; height: 40px; padding: 0 12px; border: 0; border-radius: 20px; \
+background: none; box-shadow: none; color: var(--accent-ink); font-weight: 600; } \
+.tm-modal .tm-modal-foot .tm-danger { color: var(--negative); } \
+.tm-modal .tm-modal-foot .btn:disabled { color: var(--muted); }";
+
 /// Every component's rules.
 pub fn css() -> String {
-    [NAV, SHEETS].join(" ")
+    [NAV, SHEETS, DIALOGS].join(" ")
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{NAV, SHEETS, css};
+    use super::{DIALOGS, NAV, SHEETS, css};
 
     #[test]
     fn draws_the_open_tab_in_a_pill_on_an_80_dp_bar() {
@@ -76,5 +89,17 @@ mod tests {
         assert!(SHEETS.contains("border-radius: 28px 28px 0 0"));
         assert!(SHEETS.contains(".tm-sheet::before { content: '';"));
         assert!(SHEETS.contains(".tm-sheet-head > .btn { position: absolute; width: 1px;"));
+    }
+
+    #[test]
+    fn rounds_a_dialog_and_answers_it_with_text_buttons() {
+        assert!(css().contains(DIALOGS));
+        assert!(DIALOGS.contains(
+            ".tm-modal { width: min(560px, calc(100vw - 48px)); border: 0; border-radius: 28px; }"
+        ));
+        assert!(DIALOGS.contains("background: none; box-shadow: none; color: var(--accent-ink);"));
+        assert!(
+            DIALOGS.contains(".tm-modal .tm-modal-foot .tm-danger { color: var(--negative); }")
+        );
     }
 }
