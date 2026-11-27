@@ -54,7 +54,7 @@ const PLATFORM_SCRIPT: &str = "";
 #[cfg(mobile)]
 const PLATFORM_SCRIPT: &str = footer::ACCOUNT_MENU_LINKS;
 
-const SITE_HOST: &str = "events.ciphermaniac.com";
+const SITE_HOST: &str = "botan.tail843dce.ts.net";
 
 /// Every rule the app adds to the site.
 fn rules() -> String {

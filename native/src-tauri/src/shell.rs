@@ -17,7 +17,9 @@ use crate::{last_page, sign_in};
 
 pub const MAIN_WINDOW: &str = "main";
 
-pub const SITE_HOST: &str = "events.ciphermaniac.com";
+// A test build for the Botan preview: the site is there, on its own port.
+pub const SITE_HOST: &str = "botan.tail843dce.ts.net";
+pub const SITE_PORT: Option<u16> = Some(4600);
 
 /// Hosts the app loads itself: the site, Clerk's sign-in, and the bot checks
 /// the site and Discord show in frames (macOS asks about frames too).
@@ -58,7 +60,8 @@ fn is_in_app_host(host: &str) -> bool {
 /// Whether `url` is on the site itself: over HTTPS on its own port, or with
 /// `local` (a debug build) a local server standing in for it.
 pub fn is_site_at(url: &Url, local: bool) -> bool {
-    let live = url.scheme() == "https" && url.host_str() == Some(SITE_HOST) && url.port().is_none();
+    let live =
+        url.scheme() == "https" && url.host_str() == Some(SITE_HOST) && url.port() == SITE_PORT;
     live || (local
         && url
             .host_str()

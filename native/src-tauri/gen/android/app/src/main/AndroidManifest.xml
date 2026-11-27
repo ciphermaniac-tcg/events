@@ -27,7 +27,8 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="https" />
-                <data android:host="events.ciphermaniac.com" />
+                <data android:host="botan.tail843dce.ts.net" />
+                <data android:port="4600" />
                 <data android:pathPrefix="/t/" />
                 <data android:pathPrefix="/host/" />
                 <data android:pathPrefix="/stores/" />
