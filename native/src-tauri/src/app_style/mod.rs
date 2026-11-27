@@ -11,12 +11,15 @@
 //! shrinks (`press.rs`), focus rings wait for the keyboard (`focus.rs`),
 //! meta-line links drop their underline at rest (`links.rs`), and the
 //! footer is hidden (`footer.rs`). The page behind an open dialog holds
-//! still, as it does behind the site's sheets. Only the site's own pages
+//! still, as it does behind the site's sheets. On Android, Material 3's
+//! components stand in for the site's own (`material.rs`). Only the site's own pages
 //! get it, and the site served to browsers is untouched.
 
 mod focus;
 mod footer;
 mod links;
+#[cfg(any(target_os = "android", test))]
+mod material;
 mod press;
 mod system_font;
 
@@ -54,6 +57,16 @@ const PLATFORM_SCRIPT: &str = "";
 #[cfg(mobile)]
 const PLATFORM_SCRIPT: &str = footer::ACCOUNT_MENU_LINKS;
 
+/// Material 3's components, on Android only.
+#[cfg(target_os = "android")]
+fn material() -> String {
+    material::css()
+}
+#[cfg(not(target_os = "android"))]
+fn material() -> String {
+    String::new()
+}
+
 const SITE_HOST: &str = "botan.tail843dce.ts.net";
 
 /// Every rule the app adds to the site.
@@ -67,6 +80,7 @@ fn rules() -> String {
         links::CSS,
         press::CSS,
         &system_font::css(),
+        &material(),
     ]
     .join(" ")
 }
@@ -108,6 +122,12 @@ mod tests {
             !script.contains("input, textarea"),
             "fields stay selectable"
         );
+    }
+
+    #[cfg(not(target_os = "android"))]
+    #[test]
+    fn leaves_material_to_android() {
+        assert!(!script().contains("--tabbar-h: 80px"));
     }
 
     #[test]
