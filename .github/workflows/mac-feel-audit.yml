@@ -1,0 +1,89 @@
+# =============================================================================
+# Mac feel audit (throwaway, native/mac-feel-audit only)
+# =============================================================================
+# Builds the Mac app with the audit probe (src-tauri/src/feel.rs) and measures
+# it with native/screens/feel-mac.py: first launches and relaunches, reopening
+# from the Dock, real clicks, scrolling, resizing, theme changes, the web's
+# tells, offline and a slowed network, memory. Twice: on the live site, reading
+# public pages only, then on the site built from this commit, served on the
+# runner as events.ciphermaniac.com itself (feel-mac-site.sh) with made-up
+# events, signed in, and with a prototype app-only shell cache. Results are
+# the mac-feel artifact. No secrets.
+# =============================================================================
+
+name: Mac feel audit
+
+on:
+  push:
+    branches: [native/mac-feel-audit]
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  audit:
+    runs-on: macos-15
+    timeout-minutes: 100
+    steps:
+      - name: Name the work paths
+        run: |
+          {
+            echo "OUT=$RUNNER_TEMP/feel"
+            echo "FEELHID=$RUNNER_TEMP/feelhid"
+            echo "FEEL_STATE=$RUNNER_TEMP/feel-site"
+          } >> "$GITHUB_ENV"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880
+        with:
+          distribution: temurin
+          java-version: '17'
+      - run: npm ci --prefix native
+      - name: Build the app
+        working-directory: native
+        run: npx tauri build --bundles app
+      - run: npm ci
+      - name: Build the site
+        run: |
+          npm run build
+          cp native/screens/feel-sw.js dist/feel-sw.js
+      - run: swiftc -O -o "$FEELHID" native/screens/feelhid.swift
+      - name: Measure on the live site
+        run: |
+          mkdir -p "$OUT"
+          app=$(find native/src-tauri/target/release/bundle/macos -maxdepth 1 -name '*.app' | head -n 1)
+          du -sh "$app" | tee "$OUT/app-size.txt"
+          python3 native/screens/feel-mac.py "$app" "$OUT" live PUF98Z
+      - name: Serve and seed the site as events.ciphermaniac.com
+        if: ${{ !cancelled() }}
+        run: |
+          native/screens/feel-mac-site.sh cert
+          native/screens/feel-mac-site.sh start
+          read -r small big < <(native/screens/feel-mac-site.sh seed)
+          { echo "SMALL=$small"; echo "BIG=$big"; } >> "$GITHUB_ENV"
+          native/screens/feel-mac-site.sh hosts-on
+          curl -s -o /dev/null -w 'local site through /etc/hosts: %{http_code} %{remote_ip}\n' https://events.ciphermaniac.com/ || true
+      - name: Measure on the runner's site
+        if: ${{ !cancelled() }}
+        run: |
+          app=$(find native/src-tauri/target/release/bundle/macos -maxdepth 1 -name '*.app' | head -n 1)
+          python3 native/screens/feel-mac.py "$app" "$OUT" local "$SMALL" "$BIG"
+      - name: Put the network back
+        if: always()
+        run: |
+          native/screens/feel-mac-site.sh hosts-off || true
+          sudo pfctl -a com.apple/feel -F all || true
+          cp "$FEEL_STATE/site.log" "$OUT/site.log" || true
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: mac-feel
+          if-no-files-found: error
+          path: ${{ runner.temp }}/feel

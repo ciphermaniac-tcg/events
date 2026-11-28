@@ -1,0 +1,5 @@
+# The audit probe (feel.rs), native/mac-feel-audit only.
+[[permission]]
+identifier = "feel"
+description = "Reports the audit probe's timings."
+commands.allow = ["feel_note"]

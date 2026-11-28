@@ -147,6 +147,15 @@ fn record_load<R: Runtime>(webview: &Webview<R>, payload: &PageLoadPayload<'_>) 
     let Ok(mut loads) = loads.0.lock() else {
         return;
     };
+    #[cfg(desktop)]
+    crate::feel::note(
+        if payload.event() == PageLoadEvent::Started {
+            "page-started"
+        } else {
+            "page-finished"
+        },
+        &format!("{} {}", webview.label(), payload.url()),
+    );
     let load = loads.entry(webview.label().to_owned()).or_default();
     load.loading = payload.event() == PageLoadEvent::Started;
     if !load.loading {
@@ -186,6 +195,7 @@ fn show_main_window<R: Runtime>(app: &AppHandle<R>) {
     if SHOWN.swap(true, std::sync::atomic::Ordering::Relaxed) {
         return;
     }
+    crate::feel::note("show", "");
     if let Some(window) = app.get_webview_window(MAIN_WINDOW)
         && let Err(err) = window.show()
     {
@@ -305,6 +315,15 @@ pub fn create_main_window<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
     if let Some(page) = last_page::restore(app) {
         config.url = WebviewUrl::External(page);
     }
+    #[cfg(desktop)]
+    if let Some(url) = std::env::var("FEEL_URL")
+        .ok()
+        .and_then(|url| Url::parse(&url).ok())
+    {
+        config.url = WebviewUrl::External(url);
+    }
+    #[cfg(desktop)]
+    crate::feel::note("window-build", "");
     let builder = WebviewWindowBuilder::from_config(app, &config)?;
     #[cfg(desktop)]
     let builder = desktop_window(app, builder);
@@ -315,6 +334,8 @@ pub fn create_main_window<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
             crate::appearance::Appearance::System,
         ));
     let window = builder.build()?;
+    #[cfg(desktop)]
+    crate::feel::note("window-built", "");
     #[cfg(desktop)]
     desktop_window_built(&window);
     #[cfg(mobile)]
@@ -363,6 +384,7 @@ fn desktop_window<'a, R: Runtime>(
     let follower = app.clone();
     let builder = builder
         .visible(false)
+        .initialization_script(crate::feel::PROBE)
         .initialization_script(TOM_FLAG_SCRIPT)
         .initialization_script(crate::app_style::script())
         .initialization_script(crate::theme::script())
