@@ -34,14 +34,21 @@ flush() {
 case $1 in
 cert)
   cd "$state"
-  openssl req -x509 -newkey rsa:2048 -nodes -days 7 -subj "/CN=Feel Audit CA" -keyout ca.key -out ca.crt \
-    -addext "basicConstraints=critical,CA:TRUE" -addext "keyUsage=critical,keyCertSign,cRLSign" 2>/dev/null
-  openssl req -newkey rsa:2048 -nodes -subj "/CN=$host" -keyout site.key -out site.csr 2>/dev/null
-  printf 'subjectAltName=DNS:%s\nextendedKeyUsage=serverAuth\nbasicConstraints=CA:FALSE\nkeyUsage=digitalSignature,keyEncipherment\n' "$host" >ext.cnf
-  openssl x509 -req -in site.csr -CA ca.crt -CAkey ca.key -CAcreateserial -days 7 -extfile ext.cnf -out site.crt 2>/dev/null
+  # Homebrew's OpenSSL 3 where there is one: the system's LibreSSL writes a
+  # certificate macOS refuses.
+  ssl=openssl
+  for candidate in /opt/homebrew/opt/openssl@3/bin/openssl /usr/local/opt/openssl@3/bin/openssl; do
+    [ -x "$candidate" ] && ssl=$candidate && break
+  done
+  printf '[req]\ndistinguished_name=dn\nprompt=no\n[dn]\nCN=Feel Audit CA\n[ca]\nbasicConstraints=critical,CA:TRUE\nkeyUsage=critical,keyCertSign,cRLSign\nsubjectKeyIdentifier=hash\n' >ca.cnf
+  printf 'subjectAltName=DNS:%s\nextendedKeyUsage=serverAuth\nbasicConstraints=CA:FALSE\nkeyUsage=critical,digitalSignature,keyEncipherment\nauthorityKeyIdentifier=keyid\nsubjectKeyIdentifier=hash\n' "$host" >ext.cnf
+  "$ssl" req -x509 -newkey rsa:2048 -nodes -days 7 -config ca.cnf -extensions ca -keyout ca.key -out ca.crt 2>/dev/null
+  "$ssl" req -newkey rsa:2048 -nodes -subj "/CN=$host" -keyout site.key -out site.csr 2>/dev/null
+  "$ssl" x509 -req -in site.csr -CA ca.crt -CAkey ca.key -CAcreateserial -days 7 -extfile ext.cnf -out site.crt 2>/dev/null
+  "$ssl" x509 -in site.crt -noout -text | grep -A1 -E "X509v3|Issuer" || true
   if [ "$(uname)" = Darwin ]; then
     sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain ca.crt
-    security verify-cert -c site.crt -p ssl -s "$host" && echo "certificate trusted"
+    security verify-cert -c site.crt -p ssl -s "$host" || echo "verify-cert did not pass; the app's own load decides"
   fi
   ;;
 start)

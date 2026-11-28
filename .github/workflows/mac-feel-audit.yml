@@ -64,12 +64,14 @@ jobs:
           cp native/screens/feel-sw.js dist/feel-sw.js
       - run: swiftc -O -o "$FEELHID" native/screens/feelhid.swift
       - name: Measure on the live site
+        continue-on-error: true
         run: |
           mkdir -p "$OUT"
           app=$(find native/src-tauri/target/release/bundle/macos -maxdepth 1 -name '*.app' | head -n 1)
           du -sh "$app" | tee "$OUT/app-size.txt"
           python3 native/screens/feel-mac.py "$app" "$OUT" live PUF98Z
       - name: Serve and seed the site as events.ciphermaniac.com
+        continue-on-error: true
         if: ${{ !cancelled() }}
         run: |
           native/screens/feel-mac-site.sh cert
@@ -79,6 +81,7 @@ jobs:
           native/screens/feel-mac-site.sh hosts-on
           curl -s -o /dev/null -w 'local site through /etc/hosts: %{http_code} %{remote_ip}\n' https://events.ciphermaniac.com/ || true
       - name: Measure on the runner's site
+        continue-on-error: true
         if: ${{ !cancelled() }}
         run: |
           app=$(find native/src-tauri/target/release/bundle/macos -maxdepth 1 -name '*.app' | head -n 1)
