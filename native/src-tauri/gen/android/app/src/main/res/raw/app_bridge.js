@@ -275,6 +275,54 @@
   // activity, which opens the share sheet or the system's save dialog.
   const post = message => channel.postMessage(JSON.stringify(message));
 
+  // Dropdowns and date and time fields open Material 3 pickers (Pickers.kt)
+  // in place of the webview's own old dialogs: the webview's is refused, as
+  // a dropdown opens on the press and a date on the click, and the field's
+  // choices go to the activity. The pick comes back as a person's would.
+  const PICKED = 'select, input[type="date"], input[type="time"], input[type="datetime-local"]';
+  let picking = null;
+  const pickable = event => {
+    const field = event.target instanceof Element ? event.target.closest(PICKED) : null;
+    return field && !field.disabled && !field.matches('[readonly], [multiple]') ? field : null;
+  };
+  const ask = field => {
+    picking = field;
+    const options = field instanceof HTMLSelectElement ? [...field.options].filter(o => !o.disabled && !o.hidden) : [];
+    post({
+      type: 'pick',
+      kind: field instanceof HTMLSelectElement ? 'select' : field.type,
+      title: (field.labels?.[0]?.textContent ?? field.getAttribute('aria-label') ?? '').trim(),
+      value: field.value,
+      optional: !field.required,
+      min: field.min ?? '',
+      max: field.max ?? '',
+      options: options.map(o => o.label),
+      values: options.map(o => o.value),
+      selected: options.findIndex(o => o.selected)
+    });
+  };
+  document.addEventListener('mousedown', event => pickable(event) && event.preventDefault(), true);
+  document.addEventListener(
+    'click',
+    event => {
+      const field = pickable(event);
+      if (field) {
+        event.preventDefault();
+        ask(field);
+      }
+    },
+    true
+  );
+  window.__cmPicked = value => {
+    const field = picking;
+    picking = null;
+    if (field && field.value !== value) {
+      field.value = value;
+      field.dispatchEvent(new Event('input', { bubbles: true }));
+      field.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+  };
+
   // A sign-in or sign-out the page makes with a call of its own rather than
   // a page load: the activity writes the cookies it set to disk at once.
   const fetchFirst = window.fetch;

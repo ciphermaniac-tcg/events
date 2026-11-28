@@ -18,6 +18,9 @@ class MainActivity : TauriActivity() {
   private val bars = SystemBars(this)
   private lateinit var back: BackNavigation
   private lateinit var files: FileHandoff
+  private val pickers = Pickers(this) { value ->
+    webView?.evaluateJavascript("window.__cmPicked?.(${JSONObject.quote(value)})", null)
+  }
   private var webView: WebView? = null
   private var contentShown = false
   private var splash: SplashScreenViewProvider? = null
@@ -31,6 +34,7 @@ class MainActivity : TauriActivity() {
       SiteLinks.openAtLaunch(this)
     }
     super.onCreate(savedInstanceState)
+    pickers.dropRestored()
   }
 
   /**
@@ -124,6 +128,7 @@ class MainActivity : TauriActivity() {
       }
       "shown" -> onContentShown()
       "cookies" -> flushCookies()
+      "pick" -> pickers.show(message)
       "share" -> files.share(message)
       "save" -> files.save(message)
     }
