@@ -57,6 +57,7 @@ class MainActivity : TauriActivity() {
   /** Called from Rust (android.rs) when the main window's page has loaded. */
   @Keep
   fun onMainPageFinished() {
+    flushCookies()
     back.refresh()
   }
 
@@ -81,6 +82,7 @@ class MainActivity : TauriActivity() {
     when (message.optString("type")) {
       "state" -> back.onPageState(message.optBoolean("layer"), message.optBoolean("back"))
       "shown" -> contentShown = true
+      "cookies" -> flushCookies()
       "share" -> files.share(message)
       "save" -> files.save(message)
     }
@@ -88,12 +90,21 @@ class MainActivity : TauriActivity() {
 
   /**
    * Writes the webview's cookies to disk as the app leaves the screen. The
-   * webview does so only now and then, so an app swiped away soon after
-   * signing in would otherwise open signed out.
+   * webview does so only every 30 seconds or so, so an app swiped away soon
+   * after signing in would otherwise open signed out.
    */
   override fun onStop() {
     super.onStop()
     CookieManager.getInstance().flush()
+  }
+
+  /**
+   * Writes the webview's cookies to disk off the main thread: after each
+   * page load, where a sign-in or sign-out lands, and after the page's own
+   * sign-in calls (app_bridge.js), so a stop right after keeps them.
+   */
+  private fun flushCookies() {
+    Thread { CookieManager.getInstance().flush() }.start()
   }
 
   // Back before Android 13. From 13 on the system calls BackNavigation instead.

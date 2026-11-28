@@ -224,6 +224,25 @@
   // Files. A webview has neither Web Share nor downloads, so both go to the
   // activity, which opens the share sheet or the system's save dialog.
   const post = message => channel.postMessage(JSON.stringify(message));
+
+  // A sign-in or sign-out the page makes with a call of its own rather than
+  // a page load: the activity writes the cookies it set to disk at once.
+  const fetchFirst = window.fetch;
+  const isSignIn = input => {
+    try {
+      const url = new URL(input instanceof Request ? input.url : String(input), location.href);
+      return url.origin === location.origin && url.pathname.startsWith('/api/auth/');
+    } catch {
+      return false;
+    }
+  };
+  window.fetch = (input, init) => {
+    const answer = fetchFirst.call(window, input, init);
+    if (isSignIn(input)) {
+      void answer.then(() => post({ type: 'cookies' }), () => undefined);
+    }
+    return answer;
+  };
   const encode = blob =>
     new Promise((resolve, reject) => {
       const reader = new FileReader();
