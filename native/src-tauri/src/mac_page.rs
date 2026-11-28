@@ -6,7 +6,8 @@
 //! selected or typed, and no menu elsewhere, never `WebKit`'s browser items.
 //! Edit > Find (`menu.rs`) goes to the page's own search, where it shows one,
 //! and a two-finger swipe goes back and forward. The page's address, kept as
-//! the site moves (`page_address`), is where the next launch opens.
+//! the site moves (`page_address`), is where the next launch opens. The page
+//! also looks at the live page for the app's copy of it (`site_copy.rs`).
 
 /// The page script, on the site's pages only.
 #[cfg(any(target_os = "macos", test))]
@@ -46,6 +47,7 @@ pub fn swipe_back_and_forward<R: tauri::Runtime>(window: &tauri::WebviewWindow<R
     reason = "Tauri hands a command its arguments by value"
 )]
 pub fn page_shown<R: tauri::Runtime>(app: tauri::AppHandle<R>) {
+    crate::site_copy::site_shown();
     crate::shell::show_main_window(&app);
 }
 
@@ -78,5 +80,11 @@ mod tests {
         assert!(script.contains("invoke('page_shown')"));
         assert!(script.contains("'contextmenu'"));
         assert!(script.contains("invoke('page_address', { url: address })"));
+        assert!(script.contains("invoke('site_copy_keep'"));
+        let js = include_str!("mac_page.js").trim_end();
+        assert!(
+            js.contains("\n(invoke => {") && js.ends_with("})"),
+            "an expression the app calls"
+        );
     }
 }

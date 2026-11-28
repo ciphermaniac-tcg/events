@@ -1774,6 +1774,30 @@ test('in the Mac app, the page tells the app where the site moved, tab included,
     .toEqual(['page_address', { url: page.url() }]);
 });
 
+test('in the Mac app, a few seconds after the page shows it hands the app the live page for its copy, without cookies', async ({
+  page
+}) => {
+  await mockApi(page);
+  const asked: (string | undefined)[] = [];
+  page.on('request', request => {
+    if (new URL(request.url()).pathname === '/' && request.resourceType() === 'fetch') {
+      asked.push(request.headers().cookie);
+    }
+  });
+  await macPage(page);
+  await page.goto(`/t/${CODE}`);
+  await expect.poll(() => told(page)).toContain('page_shown');
+  const looked = async () =>
+    ((await told(page)) as [string, { page: { status: number; mime: string; html: string } }][]).find(
+      call => call[0] === 'site_copy_keep'
+    )?.[1].page;
+  await expect
+    .poll(looked, { timeout: 10_000 })
+    .toMatchObject({ status: 200, mime: expect.stringMatching(/^text\/html/) });
+  expect((await looked())?.html).toContain('/assets/');
+  expect(asked).toEqual([undefined]);
+});
+
 /** The Mac app's title strip, as the app adds it to the site's pages (native/src-tauri/src/mac_title_strip.rs). */
 const STRIP_CSS = readFileSync(new URL('../../native/src-tauri/src/mac_title_strip.css', import.meta.url), 'utf8');
 const STRIP_JS = readFileSync(new URL('../../native/src-tauri/src/mac_title_strip.js', import.meta.url), 'utf8');

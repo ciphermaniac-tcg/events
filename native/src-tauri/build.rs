@@ -3,6 +3,7 @@ const COMMANDS: &[&str] = &[
     "open_big_screen",
     "page_shown",
     "page_address",
+    "site_copy_keep",
     "title_strip_double_click",
     "tom_state",
     "tom_read",
