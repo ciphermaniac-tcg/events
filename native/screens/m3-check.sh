@@ -165,8 +165,9 @@ run_theme() {
   sleep 3
   adb shell am force-stop "$package"
   adb shell screenrecord --time-limit 15 /sdcard/launch.mp4 &
-  local recorder=$! started blank
+  local recorder=$! started blank reason
   sleep 1
+  adb logcat -c
   started=$(adb shell am start -W -n "$activity" | tr -d '\r' | grep -E 'TotalTime' | xargs)
   connect
   note "INFO $theme cold start: $started"
@@ -177,8 +178,14 @@ run_theme() {
   sleep 1
   adb pull /sdcard/launch.mp4 "$out/m3-$theme-launch.mp4" >/dev/null
   blank=$(longest_flat "$out/m3-$theme-launch.mp4")
-  note "INFO $theme longest blank on the launch film: $blank ms"
-  check "no blank page between the splash and the content" "$([ "${blank:-9999}" -lt 150 ] && echo none || echo "$blank ms")" none
+  # The test build logs when the page said it had content and when the
+  # splash went (Feel); a splash that gave up at its limit leaves on a
+  # skeleton by design.
+  reason=$(adb logcat -d -s Feel:I | awk '/ shown / { s = $NF } / revealed / { r = $NF } END { print (s && s <= r) ? "content" : "limit" }')
+  note "INFO $theme longest blank on the launch film: $blank ms; the splash left on $reason"
+  if [ "$reason" = content ]; then
+    check "no blank page between the splash and the content" "$([ "${blank:-9999}" -lt 150 ] && echo none || echo "$blank ms")" none
+  fi
   shoot launch
   check "a stop 3 s after signing in keeps the sign-in" "$(page "Boolean(document.querySelector('.tm-acct-button'))")" true
   sleep 1

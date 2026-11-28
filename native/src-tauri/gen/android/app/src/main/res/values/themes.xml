@@ -11,6 +11,8 @@
         <item name="colorSecondaryContainer">@color/surface_2</item>
         <item name="colorOnSecondaryContainer">@color/ink</item>
         <item name="colorTertiary">@color/accent</item>
+        <item name="colorTertiaryContainer">@color/surface_2</item>
+        <item name="colorOnTertiaryContainer">@color/ink</item>
         <item name="colorSurface">@color/surface</item>
         <item name="colorSurfaceContainerLowest">@color/surface</item>
         <item name="colorSurfaceContainerLow">@color/surface</item>
