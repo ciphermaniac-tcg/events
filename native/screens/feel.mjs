@@ -518,40 +518,41 @@ async function firstLaunch(link) {
   };
 }
 
+/** Flings down and up the screen, and reads `app`'s frame times for it from gfxinfo. */
+async function flings(app, name) {
+  shell(`dumpsys gfxinfo ${app} reset`);
+  for (const [from, to, ms, pause] of [
+    ...Array(4).fill([1900, 700, 120, 1100]),
+    ...Array(2).fill([1600, 900, 700, 500]),
+    ...Array(4).fill([700, 1900, 120, 1100])
+  ]) {
+    shell(`input swipe 540 ${from} 540 ${to} ${ms}`);
+    await sleep(pause);
+  }
+  const gfx = shell(`dumpsys gfxinfo ${app}`);
+  writeFileSync(`${out}/feel-${mode}-gfxinfo-${name}.txt`, gfx);
+  const grab = key => new RegExp(`${key}: ([^\\n]+)`).exec(gfx)?.[1]?.trim();
+  const keys = {
+    total: 'Total frames rendered',
+    janky: 'Janky frames',
+    p50: '50th percentile',
+    p90: '90th percentile',
+    p95: '95th percentile',
+    p99: '99th percentile',
+    missedVsync: 'Number Missed Vsync',
+    slowUi: 'Number Slow UI thread',
+    slowDraw: 'Number Slow issue draw commands'
+  };
+  return Object.fromEntries(Object.entries(keys).map(([key, label]) => [key, grab(label)]));
+}
+
 async function scroll(name) {
   await page(`(() => { window.scrollTo(0, 0); const f = window.__feelFrames = []; const end = performance.now() + 14000;
     const tick = at => { f.push(at); if (at < end) requestAnimationFrame(tick); }; requestAnimationFrame(tick); return true; })()`);
-  shell(`dumpsys gfxinfo ${pkg} reset`);
-  for (let i = 0; i < 4; i++) {
-    shell('input swipe 540 1900 540 700 120');
-    await sleep(1100);
-  }
-  for (let i = 0; i < 2; i++) {
-    shell('input swipe 540 1600 540 900 700');
-    await sleep(500);
-  }
-  for (let i = 0; i < 4; i++) {
-    shell('input swipe 540 700 540 1900 120');
-    await sleep(1100);
-  }
-  const gfx = shell(`dumpsys gfxinfo ${pkg}`);
-  writeFileSync(`${out}/feel-${mode}-gfxinfo-${name}.txt`, gfx);
-  writeFileSync(`${out}/feel-${mode}-framestats-${name}.txt`, tryShell(`dumpsys gfxinfo ${pkg} framestats`));
-  const grab = key => new RegExp(`${key}: ([^\\n]+)`).exec(gfx)?.[1]?.trim();
-  const frames = await page(`(() => { const f = window.__feelFrames; const d = f.slice(1).map((t, i) => t - f[i]);
+  const gfx = await flings(pkg, name);
+  const raf = await page(`(() => { const f = window.__feelFrames; const d = f.slice(1).map((t, i) => t - f[i]);
     return { frames: f.length, over20: d.filter(x => x > 20).length, over34: d.filter(x => x > 34).length, worst: Math.max(...d) }; })()`);
-  return {
-    total: grab('Total frames rendered'),
-    janky: grab('Janky frames'),
-    p50: grab('50th percentile'),
-    p90: grab('90th percentile'),
-    p95: grab('95th percentile'),
-    p99: grab('99th percentile'),
-    missedVsync: grab('Number Missed Vsync'),
-    slowUi: grab('Number Slow UI thread'),
-    slowDraw: grab('Number Slow issue draw commands'),
-    raf: frames
-  };
+  return { ...gfx, raf };
 }
 
 async function longPress(selector, name) {
@@ -684,6 +685,7 @@ async function pickers(small) {
 }
 
 async function restoration(big) {
+  await ensureSignedIn();
   await page(`location.assign('/'), true`);
   await until(usableAt('/'));
   await sleep(800);
@@ -718,6 +720,9 @@ async function throttled(big) {
     'slow-3g': { offline: false, latency: 2000, downloadThroughput: 50000, uploadThroughput: 50000 }
   };
   const result = {};
+  if (local) {
+    await ensureSignedIn();
+  }
   await page(`location.assign('/'), true`);
   await until(usableAt('/'));
   await sleep(1000);
@@ -785,6 +790,49 @@ async function offlineLaunch(off, on) {
   return { am: amTimes(answer), offlinePageAt: shownAt, cameBackByItself: back, native: feelLog() };
 }
 
+const SIGNED_IN = `fetch('/api/me').then(r => r.json()).then(d => Boolean(d.user))`;
+
+/** Signs in through the dev login when the session is gone; true when it had to. */
+async function ensureSignedIn() {
+  if (await page(SIGNED_IN)) {
+    return false;
+  }
+  await page(`location.assign('/api/auth/login/dev?name=Reese'), true`);
+  await sleep(1500);
+  await until(`location.pathname === '/' && window.__feel?.marks?.usable`);
+  return true;
+}
+
+/**
+ * Whether a sign-in survives the app leaving the screen and then being
+ * stopped, `waitMs` after signing in (MainActivity.onStop writes cookies).
+ */
+async function sessionSurvives(waitMs) {
+  await ensureSignedIn();
+  await page(`location.assign('/api/auth/login/dev?name=Reese'), true`);
+  await sleep(1500);
+  await until(`location.pathname === '/' && window.__feel?.marks?.usable`);
+  await sleep(waitMs);
+  await launch({ link: '/' });
+  return page(SIGNED_IN);
+}
+
+async function linkCold(code) {
+  const trials = [];
+  for (let i = 0; i < 3; i++) {
+    trials.push(await launch({ link: `/t/${code}` }));
+  }
+  return { summary: summary(trials), trials: trials.map(({ read, ...rest }) => ({ ...rest, payload: payload(read) })) };
+}
+
+async function scrollAt(path, name) {
+  await page(`location.assign(${JSON.stringify(path)}), true`);
+  await until(rows);
+  await sleep(1500);
+  shot(`scroll-${name}`);
+  return scroll(name);
+}
+
 async function runLocal(small, big) {
   const siteScript = new URL('./m3-site.sh', import.meta.url).pathname;
   results.device = {
@@ -795,17 +843,19 @@ async function runLocal(small, big) {
   };
   shell('cmd uimode night no');
   await step('firstLaunch', () => firstLaunch(null));
-  await step('starts', () => starts('', '/'));
-  await step('linkCold', async () => {
-    const trials = [];
-    for (let i = 0; i < 3; i++) {
-      trials.push(await launch({ link: `/t/${big}` }));
-    }
-    return {
-      summary: summary(trials),
-      trials: trials.map(({ read, ...rest }) => ({ ...rest, payload: payload(read) }))
-    };
+  await step('session', async () => ({
+    after2s: await sessionSurvives(2000),
+    after10s: await sessionSurvives(10000),
+    after40s: await sessionSurvives(40000)
+  }));
+  await step('signIn', async () => {
+    const had = await ensureSignedIn();
+    await sleep(40000);
+    return { hadTo: had };
   });
+  await step('starts', () => starts('', '/'));
+  await step('signedInAfterStarts', ensureSignedIn);
+  await step('linkCold', () => linkCold(big));
   await step('coldRecordLight', async () => {
     await stopApp();
     const stop = await record('cold-light', 9);
@@ -827,6 +877,9 @@ async function runLocal(small, big) {
   await step('navigation', async () => {
     await launch({ link: '/' });
     await sleep(1500);
+    if (await ensureSignedIn()) {
+      results.errors.push('navigation: had to sign in again');
+    }
     const nav = { homeToConsole: [], tabs: [], back: [], publicTab: [], sheet: [] };
     for (let i = 0; i < 3; i++) {
       nav.homeToConsole.push(
@@ -920,51 +973,19 @@ async function runLocal(small, big) {
     }
     return list;
   });
-  await step('scrollStandings', async () => {
-    await page(`location.assign('/t/${big}?tab=standings'), true`);
-    await until(`${rows}`);
-    await sleep(1500);
-    return scroll('standings');
-  });
-  await step('scrollPairings', async () => {
-    await page(`location.assign('/t/${big}?tab=pairings'), true`);
-    await until(`${rows}`);
-    await sleep(1500);
-    return scroll('pairings');
-  });
-  await step('scrollConsolePlayers', async () => {
-    await page(`location.assign('/host/${big}?tab=players'), true`);
-    await until(`${rows}`);
-    await sleep(1500);
-    shot('console-players');
-    return scroll('console-players');
-  });
+  await step('scrollStandings', () => scrollAt(`/t/${big}?tab=standings`, 'standings'));
+  await step('scrollPairings', () => scrollAt(`/t/${big}?tab=pairings`, 'pairings'));
+  await step('scrollConsolePlayers', () => scrollAt(`/host/${big}?tab=players`, 'console-players'));
   await step('scrollNativeControl', async () => {
     shell('am start -W -n com.android.settings/.Settings');
     await sleep(2500);
-    shell('dumpsys gfxinfo com.android.settings reset');
-    for (let i = 0; i < 4; i++) {
-      shell('input swipe 540 1900 540 700 120');
-      await sleep(1100);
-    }
-    for (let i = 0; i < 4; i++) {
-      shell('input swipe 540 700 540 1900 120');
-      await sleep(1100);
-    }
-    const gfx = shell('dumpsys gfxinfo com.android.settings');
-    writeFileSync(`${out}/feel-${mode}-gfxinfo-settings.txt`, gfx);
-    const grab = key => new RegExp(`${key}: ([^\\n]+)`).exec(gfx)?.[1]?.trim();
+    const gfx = await flings('com.android.settings', 'settings');
     shell(`am start -n ${activity}`);
     await sleep(2000);
     await connect();
-    return {
-      total: grab('Total frames rendered'),
-      janky: grab('Janky frames'),
-      p50: grab('50th percentile'),
-      p90: grab('90th percentile'),
-      p99: grab('99th percentile')
-    };
+    return gfx;
   });
+
   await step('memory', () =>
     tryShell(`dumpsys meminfo ${pkg} | grep -E "TOTAL PSS|TOTAL RSS|WebView|Native Heap|Graphics"`)
   );
@@ -997,16 +1018,7 @@ async function runLive(code) {
   shell('cmd uimode night no');
   await step('firstLaunch', () => firstLaunch(null));
   await step('starts', () => starts('', '/'));
-  await step('linkCold', async () => {
-    const trials = [];
-    for (let i = 0; i < 3; i++) {
-      trials.push(await launch({ link: `/t/${code}` }));
-    }
-    return {
-      summary: summary(trials),
-      trials: trials.map(({ read, ...rest }) => ({ ...rest, payload: payload(read) }))
-    };
-  });
+  await step('linkCold', () => linkCold(code));
   await step('publicTab', async () => {
     const list = [];
     for (let i = 0; i < 3; i++) {
