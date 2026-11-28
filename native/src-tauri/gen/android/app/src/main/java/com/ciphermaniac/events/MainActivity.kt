@@ -32,6 +32,7 @@ class MainActivity : TauriActivity() {
       SiteLinks.openAtLaunch(this)
     }
     super.onCreate(savedInstanceState)
+    pickers.dropRestored()
   }
 
   /**

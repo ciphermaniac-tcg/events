@@ -335,6 +335,8 @@ run_theme() {
   sleep 1.5
   check "a date and time field takes the Material pickers' answer" \
     "$(page "/^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d$/.test(document.getElementById('set-start').value)")" true
+  # Anything a failed step left open closes before the next.
+  adb shell dumpsys window | grep -q 'mCurrentFocus=.*MainActivity' || adb shell input keyevent KEYCODE_BACK
 
   # Wider than a phone, the console's sections are a rail at the left.
   go "/host/$code"

@@ -21,6 +21,8 @@
         <item name="colorOnSurfaceVariant">@color/muted</item>
         <item name="colorOutline">@color/border</item>
         <item name="colorOutlineVariant">@color/rule</item>
+        <!-- Raised surfaces stay the site's, untinted by the accent. -->
+        <item name="elevationOverlayEnabled">false</item>
     </style>
 
     <!-- Shown from launch until the first page shows content (MainActivity). -->
