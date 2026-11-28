@@ -1,6 +1,7 @@
 // The Mac app's side of the site's pages (mac_page.rs), called with the
-// app's invoke. The window shows once the page has drawn real content, and
-// a right click gets the system's text menu or none, never the browser's.
+// app's invoke. The window shows once the page has drawn real content, a
+// right click gets the system's text menu or none, never the browser's, and
+// Edit > Find goes to the page's own search.
 (invoke => {
   // Real content: a heading in the page and no skeleton, told two frames on,
   // once that has been drawn (the Android shell's "shown").
@@ -33,6 +34,12 @@
   document.addEventListener('contextmenu', event => {
     const typed = event.target instanceof Element && event.target.closest('input, textarea, [contenteditable]') !== null;
     if (!typed && !window.getSelection()?.toString().trim()) event.preventDefault();
+  });
+  // Edit > Find (menu.rs): the page's own search where it shows one.
+  addEventListener('cm-app-find', () => {
+    const field = [...document.querySelectorAll('main input[type="search"]')].find(input => input.offsetParent);
+    field?.focus();
+    field?.select();
   });
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', start, { once: true });
