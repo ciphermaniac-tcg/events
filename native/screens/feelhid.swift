@@ -197,13 +197,13 @@ case "key":
 case "pixwatch":
     let pid = Int32(args[2]) ?? 0
     let ms = num(3)
-    let done = DispatchSemaphore(value: 0)
-    // Detached, so it doesn't wait for the main thread this one blocks.
+    // ScreenCaptureKit answers on the main queue, so the main thread serves
+    // it rather than wait.
     Task.detached {
         await pixwatch(pid, ms)
-        done.signal()
+        exit(0)
     }
-    done.wait()
+    dispatchMain()
 default:
     FileHandle.standardError.write("unknown command\n".data(using: .utf8)!)
     exit(2)
