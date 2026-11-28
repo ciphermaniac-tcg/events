@@ -99,6 +99,16 @@ def store_sizes():
     return out
 
 
+def settle(limit=4.0, longest=30):
+    """Waits for the machine to quieten (1-minute load under `limit`)."""
+    end = time.time() + longest
+    load = sh("sysctl", "-n", "vm.loadavg")
+    while time.time() < end and float(load.strip("{} ").split()[0]) >= limit:
+        time.sleep(1)
+        load = sh("sysctl", "-n", "vm.loadavg")
+    return load
+
+
 def set_last_page(path):
     DATA.mkdir(parents=True, exist_ok=True)
     (DATA / "last-page").write_text(SITE + path)
@@ -123,7 +133,8 @@ class App:
             self.rec_at = now()
             time.sleep(1.0)
         full_env = dict(os.environ, FEEL_CMD=str(CMD), **(env or {}))
-        self.load = sh("sysctl", "-n", "vm.loadavg")
+        self.load = settle()
+        self.top = sh("ps", "-A", "-r", "-o", "%cpu=,comm=")[:400]
         self.t0 = now()
         self.proc = subprocess.Popen([str(BIN)], stdout=open(self.log, "w"), stderr=subprocess.STDOUT, env=full_env)
         self.pid = self.proc.pid
@@ -303,6 +314,7 @@ def launch_summary(app, load):
         "from_cache": sum(1 for r in res if not r.get("transfer") and r.get("body")),
         "api": [{"name": r["name"], "start": rel(r["start"], t0), "end": rel(r["end"], t0)} for r in res if "/api/" in r["name"]][:8],
         "loadavg": app.load,
+        "top": app.top.splitlines()[:4],
         "url": (load or {}).get("url"),
         "mode": (load or {}).get("mode"),
         "loaded": bool(load),
@@ -419,9 +431,9 @@ def scroll_test(app, label):
     x, y = win["x"] + win["w"] / 2, win["y"] + win["h"] / 2
     app.js("document.scrollingElement.scrollTop = 0; return true;")
     time.sleep(0.5)
-    down = frames_during(app, 1600, lambda: hid("scroll", round(x), round(y), -40, 60, 16))
+    down = frames_during(app, 1600, lambda: hid("scroll", round(x), round(y), -3, 30, 16, "line"))
     time.sleep(0.4)
-    up = frames_during(app, 1000, lambda: hid("scroll", round(x), round(y), 400, 20, 16))
+    up = frames_during(app, 1000, lambda: hid("scroll", round(x), round(y), 30, 10, 16, "line"))
     app.shot(f"{label}-after-scroll")
     return {"down": down, "up": up}
 
@@ -750,6 +762,10 @@ def local():
     time.sleep(2)
     RESULTS["sign_in"] = signin
     app.quit()
+    save()
+    # The runner's site answers over HTTP/1.1; the live one over HTTP/3.
+    if signin.get("url") != "/" or signin.get("html_protocol") == "h3":
+        raise SystemExit(f"sign-in didn't land on the runner's site ({signin.get('url')}, {signin.get('html_protocol')}); nothing more measured")
     launches("relaunch-dashboard", "/", 5)
     alternate("relaunch-console", "simulated-relaunch-console", f"/host/{big}", 5, fetch_shell())
     launches("relaunch-public-big", f"/t/{big}", 4)

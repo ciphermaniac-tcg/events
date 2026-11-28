@@ -74,11 +74,24 @@ stop)
   sleep 2
   ;;
 hosts-on)
-  echo "127.0.0.1 $host # feel" | sudo tee -a /etc/hosts >/dev/null
+  # The name alone isn't enough: WebKit also reads the site's HTTPS record,
+  # whose address hints and HTTP/3 lead straight to the live site. So every
+  # live address is refused for the run, and the name points here on IPv4
+  # and IPv6.
+  live=$( { dig +short A "$host"; dig +short AAAA "$host"; dig +short TYPE65 "$host" |
+    grep -oE '(ipv4hint|ipv6hint)=[^ ]+' | cut -d= -f2 | tr ',' '\n'; } | grep -E '^[0-9a-f.:]+$' | sort -u | tr '\n' ' ')
+  echo "refusing the live site at: $live"
+  printf 'block return out quick proto { tcp udp } to { %s }\n' "$live" >"$state/pf.rules"
+  sudo pfctl -f /etc/pf.conf 2>/dev/null || true
+  sudo pfctl -E 2>/dev/null || true
+  sudo pfctl -a com.apple/feelsite -f "$state/pf.rules"
+  sudo pfctl -a com.apple/feelsite -s rules
+  { echo "127.0.0.1 $host # feel"; echo "::1 $host # feel"; } | sudo tee -a /etc/hosts >/dev/null
   flush
   ;;
 hosts-off)
   sudo sed -i '' '/# feel$/d' /etc/hosts
+  sudo pfctl -a com.apple/feelsite -F all 2>/dev/null || true
   flush
   ;;
 seed)
