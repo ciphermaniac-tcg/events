@@ -5,6 +5,13 @@
 // address as it changes, to open there again, and the page looks at the
 // live page behind the app's copy of it (site_copy.rs).
 (invoke => {
+  // The site's connection, opened as the page starts: a page from the app's
+  // copy (site_copy.rs) skipped the request that would have opened it, and
+  // the page's first read would wait for it. Where it is open, nothing.
+  const preconnect = document.createElement('link');
+  preconnect.rel = 'preconnect';
+  preconnect.href = location.origin;
+  document.documentElement.append(preconnect);
   // Real content: a heading in the page and no skeleton, told two frames on,
   // once that has been drawn (the Android shell's "shown").
   let shown = false;

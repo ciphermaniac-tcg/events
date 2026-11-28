@@ -884,17 +884,19 @@ def polish():
     if signin.get("url") != "/" or signin.get("html_protocol") == "h3":
         raise SystemExit(f"sign-in didn't land on the runner's site ({signin.get('url')}, {signin.get('html_protocol')}); nothing more measured")
     console = f"/host/{big}"
-    for theme in ("light", "dark"):
+    only_copy = os.environ.get("POLISH_ONLY") == "copy"
+    for theme in () if only_copy else ("light", "dark"):
         set_dark(theme == "dark")
         polish_launches(f"{theme}-console", console, 6, linger=7)
         polish_launches(f"{theme}-dashboard", "/", 4, linger=7)
     set_dark(False)
-    osa('tell application "Finder" to close every window')
-    app, _ = launch_once("inapp-console", console, keep=True)
-    activate()
-    step("console_tells", tells, app, f"{MODE}-console")
-    step("console_keys", keys_test, app, f"{MODE}-console")
-    app.quit()
+    if not only_copy:
+        osa('tell application "Finder" to close every window')
+        app, _ = launch_once("inapp-console", console, keep=True)
+        activate()
+        step("console_tells", tells, app, f"{MODE}-console")
+        step("console_keys", keys_test, app, f"{MODE}-console")
+        app.quit()
     if MODE == "polish-after":
         for shaped in (False, True):
             RESULTS[f"shaped_{shaped}_curl"] = shape(shaped)
@@ -911,6 +913,8 @@ def polish():
                 RESULTS[f"{label}-{'slow' if shaped else 'fast'}"] = {"runs": block, "summary": medians(block)}
             save()
         shape(False)
+    if only_copy:
+        return
     osa('tell application "Finder" to close every window')
     # The copy needs the Mac online, which the runner stays; the Wi-Fi off goes without it.
     step("offline", offline_test, MODE, console, {"FEEL_NO_COPY": "1"})
