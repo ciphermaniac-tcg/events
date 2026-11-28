@@ -32,7 +32,7 @@ class MainActivity : TauriActivity() {
     bars.apply()
     back = BackNavigation(this)
     files = FileHandoff(this)
-    cache = SiteCache(this)
+    cache = SiteCache.of(this)
     if (savedInstanceState == null) {
       SiteLinks.openAtLaunch(this)
     }
