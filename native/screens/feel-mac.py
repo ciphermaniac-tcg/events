@@ -649,10 +649,10 @@ def pf_clear():
     sh("sudo", "dnctl", "-q", "flush", timeout=10)
 
 
-def offline_test(label, path):
+def offline_test(label, path, env=None):
     # Refused, as with the Wi-Fi off: the load fails at once rather than hang.
     pf("block return out quick proto tcp to events.ciphermaniac.com\n")
-    app = App(f"{label}-offline", path, video=14)
+    app = App(f"{label}-offline", path, video=14, env=env)
     shots = {}
     for at in (1.5, 3.5, 6.0, 10.0):
         while now() - app.t0 < at * 1000:
@@ -889,7 +889,9 @@ def polish():
         polish_launches(f"{theme}-console", console, 6, linger=7)
         polish_launches(f"{theme}-dashboard", "/", 4, linger=7)
     set_dark(False)
+    osa('tell application "Finder" to close every window')
     app, _ = launch_once("inapp-console", console, keep=True)
+    activate()
     step("console_tells", tells, app, f"{MODE}-console")
     step("console_keys", keys_test, app, f"{MODE}-console")
     app.quit()
@@ -909,7 +911,12 @@ def polish():
                 RESULTS[f"{label}-{'slow' if shaped else 'fast'}"] = {"runs": block, "summary": medians(block)}
             save()
         shape(False)
-    step("offline", offline_test, MODE, console)
+    osa('tell application "Finder" to close every window')
+    # The copy needs the Mac online, which the runner stays; the Wi-Fi off goes without it.
+    step("offline", offline_test, MODE, console, {"FEEL_NO_COPY": "1"})
+    if MODE == "polish-after":
+        step("site_down_with_copy", offline_test, f"{MODE}-copy", console)
+    osa('tell application "Finder" to close every window')
     wipe()
     for i, name in enumerate(("home-first", "home-relaunch", "home-relaunch-2")):
         app, row = launch_once(f"{name}", "/" if i else None, video=9, keep=True)
