@@ -216,14 +216,11 @@ fn online() -> bool {
         })
 }
 
-/// Loads the kept page into `window` as the answer for `url`, asking
-/// `WebKit` to open the site's connection at once, as fetching the page
-/// would have. Without `loadSimulatedRequest` (macOS 11), the page loads
-/// from the site.
+/// Loads the kept page into `window` as the answer for `url`. Without
+/// `loadSimulatedRequest` (macOS 11), the page loads from the site.
 #[cfg(target_os = "macos")]
 pub fn load<R: tauri::Runtime>(window: &tauri::WebviewWindow<R>, url: &Url, kept: Kept) {
     let address = url.to_string();
-    let origin = url.origin().ascii_serialization();
     let fallback = window.clone();
     let fallback_url = url.clone();
     let loaded = window.with_webview(move |webview| {
@@ -242,7 +239,6 @@ pub fn load<R: tauri::Runtime>(window: &tauri::WebviewWindow<R>, url: &Url, kept
         };
         let mut headers = kept.headers;
         headers.insert("content-type".into(), "text/html; charset=utf-8".into());
-        headers.insert("link".into(), format!("<{origin}>; rel=preconnect"));
         let names: Vec<_> = headers
             .keys()
             .map(|name| NSString::from_str(name))
