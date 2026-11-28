@@ -105,7 +105,8 @@ class SiteCache private constructor(context: Context) {
       val headers = kept.getJSONObject("headers")
       response(Base64.decode(kept.getString("html"), Base64.DEFAULT), headers.keys().asSequence().associateWith { headers.getString(it) })
     }.getOrNull() ?: return null
-    return response.takeIf { write(owed, ByteArray(0)) }
+    // Test builds only (native/android-m3-test): the CI check waits on this line.
+    return response.takeIf { write(owed, ByteArray(0)) }?.also { Log.i(TAG, "served the copy") }
   }
 
   /**

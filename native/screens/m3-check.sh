@@ -437,7 +437,33 @@ deploy() {
   "$here/m3-site.sh" start >/dev/null
 }
 
-kept_besides_shell() { adb shell "run-as $package ls no_backup/site 2>/dev/null" | tr -d '\r' | grep -vc '^shell.json$\|^look-owed$' || true; }
+kept_besides_shell() {
+  local kept
+  kept=$(adb shell "run-as $package ls no_backup/site" | tr -d '\r')
+  grep -qx shell.json <<<"$kept" || { echo "no copy"; return; }
+  grep -vc '^shell.json$\|^look-owed$' <<<"$kept" || true
+}
+
+# The deploy the copy holds, by its built file's name.
+kept_deploy() {
+  adb exec-out run-as "$package" cat no_backup/site/shell.json | jq -r .html | base64 -d | grep -o 'm3-deploy-[0-9]*' || echo none
+}
+
+# Whether the last launch drew from the copy, from SiteCache's test-only line.
+served() { adb logcat -d -s SiteCache:I | grep -c 'served the copy' || true; }
+missed_site() { adb logcat -d -s SiteCache:I | grep -c 'out of reach' || true; }
+cold_launch() { adb shell am force-stop "$package"; adb logcat -c; launch -n "$activity"; }
+
+# Leaves the app, waits out the look's one-minute limit, and comes back to the same process.
+come_back() {
+  local before
+  before=$(adb shell pidof "$package" | tr -d '\r')
+  adb shell input keyevent KEYCODE_HOME
+  sleep 65
+  adb shell am start -n "$activity" >/dev/null
+  sleep 9
+  [ "$(adb shell pidof "$package" | tr -d '\r')" = "$before" ] && echo same || echo new
+}
 
 offline() {
   theme=light
@@ -477,10 +503,12 @@ offline() {
   settle
   check "a settled copy owes no look" "$(owed_mark)" 0
   deploy m3-deploy-1 1
-  restart_cold
-  check "the launch after a deploy opens on the copy" "$(page "window.__m3Deploy ?? 0")" 0
+  cold_launch
+  until_true "$USABLE"
+  check "the launch after a deploy opens on the copy" "$(served)/$(page "window.__m3Deploy ?? 0")" 1/0
   sleep 8
-  check "and its look keeps the deploy, marked" "$(owed_mark)" 1
+  check "and its look keeps the deploy, marked" "$(kept_deploy)/$(owed_mark)" m3-deploy-1/1
+  check "a look on a return to the same launch keeps it marked" "$(come_back)/$(owed_mark)" same/1
   restart_cold
   check "a new deploy reaches the app within one launch" "$(page "window.__m3Deploy ?? 0")" 1
   sleep 8
@@ -499,23 +527,35 @@ offline() {
   settle
   check "settled again" "$(owed_mark)" 0
   deploy m3-deploy-3 3
-  adb shell input keyevent KEYCODE_HOME
-  sleep 65
-  adb shell am start -n "$activity" >/dev/null
-  sleep 9
-  check "a deploy found on a return to the screen is kept marked" "$(owed_mark)" 1
-  restart_cold
-  check "and the next launch loads it from the site" "$(page "window.__m3Deploy ?? 0")" 3
+  check "a deploy found on a return to the screen is kept marked" "$(come_back)/$(owed_mark)" same/1
+  cold_launch
+  until_true "$USABLE"
+  check "and the next launch loads it from the site" "$(served)/$(page "window.__m3Deploy ?? 0")" 0/3
 
   # A launch stopped before its look: the next launch loads from the site.
   settle
   deploy m3-deploy-4 4
-  adb shell am force-stop "$package"
-  launch -n "$activity"
-  sleep 2
+  cold_launch
+  for _ in $(seq 1 40); do [ "$(served)" = 0 ] || break; sleep 0.25; done
+  check "a launch stopped before its look drew from the copy" "$(served)" 1
   adb shell am force-stop "$package"
   restart_cold
   check "a launch whose look didn't finish loads from the site next" "$(page "window.__m3Deploy ?? 0")" 4
+
+  # A launch that only reached the offline page keeps a deploy marked, even
+  # when its look finds the site again: the webview never loaded its files.
+  settle
+  settle
+  deploy m3-deploy-5 5
+  settle
+  check "the copy holds deploy 5, marked" "$(kept_deploy)/$(owed_mark)" m3-deploy-5/1
+  "$here/m3-site.sh" stop
+  cold_launch
+  until_true "document.getElementById('retry')" || note "FAIL light: the offline page didn't stand in"
+  "$here/m3-site.sh" start >/dev/null
+  adb logcat -c
+  check "a launch that only reached the offline page keeps the deploy marked, though a look found the site" \
+    "$(come_back)/$(owed_mark)/$(missed_site)" same/1/0
 
   # Nothing of an account is kept: only the shell and its files.
   check "the app keeps nothing of an account" "$(kept_besides_shell)" 0
