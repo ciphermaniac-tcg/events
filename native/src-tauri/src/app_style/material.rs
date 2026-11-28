@@ -1,4 +1,8 @@
-//! Material 3's components on Android, in the site's own colours. The
+//! Material 3's components on Android, in the site's own colours. The head
+//! bar keeps its near-black and becomes a Material small top app bar, 64 dp:
+//! on a page with a way back (its trail, "Your events / …") a back arrow and
+//! the page's title stand in for the logo, the trail and the page's heading;
+//! the arrow and title are the Android bridge's (`app_bridge.js`). The
 //! console's and dashboard's bar along the bottom of a phone is a Material
 //! navigation bar: 80 dp, each icon in a pill that fills on the open tab.
 //! Wider than a phone, the console's sections move to a navigation rail at
@@ -59,14 +63,25 @@ background: none; box-shadow: none; color: var(--accent-ink); font-weight: 600; 
 .tm-modal .tm-modal-foot .tm-danger { color: var(--negative); } \
 .tm-modal .tm-modal-foot .btn:disabled { color: var(--muted); }";
 
+/// The top app bar. `app-up` on the root marks a page with a way back.
+pub const TOP_BAR: &str = "\
+:root, body[data-mode] { --topnav-h: 64px; } \
+.app-bar-back, .app-bar-title { display: none; } \
+.app-up .site-head-row { justify-content: flex-start; gap: 4px; padding-left: 4px; } \
+.app-up .site-head-name, .app-up .tm-trail, .app-up .tm-hero-text > h1 { display: none; } \
+.app-up .app-bar-back { display: grid; place-items: center; flex: none; width: 48px; height: 48px; padding: 0; \
+border: 0; border-radius: 50%; background: none; color: var(--fg); } \
+.app-up .app-bar-title { display: block; flex: 1; min-width: 0; overflow: hidden; color: var(--fg); \
+font-size: 22px; font-weight: 500; line-height: 28px; white-space: nowrap; text-overflow: ellipsis; }";
+
 /// Every component's rules.
 pub fn css() -> String {
-    [NAV, SHEETS, DIALOGS].join(" ")
+    [TOP_BAR, NAV, SHEETS, DIALOGS].join(" ")
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{DIALOGS, NAV, SHEETS, css};
+    use super::{DIALOGS, NAV, SHEETS, TOP_BAR, css};
 
     #[test]
     fn draws_the_open_tab_in_a_pill_on_an_80_dp_bar() {
@@ -112,5 +127,14 @@ mod tests {
         assert!(
             DIALOGS.contains(".tm-modal .tm-modal-foot .tm-danger { color: var(--negative); }")
         );
+    }
+
+    #[test]
+    fn puts_a_back_arrow_and_the_title_in_a_64_dp_bar_on_a_page_with_a_way_back() {
+        assert!(css().contains(TOP_BAR));
+        assert!(TOP_BAR.contains(":root, body[data-mode] { --topnav-h: 64px; }"));
+        assert!(TOP_BAR.contains(".app-bar-back, .app-bar-title { display: none; }"));
+        assert!(TOP_BAR.contains(".app-up .site-head-name, .app-up .tm-trail, .app-up .tm-hero-text > h1 { display: none; }"));
+        assert!(TOP_BAR.contains(".app-up .app-bar-back { display: grid;"));
     }
 }
