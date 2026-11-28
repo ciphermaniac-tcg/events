@@ -410,21 +410,54 @@ run_theme() {
   shoot restored
 }
 
+# The app's own copy of the site (SiteCache.kt): it opens offline on the last
+# data it read, a deploy reaches it within one launch, and signing out drops
+# every read it kept, so nothing of the account shows offline after.
+kept_sessions() { adb shell run-as "$package" sh -c "ls files/site/data 2>/dev/null" | tr -d '\r' | grep -vc '^anon$' || true; }
+
 offline() {
   theme=light
   set_theme light
-  "$here/m3-site.sh" stop
-  go "/history"
-  sleep 4
-  shoot offline
-  check "the offline page stands in" "$(page "Boolean(document.getElementById('retry'))")" true
-  "$here/m3-site.sh" start >/dev/null
-  page "document.getElementById('retry')?.click()" >/dev/null
-  until_true "location.pathname === '/history' && !document.getElementById('retry')" ||
-    note "FAIL light: Retry did not bring the page back"
+  go "/"
+  until_true "document.body.innerText.includes('Willow Creek Cup')"
   sleep 2
-  shoot offline-back
-  check "Retry brings the page back" "$(path)" "/history"
+  "$here/m3-site.sh" stop
+  adb shell am force-stop "$package"
+  launch -n "$activity"
+  until_true "$USABLE"
+  sleep 2
+  shoot offline
+  check "offline, the app opens on its own copy, not the offline page" "$(page "Boolean(document.querySelector('main.page')) && !document.getElementById('retry')")" true
+  check "with the last data it read" "$(page "document.body.innerText.includes('Willow Creek Cup')")" true
+
+  # A deploy: the page names a new built file. Within one launch the app runs it.
+  printf 'window.__m3Deploy = 1;\n' >dist/assets/m3-deploy.js
+  sed -i 's|</head>|<script type="module" src="/assets/m3-deploy.js"></script></head>|' dist/index.html
+  "$here/m3-site.sh" start >/dev/null
+  adb shell am force-stop "$package"
+  launch -n "$activity"
+  until_true "$USABLE"
+  sleep 6
+  note "INFO light the deploy's first launch runs it already: $(page "window.__m3Deploy === 1")"
+  adb shell am force-stop "$package"
+  launch -n "$activity"
+  until_true "$USABLE"
+  check "a new deploy reaches the app within one launch" "$(page "window.__m3Deploy === 1")" true
+
+  # Signing out drops every kept read; offline after it, nothing of the account shows.
+  note "INFO light kept sessions before signing out: $(kept_sessions)"
+  page "document.querySelector('.site-head .tm-acct-button')?.click()" >/dev/null
+  until_true "document.querySelector('.tm-acct-menu')"
+  page "[...document.querySelectorAll('.tm-acct-menu button, .tm-acct-menu a')].find(b => b.textContent.trim() === 'Sign out')?.click()" >/dev/null
+  sleep 3
+  check "signing out drops every kept read" "$(kept_sessions)" 0
+  "$here/m3-site.sh" stop
+  adb shell am force-stop "$package"
+  launch -n "$activity"
+  sleep 6
+  shoot offline-signed-out
+  check "offline after signing out, nothing of the account shows" "$(page "document.body.innerText.includes('Willow Creek Cup')")" false
+  "$here/m3-site.sh" start >/dev/null
 }
 
 save_logs() { adb logcat -d >"$out/logcat.txt" 2>&1 || true; }
