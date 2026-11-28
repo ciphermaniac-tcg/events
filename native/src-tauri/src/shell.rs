@@ -383,7 +383,10 @@ pub fn create_main_window<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
 fn desktop_window_built<R: Runtime>(window: &tauri::WebviewWindow<R>) {
     crate::appearance::setup(window);
     #[cfg(target_os = "macos")]
-    crate::mac_dock::hide_on_close(window);
+    {
+        crate::mac_dock::hide_on_close(window);
+        crate::mac_page::swipe_back_and_forward(window);
+    }
     #[cfg(windows)]
     {
         crate::webview2::setup(window);
