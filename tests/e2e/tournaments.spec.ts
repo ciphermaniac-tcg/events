@@ -1761,6 +1761,19 @@ test('in the Mac app, Edit > Find goes to the page’s own search', async ({ pag
   ).toEqual([0, 6]);
 });
 
+test('in the Mac app, the page tells the app where the site moved, tab included, to open there next time', async ({
+  page
+}) => {
+  await mockApi(page);
+  await macPage(page);
+  await page.goto(`/t/${CODE}`);
+  await page.getByRole('tab', { name: 'Standings' }).click();
+  await expect(page).toHaveURL(/tab=standings/);
+  await expect
+    .poll(async () => ((await told(page)) as unknown[]).filter(call => Array.isArray(call)).at(-1))
+    .toEqual(['page_address', { url: page.url() }]);
+});
+
 /** The Mac app's title strip, as the app adds it to the site's pages (native/src-tauri/src/mac_title_strip.rs). */
 const STRIP_CSS = readFileSync(new URL('../../native/src-tauri/src/mac_title_strip.css', import.meta.url), 'utf8');
 const STRIP_JS = readFileSync(new URL('../../native/src-tauri/src/mac_title_strip.js', import.meta.url), 'utf8');
