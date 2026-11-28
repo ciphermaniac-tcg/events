@@ -337,15 +337,17 @@ pub fn create_main_window<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
     {
         config.url = WebviewUrl::External(url);
     }
-    // The simulated launch starts the window blank and loads the kept page
-    // as the response for this address (`feel.rs`).
+    // The Mac's copy of the page (`site_copy.rs`): the window starts blank and
+    // takes the kept page as the answer for this address.
     #[cfg(target_os = "macos")]
-    let start = match &config.url {
-        WebviewUrl::External(url) => url.to_string(),
-        _ => String::new(),
+    let kept = match &config.url {
+        WebviewUrl::External(page) => {
+            crate::site_copy::for_launch(app, page).map(|kept| (page.clone(), kept))
+        }
+        _ => None,
     };
     #[cfg(target_os = "macos")]
-    if std::env::var_os("FEEL_SIMULATE").is_some()
+    if kept.is_some()
         && let Ok(blank) = Url::parse("about:blank")
     {
         config.url = WebviewUrl::External(blank);
@@ -362,10 +364,12 @@ pub fn create_main_window<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
             crate::appearance::Appearance::System,
         ));
     let window = builder.build()?;
+    #[cfg(target_os = "macos")]
+    if let Some((page, kept)) = kept {
+        crate::site_copy::load(&window, &page, kept);
+    }
     #[cfg(desktop)]
     crate::feel::note("window-built", "");
-    #[cfg(target_os = "macos")]
-    crate::feel::simulated_launch(&window, &start);
     #[cfg(desktop)]
     desktop_window_built(&window);
     #[cfg(mobile)]

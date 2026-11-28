@@ -31,6 +31,8 @@ mod shell;
 #[cfg(any(windows, test))]
 mod shortcuts;
 mod sign_in;
+#[cfg(any(target_os = "macos", test))]
+mod site_copy;
 #[cfg(desktop)]
 mod theme;
 #[cfg(windows)]
@@ -144,6 +146,8 @@ fn with_desktop(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<tauri::Wr
             mac_page::page_shown,
             #[cfg(target_os = "macos")]
             mac_page::page_address,
+            #[cfg(target_os = "macos")]
+            site_copy::site_copy_keep,
         ])
 }
 
