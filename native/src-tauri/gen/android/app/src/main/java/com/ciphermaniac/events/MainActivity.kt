@@ -118,7 +118,10 @@ class MainActivity : TauriActivity() {
 
   private fun onPageMessage(message: JSONObject) {
     when (message.optString("type")) {
-      "state" -> back.onPageState(message.optBoolean("layer"), message.optBoolean("back"))
+      "state" -> {
+        back.onPageState(message.optBoolean("layer"), message.optBoolean("back"))
+        SiteLinks.keep(this, message.optString("url"))
+      }
       "shown" -> onContentShown()
       "cookies" -> flushCookies()
       "share" -> files.share(message)
