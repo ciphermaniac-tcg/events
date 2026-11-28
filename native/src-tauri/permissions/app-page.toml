@@ -1,0 +1,7 @@
+# The Mac app's side of the site's pages (mac_page.rs): the page tells the
+# app once it has drawn real content. See tom-bridge.toml on why each app
+# command is listed.
+[[permission]]
+identifier = "app-page"
+description = "Tells the app the page has drawn real content."
+commands.allow = ["page_shown"]
