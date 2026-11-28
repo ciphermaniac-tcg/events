@@ -198,10 +198,12 @@ pub fn site_copy_keep<R: tauri::Runtime>(app: tauri::AppHandle<R>, page: Live) {
 /// The copy for the main window's first page, `url`, when it may serve.
 #[cfg(target_os = "macos")]
 pub fn for_launch<R: tauri::Runtime>(app: &tauri::AppHandle<R>, url: &Url) -> Option<Kept> {
-    if !serves(url) {
+    if !serves(url) || std::env::var_os("FEEL_NO_COPY").is_some() {
         return None;
     }
-    launch_page(&dir_of(app)?, online())
+    let kept = launch_page(&dir_of(app)?, online());
+    crate::feel::note(if kept.is_some() { "copy-served" } else { "copy-not-served" }, url.as_str());
+    kept
 }
 
 /// Whether the Mac has a network that reaches beyond itself.

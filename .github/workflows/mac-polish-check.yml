@@ -1,0 +1,117 @@
+# =============================================================================
+# Mac polish check (throwaway, native/mac-polish-check only)
+# =============================================================================
+# Builds the Mac app twice with the audit probe: before the polish (BEFORE,
+# feat/native bd651646 plus the probe) and after it (this commit), and
+# measures both with native/screens/feel-mac.py's polish mode on this
+# commit's site, served on the runner as events.ciphermaniac.com itself.
+# The live site is refused with pf for the whole measurement, before any
+# launch, and the driver stops unless the sign-in lands on the runner's own
+# server. Results are the mac-polish artifact. No secrets.
+# =============================================================================
+
+name: Mac polish check
+
+on:
+  push:
+    branches: [native/mac-polish-check]
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  BEFORE: 6eb1207c3e42a63324602d9ea2dd94cadb016d03
+
+jobs:
+  check:
+    runs-on: macos-15
+    timeout-minutes: 150
+    steps:
+      - name: Name the work paths
+        run: |
+          {
+            echo "OUT=$RUNNER_TEMP/feel"
+            echo "FEELHID=$RUNNER_TEMP/feelhid"
+            echo "FEEL_STATE=$RUNNER_TEMP/feel-site"
+            echo "CARGO_TARGET_DIR=$GITHUB_WORKSPACE/native/src-tauri/target"
+          } >> "$GITHUB_ENV"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684
+        with:
+          path: |
+            ~/.cargo/registry
+            native/src-tauri/target
+          key: mac-polish-${{ hashFiles('native/src-tauri/Cargo.lock') }}-${{ github.sha }}
+          restore-keys: |
+            mac-polish-${{ hashFiles('native/src-tauri/Cargo.lock') }}-
+            mac-feel-
+      - name: Build the app after the polish
+        run: |
+          npm ci --prefix native
+          (cd native && npx tauri build --bundles app)
+          app=$(find "$CARGO_TARGET_DIR/release/bundle/macos" -maxdepth 1 -name '*.app' | head -n 1)
+          ditto "$app" "$RUNNER_TEMP/after/Ciphermaniac Events.app"
+      - name: Build the app before the polish
+        run: |
+          git worktree add "$RUNNER_TEMP/before-src" "$BEFORE"
+          npm ci --prefix "$RUNNER_TEMP/before-src/native"
+          (cd "$RUNNER_TEMP/before-src/native" && npx tauri build --bundles app)
+          app=$(find "$CARGO_TARGET_DIR/release/bundle/macos" -maxdepth 1 -name '*.app' | head -n 1)
+          ditto "$app" "$RUNNER_TEMP/before/Ciphermaniac Events.app"
+      - run: npm ci
+      - name: Build the site
+        run: npm run build
+      - run: |
+          mkdir -p "$OUT"
+          swiftc -O -o "$FEELHID" native/screens/feelhid.swift
+      - name: Serve and seed the site as events.ciphermaniac.com, the live site refused
+        id: serve
+        run: |
+          native/screens/feel-mac-site.sh cert
+          native/screens/feel-mac-site.sh start
+          read -r small big < <(native/screens/feel-mac-site.sh seed)
+          { echo "SMALL=$small"; echo "BIG=$big"; } >> "$GITHUB_ENV"
+          native/screens/feel-mac-site.sh hosts-on
+          # Fail closed: the name must reach this runner, and the live site nothing.
+          curl -s --cacert "$FEEL_STATE/ca.crt" -o /dev/null -w 'runner site: %{http_code} %{remote_ip}\n' https://events.ciphermaniac.com/ | tee "$OUT/site-check.txt"
+          grep -q 'runner site: 200 127.0.0.1' "$OUT/site-check.txt"
+          grep -oE '[0-9]+(\.[0-9]+){3}' "$FEEL_STATE/pf.rules" | while read -r ip; do
+            if curl -s -o /dev/null --max-time 5 --resolve "events.ciphermaniac.com:443:$ip" https://events.ciphermaniac.com/; then
+              echo "the live site at $ip is still reachable"; exit 1
+            fi
+          done
+          echo "live addresses refused" | tee -a "$OUT/site-check.txt"
+      - name: Measure before the polish
+        continue-on-error: true
+        if: ${{ steps.serve.outcome == 'success' }}
+        run: python3 native/screens/feel-mac.py "$RUNNER_TEMP/before/Ciphermaniac Events.app" "$OUT/before" polish-before "$SMALL" "$BIG"
+      - name: Measure after the polish
+        continue-on-error: true
+        if: ${{ steps.serve.outcome == 'success' }}
+        run: python3 native/screens/feel-mac.py "$RUNNER_TEMP/after/Ciphermaniac Events.app" "$OUT/after" polish-after "$SMALL" "$BIG"
+      - name: Put the network back
+        if: always()
+        run: |
+          native/screens/feel-mac-site.sh hosts-off || true
+          sudo pfctl -a com.apple/feel -F all || true
+          cp "$FEEL_STATE/site.log" "$OUT/site.log" || true
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: mac-polish
+          if-no-files-found: error
+          path: ${{ runner.temp }}/feel

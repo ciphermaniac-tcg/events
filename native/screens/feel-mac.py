@@ -331,8 +331,8 @@ def medians(rows):
     return out
 
 
-def launch_once(label, path, video=0, env=None, wait=20, keep=False):
-    app = App(label, path, env=env, video=video, film=not video and not keep)
+def launch_once(label, path, video=0, env=None, wait=20, keep=False, film=None):
+    app = App(label, path, env=env, video=video, film=(not video and not keep) if film is None else film)
     found = app.wait_page("load", wait)
     summary = launch_summary(app, found[1] if found else None)
     say(label, {k: summary[k] for k in ("on_screen", "html_end", "page_finished", "fcp", "usable", "usable_seen")})
@@ -650,7 +650,8 @@ def pf_clear():
 
 
 def offline_test(label, path):
-    pf("block drop out quick to events.ciphermaniac.com\n")
+    # Refused, as with the Wi-Fi off: the load fails at once rather than hang.
+    pf("block return out quick proto tcp to events.ciphermaniac.com\n")
     app = App(f"{label}-offline", path, video=14)
     shots = {}
     for at in (1.5, 3.5, 6.0, 10.0):
@@ -831,9 +832,96 @@ def server_down(path, label):
     return {"on_screen": rel(shown, app.t0), "load": load and {"marks": {k: rel(v, app.t0) for k, v in load.get("marks", {}).items()}, "state": load.get("state"), "title": load.get("title")}, "native": events}
 
 
+def set_dark(on):
+    osa(f'tell application "System Events" to tell appearance preferences to set dark mode to {"true" if on else "false"}')
+    time.sleep(1.5)
+
+
+def polish_launches(label, path, n, env=None, linger=0, video_first=True):
+    """Launches, each kept open `linger` s (so the copy's look runs), noting whether the copy served it."""
+    rows = []
+    for i in range(n):
+        video = 10 if video_first and i == 0 else 0
+        app, row = launch_once(f"{label}-{i}", path, video=video, env=env, keep=True, film=not video)
+        if linger:
+            time.sleep(linger)
+        row["copy"] = [n for _, s, n, _ in app.lines() if s == "native" and n.startswith("copy-")]
+        row["swipe"] = [d for _, s, n, d in app.lines() if s == "native" and n == "swipe"]
+        row["quit"] = app.quit()
+        row["film"] = app.film_rows
+        rows.append(row)
+    RESULTS[label] = {"runs": rows, "summary": medians(rows[1:] if video_first else rows)}
+    save()
+
+
+def shape(on):
+    if not on:
+        pf_clear()
+        return None
+    sh("sudo", "dnctl", "pipe", "1", "config", "delay", "150", "bw", "1600Kbit/s", timeout=10)
+    sh("sudo", "dnctl", "pipe", "2", "config", "delay", "150", "bw", "1600Kbit/s", timeout=10)
+    pf(
+        "dummynet out quick on lo0 proto tcp to 127.0.0.1 port 443 pipe 1\n"
+        "dummynet out quick on lo0 proto tcp from 127.0.0.1 port 443 pipe 2\n"
+    )
+    return sh("curl", "-s", "--cacert", os.path.join(os.environ["FEEL_STATE"], "ca.crt"), "-o", "/dev/null", "-w", "%{time_connect} %{time_starttransfer} %{time_total}", SITE + "/", timeout=30)
+
+
+def polish():
+    """Before and after the Mac polish: launches in light and dark, the copy on and off, offline, the signed-out home."""
+    small, big = CODES
+    resolved = socket.gethostbyname("events.ciphermaniac.com")
+    if resolved != "127.0.0.1" or not small or not big:
+        raise SystemExit(f"the runner's site isn't in place ({resolved}, {CODES}); nothing measured")
+    step("env", env_info)
+    set_dark(False)
+    wipe()
+    app, signin = launch_once("sign-in", None, env={"FEEL_URL": f"{SITE}/api/auth/login/dev?name=Reese"}, keep=True)
+    time.sleep(8)
+    RESULTS["sign_in"] = signin
+    app.quit()
+    save()
+    if signin.get("url") != "/" or signin.get("html_protocol") == "h3":
+        raise SystemExit(f"sign-in didn't land on the runner's site ({signin.get('url')}, {signin.get('html_protocol')}); nothing more measured")
+    console = f"/host/{big}"
+    for theme in ("light", "dark"):
+        set_dark(theme == "dark")
+        polish_launches(f"{theme}-console", console, 6, linger=7)
+        polish_launches(f"{theme}-dashboard", "/", 4, linger=7)
+    set_dark(False)
+    app, _ = launch_once("inapp-console", console, keep=True)
+    step("console_tells", tells, app, f"{MODE}-console")
+    step("console_keys", keys_test, app, f"{MODE}-console")
+    app.quit()
+    if MODE == "polish-after":
+        for shaped in (False, True):
+            RESULTS[f"shaped_{shaped}_curl"] = shape(shaped)
+            rows = {"copy-on": [], "copy-off": []}
+            for i in range(6):
+                for label, env in (("copy-on", None), ("copy-off", {"FEEL_NO_COPY": "1"})):
+                    app, row = launch_once(f"{label}-{'slow' if shaped else 'fast'}-{i}", console, env=env, keep=True, wait=40)
+                    rows[label].append(row)
+                    time.sleep(7)
+                    row["copy"] = [n for _, s, n, _ in app.lines() if s == "native" and n.startswith("copy-")]
+                    row["quit"] = app.quit()
+                    row["film"] = app.film_rows
+            for label, block in rows.items():
+                RESULTS[f"{label}-{'slow' if shaped else 'fast'}"] = {"runs": block, "summary": medians(block)}
+            save()
+        shape(False)
+    step("offline", offline_test, MODE, console)
+    wipe()
+    for i, name in enumerate(("home-first", "home-relaunch", "home-relaunch-2")):
+        app, row = launch_once(f"{name}", "/" if i else None, video=9, keep=True)
+        time.sleep(7)
+        row["quit"] = app.quit()
+        RESULTS.setdefault("home", []).append(row)
+    save()
+
+
 if __name__ == "__main__":
     try:
-        live() if MODE == "live" else local()
+        polish() if MODE.startswith("polish") else live() if MODE == "live" else local()
     finally:
         save()
         say("done", RESULT_FILE)

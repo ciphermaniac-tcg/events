@@ -33,6 +33,7 @@ pub fn swipe_back_and_forward<R: tauri::Runtime>(window: &tauri::WebviewWindow<R
     let set = window.with_webview(|webview| unsafe {
         let webview: &objc2_web_kit::WKWebView = &*webview.inner().cast();
         webview.setAllowsBackForwardNavigationGestures(true);
+        crate::feel::note("swipe", &webview.allowsBackForwardNavigationGestures().to_string());
     });
     if let Err(err) = set {
         log::warn!("could not reach the webview: {err}");
