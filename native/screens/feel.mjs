@@ -133,7 +133,7 @@ async function connect(limitMs = 30000) {
         const pages = await (
           await fetch(`http://127.0.0.1:${port}/json`, { signal: AbortSignal.timeout(4000) })
         ).json();
-        const target = pages.find(item => item.type === 'page' && item.url.startsWith('http'));
+        const target = pages.find(item => item.type === 'page' && /^(https?|data):/.test(item.url));
         if (target) {
           socket = await open(target.webSocketDebuggerUrl);
           log('connected', id, target.url.slice(0, 80));
@@ -269,10 +269,26 @@ function amTimes(text) {
 }
 
 /** Starts the app (cold when `stop`), then waits until the page is usable and reads it. */
-async function launch({ stop = true, link = null, wait = 'window.__feel?.marks?.usable' } = {}) {
+/**
+ * Ends the app as a person's phone would: it leaves the screen first (so its
+ * cookies are written, MainActivity.onStop), then its process is stopped.
+ */
+async function stopApp() {
+  if (pid()) {
+    shell('input keyevent KEYCODE_HOME');
+    await sleep(1200);
+  }
+  shell(`am force-stop ${pkg}`);
+  await sleep(500);
+}
+
+async function launch({ stop = true, link = null, wait = 'window.__feel?.marks?.usable', prepared = false } = {}) {
+  if (stop && !prepared) {
+    await stopApp();
+  }
   shell('logcat -c');
   const target = link ? `-a android.intent.action.VIEW -d ${site}${link} ` : '';
-  const answer = shell(`date +%s%N; am start -W ${stop ? '-S ' : ''}${target}-n ${activity}`);
+  const answer = shell(`date +%s%N; am start -W ${target}-n ${activity}`);
   const t0 = epoch(answer.split('\n')[0]);
   const am = amTimes(answer);
   let proc = null;
@@ -479,30 +495,15 @@ async function starts(prefix, link) {
     await sleep(1000);
   }
   results.runs[`${prefix}hot`] = hot;
-  // Warm: the process lives on but its activity is gone, as when Android reclaims it.
-  shell('settings put global always_finish_activities 1');
-  const warm = [];
-  try {
-    for (let i = 0; i < 3; i++) {
-      shell('input keyevent KEYCODE_HOME');
-      await sleep(2000);
-      warm.push(await launch({ stop: false }));
-    }
-  } finally {
-    shell('settings put global always_finish_activities 0');
-  }
-  results.runs[`${prefix}warm`] = {
-    summary: summary(warm),
-    trials: warm.map(({ read, ...rest }) => ({ ...rest, payload: payload(read) }))
-  };
   save();
 }
 
 async function firstLaunch(link) {
   shell(`am force-stop ${pkg}`);
   shell(`pm clear ${pkg}`);
-  const stop = await record('first-launch', 12);
+  const stop = await record('first-launch', 14);
   const first = await launch({
+    prepared: true,
     link,
     wait: local ? `document.body?.innerText.includes('Willow Creek Cup')` : 'window.__feel?.marks?.usable'
   });
@@ -556,7 +557,7 @@ async function scroll(name) {
 async function longPress(selector, name) {
   const [x, y] = await point(selector);
   shell(`input swipe ${x} ${y} ${x} ${y} 900`);
-  await sleep(700);
+  await sleep(1300);
   shot(name);
   const selected = await page('String(getSelection())');
   await page('getSelection().removeAllRanges(), true');
@@ -629,6 +630,8 @@ async function tells() {
   await sleep(800);
   out2.scaleAfterPinch = await page('visualViewport.scale');
   shot('pinch');
+  await timedLoad('location.reload()', null);
+  await sleep(800);
   // Overscroll at the top, as a pull to refresh would start.
   await page('window.scrollTo(0, 0), true');
   await sleep(400);
@@ -749,11 +752,12 @@ async function throttled(big) {
 }
 
 async function offlineLaunch(off, on) {
+  await stopApp();
   off();
   await sleep(1500);
   const stop = await record('offline-launch', 10);
   shell('logcat -c');
-  const answer = shell(`date +%s%N; am start -W -S -n ${activity}`);
+  const answer = shell(`date +%s%N; am start -W -n ${activity}`);
   const t0 = epoch(answer.split('\n')[0]);
   let shownAt = null;
   try {
@@ -803,16 +807,18 @@ async function runLocal(small, big) {
     };
   });
   await step('coldRecordLight', async () => {
-    const stop = await record('cold-light', 8);
-    const t = await launch({ link: '/' });
+    await stopApp();
+    const stop = await record('cold-light', 9);
+    const t = await launch({ link: '/', prepared: true });
     await stop();
     return { ...t, read: undefined };
   });
   await step('coldRecordDark', async () => {
     shell('cmd uimode night yes');
     await sleep(1500);
-    const stop = await record('cold-dark', 8);
-    const t = await launch({ link: '/' });
+    await stopApp();
+    const stop = await record('cold-dark', 9);
+    const t = await launch({ link: '/', prepared: true });
     await stop();
     shell('cmd uimode night no');
     await sleep(1500);
@@ -930,7 +936,34 @@ async function runLocal(small, big) {
     await page(`location.assign('/host/${big}?tab=players'), true`);
     await until(`${rows}`);
     await sleep(1500);
+    shot('console-players');
     return scroll('console-players');
+  });
+  await step('scrollNativeControl', async () => {
+    shell('am start -W -n com.android.settings/.Settings');
+    await sleep(2500);
+    shell('dumpsys gfxinfo com.android.settings reset');
+    for (let i = 0; i < 4; i++) {
+      shell('input swipe 540 1900 540 700 120');
+      await sleep(1100);
+    }
+    for (let i = 0; i < 4; i++) {
+      shell('input swipe 540 700 540 1900 120');
+      await sleep(1100);
+    }
+    const gfx = shell('dumpsys gfxinfo com.android.settings');
+    writeFileSync(`${out}/feel-${mode}-gfxinfo-settings.txt`, gfx);
+    const grab = key => new RegExp(`${key}: ([^\\n]+)`).exec(gfx)?.[1]?.trim();
+    shell(`am start -n ${activity}`);
+    await sleep(2000);
+    await connect();
+    return {
+      total: grab('Total frames rendered'),
+      janky: grab('Janky frames'),
+      p50: grab('50th percentile'),
+      p90: grab('90th percentile'),
+      p99: grab('99th percentile')
+    };
   });
   await step('memory', () =>
     tryShell(`dumpsys meminfo ${pkg} | grep -E "TOTAL PSS|TOTAL RSS|WebView|Native Heap|Graphics"`)
@@ -1003,8 +1036,9 @@ async function runLive(code) {
     return list;
   });
   await step('coldRecordLight', async () => {
-    const stop = await record('cold-light', 8);
-    const t = await launch({ link: '/' });
+    await stopApp();
+    const stop = await record('cold-light', 9);
+    const t = await launch({ link: '/', prepared: true });
     await stop();
     return { ...t, read: undefined };
   });
@@ -1012,8 +1046,9 @@ async function runLive(code) {
   await step('emulatedNetworkCold', async () => {
     const set = [adbEmu('network delay 150'), adbEmu('network speed 750:1600')];
     try {
+      await stopApp();
       const stop = await record('cold-3g', 15);
-      const t = await launch({ link: '/' });
+      const t = await launch({ link: '/', prepared: true });
       await stop();
       return { set, ...t, read: undefined, payload: payload(t.read) };
     } finally {
