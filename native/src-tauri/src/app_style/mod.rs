@@ -85,15 +85,20 @@ fn rules() -> String {
     .join(" ")
 }
 
-/// A page script for the site's own pages: once the page has its head, it
-/// adds `css` after the site's own stylesheets and marks the root `in-app`;
-/// before then the page may have no root at all. It runs `then` at once.
+/// A page script for the site's own pages: it adds `css` before the page
+/// draws anything, as a constructable sheet, which cascades after every
+/// stylesheet the page loads, then or later; where a webview has none
+/// (Safari before 16.4), as a `<style>` once the page has its head. It marks
+/// the root `in-app` once the page has one, and runs `then` at once.
 pub fn site_script(css: &str, then: &str) -> String {
     let css = serde_json::Value::from(css);
     format!(
         "(() => {{ if (location.hostname !== '{SITE_HOST}') return; \
-         const add = () => {{ const style = document.createElement('style'); \
-         style.textContent = {css}; document.head.append(style); \
+         const css = {css}; let adopted = false; \
+         try {{ const sheet = new CSSStyleSheet(); sheet.replaceSync(css); \
+         document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet]; adopted = true; }} catch {{}} \
+         const add = () => {{ if (!adopted) {{ const style = document.createElement('style'); \
+         style.textContent = css; document.head.append(style); }} \
          document.documentElement.classList.add('in-app'); }}; \
          if (document.readyState === 'loading') {{ \
          document.addEventListener('DOMContentLoaded', add, {{ once: true }}); }} else {{ add(); }} \
@@ -133,6 +138,20 @@ mod tests {
     #[test]
     fn holds_the_page_still_behind_a_dialog() {
         assert!(script().contains(":root:has(dialog:modal) { overflow: hidden; }"));
+    }
+
+    #[test]
+    fn adds_its_styles_before_the_page_draws() {
+        let script = super::site_script("a { b: c }", "");
+        let (start, _) = script.split_once("const add = () =>").unwrap();
+        assert!(start.contains("new CSSStyleSheet()"));
+        assert!(
+            start.contains("document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet]")
+        );
+        assert!(
+            script.contains("if (!adopted)"),
+            "a <style> where there is no constructable sheet"
+        );
     }
 
     #[test]
