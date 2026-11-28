@@ -3130,6 +3130,29 @@ async function mockRecords(page: Page, id: string) {
   );
 }
 
+test('a player’s sheet opens over the console while its notes are still on their way', async ({ page }) => {
+  const t = event(8, 1, true);
+  const player = t.players.find(p => p.firstName === 'Player1')!;
+  await mockConsole(page, t, settingsOf({ decklists: 'closed' }));
+  await mockRecords(page, player.id);
+  const held = deferred<void>();
+  await page.route(`**/api/tournaments/${CODE}/penalty-notes`, async route => {
+    await held.promise;
+    return route.fallback();
+  });
+
+  await page.getByRole('tab', { name: 'Standings', exact: true }).click();
+  await page.getByRole('button', { name: 'Player1 Test', exact: true }).click();
+  const sheet = page.getByRole('dialog', { name: 'Player1 Test' });
+  const penalties = sheet.locator('.tm-sheet-section', { has: page.getByRole('heading', { name: 'Penalties' }) });
+  // The console stays behind the sheet; only the notes' own section waits.
+  await expect(sheet).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'Standings', exact: true })).toBeVisible();
+  await expect(penalties.locator('.skeleton')).toBeVisible();
+  held.resolve();
+  await expect(penalties).toContainText('Shuffled after the cut');
+});
+
 test('a player’s sheet opens from standings and the roster, with their table, rounds, list, notes and checks', async ({
   page
 }) => {

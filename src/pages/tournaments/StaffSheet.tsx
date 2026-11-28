@@ -8,7 +8,7 @@
  * pairing's names record results, so the sheet never opens from them.
  */
 
-import { createMemo, createResource, For, type JSX, Match, Show, Switch } from 'solid-js';
+import { createMemo, createResource, For, type JSX, Match, type Resource, Show, Switch } from 'solid-js';
 import { Skeleton } from '@ciphermaniac/design/components/Skeleton';
 import { standingChecks } from '../../../shared/tournament/deckChecks';
 import { decklistMatcher } from '../../../shared/tournament/identify';
@@ -28,6 +28,7 @@ import {
 import { type PlayerNow, playerNow } from '../../lib/tournament/playerNow';
 import { matchHistory, namesById, roundLabel, shownDecks } from '../../lib/tournament/present';
 import { intlLocale, t } from '../../lib/i18n';
+import { latestValue } from '../../lib/resource';
 import { CheckInMarks, showsCheckIn } from './CheckIn';
 import { DeckIcons } from './DeckIcons';
 import { RetryError } from './Field';
@@ -65,20 +66,19 @@ function Section(props: { title: string; children: JSX.Element }) {
 
 /** A record staff read on a sheet, read once it opens: a skeleton until it comes, and a way to ask again if it fails. */
 function Loaded<T>(props: {
-  value: T | undefined;
-  failed: boolean;
+  resource: Resource<T>;
   error: string;
   onRetry: () => void;
   children: (value: () => T) => JSX.Element;
 }) {
   return (
     <Switch fallback={<Skeleton height='40px' />}>
-      <Match when={props.failed}>
+      <Match when={props.resource.error}>
         <div class='tm-row-actions'>
           <RetryError error={props.error} onRetry={() => props.onRetry()} small />
         </div>
       </Match>
-      <Match when={props.value}>{value => props.children(value)}</Match>
+      <Match when={latestValue(props.resource)}>{value => props.children(value)}</Match>
     </Switch>
   );
 }
@@ -184,12 +184,7 @@ function ListSection(props: { seen: Seen }) {
   const deck = (list: Decklist | undefined) => manage().decks[id()] ?? list?.archetype ?? t('Unclassified');
   return (
     <Section title={t('Decklist')}>
-      <Loaded
-        value={lists.latest}
-        failed={Boolean(lists.error)}
-        error={t('The decklists could not be loaded.')}
-        onRetry={() => void refetch()}
-      >
+      <Loaded resource={lists} error={t('The decklists could not be loaded.')} onRetry={() => void refetch()}>
         {all => {
           const list = () => all().find(entry => playerOf()(entry) === id());
           return (
@@ -228,18 +223,13 @@ function PenaltySection(props: { seen: Seen }) {
   const id = () => props.seen.props.player.id;
   const [record, { refetch }] = createResource(() => props.seen.props.manage.code, fetchPenaltyNotes);
   const notes = createMemo(() =>
-    standingNotes(record.latest?.entries ?? [])
+    standingNotes(latestValue(record)?.entries ?? [])
       .filter(note => note.playerId === id())
       .sort((a, b) => b.round - a.round || b.recordedAt - a.recordedAt)
   );
   return (
     <Section title={t('Penalties')}>
-      <Loaded
-        value={record.latest}
-        failed={Boolean(record.error)}
-        error={t('Penalty notes could not be loaded.')}
-        onRetry={() => void refetch()}
-      >
+      <Loaded resource={record} error={t('Penalty notes could not be loaded.')} onRetry={() => void refetch()}>
         {() => (
           <Show when={notes().length} fallback={<p class='muted'>{t('No penalty notes yet.')}</p>}>
             <ul class='tm-sheet-entries'>
@@ -269,18 +259,13 @@ function CheckSection(props: { seen: Seen }) {
   const id = () => props.seen.props.player.id;
   const [record, { refetch }] = createResource(() => props.seen.props.manage.code, fetchDeckChecks);
   const checks = createMemo(() =>
-    standingChecks(record.latest?.entries ?? [])
+    standingChecks(latestValue(record)?.entries ?? [])
       .filter(check => check.playerId === id())
       .sort((a, b) => b.round - a.round || b.recordedAt - a.recordedAt)
   );
   return (
     <Section title={t('Deck checks')}>
-      <Loaded
-        value={record.latest}
-        failed={Boolean(record.error)}
-        error={t('Deck checks could not be loaded.')}
-        onRetry={() => void refetch()}
-      >
+      <Loaded resource={record} error={t('Deck checks could not be loaded.')} onRetry={() => void refetch()}>
         {() => (
           <Show when={checks().length} fallback={<p class='muted'>{t('No deck checks yet.')}</p>}>
             <ul class='tm-sheet-entries'>
