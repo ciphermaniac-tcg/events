@@ -4,7 +4,8 @@
 //! skeleton; a page that never says so shows after a while anyway
 //! (`shell.rs`). A right click gets the system's text menu where text is
 //! selected or typed, and no menu elsewhere, never `WebKit`'s browser items.
-//! Edit > Find (`menu.rs`) goes to the page's own search, where it shows one.
+//! Edit > Find (`menu.rs`) goes to the page's own search, where it shows one,
+//! and a two-finger swipe goes back and forward.
 
 /// The page script, on the site's pages only.
 #[cfg(any(target_os = "macos", test))]
@@ -59,6 +60,21 @@ fn set_alpha<R: tauri::Runtime>(window: &tauri::WebviewWindow<R>, alpha: f64) {
     unsafe {
         let ns_window: &objc2::runtime::AnyObject = &*ns_window.cast();
         let () = objc2::msg_send![ns_window, setAlphaValue: alpha];
+    }
+}
+
+/// The window's webview takes the trackpad's two-finger swipe back and
+/// forward, as Safari does; `WebKit` leaves it off, and Tauri has no setting.
+#[cfg(target_os = "macos")]
+pub fn swipe_back_and_forward<R: tauri::Runtime>(window: &tauri::WebviewWindow<R>) {
+    // SAFETY: on the Mac the platform webview is the window's WKWebView, on
+    // the main thread, where `with_webview` runs.
+    let set = window.with_webview(|webview| unsafe {
+        let webview: &objc2_web_kit::WKWebView = &*webview.inner().cast();
+        webview.setAllowsBackForwardNavigationGestures(true);
+    });
+    if let Err(err) = set {
+        log::warn!("could not reach the webview: {err}");
     }
 }
 

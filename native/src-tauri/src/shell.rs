@@ -353,7 +353,10 @@ fn desktop_window_built<R: Runtime>(window: &tauri::WebviewWindow<R>) {
     #[cfg(target_os = "macos")]
     crate::mac_page::show_unseen(window);
     #[cfg(target_os = "macos")]
-    crate::mac_dock::hide_on_close(window);
+    {
+        crate::mac_dock::hide_on_close(window);
+        crate::mac_page::swipe_back_and_forward(window);
+    }
     #[cfg(windows)]
     {
         crate::webview2::setup(window);
