@@ -4,7 +4,11 @@
 //! account menu takes copies of those three links, made from the hidden
 //! footer's own (already in the reader's language) each time it opens.
 
-pub const CSS: &str = ".site-footer { display: none !important; }";
+/// The footer goes, and with it the floor the site gives a loading page to
+/// keep its footer below the fold, which in the app only pulsed the page's
+/// height while a skeleton showed.
+pub const CSS: &str =
+    ".site-footer { display: none !important; } main.page:has(.skeleton) { min-height: auto; }";
 
 /// Copies the footer's Terms, Privacy and Feedback into the account menu,
 /// above Sign out. It watches the document, as the page has no root yet. A
@@ -30,6 +34,7 @@ mod tests {
     #[test]
     fn hides_the_footer_and_keeps_its_links_in_the_account_menu() {
         assert!(CSS.contains(".site-footer { display: none !important; }"));
+        assert!(CSS.contains("main.page:has(.skeleton) { min-height: auto; }"));
         assert!(ACCOUNT_MENU_LINKS.contains("href === '/terms'"));
         assert!(ACCOUNT_MENU_LINKS.contains("href.endsWith('/feedback')"));
         assert!(ACCOUNT_MENU_LINKS.contains(".tm-acct-menu"));
