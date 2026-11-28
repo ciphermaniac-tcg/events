@@ -195,6 +195,23 @@
   document.addEventListener('touchend', event => drag && release(event));
   document.addEventListener('touchcancel', event => drag && release(event));
 
+  // A link to the site while the app runs (MainActivity): the page's router
+  // takes it as it takes a link in the page, with no new load; false when
+  // this page isn't the site's app, such as the offline page.
+  window.__cmOpen = href => {
+    const url = new URL(href);
+    if (url.origin !== location.origin || !document.getElementById('root')?.childElementCount) {
+      return false;
+    }
+    const link = document.createElement('a');
+    link.href = url.href;
+    link.hidden = true;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    return true;
+  };
+
   // Closes the top layer; false when there was none, or nothing on the page changed.
   window.__cmBack = () => {
     const layer = topLayer();

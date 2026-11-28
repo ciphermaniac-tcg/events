@@ -33,10 +33,20 @@ class MainActivity : TauriActivity() {
     super.onCreate(savedInstanceState)
   }
 
-  /** A link to the site while the app runs (the activity is singleTask). */
+  /**
+   * A link to the site while the app runs (the activity is singleTask): the
+   * page's own router goes there, as a link in the page would
+   * (app_bridge.js), and the page loads anew only when it can't.
+   */
   override fun onNewIntent(intent: Intent) {
     super.onNewIntent(intent)
-    SiteLinks.link(intent)?.let { webView?.loadUrl(it) }
+    val link = SiteLinks.link(intent) ?: return
+    val view = webView ?: return
+    view.evaluateJavascript("window.__cmOpen ? window.__cmOpen(${JSONObject.quote(link)}) : false") { opened ->
+      if (opened != "true") {
+        view.loadUrl(link)
+      }
+    }
   }
 
   /**
