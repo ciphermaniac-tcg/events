@@ -2,7 +2,8 @@
 //! stays unseen until the page has drawn real content (`page_shown`), so a
 //! launch never shows a blank window, the page's colour before its own, or a
 //! skeleton; a page that never says so shows after a while anyway
-//! (`shell.rs`).
+//! (`shell.rs`). A right click gets the system's text menu where text is
+//! selected or typed, and no menu elsewhere, never `WebKit`'s browser items.
 
 /// The page script, on the site's pages only.
 #[cfg(any(target_os = "macos", test))]
@@ -84,5 +85,6 @@ mod tests {
             )
         );
         assert!(script.contains("invoke('page_shown')"));
+        assert!(script.contains("'contextmenu'"));
     }
 }

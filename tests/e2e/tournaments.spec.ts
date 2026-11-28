@@ -1721,6 +1721,29 @@ test('in the Mac app, the page tells the app it has drawn only once its content 
   await expect.poll(() => told(page)).toEqual(['page_shown']);
 });
 
+test('in the Mac app, a right click gets the system’s text menu on selected or typed text and no menu elsewhere', async ({
+  page
+}) => {
+  await mockApi(page);
+  await macPage(page);
+  await page.addInitScript(() =>
+    addEventListener('contextmenu', event => {
+      (window as unknown as { __menu: boolean }).__menu = !event.defaultPrevented;
+    })
+  );
+  await page.goto(`/t/${CODE}`);
+  const menu = async (target: ReturnType<Page['locator']>) => {
+    await target.click({ button: 'right' });
+    return page.evaluate(() => (window as unknown as { __menu: boolean }).__menu);
+  };
+  const heading = page.getByRole('heading', { level: 1 });
+  expect(await menu(heading)).toBe(false);
+  expect(await menu(page.locator('.tm-matches').getByRole('button').first())).toBe(false);
+  expect(await menu(page.getByRole('searchbox', { name: 'Find a player' }))).toBe(true);
+  await heading.selectText();
+  expect(await menu(heading)).toBe(true);
+});
+
 /** The Mac app's title strip, as the app adds it to the site's pages (native/src-tauri/src/mac_title_strip.rs). */
 const STRIP_CSS = readFileSync(new URL('../../native/src-tauri/src/mac_title_strip.css', import.meta.url), 'utf8');
 const STRIP_JS = readFileSync(new URL('../../native/src-tauri/src/mac_title_strip.js', import.meta.url), 'utf8');

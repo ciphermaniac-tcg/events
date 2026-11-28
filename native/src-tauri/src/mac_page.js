@@ -1,5 +1,6 @@
 // The Mac app's side of the site's pages (mac_page.rs), called with the
-// app's invoke. The window shows once the page has drawn real content.
+// app's invoke. The window shows once the page has drawn real content, and
+// a right click gets the system's text menu or none, never the browser's.
 (invoke => {
   // Real content: a heading in the page and no skeleton, told two frames on,
   // once that has been drawn (the Android shell's "shown").
@@ -26,6 +27,13 @@
     queue();
     observer.observe(document.documentElement, { childList: true, subtree: true });
   };
+  // The system's text menu (Look Up, Copy, Paste, spelling) where text is
+  // selected or typed; elsewhere none, as in an app, rather than WebKit's
+  // Reload, Download Linked File and the rest.
+  document.addEventListener('contextmenu', event => {
+    const typed = event.target instanceof Element && event.target.closest('input, textarea, [contenteditable]') !== null;
+    if (!typed && !window.getSelection()?.toString().trim()) event.preventDefault();
+  });
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', start, { once: true });
   } else {
