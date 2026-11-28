@@ -13,7 +13,7 @@ name: Android feel audit
 
 on:
   push:
-    branches: [native/android-feel-audit]
+    branches: [native/android-m3-test]
 
 permissions:
   contents: read

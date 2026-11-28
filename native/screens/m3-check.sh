@@ -84,6 +84,19 @@ return getComputedStyle(bar).flexDirection === 'column' && getComputedStyle(tabs
 
 in_app() { adb shell dumpsys activity activities | grep -q "ResumedActivity.*$package"; }
 
+# The page has drawn real content: a heading in it and no skeleton.
+USABLE="Boolean(document.querySelector('main.page')?.querySelector('h1, h2')?.textContent.trim()) && !document.querySelector('main.page .skeleton')"
+
+# Taps the first node uiautomator finds with this text.
+tap_text() {
+  local at
+  adb shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1
+  adb shell cat /sdcard/ui.xml >"$out/ui.xml"
+  at=$(python3 -I "$here/ui.py" "$out/ui.xml" text "$1") || return 1
+  # shellcheck disable=SC2086 # the point is "x y"
+  adb shell input tap $at
+}
+
 sheet_open() { page "Boolean(document.querySelector('.tm-sheet'))"; }
 
 open_sheet() {
@@ -129,16 +142,37 @@ run_theme() {
   adb shell pm clear "$package" >/dev/null
   launch -n "$activity"
   until_true "document.body?.innerText.includes('Willow Creek Cup')" || note "FAIL $theme: home never showed the event"
-  sleep 2
+
+  # Signed in by that first launch 3 s ago, the app is stopped without leaving
+  # the screen first, and still signed in when it starts again. The splash
+  # lasts until the page shows content.
+  sleep 3
+  adb shell am force-stop "$package"
+  local started
+  started=$(adb shell am start -W -n "$activity" | tr -d '\r' | grep -E 'TotalTime' | xargs)
+  connect
+  check "when the splash goes, the page shows content" "$(page "$USABLE")" true
+  note "INFO $theme cold start: $started"
+  shoot launch
+  until_true "$USABLE"
+  check "a stop 3 s after signing in keeps the sign-in" "$(page "Boolean(document.querySelector('.tm-acct-button'))")" true
+  sleep 1
   shoot home
+
+  # No pinch-zoom.
+  node "$here/cdp.mjs" "$port" pinch >/dev/null 2>&1
+  sleep 1
+  check "a pinch doesn't zoom" "$(page 'visualViewport.scale')" 1
   check "home keeps the logo in the bar" \
     "$(page "!document.documentElement.classList.contains('app-up') && getComputedStyle(document.querySelector('.site-head-name')).display !== 'none'")" true
 
-  # A site link while the app runs loads in it, and Back returns to the page before.
+  # A site link while the app runs opens in it with no reload, and Back returns to the page before.
+  page "window.__m3Stay = 1" >/dev/null
   view "/host/$code"
   until_true "location.pathname === '/host/$code' && document.querySelector('.tm-tabbar, .tabs')"
   sleep 2
   shoot console
+  check "a link while the app runs doesn't reload the page" "$(page "window.__m3Stay")" 1
   check "warm link opens the console" "$(path)" "/host/$code"
 
   # The Material navigation bar: 80 dp, the open tab's pill filled, and a tap moves it.
@@ -274,6 +308,34 @@ run_theme() {
   adb shell input keyevent KEYCODE_BACK
   sleep 1
 
+  # Dropdowns and date and time fields open Material pickers.
+  go "/host/$code?tab=event"
+  until_true "document.querySelector('#set-start')"
+  sleep 1
+  local sel opt
+  sel=$(page "(() => { const s = [...document.querySelectorAll('main select')].find(s => s.id && s.options.length > 1); return s ? s.id : ''; })()")
+  if [ -n "$sel" ]; then
+    opt=$(page "(() => { const s = document.getElementById('$sel'); const o = s.options[s.selectedIndex + 1] ?? s.options[s.selectedIndex - 1]; return o.label + '|' + o.value; })()")
+    tap_el "#$sel"
+    sleep 2.5
+    shoot picker-select
+    tap_text "${opt%%|*}" || note "FAIL $theme: the dropdown's Material list did not show ${opt%%|*}"
+    sleep 1.5
+    check "a dropdown takes the pick from its Material list" "$(page "document.getElementById('$sel').value")" "${opt#*|}"
+  else
+    note "INFO $theme: no dropdown with a choice in the event's settings"
+  fi
+  tap_el '#set-start'
+  sleep 2.5
+  shoot picker-date
+  tap_text OK || note "FAIL $theme: no Material date picker"
+  sleep 2
+  shoot picker-time
+  tap_text OK || note "FAIL $theme: no Material time picker"
+  sleep 1.5
+  check "a date and time field takes the Material pickers' answer" \
+    "$(page "/^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d$/.test(document.getElementById('set-start').value)")" true
+
   # Wider than a phone, the console's sections are a rail at the left.
   go "/host/$code"
   until_true "document.querySelector('.tm-console > .tm-tabbar')"
@@ -293,6 +355,25 @@ run_theme() {
   adb shell wm size reset
   sleep 3
   check "on a phone, the bar is back" "$(page "getComputedStyle(document.querySelector('.tm-console > .tm-tabbar')).flexDirection")" row
+
+  # After Android ends the app in the background, its page, tab and scroll come back.
+  go "/host/$code?tab=players"
+  until_true "document.querySelector('#add-first')"
+  sleep 1
+  local y
+  y=$(page "(() => { scrollTo(0, Math.min(250, document.documentElement.scrollHeight - innerHeight)); return Math.round(scrollY); })()")
+  sleep 1
+  adb shell input keyevent KEYCODE_HOME
+  sleep 3
+  adb shell am kill "$package"
+  sleep 1
+  [ -z "$(adb shell pidof "$package" | tr -d '\r')" ] || adb shell am force-stop "$package"
+  launch -n "$activity"
+  until_true "location.search === '?tab=players' && document.querySelector('#add-first')"
+  sleep 2
+  check "after Android ends the app, the tab comes back" "$(path)" "/host/$code?tab=players"
+  check "and the scroll, $y px" "$(page "Math.abs(Math.round(scrollY) - $y) <= 4")" true
+  shoot restored
 }
 
 offline() {

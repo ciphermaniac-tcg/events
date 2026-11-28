@@ -75,6 +75,9 @@ async function report(out) {
 
 if (command === 'eval') {
   console.log(await evaluate(argument));
+} else if (command === 'pinch') {
+  const scale = { x: 200, y: 400, scaleFactor: 2, relativeSpeed: 600, gestureSourceType: 'touch' };
+  console.log(JSON.stringify(await send('Input.synthesizePinchGesture', scale)));
 } else {
   await report(argument);
 }
