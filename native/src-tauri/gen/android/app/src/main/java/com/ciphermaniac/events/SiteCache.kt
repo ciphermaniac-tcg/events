@@ -163,8 +163,16 @@ class SiteCache private constructor(context: Context) {
       null
     }
 
+  /**
+   * The kept page as the webview's answer. It asks the webview to open the
+   * site's connection at once, as fetching the page would have: otherwise
+   * the page's first read waits for it.
+   */
   private fun response(html: ByteArray, headers: Map<String, String>) =
-    WebResourceResponse("text/html", "utf-8", HttpURLConnection.HTTP_OK, "OK", headers, ByteArrayInputStream(html))
+    WebResourceResponse(
+      "text/html", "utf-8", HttpURLConnection.HTTP_OK, "OK", headers + ("link" to "<$SITE>; rel=preconnect"),
+      ByteArrayInputStream(html)
+    )
 
   /** Writes whole or not at all; true when written. */
   private fun write(file: File, bytes: ByteArray): Boolean {
