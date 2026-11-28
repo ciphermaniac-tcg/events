@@ -5,7 +5,7 @@
 //        feelhid waitwin <pid> <timeout ms>      epoch when it first shows one
 //        feelhid click <x> <y> [right]
 //        feelhid dblclick <x> <y>
-//        feelhid scroll <x> <y> <dy> <count> <interval ms>
+//        feelhid scroll <x> <y> <dy> <count> <interval ms> [line]
 //        feelhid drag <x1> <y1> <x2> <y2> <steps> <interval ms>
 //        feelhid key <keycode> [cmd] [shift] [ctrl] [alt]
 //        feelhid pixwatch <pid> <ms>              the window's look while it changes:
@@ -67,8 +67,8 @@ func pixwatch(_ pid: Int32, _ ms: Double) async {
     print("window", now())
     let filter = SCContentFilter(desktopIndependentWindow: window)
     let config = SCStreamConfiguration()
-    config.width = 96
-    config.height = 72
+    config.width = 64
+    config.height = 48
     config.showsCursor = false
     var last = ""
     while Date() < deadline {
@@ -81,6 +81,7 @@ func pixwatch(_ pid: Int32, _ ms: Double) async {
             fflush(stdout)
             last = key
         }
+        try? await Task.sleep(nanoseconds: 12_000_000)
     }
 }
 
@@ -131,7 +132,8 @@ case "scroll":
     pause(50)
     print(now())
     for _ in 0..<Int(num(5)) {
-        CGEvent(scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 1, wheel1: Int32(num(4)), wheel2: 0, wheel3: 0)?.post(tap: .cghidEventTap)
+        let units: CGScrollEventUnit = args.count > 7 && args[7] == "line" ? .line : .pixel
+        CGEvent(scrollWheelEvent2Source: nil, units: units, wheelCount: 1, wheel1: Int32(num(4)), wheel2: 0, wheel3: 0)?.post(tap: .cghidEventTap)
         pause(num(6))
     }
     print(now())
