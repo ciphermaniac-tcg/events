@@ -5,7 +5,8 @@
 //! (`shell.rs`). A right click gets the system's text menu where text is
 //! selected or typed, and no menu elsewhere, never `WebKit`'s browser items.
 //! Edit > Find (`menu.rs`) goes to the page's own search, where it shows one,
-//! and a two-finger swipe goes back and forward.
+//! and a two-finger swipe goes back and forward. The page's address, kept as
+//! the site moves (`page_address`), is where the next launch opens.
 
 /// The page script, on the site's pages only.
 #[cfg(any(target_os = "macos", test))]
@@ -48,6 +49,20 @@ pub fn page_shown<R: tauri::Runtime>(app: tauri::AppHandle<R>) {
     crate::shell::show_main_window(&app);
 }
 
+/// The page the site moved to without loading, kept to open again
+/// (`last_page.rs`, which keeps pages of the site only).
+#[cfg(target_os = "macos")]
+#[tauri::command]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Tauri hands a command its arguments by value"
+)]
+pub fn page_address<R: tauri::Runtime>(app: tauri::AppHandle<R>, url: String) {
+    if let Ok(url) = tauri::Url::parse(&url) {
+        crate::last_page::remember(&app, &url);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::script_for;
@@ -62,5 +77,6 @@ mod tests {
         );
         assert!(script.contains("invoke('page_shown')"));
         assert!(script.contains("'contextmenu'"));
+        assert!(script.contains("invoke('page_address', { url: address })"));
     }
 }

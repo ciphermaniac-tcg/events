@@ -142,6 +142,8 @@ fn with_desktop(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<tauri::Wr
             mac_title_strip::title_strip_double_click,
             #[cfg(target_os = "macos")]
             mac_page::page_shown,
+            #[cfg(target_os = "macos")]
+            mac_page::page_address,
         ])
 }
 
