@@ -71,6 +71,7 @@ jobs:
           du -sh "$app" | tee "$OUT/app-size.txt"
           python3 native/screens/feel-mac.py "$app" "$OUT" live PUF98Z
       - name: Serve and seed the site as events.ciphermaniac.com
+        id: serve
         continue-on-error: true
         if: ${{ !cancelled() }}
         run: |
@@ -80,9 +81,11 @@ jobs:
           { echo "SMALL=$small"; echo "BIG=$big"; } >> "$GITHUB_ENV"
           native/screens/feel-mac-site.sh hosts-on
           curl -s -o /dev/null -w 'local site through /etc/hosts: %{http_code} %{remote_ip}\n' https://events.ciphermaniac.com/ || true
+      # Only once the site is in place: without it the app would reach the
+      # live site.
       - name: Measure on the runner's site
         continue-on-error: true
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && steps.serve.outcome == 'success' }}
         run: |
           app=$(find native/src-tauri/target/release/bundle/macos -maxdepth 1 -name '*.app' | head -n 1)
           python3 native/screens/feel-mac.py "$app" "$OUT" local "$SMALL" "$BIG"

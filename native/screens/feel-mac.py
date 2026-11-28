@@ -14,6 +14,7 @@ import os
 import plistlib
 import re
 import shutil
+import socket
 import statistics
 import subprocess
 import sys
@@ -108,7 +109,7 @@ class App:
 
     count = 0
 
-    def __init__(self, label, path=None, env=None, video=0):
+    def __init__(self, label, path=None, env=None, video=0, film=True):
         App.count += 1
         self.label = label
         if path is not None:
@@ -122,10 +123,12 @@ class App:
             self.rec_at = now()
             time.sleep(1.0)
         full_env = dict(os.environ, FEEL_CMD=str(CMD), **(env or {}))
+        self.load = sh("sysctl", "-n", "vm.loadavg")
         self.t0 = now()
         self.proc = subprocess.Popen([str(BIN)], stdout=open(self.log, "w"), stderr=subprocess.STDOUT, env=full_env)
         self.pid = self.proc.pid
         self.watch = subprocess.Popen([HID, "waitwin", str(self.pid), "25000"], stdout=subprocess.PIPE, text=True)
+        self.pix = subprocess.Popen([HID, "pixwatch", str(self.pid), "9000"], stdout=subprocess.PIPE, text=True) if film else None
         self.tag = 0
 
     def lines(self):
@@ -174,6 +177,24 @@ class App:
         if len(parts) != 5:
             return None
         return dict(zip(["id", "x", "y", "w", "h"], map(int, parts)))
+
+    def film(self):
+        """The window's look over the launch: (ms from launch, brightness, spread)."""
+        if not self.pix:
+            return None
+        try:
+            out, _ = self.pix.communicate(timeout=12)
+        except subprocess.TimeoutExpired:
+            self.pix.kill()
+            out, _ = self.pix.communicate()
+        rows = []
+        for line in out.splitlines():
+            parts = line.split()
+            if len(parts) == 3:
+                rows.append((round(float(parts[0]) - self.t0), int(parts[1]), int(parts[2])))
+            elif parts[:1] == ["window"] and len(parts) == 2:
+                rows.append((round(float(parts[1]) - self.t0), "window", 0))
+        return rows
 
     def shown_at(self, timeout=25):
         try:
@@ -243,7 +264,8 @@ class App:
             except subprocess.TimeoutExpired:
                 self.rec.kill()
         self.watch.kill()
-        time.sleep(1.5)
+        self.film_rows = self.film()
+        time.sleep(3.0)
         return how
 
 
@@ -280,6 +302,7 @@ def launch_summary(app, load):
         "transfer": sum(r.get("transfer") or 0 for r in res) + (nav.get("transfer") or 0),
         "from_cache": sum(1 for r in res if not r.get("transfer") and r.get("body")),
         "api": [{"name": r["name"], "start": rel(r["start"], t0), "end": rel(r["end"], t0)} for r in res if "/api/" in r["name"]][:8],
+        "loadavg": app.load,
         "url": (load or {}).get("url"),
         "mode": (load or {}).get("mode"),
         "loaded": bool(load),
@@ -297,13 +320,14 @@ def medians(rows):
 
 
 def launch_once(label, path, video=0, env=None, wait=20, keep=False):
-    app = App(label, path, env=env, video=video)
+    app = App(label, path, env=env, video=video, film=not video and not keep)
     found = app.wait_page("load", wait)
     summary = launch_summary(app, found[1] if found else None)
     say(label, {k: summary[k] for k in ("on_screen", "html_end", "page_finished", "fcp", "usable", "usable_seen")})
     if keep:
         return app, summary
     summary["quit"] = app.quit()
+    summary["film"] = app.film_rows
     return None, summary
 
 
@@ -319,6 +343,22 @@ def launches(label, path, n, video_first=False, env=None, wait=20):
     save()
 
 
+def alternate(label_a, label_b, path, n, env_b, env_a=None):
+    """Launches A and B in turn, n each, so both see the same machine."""
+    rows = {label_a: [], label_b: []}
+    for i in range(n):
+        for label, env in ((label_a, env_a), (label_b, env_b)):
+            rows[label].append(launch_once(f"{label}-{i}", path, env=env)[1])
+    for label, block in rows.items():
+        RESULTS[label] = {"runs": block, "summary": medians(block)}
+    save()
+
+
+def activate():
+    osa(f'tell application id "{BUNDLE}" to activate')
+    time.sleep(0.6)
+
+
 def step(name, fn, *args):
     say("step", name)
     try:
@@ -331,6 +371,7 @@ def step(name, fn, *args):
 
 def taps(app, targets, settle=1.4):
     """Real clicks on each (selector, index); what the page did after each."""
+    activate()
     out = []
     for selector, index in targets:
         down, rect = app.click(selector, index)
@@ -483,11 +524,6 @@ def tells(app, label):
             app.key("esc")
             time.sleep(0.4)
     return found
-
-
-def activate():
-    osa(f'tell application id "{BUNDLE}" to activate')
-    time.sleep(0.6)
 
 
 def keys_test(app, label):
@@ -674,17 +710,16 @@ def live():
     event = f"/t/{code}"
     step("env", env_info)
     wipe()
-    _, first = launch_once("first-launch", None, video=12)
+    _, first = launch_once("first-launch", None)
     first["stores_kb"] = store_sizes()
     RESULTS["first_launch"] = first
     save()
-    launches("relaunch-home", "/", 7, video_first=True)
-    launches("relaunch-event", event, 6, video_first=True)
+    launches("relaunch-home", "/", 6)
     simulate = fetch_shell()
-    launches("simulated-relaunch-event", event, 6, video_first=True, env=simulate)
+    alternate("relaunch-event", "simulated-relaunch-event", event, 6, simulate)
     launches("simulated-relaunch-home", "/", 4, env=simulate)
     app, _ = launch_once("simulated-check", event, env=simulate, keep=True)
-    step("simulated_check", app.js, "return { csp: Boolean(document.querySelector('meta[http-equiv]')), origin: location.origin, ipc: Boolean(window.__TAURI_INTERNALS__), cookieOk: navigator.cookieEnabled, nav: performance.getEntriesByType('navigation')[0]?.toJSON?.() };")
+    step("simulated_check", app.js, "return { origin: location.origin, ipc: Boolean(window.__TAURI_INTERNALS__), cookieOk: navigator.cookieEnabled, csp: (() => { try { new Function('1'); return 'eval allowed'; } catch (e) { return 'eval blocked'; } })() };")
     app.quit()
     app, _ = launch_once("inapp-event", event, keep=True)
     step("event_taps", taps, app, [('[role="tab"]', 1), ('[role="tab"]', 0), ('[role="tab"]', 1), ('[role="tab"]', 0), (".tm-seat-link", 0), (".tm-seat-link", 3)])
@@ -697,10 +732,18 @@ def live():
     step("restore", restore_test, "live", event)
     step("offline", offline_test, "live", event)
     step("slow", slow_test, "live", event)
+    for label, path, env in (("video-relaunch-home", "/", None), ("video-relaunch-event", event, None), ("video-simulated-event", event, simulate)):
+        RESULTS.setdefault("videos", {})[label] = launch_once(label, path, video=9, env=env)[1]
+    wipe()
+    RESULTS["videos"]["video-first-launch"] = launch_once("video-first-launch", None, video=10)[1]
+    save()
 
 
 def local():
     small, big = CODES
+    resolved = socket.gethostbyname("events.ciphermaniac.com")
+    if resolved != "127.0.0.1" or not small or not big:
+        raise SystemExit(f"the runner's site isn't in place ({resolved}, {CODES}); nothing measured")
     step("env", env_info)
     wipe()
     app, signin = launch_once("sign-in", None, env={"FEEL_URL": f"{SITE}/api/auth/login/dev?name=Reese"}, keep=True)
@@ -708,9 +751,8 @@ def local():
     RESULTS["sign_in"] = signin
     app.quit()
     launches("relaunch-dashboard", "/", 5)
-    launches("relaunch-console", f"/host/{big}", 6, video_first=True)
+    alternate("relaunch-console", "simulated-relaunch-console", f"/host/{big}", 5, fetch_shell())
     launches("relaunch-public-big", f"/t/{big}", 4)
-    launches("simulated-relaunch-console", f"/host/{big}", 5, env=fetch_shell())
     app, _ = launch_once("inapp-console", f"/host/{big}", keep=True)
     tabs = [('[role="tab"]', i) for i in (1, 2, 0, 1, 2, 3, 4, 0)]
     step("console_taps", taps, app, tabs)
@@ -741,7 +783,7 @@ def local():
     )
     time.sleep(2)
     app.quit()
-    launches("sw-relaunch-console", f"/host/{big}", 6, video_first=True)
+    launches("sw-relaunch-console", f"/host/{big}", 6)
     launches("sw-relaunch-dashboard", "/", 4)
     app, _ = launch_once("sw-check", f"/host/{big}", keep=True)
     step("sw_controlled", app.js, "return { controlled: Boolean(navigator.serviceWorker.controller), caches: await caches.keys(), entries: (await (await caches.open('feel-shell-v1')).keys()).length };")
@@ -753,6 +795,8 @@ def local():
     step("sw_unregister", wipe_sw.js, "for (const r of await navigator.serviceWorker.getRegistrations()) await r.unregister(); for (const k of await caches.keys()) await caches.delete(k); return true;")
     wipe_sw.quit()
     step("server_down_plain", server_down, f"/host/{big}", "plain")
+    RESULTS.setdefault("videos", {})["video-console"] = launch_once("video-console", f"/host/{big}", video=9)[1]
+    save()
 
 
 def server_down(path, label):
