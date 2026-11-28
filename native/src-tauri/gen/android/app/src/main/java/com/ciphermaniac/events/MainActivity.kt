@@ -24,6 +24,8 @@ class MainActivity : TauriActivity() {
   }
   private var webView: WebView? = null
   private var contentShown = false
+  private lateinit var cache: SiteCache
+  private var stoppedAt = 0L
   private var splash: SplashScreenViewProvider? = null
 
   override fun onCreate(savedInstanceState: Bundle?) {
@@ -32,6 +34,7 @@ class MainActivity : TauriActivity() {
     bars.apply()
     back = BackNavigation(this)
     files = FileHandoff(this)
+    cache = SiteCache(this) { if (!contentShown) webView?.reload() }
     if (savedInstanceState == null) {
       SiteLinks.openAtLaunch(this)
     }
@@ -123,7 +126,7 @@ class MainActivity : TauriActivity() {
     // An app's screen doesn't pinch-zoom; its text follows the phone's size instead.
     webView.settings.setSupportZoom(false)
     back.attach(webView)
-    OfflinePage.attach(webView) { onContentShown() }
+    OfflinePage.attach(webView, cache) { onContentShown() }
     PageBridge.attach(this, webView, ::onPageMessage)
   }
 
@@ -148,7 +151,21 @@ class MainActivity : TauriActivity() {
    */
   override fun onStop() {
     super.onStop()
+    stoppedAt = SystemClock.uptimeMillis()
     CookieManager.getInstance().flush()
+  }
+
+  /**
+   * Back on the screen: the page moves to a newer deploy the app has kept,
+   * when it has been away long enough that nothing half typed is lost, and
+   * the app looks for a newer one again.
+   */
+  override fun onStart() {
+    super.onStart()
+    if (stoppedAt > 0 && SystemClock.uptimeMillis() - stoppedAt >= AWAY_MS && cache.isBehind()) {
+      webView?.reload()
+    }
+    cache.refresh()
   }
 
   /**
@@ -191,5 +208,8 @@ class MainActivity : TauriActivity() {
 
     /** The design's middle motion (DESIGN.md). */
     const val FADE_MS = 180L
+
+    /** Away from the screen this long, the page may load a newer deploy on return. */
+    const val AWAY_MS = 10 * 60 * 1000L
   }
 }
