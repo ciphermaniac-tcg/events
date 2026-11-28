@@ -24,7 +24,7 @@ mod mac_sheets;
 mod mac_title_strip;
 #[cfg(desktop)]
 mod menu;
-#[cfg(any(windows, target_os = "linux", test))]
+#[cfg(any(desktop, test))]
 mod offline;
 mod pending;
 mod shell;

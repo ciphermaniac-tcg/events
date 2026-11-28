@@ -389,7 +389,7 @@ fn desktop_window_built<R: Runtime>(window: &tauri::WebviewWindow<R>) {
         crate::webview2::setup(window);
         crate::title_bar::keep_through_theme_changes(window);
     }
-    #[cfg(target_os = "linux")]
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
     crate::offline::setup(window);
     let app = window.app_handle().clone();
     std::thread::spawn(move || {
