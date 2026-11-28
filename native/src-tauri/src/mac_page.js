@@ -1,7 +1,8 @@
 // The Mac app's side of the site's pages (mac_page.rs), called with the
 // app's invoke. The window shows once the page has drawn real content, a
-// right click gets the system's text menu or none, never the browser's, and
-// Edit > Find goes to the page's own search.
+// right click gets the system's text menu or none, never the browser's,
+// Edit > Find goes to the page's own search, and the app keeps the page's
+// address as it changes, to open there again.
 (invoke => {
   // Real content: a heading in the page and no skeleton, told two frames on,
   // once that has been drawn (the Android shell's "shown").
@@ -35,6 +36,24 @@
     const typed = event.target instanceof Element && event.target.closest('input, textarea, [contenteditable]') !== null;
     if (!typed && !window.getSelection()?.toString().trim()) event.preventDefault();
   });
+  // The page's address, tab included, each time the site moves without
+  // loading, so a launch opens where the last one left off.
+  let address = location.href;
+  const moved = () => {
+    if (location.href !== address) {
+      address = location.href;
+      invoke('page_address', { url: address });
+    }
+  };
+  for (const name of ['pushState', 'replaceState']) {
+    const original = history[name];
+    history[name] = function (...args) {
+      const result = original.apply(this, args);
+      moved();
+      return result;
+    };
+  }
+  addEventListener('popstate', moved);
   // Edit > Find (menu.rs): the page's own search where it shows one.
   addEventListener('cm-app-find', () => {
     const field = [...document.querySelectorAll('main input[type="search"]')].find(input => input.offsetParent);
