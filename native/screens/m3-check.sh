@@ -87,6 +87,22 @@ in_app() { adb shell dumpsys activity activities | grep -q "ResumedActivity.*$pa
 # The page has drawn real content: a heading in it and no skeleton.
 USABLE="Boolean(document.querySelector('main.page')?.querySelector('h1, h2')?.textContent.trim()) && !document.querySelector('main.page .skeleton')"
 
+# The longest run, in ms, of a screen recording's frames whose content area
+# (under the head bar, clear of the screen's edge) is one flat colour: a
+# blank page. screenrecord writes a frame only on a change.
+longest_flat() {
+  ffprobe -v error -f lavfi -i "movie=$1,crop=1040:1700:20:380,signalstats" \
+    -show_entries frame=pts_time:frame_tags=lavfi.signalstats.YMIN,lavfi.signalstats.YMAX,lavfi.signalstats.YAVG \
+    -of default=nw=1 | awk -F= '
+    /pts_time/ { t = $2 }
+    /YMIN/ { lo = $2 } /YMAX/ { hi = $2 }
+    /YAVG|YMAX|YMIN/ { seen++ }
+    seen == 3 { seen = 0; flat = (hi - lo < 14)
+      if (flat && !on) { from = t; on = 1 }
+      if (!flat && on) { d = (t - from) * 1000; if (d > most) most = d; on = 0 } }
+    END { printf "%d", most }'
+}
+
 # Taps the first node uiautomator finds with this text.
 tap_text() {
   local at
@@ -148,13 +164,22 @@ run_theme() {
   # lasts until the page shows content.
   sleep 3
   adb shell am force-stop "$package"
-  local started
+  adb shell screenrecord --time-limit 15 /sdcard/launch.mp4 &
+  local recorder=$! started blank
+  sleep 1
   started=$(adb shell am start -W -n "$activity" | tr -d '\r' | grep -E 'TotalTime' | xargs)
   connect
-  check "when the splash goes, the page shows content" "$(page "$USABLE")" true
   note "INFO $theme cold start: $started"
-  shoot launch
   until_true "$USABLE"
+  sleep 3
+  adb shell pkill -INT screenrecord || true
+  wait "$recorder" || true
+  sleep 1
+  adb pull /sdcard/launch.mp4 "$out/m3-$theme-launch.mp4" >/dev/null
+  blank=$(longest_flat "$out/m3-$theme-launch.mp4")
+  note "INFO $theme longest blank on the launch film: $blank ms"
+  check "no blank page between the splash and the content" "$([ "${blank:-9999}" -lt 150 ] && echo none || echo "$blank ms")" none
+  shoot launch
   check "a stop 3 s after signing in keeps the sign-in" "$(page "Boolean(document.querySelector('.tm-acct-button'))")" true
   sleep 1
   shoot home

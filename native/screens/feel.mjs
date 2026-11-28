@@ -331,7 +331,7 @@ function summary(trials, keys = ['proc', 'navStart', 'htmlEnd', 'fcp', 'mainText
   for (const key of keys) {
     out[key] = median(trials.map(t => t[key]));
   }
-  for (const key of ['create', 'webView', 'pageStarted', 'pageFinished', 'shown']) {
+  for (const key of ['create', 'webView', 'pageStarted', 'pageFinished', 'shown', 'revealed']) {
     out[key] = median(trials.map(t => t.native?.[key]));
   }
   return out;

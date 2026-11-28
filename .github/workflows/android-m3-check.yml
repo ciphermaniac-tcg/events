@@ -37,6 +37,8 @@ jobs:
           java-version: '17'
       - run: npm ci
       - run: npm run build
+      # For the launch film's blank frames (native/screens/m3-check.sh).
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends ffmpeg
       - name: Serve and seed the site
         run: |
           native/screens/m3-site.sh start

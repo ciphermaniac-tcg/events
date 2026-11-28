@@ -9,6 +9,9 @@ import android.webkit.CookieManager
 import android.webkit.WebView
 import androidx.annotation.Keep
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.core.splashscreen.SplashScreenViewProvider
+import androidx.webkit.WebViewCompat
+import androidx.webkit.WebViewFeature
 import kotlin.math.roundToInt
 import org.json.JSONObject
 
@@ -21,6 +24,7 @@ class MainActivity : TauriActivity() {
   }
   private var webView: WebView? = null
   private var contentShown = false
+  private var splash: SplashScreenViewProvider? = null
 
   override fun onCreate(savedInstanceState: Bundle?) {
     feel("create")
@@ -52,16 +56,42 @@ class MainActivity : TauriActivity() {
   }
 
   /**
-   * Keeps the splash screen up until the first page has drawn real content
-   * (app_bridge.js says so) or the offline page stands in, so no blank page
-   * or skeleton shows between them, and gives up after [SPLASH_LIMIT_MS] so
-   * a slow network never holds it for good.
+   * Keeps the splash screen over the page until the page has drawn real
+   * content (app_bridge.js says so) or the offline page stands in, so no
+   * blank page or skeleton shows between them, and gives up after
+   * [SPLASH_LIMIT_MS] so a slow network never holds it for good. The splash
+   * leaves the system at once and stays as a view on top, so the webview
+   * draws beneath it: a webview draws nothing while its window is held back.
    */
   private fun holdSplash() {
     val since = SystemClock.uptimeMillis()
-    installSplashScreen().setKeepOnScreenCondition {
-      !contentShown && SystemClock.uptimeMillis() - since < SPLASH_LIMIT_MS
+    installSplashScreen().setOnExitAnimationListener { provider ->
+      splash = provider
+      if (contentShown) {
+        reveal()
+      } else {
+        provider.view.postDelayed(::reveal, maxOf(0L, SPLASH_LIMIT_MS - (SystemClock.uptimeMillis() - since)))
+      }
     }
+  }
+
+  /** The page has content: the splash fades once the webview has drawn it. */
+  private fun onContentShown() {
+    feel("shown")
+    contentShown = true
+    val view = webView
+    if (view == null || !WebViewFeature.isFeatureSupported(WebViewFeature.VISUAL_STATE_CALLBACK)) {
+      reveal()
+      return
+    }
+    WebViewCompat.postVisualStateCallback(view, 0) { reveal() }
+  }
+
+  private fun reveal() {
+    val provider = splash ?: return
+    splash = null
+    feel("revealed")
+    provider.view.animate().alpha(0f).setDuration(FADE_MS).withEndAction { provider.remove() }.start()
   }
 
   /** Called from Rust (android.rs) when the main window starts loading a page. */
@@ -93,7 +123,7 @@ class MainActivity : TauriActivity() {
     // An app's screen doesn't pinch-zoom; its text follows the phone's size instead.
     webView.settings.setSupportZoom(false)
     back.attach(webView)
-    OfflinePage.attach(webView) { contentShown = true }
+    OfflinePage.attach(webView) { onContentShown() }
     PageBridge.attach(this, webView, ::onPageMessage)
   }
 
@@ -103,10 +133,7 @@ class MainActivity : TauriActivity() {
         back.onPageState(message.optBoolean("layer"), message.optBoolean("back"))
         SiteLinks.keep(this, message.optString("url"))
       }
-      "shown" -> {
-        feel("shown")
-        contentShown = true
-      }
+      "shown" -> onContentShown()
       "cookies" -> flushCookies()
       "pick" -> pickers.show(message)
       "share" -> files.share(message)
@@ -161,5 +188,8 @@ class MainActivity : TauriActivity() {
   private companion object {
     /** Past the launch to a usable page on a slow connection, but no longer. */
     const val SPLASH_LIMIT_MS = 5_000L
+
+    /** The design's middle motion (DESIGN.md). */
+    const val FADE_MS = 180L
   }
 }
