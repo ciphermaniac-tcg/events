@@ -308,10 +308,10 @@ def launch_once(label, path, video=0, env=None, wait=20, keep=False):
     return None, summary
 
 
-def launches(label, path, n, video_first=False):
+def launches(label, path, n, video_first=False, env=None, wait=20):
     rows = []
     for i in range(n):
-        _, row = launch_once(f"{label}-{i}", path, video=10 if video_first and i == 0 else 0)
+        _, row = launch_once(f"{label}-{i}", path, video=10 if video_first and i == 0 else 0, env=env, wait=wait)
         if not (video_first and i == 0):
             rows.append(row)
         else:
@@ -633,8 +633,26 @@ def slow_test(label, path, n=3):
         rows.append(launch_once(f"{label}-slow-{i}", path, video=12 if i == 0 else 0, wait=40)[1])
     wipe()
     rows.append(launch_once(f"{label}-slow-first", path, wait=60)[1])
+    simulated = [launch_once(f"{label}-slow-simulated-{i}", path, env=fetch_shell_env(), wait=40, video=12 if i == 0 else 0)[1] for i in range(3)]
     pf_clear()
-    return {"curl": ping, "runs": rows, "summary": medians(rows[:-1])}
+    return {"curl": ping, "runs": rows, "summary": medians(rows[:-1]), "simulated": simulated, "simulated_summary": medians(simulated)}
+
+
+def fetch_shell_env():
+    return {"FEEL_SIMULATE": str(OUT / "shell.html")}
+
+
+def fetch_shell():
+    """Keeps a copy of the site's page and its policy, for the simulated launch."""
+    shell = OUT / "shell.html"
+    headers = OUT / "shell.headers"
+    args = ["curl", "-s", "-D", str(headers), "-o", str(shell), SITE + "/"]
+    if MODE == "local":
+        args[1:1] = ["--cacert", os.path.join(os.environ["FEEL_STATE"], "ca.crt")]
+    subprocess.run(args, timeout=30, check=False)
+    csp = next((line.split(":", 1)[1].strip() for line in headers.read_text().splitlines() if line.lower().startswith("content-security-policy:")), "")
+    Path(f"{shell}.csp").write_text(csp)
+    return {"FEEL_SIMULATE": str(shell)}
 
 
 def env_info():
@@ -663,6 +681,12 @@ def live():
     save()
     launches("relaunch-home", "/", 7, video_first=True)
     launches("relaunch-event", event, 6, video_first=True)
+    simulate = fetch_shell()
+    launches("simulated-relaunch-event", event, 6, video_first=True, env=simulate)
+    launches("simulated-relaunch-home", "/", 4, env=simulate)
+    app, _ = launch_once("simulated-check", event, env=simulate, keep=True)
+    step("simulated_check", app.js, "return { csp: Boolean(document.querySelector('meta[http-equiv]')), origin: location.origin, ipc: Boolean(window.__TAURI_INTERNALS__), cookieOk: navigator.cookieEnabled, nav: performance.getEntriesByType('navigation')[0]?.toJSON?.() };")
+    app.quit()
     app, _ = launch_once("inapp-event", event, keep=True)
     step("event_taps", taps, app, [('[role="tab"]', 1), ('[role="tab"]', 0), ('[role="tab"]', 1), ('[role="tab"]', 0), (".tm-seat-link", 0), (".tm-seat-link", 3)])
     step("event_memory", app.memory)
@@ -687,6 +711,7 @@ def local():
     launches("relaunch-dashboard", "/", 5)
     launches("relaunch-console", f"/host/{big}", 6, video_first=True)
     launches("relaunch-public-big", f"/t/{big}", 4)
+    launches("simulated-relaunch-console", f"/host/{big}", 5, env=fetch_shell())
     app, _ = launch_once("inapp-console", f"/host/{big}", keep=True)
     tabs = [('[role="tab"]', i) for i in (1, 2, 0, 1, 2, 3, 4, 0)]
     step("console_taps", taps, app, tabs)

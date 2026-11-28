@@ -53,3 +53,64 @@ pub fn watch_commands<R: Runtime>(app: &AppHandle<R>) {
         }
     });
 }
+
+/// Prototype of a local-first launch on the Mac: when `FEEL_SIMULATE` names
+/// a kept copy of the site's page (every route is the same index.html), the
+/// window loads it at once as the response for its own address, with the
+/// site's origin, cookies and policy, and asks the network only for what the
+/// page then loads (`loadSimulatedRequest`, macOS 12).
+#[cfg(target_os = "macos")]
+pub fn simulated_launch<R: Runtime>(window: &tauri::WebviewWindow<R>, url: &str) {
+    let Ok(path) = std::env::var("FEEL_SIMULATE") else {
+        return;
+    };
+    let Ok(html) = std::fs::read(&path) else {
+        note("simulate-missing", &path);
+        return;
+    };
+    let csp = std::fs::read_to_string(format!("{path}.csp")).unwrap_or_default();
+    let url = url.to_owned();
+    note("simulate", &url);
+    let done = window.with_webview(move |webview| {
+        use objc2::{AnyThread, rc::Retained};
+        use objc2_foundation::{
+            NSData, NSDictionary, NSHTTPURLResponse, NSString, NSURL, NSURLRequest,
+        };
+        use objc2_web_kit::WKWebView;
+        let Some(address) = NSURL::URLWithString(&NSString::from_str(&url)) else {
+            note("simulate-bad-url", &url);
+            return;
+        };
+        let request = NSURLRequest::requestWithURL(&address);
+        let keys = [
+            NSString::from_str("Content-Type"),
+            NSString::from_str("Content-Security-Policy"),
+        ];
+        let values = [
+            NSString::from_str("text/html; charset=utf-8"),
+            NSString::from_str(csp.trim()),
+        ];
+        let headers: Retained<NSDictionary<NSString, NSString>> =
+            NSDictionary::from_slices(&[&*keys[0], &*keys[1]], &[&*values[0], &*values[1]]);
+        let Some(response) = NSHTTPURLResponse::initWithURL_statusCode_HTTPVersion_headerFields(
+            NSHTTPURLResponse::alloc(),
+            &address,
+            200,
+            Some(&NSString::from_str("HTTP/1.1")),
+            Some(&headers),
+        ) else {
+            note("simulate-no-response", "");
+            return;
+        };
+        let data = NSData::with_bytes(&html);
+        // SAFETY: on the Mac the platform webview is the window's WKWebView.
+        unsafe {
+            let wk: &WKWebView = &*webview.inner().cast();
+            wk.loadSimulatedRequest_response_responseData(&request, &response, &data);
+        }
+        note("simulated", "");
+    });
+    if let Err(err) = done {
+        note("simulate-error", &err.to_string());
+    }
+}

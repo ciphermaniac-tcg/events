@@ -333,9 +333,16 @@ pub fn create_main_window<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
         .initialization_script(crate::appearance::script(
             crate::appearance::Appearance::System,
         ));
+    #[cfg(target_os = "macos")]
+    let start = match &config.url {
+        WebviewUrl::External(url) => url.to_string(),
+        _ => String::new(),
+    };
     let window = builder.build()?;
     #[cfg(desktop)]
     crate::feel::note("window-built", "");
+    #[cfg(target_os = "macos")]
+    crate::feel::simulated_launch(&window, &start);
     #[cfg(desktop)]
     desktop_window_built(&window);
     #[cfg(mobile)]
