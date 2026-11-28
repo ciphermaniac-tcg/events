@@ -480,7 +480,7 @@ async function starts(prefix, link) {
   const cold = [];
   for (let i = 0; i < 5; i++) {
     cold.push(await launch());
-    await sleep(1000);
+    await sleep(7000); // the app's look for a new deploy (SiteCache.kt) finishes, as a person's launch would let it
   }
   results.runs[`${prefix}cold`] = {
     summary: summary(cold),
