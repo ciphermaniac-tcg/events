@@ -472,29 +472,50 @@ offline() {
   check "Retry brings the page back" "$(page "Boolean(document.querySelector('.site-head'))")" true
 
   # Deploys. A launch the copy serves leaves a mark; a look finding the copy
-  # current lifts it; a new deploy loads from the site at the next launch.
+  # current lifts it; a new deploy is kept marked and loads from the site at
+  # the next launch.
   settle
   check "a settled copy owes no look" "$(owed_mark)" 0
   deploy m3-deploy-1 1
   restart_cold
   check "the launch after a deploy opens on the copy" "$(page "window.__m3Deploy ?? 0")" 0
   sleep 8
-  check "and its look keeps the deploy, still marked" "$(owed_mark)" 1
-  page "location.reload()" >/dev/null
-  sleep 2
-  until_true "$USABLE"
-  check "a reload in the running app gets the live page" "$(page "window.__m3Deploy ?? 0")" 1
+  check "and its look keeps the deploy, marked" "$(owed_mark)" 1
   restart_cold
   check "a new deploy reaches the app within one launch" "$(page "window.__m3Deploy ?? 0")" 1
   sleep 8
   check "a look finding the copy current lifts the mark" "$(owed_mark)" 0
+
+  # With the copy current and unmarked, a reload in the running app still gets the site.
   deploy m3-deploy-2 2
+  page "location.reload()" >/dev/null
+  sleep 2
+  until_true "$USABLE"
+  check "a reload in the running app gets the live page, not the copy" "$(page "window.__m3Deploy ?? 0")" 2
+
+  # A deploy found on a return to the screen is kept marked too. The copy
+  # first takes deploy 2 (kept marked), then a launch from the site lifts it.
+  settle
+  settle
+  check "settled again" "$(owed_mark)" 0
+  deploy m3-deploy-3 3
+  adb shell input keyevent KEYCODE_HOME
+  sleep 65
+  adb shell am start -n "$activity" >/dev/null
+  sleep 9
+  check "a deploy found on a return to the screen is kept marked" "$(owed_mark)" 1
+  restart_cold
+  check "and the next launch loads it from the site" "$(page "window.__m3Deploy ?? 0")" 3
+
+  # A launch stopped before its look: the next launch loads from the site.
+  settle
+  deploy m3-deploy-4 4
   adb shell am force-stop "$package"
   launch -n "$activity"
   sleep 2
   adb shell am force-stop "$package"
   restart_cold
-  check "a launch whose look didn't finish loads from the site next" "$(page "window.__m3Deploy ?? 0")" 2
+  check "a launch whose look didn't finish loads from the site next" "$(page "window.__m3Deploy ?? 0")" 4
 
   # Nothing of an account is kept: only the shell and its files.
   check "the app keeps nothing of an account" "$(kept_besides_shell)" 0
