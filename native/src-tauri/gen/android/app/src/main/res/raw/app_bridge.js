@@ -22,10 +22,16 @@
     viewport?.setAttribute('content', `${viewport.content}, maximum-scale=1, user-scalable=no`);
   });
 
-  // Tells the activity whether back has something to do here.
+  // Tells the activity whether back has something to do here, and the page's
+  // address, tab included, to open again after Android ends the app.
   let sent = '';
   const report = () => {
-    const state = JSON.stringify({ type: 'state', layer: Boolean(topLayer()), back: Boolean(window.navigation?.canGoBack) });
+    const state = JSON.stringify({
+      type: 'state',
+      layer: Boolean(topLayer()),
+      back: Boolean(window.navigation?.canGoBack),
+      url: location.href
+    });
     if (state !== sent) {
       sent = state;
       channel.postMessage(state);
@@ -86,6 +92,32 @@
     requestAnimationFrame(() => requestAnimationFrame(() => channel.postMessage('{"type":"shown"}')));
   };
 
+  // The page's scroll, kept as the app leaves the screen, comes back when the
+  // same page opens again, as after Android ended the app, once the page is
+  // tall enough and unless it has been touched first.
+  const SCROLL_KEY = 'cm-app:scroll';
+  let restoreTo = null;
+  const keepScroll = () => {
+    try {
+      localStorage.setItem(SCROLL_KEY, JSON.stringify({ url: location.href, y: Math.round(scrollY) }));
+    } catch {}
+  };
+  const restoreScroll = () => {
+    if (restoreTo !== null && document.documentElement.scrollHeight - innerHeight >= restoreTo) {
+      scrollTo(0, restoreTo);
+      restoreTo = null;
+    }
+  };
+  document.addEventListener('visibilitychange', () => document.visibilityState === 'hidden' && keepScroll());
+  try {
+    const kept = JSON.parse(localStorage.getItem(SCROLL_KEY) ?? 'null');
+    restoreTo = kept?.url === location.href && kept.y > 0 ? kept.y : null;
+  } catch {}
+  for (const name of ['touchstart', 'wheel', 'keydown']) {
+    addEventListener(name, () => (restoreTo = null), { capture: true, passive: true, once: true });
+  }
+  setTimeout(() => (restoreTo = null), 10000);
+
   let queued = false;
   const queue = () => {
     if (!queued) {
@@ -95,6 +127,7 @@
         bar();
         report();
         showWhenReady();
+        restoreScroll();
       });
     }
   };
