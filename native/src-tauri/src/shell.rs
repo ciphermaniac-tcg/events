@@ -169,8 +169,18 @@ fn record_load<R: Runtime>(webview: &Webview<R>, payload: &PageLoadPayload<'_>) 
     if payload.event() == PageLoadEvent::Finished && webview.label() == MAIN_WINDOW {
         last_page::remember(webview.app_handle(), payload.url());
         #[cfg(desktop)]
-        show_main_window(webview.app_handle());
+        if shows_once_loaded(payload.url(), cfg!(target_os = "macos")) {
+            show_main_window(webview.app_handle());
+        }
     }
+}
+
+/// Whether the main window shows once its first page has loaded. On the Mac
+/// a page of the site says when it has drawn real content (`mac_page.rs`),
+/// and a blank page shows nothing, so neither does; any other page shows.
+#[cfg(any(desktop, test))]
+fn shows_once_loaded(url: &Url, waits_for_content: bool) -> bool {
+    !waits_for_content || (url.scheme() != "about" && !is_site_at(url, false))
 }
 
 /// Whether the main window has been shown since launch.
@@ -178,11 +188,11 @@ fn record_load<R: Runtime>(webview: &Webview<R>, payload: &PageLoadPayload<'_>) 
 static SHOWN: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 /// Shows the main window, which stays hidden until its first page has
-/// loaded rather than flash an empty white window. Only the first time: a
-/// window closed to the Dock on the Mac (`mac_dock.rs`) stays hidden
-/// through the page loads after.
+/// something to show rather than flash an empty white window. Only the
+/// first time: a window closed to the Dock on the Mac (`mac_dock.rs`) stays
+/// hidden through the page loads after.
 #[cfg(desktop)]
-fn show_main_window<R: Runtime>(app: &AppHandle<R>) {
+pub fn show_main_window<R: Runtime>(app: &AppHandle<R>) {
     if SHOWN.swap(true, std::sync::atomic::Ordering::Relaxed) {
         return;
     }
@@ -208,9 +218,11 @@ pub fn reveal_main_window<R: Runtime>(app: &AppHandle<R>) {
     }
 }
 
-/// How long the main window waits for its first page before showing anyway.
+/// How long the main window waits for its first page before showing anyway:
+/// longer on the Mac, where it waits for the page's content, not its load.
 #[cfg(desktop)]
-const SHOW_WITHIN: std::time::Duration = std::time::Duration::from_secs(3);
+const SHOW_WITHIN: std::time::Duration =
+    std::time::Duration::from_secs(if cfg!(target_os = "macos") { 5 } else { 3 });
 
 /// Where a webview goes after a navigation was stopped: nowhere when no page
 /// was loading, else back to the last page that loaded, or home.
@@ -375,6 +387,7 @@ fn desktop_window<'a, R: Runtime>(
     #[cfg(target_os = "macos")]
     let builder = crate::mac_title_strip::window(builder)
         .initialization_script(crate::mac_title_strip::script())
+        .initialization_script(crate::mac_page::script())
         .initialization_script(crate::app_style::site_script(crate::mac_sheets::CSS, ""))
         .initialization_script(crate::app_style::site_script(
             &crate::mac_controls::css(),
@@ -543,5 +556,21 @@ mod tests {
                 serde_json::json!([format!("{window}/*")])
             );
         }
+    }
+
+    #[test]
+    fn waits_on_the_mac_for_a_site_page_to_draw_but_not_for_other_pages() {
+        let url = |url: &str| Url::parse(url).unwrap();
+        let site = url("https://events.ciphermaniac.com/host/ABCD");
+        assert!(
+            !super::shows_once_loaded(&site, true),
+            "the page says when it has drawn"
+        );
+        assert!(!super::shows_once_loaded(&url("about:blank"), true));
+        assert!(super::shows_once_loaded(
+            &url("https://discord.com/oauth2/authorize"),
+            true
+        ));
+        assert!(super::shows_once_loaded(&site, false), "elsewhere, at load");
     }
 }

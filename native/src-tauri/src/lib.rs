@@ -15,6 +15,8 @@ mod mac_controls;
 #[cfg(target_os = "macos")]
 mod mac_dock;
 #[cfg(any(target_os = "macos", test))]
+mod mac_page;
+#[cfg(any(target_os = "macos", test))]
 mod mac_sheets;
 #[cfg(any(target_os = "macos", test))]
 mod mac_title_strip;
@@ -131,6 +133,8 @@ fn with_desktop(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<tauri::Wr
             big_screen::open_big_screen,
             #[cfg(target_os = "macos")]
             mac_title_strip::title_strip_double_click,
+            #[cfg(target_os = "macos")]
+            mac_page::page_shown,
         ])
 }
 

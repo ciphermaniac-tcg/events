@@ -1694,6 +1694,33 @@ test('in the desktop app with TOM on, reports filed by players go into TOM: agre
   await expect(accept).toHaveCount(0);
 });
 
+/** The Mac app's side of the site's pages (native/src-tauri/src/mac_page.js), telling what it would tell the app. */
+const MAC_PAGE_JS = readFileSync(new URL('../../native/src-tauri/src/mac_page.js', import.meta.url), 'utf8');
+const macPage = (page: Page) =>
+  page.addInitScript(
+    `window.__told = []; (${MAC_PAGE_JS})((command, args) => window.__told.push(args ? [command, args] : command))`
+  );
+const told = (page: Page) => page.evaluate(() => (window as unknown as { __told: unknown[] }).__told);
+
+test('in the Mac app, the page tells the app it has drawn only once its content is in, not its skeleton', async ({
+  page
+}) => {
+  await mockApi(page);
+  const held = deferred<void>();
+  await page.route(`**/api/tournaments/${CODE}`, async route => {
+    await held.promise;
+    await route.fulfill({ json: VIEW });
+  });
+  await macPage(page);
+  await page.goto(`/t/${CODE}`);
+  await expect(page.locator('main.page .skeleton').first()).toBeVisible();
+  await page.waitForTimeout(300);
+  expect(await told(page)).toEqual([]);
+  held.resolve();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Fixture Challenge & Friends');
+  await expect.poll(() => told(page)).toEqual(['page_shown']);
+});
+
 /** The Mac app's title strip, as the app adds it to the site's pages (native/src-tauri/src/mac_title_strip.rs). */
 const STRIP_CSS = readFileSync(new URL('../../native/src-tauri/src/mac_title_strip.css', import.meta.url), 'utf8');
 const STRIP_JS = readFileSync(new URL('../../native/src-tauri/src/mac_title_strip.js', import.meta.url), 'utf8');

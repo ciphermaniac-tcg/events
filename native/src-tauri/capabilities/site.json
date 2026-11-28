@@ -19,6 +19,7 @@
   "permissions": [
     "tom-site",
     "app-theme",
-    "big-screen"
+    "big-screen",
+    "app-page"
   ]
 }
