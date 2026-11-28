@@ -413,7 +413,7 @@ run_theme() {
 # The app's own copy of the site (SiteCache.kt): it opens offline on the last
 # data it read, a deploy reaches it within one launch, and signing out drops
 # every read it kept, so nothing of the account shows offline after.
-kept_sessions() { adb shell run-as "$package" sh -c "ls files/site/data 2>/dev/null" | tr -d '\r' | grep -vc '^anon$' || true; }
+kept_sessions() { adb shell "run-as $package ls files/site/data 2>/dev/null" | tr -d '\r' | grep -vc '^anon$' || true; }
 
 offline() {
   theme=light

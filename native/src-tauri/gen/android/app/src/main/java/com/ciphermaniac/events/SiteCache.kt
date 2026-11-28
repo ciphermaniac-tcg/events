@@ -7,6 +7,7 @@ import android.util.Log
 import android.webkit.CookieManager
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
+import android.webkit.WebSettings
 import java.io.ByteArrayInputStream
 import java.io.File
 import java.io.IOException
@@ -45,6 +46,9 @@ class SiteCache(context: Context, private val onNewShell: () -> Unit) {
   private val background = Executors.newSingleThreadExecutor()
   private val main = Handler(Looper.getMainLooper())
   private var refreshedAt = 0L
+
+  /** The webview's own name for itself, which the site's edge takes for a browser. */
+  private val agent by lazy { WebSettings.getDefaultUserAgent(context) }
 
   /** The deploy the page in the window was served from, and the newest one kept. */
   @Volatile private var served: String? = null
@@ -209,6 +213,7 @@ class SiteCache(context: Context, private val onNewShell: () -> Unit) {
       val connection = URL(url).openConnection() as HttpURLConnection
       connection.connectTimeout = CONNECT_MS
       connection.readTimeout = READ_MS
+      connection.setRequestProperty("User-Agent", agent)
       headers.forEach { (name, value) -> connection.setRequestProperty(name, value) }
       if (cookies) {
         CookieManager.getInstance().getCookie(url)?.let { connection.setRequestProperty("Cookie", it) }
