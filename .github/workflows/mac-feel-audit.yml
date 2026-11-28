@@ -46,6 +46,14 @@ jobs:
           distribution: temurin
           java-version: '17'
       - run: npm ci --prefix native
+      # The dependencies' release build, so a rerun rebuilds only the app.
+      - uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684
+        with:
+          path: |
+            ~/.cargo/registry
+            native/src-tauri/target
+          key: mac-feel-${{ hashFiles('native/src-tauri/Cargo.lock') }}-${{ github.sha }}
+          restore-keys: mac-feel-${{ hashFiles('native/src-tauri/Cargo.lock') }}-
       - name: Build the app
         working-directory: native
         run: npx tauri build --bundles app
