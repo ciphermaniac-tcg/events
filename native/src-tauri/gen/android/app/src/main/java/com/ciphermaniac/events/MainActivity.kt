@@ -25,7 +25,7 @@ class MainActivity : TauriActivity() {
   private var webView: WebView? = null
   private var contentShown = false
   private lateinit var cache: SiteCache
-  private var stoppedAt = 0L
+  private var wasStopped = false
   private var splash: SplashScreenViewProvider? = null
 
   override fun onCreate(savedInstanceState: Bundle?) {
@@ -153,14 +153,14 @@ class MainActivity : TauriActivity() {
    */
   override fun onStop() {
     super.onStop()
-    stoppedAt = SystemClock.uptimeMillis()
+    wasStopped = true
     CookieManager.getInstance().flush()
   }
 
   /** Back on the screen, the app looks for a newer deploy for its next launch (at launch, [reveal] does). */
   override fun onStart() {
     super.onStart()
-    if (stoppedAt > 0) {
+    if (wasStopped) {
       cache.refresh()
     }
   }

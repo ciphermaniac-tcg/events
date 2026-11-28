@@ -3,6 +3,7 @@ package com.ciphermaniac.events
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
+import android.os.SystemClock
 import android.util.Base64
 import android.util.Log
 import android.webkit.WebResourceRequest
@@ -30,11 +31,15 @@ import org.json.JSONObject
  * offline page still stands in. The built files the page loads are left to
  * the webview's own cache, which keeps them a year and runs them fastest.
  *
- * Each launch the copy serves, the live page is fetched a few seconds after
- * the page shows ([refresh]), and on each return to the screen; a new deploy
- * replaces the copy for the next launch. A launch whose look didn't finish
- * leaves a mark, and the next launch then loads from the site, so a deploy
- * always reaches the app within one launch.
+ * Only a launch's first page comes from the copy; a reload, such as the
+ * site's own recovery after a deploy, goes to the site. A launch the copy
+ * serves leaves a mark; a few seconds after the page shows ([refresh]),
+ * and on each return to the screen, the live page is fetched, and the mark
+ * goes only when the live page is the one kept. A new deploy is kept, but
+ * the next launch, still marked, loads it from the site, which fills the
+ * webview's cache with its files before the copy serves it. A launch whose
+ * look didn't finish leaves its mark too, so a deploy always reaches the
+ * app within one launch.
  *
  * Only the page is kept, which is the same for everyone: no data, no write,
  * no sign-in and nothing per request goes through here.
@@ -46,7 +51,8 @@ class SiteCache private constructor(context: Context) {
   private val worker = Executors.newSingleThreadScheduledExecutor()
   private val connectivity = context.getSystemService(ConnectivityManager::class.java)
   private val agent by lazy { WebSettings.getDefaultUserAgent(context) }
-  private var refreshedAt = 0L
+  private var refreshedAt = Long.MIN_VALUE / 2
+  private var launchServed = false
 
   /** The response for [request] from the copy, or null for the webview to fetch. */
   fun intercept(request: WebResourceRequest): WebResourceResponse? {
@@ -56,7 +62,7 @@ class SiteCache private constructor(context: Context) {
     }
     val url = request.url
     val routed = request.method == "GET" && request.isForMainFrame && "${url.scheme}://${url.authority}" == SITE
-    return if (routed && ROUTES.matches(url.path.orEmpty())) page() else null
+    return if (routed && ROUTES.matches(url.path.orEmpty())) launchPage() else null
   }
 
   /**
@@ -65,7 +71,7 @@ class SiteCache private constructor(context: Context) {
    */
   @Synchronized
   fun refresh() {
-    val at = System.currentTimeMillis()
+    val at = SystemClock.elapsedRealtime()
     if (at - refreshedAt < REFRESH_EVERY_MS) {
       return
     }
@@ -73,9 +79,15 @@ class SiteCache private constructor(context: Context) {
     worker.schedule({ store() }, SETTLE_MS, TimeUnit.MILLISECONDS)
   }
 
-  /** The kept page with its headers, or null to fail closed to the network. */
-  private fun page(): WebResourceResponse? {
-    if (!online() || owed.exists()) {
+  /**
+   * The kept page with its headers for a launch's first page, or null to
+   * fail closed to the network. It serves only once its mark is down.
+   */
+  @Synchronized
+  private fun launchPage(): WebResourceResponse? {
+    val first = !launchServed
+    launchServed = true
+    if (!first || !online() || owed.exists()) {
       return null
     }
     val kept = runCatching { JSONObject(shell.readText()) }.getOrNull() ?: return null
@@ -83,28 +95,35 @@ class SiteCache private constructor(context: Context) {
       val headers = kept.getJSONObject("headers")
       response(Base64.decode(kept.getString("html"), Base64.DEFAULT), headers.keys().asSequence().associateWith { headers.getString(it) })
     }.getOrNull() ?: return null
-    write(owed, ByteArray(0))
-    return response
+    return response.takeIf { write(owed, System.nanoTime().toString().toByteArray()) }
   }
 
-  /** Keeps the live page when it is a new deploy, with its headers, in one write. */
+  /**
+   * Keeps the live page when it is a new deploy, with its headers, in one
+   * write; when it is the one kept, lifts the mark this look set out to
+   * answer, unless a later launch has marked it since.
+   */
   private fun store() {
+    val mark = runCatching { owed.readText() }.getOrNull()
     val live = fetch("$SITE/") ?: return
     if (live.status != HttpURLConnection.HTTP_OK || !live.mime.startsWith("text/html") || !live.html.contains("/assets/")) {
       return
     }
-    val headers = live.headers.filterKeys { it.lowercase() in KEPT_HEADERS }
-    val version = sha(live.html + headers.entries.firstOrNull { it.key.equals(CSP_HEADER, ignoreCase = true) }?.value.orEmpty())
+    val headers = live.headers.filterKeys { it.lowercase() in KEPT_HEADERS }.mapKeys { it.key.lowercase() }.toSortedMap()
+    val version = sha(live.html + headers)
     if (version != runCatching { JSONObject(shell.readText()).getString("version") }.getOrNull()) {
       val kept = JSONObject()
         .put("version", version)
-        .put("headers", JSONObject(headers))
+        .put("headers", JSONObject(headers as Map<*, *>))
         .put("html", Base64.encodeToString(live.html.toByteArray(), Base64.NO_WRAP))
-      if (!write(shell, kept.toString().toByteArray())) {
-        return
+      write(shell, kept.toString().toByteArray())
+      return
+    }
+    synchronized(this) {
+      if (mark != null && runCatching { owed.readText() }.getOrNull() == mark) {
+        owed.delete()
       }
     }
-    owed.delete()
   }
 
   /** Whether the phone has a network that reaches the internet. */
@@ -160,7 +179,6 @@ class SiteCache private constructor(context: Context) {
     private const val READ_MS = 15_000
     private const val REFRESH_EVERY_MS = 60_000L
     private const val SETTLE_MS = 5_000L
-    private const val CSP_HEADER = "Content-Security-Policy"
 
     /** The site's routes (src/main.tsx), each answered with the same page. */
     private val ROUTES = Regex(
