@@ -8,10 +8,13 @@
 //        feelhid scroll <x> <y> <dy> <count> <interval ms>
 //        feelhid drag <x1> <y1> <x2> <y2> <steps> <interval ms>
 //        feelhid key <keycode> [cmd] [shift] [ctrl] [alt]
+//        feelhid pixwatch <pid> <ms>              the window's look while it changes:
+//                                                 epoch, mean brightness, spread
 
 import ApplicationServices
 import CoreGraphics
 import Foundation
+import ScreenCaptureKit
 
 func now() -> String { String(format: "%.1f", Date().timeIntervalSince1970 * 1000) }
 func pause(_ ms: Double) { usleep(useconds_t(ms * 1000)) }
@@ -30,6 +33,55 @@ func largestWindow(_ pid: Int32) -> (Int, CGRect)? {
 
 func post(_ type: CGEventType, _ at: CGPoint, _ button: CGMouseButton = .left) {
     CGEvent(mouseEventSource: nil, mouseType: type, mouseCursorPosition: at, mouseButton: button)?.post(tap: .cghidEventTap)
+}
+
+/// Mean brightness (0-255) of an image and how far its pixels spread from it.
+func brightness(_ image: CGImage) -> (Double, Double) {
+    let w = 48, h = 36
+    var pixels = [UInt8](repeating: 0, count: w * h * 4)
+    guard let context = CGContext(data: &pixels, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4,
+                                  space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return (0, 0) }
+    // Leave out the top 40 points (the title strip) by drawing the window's lower part.
+    context.draw(image, in: CGRect(x: 0, y: 0, width: w, height: Int(Double(h) * 1.12)))
+    var lumas: [Double] = []
+    for i in stride(from: 0, to: pixels.count, by: 4) {
+        lumas.append(0.299 * Double(pixels[i]) + 0.587 * Double(pixels[i + 1]) + 0.114 * Double(pixels[i + 2]))
+    }
+    let mean = lumas.reduce(0, +) / Double(lumas.count)
+    let spread = (lumas.map { ($0 - mean) * ($0 - mean) }.reduce(0, +) / Double(lumas.count)).squareRoot()
+    return (mean, spread)
+}
+
+func pixwatch(_ pid: Int32, _ ms: Double) async {
+    let deadline = Date().addingTimeInterval(ms / 1000)
+    var window: SCWindow?
+    while window == nil && Date() < deadline {
+        if let content = try? await SCShareableContent.excludingDesktopWindows(true, onScreenWindowsOnly: true) {
+            window = content.windows
+                .filter { $0.owningApplication?.processID == pid && $0.windowLayer == 0 && $0.frame.width > 200 }
+                .max { $0.frame.width * $0.frame.height < $1.frame.width * $1.frame.height }
+        }
+        if window == nil { try? await Task.sleep(nanoseconds: 5_000_000) }
+    }
+    guard let window else { print("nowindow"); return }
+    print("window", now())
+    let filter = SCContentFilter(desktopIndependentWindow: window)
+    let config = SCStreamConfiguration()
+    config.width = 96
+    config.height = 72
+    config.showsCursor = false
+    var last = ""
+    while Date() < deadline {
+        let at = now()
+        guard let image = try? await SCScreenshotManager.captureImage(contentFilter: filter, configuration: config) else { continue }
+        let (mean, spread) = brightness(image)
+        let key = "\(Int(mean / 6)) \(Int(spread / 6))"
+        if key != last {
+            print(at, Int(mean), Int(spread))
+            fflush(stdout)
+            last = key
+        }
+    }
 }
 
 let args = CommandLine.arguments
@@ -118,6 +170,16 @@ case "key":
     down?.post(tap: .cghidEventTap)
     pause(30)
     up?.post(tap: .cghidEventTap)
+case "pixwatch":
+    let pid = Int32(args[2]) ?? 0
+    let ms = num(3)
+    let done = DispatchSemaphore(value: 0)
+    // Detached, so it doesn't wait for the main thread this one blocks.
+    Task.detached {
+        await pixwatch(pid, ms)
+        done.signal()
+    }
+    done.wait()
 default:
     FileHandle.standardError.write("unknown command\n".data(using: .utf8)!)
     exit(2)

@@ -56,11 +56,14 @@ start)
     npx wrangler d1 execute ciphermaniac-tournaments --local --persist-to "$state/d1" \
       --file config/d1/tournaments.sql >/dev/null
   fi
-  args=(pages dev dist --ip 127.0.0.1 --port "$port" --persist-to "$state/d1"
+  # macOS lets any user listen below 1024 only on every address, not on
+  # 127.0.0.1 alone, so on 443 wrangler takes them all.
+  ip=127.0.0.1
+  [ "$port" -lt 1024 ] && [ "$(uname)" = Darwin ] && ip=0.0.0.0
+  args=(pages dev dist --ip "$ip" --port "$port" --persist-to "$state/d1"
     --local-protocol https --https-key-path "$state/site.key" --https-cert-path "$state/site.crt"
     --binding DEV_LOGIN=true --binding ENVIRONMENT=development)
-  # macOS lets any user listen on 443, so wrangler runs unprivileged and
-  # its D1 files stay writable by the seed.
+  # Unprivileged, so its D1 files stay writable by the seed.
   npx wrangler "${args[@]}" >"$state/site.log" 2>&1 &
   echo $! >"$state/site.pid"
   up

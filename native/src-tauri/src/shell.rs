@@ -170,7 +170,10 @@ fn record_load<R: Runtime>(webview: &Webview<R>, payload: &PageLoadPayload<'_>) 
     if payload.event() == PageLoadEvent::Finished {
         crate::appearance::on_page_loaded(webview, payload.url());
     }
-    if payload.event() == PageLoadEvent::Finished && webview.label() == MAIN_WINDOW {
+    if payload.event() == PageLoadEvent::Finished
+        && webview.label() == MAIN_WINDOW
+        && payload.url().scheme() != "about"
+    {
         last_page::remember(webview.app_handle(), payload.url());
         #[cfg(desktop)]
         show_main_window(webview.app_handle());
@@ -317,6 +320,19 @@ pub fn create_main_window<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
     {
         config.url = WebviewUrl::External(url);
     }
+    // The simulated launch starts the window blank and loads the kept page
+    // as the response for this address (`feel.rs`).
+    #[cfg(target_os = "macos")]
+    let start = match &config.url {
+        WebviewUrl::External(url) => url.to_string(),
+        _ => String::new(),
+    };
+    #[cfg(target_os = "macos")]
+    if std::env::var_os("FEEL_SIMULATE").is_some()
+        && let Ok(blank) = Url::parse("about:blank")
+    {
+        config.url = WebviewUrl::External(blank);
+    }
     #[cfg(desktop)]
     crate::feel::note("window-build", "");
     let builder = WebviewWindowBuilder::from_config(app, &config)?;
@@ -328,11 +344,6 @@ pub fn create_main_window<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
         .initialization_script(crate::appearance::script(
             crate::appearance::Appearance::System,
         ));
-    #[cfg(target_os = "macos")]
-    let start = match &config.url {
-        WebviewUrl::External(url) => url.to_string(),
-        _ => String::new(),
-    };
     let window = builder.build()?;
     #[cfg(desktop)]
     crate::feel::note("window-built", "");
