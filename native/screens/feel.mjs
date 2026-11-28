@@ -225,7 +225,7 @@ const READ = `(() => {
   const paint = Object.fromEntries(performance.getEntriesByType('paint').map(p => [p.name, p.startTime]));
   const res = performance.getEntriesByType('resource').map(r => ({
     n: r.name.replace(location.origin, ''), t: r.initiatorType, start: Math.round(r.startTime),
-    end: Math.round(r.responseEnd), tx: r.transferSize, enc: r.encodedBodySize, dec: r.decodedBodySize
+    end: Math.round(r.responseEnd), c: Math.round(r.connectEnd - r.connectStart), tx: r.transferSize, enc: r.encodedBodySize, dec: r.decodedBodySize
   }));
   return {
     url: location.href, origin: performance.timeOrigin, now: performance.now(),
