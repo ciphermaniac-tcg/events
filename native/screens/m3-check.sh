@@ -3,7 +3,8 @@
 # the local site (m3-site.sh), in light and dark: system bars and insets, a
 # site link opening the app warm and cold, Back and the predictive back
 # gesture on a sheet, Back on a menu and a dialog, the page held still under
-# a dialog, the keyboard over a field, the Material navigation bar and its
+# a dialog, the keyboard over a field, the Material top app bar's title and
+# back arrow, the Material navigation bar and its
 # rail when wider, the sheet's handle and drag, and the offline page coming
 # back on Retry. Screenshots are m3-<theme>-<step>.png; results.txt says what held.
 # Usage: m3-check.sh <apk> <out-dir> <event-code>. Run from the repo root.
@@ -81,6 +82,8 @@ return getComputedStyle(bar).flexDirection === 'column' && getComputedStyle(tabs
 && document.querySelector('main.page').getBoundingClientRect().left >= 80 })()"
 }
 
+in_app() { adb shell dumpsys activity activities | grep -q "ResumedActivity.*$package"; }
+
 sheet_open() { page "Boolean(document.querySelector('.tm-sheet'))"; }
 
 open_sheet() {
@@ -128,6 +131,8 @@ run_theme() {
   until_true "document.body?.innerText.includes('Willow Creek Cup')" || note "FAIL $theme: home never showed the event"
   sleep 2
   shoot home
+  check "home keeps the logo in the bar" \
+    "$(page "!document.documentElement.classList.contains('app-up') && getComputedStyle(document.querySelector('.site-head-name')).display !== 'none'")" true
 
   # A site link while the app runs loads in it, and Back returns to the page before.
   view "/host/$code"
@@ -151,6 +156,18 @@ run_theme() {
   adb shell input keyevent KEYCODE_BACK
   sleep 2
   check "Back after a warm link" "$(path)" "/"
+
+  # The top app bar: the page's title, and a back arrow that goes where Back goes.
+  view "/host/$code"
+  until_true "location.pathname === '/host/$code' && document.querySelector('.app-bar-title')"
+  sleep 1
+  check "the bar's title is the page's" "$(page "document.querySelector('.app-bar-title').textContent")" "Willow Creek Cup"
+  check "and the page's heading gives way to it" "$(page "getComputedStyle(document.querySelector('.tm-hero-text > h1')).display")" none
+  check "the bar is 64 dp" "$(page "Math.round(document.querySelector('.site-head').getBoundingClientRect().height) >= 64")" true
+  shoot bar
+  tap_el '.app-bar-back'
+  sleep 2
+  check "the arrow goes where Back goes" "$(path)" "/"
 
   # A link that launches the app is the page it opens on, still signed in
   # after the app left the screen and was stopped.
@@ -222,6 +239,13 @@ run_theme() {
   check "Back closes the account menu" "$(page "Boolean(document.querySelector('.tm-acct-menu'))")" false
   check "and stays on the event" "$(path)" "/t/$code"
 
+  # Opened from a link, with nothing to go back to, the arrow goes to Your events, in the app.
+  check "the event's title is in the bar" "$(page "document.querySelector('.app-bar-title').textContent")" "Willow Creek Cup"
+  tap_el '.app-bar-back'
+  sleep 2
+  check "with no history, the arrow goes to Your events" "$(page "location.pathname")" "/"
+  if in_app; then note "PASS $theme and stays in the app"; else note "FAIL $theme and stays in the app"; fi
+
   # A dialog holds the page still, and Back closes it.
   go "/settings?section=data"
   until_true "[...document.querySelectorAll('button')].some(b => b.textContent.trim() === 'Export data')"
@@ -229,6 +253,7 @@ run_theme() {
   until_true "document.querySelector('dialog:modal')"
   sleep 1
   shoot dialog
+  check "the bar's title says Settings" "$(page "document.querySelector('.app-bar-title').textContent")" Settings
   check "the dialog has 28 dp corners" "$(page "getComputedStyle(document.querySelector('dialog:modal')).borderTopLeftRadius")" 28px
   check "the page behind a dialog holds still" "$(page "getComputedStyle(document.documentElement).overflow")" hidden
   adb shell input keyevent KEYCODE_BACK
