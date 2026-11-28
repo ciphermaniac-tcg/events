@@ -1744,6 +1744,23 @@ test('in the Mac app, a right click gets the system’s text menu on selected or
   expect(await menu(heading)).toBe(true);
 });
 
+test('in the Mac app, Edit > Find goes to the page’s own search', async ({ page }) => {
+  await mockApi(page);
+  await macPage(page);
+  await page.goto(`/t/${CODE}`);
+  const search = page.getByRole('searchbox', { name: 'Find a player' });
+  await search.fill('lamarr');
+  await page.getByRole('heading', { level: 1 }).click();
+  await page.evaluate(() => dispatchEvent(new Event('cm-app-find')));
+  await expect(search).toBeFocused();
+  expect(
+    await search.evaluate(input => [
+      (input as HTMLInputElement).selectionStart,
+      (input as HTMLInputElement).selectionEnd
+    ])
+  ).toEqual([0, 6]);
+});
+
 /** The Mac app's title strip, as the app adds it to the site's pages (native/src-tauri/src/mac_title_strip.rs). */
 const STRIP_CSS = readFileSync(new URL('../../native/src-tauri/src/mac_title_strip.css', import.meta.url), 'utf8');
 const STRIP_JS = readFileSync(new URL('../../native/src-tauri/src/mac_title_strip.js', import.meta.url), 'utf8');

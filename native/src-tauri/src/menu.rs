@@ -33,6 +33,8 @@ enum Action {
     Back,
     Forward,
     Reload,
+    /// The page's own search, where it has one (`mac_page.js`).
+    Find,
     Zoom(Zoom),
     /// A page outside the app, in the browser.
     Outside(&'static str),
@@ -79,6 +81,10 @@ const COMMANDS: &[Command] = &[
         action: Action::Reload,
     },
     Command {
+        id: "find",
+        action: Action::Find,
+    },
+    Command {
         id: "zoom_in",
         action: Action::Zoom(Zoom::In),
     },
@@ -111,6 +117,9 @@ const COMMANDS: &[Command] = &[
         action: Action::Outside("https://ciphermaniac.com/feedback"),
     },
 ];
+
+/// Asks the page for its own search (`mac_page.js`).
+const FIND_SCRIPT: &str = "dispatchEvent(new Event('cm-app-find'))";
 
 fn action_of(id: &str) -> Option<Action> {
     COMMANDS
@@ -200,15 +209,20 @@ fn first_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<tauri::menu::Subm
 }
 
 fn edit_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<tauri::menu::Submenu<R>> {
-    SubmenuBuilder::new(app, "Edit")
+    let menu = SubmenuBuilder::new(app, "Edit")
         .undo()
         .redo()
         .separator()
         .cut()
         .copy()
         .paste()
-        .select_all()
-        .build()
+        .select_all();
+    // Find, which the Mac's page script answers (`mac_page.js`).
+    #[cfg(target_os = "macos")]
+    let menu = menu
+        .separator()
+        .item(&item(app, "find", "Find…", Some("Cmd+F"))?);
+    menu.build()
 }
 
 fn view_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<tauri::menu::Submenu<R>> {
@@ -324,6 +338,7 @@ fn run<R: Runtime>(app: &AppHandle<R>, action: Action) {
         Action::Back => window.eval("history.back()"),
         Action::Forward => window.eval("history.forward()"),
         Action::Reload => window.reload(),
+        Action::Find => window.eval(FIND_SCRIPT),
         Action::Zoom(zoom) => {
             let level = zoomed(ZOOM_LEVEL.load(Ordering::Relaxed), zoom);
             ZOOM_LEVEL.store(level, Ordering::Relaxed);
@@ -361,6 +376,7 @@ mod tests {
         assert_eq!(action_of("settings"), Some(Action::Page("/settings")));
         assert_eq!(action_of("back"), Some(Action::Back));
         assert_eq!(action_of("reload"), Some(Action::Reload));
+        assert_eq!(action_of("find"), Some(Action::Find));
         assert_eq!(
             action_of("feedback"),
             Some(Action::Outside("https://ciphermaniac.com/feedback"))
