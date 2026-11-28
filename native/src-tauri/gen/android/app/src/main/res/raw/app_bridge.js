@@ -24,12 +24,55 @@
       channel.postMessage(state);
     }
   };
+  // The head bar as a Material top app bar (material.rs): on a page with a
+  // way back, its trail, a back arrow and the page's title. The arrow goes
+  // where Back goes, and to the trail's page when there is no history, as a
+  // page opened from a link has, rather than out of the app.
+  const canGoBack = () => window.navigation?.canGoBack ?? history.length > 1;
+  const up = () => {
+    if (canGoBack()) {
+      history.back();
+    } else {
+      document.querySelector('.tm-trail a')?.click();
+    }
+  };
+  const barPart = (row, tag, className, before) => {
+    let part = row.querySelector(`:scope > .${className}`);
+    if (!part) {
+      part = document.createElement(tag);
+      part.className = className;
+      row.insertBefore(part, before);
+    }
+    return part;
+  };
+  const bar = () => {
+    const row = document.querySelector('.site-head-row');
+    const here = document.querySelector('.tm-trail-here')?.textContent.trim();
+    document.documentElement.classList.toggle('app-up', Boolean(row && here));
+    if (!row || !here) {
+      return;
+    }
+    const back = barPart(row, 'button', 'app-bar-back', row.firstChild);
+    if (!back.firstChild) {
+      back.type = 'button';
+      back.setAttribute('aria-label', 'Back');
+      back.innerHTML =
+        '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>';
+      back.addEventListener('click', up);
+    }
+    const title = barPart(row, 'span', 'app-bar-title', back.nextSibling);
+    if (title.textContent !== here) {
+      title.textContent = here;
+    }
+  };
+
   let queued = false;
   const queue = () => {
     if (!queued) {
       queued = true;
       requestAnimationFrame(() => {
         queued = false;
+        bar();
         report();
       });
     }
@@ -154,8 +197,8 @@
   });
   window.navigation?.addEventListener('currententrychange', queue);
   window.addEventListener('popstate', queue);
-  window.addEventListener('pageshow', report);
-  document.addEventListener('DOMContentLoaded', report);
+  window.addEventListener('pageshow', queue);
+  document.addEventListener('DOMContentLoaded', queue);
 
   // Files. A webview has neither Web Share nor downloads, so both go to the
   // activity, which opens the share sheet or the system's save dialog.
