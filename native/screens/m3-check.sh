@@ -465,6 +465,10 @@ offline() {
   until_true "$USABLE"
   check "a new deploy reaches the app within one launch" "$(page "window.__m3Deploy === 1")" true
 
+  # The copy holds every built file the deploy's manifest names.
+  check "the copy holds every built file of the deploy" \
+    "$([ "$(adb shell "run-as $package ls files/site/files" | tr -d '\r' | grep -c '^assets_')" -ge "$(find dist/assets -type f | wc -l)" ] && echo yes || echo no)" yes
+
   # Nothing of an account is kept: only the shell and its files.
   check "the app keeps nothing of an account" "$(kept_besides_shell)" 0
 }

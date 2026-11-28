@@ -29,10 +29,12 @@ import org.json.JSONObject
  * and before there is a copy, the webview asks the network as ever, so the
  * offline page still stands in. Each launch, once the page shows, and each
  * return to the screen ([refresh]), the live page is fetched behind it, and
- * a new deploy is kept whole, its files first, for the next launch, so the
- * scripts running are at most one deploy behind, as in a browser tab left
- * open. A built file a deploy removed drops the copy, so the site's own
- * recovery reload loads the new deploy from the network.
+ * a new deploy is kept whole, every built file its manifest names first,
+ * for the next launch, so the scripts running are at most one deploy
+ * behind, as in a browser tab left open, and never ask for a file the copy
+ * lacks. A file the copy lacks goes to the webview's own fetch untouched; a
+ * hashed one means the copy is incomplete, so it goes and the next page
+ * load is the network's.
  *
  * Only the shell is kept, which is the same for everyone: no data, no
  * write, no sign-in and nothing per request goes through here.
@@ -90,8 +92,9 @@ class SiteCache(context: Context) {
   }
 
   /**
-   * Keeps the live page when it is a new deploy: its files first, then the
-   * page and its headers in one write, so a copy is whole or not there.
+   * Keeps the live page when it is a new deploy: every built file it names
+   * or its manifest lists first, then the page and its headers in one
+   * write, so a copy is whole or not there.
    */
   private fun store() {
     val live = fetch("$SITE/") ?: return
@@ -105,7 +108,7 @@ class SiteCache(context: Context) {
       return
     }
     prune()
-    if (!named.all { file(it) != null }) {
+    if (!(named + manifest()).all(::keepFile)) {
       return
     }
     val kept = JSONObject()
@@ -115,30 +118,51 @@ class SiteCache(context: Context) {
     write(shell, kept.toString().toByteArray())
   }
 
-  /**
-   * A built file, from the copy or else the network, kept when it is one. A
-   * hashed file the site no longer has means a deploy removed it: the copy
-   * is behind, so it goes, and the next page load is the network's.
-   */
-  private fun file(path: String): WebResourceResponse? {
-    val copy = File(files, path.trimStart('/').replace('/', '_'))
-    if (copy.exists()) {
-      copy.setLastModified(System.currentTimeMillis())
-      return runCatching { response(mime(path), copy.readBytes(), null) }.getOrNull()
-    }
-    val live = fetch("$SITE$path") ?: return null
-    if (live.status != HttpURLConnection.HTTP_OK || live.mime.startsWith("text/html")) {
-      if (path.startsWith("/assets/")) {
-        shell.delete()
-        refresh(now = true)
-      }
-      return null
-    }
-    write(copy, live.body)
-    return response(mime(path), live.body, null)
+  /** Every built file of the live deploy, from its manifest (vite.config.ts), or none when it can't be read. */
+  private fun manifest(): Set<String> {
+    val live = fetch("$SITE/.vite/manifest.json")?.takeIf { it.status == HttpURLConnection.HTTP_OK } ?: return emptySet()
+    val entries = runCatching { JSONObject(String(live.body)) }.getOrNull() ?: return emptySet()
+    return entries.keys().asSequence().flatMap { key ->
+      val entry = entries.getJSONObject(key)
+      sequenceOf(entry.optString("file")) +
+        listOf("css", "assets").flatMap { list -> entry.optJSONArray(list)?.let { a -> (0 until a.length()).map(a::getString) }.orEmpty() }
+    }.filter { it.isNotEmpty() }.map { "/$it" }.toSet()
   }
 
-  /** Before a new deploy: drops built files unasked for in a month, and files without a hash, fetched anew. */
+  private fun copyOf(path: String) = File(files, path.trimStart('/').replace('/', '_'))
+
+  /** Downloads a built file into the copy unless it is there; false when it can't be had. */
+  private fun keepFile(path: String): Boolean {
+    val copy = copyOf(path)
+    if (copy.exists()) {
+      return true
+    }
+    val live = fetch("$SITE$path") ?: return false
+    if (live.status != HttpURLConnection.HTTP_OK || live.mime.startsWith("text/html")) {
+      return false
+    }
+    write(copy, live.body)
+    return copy.exists()
+  }
+
+  /**
+   * A built file from the copy, or null for the webview's own fetch. A
+   * hashed file missing from it means the copy is incomplete: it goes, and
+   * the next page load is the network's, while a fresh one is kept.
+   */
+  private fun file(path: String): WebResourceResponse? {
+    val copy = copyOf(path)
+    if (copy.exists()) {
+      return runCatching { response(mime(path), copy.readBytes(), null) }.getOrNull()
+    }
+    if (path.startsWith("/assets/")) {
+      shell.delete()
+      refresh(now = true)
+    }
+    return null
+  }
+
+  /** Before a new deploy: drops built files kept over a month ago, and files without a hash, fetched anew. */
   private fun prune() {
     val old = System.currentTimeMillis() - PRUNE_AFTER_MS
     files.listFiles()?.forEach { if (!it.name.startsWith("assets_") || it.lastModified() < old) it.delete() }
