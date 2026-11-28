@@ -208,10 +208,21 @@ pub fn show_main_window<R: Runtime>(app: &AppHandle<R>) {
     if SHOWN.swap(true, std::sync::atomic::Ordering::Relaxed) {
         return;
     }
+<<<<<<< ours
     crate::feel::note("show", "");
     if let Some(window) = app.get_webview_window(MAIN_WINDOW)
         && let Err(err) = window.show()
     {
+=======
+    let Some(window) = app.get_webview_window(MAIN_WINDOW) else {
+        return;
+    };
+    // On the Mac the window is on screen already, unseen (`mac_page.rs`).
+    #[cfg(target_os = "macos")]
+    crate::mac_page::reveal(&window);
+    #[cfg(not(target_os = "macos"))]
+    if let Err(err) = window.show() {
+>>>>>>> theirs
         log::warn!("could not show the window: {err}");
     }
 }
@@ -219,6 +230,8 @@ pub fn show_main_window<R: Runtime>(app: &AppHandle<R>) {
 /// Brings the main window back and forward when it is hidden or minimized.
 #[cfg(desktop)]
 pub fn reveal_main_window<R: Runtime>(app: &AppHandle<R>) {
+    // Asked for before its page has drawn: it shows as it is.
+    show_main_window(app);
     let Some(window) = app.get_webview_window(MAIN_WINDOW) else {
         return;
     };
@@ -390,6 +403,7 @@ fn desktop_window_built<R: Runtime>(window: &tauri::WebviewWindow<R>) {
     {
         crate::mac_dock::hide_on_close(window);
         crate::mac_page::swipe_back_and_forward(window);
+        crate::mac_page::show_unseen(window);
     }
     #[cfg(windows)]
     {
