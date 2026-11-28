@@ -138,7 +138,10 @@ class MainActivity : TauriActivity() {
         back.onPageState(message.optBoolean("layer"), message.optBoolean("back"))
         SiteLinks.keep(this, message.optString("url"))
       }
-      "shown" -> onContentShown()
+      "shown" -> {
+        cache.onSiteShown()
+        onContentShown()
+      }
       "cookies" -> flushCookies()
       "pick" -> pickers.show(message)
       "share" -> files.share(message)

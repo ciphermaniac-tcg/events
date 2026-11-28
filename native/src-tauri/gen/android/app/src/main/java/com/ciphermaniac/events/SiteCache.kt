@@ -37,8 +37,9 @@ import org.json.JSONObject
  * and on each return to the screen, the live page is fetched. A new deploy
  * is kept marked, so the next launch loads it from the site, which fills
  * the webview's cache with its files before the copy serves it; the mark
- * goes only when a launch finds the live page is the one kept and kept no
- * new deploy itself. A launch whose look didn't finish leaves its mark too,
+ * goes only when a launch that drew the site's page finds the live page is
+ * the one kept and kept no new deploy itself. A launch whose look didn't
+ * finish, or that only reached the offline page, leaves its mark too,
  * so a deploy always reaches the app within one launch.
  *
  * Only the page is kept, which is the same for everyone: no data, no write,
@@ -53,7 +54,10 @@ class SiteCache private constructor(context: Context) {
   private val agent by lazy { WebSettings.getDefaultUserAgent(context) }
   private var refreshedAt: Long? = null
   private var launchServed = false
-  @Volatile private var deployKept = false
+  @Volatile private var siteShown = false
+
+  // The worker's alone.
+  private var deployKept = false
 
   /** The response for [request] from the copy, or null for the webview to fetch. */
   fun intercept(request: WebResourceRequest): WebResourceResponse? {
@@ -64,6 +68,11 @@ class SiteCache private constructor(context: Context) {
     val url = request.url
     val routed = request.method == "GET" && request.isForMainFrame && "${url.scheme}://${url.authority}" == SITE
     return if (routed && ROUTES.matches(url.path.orEmpty())) launchPage() else null
+  }
+
+  /** The site's page drew in this process (app_bridge.js), so the webview's cache holds what it loads. */
+  fun onSiteShown() {
+    siteShown = true
   }
 
   /**
@@ -100,9 +109,9 @@ class SiteCache private constructor(context: Context) {
   }
 
   /**
-   * Keeps the live page, marked, when it is a new deploy, with its headers
-   * in one write; when it is the one kept, lifts the mark, unless this
-   * launch kept a new deploy.
+   * When the live page is a new deploy, marks it first, then keeps it with
+   * its headers in one write; when it is the one kept, lifts the mark, once
+   * the site's page has drawn and unless this launch kept a new deploy.
    */
   private fun store() {
     val live = fetch("$SITE/") ?: return
@@ -122,7 +131,7 @@ class SiteCache private constructor(context: Context) {
       }
       return
     }
-    if (!deployKept) {
+    if (siteShown && !deployKept) {
       owed.delete()
     }
   }
