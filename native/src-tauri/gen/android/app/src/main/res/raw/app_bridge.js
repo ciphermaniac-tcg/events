@@ -61,7 +61,7 @@
   const bar = () => {
     const row = document.querySelector('.site-head-row');
     const here = document.querySelector('.tm-trail-here')?.textContent.trim();
-    document.documentElement.classList.toggle('app-up', Boolean(row && here));
+    document.documentElement?.classList.toggle('app-up', Boolean(row && here));
     if (!row || !here) {
       return;
     }
