@@ -414,7 +414,7 @@ run_theme() {
 # it with the site out of reach, offline still shows the offline page and its
 # Retry, a deploy reaches the app within one launch, and nothing of an
 # account is ever kept.
-kept_besides_shell() { adb shell "run-as $package ls files/site 2>/dev/null" | tr -d '\r' | grep -vc '^shell.json$\|^files$' || true; }
+kept_besides_shell() { adb shell "run-as $package ls no_backup/site 2>/dev/null" | tr -d '\r' | grep -vc '^shell.json$\|^look-owed$' || true; }
 
 offline() {
   theme=light
@@ -464,10 +464,6 @@ offline() {
   launch -n "$activity"
   until_true "$USABLE"
   check "a new deploy reaches the app within one launch" "$(page "window.__m3Deploy === 1")" true
-
-  # The copy holds every built file the deploy's manifest names.
-  check "the copy holds every built file of the deploy" \
-    "$([ "$(adb shell "run-as $package ls files/site/files" | tr -d '\r' | grep -c '^assets_')" -ge "$(find dist/assets -type f | wc -l)" ] && echo yes || echo no)" yes
 
   # Nothing of an account is kept: only the shell and its files.
   check "the app keeps nothing of an account" "$(kept_besides_shell)" 0

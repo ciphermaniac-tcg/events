@@ -474,7 +474,7 @@ const tabByText = text =>
   `([...document.querySelectorAll('[role=tab]')].find(t => t.textContent.trim() === ${JSON.stringify(text)} && t.getClientRects().length))`;
 
 async function starts(prefix, link) {
-  shell(`run-as ${pkg} ${prefix ? 'touch' : 'rm -f'} files/site-off`); // the app's own copy off, test builds only
+  shell(`run-as ${pkg} ${prefix ? 'touch' : 'rm -f'} no_backup/site-off`); // the app's own copy off, test builds only
   // The page to reopen: launch on it once, so every cold start after opens there.
   await launch({ link });
   const cold = [];
