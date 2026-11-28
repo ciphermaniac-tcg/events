@@ -15,6 +15,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.security.MessageDigest
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import org.json.JSONObject
 
 /**
@@ -43,7 +44,7 @@ class SiteCache(context: Context) {
   private val root = File(context.filesDir, "site")
   private val shell = File(root, "shell.json")
   private val files = File(root, "files")
-  private val worker = Executors.newSingleThreadExecutor()
+  private val worker = Executors.newSingleThreadScheduledExecutor()
   private val connectivity = context.getSystemService(ConnectivityManager::class.java)
   private val agent by lazy { WebSettings.getDefaultUserAgent(context) }
   private var refreshedAt = 0L
@@ -68,14 +69,18 @@ class SiteCache(context: Context) {
 
   private fun isFile(path: String) = FILE_PREFIXES.any { path.startsWith(it) } || path == "/logo.svg"
 
-  /** Fetches the live page behind the copy, off the main thread, at most once a minute unless [now]. */
+  /**
+   * Fetches the live page behind the copy, off the main thread, a few
+   * seconds on so the page's own first reads go first, and at most once a
+   * minute; with [now], at once.
+   */
   fun refresh(now: Boolean = false) {
     val at = System.currentTimeMillis()
     if (!now && at - refreshedAt < REFRESH_EVERY_MS) {
       return
     }
     refreshedAt = at
-    worker.execute { store() }
+    worker.schedule({ store() }, if (now) 0 else SETTLE_MS, TimeUnit.MILLISECONDS)
   }
 
   /** The kept page with its own headers, or null to fail closed to the network. */
@@ -228,6 +233,7 @@ class SiteCache(context: Context) {
     const val CONNECT_MS = 8_000
     const val READ_MS = 15_000
     const val REFRESH_EVERY_MS = 60_000L
+    const val SETTLE_MS = 5_000L
     const val PRUNE_AFTER_MS = 30L * 24 * 60 * 60 * 1000
 
     /** The site's routes (src/main.tsx), each answered with the same page. */
