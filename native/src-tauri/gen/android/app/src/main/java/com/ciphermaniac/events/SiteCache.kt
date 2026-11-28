@@ -34,12 +34,12 @@ import org.json.JSONObject
  * Only a launch's first page comes from the copy; a reload, such as the
  * site's own recovery after a deploy, goes to the site. A launch the copy
  * serves leaves a mark; a few seconds after the page shows ([refresh]),
- * and on each return to the screen, the live page is fetched, and the mark
- * goes only when the live page is the one kept. A new deploy is kept, but
- * the next launch, still marked, loads it from the site, which fills the
- * webview's cache with its files before the copy serves it. A launch whose
- * look didn't finish leaves its mark too, so a deploy always reaches the
- * app within one launch.
+ * and on each return to the screen, the live page is fetched. A new deploy
+ * is kept marked, so the next launch loads it from the site, which fills
+ * the webview's cache with its files before the copy serves it; the mark
+ * goes only when a launch finds the live page is the one kept and kept no
+ * new deploy itself. A launch whose look didn't finish leaves its mark too,
+ * so a deploy always reaches the app within one launch.
  *
  * Only the page is kept, which is the same for everyone: no data, no write,
  * no sign-in and nothing per request goes through here.
@@ -51,8 +51,9 @@ class SiteCache private constructor(context: Context) {
   private val worker = Executors.newSingleThreadScheduledExecutor()
   private val connectivity = context.getSystemService(ConnectivityManager::class.java)
   private val agent by lazy { WebSettings.getDefaultUserAgent(context) }
-  private var refreshedAt = Long.MIN_VALUE / 2
+  private var refreshedAt: Long? = null
   private var launchServed = false
+  @Volatile private var deployKept = false
 
   /** The response for [request] from the copy, or null for the webview to fetch. */
   fun intercept(request: WebResourceRequest): WebResourceResponse? {
@@ -68,7 +69,7 @@ class SiteCache private constructor(context: Context) {
   @Synchronized
   fun refresh() {
     val at = SystemClock.elapsedRealtime()
-    if (at - refreshedAt < REFRESH_EVERY_MS) {
+    if (refreshedAt?.let { at - it < REFRESH_EVERY_MS } == true) {
       return
     }
     refreshedAt = at
@@ -91,18 +92,17 @@ class SiteCache private constructor(context: Context) {
       val headers = kept.getJSONObject("headers")
       response(Base64.decode(kept.getString("html"), Base64.DEFAULT), headers.keys().asSequence().associateWith { headers.getString(it) })
     }.getOrNull() ?: return null
-    return response.takeIf { write(owed, System.nanoTime().toString().toByteArray()) }
+    return response.takeIf { write(owed, ByteArray(0)) }
   }
 
   /**
-   * Keeps the live page when it is a new deploy, with its headers, in one
-   * write; when it is the one kept, lifts the mark this look set out to
-   * answer, unless a later launch has marked it since.
+   * Keeps the live page, marked, when it is a new deploy, with its headers
+   * in one write; when it is the one kept, lifts the mark, unless this
+   * launch kept a new deploy.
    */
   private fun store() {
-    val mark = runCatching { owed.readText() }.getOrNull()
     val live = fetch("$SITE/") ?: return
-    if (live.status != HttpURLConnection.HTTP_OK || !live.mime.startsWith("text/html") || !live.html.contains("/assets/")) {
+    if (live.status != HttpURLConnection.HTTP_OK || !live.mime.lowercase().startsWith("text/html") || !live.html.contains("/assets/")) {
       return
     }
     val headers = live.headers.filterKeys { it.lowercase() in KEPT_HEADERS }.mapKeys { it.key.lowercase() }.toSortedMap()
@@ -112,13 +112,14 @@ class SiteCache private constructor(context: Context) {
         .put("version", version)
         .put("headers", JSONObject(headers as Map<*, *>))
         .put("html", Base64.encodeToString(live.html.toByteArray(), Base64.NO_WRAP))
-      write(shell, kept.toString().toByteArray())
+      if (write(owed, ByteArray(0))) {
+        deployKept = true
+        write(shell, kept.toString().toByteArray())
+      }
       return
     }
-    synchronized(this) {
-      if (mark != null && runCatching { owed.readText() }.getOrNull() == mark) {
-        owed.delete()
-      }
+    if (!deployKept) {
+      owed.delete()
     }
   }
 
