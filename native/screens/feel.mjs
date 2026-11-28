@@ -15,7 +15,7 @@ import { setTimeout as sleep } from 'node:timers/promises';
 
 const [mode, out, ...codes] = process.argv.slice(2);
 const local = mode === 'local';
-const site = local ? 'http://localhost:4600' : 'https://events.ciphermaniac.com';
+const site = process.env.FEEL_SITE ?? (local ? 'http://localhost:4600' : 'https://events.ciphermaniac.com');
 const pkg = 'com.ciphermaniac.events.debug';
 const activity = `${pkg}/com.ciphermaniac.events.MainActivity`;
 const port = 9223;
@@ -25,7 +25,7 @@ const results = { mode, site, runs: {}, errors: [] };
 const save = () => writeFileSync(`${out}/feel-${mode}.json`, JSON.stringify(results, null, 1));
 const log = (...args) => console.log(`[${new Date().toISOString().slice(11, 19)}]`, ...args);
 
-const adb = (...args) => execFileSync('adb', args, { encoding: 'utf8', maxBuffer: 64 << 20 });
+const adb = (...args) => execFileSync('adb', args, { encoding: 'utf8', maxBuffer: 64 << 20, timeout: 90000 });
 const shell = command => adb('shell', command);
 const tryShell = command => {
   try {
@@ -44,7 +44,10 @@ const epoch = line => {
   return Date.now();
 };
 const shot = name =>
-  writeFileSync(`${out}/feel-${mode}-${name}.png`, execFileSync('adb', ['exec-out', 'screencap', '-p']));
+  writeFileSync(
+    `${out}/feel-${mode}-${name}.png`,
+    execFileSync('adb', ['exec-out', 'screencap', '-p'], { timeout: 30000 })
+  );
 
 /** Starts a screen recording; the returned function stops it and pulls the file. */
 async function record(name, seconds) {
@@ -52,9 +55,12 @@ async function record(name, seconds) {
   const child = spawn('adb', ['shell', 'screenrecord', '--time-limit', String(seconds), '--bit-rate', '8000000', file]);
   await sleep(900);
   return async () => {
-    await new Promise(resolve => {
-      child.on('exit', resolve);
-    });
+    await Promise.race([
+      new Promise(resolve => {
+        child.on('exit', resolve);
+      }),
+      sleep((seconds + 10) * 1000)
+    ]);
     await sleep(500);
     try {
       adb('pull', file, `${out}/feel-${mode}-${name}.mp4`);
@@ -86,10 +92,15 @@ function pid() {
 /** Opens a DevTools socket; a socket that closes later forgets itself only if it is still the current one. */
 async function open(url) {
   const ws = new WebSocket(url);
-  await new Promise((resolve, reject) => {
-    ws.addEventListener('open', resolve, { once: true });
-    ws.addEventListener('error', reject, { once: true });
-  });
+  await Promise.race([
+    new Promise((resolve, reject) => {
+      ws.addEventListener('open', resolve, { once: true });
+      ws.addEventListener('error', () => reject(new Error('socket error')), { once: true });
+    }),
+    sleep(5000).then(() => {
+      throw new Error('socket did not open');
+    })
+  ]);
   ws.addEventListener('message', message => {
     const data = JSON.parse(String(message.data));
     if (data.id && waiting.has(data.id)) {
@@ -108,6 +119,7 @@ async function open(url) {
 async function connect(limitMs = 30000) {
   close();
   const deadline = Date.now() + limitMs;
+  let why = 'no process';
   while (Date.now() < deadline) {
     const id = pid();
     if (id && !id.startsWith('ERR') && tryShell('cat /proc/net/unix').includes(`webview_devtools_remote_${id}`)) {
@@ -118,22 +130,27 @@ async function connect(limitMs = 30000) {
           /* none yet */
         }
         adb('forward', `tcp:${port}`, `localabstract:webview_devtools_remote_${id}`);
-        const pages = await (await fetch(`http://127.0.0.1:${port}/json`)).json();
-        const page = pages.find(target => target.type === 'page');
-        if (page) {
-          socket = await open(page.webSocketDebuggerUrl);
+        const pages = await (
+          await fetch(`http://127.0.0.1:${port}/json`, { signal: AbortSignal.timeout(4000) })
+        ).json();
+        const target = pages.find(item => item.type === 'page' && item.url.startsWith('http'));
+        if (target) {
+          socket = await open(target.webSocketDebuggerUrl);
+          log('connected', id, target.url.slice(0, 80));
           return true;
         }
-      } catch {
+        why = `targets ${JSON.stringify(pages.map(item => [item.type, item.url.slice(0, 50)]))}`;
+      } catch (err) {
+        why = err.message;
         close();
       }
     }
     await sleep(150);
   }
-  throw new Error('no DevTools connection');
+  throw new Error(`no DevTools connection: ${why}`);
 }
 
-function send(method, params = {}, limitMs = 20000) {
+function send(method, params = {}, limitMs = 8000) {
   if (!socket) {
     return Promise.reject(new Error('not connected'));
   }
@@ -161,27 +178,35 @@ async function evaluate(expression) {
  * Evaluates, retrying while a page loads, on the same connection so that
  * network emulation stays on; reconnects only when the socket is gone.
  */
-async function page(expression) {
+async function page(expression, limitMs = 20000) {
+  const deadline = Date.now() + limitMs;
   let last = null;
-  for (let i = 0; i < 40; i++) {
+  let timeouts = 0;
+  while (Date.now() < deadline) {
     try {
       if (!socket) {
-        await connect();
+        await connect(Math.max(1000, deadline - Date.now()));
       }
       return await evaluate(expression);
     } catch (err) {
       last = err;
+      // A socket that stops answering is dead: a fresh one finds the live page.
+      if (/timed out/.test(err.message) && ++timeouts >= 2) {
+        log('page: no answer, reconnecting');
+        close();
+        timeouts = 0;
+      }
       await sleep(150);
     }
   }
-  throw last;
+  throw last ?? new Error('page: out of time');
 }
 
 async function until(expression, limitMs = 30000) {
   const end = Date.now() + limitMs;
   while (Date.now() < end) {
     try {
-      if (await page(`Boolean(${expression})`)) {
+      if (await page(`Boolean(${expression})`, Math.max(500, end - Date.now()))) {
         return true;
       }
     } catch {
@@ -258,6 +283,7 @@ async function launch({ stop = true, link = null, wait = 'window.__feel?.marks?.
   }
   await connect();
   const ok = await until(wait, 20000);
+  log('launch', link ?? '', am.state, am.total, ok ? 'usable' : 'not usable');
   await sleep(1200);
   const read = await page(READ);
   const native = Object.fromEntries(Object.entries(feelLog()).map(([k, v]) => [k, Math.round(v - t0)]));
@@ -408,10 +434,15 @@ async function timedLoad(start, name) {
 
 // ---------------------------------------------------------------- Scenarios
 
-async function step(name, run) {
+async function step(name, run, limitMs = 360000) {
   log('step', name);
   try {
-    results.runs[name] = await run();
+    results.runs[name] = await Promise.race([
+      run(),
+      sleep(limitMs).then(() => {
+        throw new Error(`${name} ran out of time`);
+      })
+    ]);
   } catch (err) {
     results.errors.push(`${name}: ${err.stack || err.message}`);
     log('FAILED', name, err.message);
