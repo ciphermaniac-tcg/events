@@ -261,7 +261,12 @@
     return changed;
   };
 
-  new MutationObserver(queue).observe(document, {
+  // The bar changes with the page, before it draws, so the trail and title
+  // never draw a frame apart; the rest waits for the next frame.
+  new MutationObserver(() => {
+    bar();
+    queue();
+  }).observe(document, {
     subtree: true,
     childList: true,
     attributeFilter: ['open', 'role', 'aria-modal', 'class']
