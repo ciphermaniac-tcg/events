@@ -71,18 +71,40 @@ func pixwatch(_ pid: Int32, _ ms: Double) async {
     config.height = 48
     config.showsCursor = false
     var last = ""
+    var reported = false
     while Date() < deadline {
         let at = now()
-        guard let image = try? await SCScreenshotManager.captureImage(contentFilter: filter, configuration: config) else { continue }
-        let (mean, spread) = brightness(image)
-        let key = "\(Int(mean / 6)) \(Int(spread / 6))"
-        if key != last {
-            print(at, Int(mean), Int(spread))
-            fflush(stdout)
-            last = key
+        var image: CGImage?
+        do {
+            image = try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: config)
+        } catch {
+            if !reported {
+                FileHandle.standardError.write("pixwatch: ScreenCaptureKit failed (\(error)); using CGWindowListCreateImage\n".data(using: .utf8)!)
+                reported = true
+            }
+            image = legacyCapture(window.windowID)
+        }
+        if let image {
+            let (mean, spread) = brightness(image)
+            let key = "\(Int(mean / 6)) \(Int(spread / 6))"
+            if key != last {
+                print(at, Int(mean), Int(spread))
+                fflush(stdout)
+                last = key
+            }
         }
         try? await Task.sleep(nanoseconds: 12_000_000)
     }
+}
+
+/// CGWindowListCreateImage, which the macOS 15 SDK no longer lets Swift
+/// name, looked up at run time.
+func legacyCapture(_ windowID: CGWindowID) -> CGImage? {
+    typealias Create = @convention(c) (CGRect, UInt32, UInt32, UInt32) -> Unmanaged<CGImage>?
+    guard let symbol = dlsym(UnsafeMutableRawPointer(bitPattern: -2), "CGWindowListCreateImage") else { return nil }
+    let create = unsafeBitCast(symbol, to: Create.self)
+    // Just this window (1 << 3); its bounds without the frame, at nominal size (1 | 1 << 4).
+    return create(CGRect.null, 1 << 3, windowID, 1 | 1 << 4)?.takeRetainedValue()
 }
 
 let args = CommandLine.arguments
