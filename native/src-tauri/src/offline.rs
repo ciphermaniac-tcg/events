@@ -3,9 +3,10 @@
 //! itself when the connection comes back.
 //!
 //! The page (offline.html) is a placeholder until this screen's design
-//! round. Windows and Linux catch the failed load here. macOS still shows
-//! `WebKit`'s error page: the failure arrives only at the navigation delegate,
-//! which wry keeps for itself.
+//! round. Each platform catches the failed load its own way; on the Mac,
+//! where the window otherwise stays empty, the failure reaches only the
+//! navigation delegate, which wry keeps, so the app adds the one method wry
+//! leaves out to it.
 
 use tauri::Url;
 
@@ -133,9 +134,117 @@ mod linux_hook {
     }
 }
 
+/// Whether a load that failed before its page came failed for want of a
+/// server (`NSURLErrorDomain`): not one stopped (-999), and not one `WebKit`
+/// turned away itself, such as a download.
+#[cfg(any(target_os = "macos", test))]
+fn unreachable(domain: &str, code: isize) -> bool {
+    domain == "NSURLErrorDomain" && code != -999
+}
+
+#[cfg(target_os = "macos")]
+pub use mac_hook::setup;
+
+#[cfg(target_os = "macos")]
+mod mac_hook {
+    use std::sync::OnceLock;
+
+    use objc2::{
+        ffi,
+        rc::Retained,
+        runtime::{AnyClass, AnyObject, Imp, Sel},
+        sel,
+    };
+    use objc2_foundation::{NSError, NSString, NSURL};
+    use objc2_web_kit::WKWebView;
+    use tauri::{Manager, Runtime, Url, WebviewWindow};
+
+    use super::{page, shows_for, unreachable};
+
+    /// The method added, as the runtime calls it.
+    type Failed =
+        unsafe extern "C-unwind" fn(&AnyObject, Sel, &WKWebView, *mut AnyObject, &NSError);
+
+    /// Shows the main window once the page stands in for one that never came.
+    static SHOW: OnceLock<Box<dyn Fn() + Send + Sync>> = OnceLock::new();
+
+    /// Hooks the main window's webview.
+    pub fn setup<R: Runtime>(window: &WebviewWindow<R>) {
+        let app = window.app_handle().clone();
+        let _ = SHOW.set(Box::new(move || crate::shell::show_main_window(&app)));
+        // SAFETY: on the Mac the platform webview is the window's WKWebView.
+        let hooked = window.with_webview(|webview| unsafe { install(&*webview.inner().cast()) });
+        if let Err(err) = hooked {
+            log::warn!("could not reach the webview: {err}");
+        }
+    }
+
+    /// Adds `webView:didFailProvisionalNavigation:withError:` to the class of
+    /// wry's navigation delegate, which has none, then hands the delegate
+    /// over again so `WebKit` asks it what it answers.
+    unsafe fn install(webview: &WKWebView) {
+        // SAFETY: on the main thread, where `with_webview` runs.
+        unsafe {
+            let Some(delegate) = webview.navigationDelegate() else {
+                return;
+            };
+            let object: &AnyObject = delegate.as_ref();
+            let class = std::ptr::from_ref::<AnyClass>(object.class()).cast_mut();
+            let imp = std::mem::transmute::<Failed, Imp>(failed);
+            ffi::class_addMethod(
+                class,
+                sel!(webView:didFailProvisionalNavigation:withError:),
+                imp,
+                c"v@:@@@".as_ptr(),
+            );
+            webview.setNavigationDelegate(Some(&delegate));
+        }
+    }
+
+    /// Shows the app's page where a page from the web never came.
+    unsafe extern "C-unwind" fn failed(
+        _delegate: &AnyObject,
+        _cmd: Sel,
+        webview: &WKWebView,
+        _navigation: *mut AnyObject,
+        error: &NSError,
+    ) {
+        if !unreachable(&error.domain().to_string(), error.code()) {
+            return;
+        }
+        let address = error
+            .userInfo()
+            .objectForKey(&NSString::from_str("NSErrorFailingURLKey"))
+            .and_then(|url| url.downcast::<NSURL>().ok())
+            .and_then(|url: Retained<NSURL>| url.absoluteString());
+        let Some(failed) = address
+            .and_then(|address| Url::parse(&address.to_string()).ok())
+            .filter(shows_for)
+        else {
+            return;
+        };
+        // SAFETY: WebKit calls its delegate on the main thread.
+        unsafe { webview.loadHTMLString_baseURL(&NSString::from_str(&page(&failed)), None) };
+        if let Some(show) = SHOW.get() {
+            show();
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{page, shows_for};
+    use super::{page, shows_for, unreachable};
+
+    #[test]
+    fn stands_in_only_for_a_page_no_server_answered() {
+        assert!(unreachable("NSURLErrorDomain", -1004), "could not connect");
+        assert!(unreachable("NSURLErrorDomain", -1009), "offline");
+        assert!(!unreachable("NSURLErrorDomain", -999), "stopped");
+        assert!(
+            !unreachable("WebKitErrorDomain", 102),
+            "turned away by WebKit"
+        );
+    }
     use tauri::Url;
 
     #[test]
