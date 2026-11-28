@@ -78,8 +78,10 @@ hosts-on)
   # whose address hints and HTTP/3 lead straight to the live site. So every
   # live address is refused for the run, and the name points here on IPv4
   # and IPv6.
-  live=$( { dig +short A "$host"; dig +short AAAA "$host"; dig +short TYPE65 "$host" |
-    grep -oE '(ipv4hint|ipv6hint)=[^ ]+' | cut -d= -f2 | tr ',' '\n'; } | grep -E '^[0-9a-f.:]+$' | sort -u | tr '\n' ' ')
+  live=$( { dig +short A "$host" || true; dig +short AAAA "$host" || true; dig +short TYPE65 "$host" 2>/dev/null || true; } |
+    tr ' ,' '\n\n' | sed -E 's/^(ipv4hint|ipv6hint)=//' |
+    grep -E '^([0-9]+[.]){3}[0-9]+$|^[0-9a-f]*:[0-9a-f:]+$' | sort -u | tr '\n' ' ' || true)
+  [ -n "$live" ] || { echo "found no live addresses to refuse"; exit 1; }
   echo "refusing the live site at: $live"
   printf 'block return out quick proto { tcp udp } to { %s }\n' "$live" >"$state/pf.rules"
   sudo pfctl -f /etc/pf.conf 2>/dev/null || true

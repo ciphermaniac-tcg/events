@@ -28,6 +28,10 @@ jobs:
   audit:
     runs-on: macos-15
     timeout-minutes: 100
+    strategy:
+      fail-fast: false
+      matrix:
+        phase: [live, local]
     steps:
       - name: Name the work paths
         run: |
@@ -62,18 +66,20 @@ jobs:
         run: |
           npm run build
           cp native/screens/feel-sw.js dist/feel-sw.js
-      - run: swiftc -O -o "$FEELHID" native/screens/feelhid.swift
+      - run: |
+          mkdir -p "$OUT"
+          swiftc -O -o "$FEELHID" native/screens/feelhid.swift
       - name: Measure on the live site
+        if: matrix.phase == 'live'
         continue-on-error: true
         run: |
-          mkdir -p "$OUT"
           app=$(find native/src-tauri/target/release/bundle/macos -maxdepth 1 -name '*.app' | head -n 1)
           du -sh "$app" | tee "$OUT/app-size.txt"
           python3 native/screens/feel-mac.py "$app" "$OUT" live PUF98Z
       - name: Serve and seed the site as events.ciphermaniac.com
         id: serve
         continue-on-error: true
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.phase == 'local' }}
         run: |
           native/screens/feel-mac-site.sh cert
           native/screens/feel-mac-site.sh start
@@ -98,6 +104,6 @@ jobs:
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()
         with:
-          name: mac-feel
+          name: mac-feel-${{ matrix.phase }}
           if-no-files-found: error
           path: ${{ runner.temp }}/feel
