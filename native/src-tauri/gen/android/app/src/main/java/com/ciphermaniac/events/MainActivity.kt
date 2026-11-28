@@ -23,6 +23,8 @@ class MainActivity : TauriActivity() {
   }
   private var webView: WebView? = null
   private var contentShown = false
+  private lateinit var cache: SiteCache
+  private var stoppedAt = 0L
   private var splash: SplashScreenViewProvider? = null
 
   override fun onCreate(savedInstanceState: Bundle?) {
@@ -30,6 +32,7 @@ class MainActivity : TauriActivity() {
     bars.apply()
     back = BackNavigation(this)
     files = FileHandoff(this)
+    cache = SiteCache(this)
     if (savedInstanceState == null) {
       SiteLinks.openAtLaunch(this)
     }
@@ -84,10 +87,12 @@ class MainActivity : TauriActivity() {
     WebViewCompat.postVisualStateCallback(view, 0) { reveal() }
   }
 
+  /** The splash goes, on content or at its limit, and then the app looks for a newer deploy, never slowing the launch. */
   private fun reveal() {
     val provider = splash ?: return
     splash = null
     provider.view.animate().alpha(0f).setDuration(FADE_MS).withEndAction { provider.remove() }.start()
+    cache.refresh()
   }
 
   /** Called from Rust (android.rs) when the main window starts loading a page. */
@@ -116,7 +121,7 @@ class MainActivity : TauriActivity() {
     // An app's screen doesn't pinch-zoom; its text follows the phone's size instead.
     webView.settings.setSupportZoom(false)
     back.attach(webView)
-    OfflinePage.attach(webView) { onContentShown() }
+    OfflinePage.attach(webView, cache) { onContentShown() }
     PageBridge.attach(this, webView, ::onPageMessage)
   }
 
@@ -141,7 +146,16 @@ class MainActivity : TauriActivity() {
    */
   override fun onStop() {
     super.onStop()
+    stoppedAt = SystemClock.uptimeMillis()
     CookieManager.getInstance().flush()
+  }
+
+  /** Back on the screen, the app looks for a newer deploy for its next launch (at launch, [reveal] does). */
+  override fun onStart() {
+    super.onStart()
+    if (stoppedAt > 0) {
+      cache.refresh()
+    }
   }
 
   /**

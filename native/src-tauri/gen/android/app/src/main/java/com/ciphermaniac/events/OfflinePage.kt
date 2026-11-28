@@ -20,15 +20,19 @@ import androidx.webkit.WebViewFeature
 object OfflinePage {
   private const val TAG = "OfflinePage"
 
-  /** Catches the main frame's failed loads, once wry's client is in place, and calls [onShown] as it stands in. */
+  /**
+   * Catches the main frame's failed loads, once wry's client is in place,
+   * and calls [onShown] as it stands in. The site's requests go through
+   * [cache], the app's own copy of the site, after wry's.
+   */
   @SuppressLint("RequiresFeature") // Checked first.
-  fun attach(webView: WebView, onShown: () -> Unit) {
+  fun attach(webView: WebView, cache: SiteCache, onShown: () -> Unit) {
     if (!WebViewFeature.isFeatureSupported(WebViewFeature.GET_WEB_VIEW_CLIENT)) {
       Log.w(TAG, "this webview can't show the offline page")
       return
     }
     // wry sets its client after onWebViewCreate, in the same task.
-    webView.post { webView.webViewClient = Client(WebViewCompat.getWebViewClient(webView), onShown) }
+    webView.post { webView.webViewClient = Client(WebViewCompat.getWebViewClient(webView), cache, onShown) }
   }
 
   /** The page for [url] from Rust (offline.rs), or null when the webview's own stays. */
@@ -40,9 +44,13 @@ object OfflinePage {
    * wry's client (RustWebViewClient), with the offline page on a failed
    * load. It hands wry every call wry overrides, so this list follows wry's.
    */
-  private class Client(private val wry: WebViewClient, private val onShown: () -> Unit) : WebViewClient() {
+  private class Client(
+    private val wry: WebViewClient,
+    private val cache: SiteCache,
+    private val onShown: () -> Unit
+  ) : WebViewClient() {
     override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest) =
-      wry.shouldInterceptRequest(view, request)
+      wry.shouldInterceptRequest(view, request) ?: cache.intercept(request)
 
     override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest) =
       wry.shouldOverrideUrlLoading(view, request)
