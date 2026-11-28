@@ -414,14 +414,35 @@ run_theme() {
 # it with the site out of reach, offline still shows the offline page and its
 # Retry, a deploy reaches the app within one launch, and nothing of an
 # account is ever kept.
+owed_mark() { adb shell "run-as $package ls no_backup/site 2>/dev/null" | tr -d '\r' | grep -c '^look-owed$' || true; }
+
+# A cold launch, waited on until the page shows content.
+restart_cold() {
+  adb shell am force-stop "$package"
+  launch -n "$activity"
+  until_true "$USABLE"
+}
+
+# A launch, and long enough for its look (5 s after the splash) to finish.
+settle() {
+  restart_cold
+  sleep 9
+}
+
+# A deploy: the page names one new built file, setting window.__m3Deploy.
+deploy() {
+  printf 'window.__m3Deploy = %s;\n' "$2" >"dist/assets/$1.js"
+  sed -i 's|<script type="module" src="/assets/m3-deploy-[0-9]*\.js"></script>||; s|</head>|<script type="module" src="/assets/'"$1"'.js"></script></head>|' dist/index.html
+  "$here/m3-site.sh" stop
+  "$here/m3-site.sh" start >/dev/null
+}
+
 kept_besides_shell() { adb shell "run-as $package ls no_backup/site 2>/dev/null" | tr -d '\r' | grep -vc '^shell.json$\|^look-owed$' || true; }
 
 offline() {
   theme=light
   set_theme light
-  go "/"
-  until_true "document.body.innerText.includes('Willow Creek Cup')"
-  sleep 3
+  settle
   # The site down, the phone online: the app still draws from its copy.
   "$here/m3-site.sh" stop
   adb shell am force-stop "$package"
@@ -450,20 +471,30 @@ offline() {
   shoot offline-back
   check "Retry brings the page back" "$(page "Boolean(document.querySelector('.site-head'))")" true
 
-  # A deploy: the page names a new built file. Within one launch the app runs it.
-  printf 'window.__m3Deploy = 1;\n' >dist/assets/m3-deploy.js
-  sed -i 's|</head>|<script type="module" src="/assets/m3-deploy.js"></script></head>|' dist/index.html
-  "$here/m3-site.sh" stop
-  "$here/m3-site.sh" start >/dev/null
+  # Deploys. A launch the copy serves leaves a mark; a look finding the copy
+  # current lifts it; a new deploy loads from the site at the next launch.
+  settle
+  check "a settled copy owes no look" "$(owed_mark)" 0
+  deploy m3-deploy-1 1
+  restart_cold
+  check "the launch after a deploy opens on the copy" "$(page "window.__m3Deploy ?? 0")" 0
+  sleep 8
+  check "and its look keeps the deploy, still marked" "$(owed_mark)" 1
+  page "location.reload()" >/dev/null
+  sleep 2
+  until_true "$USABLE"
+  check "a reload in the running app gets the live page" "$(page "window.__m3Deploy ?? 0")" 1
+  restart_cold
+  check "a new deploy reaches the app within one launch" "$(page "window.__m3Deploy ?? 0")" 1
+  sleep 8
+  check "a look finding the copy current lifts the mark" "$(owed_mark)" 0
+  deploy m3-deploy-2 2
   adb shell am force-stop "$package"
   launch -n "$activity"
-  until_true "$USABLE"
-  sleep 6
-  note "INFO light the deploy's first launch runs it already: $(page "window.__m3Deploy === 1")"
+  sleep 2
   adb shell am force-stop "$package"
-  launch -n "$activity"
-  until_true "$USABLE"
-  check "a new deploy reaches the app within one launch" "$(page "window.__m3Deploy === 1")" true
+  restart_cold
+  check "a launch whose look didn't finish loads from the site next" "$(page "window.__m3Deploy ?? 0")" 2
 
   # Nothing of an account is kept: only the shell and its files.
   check "the app keeps nothing of an account" "$(kept_besides_shell)" 0
