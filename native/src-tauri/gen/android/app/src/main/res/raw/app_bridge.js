@@ -15,6 +15,13 @@
   const MODAL = CSS.supports('selector(:modal)') ? 'dialog:modal' : 'dialog[open]';
   const topLayer = () => last(document.querySelectorAll(MODAL)) ?? last(document.querySelectorAll(LAYERS));
 
+  // No pinch-zoom, as on an app's screen (MainActivity turns the webview's
+  // off too), and so no zoom carried into the next load.
+  document.addEventListener('DOMContentLoaded', () => {
+    const viewport = document.querySelector('meta[name="viewport"]');
+    viewport?.setAttribute('content', `${viewport.content}, maximum-scale=1, user-scalable=no`);
+  });
+
   // Tells the activity whether back has something to do here.
   let sent = '';
   const report = () => {

@@ -98,6 +98,8 @@ class MainActivity : TauriActivity() {
     this.webView = webView
     bars.attach()
     followFontScale(webView)
+    // An app's screen doesn't pinch-zoom; its text follows the phone's size instead.
+    webView.settings.setSupportZoom(false)
     back.attach(webView)
     OfflinePage.attach(webView) { onContentShown() }
     PageBridge.attach(this, webView, ::onPageMessage)
