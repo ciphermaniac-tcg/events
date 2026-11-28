@@ -11,6 +11,7 @@ Usage: feel-mac.py <app> <out> live <event code>
 
 import json
 import os
+import plistlib
 import re
 import shutil
 import statistics
@@ -20,7 +21,7 @@ import time
 import traceback
 from pathlib import Path
 
-APP = Path(sys.argv[1])
+APP = Path(sys.argv[1]).resolve()
 OUT = Path(sys.argv[2])
 MODE = sys.argv[3]
 CODES = sys.argv[4:]
@@ -38,9 +39,7 @@ STORES = [
     LIB / "HTTPStorages" / f"{BUNDLE}.binarycookies",
     LIB / "Saved Application State" / f"{BUNDLE}.savedState",
 ]
-EXE = subprocess.run(
-    ["defaults", "read", str(APP / "Contents" / "Info"), "CFBundleExecutable"], capture_output=True, text=True, check=True
-).stdout.strip()
+EXE = plistlib.loads((APP / "Contents" / "Info.plist").read_bytes())["CFBundleExecutable"]
 BIN = APP / "Contents" / "MacOS" / EXE
 CMD = OUT / "cmd.js"
 KEYS = {"r": 15, "w": 13, "f": 3, "comma": 43, "lbracket": 33, "rbracket": 30, "equal": 24, "minus": 27, "zero": 29, "h": 4, "esc": 53, "tab": 48}
