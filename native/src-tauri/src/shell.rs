@@ -208,12 +208,7 @@ pub fn show_main_window<R: Runtime>(app: &AppHandle<R>) {
     if SHOWN.swap(true, std::sync::atomic::Ordering::Relaxed) {
         return;
     }
-<<<<<<< ours
     crate::feel::note("show", "");
-    if let Some(window) = app.get_webview_window(MAIN_WINDOW)
-        && let Err(err) = window.show()
-    {
-=======
     let Some(window) = app.get_webview_window(MAIN_WINDOW) else {
         return;
     };
@@ -222,7 +217,6 @@ pub fn show_main_window<R: Runtime>(app: &AppHandle<R>) {
     crate::mac_page::reveal(&window);
     #[cfg(not(target_os = "macos"))]
     if let Err(err) = window.show() {
->>>>>>> theirs
         log::warn!("could not show the window: {err}");
     }
 }
