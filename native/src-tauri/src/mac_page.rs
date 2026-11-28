@@ -36,11 +36,17 @@ pub fn show_unseen<R: tauri::Runtime>(window: &tauri::WebviewWindow<R>) {
     }
 }
 
-/// Makes the window seen, from any thread.
+/// Makes the window seen and brings it forward, as showing it would.
 #[cfg(target_os = "macos")]
 pub fn reveal<R: tauri::Runtime>(window: &tauri::WebviewWindow<R>) {
     let seen = window.clone();
-    if let Err(err) = window.run_on_main_thread(move || set_alpha(&seen, 1.0)) {
+    let revealed = window.run_on_main_thread(move || {
+        set_alpha(&seen, 1.0);
+        if let Err(err) = seen.set_focus() {
+            log::warn!("could not bring the window forward: {err}");
+        }
+    });
+    if let Err(err) = revealed {
         log::warn!("could not show the window: {err}");
     }
 }
