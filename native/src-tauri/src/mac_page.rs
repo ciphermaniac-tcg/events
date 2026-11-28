@@ -4,6 +4,7 @@
 //! skeleton; a page that never says so shows after a while anyway
 //! (`shell.rs`). A right click gets the system's text menu where text is
 //! selected or typed, and no menu elsewhere, never `WebKit`'s browser items.
+//! Edit > Find (`menu.rs`) goes to the page's own search, where it shows one.
 
 /// The page script, on the site's pages only.
 #[cfg(any(target_os = "macos", test))]
