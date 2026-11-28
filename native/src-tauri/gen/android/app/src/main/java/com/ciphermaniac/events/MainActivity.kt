@@ -82,7 +82,6 @@ class MainActivity : TauriActivity() {
   private fun onContentShown() {
     feel("shown")
     contentShown = true
-    cache.refresh()
     val view = webView
     if (view == null || !WebViewFeature.isFeatureSupported(WebViewFeature.VISUAL_STATE_CALLBACK)) {
       reveal()
@@ -91,11 +90,13 @@ class MainActivity : TauriActivity() {
     WebViewCompat.postVisualStateCallback(view, 0) { reveal() }
   }
 
+  /** The splash goes, on content or at its limit, and then the app looks for a newer deploy, never slowing the launch. */
   private fun reveal() {
     val provider = splash ?: return
     splash = null
     feel("revealed")
     provider.view.animate().alpha(0f).setDuration(FADE_MS).withEndAction { provider.remove() }.start()
+    cache.refresh()
   }
 
   /** Called from Rust (android.rs) when the main window starts loading a page. */
@@ -139,7 +140,6 @@ class MainActivity : TauriActivity() {
       }
       "shown" -> onContentShown()
       "cookies" -> flushCookies()
-      "keep" -> cache.keep(message)
       "pick" -> pickers.show(message)
       "share" -> files.share(message)
       "save" -> files.save(message)
@@ -157,21 +157,12 @@ class MainActivity : TauriActivity() {
     CookieManager.getInstance().flush()
   }
 
-  /**
-   * Back on the screen: the page moves to a newer deploy the app has kept,
-   * when it has been away long enough that nothing half typed is lost, and
-   * the app looks for a newer one again. At launch the page looks once it
-   * shows ([onContentShown]), so the look never slows the launch.
-   */
+  /** Back on the screen, the app looks for a newer deploy for its next launch (at launch, [reveal] does). */
   override fun onStart() {
     super.onStart()
-    if (stoppedAt == 0L) {
-      return
+    if (stoppedAt > 0) {
+      cache.refresh()
     }
-    if (SystemClock.uptimeMillis() - stoppedAt >= AWAY_MS && cache.isBehind()) {
-      webView?.reload()
-    }
-    cache.refresh()
   }
 
   /**
@@ -214,8 +205,5 @@ class MainActivity : TauriActivity() {
 
     /** The design's middle motion (DESIGN.md). */
     const val FADE_MS = 180L
-
-    /** Away from the screen this long, the page may load a newer deploy on return. */
-    const val AWAY_MS = 10 * 60 * 1000L
   }
 }

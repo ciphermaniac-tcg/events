@@ -410,34 +410,50 @@ run_theme() {
   shoot restored
 }
 
-# The app's own copy of the site (SiteCache.kt): it opens offline on the last
-# data it read, a deploy reaches it within one launch, and signing out drops
-# every read it kept, so nothing of the account shows offline after.
-kept_sessions() { adb shell "run-as $package ls files/site/data 2>/dev/null" | tr -d '\r' | grep -vc '^anon$' || true; }
+# The app's own copy of the site's shell (SiteCache.kt): a launch draws from
+# it with the site out of reach, offline still shows the offline page and its
+# Retry, a deploy reaches the app within one launch, and nothing of an
+# account is ever kept.
+kept_besides_shell() { adb shell "run-as $package ls files/site 2>/dev/null" | tr -d '\r' | grep -vc '^shell.json$\|^files$' || true; }
 
 offline() {
   theme=light
   set_theme light
   go "/"
   until_true "document.body.innerText.includes('Willow Creek Cup')"
-  sleep 2
-  adb shell cmd connectivity airplane-mode enable
+  sleep 3
+  # The site down, the phone online: the app still draws from its copy.
   "$here/m3-site.sh" stop
+  adb shell am force-stop "$package"
+  launch -n "$activity"
+  until_true "document.querySelector('.site-head')"
+  sleep 2
+  shoot site-down
+  check "with the site out of reach, a launch draws from the app's copy" \
+    "$(page "Boolean(document.querySelector('.site-head')) && !document.getElementById('retry')")" true
+
+  # The phone offline: the offline page stands in, and Retry brings the page back.
+  adb shell cmd connectivity airplane-mode enable
   sleep 3
   adb shell am force-stop "$package"
   launch -n "$activity"
-  until_true "$USABLE"
-  sleep 2
+  sleep 4
   shoot offline
-  check "offline, the app opens on its own copy, not the offline page" "$(page "Boolean(document.querySelector('main.page')) && !document.getElementById('retry')")" true
-  check "with the last data it read" "$(page "document.body.innerText.includes('Willow Creek Cup')")" true
-
+  check "offline, the offline page stands in" "$(page "Boolean(document.getElementById('retry'))")" true
   adb shell cmd connectivity airplane-mode disable
+  "$here/m3-site.sh" start >/dev/null
   sleep 5
+  page "document.getElementById('retry')?.click()" >/dev/null
+  until_true "!document.getElementById('retry') && document.querySelector('.site-head')" ||
+    note "FAIL light: Retry did not bring the page back"
+  sleep 2
+  shoot offline-back
+  check "Retry brings the page back" "$(page "Boolean(document.querySelector('.site-head'))")" true
 
   # A deploy: the page names a new built file. Within one launch the app runs it.
   printf 'window.__m3Deploy = 1;\n' >dist/assets/m3-deploy.js
   sed -i 's|</head>|<script type="module" src="/assets/m3-deploy.js"></script></head>|' dist/index.html
+  "$here/m3-site.sh" stop
   "$here/m3-site.sh" start >/dev/null
   adb shell am force-stop "$package"
   launch -n "$activity"
@@ -449,23 +465,8 @@ offline() {
   until_true "$USABLE"
   check "a new deploy reaches the app within one launch" "$(page "window.__m3Deploy === 1")" true
 
-  # Signing out drops every kept read; offline after it, nothing of the account shows.
-  note "INFO light kept sessions before signing out: $(kept_sessions)"
-  page "document.querySelector('.site-head .tm-acct-button')?.click()" >/dev/null
-  until_true "document.querySelector('.tm-acct-menu')"
-  page "[...document.querySelectorAll('.tm-acct-menu button, .tm-acct-menu a')].find(b => b.textContent.trim() === 'Sign out')?.click()" >/dev/null
-  sleep 3
-  check "signing out drops every kept read" "$(kept_sessions)" 0
-  adb shell cmd connectivity airplane-mode enable
-  "$here/m3-site.sh" stop
-  sleep 3
-  adb shell am force-stop "$package"
-  launch -n "$activity"
-  sleep 6
-  shoot offline-signed-out
-  check "offline after signing out, nothing of the account shows" "$(page "document.body.innerText.includes('Willow Creek Cup')")" false
-  adb shell cmd connectivity airplane-mode disable
-  "$here/m3-site.sh" start >/dev/null
+  # Nothing of an account is kept: only the shell and its files.
+  check "the app keeps nothing of an account" "$(kept_besides_shell)" 0
 }
 
 save_logs() { adb logcat -d >"$out/logcat.txt" 2>&1 || true; }
