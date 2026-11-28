@@ -421,7 +421,9 @@ offline() {
   go "/"
   until_true "document.body.innerText.includes('Willow Creek Cup')"
   sleep 2
+  adb shell cmd connectivity airplane-mode enable
   "$here/m3-site.sh" stop
+  sleep 3
   adb shell am force-stop "$package"
   launch -n "$activity"
   until_true "$USABLE"
@@ -429,6 +431,9 @@ offline() {
   shoot offline
   check "offline, the app opens on its own copy, not the offline page" "$(page "Boolean(document.querySelector('main.page')) && !document.getElementById('retry')")" true
   check "with the last data it read" "$(page "document.body.innerText.includes('Willow Creek Cup')")" true
+
+  adb shell cmd connectivity airplane-mode disable
+  sleep 5
 
   # A deploy: the page names a new built file. Within one launch the app runs it.
   printf 'window.__m3Deploy = 1;\n' >dist/assets/m3-deploy.js
@@ -451,12 +456,15 @@ offline() {
   page "[...document.querySelectorAll('.tm-acct-menu button, .tm-acct-menu a')].find(b => b.textContent.trim() === 'Sign out')?.click()" >/dev/null
   sleep 3
   check "signing out drops every kept read" "$(kept_sessions)" 0
+  adb shell cmd connectivity airplane-mode enable
   "$here/m3-site.sh" stop
+  sleep 3
   adb shell am force-stop "$package"
   launch -n "$activity"
   sleep 6
   shoot offline-signed-out
   check "offline after signing out, nothing of the account shows" "$(page "document.body.innerText.includes('Willow Creek Cup')")" false
+  adb shell cmd connectivity airplane-mode disable
   "$here/m3-site.sh" start >/dev/null
 }
 

@@ -474,6 +474,7 @@ const tabByText = text =>
   `([...document.querySelectorAll('[role=tab]')].find(t => t.textContent.trim() === ${JSON.stringify(text)} && t.getClientRects().length))`;
 
 async function starts(prefix, link) {
+  shell(`run-as ${pkg} ${prefix ? 'touch' : 'rm -f'} files/site-off`); // the app's own copy off, test builds only
   // The page to reopen: launch on it once, so every cold start after opens there.
   await launch({ link });
   const cold = [];
@@ -485,7 +486,6 @@ async function starts(prefix, link) {
     summary: summary(cold),
     trials: cold.map(({ read, ...rest }) => ({ ...rest, payload: payload(read) }))
   };
-  save();
   const hot = [];
   for (let i = 0; i < 3; i++) {
     shell('input keyevent KEYCODE_HOME');
@@ -853,7 +853,7 @@ async function runLocal(small, big) {
     await sleep(40000);
     return { hadTo: had };
   });
-  await step('starts', () => starts('', '/'));
+  await step('starts', () => starts('nocopy-', '/').then(() => starts('', '/')));
   await step('signedInAfterStarts', ensureSignedIn);
   await step('linkCold', () => linkCold(big));
   await step('coldRecordLight', async () => {
@@ -1017,7 +1017,7 @@ async function runLive(code) {
   results.device = { webview: tryShell('dumpsys webviewupdate | grep -i "current webview package"').trim() };
   shell('cmd uimode night no');
   await step('firstLaunch', () => firstLaunch(null));
-  await step('starts', () => starts('', '/'));
+  await step('starts', () => starts('nocopy-', '/').then(() => starts('', '/')));
   await step('linkCold', () => linkCold(code));
   await step('publicTab', async () => {
     const list = [];

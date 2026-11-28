@@ -34,7 +34,7 @@ class MainActivity : TauriActivity() {
     bars.apply()
     back = BackNavigation(this)
     files = FileHandoff(this)
-    cache = SiteCache(this) { if (!contentShown) webView?.reload() }
+    cache = SiteCache(this)
     if (savedInstanceState == null) {
       SiteLinks.openAtLaunch(this)
     }
@@ -82,6 +82,7 @@ class MainActivity : TauriActivity() {
   private fun onContentShown() {
     feel("shown")
     contentShown = true
+    cache.refresh()
     val view = webView
     if (view == null || !WebViewFeature.isFeatureSupported(WebViewFeature.VISUAL_STATE_CALLBACK)) {
       reveal()
@@ -138,6 +139,7 @@ class MainActivity : TauriActivity() {
       }
       "shown" -> onContentShown()
       "cookies" -> flushCookies()
+      "keep" -> cache.keep(message)
       "pick" -> pickers.show(message)
       "share" -> files.share(message)
       "save" -> files.save(message)
@@ -158,11 +160,15 @@ class MainActivity : TauriActivity() {
   /**
    * Back on the screen: the page moves to a newer deploy the app has kept,
    * when it has been away long enough that nothing half typed is lost, and
-   * the app looks for a newer one again.
+   * the app looks for a newer one again. At launch the page looks once it
+   * shows ([onContentShown]), so the look never slows the launch.
    */
   override fun onStart() {
     super.onStart()
-    if (stoppedAt > 0 && SystemClock.uptimeMillis() - stoppedAt >= AWAY_MS && cache.isBehind()) {
+    if (stoppedAt == 0L) {
+      return
+    }
+    if (SystemClock.uptimeMillis() - stoppedAt >= AWAY_MS && cache.isBehind()) {
       webView?.reload()
     }
     cache.refresh()

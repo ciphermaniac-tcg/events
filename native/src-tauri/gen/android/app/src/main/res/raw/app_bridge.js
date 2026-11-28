@@ -409,10 +409,41 @@
       return false;
     }
   };
+  // The reads the app keeps a copy of for offline, kept in step with
+  // SiteCache.DATA: the activity stores what the page gets, under its session.
+  const KEPT_HERE = /^\/api\/(me|tournaments|history|tournaments\/[A-Z0-9]{4,12}(\/manage)?)$/;
+  const KEPT_PUBLISHED = /^https:\/\/events-data\.ciphermaniac\.com\/tournaments\/v1\/[A-Z0-9]{4,12}\.json$/;
+  const keptRead = (input, init) => {
+    try {
+      const url = new URL(input instanceof Request ? input.url : String(input), location.href);
+      const method = (init?.method ?? (input instanceof Request ? input.method : 'GET')).toUpperCase();
+      const listed = url.origin === location.origin ? KEPT_HERE.test(url.pathname) : KEPT_PUBLISHED.test(url.origin + url.pathname);
+      return method === 'GET' && !url.search && listed ? url.href : null;
+    } catch {
+      return null;
+    }
+  };
+  const keep = (url, answer) => {
+    const at = Date.now();
+    void answer
+      .then(response =>
+        response.ok
+          ? response
+              .clone()
+              .text()
+              .then(body => post({ type: 'keep', url, mime: response.headers.get('content-type') ?? '', body, at }))
+          : undefined
+      )
+      .catch(() => undefined);
+  };
   window.fetch = (input, init) => {
     const answer = fetchFirst.call(window, input, init);
     if (isSignIn(input)) {
       void answer.then(() => post({ type: 'cookies' }), () => undefined);
+    }
+    const kept = keptRead(input, init);
+    if (kept) {
+      keep(kept, answer);
     }
     return answer;
   };
