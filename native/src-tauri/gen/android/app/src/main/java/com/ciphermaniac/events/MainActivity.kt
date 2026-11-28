@@ -16,7 +16,7 @@ class MainActivity : TauriActivity() {
   private lateinit var back: BackNavigation
   private lateinit var files: FileHandoff
   private var webView: WebView? = null
-  private var pageLoaded = false
+  private var contentShown = false
 
   override fun onCreate(savedInstanceState: Bundle?) {
     holdSplash()
@@ -36,14 +36,15 @@ class MainActivity : TauriActivity() {
   }
 
   /**
-   * Keeps the splash screen up until the first page has loaded, as the
-   * desktop window stays hidden until then, and gives up after the same
-   * [SPLASH_LIMIT_MS] so a slow network never holds it for good.
+   * Keeps the splash screen up until the first page has drawn real content
+   * (app_bridge.js says so) or the offline page stands in, so no blank page
+   * or skeleton shows between them, and gives up after [SPLASH_LIMIT_MS] so
+   * a slow network never holds it for good.
    */
   private fun holdSplash() {
     val since = SystemClock.uptimeMillis()
     installSplashScreen().setKeepOnScreenCondition {
-      !pageLoaded && SystemClock.uptimeMillis() - since < SPLASH_LIMIT_MS
+      !contentShown && SystemClock.uptimeMillis() - since < SPLASH_LIMIT_MS
     }
   }
 
@@ -56,7 +57,6 @@ class MainActivity : TauriActivity() {
   /** Called from Rust (android.rs) when the main window's page has loaded. */
   @Keep
   fun onMainPageFinished() {
-    pageLoaded = true
     back.refresh()
   }
 
@@ -71,13 +71,14 @@ class MainActivity : TauriActivity() {
     bars.attach()
     followFontScale(webView)
     back.attach(webView)
-    OfflinePage.attach(webView)
+    OfflinePage.attach(webView) { contentShown = true }
     PageBridge.attach(this, webView, ::onPageMessage)
   }
 
   private fun onPageMessage(message: JSONObject) {
     when (message.optString("type")) {
       "state" -> back.onPageState(message.optBoolean("layer"), message.optBoolean("back"))
+      "shown" -> contentShown = true
       "share" -> files.share(message)
       "save" -> files.save(message)
     }
@@ -114,7 +115,7 @@ class MainActivity : TauriActivity() {
   }
 
   private companion object {
-    /** The desktop window's limit too (shell.rs, SHOW_WITHIN). */
-    const val SPLASH_LIMIT_MS = 3_000L
+    /** Past the launch to a usable page on a slow connection, but no longer. */
+    const val SPLASH_LIMIT_MS = 5_000L
   }
 }

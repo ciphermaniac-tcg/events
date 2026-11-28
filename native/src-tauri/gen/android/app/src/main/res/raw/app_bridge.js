@@ -66,6 +66,19 @@
     }
   };
 
+  // The splash screen stays until the page has drawn real content, a heading
+  // in the page and no skeleton (MainActivity): told once that has been
+  // drawn, two frames on.
+  let shown = false;
+  const showWhenReady = () => {
+    const main = document.querySelector('main.page');
+    if (shown || !main?.querySelector('h1, h2')?.textContent.trim() || main.querySelector('.skeleton')) {
+      return;
+    }
+    shown = true;
+    requestAnimationFrame(() => requestAnimationFrame(() => channel.postMessage('{"type":"shown"}')));
+  };
+
   let queued = false;
   const queue = () => {
     if (!queued) {
@@ -74,6 +87,7 @@
         queued = false;
         bar();
         report();
+        showWhenReady();
       });
     }
   };
