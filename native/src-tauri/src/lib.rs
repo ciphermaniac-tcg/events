@@ -9,6 +9,8 @@ mod context_menu;
 mod data_dir;
 #[cfg(windows)]
 mod downloads;
+#[cfg(desktop)]
+mod feel;
 mod last_page;
 #[cfg(any(target_os = "macos", test))]
 mod mac_controls;
@@ -44,6 +46,8 @@ mod webview2;
 /// When Tauri cannot start, which leaves nothing to show.
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    #[cfg(desktop)]
+    feel::note("run", "");
     let builder = with_desktop_shell(tauri::Builder::default())
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_opener::init())
@@ -60,6 +64,8 @@ pub fn run() {
             }
             data_dir::init(app.handle());
             shell::create_main_window(app.handle())?;
+            #[cfg(desktop)]
+            feel::watch_commands(app.handle());
             #[cfg(desktop)]
             {
                 tom::setup(app);
@@ -129,6 +135,7 @@ fn with_desktop(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<tauri::Wr
             tom::tom_submit,
             tom::tom_start_round,
             big_screen::open_big_screen,
+            feel::feel_note,
             #[cfg(target_os = "macos")]
             mac_title_strip::title_strip_double_click,
         ])
