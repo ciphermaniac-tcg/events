@@ -451,18 +451,28 @@ kept_deploy() {
 
 # Whether the last launch drew from the copy, from SiteCache's test-only line.
 served() { adb logcat -d -s SiteCache:I | grep -c 'served the copy' || true; }
-missed_site() { adb logcat -d -s SiteCache:I | grep -c 'out of reach' || true; }
+# How the last look ended, from SiteCache's test-only lines: new, kept, lifted or none.
+looked() {
+  adb logcat -d -s SiteCache:I | grep -o 'looked: .*\|out of reach' | tail -1 |
+    sed 's/.*new deploy.*/new/; s/.*mark kept.*/kept/; s/.*mark lifted.*/lifted/; s/out of reach/none/' | grep . || echo none
+}
 cold_launch() { adb shell am force-stop "$package"; adb logcat -c; launch -n "$activity"; }
 
-# Leaves the app, waits out the look's one-minute limit, and comes back to the same process.
+# Leaves the app, waits out the look's one-minute limit, comes back and waits
+# for the look: whether it is the same process, and how its look ended.
 come_back() {
   local before
   before=$(adb shell pidof "$package" | tr -d '\r')
   adb shell input keyevent KEYCODE_HOME
   sleep 65
+  adb logcat -c
   adb shell am start -n "$activity" >/dev/null
-  sleep 9
-  [ "$(adb shell pidof "$package" | tr -d '\r')" = "$before" ] && echo same || echo new
+  for _ in $(seq 1 40); do
+    adb logcat -d -s SiteCache:I | grep -q 'looked: \|out of reach' && break
+    sleep 0.5
+  done
+  [ "$(adb shell pidof "$package" | tr -d '\r')" = "$before" ] && echo -n same || echo -n new
+  echo "/$(looked)"
 }
 
 offline() {
@@ -508,8 +518,9 @@ offline() {
   check "the launch after a deploy opens on the copy" "$(served)/$(page "window.__m3Deploy ?? 0")" 1/0
   sleep 8
   check "and its look keeps the deploy, marked" "$(kept_deploy)/$(owed_mark)" m3-deploy-1/1
-  check "a look on a return to the same launch keeps it marked" "$(come_back)/$(owed_mark)" same/1
-  restart_cold
+  check "a look on a return to the same launch keeps it marked" "$(come_back)/$(owed_mark)" same/kept/1
+  cold_launch
+  until_true "$USABLE"
   check "a new deploy reaches the app within one launch" "$(page "window.__m3Deploy ?? 0")" 1
   sleep 8
   check "a look finding the copy current lifts the mark" "$(owed_mark)" 0
@@ -527,7 +538,7 @@ offline() {
   settle
   check "settled again" "$(owed_mark)" 0
   deploy m3-deploy-3 3
-  check "a deploy found on a return to the screen is kept marked" "$(come_back)/$(owed_mark)" same/1
+  check "a deploy found on a return to the screen is kept marked" "$(come_back)/$(owed_mark)" same/new/1
   cold_launch
   until_true "$USABLE"
   check "and the next launch loads it from the site" "$(served)/$(page "window.__m3Deploy ?? 0")" 0/3
@@ -538,9 +549,9 @@ offline() {
   cold_launch
   for _ in $(seq 1 40); do [ "$(served)" = 0 ] || break; sleep 0.25; done
   check "a launch stopped before its look drew from the copy" "$(served)" 1
-  adb shell am force-stop "$package"
-  restart_cold
-  check "a launch whose look didn't finish loads from the site next" "$(page "window.__m3Deploy ?? 0")" 4
+  cold_launch
+  until_true "$USABLE"
+  check "a launch whose look didn't finish loads from the site next" "$(served)/$(page "window.__m3Deploy ?? 0")" 0/4
 
   # A launch that only reached the offline page keeps a deploy marked, even
   # when its look finds the site again: the webview never loaded its files.
@@ -553,9 +564,8 @@ offline() {
   cold_launch
   until_true "document.getElementById('retry')" || note "FAIL light: the offline page didn't stand in"
   "$here/m3-site.sh" start >/dev/null
-  adb logcat -c
   check "a launch that only reached the offline page keeps the deploy marked, though a look found the site" \
-    "$(come_back)/$(owed_mark)/$(missed_site)" same/1/0
+    "$(come_back)/$(owed_mark)" same/kept/1
 
   # Nothing of an account is kept: only the shell and its files.
   check "the app keeps nothing of an account" "$(kept_besides_shell)" 0

@@ -130,11 +130,15 @@ class SiteCache private constructor(context: Context) {
         deployKept = true
         write(shell, kept.toString().toByteArray())
       }
+      // Test builds only (native/android-m3-test): the CI check waits on this line.
+      Log.i(TAG, "looked: a new deploy")
       return
     }
     if (siteShown && !deployKept) {
       owed.delete()
     }
+    // Test builds only (native/android-m3-test): the CI check waits on this line.
+    Log.i(TAG, "looked: the kept deploy, mark ${if (owed.exists()) "kept" else "lifted"}")
   }
 
   /** Whether the phone has a network that reaches the internet. */
