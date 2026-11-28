@@ -15,6 +15,9 @@ class MainActivity : TauriActivity() {
   private val bars = SystemBars(this)
   private lateinit var back: BackNavigation
   private lateinit var files: FileHandoff
+  private val pickers = Pickers(this) { value ->
+    webView?.evaluateJavascript("window.__cmPicked?.(${JSONObject.quote(value)})", null)
+  }
   private var webView: WebView? = null
   private var contentShown = false
 
@@ -96,6 +99,7 @@ class MainActivity : TauriActivity() {
       }
       "shown" -> contentShown = true
       "cookies" -> flushCookies()
+      "pick" -> pickers.show(message)
       "share" -> files.share(message)
       "save" -> files.save(message)
     }

@@ -2,4 +2,12 @@
 <resources>
     <color name="app_background">#FF161615</color>
     <color name="head_bar">#FF232422</color>
+    <color name="accent">#FFEEAA11</color>
+    <color name="on_accent">#FF211B0B</color>
+    <color name="surface">#FF252523</color>
+    <color name="surface_2">#FF33332F</color>
+    <color name="ink">#FFF5F3EB</color>
+    <color name="muted">#FFB9B6AA</color>
+    <color name="border">#FF8E8E88</color>
+    <color name="rule">#FF59594F</color>
 </resources>

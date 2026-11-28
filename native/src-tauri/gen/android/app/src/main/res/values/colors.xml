@@ -4,6 +4,17 @@
     <color name="app_background">#FFECECEA</color>
     <!-- The site's head bar, dark in both schemes (the design package's .head-bar). -->
     <color name="head_bar">#FF1C1D1B</color>
+    <!-- The design package's tokens, for Material's own components (themes.xml). -->
+    <color name="accent">#FF8C5900</color>
+    <color name="on_accent">#FFFFFFFF</color>
+    <color name="accent_fill">#FFEEAA11</color>
+    <color name="on_accent_fill">#FF211B0B</color>
+    <color name="surface">#FFFFFFFF</color>
+    <color name="surface_2">#FFE3E4E1</color>
+    <color name="ink">#FF20221F</color>
+    <color name="muted">#FF50544F</color>
+    <color name="border">#FF7B8079</color>
+    <color name="rule">#FFBFC3BC</color>
     <!-- The edge of the launcher icon's background (icons-src/android/background.svg). -->
     <color name="icon_background">#FF141413</color>
 </resources>
